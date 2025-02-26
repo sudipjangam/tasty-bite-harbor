@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +13,8 @@ import {
   Users,
   Clock,
   CalendarDays,
+  Mail,
+  Phone,
 } from "lucide-react";
 import {
   Dialog,
@@ -32,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 interface Room {
   id: string;
@@ -59,7 +61,6 @@ const Rooms = () => {
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Fetch rooms data
   const { data: rooms = [], refetch: refetchRooms } = useQuery({
     queryKey: ["rooms"],
     queryFn: async () => {
@@ -91,7 +92,6 @@ const Rooms = () => {
     },
   });
 
-  // Fetch reservations for selected room
   const { data: reservations = [], refetch: refetchReservations } = useQuery({
     queryKey: ["reservations", selectedRoom],
     enabled: !!selectedRoom,
@@ -337,7 +337,6 @@ const Rooms = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Rooms List */}
         <div className="lg:col-span-1 space-y-4">
           <h2 className="text-lg font-semibold">Rooms</h2>
           <div className="space-y-4">
@@ -399,7 +398,6 @@ const Rooms = () => {
           </div>
         </div>
 
-        {/* Reservations Section */}
         <div className="lg:col-span-2 space-y-4">
           <h2 className="text-lg font-semibold">
             {selectedRoom
@@ -538,4 +536,3 @@ const Rooms = () => {
 };
 
 export default Rooms;
-
