@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
+import { checkSubscriptionStatus } from "@/utils/subscriptionUtils";
+import SubscriptionPlans from "@/components/SubscriptionPlans";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -14,6 +17,7 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPlans, setShowPlans] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,11 +25,32 @@ const Auth = () => {
       setLoading(true);
       
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data: { user }, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
+
+        // Get user's profile to get restaurant_id
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("restaurant_id")
+          .eq("id", user?.id)
+          .single();
+
+        if (profile?.restaurant_id) {
+          const hasActiveSubscription = await checkSubscriptionStatus(profile.restaurant_id);
+          
+          if (!hasActiveSubscription) {
+            setShowPlans(true);
+            toast({
+              title: "Subscription Required",
+              description: "Your subscription is not active. Please choose a plan to continue.",
+              variant: "destructive",
+            });
+            return;
+          }
+        }
         
         toast({
           title: "Success",
@@ -55,6 +80,16 @@ const Auth = () => {
       setLoading(false);
     }
   };
+
+  if (showPlans) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-7xl">
+          <SubscriptionPlans />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
