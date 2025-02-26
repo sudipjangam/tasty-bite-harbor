@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash2, Users } from "lucide-react";
+import { Plus, Edit, Trash2, Users, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -165,19 +165,27 @@ const Tables = () => {
     }
   };
 
+  const tableStats = {
+    total: tables?.length || 0,
+    available: tables?.filter(table => table.status === "available").length || 0,
+    occupied: tables?.filter(table => table.status === "occupied").length || 0,
+  };
+
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-8">
+    <div className="p-6 space-y-6 bg-gradient-to-br from-purple-50 to-white dark:from-gray-900 dark:to-gray-800">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Tables</h1>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+            Tables Management
+          </h1>
           <p className="text-muted-foreground mt-1">
-            Manage your restaurant tables and rooms
+            Manage your restaurant tables and seating
           </p>
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => setEditingTable(null)}>
-              <Plus className="mr-2" />
+            <Button onClick={() => setEditingTable(null)} className="bg-purple-600 hover:bg-purple-700">
+              <Plus className="mr-2 h-4 w-4" />
               Add Table
             </Button>
           </DialogTrigger>
@@ -231,11 +239,48 @@ const Tables = () => {
           </DialogContent>
         </Dialog>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Card className="p-4 bg-gradient-to-br from-white to-gray-50 border-none shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-100 rounded-full">
+              <Users className="h-6 w-6 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-700">Total Tables</h3>
+              <p className="text-2xl font-bold text-purple-600">{tableStats.total}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 bg-gradient-to-br from-white to-gray-50 border-none shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-green-100 rounded-full">
+              <Check className="h-6 w-6 text-green-600" />
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-700">Available</h3>
+              <p className="text-2xl font-bold text-green-600">{tableStats.available}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 bg-gradient-to-br from-white to-gray-50 border-none shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-red-100 rounded-full">
+              <Users className="h-6 w-6 text-red-600" />
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-700">Occupied</h3>
+              <p className="text-2xl font-bold text-red-600">{tableStats.occupied}</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {tables.map((table) => (
           <Card
             key={table.id}
-            className="p-4 hover:shadow-lg transition-shadow"
+            className="p-4 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow"
           >
             <div className="flex flex-col space-y-4">
               <div className="flex justify-between items-start">

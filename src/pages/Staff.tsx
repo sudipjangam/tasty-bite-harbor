@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Users, ChefHat } from "lucide-react";
 
 interface StaffMember {
   id: string;
@@ -52,6 +53,12 @@ const Staff = () => {
       return data as StaffMember[];
     },
   });
+
+  const staffStats = {
+    total: staff?.length || 0,
+    chefs: staff?.filter(member => member.position === "chef").length || 0,
+    waiters: staff?.filter(member => member.position === "waiter").length || 0,
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -126,12 +133,19 @@ const Staff = () => {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Staff Management</h1>
+    <div className="p-6 space-y-6 bg-gradient-to-br from-purple-50 to-white dark:from-gray-900 dark:to-gray-800">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+            Staff Management
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Manage your restaurant staff and roles
+          </p>
+        </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => setEditingStaff(null)}>
+            <Button onClick={() => setEditingStaff(null)} className="bg-purple-600 hover:bg-purple-700">
               <Plus className="mr-2" />
               Add Staff Member
             </Button>
@@ -214,9 +228,46 @@ const Staff = () => {
           </DialogContent>
         </Dialog>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Card className="p-4 bg-gradient-to-br from-white to-gray-50 border-none shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-100 rounded-full">
+              <Users className="h-6 w-6 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-700">Total Staff</h3>
+              <p className="text-2xl font-bold text-purple-600">{staffStats.total}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 bg-gradient-to-br from-white to-gray-50 border-none shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-orange-100 rounded-full">
+              <ChefHat className="h-6 w-6 text-orange-600" />
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-700">Chefs</h3>
+              <p className="text-2xl font-bold text-orange-600">{staffStats.chefs}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 bg-gradient-to-br from-white to-gray-50 border-none shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-full">
+              <UserRound className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-700">Waiters</h3>
+              <p className="text-2xl font-bold text-blue-600">{staffStats.waiters}</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {staff.map((member) => (
-          <Card key={member.id} className="p-4">
+          <Card key={member.id} className="p-4 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
             <div className="flex justify-between items-start">
               <div className="flex items-start space-x-3">
                 <div className="p-2 bg-primary/10 rounded-full">
@@ -254,6 +305,7 @@ const Staff = () => {
                     setEditingStaff(member);
                     setIsAddDialogOpen(true);
                   }}
+                  className="hover:bg-purple-100"
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
@@ -261,6 +313,7 @@ const Staff = () => {
                   variant="ghost"
                   size="icon"
                   onClick={() => handleDelete(member.id)}
+                  className="hover:bg-red-100"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
