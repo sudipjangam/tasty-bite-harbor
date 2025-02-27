@@ -5,14 +5,11 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Calendar,
-  Coffee,
-  Edit,
   Plus,
+  Edit,
   Trash2,
   Users,
   Clock,
-  CalendarDays,
   Mail,
   Phone,
 } from "lucide-react";
@@ -60,6 +57,27 @@ const Rooms = () => {
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   const { toast } = useToast();
+  const [userName, setUserName] = useState<string>("");
+
+  useQuery({
+    queryKey: ["user-profile"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("first_name")
+        .eq("id", user.id)
+        .single();
+
+      if (error) throw error;
+      if (data?.first_name) {
+        setUserName(data.first_name);
+      }
+      return data;
+    },
+  });
 
   const { data: rooms = [], refetch: refetchRooms } = useQuery({
     queryKey: ["rooms"],
@@ -95,6 +113,7 @@ const Rooms = () => {
   const { data: reservations = [], refetch: refetchReservations } = useQuery({
     queryKey: ["reservations", selectedRoom],
     enabled: !!selectedRoom,
+    refetchInterval: 30000,
     queryFn: async () => {
       if (!selectedRoom) return [];
 
@@ -224,15 +243,17 @@ const Rooms = () => {
         throw new Error("No restaurant found for user");
       }
 
-      const { error } = await supabase
+      const { error: reservationError } = await supabase
         .from("reservations")
         .insert([{ ...reservationData, restaurant_id: userProfile.restaurant_id }]);
 
-      if (error) throw error;
+      if (reservationError) throw reservationError;
+
       toast({
         title: "Success",
         description: "Reservation added successfully",
       });
+      
       refetchReservations();
       (e.target as HTMLFormElement).reset();
     } catch (error) {
@@ -272,7 +293,7 @@ const Rooms = () => {
             Rooms & Reservations
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage your rooms and reservations
+            Welcome {userName || "User"}!
           </p>
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>

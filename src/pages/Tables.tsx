@@ -1,10 +1,11 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash2, Users, Check } from "lucide-react";
+import { Plus, Edit, Trash2, Users } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,28 @@ const Tables = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingTable, setEditingTable] = useState<Table | null>(null);
   const { toast } = useToast();
+  const [userName, setUserName] = useState<string>("");
+
+  // Fetch user profile to get the username
+  useQuery({
+    queryKey: ["user-profile"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("first_name")
+        .eq("id", user.id)
+        .single();
+
+      if (error) throw error;
+      if (data?.first_name) {
+        setUserName(data.first_name);
+      }
+      return data;
+    },
+  });
 
   const { data: tables = [], refetch } = useQuery({
     queryKey: ["tables"],
@@ -54,7 +77,7 @@ const Tables = () => {
       }
 
       const { data, error } = await supabase
-        .from("rooms")
+        .from("restaurant_tables")
         .select("*")
         .eq("restaurant_id", userProfile.restaurant_id)
         .order("name");
@@ -63,7 +86,6 @@ const Tables = () => {
         console.error("Error fetching tables:", error);
         throw error;
       }
-      console.log("Fetched tables:", data);
       return data as Table[];
     },
   });
@@ -78,7 +100,6 @@ const Tables = () => {
     };
 
     try {
-      console.log("Submitting table data:", tableData);
       const { data: profile } = await supabase.auth.getUser();
       if (!profile.user) throw new Error("No user found");
 
@@ -93,9 +114,8 @@ const Tables = () => {
       }
 
       if (editingTable) {
-        console.log("Updating table:", editingTable.id);
         const { error } = await supabase
-          .from("rooms")
+          .from("restaurant_tables")
           .update({ ...tableData })
           .eq("id", editingTable.id);
 
@@ -105,9 +125,8 @@ const Tables = () => {
           description: "Table updated successfully",
         });
       } else {
-        console.log("Creating new table");
         const { error } = await supabase
-          .from("rooms")
+          .from("restaurant_tables")
           .insert([{ ...tableData, restaurant_id: userProfile.restaurant_id }]);
 
         if (error) throw error;
@@ -132,8 +151,7 @@ const Tables = () => {
 
   const handleDelete = async (id: string) => {
     try {
-      console.log("Deleting table:", id);
-      const { error } = await supabase.from("rooms").delete().eq("id", id);
+      const { error } = await supabase.from("restaurant_tables").delete().eq("id", id);
       if (error) throw error;
       toast({
         title: "Success",
@@ -158,17 +176,9 @@ const Tables = () => {
         return "bg-green-500";
       case "reserved":
         return "bg-yellow-500";
-      case "maintenance":
-        return "bg-blue-500";
       default:
         return "bg-gray-500";
     }
-  };
-
-  const tableStats = {
-    total: tables?.length || 0,
-    available: tables?.filter(table => table.status === "available").length || 0,
-    occupied: tables?.filter(table => table.status === "occupied").length || 0,
   };
 
   return (
@@ -176,10 +186,10 @@ const Tables = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-            Tables Management
+            Table Management
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage your restaurant tables and seating
+            Welcome {userName || "User"}!
           </p>
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -202,7 +212,7 @@ const Tables = () => {
                   id="name"
                   name="name"
                   defaultValue={editingTable?.name}
-                  placeholder="e.g., Table 1, VIP Room"
+                  placeholder="e.g., Table 1"
                   required
                 />
               </div>
@@ -228,7 +238,6 @@ const Tables = () => {
                     <SelectItem value="available">Available</SelectItem>
                     <SelectItem value="occupied">Occupied</SelectItem>
                     <SelectItem value="reserved">Reserved</SelectItem>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -238,42 +247,6 @@ const Tables = () => {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card className="p-4 bg-gradient-to-br from-white to-gray-50 border-none shadow-md">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-full">
-              <Users className="h-6 w-6 text-purple-600" />
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-700">Total Tables</h3>
-              <p className="text-2xl font-bold text-purple-600">{tableStats.total}</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4 bg-gradient-to-br from-white to-gray-50 border-none shadow-md">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-full">
-              <Check className="h-6 w-6 text-green-600" />
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-700">Available</h3>
-              <p className="text-2xl font-bold text-green-600">{tableStats.available}</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4 bg-gradient-to-br from-white to-gray-50 border-none shadow-md">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-red-100 rounded-full">
-              <Users className="h-6 w-6 text-red-600" />
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-700">Occupied</h3>
-              <p className="text-2xl font-bold text-red-600">{tableStats.occupied}</p>
-            </div>
-          </div>
-        </Card>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
