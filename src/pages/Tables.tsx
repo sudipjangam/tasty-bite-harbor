@@ -24,17 +24,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-interface Table {
+type RestaurantTable = {
   id: string;
   name: string;
   capacity: number;
   status: string;
   restaurant_id: string;
-}
+  created_at: string;
+  updated_at: string;
+};
 
 const Tables = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingTable, setEditingTable] = useState<Table | null>(null);
+  const [editingTable, setEditingTable] = useState<RestaurantTable | null>(null);
   const { toast } = useToast();
   const [userName, setUserName] = useState<string>("");
 
@@ -63,13 +65,13 @@ const Tables = () => {
     queryKey: ["tables"],
     queryFn: async () => {
       console.log("Fetching tables...");
-      const { data: profile } = await supabase.auth.getUser();
-      if (!profile.user) throw new Error("No user found");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
 
       const { data: userProfile } = await supabase
         .from("profiles")
         .select("restaurant_id")
-        .eq("id", profile.user.id)
+        .eq("id", user.id)
         .single();
 
       if (!userProfile?.restaurant_id) {
@@ -86,7 +88,7 @@ const Tables = () => {
         console.error("Error fetching tables:", error);
         throw error;
       }
-      return data as Table[];
+      return data as RestaurantTable[];
     },
   });
 
@@ -100,13 +102,13 @@ const Tables = () => {
     };
 
     try {
-      const { data: profile } = await supabase.auth.getUser();
-      if (!profile.user) throw new Error("No user found");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
 
       const { data: userProfile } = await supabase
         .from("profiles")
         .select("restaurant_id")
-        .eq("id", profile.user.id)
+        .eq("id", user.id)
         .single();
 
       if (!userProfile?.restaurant_id) {
@@ -151,7 +153,10 @@ const Tables = () => {
 
   const handleDelete = async (id: string) => {
     try {
-      const { error } = await supabase.from("restaurant_tables").delete().eq("id", id);
+      const { error } = await supabase
+        .from("restaurant_tables")
+        .delete()
+        .eq("id", id);
       if (error) throw error;
       toast({
         title: "Success",
