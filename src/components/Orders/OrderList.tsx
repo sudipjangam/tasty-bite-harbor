@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -86,11 +87,11 @@ const OrderList = ({ orders, onOrdersChange }: OrderListProps) => {
   return (
     <div className="space-y-4">
       {orders.map((order) => (
-        <Card key={order.id} className="p-4 hover:shadow-lg transition-shadow">
+        <Card key={order.id} className="p-4 hover:shadow-lg transition-shadow bg-card/50 backdrop-blur-xl border border-border/5">
           <div className="flex justify-between items-start">
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="font-semibold">Order #{order.id.slice(0, 8)}</h3>
+                <h3 className="font-semibold text-foreground">Order #{order.id.slice(0, 8)}</h3>
                 <Badge className={getStatusColor(order.status)}>
                   {order.status}
                 </Badge>
@@ -101,14 +102,14 @@ const OrderList = ({ orders, onOrdersChange }: OrderListProps) => {
               </div>
               <div className="mt-2">
                 {order.items.map((item, index) => (
-                  <p key={index} className="text-sm">
+                  <p key={index} className="text-sm text-muted-foreground">
                     • {item}
                   </p>
                 ))}
               </div>
             </div>
             <div className="text-right">
-              <p className="font-bold">${order.total.toFixed(2)}</p>
+              <p className="font-bold text-foreground">₹{order.total.toFixed(2)}</p>
               <div className="flex items-center text-sm text-muted-foreground mt-1">
                 <Clock className="w-4 h-4 mr-1" />
                 {new Date(order.created_at).toLocaleString()}

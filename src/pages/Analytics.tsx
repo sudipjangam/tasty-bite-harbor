@@ -11,9 +11,9 @@ const Analytics = () => {
     return (
       <div className="p-6">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 w-48 bg-gray-200 rounded"></div>
-          <div className="h-96 bg-gray-200 rounded"></div>
-          <div className="h-96 bg-gray-200 rounded"></div>
+          <div className="h-8 w-48 bg-muted rounded"></div>
+          <div className="h-96 bg-muted rounded"></div>
+          <div className="h-96 bg-muted rounded"></div>
         </div>
       </div>
     );
@@ -22,8 +22,10 @@ const Analytics = () => {
   if (!data) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">Analytics & Reports</h1>
-        <p>No data available.</p>
+        <h1 className="text-2xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+          Analytics & Reports
+        </h1>
+        <p className="text-muted-foreground">No data available.</p>
       </div>
     );
   }
@@ -33,34 +35,42 @@ const Analytics = () => {
   const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Analytics & Reports</h1>
+    <div className="p-6 space-y-6 animate-fade-in">
+      <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+        Analytics & Reports
+      </h1>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
+        <Card className="bg-card/50 backdrop-blur-xl border border-border/5">
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Total Revenue (30 days)</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Revenue (30 days)
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalRevenue.toFixed(2)}</div>
+            <div className="text-2xl font-bold">₹{totalRevenue.toFixed(2)}</div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card/50 backdrop-blur-xl border border-border/5">
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Orders
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalOrders}</div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card/50 backdrop-blur-xl border border-border/5">
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Average Order Value</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Average Order Value
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${averageOrderValue.toFixed(2)}</div>
+            <div className="text-2xl font-bold">₹{averageOrderValue.toFixed(2)}</div>
           </CardContent>
         </Card>
       </div>
