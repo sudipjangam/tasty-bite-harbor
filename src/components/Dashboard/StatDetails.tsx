@@ -11,6 +11,8 @@ interface StatDetailsProps {
 }
 
 const StatDetails = ({ title, data, type, onClose }: StatDetailsProps) => {
+  const formatCurrency = (value: number) => `₹${value.toFixed(2)}`;
+
   const renderContent = () => {
     switch (type) {
       case "sales":
@@ -21,8 +23,8 @@ const StatDetails = ({ title, data, type, onClose }: StatDetailsProps) => {
               <LineChart data={data.chart}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey={type === "sales" ? "date" : "time"} />
-                <YAxis />
-                <Tooltip />
+                <YAxis tickFormatter={formatCurrency} />
+                <Tooltip formatter={(value) => [formatCurrency(value as number), "Amount"]} />
                 <Line 
                   type="monotone" 
                   dataKey="amount" 
@@ -49,7 +51,7 @@ const StatDetails = ({ title, data, type, onClose }: StatDetailsProps) => {
                 <TableRow key={order.id}>
                   <TableCell>{order.customer_name}</TableCell>
                   <TableCell>{order.items.join(", ")}</TableCell>
-                  <TableCell>${order.total}</TableCell>
+                  <TableCell>{formatCurrency(order.total)}</TableCell>
                   <TableCell>{order.status}</TableCell>
                 </TableRow>
               ))}
@@ -72,7 +74,7 @@ const StatDetails = ({ title, data, type, onClose }: StatDetailsProps) => {
                 <TableRow key={index}>
                   <TableCell>{customer.name}</TableCell>
                   <TableCell>{customer.orders}</TableCell>
-                  <TableCell>${customer.total}</TableCell>
+                  <TableCell>{formatCurrency(customer.total)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

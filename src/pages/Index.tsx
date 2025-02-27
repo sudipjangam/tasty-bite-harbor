@@ -47,7 +47,9 @@ const Index = () => {
         </div>
       </div>
       
-      <QuickStats />
+      <div className="rounded-xl bg-gradient-to-br from-card/50 to-background/50 backdrop-blur-xl border border-primary/10 p-4 md:p-6">
+        <QuickStats />
+      </div>
       
       <div className="rounded-xl bg-gradient-to-br from-card/50 to-background/50 backdrop-blur-xl border border-primary/10 p-4 md:p-6">
         <h2 className="text-xl font-semibold mb-4">Weekly Sales Overview</h2>
@@ -55,6 +57,9 @@ const Index = () => {
       </div>
       
       <div className="rounded-xl bg-gradient-to-br from-card/50 to-background/50 backdrop-blur-xl border border-primary/10 p-4 md:p-6">
+        <h2 className="text-xl font-semibold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+          Stats Overview
+        </h2>
         <Stats />
       </div>
       
