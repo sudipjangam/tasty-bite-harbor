@@ -69,6 +69,9 @@ const Stats = () => {
     },
   ];
 
+  // Find the selected stat data
+  const selectedStatData = selectedStat ? stats.find(stat => stat.title === selectedStat) : null;
+
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
