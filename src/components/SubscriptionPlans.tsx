@@ -50,7 +50,7 @@ const SubscriptionPlans = () => {
               <div className="mb-6">
                 <h3 className="text-xl font-bold text-primary">{plan.name}</h3>
                 <p className="text-3xl font-bold mt-4">
-                  ${plan.price} <span className="text-sm text-muted-foreground">/{plan.interval}</span>
+                  ₹{plan.price} <span className="text-sm text-muted-foreground">/{plan.interval}</span>
                 </p>
                 <p className="text-muted-foreground mt-2">{plan.description}</p>
               </div>
@@ -83,4 +83,3 @@ const SubscriptionPlans = () => {
 };
 
 export default SubscriptionPlans;
-

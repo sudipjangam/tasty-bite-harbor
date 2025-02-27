@@ -23,7 +23,7 @@ const Stats = () => {
   const stats = [
     {
       title: "Total Sales",
-      value: `$${totalSales.toFixed(2)}`,
+      value: `₹${totalSales.toFixed(2)}`,
       icon: DollarSign,
       trend: "+12.5%",
       color: "text-green-600",
@@ -57,7 +57,7 @@ const Stats = () => {
     },
     {
       title: "Today's Revenue",
-      value: `$${todaysRevenue.toFixed(2)}`,
+      value: `₹${todaysRevenue.toFixed(2)}`,
       icon: TrendingUp,
       trend: "+8.2%",
       color: "text-orange-600",
@@ -69,10 +69,18 @@ const Stats = () => {
     },
   ];
 
-  const selectedStatData = selectedStat ? stats.find(stat => stat.title === selectedStat) : null;
-
   return (
     <>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+          Dashboard Overview
+        </h1>
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+          <span className="text-sm text-muted-foreground">Live Updates</span>
+        </div>
+      </div>
+      
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
         {stats.map((stat, index) => (
           <StatCard

@@ -42,7 +42,7 @@ const Index = () => {
           Dashboard Overview
         </h1>
         <div className="flex items-center gap-2">
-          <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+          <div className="h-2 w-2 bg-green-500 rounded-full animate-[pulse_1s_ease-in-out_infinite]" />
           <span className="text-sm text-muted-foreground">Live Updates</span>
         </div>
       </div>
