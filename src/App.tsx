@@ -97,16 +97,33 @@ const SubscriptionGuard = ({ children }: { children: React.ReactNode }) => {
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [hasActiveSubscription, setHasActiveSubscription] = useState<boolean | null>(null);
-  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<{
+    hasActiveSubscription: boolean | null;
+    restaurantId: string | null;
+    checkComplete: boolean;
+  }>({
+    hasActiveSubscription: null,
+    restaurantId: null,
+    checkComplete: false
+  });
 
   useEffect(() => {
+    // Create a flag to prevent state updates if component unmounts
+    let isMounted = true;
+    
     async function checkSession() {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      
-      if (session) {
-        try {
+      try {
+        // First, check if there's an active session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (isMounted) {
+          setSession(session);
+          
+          if (!session) {
+            setLoading(false);
+            return;
+          }
+          
           // Get user's profile to fetch restaurant_id
           const { data: profile } = await supabase
             .from("profiles")
@@ -114,20 +131,37 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
             .eq("id", session.user.id)
             .maybeSingle();
 
-          if (profile?.restaurant_id) {
-            setRestaurantId(profile.restaurant_id);
+          if (profile?.restaurant_id && isMounted) {
             const subscriptionActive = await checkSubscriptionStatus(profile.restaurant_id);
-            setHasActiveSubscription(subscriptionActive);
-          } else {
-            setHasActiveSubscription(false);
+            
+            setSubscriptionStatus({
+              hasActiveSubscription: subscriptionActive,
+              restaurantId: profile.restaurant_id,
+              checkComplete: true
+            });
+          } else if (isMounted) {
+            setSubscriptionStatus({
+              hasActiveSubscription: false,
+              restaurantId: null,
+              checkComplete: true
+            });
           }
-        } catch (error) {
-          console.error("Error checking session:", error);
-          setHasActiveSubscription(false);
+          
+          if (isMounted) {
+            setLoading(false);
+          }
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
+        if (isMounted) {
+          setSubscriptionStatus({
+            hasActiveSubscription: false,
+            restaurantId: null,
+            checkComplete: true
+          });
+          setLoading(false);
         }
       }
-      
-      setLoading(false);
     }
 
     checkSession();
@@ -135,10 +169,19 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      setLoading(true);
-      
-      if (session) {
+      if (isMounted) {
+        setSession(session);
+        
+        if (!session) {
+          setSubscriptionStatus({
+            hasActiveSubscription: null,
+            restaurantId: null,
+            checkComplete: true
+          });
+          setLoading(false);
+          return;
+        }
+        
         try {
           // Get user's profile to fetch restaurant_id
           const { data: profile } = await supabase
@@ -147,25 +190,43 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
             .eq("id", session.user.id)
             .maybeSingle();
 
-          if (profile?.restaurant_id) {
-            setRestaurantId(profile.restaurant_id);
+          if (profile?.restaurant_id && isMounted) {
             const subscriptionActive = await checkSubscriptionStatus(profile.restaurant_id);
-            setHasActiveSubscription(subscriptionActive);
-          } else {
-            setHasActiveSubscription(false);
+            
+            setSubscriptionStatus({
+              hasActiveSubscription: subscriptionActive,
+              restaurantId: profile.restaurant_id,
+              checkComplete: true
+            });
+          } else if (isMounted) {
+            setSubscriptionStatus({
+              hasActiveSubscription: false,
+              restaurantId: null,
+              checkComplete: true
+            });
+          }
+          
+          if (isMounted) {
+            setLoading(false);
           }
         } catch (error) {
           console.error("Error in auth state change:", error);
-          setHasActiveSubscription(false);
+          if (isMounted) {
+            setSubscriptionStatus({
+              hasActiveSubscription: false,
+              restaurantId: null,
+              checkComplete: true
+            });
+            setLoading(false);
+          }
         }
-      } else {
-        setHasActiveSubscription(null);
       }
-      
-      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   if (loading) {
@@ -184,8 +245,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   // If subscription status has been checked and there's no active subscription, show subscription plans
-  if (hasActiveSubscription === false) {
-    return <SubscriptionPlans restaurantId={restaurantId} />;
+  if (subscriptionStatus.checkComplete && subscriptionStatus.hasActiveSubscription === false) {
+    return <SubscriptionPlans restaurantId={subscriptionStatus.restaurantId} />;
   }
 
   return (
