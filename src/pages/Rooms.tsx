@@ -12,7 +12,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { format, addHours, isAfter, parseISO, addDays, differenceInDays } from "date-fns";
-import { Plus, Calendar as CalendarIcon, Clock, Edit, Trash2, Users, DoorOpen, Check, X, LogOut, CreditCard, Cash, Wallet, QrCode } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, Clock, Edit, Trash2, Users, DoorOpen, Check, X, LogOut, CreditCard, Coins, Wallet, QrCode } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -76,7 +76,7 @@ for (let hour = 0; hour < 24; hour++) {
 
 const paymentMethods = [
   { id: "card", name: "Credit/Debit Card", icon: <CreditCard className="h-4 w-4" /> },
-  { id: "cash", name: "Cash", icon: <Cash className="h-4 w-4" /> },
+  { id: "cash", name: "Cash", icon: <Coins className="h-4 w-4" /> },
   { id: "online", name: "Online Transfer", icon: <Wallet className="h-4 w-4" /> },
   { id: "qr", name: "QR Payment", icon: <QrCode className="h-4 w-4" /> },
 ];
