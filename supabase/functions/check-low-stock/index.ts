@@ -26,12 +26,13 @@ serve(async (req) => {
     }
 
     // Get low stock items that haven't had notifications sent
+    // Fixed: Using raw SQL comparison instead of supabase.raw which doesn't exist
     const { data: lowStockItems, error: itemsError } = await supabase
       .from('inventory_items')
       .select('id, name, quantity, reorder_level, restaurant_id, category')
       .eq('restaurant_id', restaurant_id)
       .not('reorder_level', 'is', null)
-      .lte('quantity', supabase.raw('reorder_level'))
+      .lte('quantity', 'reorder_level') // Fixed: Using string comparison instead of supabase.raw
       .eq('notification_sent', false);
 
     if (itemsError) {
