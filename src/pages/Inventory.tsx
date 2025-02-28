@@ -1,16 +1,17 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash2, Package, AlertTriangle, Carrot, Apple, ShoppingBag } from "lucide-react";
+import { Plus, Edit, Trash2, Package, AlertTriangle, Carrot, Apple, ShoppingBag, Bell } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import ReportExport from "@/components/Inventory/ReportExport";
 
 interface InventoryItem {
   id: string;
@@ -21,11 +22,14 @@ interface InventoryItem {
   cost_per_unit: number | null;
   restaurant_id: string;
   category: string;
+  notification_sent?: boolean;
 }
 
 const Inventory = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const { toast } = useToast();
 
   const { data: items = [], refetch } = useQuery({
@@ -54,6 +58,41 @@ const Inventory = () => {
       return data as InventoryItem[];
     },
   });
+
+  // Check for low stock items and notify
+  useEffect(() => {
+    const checkLowStock = async () => {
+      if (!items || items.length === 0) return;
+      
+      const lowStockItems = items.filter(
+        item => item.reorder_level !== null && item.quantity <= item.reorder_level
+      );
+      
+      if (lowStockItems.length > 0) {
+        try {
+          const { data: profile } = await supabase.auth.getUser();
+          if (!profile.user) return;
+  
+          const { data: userProfile } = await supabase
+            .from("profiles")
+            .select("restaurant_id")
+            .eq("id", profile.user.id)
+            .single();
+  
+          if (!userProfile?.restaurant_id) return;
+          
+          // Call the edge function to check and notify about low stock
+          await supabase.functions.invoke('check-low-stock', {
+            body: { restaurant_id: userProfile.restaurant_id }
+          });
+        } catch (error) {
+          console.error("Failed to check low stock:", error);
+        }
+      }
+    };
+    
+    checkLowStock();
+  }, [items]);
 
   const getCategoryIcon = (category: string) => {
     switch (category.toLowerCase()) {
@@ -140,6 +179,7 @@ const Inventory = () => {
     }
   };
 
+  // Group items by category
   const groupedItems = items.reduce((acc, item) => {
     const category = item.category || 'Other';
     if (!acc[category]) {
@@ -148,6 +188,18 @@ const Inventory = () => {
     acc[category].push(item);
     return acc;
   }, {} as Record<string, InventoryItem[]>);
+
+  // Filter items based on category and low stock status
+  const filteredItems = items.filter(item => {
+    const categoryMatch = filterCategory === "all" || item.category === filterCategory;
+    const stockMatch = !showLowStockOnly || (item.reorder_level !== null && item.quantity <= item.reorder_level);
+    return categoryMatch && stockMatch;
+  });
+
+  // Calculate low stock count
+  const lowStockCount = items.filter(
+    item => item.reorder_level !== null && item.quantity <= item.reorder_level
+  ).length;
 
   const commonUnits = ["kg", "g", "l", "ml", "units", "pieces", "boxes", "packs"];
   const categories = ["Vegetables", "Fruits", "Groceries", "Other"];
@@ -266,9 +318,55 @@ const Inventory = () => {
         </Dialog>
       </div>
 
+      <div className="flex flex-col sm:flex-row justify-between gap-4">
+        <div className="flex flex-wrap gap-4">
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="w-[150px] bg-white">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {Object.keys(groupedItems).map((category) => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Button 
+            variant={showLowStockOnly ? "default" : "outline"} 
+            onClick={() => setShowLowStockOnly(!showLowStockOnly)}
+            className={showLowStockOnly ? "bg-red-600 hover:bg-red-700" : ""}
+          >
+            <AlertTriangle className="mr-2 h-4 w-4" />
+            Low Stock ({lowStockCount})
+          </Button>
+        </div>
+        
+        <ReportExport 
+          items={showLowStockOnly || filterCategory !== "all" ? filteredItems : items} 
+          title={
+            showLowStockOnly 
+              ? "Low Stock Items Report" 
+              : filterCategory !== "all" 
+                ? `${filterCategory} Inventory Report` 
+                : "Complete Inventory Report"
+          }
+        />
+      </div>
+
       <div className="flex flex-wrap gap-4">
         {Object.entries(groupedItems).map(([category, categoryItems]) => (
-          <Card key={category} className="flex items-center gap-3 p-4 bg-gradient-to-br from-white to-gray-50 border-none shadow-md">
+          <Card 
+            key={category} 
+            className={`flex items-center gap-3 p-4 border-none shadow-md cursor-pointer ${
+              filterCategory === category 
+                ? "bg-gradient-to-br from-purple-100 to-purple-50 border-purple-200" 
+                : "bg-gradient-to-br from-white to-gray-50"
+            }`}
+            onClick={() => setFilterCategory(category === filterCategory ? "all" : category)}
+          >
             {getCategoryIcon(category)}
             <div>
               <h3 className="font-medium text-gray-700">{category}</h3>
@@ -281,11 +379,22 @@ const Inventory = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {items.map((item) => (
-          <Card key={item.id} className="p-4 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
+        {filteredItems.map((item) => (
+          <Card 
+            key={item.id} 
+            className={`p-4 shadow-md hover:shadow-lg transition-shadow ${
+              item.reorder_level && item.quantity <= item.reorder_level
+                ? "bg-red-50 dark:bg-red-900/20 border-red-200"
+                : "bg-white dark:bg-gray-800"
+            }`}
+          >
             <div className="flex justify-between items-start">
               <div className="flex items-start space-x-3">
-                <div className="p-2 bg-primary/10 rounded-full">
+                <div className={`p-2 rounded-full ${
+                  item.reorder_level && item.quantity <= item.reorder_level
+                    ? "bg-red-100"
+                    : "bg-primary/10"
+                }`}>
                   {getCategoryIcon(item.category)}
                 </div>
                 <div>
@@ -299,11 +408,22 @@ const Inventory = () => {
                       <Badge variant="destructive" className="text-xs">
                         Low Stock
                       </Badge>
+                      {item.notification_sent && (
+                        <div className="flex items-center">
+                          <Bell className="h-4 w-4 text-amber-500 ml-1" />
+                          <span className="text-xs text-amber-500 ml-1">Notification sent</span>
+                        </div>
+                      )}
                     </div>
                   )}
                   {item.cost_per_unit && (
                     <p className="text-sm text-muted-foreground mt-1">
                       Cost: ₹{item.cost_per_unit}/{item.unit}
+                    </p>
+                  )}
+                  {item.reorder_level && (
+                    <p className="text-sm text-muted-foreground">
+                      Reorder at: {item.reorder_level} {item.unit}
                     </p>
                   )}
                 </div>

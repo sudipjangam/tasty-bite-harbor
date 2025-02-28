@@ -57,6 +57,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          notification_sent: boolean | null
           quantity: number
           reorder_level: number | null
           restaurant_id: string
@@ -69,6 +70,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          notification_sent?: boolean | null
           quantity?: number
           reorder_level?: number | null
           restaurant_id: string
@@ -81,6 +83,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          notification_sent?: boolean | null
           quantity?: number
           reorder_level?: number | null
           restaurant_id?: string
@@ -143,6 +146,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          email_recipients: string[] | null
+          id: string
+          notify_low_stock: boolean | null
+          notify_new_orders: boolean | null
+          notify_staff_leaves: boolean | null
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email_recipients?: string[] | null
+          id?: string
+          notify_low_stock?: boolean | null
+          notify_new_orders?: boolean | null
+          notify_staff_leaves?: boolean | null
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email_recipients?: string[] | null
+          id?: string
+          notify_low_stock?: boolean | null
+          notify_new_orders?: boolean | null
+          notify_staff_leaves?: boolean | null
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       orders: {
         Row: {
@@ -483,6 +519,50 @@ export type Database = {
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_leaves: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: string
+          reason: string | null
+          restaurant_id: string
+          staff_id: string
+          start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          id?: string
+          reason?: string | null
+          restaurant_id: string
+          staff_id: string
+          start_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: string
+          reason?: string | null
+          restaurant_id?: string
+          staff_id?: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_leaves_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
             referencedColumns: ["id"]
           },
         ]

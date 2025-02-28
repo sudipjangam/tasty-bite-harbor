@@ -5,6 +5,7 @@ import Stats from "@/components/Dashboard/Stats";
 import OrderList from "@/components/Orders/OrderList";
 import WeeklySalesChart from "@/components/Dashboard/WeeklySalesChart";
 import QuickStats from "@/components/Dashboard/QuickStats";
+import Chatbot from "@/components/Chatbot/Chatbot";
 import type { Order } from "@/types/orders";
 
 const Index = () => {
@@ -69,6 +70,9 @@ const Index = () => {
         </h2>
         <OrderList orders={orders} onOrdersChange={refetch} />
       </div>
+
+      {/* Add Chatbot component */}
+      <Chatbot />
     </div>
   );
 };

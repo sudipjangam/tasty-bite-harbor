@@ -8,10 +8,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import AddMenuItemForm from "./AddMenuItemForm";
 
+interface MenuItem {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  price: number;
+  image_url: string;
+  is_available: boolean;
+  created_at: string;
+}
+
 const MenuGrid = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
 
   // Fetch menu items
   const { data: menuItems, isLoading } = useQuery({
@@ -29,7 +41,7 @@ const MenuGrid = () => {
       }
 
       console.log('Fetched menu items:', data);
-      return data;
+      return data as MenuItem[];
     },
   });
 
@@ -82,6 +94,18 @@ const MenuGrid = () => {
     }
   };
 
+  // Handle edit
+  const handleEdit = (item: MenuItem) => {
+    setEditingItem(item);
+    setShowAddForm(true);
+  };
+
+  // Handle close form
+  const handleCloseForm = () => {
+    setShowAddForm(false);
+    setEditingItem(null);
+  };
+
   if (isLoading) {
     return <div className="p-8 text-center">Loading menu items...</div>;
   }
@@ -102,7 +126,10 @@ const MenuGrid = () => {
         <h2 className="text-2xl font-bold">Menu Items</h2>
         <Button 
           className="bg-purple-600 hover:bg-purple-700 text-white"
-          onClick={() => setShowAddForm(true)}
+          onClick={() => {
+            setEditingItem(null);
+            setShowAddForm(true);
+          }}
         >
           <Plus className="w-4 h-4 mr-2" />
           Add Item
@@ -150,7 +177,11 @@ const MenuGrid = () => {
                 <p className="font-bold text-purple-600">₹{item.price}</p>
               </div>
               <div className="flex gap-2 mt-4">
-                <Button variant="outline" className="flex-1 hover:bg-purple-50">
+                <Button 
+                  variant="outline" 
+                  className="flex-1 hover:bg-purple-50"
+                  onClick={() => handleEdit(item)}
+                >
                   <Edit2 className="w-4 h-4 mr-2" />
                   Edit
                 </Button>
@@ -170,8 +201,9 @@ const MenuGrid = () => {
 
       {showAddForm && (
         <AddMenuItemForm
-          onClose={() => setShowAddForm(false)}
+          onClose={handleCloseForm}
           onSuccess={() => queryClient.invalidateQueries({ queryKey: ['menuItems'] })}
+          editingItem={editingItem}
         />
       )}
     </div>

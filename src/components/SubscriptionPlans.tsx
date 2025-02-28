@@ -1,17 +1,81 @@
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchSubscriptionPlans } from "@/utils/subscriptionUtils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
-const SubscriptionPlans = () => {
+interface SubscriptionPlansProps {
+  restaurantId?: string | null;
+}
+
+const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
   const { data: plans = [] } = useQuery({
     queryKey: ["subscriptionPlans"],
     queryFn: fetchSubscriptionPlans,
   });
+  
+  const subscribeMutation = useMutation({
+    mutationFn: async ({ planId, restaurantId }: { planId: string; restaurantId: string }) => {
+      // Calculate dates for subscription period
+      const now = new Date();
+      const monthLater = new Date(now);
+      monthLater.setMonth(monthLater.getMonth() + 1);
+      
+      const { error } = await supabase
+        .from("restaurant_subscriptions")
+        .insert([
+          {
+            restaurant_id: restaurantId,
+            plan_id: planId,
+            status: "active",
+            current_period_start: now.toISOString(),
+            current_period_end: monthLater.toISOString(),
+            cancel_at_period_end: false,
+          }
+        ]);
+        
+      if (error) throw error;
+      
+      return { success: true };
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Subscription activated successfully",
+      });
+      queryClient.invalidateQueries();
+      navigate("/");
+    },
+    onError: (error) => {
+      console.error("Subscription error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to activate subscription. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  const handleSubscribe = (planId: string) => {
+    if (!restaurantId) {
+      toast({
+        title: "Error",
+        description: "No restaurant ID found. Please log in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    subscribeMutation.mutate({ planId, restaurantId });
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-secondary/50 to-background p-6 md:p-8">
@@ -71,8 +135,10 @@ const SubscriptionPlans = () => {
               <Button 
                 className="mt-6 w-full bg-primary hover:bg-primary/90"
                 size="lg"
+                onClick={() => handleSubscribe(plan.id)}
+                disabled={subscribeMutation.isPending}
               >
-                Select {plan.name}
+                {subscribeMutation.isPending ? "Processing..." : `Select ${plan.name}`}
               </Button>
             </Card>
           ))}

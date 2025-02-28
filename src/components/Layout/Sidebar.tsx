@@ -11,18 +11,47 @@ import {
   ChartBar,
   Settings2,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  UserCircle
 } from "lucide-react";
 import { useLocation, Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 const Sidebar = () => {
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isMobile = useIsMobile();
+  const [staffName, setStaffName] = useState<string | null>(null);
+  
+  // Fetch user's name from profile
+  const { data: profile } = useQuery({
+    queryKey: ['user-profile'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      
+      const { data } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', user.id)
+        .single();
+      
+      return data;
+    },
+  });
+
+  // Update staff name when profile data changes
+  useEffect(() => {
+    if (profile && (profile.first_name || profile.last_name)) {
+      const name = [profile.first_name, profile.last_name].filter(Boolean).join(' ');
+      setStaffName(name);
+    }
+  }, [profile]);
   
   const menuItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/" },
@@ -90,11 +119,13 @@ const Sidebar = () => {
         {!isCollapsed && (
           <div className="mt-auto pt-4 border-t border-primary/10">
             <div className="flex items-center gap-3 px-4 py-2">
-              <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
-                <Users className="w-4 h-4 text-accent" />
+              <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                <UserCircle className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">Restaurant Staff</p>
+                <p className="text-sm font-medium truncate">
+                  Restaurant Staff {staffName ? `(${staffName})` : ''}
+                </p>
                 <p className="text-xs text-primary/60 truncate">Active Now</p>
               </div>
             </div>
