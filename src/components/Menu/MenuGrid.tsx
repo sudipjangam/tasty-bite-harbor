@@ -25,14 +25,44 @@ const MenuGrid = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
 
-  // Fetch menu items
-  const { data: menuItems, isLoading } = useQuery({
+  // Fetch menu items with improved error handling
+  const { data: menuItems, isLoading, error } = useQuery({
     queryKey: ['menuItems'],
     queryFn: async () => {
       console.log('Fetching menu items...');
+      
+      // First get the restaurant_id from the user's profile
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('No authenticated user found');
+        throw new Error('No authenticated user found');
+      }
+      
+      console.log('Authenticated user ID:', user.id);
+      
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('restaurant_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        throw profileError;
+      }
+      
+      if (!profile?.restaurant_id) {
+        console.error('No restaurant found for user');
+        throw new Error('No restaurant found for user');
+      }
+      
+      console.log('Restaurant ID:', profile.restaurant_id);
+      
+      // Then get the menu items for this restaurant
       const { data, error } = await supabase
         .from('menu_items')
         .select('*')
+        .eq('restaurant_id', profile.restaurant_id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -106,6 +136,24 @@ const MenuGrid = () => {
     setEditingItem(null);
   };
 
+  // Display error state if there's an error
+  if (error) {
+    return (
+      <div className="p-8 text-center">
+        <div className="bg-red-50 p-4 rounded-md mb-4">
+          <h3 className="text-lg font-medium text-red-800">Error loading menu items</h3>
+          <p className="text-sm text-red-600 mt-1">{(error as Error).message || 'An unknown error occurred'}</p>
+        </div>
+        <Button 
+          onClick={() => queryClient.invalidateQueries({ queryKey: ['menuItems'] })}
+          className="mt-4"
+        >
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return <div className="p-8 text-center">Loading menu items...</div>;
   }
@@ -136,19 +184,27 @@ const MenuGrid = () => {
         </Button>
       </div>
 
-      <div className="flex flex-wrap gap-4 mb-6">
-        {groupedItems && Object.entries(groupedItems).map(([category, items]) => (
-          <Card key={category} className="flex items-center gap-3 p-4 bg-gradient-to-br from-white to-gray-50 border-none shadow-md">
-            {getCategoryIcon(category)}
-            <div>
-              <h3 className="font-medium text-gray-700">{category}</h3>
-              <p className="text-sm text-muted-foreground">
-                {items.length} items
-              </p>
-            </div>
-          </Card>
-        ))}
-      </div>
+      {menuItems && menuItems.length === 0 && (
+        <div className="p-8 text-center bg-gray-50 rounded-md">
+          <p className="text-gray-600">No menu items found. Add your first menu item to get started.</p>
+        </div>
+      )}
+
+      {groupedItems && Object.entries(groupedItems).length > 0 && (
+        <div className="flex flex-wrap gap-4 mb-6">
+          {Object.entries(groupedItems).map(([category, items]) => (
+            <Card key={category} className="flex items-center gap-3 p-4 bg-gradient-to-br from-white to-gray-50 border-none shadow-md">
+              {getCategoryIcon(category)}
+              <div>
+                <h3 className="font-medium text-gray-700">{category}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {items.length} items
+                </p>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {menuItems?.map((item) => (
