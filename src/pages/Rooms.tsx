@@ -347,8 +347,8 @@ const Rooms = () => {
       return { success: true, paymentDetails };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["rooms"] });
-      queryClient.invalidateQueries({ queryKey: ["reservations"] });
+      queryClient.invalidateQueries({ queryKey: [\"rooms\"] });
+      queryClient.invalidateQueries({ queryKey: [\"reservations\"] });
       setIsCheckoutDialogOpen(false);
       setIsSuccessDialogOpen(true);
       resetCheckoutForm();
