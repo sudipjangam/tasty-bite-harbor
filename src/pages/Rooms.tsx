@@ -748,6 +748,7 @@ const Rooms = () => {
               </DialogHeader>
 
               <form onSubmit={handleReservationSubmit} className="space-y-4 mt-4">
+                {/* Room selection */}
                 <div className="space-y-2">
                   <Label htmlFor="room">Room</Label>
                   <select
@@ -766,6 +767,7 @@ const Rooms = () => {
                   </select>
                 </div>
 
+                {/* Date selection */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Check-In Date</Label>
@@ -825,6 +827,7 @@ const Rooms = () => {
                   </div>
                 </div>
 
+                {/* Time selection */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Check-In Time</Label>
@@ -863,18 +866,21 @@ const Rooms = () => {
                   </div>
                 </div>
 
+                {/* Validation error */}
                 {validationError && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
                     {validationError}
                   </div>
                 )}
 
+                {/* Duration info */}
                 {startDate && endDate && (
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-700 text-sm">
                     Duration: {differenceInDays(endDate, startDate) + 1} days
                   </div>
                 )}
 
+                {/* Customer information */}
                 <div className="space-y-2">
                   <Label htmlFor="customerName">Customer Name</Label>
                   <Input
@@ -956,7 +962,3 @@ const Rooms = () => {
                   Fill in the room details below
                 </DialogDescription>
               </DialogHeader>
-
-              <form onSubmit={handleRoomSubmit} className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="roomName">Room
