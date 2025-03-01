@@ -324,7 +324,7 @@ const Rooms = () => {
     },
   });
 
-  // Checkout reservation mutation
+  // Checkout reservation mutation - fixing the string escaping issue
   const checkoutReservationMutation = useMutation({
     mutationFn: async ({ reservationId, roomId, paymentDetails }: { reservationId: string, roomId: string, paymentDetails: any }) => {
       // In a real app, you would create a transaction record here
@@ -347,8 +347,8 @@ const Rooms = () => {
       return { success: true, paymentDetails };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [\"rooms\"] });
-      queryClient.invalidateQueries({ queryKey: [\"reservations\"] });
+      queryClient.invalidateQueries({ queryKey: ["rooms"] });
+      queryClient.invalidateQueries({ queryKey: ["reservations"] });
       setIsCheckoutDialogOpen(false);
       setIsSuccessDialogOpen(true);
       resetCheckoutForm();
@@ -959,4 +959,4 @@ const Rooms = () => {
 
               <form onSubmit={handleRoomSubmit} className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="roomName">Room Name</Label>
+                  <Label htmlFor="roomName">Room
