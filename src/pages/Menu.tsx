@@ -1,7 +1,5 @@
 
-import { Suspense } from "react";
 import MenuGrid from "@/components/Menu/MenuGrid";
-import { Card } from "@/components/ui/card";
 
 const Menu = () => {
   return (
@@ -14,21 +12,7 @@ const Menu = () => {
           Manage your restaurant's menu items
         </p>
       </div>
-      
-      <Suspense fallback={
-        <Card className="p-6">
-          <div className="animate-pulse flex flex-col space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="h-32 bg-gray-200 rounded"></div>
-              <div className="h-32 bg-gray-200 rounded"></div>
-              <div className="h-32 bg-gray-200 rounded"></div>
-            </div>
-          </div>
-        </Card>
-      }>
-        <MenuGrid />
-      </Suspense>
+      <MenuGrid />
     </div>
   );
 };

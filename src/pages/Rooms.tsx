@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +12,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { format, addHours, isAfter, parseISO, addDays, differenceInDays } from "date-fns";
-import { Plus, Calendar as CalendarIcon, Clock, Edit, Trash2, Users, DoorOpen, Check, X, LogOut, CreditCard, Coins, Wallet, QrCode } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, Clock, Edit, Trash2, Users, DoorOpen, Check, X, LogOut, CreditCard, Cash, Wallet, QrCode } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -64,7 +65,6 @@ const defaultServices = [
   { id: "7", name: "Spa Service", price: 50 },
 ];
 
-// Create time options for the time selector
 const timeOptions = [];
 for (let hour = 0; hour < 24; hour++) {
   for (let minute = 0; minute < 60; minute += 30) {
@@ -76,7 +76,7 @@ for (let hour = 0; hour < 24; hour++) {
 
 const paymentMethods = [
   { id: "card", name: "Credit/Debit Card", icon: <CreditCard className="h-4 w-4" /> },
-  { id: "cash", name: "Cash", icon: <Coins className="h-4 w-4" /> },
+  { id: "cash", name: "Cash", icon: <Cash className="h-4 w-4" /> },
   { id: "online", name: "Online Transfer", icon: <Wallet className="h-4 w-4" /> },
   { id: "qr", name: "QR Payment", icon: <QrCode className="h-4 w-4" /> },
 ];
@@ -101,14 +101,19 @@ const Rooms = () => {
   const [selectedRoomForCheckout, setSelectedRoomForCheckout] = useState<Room | null>(null);
   const [checkoutReservation, setCheckoutReservation] = useState<Reservation | null>(null);
   
-  // Updated calendar and time selection states
+  // Date and time state for reservation
   const [startDate, setStartDate] = useState<Date | undefined>(new Date());
   const [endDate, setEndDate] = useState<Date | undefined>(addDays(new Date(), 1));
   const [startTime, setStartTime] = useState<string>("14:00"); // 2:00 PM (check-in)
   const [endTime, setEndTime] = useState<string>("12:00"); // 12:00 PM (check-out)
-  
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  
+  // Popover states
+  const [isStartTimeOpen, setIsStartTimeOpen] = useState(false);
+  const [isEndTimeOpen, setIsEndTimeOpen] = useState(false);
+  const [isStartDateOpen, setIsStartDateOpen] = useState(false);
+  const [isEndDateOpen, setIsEndDateOpen] = useState(false);
   
   // Form data state
   const [formData, setFormData] = useState({
@@ -324,7 +329,7 @@ const Rooms = () => {
     },
   });
 
-  // Checkout reservation mutation - fixing the string escaping issue
+  // Checkout reservation mutation
   const checkoutReservationMutation = useMutation({
     mutationFn: async ({ reservationId, roomId, paymentDetails }: { reservationId: string, roomId: string, paymentDetails: any }) => {
       // In a real app, you would create a transaction record here
@@ -377,34 +382,7 @@ const Rooms = () => {
     });
   };
 
-  // Updated date and time selection handlers
-  const handleStartDateSelect = (date: Date | undefined) => {
-    if (!date) return;
-    setStartDate(date);
-    // If end date is before start date, adjust it
-    if (endDate && date > endDate) {
-      setEndDate(addDays(date, 1));
-    }
-    validateReservation();
-  };
-
-  const handleEndDateSelect = (date: Date | undefined) => {
-    if (!date) return;
-    setEndDate(date);
-    validateReservation();
-  };
-
-  const handleStartTimeSelect = (time: string) => {
-    setStartTime(time);
-    validateReservation();
-  };
-
-  const handleEndTimeSelect = (time: string) => {
-    setEndTime(time);
-    validateReservation();
-  };
-
-  // Updated validation function
+  // Validate reservation
   const validateReservation = (): boolean => {
     if (!startDate || !endDate) {
       setValidationError("Please select both start and end dates");
@@ -438,9 +416,17 @@ const Rooms = () => {
   };
 
   // Handle time selection
-  
+  const handleStartTimeSelect = (time: string) => {
+    setStartTime(time);
+    setIsStartTimeOpen(false);
+    validateReservation();
+  };
 
-  
+  const handleEndTimeSelect = (time: string) => {
+    setEndTime(time);
+    setIsEndTimeOpen(false);
+    validateReservation();
+  };
 
   // Handle reservation submission
   const handleReservationSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -748,7 +734,6 @@ const Rooms = () => {
               </DialogHeader>
 
               <form onSubmit={handleReservationSubmit} className="space-y-4 mt-4">
-                {/* Room selection */}
                 <div className="space-y-2">
                   <Label htmlFor="room">Room</Label>
                   <select
@@ -767,15 +752,13 @@ const Rooms = () => {
                   </select>
                 </div>
 
-                {/* Date selection */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Check-In Date</Label>
-                    <Popover>
+                    <Popover open={isStartDateOpen} onOpenChange={setIsStartDateOpen}>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
-                          type="button"
                           className="w-full justify-start text-left font-normal bg-white"
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
@@ -786,10 +769,17 @@ const Rooms = () => {
                         <Calendar
                           mode="single"
                           selected={startDate}
-                          onSelect={handleStartDateSelect}
+                          onSelect={(date) => {
+                            setStartDate(date);
+                            // Update end date if it's earlier than start date
+                            if (endDate && date && isAfter(date, endDate)) {
+                              setEndDate(addDays(date, 1));
+                            }
+                            setIsStartDateOpen(false);
+                          }}
                           initialFocus
                           captionLayout="dropdown-buttons"
-                          fromYear={2023}
+                          fromYear={2022}
                           toYear={2030}
                         />
                       </PopoverContent>
@@ -798,28 +788,30 @@ const Rooms = () => {
 
                   <div className="space-y-2">
                     <Label>Check-Out Date</Label>
-                    <Popover>
+                    <Popover open={isEndDateOpen} onOpenChange={setIsEndDateOpen}>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
-                          type="button"
                           className="w-full justify-start text-left font-normal bg-white"
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {endDate ? format(endDate, "MMM dd, yyyy") : "Select date"}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 bg-white" align="start">
+                      <PopoverContent className="w-auto p-0 bg-white z-50" align="start">
                         <Calendar
                           mode="single"
                           selected={endDate}
-                          onSelect={handleEndDateSelect}
+                          onSelect={(date) => {
+                            setEndDate(date);
+                            setIsEndDateOpen(false);
+                          }}
                           disabled={(date) => 
                             (startDate && date < startDate)
                           }
                           initialFocus
                           captionLayout="dropdown-buttons"
-                          fromYear={2023}
+                          fromYear={2022}
                           toYear={2030}
                         />
                       </PopoverContent>
@@ -827,60 +819,84 @@ const Rooms = () => {
                   </div>
                 </div>
 
-                {/* Time selection */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Check-In Time</Label>
-                    <Select value={startTime} onValueChange={handleStartTimeSelect}>
-                      <SelectTrigger className="w-full bg-white">
-                        <SelectValue placeholder="Select time">
+                    <Popover open={isStartTimeOpen} onOpenChange={setIsStartTimeOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal bg-white"
+                        >
+                          <Clock className="mr-2 h-4 w-4" />
                           {startTime}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[200px]" position="popper">
-                        {timeOptions.map((time) => (
-                          <SelectItem key={time} value={time}>
-                            {time}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[200px] p-2 bg-white z-50" align="start">
+                        <div className="space-y-1 max-h-[300px] overflow-y-auto">
+                          {timeOptions.map((time) => (
+                            <Button
+                              key={time}
+                              variant="ghost"
+                              className={cn(
+                                "w-full justify-start font-normal",
+                                startTime === time && "bg-accent text-accent-foreground"
+                              )}
+                              onClick={() => handleStartTimeSelect(time)}
+                            >
+                              {time}
+                            </Button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
 
                   <div className="space-y-2">
                     <Label>Check-Out Time</Label>
-                    <Select value={endTime} onValueChange={handleEndTimeSelect}>
-                      <SelectTrigger className="w-full bg-white">
-                        <SelectValue placeholder="Select time">
+                    <Popover open={isEndTimeOpen} onOpenChange={setIsEndTimeOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal bg-white"
+                        >
+                          <Clock className="mr-2 h-4 w-4" />
                           {endTime}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[200px]" position="popper">
-                        {timeOptions.map((time) => (
-                          <SelectItem key={time} value={time}>
-                            {time}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[200px] p-2 bg-white z-50" align="start">
+                        <div className="space-y-1 max-h-[300px] overflow-y-auto">
+                          {timeOptions.map((time) => (
+                            <Button
+                              key={time}
+                              variant="ghost"
+                              className={cn(
+                                "w-full justify-start font-normal",
+                                endTime === time && "bg-accent text-accent-foreground"
+                              )}
+                              onClick={() => handleEndTimeSelect(time)}
+                            >
+                              {time}
+                            </Button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
 
-                {/* Validation error */}
                 {validationError && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
                     {validationError}
                   </div>
                 )}
 
-                {/* Duration info */}
                 {startDate && endDate && (
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-700 text-sm">
                     Duration: {differenceInDays(endDate, startDate) + 1} days
                   </div>
                 )}
 
-                {/* Customer information */}
                 <div className="space-y-2">
                   <Label htmlFor="customerName">Customer Name</Label>
                   <Input
@@ -962,3 +978,624 @@ const Rooms = () => {
                   Fill in the room details below
                 </DialogDescription>
               </DialogHeader>
+
+              <form onSubmit={handleRoomSubmit} className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="roomName">Room Name</Label>
+                  <Input id="roomName" name="roomName" className="bg-white" required />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="roomCapacity">Capacity</Label>
+                  <Input
+                    id="roomCapacity"
+                    name="roomCapacity"
+                    type="number"
+                    min="1"
+                    className="bg-white"
+                    required
+                  />
+                </div>
+
+                <DialogFooter>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setIsAddRoomOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit"
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    Add Room
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {rooms.map((room) => (
+          <Card key={room.id} className="hover:shadow-md transition-shadow bg-white">
+            <CardHeader className="pb-2">
+              <div className="flex justify-between items-start">
+                <CardTitle className="text-lg font-medium">{room.name}</CardTitle>
+                <div className="flex gap-2 items-center">
+                  <Badge
+                    variant={room.status === "available" ? "outline" : "destructive"}
+                    className={`${
+                      room.status === "available"
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : room.status === "cleaning"
+                        ? "bg-yellow-50 text-yellow-700 border-yellow-200"
+                        : room.status === "maintenance"
+                        ? "bg-orange-50 text-orange-700 border-orange-200"
+                        : "bg-red-50 text-red-700 border-red-200"
+                    } cursor-pointer`}
+                    onClick={() => openStatusUpdateDialog(room)}
+                  >
+                    {room.status === "available" ? (
+                      <Check className="h-3 w-3 mr-1" />
+                    ) : (
+                      <X className="h-3 w-3 mr-1" />
+                    )}
+                    {room.status === "available" 
+                      ? "Available" 
+                      : room.status === "cleaning"
+                      ? "Cleaning"
+                      : room.status === "maintenance"
+                      ? "Maintenance"
+                      : "Occupied"}
+                  </Badge>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <span>Capacity: {room.capacity}</span>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                {room.status === "available" ? (
+                  <Button
+                    onClick={() => openAddReservation(room.id)}
+                    className="w-full"
+                    variant="outline"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    Make Reservation
+                  </Button>
+                ) : room.status === "occupied" ? (
+                  <Button
+                    onClick={() => openCheckoutDialog(room)}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    variant="default"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Checkout
+                  </Button>
+                ) : null}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Tabs defaultValue="upcoming" className="w-full mt-8">
+        <TabsList className="mb-4 bg-white">
+          <TabsTrigger value="upcoming" className="flex gap-2 items-center">
+            <CalendarIcon className="h-4 w-4" />
+            Upcoming Reservations
+          </TabsTrigger>
+          <TabsTrigger value="past" className="flex gap-2 items-center">
+            <Clock className="h-4 w-4" />
+            Past Reservations
+          </TabsTrigger>
+          <TabsTrigger value="rooms" className="flex gap-2 items-center">
+            <DoorOpen className="h-4 w-4" />
+            All Rooms
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="upcoming">
+          <Card className="bg-white">
+            <CardHeader>
+              <CardTitle>Upcoming Reservations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {upcomingReservations.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Room</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Check-In</TableHead>
+                      <TableHead>Check-Out</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {upcomingReservations.map((reservation) => (
+                      <TableRow key={reservation.id}>
+                        <TableCell className="font-medium">
+                          {getRoomName(reservation.room_id)}
+                        </TableCell>
+                        <TableCell>
+                          <div>{reservation.customer_name}</div>
+                          {reservation.customer_email && (
+                            <div className="text-xs text-muted-foreground">{reservation.customer_email}</div>
+                          )}
+                          {reservation.customer_phone && (
+                            <div className="text-xs text-muted-foreground">{reservation.customer_phone}</div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div>{format(new Date(reservation.start_time), "MMM dd, yyyy")}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {format(new Date(reservation.start_time), "h:mm a")}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>{format(new Date(reservation.end_time), "MMM dd, yyyy")}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {format(new Date(reservation.end_time), "h:mm a")}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                            {getDurationInDays(reservation.start_time, reservation.end_time)} days
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={`${
+                              reservation.status === "confirmed"
+                                ? "bg-green-50 text-green-700 border-green-200"
+                                : "bg-amber-50 text-amber-700 border-amber-200"
+                            }`}
+                          >
+                            {reservation.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditReservation(reservation)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteReservation(reservation.id)}
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No upcoming reservations found
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="past">
+          <Card className="bg-white">
+            <CardHeader>
+              <CardTitle>Past Reservations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {pastReservations.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Room</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Check-In</TableHead>
+                      <TableHead>Check-Out</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pastReservations.map((reservation) => (
+                      <TableRow key={reservation.id}>
+                        <TableCell className="font-medium">
+                          {getRoomName(reservation.room_id)}
+                        </TableCell>
+                        <TableCell>
+                          <div>{reservation.customer_name}</div>
+                          {reservation.customer_email && (
+                            <div className="text-xs text-muted-foreground">{reservation.customer_email}</div>
+                          )}
+                          {reservation.customer_phone && (
+                            <div className="text-xs text-muted-foreground">{reservation.customer_phone}</div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div>{format(new Date(reservation.start_time), "MMM dd, yyyy")}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {format(new Date(reservation.start_time), "h:mm a")}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>{format(new Date(reservation.end_time), "MMM dd, yyyy")}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {format(new Date(reservation.end_time), "h:mm a")}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                            {getDurationInDays(reservation.start_time, reservation.end_time)} days
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={`${
+                              reservation.status === "confirmed"
+                                ? "bg-green-50 text-green-700 border-green-200"
+                                : "bg-amber-50 text-amber-700 border-amber-200"
+                            }`}
+                          >
+                            {reservation.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No past reservations found
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="rooms">
+          <Card className="bg-white">
+            <CardHeader>
+              <CardTitle>All Rooms</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Capacity</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rooms.map((room) => (
+                    <TableRow key={room.id}>
+                      <TableCell className="font-medium">{room.name}</TableCell>
+                      <TableCell>{room.capacity}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`${
+                            room.status === "available"
+                              ? "bg-green-50 text-green-700 border-green-200"
+                              : room.status === "cleaning"
+                              ? "bg-yellow-50 text-yellow-700 border-yellow-200"
+                              : room.status === "maintenance"
+                              ? "bg-orange-50 text-orange-700 border-orange-200"
+                              : "bg-red-50 text-red-700 border-red-200"
+                          } cursor-pointer`}
+                          onClick={() => openStatusUpdateDialog(room)}
+                        >
+                          {room.status === "available" ? (
+                            <Check className="h-3 w-3 mr-1" />
+                          ) : (
+                            <X className="h-3 w-3 mr-1" />
+                          )}
+                          {room.status === "available" 
+                            ? "Available" 
+                            : room.status === "cleaning"
+                            ? "Cleaning"
+                            : room.status === "maintenance"
+                            ? "Maintenance"
+                            : "Occupied"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {room.status === "available" ? (
+                            <Button
+                              onClick={() => openAddReservation(room.id)}
+                              variant="outline"
+                              size="sm"
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              Reserve
+                            </Button>
+                          ) : room.status === "occupied" ? (
+                            <Button
+                              onClick={() => openCheckoutDialog(room)}
+                              variant="default"
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              <LogOut className="mr-2 h-4 w-4" />
+                              Checkout
+                            </Button>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Confirmation Dialog for Deleting Reservation */}
+      <Dialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-white">
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this reservation? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex space-x-2 justify-end">
+            <Button variant="outline" onClick={() => setIsConfirmDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteReservation}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Room Status Update Dialog */}
+      <Dialog open={isStatusUpdateDialogOpen} onOpenChange={setIsStatusUpdateDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-white">
+          <DialogHeader>
+            <DialogTitle>Update Room Status</DialogTitle>
+            <DialogDescription>
+              Change the status of room {roomToUpdate?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="roomStatus">Status</Label>
+              <Select
+                value={newRoomStatus}
+                onValueChange={setNewRoomStatus}
+              >
+                <SelectTrigger id="roomStatus" className="w-full bg-white">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent position="popper" className="bg-white">
+                  {roomStatusOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsStatusUpdateDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleStatusUpdate}>
+              Update Status
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Checkout Dialog */}
+      <Dialog open={isCheckoutDialogOpen} onOpenChange={setIsCheckoutDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] bg-white">
+          <DialogHeader>
+            <DialogTitle>Checkout - Room {selectedRoomForCheckout?.name}</DialogTitle>
+            <DialogDescription>
+              Complete the checkout process for {checkoutReservation?.customer_name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-medium">Bill Details</h3>
+                <div className="flex items-center gap-2">
+                  <Select value={selectedService} onValueChange={setSelectedService}>
+                    <SelectTrigger className="w-[180px] bg-white">
+                      <SelectValue placeholder="Add service" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" className="bg-white">
+                      {defaultServices.map((service) => (
+                        <SelectItem key={service.id} value={service.id}>
+                          {service.name} (${service.price})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  <Input
+                    type="number"
+                    min="1"
+                    value={serviceQuantity}
+                    onChange={(e) => setServiceQuantity(parseInt(e.target.value) || 1)}
+                    className="w-16 bg-white"
+                  />
+                  
+                  <Button 
+                    onClick={addServiceToBill} 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={!selectedService}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {billItems.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>{item.name}</TableCell>
+                      <TableCell className="text-right">{item.quantity}</TableCell>
+                      <TableCell className="text-right">${item.price.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">${(item.price * item.quantity).toFixed(2)}</TableCell>
+                      <TableCell>
+                        {item.id !== "room-charge" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeItemFromBill(item.id)}
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow>
+                    <TableCell colSpan={3} className="font-bold text-right">
+                      Total
+                    </TableCell>
+                    <TableCell className="font-bold text-right">
+                      ${calculateTotal().toFixed(2)}
+                    </TableCell>
+                    <TableCell></TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Payment Method</Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {paymentMethods.map((method) => (
+                  <Button
+                    key={method.id}
+                    type="button"
+                    variant={paymentMethod === method.id ? "default" : "outline"}
+                    className={`h-auto py-3 justify-start ${
+                      paymentMethod === method.id 
+                        ? "bg-blue-600 hover:bg-blue-700 text-white" 
+                        : ""
+                    }`}
+                    onClick={() => setPaymentMethod(method.id)}
+                  >
+                    <div className="flex flex-col items-center w-full gap-1">
+                      {method.icon}
+                      <span>{method.name}</span>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="additionalNotes">Additional Notes (Optional)</Label>
+              <Textarea
+                id="additionalNotes"
+                value={additionalNotes}
+                onChange={(e) => setAdditionalNotes(e.target.value)}
+                className="min-h-[80px] bg-white"
+                placeholder="Any special instructions or notes..."
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsCheckoutDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCheckout}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Complete Checkout
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Dialog */}
+      <Dialog open={isSuccessDialogOpen} onOpenChange={setIsSuccessDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-white">
+          <DialogHeader>
+            <DialogTitle>Checkout Successful</DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-6 flex flex-col items-center justify-center text-center">
+            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-4">
+              <Check className="h-6 w-6 text-green-600" />
+            </div>
+            <p className="text-lg mb-2">
+              Checkout has been completed successfully
+            </p>
+            <p className="text-muted-foreground">
+              Room has been marked as available
+            </p>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              onClick={() => setIsSuccessDialogOpen(false)}
+              className="w-full"
+            >
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default Rooms;
