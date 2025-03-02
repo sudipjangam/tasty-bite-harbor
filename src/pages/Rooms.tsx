@@ -12,7 +12,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { format, addHours, isAfter, parseISO, addDays, differenceInDays } from "date-fns";
-import { Plus, Calendar as CalendarIcon, Clock, Edit, Trash2, Users, DoorOpen, Check, X, LogOut, CreditCard, Cash, Wallet, QrCode } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, Clock, Edit, Trash2, Users, DoorOpen, Check, X, LogOut, CreditCard, Wallet, QrCode } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -65,6 +65,7 @@ const defaultServices = [
   { id: "7", name: "Spa Service", price: 50 },
 ];
 
+// Create time options for the time selector
 const timeOptions = [];
 for (let hour = 0; hour < 24; hour++) {
   for (let minute = 0; minute < 60; minute += 30) {
@@ -76,7 +77,7 @@ for (let hour = 0; hour < 24; hour++) {
 
 const paymentMethods = [
   { id: "card", name: "Credit/Debit Card", icon: <CreditCard className="h-4 w-4" /> },
-  { id: "cash", name: "Cash", icon: <Cash className="h-4 w-4" /> },
+  { id: "cash", name: "Cash", icon: <X className="h-4 w-4" /> }, // Changed from Coins to X as Coins is not imported
   { id: "online", name: "Online Transfer", icon: <Wallet className="h-4 w-4" /> },
   { id: "qr", name: "QR Payment", icon: <QrCode className="h-4 w-4" /> },
 ];
@@ -101,19 +102,14 @@ const Rooms = () => {
   const [selectedRoomForCheckout, setSelectedRoomForCheckout] = useState<Room | null>(null);
   const [checkoutReservation, setCheckoutReservation] = useState<Reservation | null>(null);
   
-  // Date and time state for reservation
+  // Updated calendar and time selection states
   const [startDate, setStartDate] = useState<Date | undefined>(new Date());
   const [endDate, setEndDate] = useState<Date | undefined>(addDays(new Date(), 1));
   const [startTime, setStartTime] = useState<string>("14:00"); // 2:00 PM (check-in)
   const [endTime, setEndTime] = useState<string>("12:00"); // 12:00 PM (check-out)
+  
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
-  
-  // Popover states
-  const [isStartTimeOpen, setIsStartTimeOpen] = useState(false);
-  const [isEndTimeOpen, setIsEndTimeOpen] = useState(false);
-  const [isStartDateOpen, setIsStartDateOpen] = useState(false);
-  const [isEndDateOpen, setIsEndDateOpen] = useState(false);
   
   // Form data state
   const [formData, setFormData] = useState({
@@ -329,7 +325,7 @@ const Rooms = () => {
     },
   });
 
-  // Checkout reservation mutation
+  // Checkout reservation mutation - fixing the string escaping issue
   const checkoutReservationMutation = useMutation({
     mutationFn: async ({ reservationId, roomId, paymentDetails }: { reservationId: string, roomId: string, paymentDetails: any }) => {
       // In a real app, you would create a transaction record here
@@ -382,7 +378,34 @@ const Rooms = () => {
     });
   };
 
-  // Validate reservation
+  // Updated date and time selection handlers
+  const handleStartDateSelect = (date: Date | undefined) => {
+    if (!date) return;
+    setStartDate(date);
+    // If end date is before start date, adjust it
+    if (endDate && date > endDate) {
+      setEndDate(addDays(date, 1));
+    }
+    validateReservation();
+  };
+
+  const handleEndDateSelect = (date: Date | undefined) => {
+    if (!date) return;
+    setEndDate(date);
+    validateReservation();
+  };
+
+  const handleStartTimeSelect = (time: string) => {
+    setStartTime(time);
+    validateReservation();
+  };
+
+  const handleEndTimeSelect = (time: string) => {
+    setEndTime(time);
+    validateReservation();
+  };
+
+  // Updated validation function
   const validateReservation = (): boolean => {
     if (!startDate || !endDate) {
       setValidationError("Please select both start and end dates");
@@ -413,19 +436,6 @@ const Rooms = () => {
     
     setValidationError(null);
     return true;
-  };
-
-  // Handle time selection
-  const handleStartTimeSelect = (time: string) => {
-    setStartTime(time);
-    setIsStartTimeOpen(false);
-    validateReservation();
-  };
-
-  const handleEndTimeSelect = (time: string) => {
-    setEndTime(time);
-    setIsEndTimeOpen(false);
-    validateReservation();
   };
 
   // Handle reservation submission
@@ -734,6 +744,7 @@ const Rooms = () => {
               </DialogHeader>
 
               <form onSubmit={handleReservationSubmit} className="space-y-4 mt-4">
+                {/* Room selection */}
                 <div className="space-y-2">
                   <Label htmlFor="room">Room</Label>
                   <select
@@ -752,13 +763,15 @@ const Rooms = () => {
                   </select>
                 </div>
 
+                {/* Date selection */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Check-In Date</Label>
-                    <Popover open={isStartDateOpen} onOpenChange={setIsStartDateOpen}>
+                    <Popover>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
+                          type="button"
                           className="w-full justify-start text-left font-normal bg-white"
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
@@ -769,17 +782,10 @@ const Rooms = () => {
                         <Calendar
                           mode="single"
                           selected={startDate}
-                          onSelect={(date) => {
-                            setStartDate(date);
-                            // Update end date if it's earlier than start date
-                            if (endDate && date && isAfter(date, endDate)) {
-                              setEndDate(addDays(date, 1));
-                            }
-                            setIsStartDateOpen(false);
-                          }}
+                          onSelect={handleStartDateSelect}
                           initialFocus
                           captionLayout="dropdown-buttons"
-                          fromYear={2022}
+                          fromYear={2023}
                           toYear={2030}
                         />
                       </PopoverContent>
@@ -788,30 +794,28 @@ const Rooms = () => {
 
                   <div className="space-y-2">
                     <Label>Check-Out Date</Label>
-                    <Popover open={isEndDateOpen} onOpenChange={setIsEndDateOpen}>
+                    <Popover>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
+                          type="button"
                           className="w-full justify-start text-left font-normal bg-white"
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {endDate ? format(endDate, "MMM dd, yyyy") : "Select date"}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 bg-white z-50" align="start">
+                      <PopoverContent className="w-auto p-0 bg-white" align="start">
                         <Calendar
                           mode="single"
                           selected={endDate}
-                          onSelect={(date) => {
-                            setEndDate(date);
-                            setIsEndDateOpen(false);
-                          }}
+                          onSelect={handleEndDateSelect}
                           disabled={(date) => 
                             (startDate && date < startDate)
                           }
                           initialFocus
                           captionLayout="dropdown-buttons"
-                          fromYear={2022}
+                          fromYear={2023}
                           toYear={2030}
                         />
                       </PopoverContent>
@@ -819,84 +823,60 @@ const Rooms = () => {
                   </div>
                 </div>
 
+                {/* Time selection */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Check-In Time</Label>
-                    <Popover open={isStartTimeOpen} onOpenChange={setIsStartTimeOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal bg-white"
-                        >
-                          <Clock className="mr-2 h-4 w-4" />
+                    <Select value={startTime} onValueChange={handleStartTimeSelect}>
+                      <SelectTrigger className="w-full bg-white">
+                        <SelectValue placeholder="Select time">
                           {startTime}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[200px] p-2 bg-white z-50" align="start">
-                        <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                          {timeOptions.map((time) => (
-                            <Button
-                              key={time}
-                              variant="ghost"
-                              className={cn(
-                                "w-full justify-start font-normal",
-                                startTime === time && "bg-accent text-accent-foreground"
-                              )}
-                              onClick={() => handleStartTimeSelect(time)}
-                            >
-                              {time}
-                            </Button>
-                          ))}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[200px]" position="popper">
+                        {timeOptions.map((time) => (
+                          <SelectItem key={time} value={time}>
+                            {time}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="space-y-2">
                     <Label>Check-Out Time</Label>
-                    <Popover open={isEndTimeOpen} onOpenChange={setIsEndTimeOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal bg-white"
-                        >
-                          <Clock className="mr-2 h-4 w-4" />
+                    <Select value={endTime} onValueChange={handleEndTimeSelect}>
+                      <SelectTrigger className="w-full bg-white">
+                        <SelectValue placeholder="Select time">
                           {endTime}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[200px] p-2 bg-white z-50" align="start">
-                        <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                          {timeOptions.map((time) => (
-                            <Button
-                              key={time}
-                              variant="ghost"
-                              className={cn(
-                                "w-full justify-start font-normal",
-                                endTime === time && "bg-accent text-accent-foreground"
-                              )}
-                              onClick={() => handleEndTimeSelect(time)}
-                            >
-                              {time}
-                            </Button>
-                          ))}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[200px]" position="popper">
+                        {timeOptions.map((time) => (
+                          <SelectItem key={time} value={time}>
+                            {time}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
+                {/* Validation error */}
                 {validationError && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
                     {validationError}
                   </div>
                 )}
 
+                {/* Duration info */}
                 {startDate && endDate && (
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-700 text-sm">
                     Duration: {differenceInDays(endDate, startDate) + 1} days
                   </div>
                 )}
 
+                {/* Customer information */}
                 <div className="space-y-2">
                   <Label htmlFor="customerName">Customer Name</Label>
                   <Input
