@@ -48,6 +48,7 @@
     "embla-carousel-react": "^8.3.0",
     "highcharts": "^12.1.2",
     "highcharts-react-official": "^3.2.1",
+    "html2canvas": "^1.4.1",
     "input-otp": "^1.2.4",
     "jspdf": "^3.0.0",
     "jspdf-autotable": "^5.0.2",

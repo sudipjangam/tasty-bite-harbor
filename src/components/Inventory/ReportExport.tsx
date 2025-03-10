@@ -1,11 +1,13 @@
+
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { FileDown, FileText, FileSpreadsheet } from "lucide-react";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import { useToast } from "@/components/ui/use-toast";
+import Watermark from "@/components/Layout/Watermark";
 
 type InventoryItem = {
   id: string;
@@ -146,8 +148,8 @@ const ReportExport: React.FC<ReportExportProps> = ({ items, title = "Inventory R
         item.reorder_level && item.quantity <= item.reorder_level ? "Low Stock" : "In Stock"
       ]);
       
-      // @ts-ignore - jspdf-autotable types are not properly recognized
-      doc.autoTable({
+      // Use autoTable directly
+      autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
         startY: 75,
