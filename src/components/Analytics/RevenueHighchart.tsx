@@ -93,7 +93,8 @@ const RevenueHighchart = ({ data }: RevenueHighchartProps) => {
       pointFormat: '<tr><td style="color: {series.color}">{series.name}: </td>' +
                     '<td style="text-align: right"><b>{point.y}</b></td></tr>',
       footerFormat: '</table>',
-      valuePrefix: '{series.name}' === 'Revenue' ? '₹' : '',
+      // Fix: removed the incorrect string comparison
+      valuePrefix: undefined,
       backgroundColor: isDarkMode ? '#334155' : '#ffffff',
       borderColor: gridColor,
       style: {
