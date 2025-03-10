@@ -3,8 +3,9 @@ import { useRef, useState } from 'react';
 import Highcharts from 'highcharts';
 import HighchartsReact from 'highcharts-react-official';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { format } from "date-fns";
+import { format, subDays, subMonths, subYears, startOfDay, startOfWeek, startOfMonth, startOfYear } from "date-fns";
 import { useTheme } from "@/hooks/useTheme";
+import { BarChart3, TrendingUp } from "lucide-react";
 
 interface RevenueHighchartProps {
   data: {
@@ -15,13 +16,47 @@ interface RevenueHighchartProps {
   }[];
 }
 
+// Time period options
+type TimePeriod = '1d' | '7d' | '30d' | '90d' | '1y' | 'all';
+
 const RevenueHighchart = ({ data }: RevenueHighchartProps) => {
   const { theme } = useTheme();
   const isDarkMode = theme === 'dark';
   const chartComponentRef = useRef<HighchartsReact.RefObject>(null);
   const [chartType, setChartType] = useState<'line' | 'column'>('line');
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('30d');
   
-  const sortedData = [...data].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  // Filter data based on selected time period
+  const filterDataByTimePeriod = (data: RevenueHighchartProps['data'], period: TimePeriod) => {
+    const now = new Date();
+    let startDate: Date;
+    
+    switch (period) {
+      case '1d':
+        startDate = startOfDay(now);
+        break;
+      case '7d':
+        startDate = subDays(now, 7);
+        break;
+      case '30d':
+        startDate = subDays(now, 30);
+        break;
+      case '90d':
+        startDate = subDays(now, 90);
+        break;
+      case '1y':
+        startDate = subYears(now, 1);
+        break;
+      case 'all':
+      default:
+        return data;
+    }
+    
+    return data.filter(item => new Date(item.date) >= startDate);
+  };
+  
+  const filteredData = filterDataByTimePeriod(data, timePeriod);
+  const sortedData = [...filteredData].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   
   const dates = sortedData.map(item => format(new Date(item.date), 'dd MMM'));
   const revenues = sortedData.map(item => Number(item.total_revenue));
@@ -159,26 +194,77 @@ const RevenueHighchart = ({ data }: RevenueHighchartProps) => {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-lg font-medium">Revenue Trends Over Time</CardTitle>
         <div className="flex items-center space-x-2">
-          <button 
-            className={`px-3 py-1 rounded text-xs font-medium ${chartType === 'line' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}
-            onClick={() => setChartType('line')}
-          >
-            Line
-          </button>
-          <button 
-            className={`px-3 py-1 rounded text-xs font-medium ${chartType === 'column' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}
-            onClick={() => setChartType('column')}
-          >
-            Column
-          </button>
+          {/* Time period selector */}
+          <div className="flex items-center mr-4 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+            <button 
+              className={`px-2 py-1 rounded text-xs font-medium ${timePeriod === '1d' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'text-gray-500 dark:text-gray-400'}`}
+              onClick={() => setTimePeriod('1d')}
+            >
+              1D
+            </button>
+            <button 
+              className={`px-2 py-1 rounded text-xs font-medium ${timePeriod === '7d' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'text-gray-500 dark:text-gray-400'}`}
+              onClick={() => setTimePeriod('7d')}
+            >
+              1W
+            </button>
+            <button 
+              className={`px-2 py-1 rounded text-xs font-medium ${timePeriod === '30d' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'text-gray-500 dark:text-gray-400'}`}
+              onClick={() => setTimePeriod('30d')}
+            >
+              1M
+            </button>
+            <button 
+              className={`px-2 py-1 rounded text-xs font-medium ${timePeriod === '90d' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'text-gray-500 dark:text-gray-400'}`}
+              onClick={() => setTimePeriod('90d')}
+            >
+              3M
+            </button>
+            <button 
+              className={`px-2 py-1 rounded text-xs font-medium ${timePeriod === '1y' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'text-gray-500 dark:text-gray-400'}`}
+              onClick={() => setTimePeriod('1y')}
+            >
+              1Y
+            </button>
+            <button 
+              className={`px-2 py-1 rounded text-xs font-medium ${timePeriod === 'all' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'text-gray-500 dark:text-gray-400'}`}
+              onClick={() => setTimePeriod('all')}
+            >
+              All
+            </button>
+          </div>
+          
+          {/* Chart type toggle */}
+          <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+            <button 
+              className={`p-1 rounded text-xs ${chartType === 'line' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'text-gray-500 dark:text-gray-400'}`}
+              onClick={() => setChartType('line')}
+              title="Line Chart"
+            >
+              <TrendingUp className="h-4 w-4" />
+            </button>
+            <button 
+              className={`p-1 rounded text-xs ${chartType === 'column' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'text-gray-500 dark:text-gray-400'}`}
+              onClick={() => setChartType('column')}
+              title="Bar Chart"
+            >
+              <BarChart3 className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
-        <HighchartsReact
-          highcharts={Highcharts}
-          options={options}
-          ref={chartComponentRef}
-        />
+        {sortedData.length === 0 ? (
+          <div className="h-[300px] flex items-center justify-center text-gray-500">
+            No data available for the selected time period
+          </div>
+        ) : (
+          <HighchartsReact
+            highcharts={Highcharts}
+            options={options}
+            ref={chartComponentRef}
+          />
+        )}
       </CardContent>
     </Card>
   );

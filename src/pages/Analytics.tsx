@@ -1,20 +1,34 @@
 
+import { useState, useRef, useEffect } from "react";
 import { useAnalyticsData } from "@/hooks/useAnalyticsData";
 import RevenueHighchart from "@/components/Analytics/RevenueHighchart";
 import CustomerInsights from "@/components/Analytics/CustomerInsights";
 import TopProducts from "@/components/Analytics/TopProducts";
 import SalesPrediction from "@/components/Analytics/SalesPrediction";
+import RevenueByCategoryChart from "@/components/Analytics/RevenueByCategoryChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileSpreadsheet, FileText, BarChart3, Users, TrendingUp, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
+import { useToast } from "@/components/ui/use-toast";
 
 const Analytics = () => {
+  const { toast } = useToast();
   const { data, isLoading } = useAnalyticsData();
+  const [activeTab, setActiveTab] = useState("revenue");
+
+  // Mock data for revenue by category chart
+  const categoryData = [
+    { name: "Main Course", value: 45000, percentage: 35 },
+    { name: "Appetizers", value: 25000, percentage: 19 },
+    { name: "Desserts", value: 18000, percentage: 14 },
+    { name: "Beverages", value: 22000, percentage: 17 },
+    { name: "Specials", value: 20000, percentage: 15 }
+  ];
 
   if (isLoading) {
     return (
@@ -49,137 +63,178 @@ const Analytics = () => {
   }).reduce((sum, stat) => sum + stat.order_count, 0);
 
   const exportToExcel = () => {
-    const wb = XLSX.utils.book_new();
-    
-    // Revenue data
-    const revenueData = data.revenueStats.map(item => ({
-      Date: format(new Date(item.date), 'MMM dd, yyyy'),
-      Revenue: Number(item.total_revenue).toFixed(2),
-      Orders: item.order_count,
-      "Average Order Value": Number(item.average_order_value).toFixed(2)
-    }));
-    
-    const revenueSheet = XLSX.utils.json_to_sheet(revenueData);
-    XLSX.utils.book_append_sheet(wb, revenueSheet, "Revenue");
-    
-    // Customer data
-    const customerData = data.customerInsights.map(customer => ({
-      Name: customer.customer_name,
-      Visits: customer.visit_count,
-      "Total Spent": Number(customer.total_spent).toFixed(2),
-      "Average Order": Number(customer.average_order_value).toFixed(2),
-      "First Visit": format(new Date(customer.first_visit), 'MMM dd, yyyy'),
-      "Last Visit": format(new Date(customer.last_visit), 'MMM dd, yyyy')
-    }));
-    
-    const customerSheet = XLSX.utils.json_to_sheet(customerData);
-    XLSX.utils.book_append_sheet(wb, customerSheet, "Customer Insights");
-    
-    // Top products
-    const productData = data.topProducts.map(product => ({
-      Name: product.name,
-      Orders: product.orders,
-      Revenue: product.revenue.toFixed(2),
-      "Profit Margin": `${product.profit_margin}%`,
-      "In Stock": product.in_stock ? "Yes" : "No",
-      Trend: product.trend
-    }));
-    
-    const productSheet = XLSX.utils.json_to_sheet(productData);
-    XLSX.utils.book_append_sheet(wb, productSheet, "Top Products");
-    
-    const fileName = `Analytics_Report_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
-    
-    XLSX.writeFile(wb, fileName);
+    try {
+      const wb = XLSX.utils.book_new();
+      
+      // Revenue data
+      const revenueData = data.revenueStats.map(item => ({
+        Date: format(new Date(item.date), 'MMM dd, yyyy'),
+        Revenue: Number(item.total_revenue).toFixed(2),
+        Orders: item.order_count,
+        "Average Order Value": Number(item.average_order_value).toFixed(2)
+      }));
+      
+      const revenueSheet = XLSX.utils.json_to_sheet(revenueData);
+      XLSX.utils.book_append_sheet(wb, revenueSheet, "Revenue");
+      
+      // Customer data
+      const customerData = data.customerInsights.map(customer => ({
+        Name: customer.customer_name,
+        Visits: customer.visit_count,
+        "Total Spent": Number(customer.total_spent).toFixed(2),
+        "Average Order": Number(customer.average_order_value).toFixed(2),
+        "First Visit": format(new Date(customer.first_visit), 'MMM dd, yyyy'),
+        "Last Visit": format(new Date(customer.last_visit), 'MMM dd, yyyy')
+      }));
+      
+      const customerSheet = XLSX.utils.json_to_sheet(customerData);
+      XLSX.utils.book_append_sheet(wb, customerSheet, "Customer Insights");
+      
+      // Top products
+      const productData = data.topProducts.map(product => ({
+        Name: product.name,
+        Orders: product.orders,
+        Revenue: product.revenue.toFixed(2),
+        "Profit Margin": `${product.profit_margin}%`,
+        "In Stock": product.in_stock ? "Yes" : "No",
+        Trend: product.trend
+      }));
+      
+      const productSheet = XLSX.utils.json_to_sheet(productData);
+      XLSX.utils.book_append_sheet(wb, productSheet, "Top Products");
+      
+      const fileName = `Analytics_Report_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+      
+      XLSX.writeFile(wb, fileName);
+      
+      toast({
+        title: "Excel Export Successful",
+        description: `Report saved as ${fileName}`,
+      });
+    } catch (error) {
+      console.error("Excel export error:", error);
+      toast({
+        title: "Export Failed",
+        description: "Could not export to Excel. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
   
   const exportToPDF = () => {
-    const doc = new jsPDF();
-    
-    doc.setFontSize(18);
-    doc.text("Analytics Report", 14, 22);
-    
-    doc.setFontSize(11);
-    doc.text(`Generated on: ${format(new Date(), 'MMM dd, yyyy')}`, 14, 30);
-    
-    doc.setFontSize(14);
-    doc.text("Summary", 14, 40);
-    
-    doc.setFontSize(10);
-    doc.text(`Total Revenue: ₹${totalRevenue.toFixed(2)}`, 14, 50);
-    doc.text(`Total Orders: ${totalOrders}`, 14, 56);
-    doc.text(`Average Order Value: ₹${averageOrderValue.toFixed(2)}`, 14, 62);
-    
-    doc.setFontSize(14);
-    doc.text("Revenue Data (Last 30 days)", 14, 75);
-    
-    const revenueTableColumn = ["Date", "Revenue", "Orders", "Avg Order Value"];
-    const revenueTableRows = data.revenueStats.slice(0, 10).map(item => [
-      format(new Date(item.date), 'MMM dd, yyyy'),
-      `₹${Number(item.total_revenue).toFixed(2)}`,
-      item.order_count.toString(),
-      `₹${Number(item.average_order_value).toFixed(2)}`
-    ]);
-    
-    autoTable(doc, {
-      head: [revenueTableColumn],
-      body: revenueTableRows,
-      startY: 80,
-      theme: 'grid',
-      styles: { fontSize: 8, cellPadding: 1 },
-      headStyles: { fillColor: [128, 0, 128], textColor: 255 },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
-    });
-    
-    doc.addPage();
-    
-    doc.setFontSize(14);
-    doc.text("Top Customer Insights", 14, 20);
-    
-    const customerTableColumn = ["Customer", "Visits", "Total Spent", "Avg Order"];
-    const customerTableRows = data.customerInsights.slice(0, 15).map(item => [
-      item.customer_name,
-      item.visit_count.toString(),
-      `₹${Number(item.total_spent).toFixed(2)}`,
-      `₹${Number(item.average_order_value).toFixed(2)}`
-    ]);
-    
-    autoTable(doc, {
-      head: [customerTableColumn],
-      body: customerTableRows,
-      startY: 25,
-      theme: 'grid',
-      styles: { fontSize: 8, cellPadding: 1 },
-      headStyles: { fillColor: [128, 0, 128], textColor: 255 },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
-    });
-    
-    doc.addPage();
-    
-    doc.setFontSize(14);
-    doc.text("Top Selling Products", 14, 20);
-    
-    const productTableColumn = ["Product", "Orders", "Revenue", "Profit Margin"];
-    const productTableRows = data.topProducts.slice(0, 10).map(item => [
-      item.name,
-      item.orders.toString(),
-      `₹${item.revenue.toFixed(2)}`,
-      `${item.profit_margin}%`
-    ]);
-    
-    autoTable(doc, {
-      head: [productTableColumn],
-      body: productTableRows,
-      startY: 25,
-      theme: 'grid',
-      styles: { fontSize: 8, cellPadding: 1 },
-      headStyles: { fillColor: [128, 0, 128], textColor: 255 },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
-    });
-    
-    const fileName = `Analytics_Report_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
-    
-    doc.save(fileName);
+    try {
+      // Create a new PDF document with A4 size
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      // Add a title and date
+      doc.setFontSize(18);
+      doc.text("Analytics Report", 14, 22);
+      
+      doc.setFontSize(11);
+      doc.text(`Generated on: ${format(new Date(), 'MMM dd, yyyy')}`, 14, 30);
+      
+      // Add summary section
+      doc.setFontSize(14);
+      doc.text("Summary", 14, 40);
+      
+      doc.setFontSize(10);
+      doc.text(`Total Revenue: ₹${totalRevenue.toFixed(2)}`, 14, 50);
+      doc.text(`Total Orders: ${totalOrders}`, 14, 56);
+      doc.text(`Average Order Value: ₹${averageOrderValue.toFixed(2)}`, 14, 62);
+      
+      // Revenue data table
+      doc.setFontSize(14);
+      doc.text("Revenue Data (Last 30 days)", 14, 75);
+      
+      const revenueTableColumn = ["Date", "Revenue", "Orders", "Avg Order Value"];
+      const revenueTableRows = data.revenueStats.slice(0, 10).map(item => [
+        format(new Date(item.date), 'MMM dd, yyyy'),
+        `₹${Number(item.total_revenue).toFixed(2)}`,
+        item.order_count.toString(),
+        `₹${Number(item.average_order_value).toFixed(2)}`
+      ]);
+      
+      // @ts-ignore - jspdf-autotable types issue
+      autoTable(doc, {
+        head: [revenueTableColumn],
+        body: revenueTableRows,
+        startY: 80,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 1 },
+        headStyles: { fillColor: [128, 0, 128], textColor: 255 },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+      });
+      
+      // Add a new page for customer insights
+      doc.addPage();
+      
+      doc.setFontSize(14);
+      doc.text("Top Customer Insights", 14, 20);
+      
+      const customerTableColumn = ["Customer", "Visits", "Total Spent", "Avg Order"];
+      const customerTableRows = data.customerInsights.slice(0, 15).map(item => [
+        item.customer_name,
+        item.visit_count.toString(),
+        `₹${Number(item.total_spent).toFixed(2)}`,
+        `₹${Number(item.average_order_value).toFixed(2)}`
+      ]);
+      
+      // @ts-ignore - jspdf-autotable types issue
+      autoTable(doc, {
+        head: [customerTableColumn],
+        body: customerTableRows,
+        startY: 25,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 1 },
+        headStyles: { fillColor: [128, 0, 128], textColor: 255 },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+      });
+      
+      // Add another page for top products
+      doc.addPage();
+      
+      doc.setFontSize(14);
+      doc.text("Top Selling Products", 14, 20);
+      
+      const productTableColumn = ["Product", "Orders", "Revenue", "Profit Margin"];
+      const productTableRows = data.topProducts.slice(0, 10).map(item => [
+        item.name,
+        item.orders.toString(),
+        `₹${item.revenue.toFixed(2)}`,
+        `${item.profit_margin}%`
+      ]);
+      
+      // @ts-ignore - jspdf-autotable types issue
+      autoTable(doc, {
+        head: [productTableColumn],
+        body: productTableRows,
+        startY: 25,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 1 },
+        headStyles: { fillColor: [128, 0, 128], textColor: 255 },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+      });
+      
+      // Save the PDF with a filename based on the current date
+      const fileName = `Analytics_Report_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+      doc.save(fileName);
+      
+      toast({
+        title: "PDF Export Successful",
+        description: `Report saved as ${fileName}`,
+      });
+    } catch (error) {
+      console.error("PDF export error:", error);
+      toast({
+        title: "Export Failed",
+        description: "Could not export to PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -281,12 +336,13 @@ const Analytics = () => {
         </Card>
       </div>
 
-      <Tabs defaultValue="revenue" className="w-full">
+      <Tabs defaultValue="revenue" className="w-full" value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-4">
           <TabsTrigger value="revenue">Revenue Analysis</TabsTrigger>
           <TabsTrigger value="customers">Customer Insights</TabsTrigger>
           <TabsTrigger value="products">Menu Performance</TabsTrigger>
           <TabsTrigger value="forecast">Sales Forecast</TabsTrigger>
+          <TabsTrigger value="categories">Category Analysis</TabsTrigger>
         </TabsList>
         
         <TabsContent value="revenue" className="space-y-4">
@@ -303,6 +359,10 @@ const Analytics = () => {
         
         <TabsContent value="forecast" className="space-y-4">
           <SalesPrediction data={data.salesPrediction} />
+        </TabsContent>
+        
+        <TabsContent value="categories" className="space-y-4">
+          <RevenueByCategoryChart data={categoryData} />
         </TabsContent>
       </Tabs>
     </div>
