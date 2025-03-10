@@ -157,11 +157,11 @@ const ReportExport: React.FC<ReportExportProps> = ({ items, title = "Inventory R
         styles: { fontSize: 8, cellPadding: 1 },
         headStyles: { fillColor: [0, 179, 167], textColor: 255 },
         alternateRowStyles: { fillColor: [245, 245, 245] },
-        rowStyles: row => {
-          if (row.raw[7] === "Low Stock") {
-            return { textColor: [220, 53, 69] };
+        didParseCell: (data) => {
+          // Check if the cell is in the "Status" column and has "Low Stock" value
+          if (data.section === 'body' && data.column.index === 7 && data.cell.raw === "Low Stock") {
+            data.cell.styles.textColor = [220, 53, 69]; // Red color for low stock
           }
-          return {};
         }
       });
       

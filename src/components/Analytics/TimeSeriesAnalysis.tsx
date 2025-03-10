@@ -19,6 +19,7 @@ interface TimeSeriesAnalysisProps {
   valuePrefix?: string;
   valueSuffix?: string;
   color?: string;
+  height?: number;
 }
 
 type TimePeriod = '1d' | '7d' | '30d' | '90d' | '1y' | 'all';
@@ -29,7 +30,8 @@ const TimeSeriesAnalysis = ({
   description = '', 
   valuePrefix = '₹', 
   valueSuffix = '',
-  color = '#8b5cf6'
+  color = '#8b5cf6',
+  height
 }: TimeSeriesAnalysisProps) => {
   const { theme } = useTheme();
   const isDarkMode = theme === 'dark';
@@ -101,7 +103,8 @@ const TimeSeriesAnalysis = ({
       },
       zooming: {
         type: 'x'
-      }
+      },
+      height: height // Apply the height property if provided
     },
     title: {
       text: undefined
@@ -217,31 +220,31 @@ const TimeSeriesAnalysis = ({
           <div className="flex items-center">
             <div className="flex items-center mr-2 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
               <button 
-                className={`px-2 py-1 rounded text-xs font-medium ${timePeriod === '1d' ? `bg-${color.replace('#', '')} text-white` : 'text-gray-500 dark:text-gray-400'}`}
+                className={`px-2 py-1 rounded text-xs font-medium ${timePeriod === '1d' ? 'bg-primary text-white' : 'text-gray-500 dark:text-gray-400'}`}
                 onClick={() => setTimePeriod('1d')}
               >
                 1D
               </button>
               <button 
-                className={`px-2 py-1 rounded text-xs font-medium ${timePeriod === '7d' ? `bg-${color.replace('#', '')} text-white` : 'text-gray-500 dark:text-gray-400'}`}
+                className={`px-2 py-1 rounded text-xs font-medium ${timePeriod === '7d' ? 'bg-primary text-white' : 'text-gray-500 dark:text-gray-400'}`}
                 onClick={() => setTimePeriod('7d')}
               >
                 7D
               </button>
               <button 
-                className={`px-2 py-1 rounded text-xs font-medium ${timePeriod === '30d' ? `bg-${color.replace('#', '')} text-white` : 'text-gray-500 dark:text-gray-400'}`}
+                className={`px-2 py-1 rounded text-xs font-medium ${timePeriod === '30d' ? 'bg-primary text-white' : 'text-gray-500 dark:text-gray-400'}`}
                 onClick={() => setTimePeriod('30d')}
               >
                 30D
               </button>
               <button 
-                className={`px-2 py-1 rounded text-xs font-medium ${timePeriod === '90d' ? `bg-${color.replace('#', '')} text-white` : 'text-gray-500 dark:text-gray-400'}`}
+                className={`px-2 py-1 rounded text-xs font-medium ${timePeriod === '90d' ? 'bg-primary text-white' : 'text-gray-500 dark:text-gray-400'}`}
                 onClick={() => setTimePeriod('90d')}
               >
                 90D
               </button>
               <button 
-                className={`px-2 py-1 rounded text-xs font-medium ${timePeriod === '1y' ? `bg-${color.replace('#', '')} text-white` : 'text-gray-500 dark:text-gray-400'}`}
+                className={`px-2 py-1 rounded text-xs font-medium ${timePeriod === '1y' ? 'bg-primary text-white' : 'text-gray-500 dark:text-gray-400'}`}
                 onClick={() => setTimePeriod('1y')}
               >
                 1Y
