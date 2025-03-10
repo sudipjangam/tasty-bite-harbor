@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useAnalyticsData } from "@/hooks/useAnalyticsData";
 import RevenueHighchart from "@/components/Analytics/RevenueHighchart";
@@ -306,7 +305,6 @@ const Analytics = () => {
       toast({
         title: "PDF Export Successful",
         description: `Report saved as ${fileName}`,
-        variant: "success",
       });
     } catch (error) {
       console.error("PDF export error:", error);

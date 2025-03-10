@@ -165,8 +165,8 @@ const TimeSeriesAnalysis = ({
             y2: 1
           },
           stops: [
-            [0, Highcharts.color(color).setOpacity(0.7).get()],
-            [1, Highcharts.color(color).setOpacity(0.1).get()]
+            [0, Highcharts.color(color).setOpacity(0.7).get('rgba') as string],
+            [1, Highcharts.color(color).setOpacity(0.1).get('rgba') as string]
           ]
         },
         marker: {

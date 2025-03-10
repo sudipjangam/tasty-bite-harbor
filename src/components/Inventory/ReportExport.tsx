@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { FileDown, FileText, FileSpreadsheet } from "lucide-react";
@@ -183,7 +182,6 @@ const ReportExport: React.FC<ReportExportProps> = ({ items, title = "Inventory R
       toast({
         title: "PDF Export Successful",
         description: `Report saved as ${fileName}`,
-        variant: "success", 
       });
     } catch (error) {
       console.error("PDF export error:", error);
