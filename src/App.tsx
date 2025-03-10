@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ThemeProvider } from "@/hooks/useTheme";
 import Sidebar from "./components/Layout/Sidebar";
+import Watermark from "./components/Layout/Watermark";
 import Index from "./pages/Index";
 import Menu from "./pages/Menu";
 import Orders from "./pages/Orders";
@@ -229,6 +230,7 @@ const App = () => {
                           </Routes>
                         </div>
                       </main>
+                      <Watermark />
                     </div>
                   </ProtectedRoute>
                 }

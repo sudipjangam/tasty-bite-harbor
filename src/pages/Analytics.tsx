@@ -6,11 +6,12 @@ import CustomerInsights from "@/components/Analytics/CustomerInsights";
 import TopProducts from "@/components/Analytics/TopProducts";
 import SalesPrediction from "@/components/Analytics/SalesPrediction";
 import RevenueByCategoryChart from "@/components/Analytics/RevenueByCategoryChart";
+import TimeSeriesAnalysis from "@/components/Analytics/TimeSeriesAnalysis";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileSpreadsheet, FileText, BarChart3, Users, TrendingUp, Calendar } from "lucide-react";
+import { FileSpreadsheet, FileText, BarChart3, Users, TrendingUp, Calendar, PieChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
+import { format, subDays } from "date-fns";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
@@ -29,6 +30,30 @@ const Analytics = () => {
     { name: "Beverages", value: 22000, percentage: 17 },
     { name: "Specials", value: 20000, percentage: 15 }
   ];
+
+  // Mock data for time series analysis
+  const generateTimeSeriesData = (days: number, baseValue: number, volatility: number) => {
+    const result = [];
+    const now = new Date();
+    
+    for (let i = days; i >= 0; i--) {
+      const date = subDays(now, i);
+      // Generate some random variation
+      const randomFactor = 1 + ((Math.random() - 0.5) * volatility);
+      const value = Math.round(baseValue * randomFactor);
+      
+      result.push({
+        date: format(date, 'yyyy-MM-dd'),
+        value: value
+      });
+    }
+    
+    return result;
+  };
+
+  const customerTimeData = generateTimeSeriesData(365, 50, 0.4);
+  const orderTimeData = generateTimeSeriesData(365, 120, 0.3);
+  const avgOrderTimeData = generateTimeSeriesData(365, 850, 0.2);
 
   if (isLoading) {
     return (
@@ -130,25 +155,50 @@ const Analytics = () => {
         format: 'a4'
       });
       
-      // Add a title and date
+      // Set document properties
+      doc.setProperties({
+        title: 'Business Analytics Report',
+        author: 'Restaurant Management System',
+        creator: 'Swadeshi Solutions',
+        subject: 'Analytics Report',
+      });
+      
+      // Add a custom header with theme color
+      doc.setFillColor(0, 179, 167); // Teal color
+      doc.rect(0, 0, 210, 20, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text("BUSINESS ANALYTICS REPORT", 14, 14);
+      
+      // Add regular title and date
+      doc.setTextColor(0, 0, 0);
       doc.setFontSize(18);
-      doc.text("Analytics Report", 14, 22);
+      doc.text("Analytics Report", 14, 30);
       
       doc.setFontSize(11);
-      doc.text(`Generated on: ${format(new Date(), 'MMM dd, yyyy')}`, 14, 30);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Generated on: ${format(new Date(), 'MMMM dd, yyyy')}`, 14, 38);
       
-      // Add summary section
-      doc.setFontSize(14);
-      doc.text("Summary", 14, 40);
-      
+      // Add summary section with a background
+      doc.setFillColor(240, 240, 240);
+      doc.rect(14, 44, 182, 30, 'F');
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text("Performance Summary", 18, 52);
+      doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
-      doc.text(`Total Revenue: ₹${totalRevenue.toFixed(2)}`, 14, 50);
-      doc.text(`Total Orders: ${totalOrders}`, 14, 56);
-      doc.text(`Average Order Value: ₹${averageOrderValue.toFixed(2)}`, 14, 62);
       
-      // Revenue data table
+      doc.text(`Total Revenue: ₹${totalRevenue.toFixed(2)}`, 18, 60);
+      doc.text(`Total Orders: ${totalOrders}`, 90, 60);
+      doc.text(`Average Order Value: ₹${averageOrderValue.toFixed(2)}`, 150, 60);
+      doc.text(`Active Customers: ${data.customerInsights.length}`, 18, 68);
+      doc.text(`Top Selling Item: ${data.topProducts[0]?.name || 'N/A'}`, 90, 68);
+      
+      // Revenue data table with title
       doc.setFontSize(14);
-      doc.text("Revenue Data (Last 30 days)", 14, 75);
+      doc.setFont('helvetica', 'bold');
+      doc.text("Revenue Data (Last 30 days)", 14, 83);
       
       const revenueTableColumn = ["Date", "Revenue", "Orders", "Avg Order Value"];
       const revenueTableRows = data.revenueStats.slice(0, 10).map(item => [
@@ -162,18 +212,27 @@ const Analytics = () => {
       autoTable(doc, {
         head: [revenueTableColumn],
         body: revenueTableRows,
-        startY: 80,
+        startY: 88,
         theme: 'grid',
         styles: { fontSize: 8, cellPadding: 1 },
-        headStyles: { fillColor: [128, 0, 128], textColor: 255 },
+        headStyles: { fillColor: [0, 179, 167], textColor: 255 },
         alternateRowStyles: { fillColor: [245, 245, 245] },
       });
       
       // Add a new page for customer insights
       doc.addPage();
       
+      // Custom header on the new page
+      doc.setFillColor(0, 179, 167);
+      doc.rect(0, 0, 210, 20, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text("BUSINESS ANALYTICS REPORT", 14, 14);
+      
+      doc.setTextColor(0, 0, 0);
       doc.setFontSize(14);
-      doc.text("Top Customer Insights", 14, 20);
+      doc.text("Top Customer Insights", 14, 30);
       
       const customerTableColumn = ["Customer", "Visits", "Total Spent", "Avg Order"];
       const customerTableRows = data.customerInsights.slice(0, 15).map(item => [
@@ -187,37 +246,58 @@ const Analytics = () => {
       autoTable(doc, {
         head: [customerTableColumn],
         body: customerTableRows,
-        startY: 25,
+        startY: 35,
         theme: 'grid',
         styles: { fontSize: 8, cellPadding: 1 },
-        headStyles: { fillColor: [128, 0, 128], textColor: 255 },
+        headStyles: { fillColor: [0, 179, 167], textColor: 255 },
         alternateRowStyles: { fillColor: [245, 245, 245] },
       });
       
       // Add another page for top products
       doc.addPage();
       
-      doc.setFontSize(14);
-      doc.text("Top Selling Products", 14, 20);
+      // Custom header on the third page
+      doc.setFillColor(0, 179, 167);
+      doc.rect(0, 0, 210, 20, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text("BUSINESS ANALYTICS REPORT", 14, 14);
       
-      const productTableColumn = ["Product", "Orders", "Revenue", "Profit Margin"];
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(14);
+      doc.text("Top Selling Products", 14, 30);
+      
+      const productTableColumn = ["Product", "Orders", "Revenue", "Profit Margin", "In Stock"];
       const productTableRows = data.topProducts.slice(0, 10).map(item => [
         item.name,
         item.orders.toString(),
         `₹${item.revenue.toFixed(2)}`,
-        `${item.profit_margin}%`
+        `${item.profit_margin}%`,
+        item.in_stock ? "Yes" : "No"
       ]);
       
       // @ts-ignore - jspdf-autotable types issue
       autoTable(doc, {
         head: [productTableColumn],
         body: productTableRows,
-        startY: 25,
+        startY: 35,
         theme: 'grid',
         styles: { fontSize: 8, cellPadding: 1 },
-        headStyles: { fillColor: [128, 0, 128], textColor: 255 },
+        headStyles: { fillColor: [0, 179, 167], textColor: 255 },
         alternateRowStyles: { fillColor: [245, 245, 245] },
       });
+      
+      // Add watermark to all pages
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text("Powered by Swadeshi Solutions", 170, 285, { align: 'right' });
+        doc.setFontSize(10);
+        doc.text(`Page ${i} of ${pageCount}`, 100, 285, { align: 'center' });
+      }
       
       // Save the PDF with a filename based on the current date
       const fileName = `Analytics_Report_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
@@ -226,6 +306,7 @@ const Analytics = () => {
       toast({
         title: "PDF Export Successful",
         description: `Report saved as ${fileName}`,
+        variant: "success",
       });
     } catch (error) {
       console.error("PDF export error:", error);
@@ -336,6 +417,32 @@ const Analytics = () => {
         </Card>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <TimeSeriesAnalysis 
+          data={customerTimeData} 
+          title="Customer Growth" 
+          description="Daily unique customers over time" 
+          valuePrefix="" 
+          valueSuffix=" customers"
+          color="#6366f1"
+        />
+        <TimeSeriesAnalysis 
+          data={orderTimeData} 
+          title="Order Volume" 
+          description="Number of orders processed" 
+          valuePrefix="" 
+          valueSuffix=" orders"
+          color="#8b5cf6"
+        />
+        <TimeSeriesAnalysis 
+          data={avgOrderTimeData} 
+          title="Average Order Value" 
+          description="Average amount spent per order" 
+          valuePrefix="₹" 
+          color="#22c55e"
+        />
+      </div>
+
       <Tabs defaultValue="revenue" className="w-full" value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-4">
           <TabsTrigger value="revenue">Revenue Analysis</TabsTrigger>
@@ -365,6 +472,10 @@ const Analytics = () => {
           <RevenueByCategoryChart data={categoryData} />
         </TabsContent>
       </Tabs>
+      
+      <div className="fixed bottom-2 right-2 text-xs text-muted-foreground/70">
+        Powered by Swadeshi Solutions
+      </div>
     </div>
   );
 };
