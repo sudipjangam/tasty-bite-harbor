@@ -1,9 +1,9 @@
-
 import { useRef } from 'react';
 import Highcharts from 'highcharts';
 import HighchartsReact from 'highcharts-react-official';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useTheme } from "@/hooks/useTheme";
+import { TrendingUp } from "lucide-react";
 
 interface SalesPredictionData {
   date: string;
