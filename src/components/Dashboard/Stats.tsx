@@ -26,7 +26,7 @@ const Stats = () => {
       value: `₹${totalSales.toFixed(2)}`,
       icon: DollarSign,
       trend: "+12.5%",
-      color: "text-green-600",
+      color: "text-green-600 dark:text-green-400",
       type: "sales" as const,
       chart: ordersData?.map(order => ({
         date: new Date(order.created_at).toLocaleDateString(),
@@ -38,7 +38,7 @@ const Stats = () => {
       value: activeOrders.toString(),
       icon: ShoppingBag,
       trend: "+3",
-      color: "text-blue-600",
+      color: "text-blue-600 dark:text-blue-400",
       type: "orders" as const,
       data: ordersData?.filter(order => order.status === "pending") || []
     },
@@ -47,7 +47,7 @@ const Stats = () => {
       value: uniqueCustomers.toString(),
       icon: Users,
       trend: "+5",
-      color: "text-purple-600",
+      color: "text-purple-600 dark:text-purple-400",
       type: "customers" as const,
       data: ordersData?.map(order => ({
         name: order.customer_name,
@@ -60,7 +60,7 @@ const Stats = () => {
       value: `₹${todaysRevenue.toFixed(2)}`,
       icon: TrendingUp,
       trend: "+8.2%",
-      color: "text-orange-600",
+      color: "text-orange-600 dark:text-orange-400",
       type: "revenue" as const,
       chart: todaysOrders.map(order => ({
         time: new Date(order.created_at).toLocaleTimeString(),

@@ -4,8 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { startOfWeek, addDays, format } from "date-fns";
+import { useTheme } from "@/hooks/useTheme";
+import { Card } from "@/components/ui/card";
 
 const WeeklySalesChart = () => {
+  const { theme } = useTheme();
+  const isDarkMode = theme === 'dark';
+  
   const { data: profile } = useQuery({
     queryKey: ["profile"],
     queryFn: async () => {
@@ -46,41 +51,54 @@ const WeeklySalesChart = () => {
     },
   });
 
+  // Theme-aware colors
+  const textColor = isDarkMode ? '#F7FAFC' : '#2D3748';
+  const gridColor = isDarkMode ? '#4A5568' : '#E2E8F0';
+  const barColor = isDarkMode ? '#48BB78' : '#48BB78';
+  const cursorFill = isDarkMode ? 'rgba(72, 187, 120, 0.2)' : 'rgba(72, 187, 120, 0.1)';
+  const tooltipBg = isDarkMode ? '#2D3748' : 'white';
+  const tooltipBorder = isDarkMode ? '#4A5568' : '#E2E8F0';
+
   if (isLoading) {
-    return <Skeleton className="w-full h-[300px] rounded-lg bg-secondary/50" />;
+    return <Skeleton className="w-full h-[300px] rounded-lg bg-secondary/20" />;
   }
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={weeklyData} className="mt-4">
-        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-        <XAxis 
-          dataKey="day"
-          tick={{ fill: '#888888' }}
-          axisLine={{ stroke: '#e5e7eb' }}
-        />
-        <YAxis 
-          tick={{ fill: '#888888' }}
-          axisLine={{ stroke: '#e5e7eb' }}
-          tickFormatter={(value) => `₹${value}`}
-        />
-        <Tooltip 
-          formatter={(value) => [`₹${value}`, 'Revenue']}
-          contentStyle={{ 
-            backgroundColor: 'white',
-            border: '1px solid #e5e7eb',
-            borderRadius: '8px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-          }}
-          cursor={{ fill: 'rgba(155, 135, 245, 0.1)' }}
-        />
-        <Bar 
-          dataKey="amount" 
-          fill="#9b87f5"
-          radius={[6, 6, 0, 0]}
-        />
-      </BarChart>
-    </ResponsiveContainer>
+    <Card className="p-4 shadow-card hover:shadow-card-hover transition-all duration-300">
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={weeklyData} className="mt-4">
+          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" stroke={gridColor} />
+          <XAxis 
+            dataKey="day"
+            tick={{ fill: textColor, fontSize: 12, fontWeight: 500 }}
+            axisLine={{ stroke: gridColor }}
+          />
+          <YAxis 
+            tick={{ fill: textColor, fontSize: 12, fontWeight: 500 }}
+            axisLine={{ stroke: gridColor }}
+            tickFormatter={(value) => `₹${value}`}
+          />
+          <Tooltip 
+            formatter={(value) => [`₹${value}`, 'Revenue']}
+            contentStyle={{ 
+              backgroundColor: tooltipBg,
+              border: `1px solid ${tooltipBorder}`,
+              borderRadius: '8px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              color: isDarkMode ? '#F7FAFC' : '#2D3748',
+              fontWeight: 500
+            }}
+            cursor={{ fill: cursorFill }}
+          />
+          <Bar 
+            dataKey="amount" 
+            fill={barColor}
+            radius={[6, 6, 0, 0]}
+            animationDuration={1000}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+    </Card>
   );
 };
 

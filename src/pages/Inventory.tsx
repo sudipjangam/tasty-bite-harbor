@@ -409,10 +409,10 @@ const Inventory = () => {
                         Low Stock
                       </Badge>
                       {item.notification_sent && (
-                        <span className="flex items-center">
+                        <div className="flex items-center">
                           <Bell className="h-4 w-4 text-amber-500 ml-1" />
                           <span className="text-xs text-amber-500 ml-1">Notification sent</span>
-                        </span>
+                        </div>
                       )}
                     </div>
                   )}

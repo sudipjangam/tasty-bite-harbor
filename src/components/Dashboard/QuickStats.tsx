@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -108,7 +107,7 @@ const QuickStats = () => {
       title: "Active Orders",
       value: stats?.activeOrders || 0,
       icon: ClipboardList,
-      color: "bg-blue-100 text-blue-700",
+      color: "bg-blue-100 dark:bg-blue-900/40 text-brand-deep-blue dark:text-blue-300",
       route: "/orders",
       alert: false
     },
@@ -116,7 +115,7 @@ const QuickStats = () => {
       title: "Available Tables",
       value: `${stats?.availableTables || 0}/${stats?.totalTables || 0}`,
       icon: TableProperties,
-      color: "bg-green-100 text-green-700",
+      color: "bg-green-100 dark:bg-green-900/40 text-brand-success-green dark:text-green-300",
       route: "/tables",
       alert: false
     },
@@ -124,7 +123,9 @@ const QuickStats = () => {
       title: "Low Stock Items",
       value: stats?.lowStockItems || 0,
       icon: Package2,
-      color: stats?.lowStockItems > 0 ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700",
+      color: stats?.lowStockItems > 0 
+        ? "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300" 
+        : "bg-orange-100 dark:bg-orange-900/40 text-brand-warm-orange dark:text-orange-300",
       route: "/inventory",
       alert: stats?.lowStockItems > 0
     },
@@ -132,7 +133,7 @@ const QuickStats = () => {
       title: "Staff on Duty",
       value: stats?.staffOnDuty || 0,
       icon: Users,
-      color: "bg-purple-100 text-purple-700",
+      color: "bg-purple-100 dark:bg-purple-900/40 text-brand-deep-blue dark:text-purple-300",
       route: "/staff",
       alert: false
     },
@@ -140,7 +141,9 @@ const QuickStats = () => {
       title: "Upcoming Leaves",
       value: stats?.upcomingLeaves || 0,
       icon: Calendar,
-      color: stats?.upcomingLeaves > 0 ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700",
+      color: stats?.upcomingLeaves > 0 
+        ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300" 
+        : "bg-indigo-100 dark:bg-indigo-900/40 text-brand-deep-blue dark:text-indigo-300",
       route: "/staff?tab=leaves",
       alert: stats?.upcomingLeaves > 0
     }
@@ -155,7 +158,7 @@ const QuickStats = () => {
       {quickStats.map((stat, index) => (
         <Card 
           key={index} 
-          className="p-6 hover:shadow-lg transition-shadow cursor-pointer"
+          className="p-6 shadow-card hover:shadow-card-hover transition-all duration-200 cursor-pointer transform hover:scale-[1.02] bg-white dark:bg-brand-deep-blue/80 border border-border/30"
           onClick={() => handleCardClick(stat.route)}
         >
           <div className="flex items-start justify-between">
@@ -163,7 +166,7 @@ const QuickStats = () => {
               <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 {stat.title}
                 {stat.alert && (
-                  <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                  <Badge variant="outline" className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800">
                     Alert
                   </Badge>
                 )}

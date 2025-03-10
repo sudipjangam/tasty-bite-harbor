@@ -1,138 +1,177 @@
 
-import { 
-  LayoutDashboard, 
-  Menu as MenuIcon, 
-  ClipboardList, 
-  LayoutGrid,
+import React, { useState, useEffect } from "react";
+import { NavLink, useLocation } from "react-router-dom";
+import {
+  Home,
+  Utensils,
+  ShoppingCart,
+  Coffee,
   Users,
-  Box,
-  Hotel,
+  PackageOpen,
+  Bed,
   Truck,
-  ChartBar,
-  Settings2,
-  PanelLeftClose,
-  PanelLeft,
-  UserCircle
+  BarChart3,
+  Settings,
+  Menu as MenuIcon,
+  X,
 } from "lucide-react";
-import { useLocation, Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { supabase } from "@/integrations/supabase/client";
+import { Button } from "../ui/button";
 import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const Sidebar = () => {
+  const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const isMobile = useIsMobile();
   const [staffName, setStaffName] = useState<string | null>(null);
-  
-  // Fetch user's name from profile
-  const { data: profile } = useQuery({
-    queryKey: ['user-profile'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-      
-      const { data } = await supabase
-        .from('profiles')
-        .select('first_name, last_name')
-        .eq('id', user.id)
-        .single();
-      
-      return data;
-    },
-  });
+  const { toast } = useToast();
 
-  // Update staff name when profile data changes
-  useEffect(() => {
-    if (profile && (profile.first_name || profile.last_name)) {
-      const name = [profile.first_name, profile.last_name].filter(Boolean).join(' ');
-      setStaffName(name);
+  const getProfileData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+
+        if (error) {
+          console.error("Error fetching profile:", error);
+          toast({
+            title: "Error",
+            description: "Failed to load profile data.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Get the name from the profile object, using first_name and last_name fields
+        const displayName = profile?.first_name 
+          ? `${profile.first_name} ${profile.last_name || ''}`
+          : user.email?.split('@')[0] || 'User';
+        
+        setStaffName(displayName.trim());
+      }
+    } catch (error) {
+      console.error("Profile fetch error:", error);
     }
-  }, [profile]);
-  
-  const menuItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-    { icon: MenuIcon, label: "Menu", path: "/menu" },
-    { icon: ClipboardList, label: "Orders", path: "/orders" },
-    { icon: LayoutGrid, label: "Tables", path: "/tables" },
-    { icon: Users, label: "Staff", path: "/staff" },
-    { icon: Box, label: "Inventory", path: "/inventory" },
-    { icon: Hotel, label: "Rooms", path: "/rooms" },
-    { icon: Truck, label: "Suppliers", path: "/suppliers" },
-    { icon: ChartBar, label: "Analytics", path: "/analytics" },
-    { icon: Settings2, label: "Settings", path: "/settings" },
+  };
+
+  useEffect(() => {
+    getProfileData();
+  }, []);
+
+  const navigation = [
+    { name: "Dashboard", href: "/", icon: Home },
+    { name: "Menu", href: "/menu", icon: Utensils },
+    { name: "Orders", href: "/orders", icon: ShoppingCart },
+    { name: "Tables", href: "/tables", icon: Coffee },
+    { name: "Staff", href: "/staff", icon: Users },
+    { name: "Inventory", href: "/inventory", icon: PackageOpen },
+    { name: "Rooms", href: "/rooms", icon: Bed },
+    { name: "Suppliers", href: "/suppliers", icon: Truck },
+    { name: "Analytics", href: "/analytics", icon: BarChart3 },
+    { name: "Settings", href: "/settings", icon: Settings },
   ];
 
-  if (isMobile && isCollapsed) {
-    return null;
-  }
-
   return (
-    <div 
-      className={cn(
-        "transition-all duration-300 ease-in-out",
-        isCollapsed ? "w-20" : "w-64",
-        "min-h-screen bg-gradient-to-b from-primary/5 to-accent/5 backdrop-blur-xl border-r border-primary/10",
-        isMobile && "absolute z-50 shadow-xl"
-      )}
-    >
-      <div className="flex flex-col h-full p-4">
-        <div className="flex items-center justify-between mb-8">
-          {!isCollapsed && (
-            <h1 className="text-accent text-2xl font-bold flex items-center gap-2">
-              <span className="text-accent">◻</span>
-              Restaurant
-            </h1>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="ml-auto"
-          >
-            {isCollapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-          </Button>
-        </div>
-        
-        <nav className="space-y-1 overflow-y-auto flex-1">
-          {menuItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={cn(
-                "flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200",
-                "hover:bg-accent/10 active:scale-[0.98]",
-                location.pathname === item.path
-                  ? "bg-accent/15 text-accent font-medium"
-                  : "text-primary/80"
-              )}
-            >
-              <item.icon className={cn("w-5 h-5", isCollapsed && "mx-auto")} />
-              {!isCollapsed && <span>{item.label}</span>}
-            </Link>
-          ))}
-        </nav>
+    <>
+      {/* Mobile menu toggle */}
+      <div className="fixed top-4 left-4 z-40 lg:hidden">
+        <Button
+          onClick={() => setIsOpen(!isOpen)}
+          variant="outline"
+          size="icon"
+          className="bg-card"
+        >
+          <MenuIcon className="h-5 w-5" />
+        </Button>
+      </div>
 
-        {!isCollapsed && (
-          <div className="mt-auto pt-4 border-t border-primary/10">
-            <div className="flex items-center gap-3 px-4 py-2">
-              <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                <UserCircle className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-30 w-64 bg-sidebar-background border-r border-sidebar-border transition-transform duration-300 lg:translate-x-0 lg:relative",
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+                <Utensils className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <h1 className="text-lg font-bold text-sidebar-primary">Restaurant</h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Button
+                onClick={() => setIsOpen(false)}
+                variant="ghost"
+                size="icon"
+                className="lg:hidden"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 overflow-y-auto py-4 px-3">
+            <ul className="space-y-1">
+              {navigation.map((item) => (
+                <li key={item.name}>
+                  <NavLink
+                    to={item.href}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex items-center space-x-2 rounded-md p-2 text-sm font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                        isActive
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "text-sidebar-foreground"
+                      )
+                    }
+                  >
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.name}</span>
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          {/* Footer */}
+          <div className="border-t border-sidebar-border p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-sidebar-accent flex items-center justify-center text-sidebar-accent-foreground font-medium">
+                {staffName ? staffName.charAt(0) : "?"}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
-                  Restaurant Staff {staffName ? `(${staffName})` : ''}
+                <p className="text-sm font-medium truncate text-sidebar-foreground">
+                  {staffName || "Loading..."}
                 </p>
-                <p className="text-xs text-primary/60 truncate">Active Now</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  Staff Member
+                </p>
               </div>
             </div>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      </aside>
+
+      {/* Backdrop */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-20 lg:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+    </>
   );
 };
 

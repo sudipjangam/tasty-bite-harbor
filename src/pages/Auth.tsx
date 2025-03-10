@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { checkSubscriptionStatus } from "@/utils/subscriptionUtils";
 import SubscriptionPlans from "@/components/SubscriptionPlans";
@@ -47,6 +47,7 @@ const Auth = () => {
               title: "Subscription Required",
               description: "Your subscription is not active. Please choose a plan to continue.",
               variant: "destructive",
+              // Using default duration (3 seconds)
             });
             return;
           }
@@ -55,6 +56,7 @@ const Auth = () => {
         toast({
           title: "Success",
           description: "Logged in successfully",
+          // Using default duration (3 seconds)
         });
         navigate("/");
       } else {
@@ -67,6 +69,7 @@ const Auth = () => {
         toast({
           title: "Success",
           description: "Please check your email to verify your account",
+          // Using default duration (3 seconds)
         });
       }
     } catch (error) {
@@ -75,6 +78,7 @@ const Auth = () => {
         title: "Error",
         description: error instanceof Error ? error.message : "Authentication failed",
         variant: "destructive",
+        // Using default duration (3 seconds)
       });
     } finally {
       setLoading(false);

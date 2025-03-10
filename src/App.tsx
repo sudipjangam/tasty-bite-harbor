@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { ThemeProvider } from "@/hooks/useTheme";
 import Sidebar from "./components/Layout/Sidebar";
 import Index from "./pages/Index";
 import Menu from "./pages/Menu";
@@ -97,91 +98,15 @@ const SubscriptionGuard = ({ children }: { children: React.ReactNode }) => {
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [subscriptionStatus, setSubscriptionStatus] = useState<{
-    hasActiveSubscription: boolean | null;
-    restaurantId: string | null;
-    checkComplete: boolean;
-  }>({
-    hasActiveSubscription: null,
-    restaurantId: null,
-    checkComplete: false
-  });
+  const [hasActiveSubscription, setHasActiveSubscription] = useState<boolean | null>(null);
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Create a flag to prevent state updates if component unmounts
-    let isMounted = true;
-    
     async function checkSession() {
-      try {
-        // First, check if there's an active session
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (isMounted) {
-          setSession(session);
-          
-          if (!session) {
-            setLoading(false);
-            return;
-          }
-          
-          // Get user's profile to fetch restaurant_id
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("restaurant_id")
-            .eq("id", session.user.id)
-            .maybeSingle();
-
-          if (profile?.restaurant_id && isMounted) {
-            const subscriptionActive = await checkSubscriptionStatus(profile.restaurant_id);
-            
-            setSubscriptionStatus({
-              hasActiveSubscription: subscriptionActive,
-              restaurantId: profile.restaurant_id,
-              checkComplete: true
-            });
-          } else if (isMounted) {
-            setSubscriptionStatus({
-              hasActiveSubscription: false,
-              restaurantId: null,
-              checkComplete: true
-            });
-          }
-          
-          if (isMounted) {
-            setLoading(false);
-          }
-        }
-      } catch (error) {
-        console.error("Error checking session:", error);
-        if (isMounted) {
-          setSubscriptionStatus({
-            hasActiveSubscription: false,
-            restaurantId: null,
-            checkComplete: true
-          });
-          setLoading(false);
-        }
-      }
-    }
-
-    checkSession();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (isMounted) {
-        setSession(session);
-        
-        if (!session) {
-          setSubscriptionStatus({
-            hasActiveSubscription: null,
-            restaurantId: null,
-            checkComplete: true
-          });
-          setLoading(false);
-          return;
-        }
-        
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+      
+      if (session) {
         try {
           // Get user's profile to fetch restaurant_id
           const { data: profile } = await supabase
@@ -190,43 +115,58 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
             .eq("id", session.user.id)
             .maybeSingle();
 
-          if (profile?.restaurant_id && isMounted) {
+          if (profile?.restaurant_id) {
+            setRestaurantId(profile.restaurant_id);
             const subscriptionActive = await checkSubscriptionStatus(profile.restaurant_id);
-            
-            setSubscriptionStatus({
-              hasActiveSubscription: subscriptionActive,
-              restaurantId: profile.restaurant_id,
-              checkComplete: true
-            });
-          } else if (isMounted) {
-            setSubscriptionStatus({
-              hasActiveSubscription: false,
-              restaurantId: null,
-              checkComplete: true
-            });
+            setHasActiveSubscription(subscriptionActive);
+          } else {
+            setHasActiveSubscription(false);
           }
-          
-          if (isMounted) {
-            setLoading(false);
+        } catch (error) {
+          console.error("Error checking session:", error);
+          setHasActiveSubscription(false);
+        }
+      }
+      
+      setLoading(false);
+    }
+
+    checkSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      setLoading(true);
+      
+      if (session) {
+        try {
+          // Get user's profile to fetch restaurant_id
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("restaurant_id")
+            .eq("id", session.user.id)
+            .maybeSingle();
+
+          if (profile?.restaurant_id) {
+            setRestaurantId(profile.restaurant_id);
+            const subscriptionActive = await checkSubscriptionStatus(profile.restaurant_id);
+            setHasActiveSubscription(subscriptionActive);
+          } else {
+            setHasActiveSubscription(false);
           }
         } catch (error) {
           console.error("Error in auth state change:", error);
-          if (isMounted) {
-            setSubscriptionStatus({
-              hasActiveSubscription: false,
-              restaurantId: null,
-              checkComplete: true
-            });
-            setLoading(false);
-          }
+          setHasActiveSubscription(false);
         }
+      } else {
+        setHasActiveSubscription(null);
       }
+      
+      setLoading(false);
     });
 
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   if (loading) {
@@ -245,8 +185,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   // If subscription status has been checked and there's no active subscription, show subscription plans
-  if (subscriptionStatus.checkComplete && subscriptionStatus.hasActiveSubscription === false) {
-    return <SubscriptionPlans restaurantId={subscriptionStatus.restaurantId} />;
+  if (hasActiveSubscription === false) {
+    return <SubscriptionPlans restaurantId={restaurantId} />;
   }
 
   return (
@@ -258,44 +198,46 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const App = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route
-              path="/*"
-              element={
-                <ProtectedRoute>
-                  <div className="flex min-h-screen w-full bg-gradient-to-br from-background to-muted">
-                    <Sidebar />
-                    <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
-                      <div className="max-w-7xl mx-auto">
-                        <Routes>
-                          <Route path="/" element={<Index />} />
-                          <Route path="/menu" element={<Menu />} />
-                          <Route path="/orders" element={<Orders />} />
-                          <Route path="/tables" element={<Tables />} />
-                          <Route path="/staff" element={<Staff />} />
-                          <Route path="/inventory" element={<Inventory />} />
-                          <Route path="/rooms" element={<Rooms />} />
-                          <Route path="/suppliers" element={<Suppliers />} />
-                          <Route path="/analytics" element={<Analytics />} />
-                          <Route path="/settings" element={<Settings />} />
-                          <Route path="*" element={<NotFound />} />
-                        </Routes>
-                      </div>
-                    </main>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ThemeProvider defaultTheme="light">
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route
+                path="/*"
+                element={
+                  <ProtectedRoute>
+                    <div className="flex min-h-screen w-full bg-gradient-pattern">
+                      <Sidebar />
+                      <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
+                        <div className="max-w-7xl mx-auto">
+                          <Routes>
+                            <Route path="/" element={<Index />} />
+                            <Route path="/menu" element={<Menu />} />
+                            <Route path="/orders" element={<Orders />} />
+                            <Route path="/tables" element={<Tables />} />
+                            <Route path="/staff" element={<Staff />} />
+                            <Route path="/inventory" element={<Inventory />} />
+                            <Route path="/rooms" element={<Rooms />} />
+                            <Route path="/suppliers" element={<Suppliers />} />
+                            <Route path="/analytics" element={<Analytics />} />
+                            <Route path="/settings" element={<Settings />} />
+                            <Route path="*" element={<NotFound />} />
+                          </Routes>
+                        </div>
+                      </main>
+                    </div>
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 };
 

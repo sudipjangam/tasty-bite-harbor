@@ -1,92 +1,103 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 220 33% 98%;  /* #F7FAFC */
+    --foreground: 222 47% 11%;  /* #1A202C */
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47% 11%;  /* #1A202C */
+    
+    --card-glass: 0 0% 100%;
+    --card-glass-foreground: 222 47% 11%;
+    
+    --card-accent: 216 12% 95%;  /* Lighter version of brand-deep-blue */
+    --card-accent-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 222.2 47.4% 11.2%;
+    --primary: 220 24% 23%;  /* #2D3748 */
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 153 55% 50%;  /* #48BB78 */
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 220 16% 96%;
+    --muted-foreground: 215 16% 47%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 33 95% 65%;  /* #F6AD55 */
+    --accent-foreground: 222 47% 11%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 220 24% 23%;
+    
+    --toast-background: 0 0% 100%;
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
+    --sidebar-background: 220 24% 23%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 153 55% 50%;
     --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 220 13% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 220 13% 17%;
+    --sidebar-ring: 153 55% 50%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 222 47% 11%;  /* #1A202C */
+    --foreground: 220 33% 98%;  /* #F7FAFC */
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 220 33% 98%;
+    
+    --card-glass: 222 47% 11%;
+    --card-glass-foreground: 220 33% 98%;
+    
+    --card-accent: 220 24% 16%;  /* Darker version of brand-deep-blue */
+    --card-accent-foreground: 220 33% 98%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 220 33% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 220 24% 40%;  /* Lighter version of #2D3748 for dark mode */
+    --primary-foreground: 210 40% 98%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 153 55% 45%;  /* Slightly darker version of #48BB78 for dark mode */
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 217 33% 18%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 33 85% 60%;  /* Slightly darker version of #F6AD55 for dark mode */
+    --accent-foreground: 222 47% 11%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --border: 217 33% 18%;
+    --input: 217 33% 18%;
+    --ring: 153 55% 50%;
+    
+    --toast-background: 217 33% 18%;
+
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 220 33% 98%;
+    --sidebar-primary: 153 55% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 217 33% 18%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 18%;
+    --sidebar-ring: 153 55% 50%;
   }
 }
 
@@ -96,6 +107,65 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', 'SF Pro Display', sans-serif;
   }
+}
+
+@layer components {
+  .bg-gradient-pattern {
+    @apply bg-background bg-toast-pattern;
+  }
+  
+  .bg-glass {
+    @apply backdrop-blur-sm bg-white/10 dark:bg-black/10 border border-white/20 dark:border-white/10;
+  }
+  
+  .card-fancy {
+    @apply bg-card/90 backdrop-blur-sm border border-border/50 shadow-card hover:shadow-card-hover transition-all duration-200;
+  }
+  
+  .card-glass {
+    @apply bg-card-glass/30 backdrop-blur-md border border-white/20 dark:border-white/5 shadow-lg;
+  }
+  
+  .card-accent {
+    @apply bg-card-accent/90 backdrop-blur-sm border border-primary/10 shadow-card;
+  }
+  
+  .chart-container {
+    @apply bg-white dark:bg-brand-deep-blue/80 backdrop-blur-sm border border-border/50 rounded-lg p-4 shadow-card;
+  }
+  
+  .toast-card {
+    @apply bg-white dark:bg-brand-deep-blue shadow-toast border border-gray-100 dark:border-gray-800 rounded-lg;
+  }
+  
+  .btn-primary {
+    @apply bg-brand-deep-blue text-white hover:bg-brand-deep-blue/90 transition-colors;
+  }
+  
+  .btn-success {
+    @apply bg-brand-success-green text-white hover:bg-brand-success-green/90 transition-colors;
+  }
+  
+  .btn-accent {
+    @apply bg-brand-warm-orange text-brand-dark-grey hover:bg-brand-warm-orange/90 transition-colors;
+  }
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+}
+
+@font-face {
+  font-family: 'SF Pro Display';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('https://applesocial.s3.amazonaws.com/assets/styles/fonts/sanfrancisco/sanfranciscodisplay-regular-webfont.woff');
 }

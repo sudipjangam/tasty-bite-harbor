@@ -438,12 +438,89 @@ export type Database = {
         }
         Relationships: []
       }
+      room_billings: {
+        Row: {
+          additional_charges: Json
+          checkout_date: string
+          created_at: string
+          customer_name: string
+          days_stayed: number
+          id: string
+          payment_method: string
+          payment_status: string
+          reservation_id: string
+          restaurant_id: string
+          room_charges: number
+          room_id: string
+          service_charge: number
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          additional_charges?: Json
+          checkout_date?: string
+          created_at?: string
+          customer_name: string
+          days_stayed: number
+          id?: string
+          payment_method: string
+          payment_status?: string
+          reservation_id: string
+          restaurant_id: string
+          room_charges: number
+          room_id: string
+          service_charge?: number
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          additional_charges?: Json
+          checkout_date?: string
+          created_at?: string
+          customer_name?: string
+          days_stayed?: number
+          id?: string
+          payment_method?: string
+          payment_status?: string
+          reservation_id?: string
+          restaurant_id?: string
+          room_charges?: number
+          room_id?: string
+          service_charge?: number
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_billings_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_billings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_billings_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rooms: {
         Row: {
           capacity: number
           created_at: string
           id: string
           name: string
+          price: number
           restaurant_id: string
           status: string | null
           updated_at: string
@@ -453,6 +530,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          price?: number
           restaurant_id: string
           status?: string | null
           updated_at?: string
@@ -462,6 +540,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          price?: number
           restaurant_id?: string
           status?: string | null
           updated_at?: string

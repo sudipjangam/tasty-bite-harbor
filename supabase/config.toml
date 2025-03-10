@@ -4,5 +4,11 @@ project_id = "clmsoetktmvhazctlans"
 [functions.chat-with-ai]
 verify_jwt = false
 
+[functions.chat-with-api]
+verify_jwt = false
+
 [functions.check-low-stock]
+verify_jwt = false
+
+[functions.upload-image]
 verify_jwt = false
