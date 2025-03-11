@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useAnalyticsData } from "@/hooks/useAnalyticsData";
 import RevenueHighchart from "@/components/Analytics/RevenueHighchart";
@@ -139,6 +140,10 @@ const Analytics = () => {
   const totalRevenue = data.revenueStats.reduce((sum, stat) => sum + Number(stat.total_revenue), 0);
   const totalOrders = data.revenueStats.reduce((sum, stat) => sum + stat.order_count, 0);
   const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+  
+  // Calculate orders today (missing in the original code)
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const ordersToday = data.revenueStats.find(stat => format(new Date(stat.date), 'yyyy-MM-dd') === today)?.order_count || 0;
   
   const exportToExcel = () => {
     try {
@@ -756,5 +761,13 @@ const Analytics = () => {
                 )}
               </div>
             </DialogContent>
-         
+          </Dialog>
+        </>
+      ) : (
+        <BusinessDashboard />
+      )}
+    </div>
+  );
+};
 
+export default Analytics;
