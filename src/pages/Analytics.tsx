@@ -141,7 +141,7 @@ const Analytics = () => {
   const totalOrders = data.revenueStats.reduce((sum, stat) => sum + stat.order_count, 0);
   const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
   
-  // Calculate orders today (missing in the original code)
+  // Calculate orders today
   const today = format(new Date(), 'yyyy-MM-dd');
   const ordersToday = data.revenueStats.find(stat => format(new Date(stat.date), 'yyyy-MM-dd') === today)?.order_count || 0;
   
