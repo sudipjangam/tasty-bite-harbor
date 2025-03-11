@@ -85,9 +85,20 @@ export const fetchAllowedComponents = async (restaurantId: string): Promise<stri
       return [];
     }
 
-    // Extract components array from the plan
-    const components = subscription.subscription_plans.components || [];
-    return Array.isArray(components) ? components : [];
+    // Extract components array from the plan and convert to string array
+    const componentsJson = subscription.subscription_plans.components || [];
+    
+    // Safely convert the JSON array to string array with type checking
+    const componentsArray: string[] = [];
+    if (Array.isArray(componentsJson)) {
+      componentsJson.forEach(item => {
+        if (typeof item === 'string') {
+          componentsArray.push(item);
+        }
+      });
+    }
+    
+    return componentsArray;
   } catch (error) {
     console.error("Error in fetchAllowedComponents:", error);
     return [];
