@@ -98,6 +98,12 @@ export const fetchAllowedComponents = async (restaurantId: string): Promise<stri
       });
     }
     
+    // Add business_dashboard component for testing
+    // In a real-world scenario, this would come from the database
+    if (componentsArray.includes('analytics')) {
+      componentsArray.push('business_dashboard');
+    }
+    
     return componentsArray;
   } catch (error) {
     console.error("Error in fetchAllowedComponents:", error);

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useAnalyticsData } from "@/hooks/useAnalyticsData";
 import RevenueHighchart from "@/components/Analytics/RevenueHighchart";
@@ -7,6 +6,7 @@ import TopProducts from "@/components/Analytics/TopProducts";
 import SalesPrediction from "@/components/Analytics/SalesPrediction";
 import RevenueByCategoryChart from "@/components/Analytics/RevenueByCategoryChart";
 import TimeSeriesAnalysis from "@/components/Analytics/TimeSeriesAnalysis";
+import BusinessDashboard from "@/components/Analytics/BusinessDashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -20,7 +20,8 @@ import {
   Calendar, 
   PieChart,
   Maximize,
-  Minimize
+  Minimize,
+  LineChart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogClose } from "@/components/ui/dialog";
@@ -31,6 +32,9 @@ import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
 import { useToast } from "@/components/ui/use-toast";
 import Watermark from "@/components/Layout/Watermark";
+import { fetchAllowedComponents } from "@/utils/subscriptionUtils";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const Analytics = () => {
   const { toast } = useToast();
@@ -39,8 +43,41 @@ const Analytics = () => {
   const [timeRange, setTimeRange] = useState("30");
   const [expandedChart, setExpandedChart] = useState<string | null>(null);
   const [showDataTable, setShowDataTable] = useState(false);
+  const [analyticsView, setAnalyticsView] = useState<"charts" | "business">("charts");
+  
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  
+  const { data: allowedComponents = [] } = useQuery({
+    queryKey: ["allowedComponents", restaurantId],
+    queryFn: () => restaurantId ? fetchAllowedComponents(restaurantId) : Promise.resolve([]),
+    enabled: !!restaurantId,
+  });
+  
+  const hasBusinessDashboardAccess = allowedComponents.includes("business_dashboard");
 
-  // Mock data for revenue by category chart
+  useState(() => {
+    getRestaurantId();
+  });
+
+  const getRestaurantId = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("restaurant_id")
+          .eq("id", session.user.id)
+          .single();
+          
+        if (profile?.restaurant_id) {
+          setRestaurantId(profile.restaurant_id);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching restaurant ID:", error);
+    }
+  };
+
   const categoryData = [
     { name: "Main Course", value: 45000, percentage: 35 },
     { name: "Appetizers", value: 25000, percentage: 19 },
@@ -49,14 +86,12 @@ const Analytics = () => {
     { name: "Specials", value: 20000, percentage: 15 }
   ];
 
-  // Mock data for time series analysis
   const generateTimeSeriesData = (days: number, baseValue: number, volatility: number) => {
     const result = [];
     const now = new Date();
     
     for (let i = days; i >= 0; i--) {
       const date = subDays(now, i);
-      // Generate some random variation
       const randomFactor = 1 + ((Math.random() - 0.5) * volatility);
       const value = Math.round(baseValue * randomFactor);
       
@@ -73,7 +108,6 @@ const Analytics = () => {
   const orderTimeData = generateTimeSeriesData(365, 120, 0.3);
   const avgOrderTimeData = generateTimeSeriesData(365, 850, 0.2);
 
-  // Filter time series data based on selected time range
   const filterTimeSeriesData = (data: any[], days: number) => {
     if (days === 365) return data;
     return data.slice(-days);
@@ -106,16 +140,10 @@ const Analytics = () => {
   const totalOrders = data.revenueStats.reduce((sum, stat) => sum + stat.order_count, 0);
   const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
   
-  // Calculate additional metrics
-  const ordersToday = data.revenueStats.filter(stat => {
-    return format(new Date(stat.date), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-  }).reduce((sum, stat) => sum + stat.order_count, 0);
-
   const exportToExcel = () => {
     try {
       const wb = XLSX.utils.book_new();
       
-      // Revenue data
       const revenueData = data.revenueStats.map(item => ({
         Date: format(new Date(item.date), 'MMM dd, yyyy'),
         Revenue: Number(item.total_revenue).toFixed(2),
@@ -126,7 +154,6 @@ const Analytics = () => {
       const revenueSheet = XLSX.utils.json_to_sheet(revenueData);
       XLSX.utils.book_append_sheet(wb, revenueSheet, "Revenue");
       
-      // Customer data
       const customerData = data.customerInsights.map(customer => ({
         Name: customer.customer_name,
         Visits: customer.visit_count,
@@ -139,7 +166,6 @@ const Analytics = () => {
       const customerSheet = XLSX.utils.json_to_sheet(customerData);
       XLSX.utils.book_append_sheet(wb, customerSheet, "Customer Insights");
       
-      // Top products
       const productData = data.topProducts.map(product => ({
         Name: product.name,
         Orders: product.orders,
@@ -172,14 +198,12 @@ const Analytics = () => {
   
   const exportToPDF = async () => {
     try {
-      // Create a new PDF document with A4 size
       const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4'
       });
       
-      // Set document properties
       doc.setProperties({
         title: 'Business Analytics Report',
         author: 'Restaurant Management System',
@@ -187,15 +211,13 @@ const Analytics = () => {
         subject: 'Analytics Report',
       });
       
-      // Add a custom header with theme color
-      doc.setFillColor(0, 179, 167); // Teal color
+      doc.setFillColor(0, 179, 167);
       doc.rect(0, 0, 210, 20, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
       doc.text("BUSINESS ANALYTICS REPORT", 14, 14);
       
-      // Add regular title and date
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(18);
       doc.text("Analytics Report", 14, 30);
@@ -204,7 +226,6 @@ const Analytics = () => {
       doc.setFont('helvetica', 'normal');
       doc.text(`Generated on: ${format(new Date(), 'MMMM dd, yyyy')}`, 14, 38);
       
-      // Add summary section with a background
       doc.setFillColor(240, 240, 240);
       doc.rect(14, 44, 182, 30, 'F');
       doc.setFontSize(12);
@@ -218,7 +239,6 @@ const Analytics = () => {
       doc.text(`Average Order Value: ₹${averageOrderValue.toFixed(2)}`, 18, 68);
       doc.text(`Active Customers: ${data.customerInsights.length}`, 90, 68);
       
-      // Try to grab the chart elements and add them to the PDF
       try {
         const revenueChartElement = document.getElementById('revenue-chart');
         if (revenueChartElement) {
@@ -231,7 +251,6 @@ const Analytics = () => {
         console.warn("Could not add chart to PDF:", chartError);
       }
       
-      // Revenue data table with title
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
       doc.text("Revenue Data (Last 30 days)", 14, 180);
@@ -244,7 +263,6 @@ const Analytics = () => {
         `₹${Number(item.average_order_value).toFixed(2)}`
       ]);
       
-      // Use autoTable directly
       autoTable(doc, {
         head: [revenueTableColumn],
         body: revenueTableRows,
@@ -255,10 +273,8 @@ const Analytics = () => {
         alternateRowStyles: { fillColor: [245, 245, 245] },
       });
       
-      // Add a new page for customer insights
       doc.addPage();
       
-      // Custom header on the new page
       doc.setFillColor(0, 179, 167);
       doc.rect(0, 0, 210, 20, 'F');
       doc.setTextColor(255, 255, 255);
@@ -270,7 +286,6 @@ const Analytics = () => {
       doc.setFontSize(14);
       doc.text("Top Customer Insights", 14, 30);
       
-      // Try to grab the chart elements and add them to the PDF
       try {
         const categoryChartElement = document.getElementById('category-chart');
         if (categoryChartElement) {
@@ -290,7 +305,6 @@ const Analytics = () => {
         `₹${Number(item.average_order_value).toFixed(2)}`
       ]);
       
-      // Use autoTable directly
       autoTable(doc, {
         head: [customerTableColumn],
         body: customerTableRows,
@@ -301,10 +315,8 @@ const Analytics = () => {
         alternateRowStyles: { fillColor: [245, 245, 245] },
       });
       
-      // Add another page for top products
       doc.addPage();
       
-      // Custom header on the third page
       doc.setFillColor(0, 179, 167);
       doc.rect(0, 0, 210, 20, 'F');
       doc.setTextColor(255, 255, 255);
@@ -325,7 +337,6 @@ const Analytics = () => {
         item.in_stock ? "Yes" : "No"
       ]);
       
-      // Use autoTable directly
       autoTable(doc, {
         head: [productTableColumn],
         body: productTableRows,
@@ -336,7 +347,6 @@ const Analytics = () => {
         alternateRowStyles: { fillColor: [245, 245, 245] },
       });
       
-      // Add watermark to all pages
       const pageCount = doc.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
@@ -347,7 +357,6 @@ const Analytics = () => {
         doc.text(`Page ${i} of ${pageCount}`, 100, 285, { align: 'center' });
       }
       
-      // Save the PDF with a filename based on the current date
       const fileName = `Analytics_Report_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
       doc.save(fileName);
       
@@ -384,6 +393,29 @@ const Analytics = () => {
         </div>
         
         <div className="flex flex-wrap gap-2">
+          {hasBusinessDashboardAccess && (
+            <div className="flex border rounded-md overflow-hidden mr-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`rounded-none ${analyticsView === "charts" ? "bg-muted" : ""}`}
+                onClick={() => setAnalyticsView("charts")}
+              >
+                <LineChart className="h-4 w-4 mr-2" />
+                Charts
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`rounded-none ${analyticsView === "business" ? "bg-muted" : ""}`}
+                onClick={() => setAnalyticsView("business")}
+              >
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Business
+              </Button>
+            </div>
+          )}
+          
           <Button
             variant="outline"
             size="sm"
@@ -408,327 +440,321 @@ const Analytics = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-card/50 backdrop-blur-xl border border-border/5 shadow-md hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <div className="p-2 rounded-full bg-purple-100">
-                <BarChart3 className="h-4 w-4 text-purple-700" />
-              </div>
-              Total Revenue (30 days)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹{totalRevenue.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Based on all sales in the last 30 days</p>
-          </CardContent>
-        </Card>
+      {analyticsView === "charts" ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card className="bg-card/50 backdrop-blur-xl border border-border/5 shadow-md hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <div className="p-2 rounded-full bg-purple-100">
+                    <BarChart3 className="h-4 w-4 text-purple-700" />
+                  </div>
+                  Total Revenue (30 days)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">₹{totalRevenue.toFixed(2)}</div>
+                <p className="text-xs text-muted-foreground mt-1">Based on all sales in the last 30 days</p>
+              </CardContent>
+            </Card>
 
-        <Card className="bg-card/50 backdrop-blur-xl border border-border/5 shadow-md hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <div className="p-2 rounded-full bg-blue-100">
-                <FileText className="h-4 w-4 text-blue-700" />
-              </div>
-              Total Orders
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalOrders}</div>
-            <p className="text-xs text-muted-foreground mt-1">Number of orders placed in the last 30 days</p>
-          </CardContent>
-        </Card>
+            <Card className="bg-card/50 backdrop-blur-xl border border-border/5 shadow-md hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <div className="p-2 rounded-full bg-blue-100">
+                    <FileText className="h-4 w-4 text-blue-700" />
+                  </div>
+                  Total Orders
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalOrders}</div>
+                <p className="text-xs text-muted-foreground mt-1">Number of orders placed in the last 30 days</p>
+              </CardContent>
+            </Card>
 
-        <Card className="bg-card/50 backdrop-blur-xl border border-border/5 shadow-md hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <div className="p-2 rounded-full bg-green-100">
-                <Users className="h-4 w-4 text-green-700" />
-              </div>
-              Average Order Value
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹{averageOrderValue.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Average spend per order</p>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-card/50 backdrop-blur-xl border border-border/5 shadow-md hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <div className="p-2 rounded-full bg-orange-100">
-                <Calendar className="h-4 w-4 text-orange-700" />
-              </div>
-              Today's Orders
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{ordersToday}</div>
-            <p className="text-xs text-muted-foreground mt-1">Orders received today</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Time Range Radio Group */}
-      <div className="flex flex-col space-y-2">
-        <h3 className="text-sm font-medium">Time Range</h3>
-        <RadioGroup 
-          value={timeRange} 
-          onValueChange={setTimeRange}
-          className="flex space-x-4"
-        >
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="7" id="r1" />
-            <Label htmlFor="r1">7 Days</Label>
+            <Card className="bg-card/50 backdrop-blur-xl border border-border/5 shadow-md hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <div className="p-2 rounded-full bg-green-100">
+                    <Users className="h-4 w-4 text-green-700" />
+                  </div>
+                  Average Order Value
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">₹{averageOrderValue.toFixed(2)}</div>
+                <p className="text-xs text-muted-foreground mt-1">Average spend per order</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-card/50 backdrop-blur-xl border border-border/5 shadow-md hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <div className="p-2 rounded-full bg-orange-100">
+                    <Calendar className="h-4 w-4 text-orange-700" />
+                  </div>
+                  Today's Orders
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{ordersToday}</div>
+                <p className="text-xs text-muted-foreground mt-1">Orders received today</p>
+              </CardContent>
+            </Card>
           </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="30" id="r2" />
-            <Label htmlFor="r2">30 Days</Label>
+
+          <div className="flex flex-col space-y-2">
+            <h3 className="text-sm font-medium">Time Range</h3>
+            <RadioGroup 
+              value={timeRange} 
+              onValueChange={setTimeRange}
+              className="flex space-x-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="7" id="r1" />
+                <Label htmlFor="r1">7 Days</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="30" id="r2" />
+                <Label htmlFor="r2">30 Days</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="90" id="r3" />
+                <Label htmlFor="r3">90 Days</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="365" id="r4" />
+                <Label htmlFor="r4">1 Year</Label>
+              </div>
+            </RadioGroup>
           </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="90" id="r3" />
-            <Label htmlFor="r3">90 Days</Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="365" id="r4" />
-            <Label htmlFor="r4">1 Year</Label>
-          </div>
-        </RadioGroup>
-      </div>
 
-      <div className="grid grid-cols-1 gap-6">
-        <Card className="overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg font-medium">Revenue Analysis</CardTitle>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => setExpandedChart('revenue')}
-            >
-              <Maximize className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent id="revenue-chart">
-            <RevenueHighchart data={getFilteredData(parseInt(timeRange))} />
-          </CardContent>
-        </Card>
-
-        <Card className="overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg font-medium">Category Revenue</CardTitle>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => setExpandedChart('category')}
-            >
-              <Maximize className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent id="category-chart">
-            <RevenueByCategoryChart data={categoryData} />
-          </CardContent>
-        </Card>
-
-        <Card className="overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg font-medium">Customer Growth</CardTitle>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => setExpandedChart('customer')}
-            >
-              <Maximize className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <TimeSeriesAnalysis 
-              data={filterTimeSeriesData(customerTimeData, parseInt(timeRange))} 
-              title="Customer Growth" 
-              description="Daily unique customers over time" 
-              valuePrefix="" 
-              valueSuffix=" customers"
-              color="#6366f1"
-            />
-          </CardContent>
-        </Card>
-
-        <Card className="overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg font-medium">Top Selling Products</CardTitle>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => setExpandedChart('products')}
-            >
-              <Maximize className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <TopProducts data={data.topProducts} />
-          </CardContent>
-        </Card>
-        
-        <Card className="overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg font-medium">Sales Forecast</CardTitle>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => setExpandedChart('forecast')}
-            >
-              <Maximize className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <SalesPrediction data={data.salesPrediction} />
-          </CardContent>
-        </Card>
-      </div>
-      
-      {/* Expanded Chart Dialog */}
-      <Dialog open={!!expandedChart} onOpenChange={(open) => !open && setExpandedChart(null)}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle className="flex justify-between items-center">
-              <span>
-                {expandedChart === 'revenue' && 'Revenue Analysis'}
-                {expandedChart === 'category' && 'Category Revenue'}
-                {expandedChart === 'customer' && 'Customer Growth'}
-                {expandedChart === 'products' && 'Top Selling Products'}
-                {expandedChart === 'forecast' && 'Sales Forecast'}
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowDataTable(!showDataTable)}
+          <div className="grid grid-cols-1 gap-6">
+            <Card className="overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-lg font-medium">Revenue Analysis</CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => setExpandedChart('revenue')}
                 >
-                  {showDataTable ? 'Show Chart' : 'Show Data Table'}
+                  <Maximize className="h-4 w-4" />
                 </Button>
-                <DialogClose asChild>
-                  <Button variant="ghost" size="icon">
-                    <Minimize className="h-4 w-4" />
-                  </Button>
-                </DialogClose>
-              </div>
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="py-4">
-            {!showDataTable ? (
-              <>
-                {expandedChart === 'revenue' && <RevenueHighchart data={getFilteredData(parseInt(timeRange))} />}
-                {expandedChart === 'category' && <RevenueByCategoryChart data={categoryData} />}
-                {expandedChart === 'customer' && (
-                  <TimeSeriesAnalysis 
-                    data={filterTimeSeriesData(customerTimeData, parseInt(timeRange))} 
-                    title="Customer Growth" 
-                    description="Daily unique customers over time" 
-                    valuePrefix="" 
-                    valueSuffix=" customers"
-                    color="#6366f1"
-                    height={400}
-                  />
-                )}
-                {expandedChart === 'products' && <TopProducts data={data.topProducts} />}
-                {expandedChart === 'forecast' && <SalesPrediction data={data.salesPrediction} />}
-              </>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-muted">
-                      {expandedChart === 'revenue' && (
-                        <>
-                          <th className="p-2 text-left">Date</th>
-                          <th className="p-2 text-left">Revenue</th>
-                          <th className="p-2 text-left">Orders</th>
-                          <th className="p-2 text-left">Avg Order Value</th>
-                        </>
-                      )}
-                      {expandedChart === 'category' && (
-                        <>
-                          <th className="p-2 text-left">Category</th>
-                          <th className="p-2 text-left">Revenue</th>
-                          <th className="p-2 text-left">Percentage</th>
-                        </>
-                      )}
-                      {expandedChart === 'customer' && (
-                        <>
-                          <th className="p-2 text-left">Date</th>
-                          <th className="p-2 text-left">Customers</th>
-                        </>
-                      )}
-                      {expandedChart === 'products' && (
-                        <>
-                          <th className="p-2 text-left">Product</th>
-                          <th className="p-2 text-left">Orders</th>
-                          <th className="p-2 text-left">Revenue</th>
-                          <th className="p-2 text-left">Profit Margin</th>
-                          <th className="p-2 text-left">In Stock</th>
-                          <th className="p-2 text-left">Trend</th>
-                        </>
-                      )}
-                      {expandedChart === 'forecast' && (
-                        <>
-                          <th className="p-2 text-left">Date</th>
-                          <th className="p-2 text-left">Actual</th>
-                          <th className="p-2 text-left">Predicted</th>
-                        </>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {expandedChart === 'revenue' && getFilteredData(parseInt(timeRange)).map((item, i) => (
-                      <tr key={i} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
-                        <td className="p-2">{format(new Date(item.date), 'MMM dd, yyyy')}</td>
-                        <td className="p-2">₹{Number(item.total_revenue).toFixed(2)}</td>
-                        <td className="p-2">{item.order_count}</td>
-                        <td className="p-2">₹{Number(item.average_order_value).toFixed(2)}</td>
-                      </tr>
-                    ))}
-                    {expandedChart === 'category' && categoryData.map((item, i) => (
-                      <tr key={i} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
-                        <td className="p-2">{item.name}</td>
-                        <td className="p-2">₹{item.value.toFixed(2)}</td>
-                        <td className="p-2">{item.percentage}%</td>
-                      </tr>
-                    ))}
-                    {expandedChart === 'customer' && filterTimeSeriesData(customerTimeData, parseInt(timeRange)).map((item, i) => (
-                      <tr key={i} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
-                        <td className="p-2">{item.date}</td>
-                        <td className="p-2">{item.value}</td>
-                      </tr>
-                    ))}
-                    {expandedChart === 'products' && data.topProducts.map((item, i) => (
-                      <tr key={i} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
-                        <td className="p-2">{item.name}</td>
-                        <td className="p-2">{item.orders}</td>
-                        <td className="p-2">₹{item.revenue.toFixed(2)}</td>
-                        <td className="p-2">{item.profit_margin}%</td>
-                        <td className="p-2">{item.in_stock ? 'Yes' : 'No'}</td>
-                        <td className="p-2">{item.trend}</td>
-                      </tr>
-                    ))}
-                    {expandedChart === 'forecast' && data.salesPrediction.map((item, i) => (
-                      <tr key={i} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
-                        <td className="p-2">{item.date}</td>
-                        <td className="p-2">{item.actual ? `₹${item.actual}` : '-'}</td>
-                        <td className="p-2">{item.predicted ? `₹${item.predicted}` : '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-      
-      <Watermark />
-    </div>
-  );
-};
+              </CardHeader>
+              <CardContent id="revenue-chart">
+                <RevenueHighchart data={getFilteredData(parseInt(timeRange))} />
+              </CardContent>
+            </Card>
 
-export default Analytics;
+            <Card className="overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-lg font-medium">Category Revenue</CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => setExpandedChart('category')}
+                >
+                  <Maximize className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent id="category-chart">
+                <RevenueByCategoryChart data={categoryData} />
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-lg font-medium">Customer Growth</CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => setExpandedChart('customer')}
+                >
+                  <Maximize className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <TimeSeriesAnalysis 
+                  data={filterTimeSeriesData(customerTimeData, parseInt(timeRange))} 
+                  title="Customer Growth" 
+                  description="Daily unique customers over time" 
+                  valuePrefix="" 
+                  valueSuffix=" customers"
+                  color="#6366f1"
+                />
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-lg font-medium">Top Selling Products</CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => setExpandedChart('products')}
+                >
+                  <Maximize className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <TopProducts data={data.topProducts} />
+              </CardContent>
+            </Card>
+            
+            <Card className="overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-lg font-medium">Sales Forecast</CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => setExpandedChart('forecast')}
+                >
+                  <Maximize className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <SalesPrediction data={data.salesPrediction} />
+              </CardContent>
+            </Card>
+          </div>
+          
+          <Dialog open={!!expandedChart} onOpenChange={(open) => !open && setExpandedChart(null)}>
+            <DialogContent className="max-w-4xl">
+              <DialogHeader>
+                <DialogTitle className="flex justify-between items-center">
+                  <span>
+                    {expandedChart === 'revenue' && 'Revenue Analysis'}
+                    {expandedChart === 'category' && 'Category Revenue'}
+                    {expandedChart === 'customer' && 'Customer Growth'}
+                    {expandedChart === 'products' && 'Top Selling Products'}
+                    {expandedChart === 'forecast' && 'Sales Forecast'}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowDataTable(!showDataTable)}
+                    >
+                      {showDataTable ? 'Show Chart' : 'Show Data Table'}
+                    </Button>
+                    <DialogClose asChild>
+                      <Button variant="ghost" size="icon">
+                        <Minimize className="h-4 w-4" />
+                      </Button>
+                    </DialogClose>
+                  </div>
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="py-4">
+                {!showDataTable ? (
+                  <>
+                    {expandedChart === 'revenue' && <RevenueHighchart data={getFilteredData(parseInt(timeRange))} />}
+                    {expandedChart === 'category' && <RevenueByCategoryChart data={categoryData} />}
+                    {expandedChart === 'customer' && (
+                      <TimeSeriesAnalysis 
+                        data={filterTimeSeriesData(customerTimeData, parseInt(timeRange))} 
+                        title="Customer Growth" 
+                        description="Daily unique customers over time" 
+                        valuePrefix="" 
+                        valueSuffix=" customers"
+                        color="#6366f1"
+                        height={400}
+                      />
+                    )}
+                    {expandedChart === 'products' && <TopProducts data={data.topProducts} />}
+                    {expandedChart === 'forecast' && <SalesPrediction data={data.salesPrediction} />}
+                  </>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="bg-muted">
+                          {expandedChart === 'revenue' && (
+                            <>
+                              <th className="p-2 text-left">Date</th>
+                              <th className="p-2 text-left">Revenue</th>
+                              <th className="p-2 text-left">Orders</th>
+                              <th className="p-2 text-left">Avg Order Value</th>
+                            </>
+                          )}
+                          {expandedChart === 'category' && (
+                            <>
+                              <th className="p-2 text-left">Category</th>
+                              <th className="p-2 text-left">Revenue</th>
+                              <th className="p-2 text-left">Percentage</th>
+                            </>
+                          )}
+                          {expandedChart === 'customer' && (
+                            <>
+                              <th className="p-2 text-left">Date</th>
+                              <th className="p-2 text-left">Customers</th>
+                            </>
+                          )}
+                          {expandedChart === 'products' && (
+                            <>
+                              <th className="p-2 text-left">Product</th>
+                              <th className="p-2 text-left">Orders</th>
+                              <th className="p-2 text-left">Revenue</th>
+                              <th className="p-2 text-left">Profit Margin</th>
+                              <th className="p-2 text-left">In Stock</th>
+                              <th className="p-2 text-left">Trend</th>
+                            </>
+                          )}
+                          {expandedChart === 'forecast' && (
+                            <>
+                              <th className="p-2 text-left">Date</th>
+                              <th className="p-2 text-left">Actual</th>
+                              <th className="p-2 text-left">Predicted</th>
+                            </>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {expandedChart === 'revenue' && getFilteredData(parseInt(timeRange)).map((item, i) => (
+                          <tr key={i} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
+                            <td className="p-2">{format(new Date(item.date), 'MMM dd, yyyy')}</td>
+                            <td className="p-2">₹{Number(item.total_revenue).toFixed(2)}</td>
+                            <td className="p-2">{item.order_count}</td>
+                            <td className="p-2">₹{Number(item.average_order_value).toFixed(2)}</td>
+                          </tr>
+                        ))}
+                        {expandedChart === 'category' && categoryData.map((item, i) => (
+                          <tr key={i} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
+                            <td className="p-2">{item.name}</td>
+                            <td className="p-2">₹{item.value.toFixed(2)}</td>
+                            <td className="p-2">{item.percentage}%</td>
+                          </tr>
+                        ))}
+                        {expandedChart === 'customer' && filterTimeSeriesData(customerTimeData, parseInt(timeRange)).map((item, i) => (
+                          <tr key={i} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
+                            <td className="p-2">{item.date}</td>
+                            <td className="p-2">{item.value}</td>
+                          </tr>
+                        ))}
+                        {expandedChart === 'products' && data.topProducts.map((item, i) => (
+                          <tr key={i} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
+                            <td className="p-2">{item.name}</td>
+                            <td className="p-2">{item.orders}</td>
+                            <td className="p-2">₹{item.revenue.toFixed(2)}</td>
+                            <td className="p-2">{item.profit_margin}%</td>
+                            <td className="p-2">{item.in_stock ? 'Yes' : 'No'}</td>
+                            <td className="p-2">{item.trend}</td>
+                          </tr>
+                        ))}
+                        {expandedChart === 'forecast' && data.salesPrediction.map((item, i) => (
+                          <tr key={i} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
+                            <td className="p-2">{item.date}</td>
+                            <td className="p-2">{item.actual ? `₹${item.actual}` : '-'}</td>
+                            <td className="p-2">{item.predicted ? `₹${item.predicted}` : '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+         
+
