@@ -648,6 +648,7 @@ export type Database = {
       }
       subscription_plans: {
         Row: {
+          components: Json | null
           created_at: string
           description: string | null
           features: Json | null
@@ -659,6 +660,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          components?: Json | null
           created_at?: string
           description?: string | null
           features?: Json | null
@@ -670,6 +672,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          components?: Json | null
           created_at?: string
           description?: string | null
           features?: Json | null

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Home,
   Utensils,
@@ -14,6 +14,7 @@ import {
   Settings,
   Menu as MenuIcon,
   X,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
@@ -21,12 +22,22 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { fetchAllowedComponents } from "@/utils/subscriptionUtils";
 
 const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const [staffName, setStaffName] = useState<string | null>(null);
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Fetch allowed components based on subscription
+  const { data: allowedComponents = [] } = useQuery({
+    queryKey: ["allowedComponents", restaurantId],
+    queryFn: () => restaurantId ? fetchAllowedComponents(restaurantId) : Promise.resolve([]),
+    enabled: !!restaurantId,
+  });
 
   const getProfileData = async () => {
     try {
@@ -55,6 +66,7 @@ const Sidebar = () => {
           : user.email?.split('@')[0] || 'User';
         
         setStaffName(displayName.trim());
+        setRestaurantId(profile?.restaurant_id || null);
       }
     } catch (error) {
       console.error("Profile fetch error:", error);
@@ -65,18 +77,42 @@ const Sidebar = () => {
     getProfileData();
   }, []);
 
-  const navigation = [
-    { name: "Dashboard", href: "/", icon: Home },
-    { name: "Menu", href: "/menu", icon: Utensils },
-    { name: "Orders", href: "/orders", icon: ShoppingCart },
-    { name: "Tables", href: "/tables", icon: Coffee },
-    { name: "Staff", href: "/staff", icon: Users },
-    { name: "Inventory", href: "/inventory", icon: PackageOpen },
-    { name: "Rooms", href: "/rooms", icon: Bed },
-    { name: "Suppliers", href: "/suppliers", icon: Truck },
-    { name: "Analytics", href: "/analytics", icon: BarChart3 },
-    { name: "Settings", href: "/settings", icon: Settings },
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate('/auth');
+      toast({
+        title: "Signed out",
+        description: "You have been successfully signed out.",
+      });
+    } catch (error) {
+      console.error("Sign out error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Define all navigation items
+  const allNavigation = [
+    { name: "Dashboard", href: "/", icon: Home, component: "dashboard" },
+    { name: "Menu", href: "/menu", icon: Utensils, component: "menu" },
+    { name: "Orders", href: "/orders", icon: ShoppingCart, component: "orders" },
+    { name: "Tables", href: "/tables", icon: Coffee, component: "tables" },
+    { name: "Staff", href: "/staff", icon: Users, component: "staff" },
+    { name: "Inventory", href: "/inventory", icon: PackageOpen, component: "inventory" },
+    { name: "Rooms", href: "/rooms", icon: Bed, component: "rooms" },
+    { name: "Suppliers", href: "/suppliers", icon: Truck, component: "suppliers" },
+    { name: "Analytics", href: "/analytics", icon: BarChart3, component: "analytics" },
+    { name: "Settings", href: "/settings", icon: Settings, component: "settings" },
   ];
+
+  // Filter navigation items based on allowed components
+  const navigation = allNavigation.filter(item => 
+    allowedComponents.includes(item.component)
+  );
 
   return (
     <>
@@ -159,6 +195,14 @@ const Sidebar = () => {
                   Staff Member
                 </p>
               </div>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={handleSignOut}
+                title="Sign Out"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
