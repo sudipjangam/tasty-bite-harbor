@@ -98,9 +98,11 @@ export const fetchAllowedComponents = async (restaurantId: string): Promise<stri
       });
     }
     
-    // Add business_dashboard component for testing
-    // In a real-world scenario, this would come from the database
-    if (componentsArray.includes('analytics')) {
+    // Add business_dashboard as a standalone component
+    // Do not tie it to analytics, treat it as its own component
+    if (!componentsArray.includes('business_dashboard')) {
+      // In a real-world scenario, this check would depend on the plan
+      // For now, we're just ensuring it's separate from analytics
       componentsArray.push('business_dashboard');
     }
     

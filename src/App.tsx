@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -25,6 +24,7 @@ import { checkSubscriptionStatus } from "@/utils/subscriptionUtils";
 import SubscriptionPlans from "@/components/SubscriptionPlans";
 import SubscriptionCheck from "@/components/SubscriptionCheck";
 import { fetchAllowedComponents } from "@/utils/subscriptionUtils";
+import BusinessDashboard from "@/components/Analytics/BusinessDashboard";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,7 +35,6 @@ const queryClient = new QueryClient({
   },
 });
 
-// Component to handle component access check
 const ComponentAccessGuard = ({ 
   children, 
   requiredComponent 
@@ -52,7 +51,6 @@ const ComponentAccessGuard = ({
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
-          // Get user's profile to fetch restaurant_id
           const { data: profile } = await supabase
             .from("profiles")
             .select("restaurant_id")
@@ -106,7 +104,6 @@ const ComponentAccessGuard = ({
   return <>{children}</>;
 };
 
-// Component to handle subscription check on route changes
 const SubscriptionGuard = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
@@ -118,7 +115,6 @@ const SubscriptionGuard = ({ children }: { children: React.ReactNode }) => {
       
       if (session && location.pathname !== "/" && location.pathname !== "/auth") {
         try {
-          // Get user's profile to fetch restaurant_id
           const { data: profile } = await supabase
             .from("profiles")
             .select("restaurant_id")
@@ -144,7 +140,6 @@ const SubscriptionGuard = ({ children }: { children: React.ReactNode }) => {
     checkSubscription();
   }, [location.pathname]);
   
-  // Use this technique to prevent rendering the actual content when subscription check fails
   if (isRestricted) {
     return (
       <>
@@ -181,7 +176,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       
       if (session) {
         try {
-          // Get user's profile to fetch restaurant_id
           const { data: profile } = await supabase
             .from("profiles")
             .select("restaurant_id")
@@ -214,7 +208,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       
       if (session) {
         try {
-          // Get user's profile to fetch restaurant_id
           const { data: profile } = await supabase
             .from("profiles")
             .select("restaurant_id")
@@ -257,7 +250,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/auth" replace />;
   }
 
-  // If subscription status has been checked and there's no active subscription, show subscription plans
   if (hasActiveSubscription === false) {
     return <SubscriptionPlans restaurantId={restaurantId} />;
   }
@@ -297,6 +289,7 @@ const App = () => {
                             <Route path="/rooms" element={<ComponentAccessGuard requiredComponent="rooms"><Rooms /></ComponentAccessGuard>} />
                             <Route path="/suppliers" element={<ComponentAccessGuard requiredComponent="suppliers"><Suppliers /></ComponentAccessGuard>} />
                             <Route path="/analytics" element={<ComponentAccessGuard requiredComponent="analytics"><Analytics /></ComponentAccessGuard>} />
+                            <Route path="/business-dashboard" element={<ComponentAccessGuard requiredComponent="business_dashboard"><BusinessDashboard /></ComponentAccessGuard>} />
                             <Route path="/settings" element={<ComponentAccessGuard requiredComponent="settings"><Settings /></ComponentAccessGuard>} />
                             <Route path="*" element={<NotFound />} />
                           </Routes>
