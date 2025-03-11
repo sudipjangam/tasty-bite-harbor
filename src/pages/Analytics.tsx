@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAnalyticsData } from "@/hooks/useAnalyticsData";
 import RevenueHighchart from "@/components/Analytics/RevenueHighchart";
 import CustomerInsights from "@/components/Analytics/CustomerInsights";
@@ -8,7 +8,7 @@ import SalesPrediction from "@/components/Analytics/SalesPrediction";
 import RevenueByCategoryChart from "@/components/Analytics/RevenueByCategoryChart";
 import TimeSeriesAnalysis from "@/components/Analytics/TimeSeriesAnalysis";
 import BusinessDashboard from "@/components/Analytics/BusinessDashboard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -56,9 +56,9 @@ const Analytics = () => {
   
   const hasBusinessDashboardAccess = allowedComponents.includes("business_dashboard");
 
-  useState(() => {
+  useEffect(() => {
     getRestaurantId();
-  });
+  }, []);
 
   const getRestaurantId = async () => {
     try {
