@@ -28,8 +28,9 @@ serve(async (req) => {
     }
 
     // Get API key and base URL from environment variables
-    const apiKey = Deno.env.get('API_KEY');
-    const baseUrl = Deno.env.get('BASE_URL') || 'https://api.sree.shop/v1';
+    const apiKey = Deno.env.get("API_KEY") || "ddc-3g2SyDqvcA3252JsJTtoAjWWaTHKGFaXHG93BgnIncARD3eVG5";
+    // const baseUrl = Deno.env.get('BASE_URL') || 'https://api.sree.shop/v1';
+    const baseUrl = Deno.env.get("BASE_URL") || "https://beta.sree.shop/v1";
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 

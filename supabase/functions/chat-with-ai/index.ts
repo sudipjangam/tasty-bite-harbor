@@ -3,8 +3,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 // Access environment variables instead of hardcoding
-const BASE_URL = Deno.env.get("BASE_URL") || "https://api.sree.shop/v1";
-const API_KEY = Deno.env.get("API_KEY") || "";
+const BASE_URL = Deno.env.get("BASE_URL") || "https://beta.sree.shop/v1";
+const API_KEY = Deno.env.get("API_KEY") || "ddc-3g2SyDqvcA3252JsJTtoAjWWaTHKGFaXHG93BgnIncARD3eVG5";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
