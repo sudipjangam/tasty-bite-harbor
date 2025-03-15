@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase, RoomFoodOrder } from "@/integrations/supabase/client";
@@ -56,14 +55,6 @@ interface Reservation {
   end_time: string;
   status: string | null;
   notes: string | null;
-}
-
-interface RoomFoodOrder {
-  id: string;
-  room_id: string;
-  created_at: string;
-  total: number;
-  status: string;
 }
 
 const statusColors = {
