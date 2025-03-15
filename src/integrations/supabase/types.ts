@@ -265,6 +265,48 @@ export type Database = {
           },
         ]
       }
+      promotion_campaigns: {
+        Row: {
+          created_at: string
+          description: string | null
+          discount_amount: number | null
+          discount_percentage: number | null
+          end_date: string
+          id: string
+          name: string
+          promotion_code: string | null
+          restaurant_id: string
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          end_date: string
+          id?: string
+          name: string
+          promotion_code?: string | null
+          restaurant_id: string
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          end_date?: string
+          id?: string
+          name?: string
+          promotion_code?: string | null
+          restaurant_id?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       reservations: {
         Row: {
           created_at: string
@@ -273,9 +315,12 @@ export type Database = {
           customer_phone: string | null
           end_time: string
           id: string
+          marketing_consent: boolean | null
           notes: string | null
           restaurant_id: string
           room_id: string
+          special_occasion: string | null
+          special_occasion_date: string | null
           start_time: string
           status: string | null
           updated_at: string
@@ -287,9 +332,12 @@ export type Database = {
           customer_phone?: string | null
           end_time: string
           id?: string
+          marketing_consent?: boolean | null
           notes?: string | null
           restaurant_id: string
           room_id: string
+          special_occasion?: string | null
+          special_occasion_date?: string | null
           start_time: string
           status?: string | null
           updated_at?: string
@@ -301,9 +349,12 @@ export type Database = {
           customer_phone?: string | null
           end_time?: string
           id?: string
+          marketing_consent?: boolean | null
           notes?: string | null
           restaurant_id?: string
           room_id?: string
+          special_occasion?: string | null
+          special_occasion_date?: string | null
           start_time?: string
           status?: string | null
           updated_at?: string
@@ -608,6 +659,60 @@ export type Database = {
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sent_promotions: {
+        Row: {
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string
+          id: string
+          promotion_id: string | null
+          reservation_id: string | null
+          restaurant_id: string
+          sent_date: string
+          sent_method: string
+          sent_status: string
+        }
+        Insert: {
+          customer_email?: string | null
+          customer_name: string
+          customer_phone: string
+          id?: string
+          promotion_id?: string | null
+          reservation_id?: string | null
+          restaurant_id: string
+          sent_date?: string
+          sent_method?: string
+          sent_status?: string
+        }
+        Update: {
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string
+          id?: string
+          promotion_id?: string | null
+          reservation_id?: string | null
+          restaurant_id?: string
+          sent_date?: string
+          sent_method?: string
+          sent_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sent_promotions_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotion_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sent_promotions_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
             referencedColumns: ["id"]
           },
         ]

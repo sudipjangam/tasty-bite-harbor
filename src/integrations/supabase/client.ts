@@ -33,3 +33,34 @@ export type OrderItem = {
   price: number;
   quantity: number;
 }
+
+// Type for reservation with special occasion
+export type ReservationWithSpecialOccasion = {
+  id: string;
+  customer_name: string;
+  customer_email: string | null;
+  customer_phone: string | null;
+  room_id: string;
+  start_time: string;
+  end_time: string;
+  status: string | null;
+  notes: string | null;
+  special_occasion: string | null;
+  special_occasion_date: string | null;
+  marketing_consent: boolean;
+}
+
+// Type for promotion campaigns
+export type PromotionCampaign = {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  description: string | null;
+  start_date: string;
+  end_date: string;
+  discount_percentage: number;
+  discount_amount: number;
+  promotion_code: string | null;
+  created_at: string;
+  updated_at: string;
+}

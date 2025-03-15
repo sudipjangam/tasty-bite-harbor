@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from 'react-router-dom';
@@ -13,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -46,7 +46,8 @@ import {
   QrCode, 
   Plus, 
   Trash2,
-  UtensilsCrossed
+  UtensilsCrossed,
+  Send
 } from 'lucide-react';
 
 interface RoomCheckoutProps {
@@ -70,6 +71,10 @@ interface ReservationDetails {
   end_time: string;
   customer_email: string | null;
   customer_phone: string | null;
+  special_occasion: string | null;
+  special_occasion_date: string | null;
+  marketing_consent: boolean;
+  notes: string | null;
 }
 
 interface AdditionalCharge {
@@ -109,11 +114,13 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
   const [loading, setLoading] = useState(false);
   const [foodOrders, setFoodOrders] = useState<FoodOrder[]>([]);
   const [foodOrdersTotal, setFoodOrdersTotal] = useState(0);
+  const [sendWhatsappBill, setSendWhatsappBill] = useState(false);
+  const [whatsappSending, setWhatsappSending] = useState(false);
+  const [billingId, setBillingId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchDetails = async () => {
       try {
-        // Fetch room details
         const { data: roomData, error: roomError } = await supabase
           .from('rooms')
           .select('*')
@@ -128,7 +135,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
         
         setRoom(roomData as RoomDetails);
 
-        // Fetch reservation details
         const { data: reservationData, error: reservationError } = await supabase
           .from('reservations')
           .select('*')
@@ -138,14 +144,14 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
         if (reservationError) throw reservationError;
         setReservation(reservationData);
 
-        // Calculate days stayed
         const startDate = new Date(reservationData.start_time);
         const endDate = new Date(reservationData.end_time);
         const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         setDaysStayed(diffDays === 0 ? 1 : diffDays);
 
-        // Fetch food orders for this room
+        setSendWhatsappBill(reservationData.marketing_consent || false);
+
         const { data: foodOrdersData, error: foodOrdersError } = await supabase
           .from('room_food_orders')
           .select('*')
@@ -157,11 +163,9 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
         if (foodOrdersData && foodOrdersData.length > 0) {
           setFoodOrders(foodOrdersData as unknown as FoodOrder[]);
           
-          // Calculate total food orders amount
           const totalFoodOrders = foodOrdersData.reduce((sum, order) => sum + (order.total || 0), 0);
           setFoodOrdersTotal(totalFoodOrders);
           
-          // Add food orders as an additional charge if there are any
           if (totalFoodOrders > 0) {
             setAdditionalCharges([{
               id: 'food-orders',
@@ -219,7 +223,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
         amount: Number(charge.amount)
       }));
 
-      // Create billing record
       const { data, error } = await supabase
         .from('room_billings')
         .insert({
@@ -234,7 +237,8 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
           total_amount: totalAmount,
           payment_method: paymentMethod,
           payment_status: 'completed',
-          checkout_date: new Date().toISOString()
+          checkout_date: new Date().toISOString(),
+          whatsapp_sent: false
         })
         .select()
         .single();
@@ -244,7 +248,8 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
         throw error;
       }
 
-      // Update room status
+      setBillingId(data.id);
+
       const { error: roomError } = await supabase
         .from('rooms')
         .update({ status: 'cleaning' })
@@ -253,7 +258,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
 
       if (roomError) throw roomError;
 
-      // Update reservation status
       const { error: reservationError } = await supabase
         .from('reservations')
         .update({ status: 'completed' })
@@ -262,7 +266,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
 
       if (reservationError) throw reservationError;
 
-      // Update food orders status if any
       if (foodOrders.length > 0) {
         const { error: foodOrdersError } = await supabase
           .from('room_food_orders')
@@ -270,6 +273,10 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
           .in('id', foodOrders.map(order => order.id));
 
         if (foodOrdersError) throw foodOrdersError;
+      }
+
+      if (reservation.special_occasion && reservation.marketing_consent) {
+        await createSpecialOccasionPromotion(reservation, room.restaurant_id);
       }
 
       setShowSuccessDialog(true);
@@ -283,6 +290,108 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
     } finally {
       setLoading(false);
     }
+  };
+
+  const createSpecialOccasionPromotion = async (reservation: ReservationDetails, restaurantId: string) => {
+    try {
+      if (!reservation.special_occasion || !reservation.marketing_consent) return;
+      
+      const occasionDate = reservation.special_occasion_date ? new Date(reservation.special_occasion_date) : null;
+      
+      if (occasionDate) {
+        const nextYearDate = new Date(occasionDate);
+        nextYearDate.setFullYear(nextYearDate.getFullYear() + 1);
+        
+        const promotionStartDate = new Date(nextYearDate);
+        promotionStartDate.setDate(promotionStartDate.getDate() - 30);
+        
+        const promotionEndDate = new Date(nextYearDate);
+        promotionEndDate.setDate(promotionEndDate.getDate() + 7);
+        
+        const { error } = await supabase
+          .from('promotion_campaigns')
+          .insert({
+            restaurant_id: restaurantId,
+            name: `${reservation.special_occasion.charAt(0).toUpperCase() + reservation.special_occasion.slice(1)} Special for ${reservation.customer_name}`,
+            description: `Special offer for ${reservation.customer_name}'s ${reservation.special_occasion}`,
+            start_date: promotionStartDate.toISOString(),
+            end_date: promotionEndDate.toISOString(),
+            discount_percentage: 10,
+            promotion_code: `${reservation.special_occasion.toUpperCase()}_${Math.floor(Math.random() * 10000)}`,
+          });
+        
+        if (error) {
+          console.error("Error creating promotion:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Error creating special occasion promotion:", error);
+    }
+  };
+
+  const sendWhatsAppBill = async () => {
+    if (!reservation?.customer_phone || !billingId) return;
+    
+    setWhatsappSending(true);
+    try {
+      const billText = generateBillText();
+      
+      const response = await supabase.functions.invoke('send-whatsapp', {
+        body: {
+          phone: reservation.customer_phone.replace(/\D/g, ''),
+          message: billText,
+          billingId
+        }
+      });
+      
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      
+      toast({
+        title: "Bill Sent",
+        description: "The bill has been sent to the guest's WhatsApp."
+      });
+      
+    } catch (error) {
+      console.error("Error sending WhatsApp:", error);
+      toast({
+        variant: "destructive",
+        title: "WhatsApp Sending Failed",
+        description: "Failed to send the bill via WhatsApp. Please try again."
+      });
+    } finally {
+      setWhatsappSending(false);
+    }
+  };
+  
+  const generateBillText = () => {
+    if (!room || !reservation) return "";
+    
+    let billText = `*Bill for ${reservation.customer_name}*\n`;
+    billText += `Room: ${room.name}\n`;
+    billText += `Check-in: ${new Date(reservation.start_time).toLocaleDateString()}\n`;
+    billText += `Check-out: ${new Date(reservation.end_time).toLocaleDateString()}\n`;
+    billText += `Days stayed: ${daysStayed}\n\n`;
+    
+    billText += `Room charges: ₹${room.price * daysStayed}\n`;
+    
+    if (additionalCharges.length > 0) {
+      billText += "\n*Additional Charges:*\n";
+      additionalCharges.forEach(charge => {
+        billText += `${charge.name}: ₹${charge.amount}\n`;
+      });
+    }
+    
+    if (includeServiceCharge) {
+      billText += `Service Charge: ₹${serviceCharge}\n`;
+    }
+    
+    billText += `\n*Total Amount: ₹${totalAmount}*\n`;
+    billText += `Payment Method: ${paymentMethod}\n\n`;
+    billText += "Thank you for staying with us!";
+    
+    return billText;
   };
 
   const handleSuccessClose = () => {
@@ -326,6 +435,13 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
                 )}
                 {reservation.customer_phone && (
                   <p className="text-sm text-muted-foreground">Phone: {reservation.customer_phone}</p>
+                )}
+                {reservation.special_occasion && (
+                  <p className="text-sm text-muted-foreground">
+                    Special Occasion: {reservation.special_occasion}
+                    {reservation.special_occasion_date && 
+                      ` (${new Date(reservation.special_occasion_date).toLocaleDateString()})`}
+                  </p>
                 )}
               </div>
             </div>
@@ -498,6 +614,19 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
               </div>
             </div>
 
+            {reservation.customer_phone && (
+              <div className="flex items-center space-x-2 pt-2">
+                <Checkbox 
+                  id="send-whatsapp"
+                  checked={sendWhatsappBill}
+                  onCheckedChange={(checked) => setSendWhatsappBill(checked === true)}
+                />
+                <Label htmlFor="send-whatsapp" className="text-sm">
+                  Send bill via WhatsApp after checkout
+                </Label>
+              </div>
+            )}
+
             <div className="border-t pt-4">
               <div className="flex justify-between text-lg font-bold">
                 <span>Total</span>
@@ -522,8 +651,28 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
             <DialogTitle>Checkout Completed</DialogTitle>
             <DialogDescription>
               The room has been checked out successfully and marked for cleaning.
+              {reservation.special_occasion && reservation.marketing_consent && (
+                <p className="mt-2">
+                  A special promotion has been created for the guest's {reservation.special_occasion}.
+                </p>
+              )}
             </DialogDescription>
           </DialogHeader>
+          
+          {reservation.customer_phone && sendWhatsappBill && (
+            <div className="py-4">
+              <Button 
+                onClick={sendWhatsAppBill} 
+                disabled={whatsappSending}
+                className="w-full"
+                variant="secondary"
+              >
+                <Send className="mr-2 h-4 w-4" />
+                {whatsappSending ? "Sending..." : "Send Bill to WhatsApp"}
+              </Button>
+            </div>
+          )}
+          
           <DialogFooter>
             <Button onClick={handleSuccessClose}>
               Done
