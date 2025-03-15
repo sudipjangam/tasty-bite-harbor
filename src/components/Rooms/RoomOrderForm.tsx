@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { supabase, RoomFoodOrder } from "@/integrations/supabase/client";
+import { supabase, OrderItem } from "@/integrations/supabase/client";
 import { 
   Card, 
   CardHeader, 
@@ -31,25 +31,6 @@ interface MenuItem {
   category: string;
   description?: string;
   is_veg?: boolean;
-}
-
-interface OrderItem {
-  id: string;
-  menuItemId: string;
-  name: string;
-  price: number;
-  quantity: number;
-}
-
-interface RoomFoodOrder {
-  id?: string;
-  room_id: string;
-  restaurant_id: string;
-  items: OrderItem[];
-  total: number;
-  customer_name: string;
-  status: string;
-  created_at?: string;
 }
 
 interface RoomOrderFormProps {
@@ -221,7 +202,7 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
 
       const { data, error } = await supabase
         .from('room_food_orders')
-        .insert([orderData])
+        .insert(orderData)
         .select();
 
       if (error) throw error;

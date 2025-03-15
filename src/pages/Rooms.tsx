@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase, RoomFoodOrder } from "@/integrations/supabase/client";
@@ -210,7 +211,7 @@ const Rooms = () => {
         if (!ordersByRoom[order.room_id]) {
           ordersByRoom[order.room_id] = [];
         }
-        ordersByRoom[order.room_id].push(order as unknown as RoomFoodOrder);
+        ordersByRoom[order.room_id].push(order as RoomFoodOrder);
       });
 
       setRoomFoodOrders(ordersByRoom);
