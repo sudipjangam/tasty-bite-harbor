@@ -4,6 +4,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Form,
   FormControl,
@@ -11,6 +12,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { supabase } from "@/integrations/supabase/client";
 import { X, Upload, Loader2, Image as ImageIcon } from "lucide-react";
@@ -25,6 +27,8 @@ interface MenuItem {
   price: number;
   image_url: string;
   is_available: boolean;
+  is_veg?: boolean;
+  is_special?: boolean;
 }
 
 interface AddMenuItemFormProps {
@@ -39,6 +43,8 @@ type FormData = {
   price: string;
   category: string;
   image_url: string;
+  is_veg: boolean;
+  is_special: boolean;
 };
 
 const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormProps) => {
@@ -71,6 +77,22 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
     },
   });
 
+  // Determine if an item is vegetarian based on its category
+  const isVegetarian = (category: string | undefined) => {
+    if (!category) return false;
+    return category.toLowerCase().includes('veg') && !category.toLowerCase().includes('non');
+  };
+
+  // Determine if an item is special
+  const isSpecial = (name: string | undefined, description: string | undefined, category: string | undefined) => {
+    if (!name && !description && !category) return false;
+    return (
+      (category && category.toLowerCase().includes('special')) ||
+      (name && name.toLowerCase().includes('special')) ||
+      (description && description.toLowerCase().includes('special'))
+    );
+  };
+
   const form = useForm<FormData>({
     defaultValues: {
       name: editingItem?.name || "",
@@ -78,18 +100,30 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
       price: editingItem?.price ? String(editingItem.price) : "",
       category: editingItem?.category || "",
       image_url: editingItem?.image_url || "",
+      is_veg: editingItem?.is_veg || isVegetarian(editingItem?.category) || false,
+      is_special: editingItem?.is_special || isSpecial(editingItem?.name, editingItem?.description, editingItem?.category) || false,
     },
   });
 
   // Keep this in useEffect to handle any changes to editingItem
   useEffect(() => {
     if (editingItem) {
+      const isVeg = editingItem.is_veg !== undefined ? 
+                   editingItem.is_veg : 
+                   isVegetarian(editingItem.category);
+      
+      const isItemSpecial = editingItem.is_special !== undefined ? 
+                          editingItem.is_special : 
+                          isSpecial(editingItem.name, editingItem.description, editingItem.category);
+      
       form.reset({
         name: editingItem.name || "",
         description: editingItem.description || "",
         price: editingItem.price ? String(editingItem.price) : "",
         category: editingItem.category || "",
         image_url: editingItem.image_url || "",
+        is_veg: isVeg,
+        is_special: isItemSpecial,
       });
       setUploadedImageUrl(editingItem.image_url || "");
     }
@@ -229,6 +263,8 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
         category: data.category,
         image_url: imageUrl,
         is_available: true,
+        is_veg: data.is_veg,
+        is_special: data.is_special,
       };
 
       if (editingItem) {
@@ -275,11 +311,11 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
     }
   };
 
-  const categories = ["Main Course", "Appetizers", "Desserts", "Beverages", "Non-Veg", "Other"];
+  const categories = ["Main Course", "Appetizers", "Desserts", "Beverages", "Non-Veg", "Vegetarian", "Restaurant Specials", "Other"];
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md relative animate-fade-in">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md relative animate-fade-in overflow-y-auto max-h-[90vh]">
         <Button
           variant="ghost"
           size="icon"
@@ -326,7 +362,20 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                 <FormItem>
                   <FormLabel>Category</FormLabel>
                   <Select 
-                    onValueChange={field.onChange} 
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      // Automatically set is_veg if the category is vegetarian
+                      if (value.toLowerCase().includes("veg") && !value.toLowerCase().includes("non")) {
+                        form.setValue("is_veg", true);
+                      } else if (value.toLowerCase().includes("non-veg")) {
+                        form.setValue("is_veg", false);
+                      }
+                      
+                      // Automatically set is_special if the category is special
+                      if (value.toLowerCase().includes("special")) {
+                        form.setValue("is_special", true);
+                      }
+                    }}
                     defaultValue={field.value}
                     value={field.value}
                   >
@@ -347,6 +396,50 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                 </FormItem>
               )}
             />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="is_veg"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between space-x-2 rounded-md border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Vegetarian</FormLabel>
+                      <FormDescription>
+                        Mark as vegetarian item
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="is_special"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between space-x-2 rounded-md border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Special</FormLabel>
+                      <FormDescription>
+                        Mark as restaurant special
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}

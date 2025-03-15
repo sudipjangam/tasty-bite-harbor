@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -24,10 +25,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Plus, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import type { Order } from "@/types/orders";
 
 interface AddOrderFormProps {
   onSuccess: () => void;
   onCancel: () => void;
+  editingOrder?: Order | null;
 }
 
 interface OrderFormValues {
@@ -43,7 +46,7 @@ interface OrderFormValues {
   attendant: string;
 }
 
-const AddOrderForm = ({ onSuccess, onCancel }: AddOrderFormProps) => {
+const AddOrderForm = ({ onSuccess, onCancel, editingOrder }: AddOrderFormProps) => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -126,10 +129,68 @@ const AddOrderForm = ({ onSuccess, onCancel }: AddOrderFormProps) => {
     },
   });
 
+  // Parse editing order items if available
+  const parseEditingOrderItems = () => {
+    if (!editingOrder || !menuItems) return [];
+    
+    // Try to parse order items from the editingOrder
+    return editingOrder.items.map(itemString => {
+      // Parse the itemString format: "2x Chicken Biryani (extra spicy)"
+      const quantityMatch = itemString.match(/^(\d+)x /);
+      const quantity = quantityMatch ? parseInt(quantityMatch[1]) : 1;
+      
+      // Remove the quantity prefix
+      let remainingString = itemString.replace(/^\d+x /, "");
+      
+      // Extract notes if they exist in parentheses
+      let notes = "";
+      const notesMatch = remainingString.match(/\((.*?)\)$/);
+      if (notesMatch) {
+        notes = notesMatch[1];
+        remainingString = remainingString.replace(/\s*\(.*?\)$/, "");
+      }
+      
+      // The remaining string should be the item name
+      const itemName = remainingString.trim();
+      
+      // Find matching menu item to get category and price
+      const menuItem = menuItems.find(item => item.name === itemName);
+      
+      return {
+        category: menuItem?.category || "",
+        itemName: itemName,
+        quantity: quantity,
+        notes: notes,
+        unitPrice: menuItem?.price || 0
+      };
+    });
+  };
+
+  // Determine order type and table number from editing order
+  const determineOrderTypeAndTable = () => {
+    if (!editingOrder) return { orderType: "dineIn" as const, tableNumber: undefined };
+    
+    // If customer_name starts with "Table", it's a dine-in order
+    if (editingOrder.customer_name.startsWith("Table")) {
+      return {
+        orderType: "dineIn" as const,
+        tableNumber: editingOrder.customer_name.replace("Table ", "")
+      };
+    } else {
+      return {
+        orderType: "takeAway" as const,
+        tableNumber: undefined
+      };
+    }
+  };
+
+  const { orderType, tableNumber } = determineOrderTypeAndTable();
+  
   const form = useForm<OrderFormValues>({
     defaultValues: {
-      orderType: "dineIn",
-      orderItems: [
+      orderType: orderType,
+      tableNumber: tableNumber,
+      orderItems: editingOrder ? parseEditingOrderItems() : [
         {
           category: "",
           itemName: "",
@@ -138,6 +199,7 @@ const AddOrderForm = ({ onSuccess, onCancel }: AddOrderFormProps) => {
           unitPrice: 0,
         },
       ],
+      attendant: "",
     },
   });
 
@@ -166,28 +228,47 @@ const AddOrderForm = ({ onSuccess, onCancel }: AddOrderFormProps) => {
         sum + (item.quantity * item.unitPrice), 0
       );
 
-      const { error } = await supabase
-        .from("orders")
-        .insert({
-          restaurant_id: profile.restaurant_id,
-          customer_name: values.orderType === "dineIn" ? `Table ${values.tableNumber}` : "Take Away",
-          items: values.orderItems.map(item => `${item.quantity}x ${item.itemName} ${item.notes ? `(${item.notes})` : ''}`),
-          total: total,
-          status: "pending",
-        });
+      const orderData = {
+        restaurant_id: profile.restaurant_id,
+        customer_name: values.orderType === "dineIn" ? `Table ${values.tableNumber}` : "Take Away",
+        items: values.orderItems.map(item => `${item.quantity}x ${item.itemName} ${item.notes ? `(${item.notes})` : ''}`),
+        total: total,
+        status: editingOrder ? editingOrder.status : "pending",
+      };
 
-      if (error) throw error;
+      if (editingOrder) {
+        // Update existing order
+        const { error } = await supabase
+          .from("orders")
+          .update(orderData)
+          .eq("id", editingOrder.id);
+
+        if (error) throw error;
+        
+        toast({
+          title: "Success",
+          description: "Order updated successfully",
+        });
+      } else {
+        // Insert new order
+        const { error } = await supabase
+          .from("orders")
+          .insert([orderData]);
+
+        if (error) throw error;
+        
+        toast({
+          title: "Success",
+          description: "Order added successfully",
+        });
+      }
       
       onSuccess();
-      toast({
-        title: "Success",
-        description: "Order added successfully",
-      });
     } catch (error) {
-      console.error("Error adding order:", error);
+      console.error("Error adding/updating order:", error);
       toast({
         title: "Error",
-        description: "Failed to add order. Please try again.",
+        description: "Failed to save order. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -200,7 +281,9 @@ const AddOrderForm = ({ onSuccess, onCancel }: AddOrderFormProps) => {
 
   return (
     <div className="p-6 bg-[#F1F0FB] rounded-lg">
-      <h2 className="text-2xl font-bold mb-6 text-primary">New Order</h2>
+      <h2 className="text-2xl font-bold mb-6 text-primary">
+        {editingOrder ? "Edit Order" : "New Order"}
+      </h2>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <FormField
@@ -422,6 +505,21 @@ const AddOrderForm = ({ onSuccess, onCancel }: AddOrderFormProps) => {
                 </div>
               </Card>
             ))}
+
+            {/* Order total */}
+            <div className="flex justify-end mt-4">
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-8">
+                  <span className="font-semibold">Order Total:</span>
+                  <span className="text-xl font-bold text-purple-600">
+                    ₹{fields.reduce((sum, _, index) => 
+                      sum + ((form.watch(`orderItems.${index}.quantity`) || 0) * 
+                            (form.watch(`orderItems.${index}.unitPrice`) || 0)), 0).toFixed(2)
+                    }
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <FormField
@@ -464,7 +562,7 @@ const AddOrderForm = ({ onSuccess, onCancel }: AddOrderFormProps) => {
               className="bg-accent hover:bg-accent/90 text-white"
             >
               {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Submit Order
+              {editingOrder ? "Update Order" : "Submit Order"}
             </Button>
           </div>
         </form>

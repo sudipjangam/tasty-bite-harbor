@@ -10,10 +10,10 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Order } from "@/types/orders";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 const Orders = () => {
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const { toast } = useToast();
 
   const { data: orders, isLoading, refetch } = useQuery({
@@ -44,6 +44,7 @@ const Orders = () => {
 
   const handleOrderAdded = () => {
     setShowAddForm(false);
+    setEditingOrder(null);
     refetch();
     toast({
       title: "Success",
@@ -51,17 +52,9 @@ const Orders = () => {
     });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "pending":
-        return "bg-yellow-500";
-      case "completed":
-        return "bg-green-500";
-      case "cancelled":
-        return "bg-red-500";
-      default:
-        return "bg-gray-500";
-    }
+  const handleEditOrder = (order: Order) => {
+    setEditingOrder(order);
+    setShowAddForm(true);
   };
 
   if (isLoading) {
@@ -85,7 +78,10 @@ const Orders = () => {
             Manage and track your restaurant orders
           </p>
         </div>
-        <Button onClick={() => setShowAddForm(true)} className="bg-purple-600 hover:bg-purple-700">
+        <Button onClick={() => {
+          setEditingOrder(null);
+          setShowAddForm(true);
+        }} className="bg-purple-600 hover:bg-purple-700">
           <Plus className="mr-2 h-4 w-4" />
           New Order
         </Button>
@@ -131,12 +127,20 @@ const Orders = () => {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <AddOrderForm
             onSuccess={handleOrderAdded}
-            onCancel={() => setShowAddForm(false)}
+            onCancel={() => {
+              setShowAddForm(false);
+              setEditingOrder(null);
+            }}
+            editingOrder={editingOrder}
           />
         </DialogContent>
       </Dialog>
 
-      <OrderList orders={orders || []} onOrdersChange={refetch} />
+      <OrderList 
+        orders={orders || []} 
+        onOrdersChange={refetch}
+        onEditOrder={handleEditOrder} 
+      />
     </div>
   );
 };
