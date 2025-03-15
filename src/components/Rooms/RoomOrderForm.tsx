@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, RoomFoodOrder } from "@/integrations/supabase/client";
 import { 
   Card, 
   CardHeader, 
@@ -131,7 +130,6 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
   }, [restaurantId, toast]);
 
   useEffect(() => {
-    // Filter menu items based on search query and category
     const filtered = menuItems.filter(item => {
       const matchesSearch = 
         item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -149,11 +147,9 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
 
   const handleAddItem = (menuItem: MenuItem) => {
     setOrderItems(prevItems => {
-      // Check if the item is already in the order
       const existingItemIndex = prevItems.findIndex(item => item.menuItemId === menuItem.id);
       
       if (existingItemIndex !== -1) {
-        // Item exists, update quantity
         const updatedItems = [...prevItems];
         updatedItems[existingItemIndex] = {
           ...updatedItems[existingItemIndex],
@@ -161,7 +157,6 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
         };
         return updatedItems;
       } else {
-        // Add new item
         return [...prevItems, {
           id: Date.now().toString(),
           menuItemId: menuItem.id,
@@ -175,7 +170,6 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
 
   const handleUpdateQuantity = (id: string, newQuantity: number) => {
     if (newQuantity <= 0) {
-      // Remove item if quantity is 0 or negative
       setOrderItems(prevItems => prevItems.filter(item => item.id !== id));
       return;
     }
@@ -216,8 +210,7 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
 
     setIsSubmitting(true);
     try {
-      // Create an order entry for the room
-      const orderData: RoomFoodOrder = {
+      const orderData = {
         room_id: roomId,
         restaurant_id: restaurantId,
         customer_name: customerName,
@@ -251,7 +244,6 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
     }
   };
 
-  // Get unique categories from menu items
   const categories = ['all', 'veg', 'non-veg', ...new Set(menuItems.map(item => item.category))];
 
   return (

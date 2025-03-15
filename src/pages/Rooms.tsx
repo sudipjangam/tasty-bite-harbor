@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, RoomFoodOrder } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -111,7 +110,6 @@ const Rooms = () => {
 
   const { toast } = useToast();
 
-  // Fetch restaurant ID
   useEffect(() => {
     const fetchRestaurantId = async () => {
       try {
@@ -158,7 +156,6 @@ const Rooms = () => {
     fetchRestaurantId();
   }, [toast]);
 
-  // Fetch rooms and their food orders
   useEffect(() => {
     const fetchRooms = async () => {
       if (!restaurantId) return;
@@ -180,7 +177,6 @@ const Rooms = () => {
         
         setRooms(roomsWithPrice as Room[]);
 
-        // Fetch food orders for occupied rooms
         const occupiedRooms = roomsWithPrice.filter(room => room.status === 'occupied');
         if (occupiedRooms.length > 0) {
           await fetchRoomFoodOrders(occupiedRooms.map(room => room.id));
@@ -209,13 +205,12 @@ const Rooms = () => {
 
       if (error) throw error;
 
-      // Group orders by room_id
       const ordersByRoom: Record<string, RoomFoodOrder[]> = {};
       (data || []).forEach(order => {
         if (!ordersByRoom[order.room_id]) {
           ordersByRoom[order.room_id] = [];
         }
-        ordersByRoom[order.room_id].push(order);
+        ordersByRoom[order.room_id].push(order as unknown as RoomFoodOrder);
       });
 
       setRoomFoodOrders(ordersByRoom);
@@ -455,7 +450,6 @@ const Rooms = () => {
 
   const openFoodOrderDialog = async (room: Room) => {
     try {
-      // Get the current reservation for this room
       const { data, error } = await supabase
         .from("reservations")
         .select("*")
@@ -494,7 +488,6 @@ const Rooms = () => {
     setOpenFoodOrder(false);
     
     if (currentRoom) {
-      // Refresh food orders for this room
       await fetchRoomFoodOrders([currentRoom.id]);
     }
   };

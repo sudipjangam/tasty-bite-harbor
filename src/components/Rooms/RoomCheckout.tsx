@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from 'react-router-dom';
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, RoomFoodOrder } from "@/integrations/supabase/client";
 import { 
   Card, 
   CardHeader, 
@@ -155,10 +155,10 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
         if (foodOrdersError) throw foodOrdersError;
         
         if (foodOrdersData && foodOrdersData.length > 0) {
-          setFoodOrders(foodOrdersData);
+          setFoodOrders(foodOrdersData as unknown as FoodOrder[]);
           
           // Calculate total food orders amount
-          const totalFoodOrders = foodOrdersData.reduce((sum, order) => sum + order.total, 0);
+          const totalFoodOrders = foodOrdersData.reduce((sum, order) => sum + (order.total || 0), 0);
           setFoodOrdersTotal(totalFoodOrders);
           
           // Add food orders as an additional charge if there are any
