@@ -60,7 +60,7 @@ const ComponentAccessGuard = ({
             .from("profiles")
             .select("restaurant_id")
             .eq("id", session.user.id)
-            .single();
+            .maybeSingle();
 
           if (profile?.restaurant_id) {
             const allowedComponents = await fetchAllowedComponents(profile.restaurant_id);
@@ -158,7 +158,7 @@ const SubscriptionGuard = ({ children }: { children: React.ReactNode }) => {
             .from("profiles")
             .select("restaurant_id")
             .eq("id", session.user.id)
-            .single();
+            .maybeSingle();
 
           if (profile?.restaurant_id) {
             const hasActiveSubscription = await checkSubscriptionStatus(profile.restaurant_id);
@@ -257,9 +257,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       if (!mounted) return;
       
       setSession(session);
-      setLoading(true);
       
       if (session) {
+        setLoading(true);
         try {
           const { data: profile } = await supabase
             .from("profiles")
@@ -277,12 +277,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
         } catch (error) {
           console.error("Error in auth state change:", error);
           setHasActiveSubscription(false);
+        } finally {
+          setLoading(false);
         }
       } else {
         setHasActiveSubscription(null);
+        setLoading(false);
       }
-      
-      setLoading(false);
     });
 
     return () => {
@@ -292,9 +293,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   // Only show loading indicator on initial page load, not when switching tabs
-  if (loading && !session) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
         <div className="flex flex-col items-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
           <p className="mt-4 text-muted-foreground">Loading application...</p>
