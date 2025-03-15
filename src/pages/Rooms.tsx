@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +34,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import RoomCheckout from "@/components/Rooms/RoomCheckout";
 import BillingHistory from "@/components/Rooms/BillingHistory";
+import RoomOrderForm from "@/components/Rooms/RoomOrderForm";
+import { ShoppingBag, CalendarCheck } from "lucide-react";
 
 interface Room {
   id: string;
@@ -55,6 +58,14 @@ interface Reservation {
   notes: string | null;
 }
 
+interface RoomFoodOrder {
+  id: string;
+  room_id: string;
+  created_at: string;
+  total: number;
+  status: string;
+}
+
 const statusColors = {
   available: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   occupied: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
@@ -73,6 +84,8 @@ const Rooms = () => {
   const [checkoutRoom, setCheckoutRoom] = useState<{ roomId: string, reservationId: string } | null>(null);
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [openFoodOrder, setOpenFoodOrder] = useState(false);
+  const [roomFoodOrders, setRoomFoodOrders] = useState<Record<string, RoomFoodOrder[]>>({});
 
   const [newRoom, setNewRoom] = useState({
     name: "",
@@ -98,6 +111,7 @@ const Rooms = () => {
 
   const { toast } = useToast();
 
+  // Fetch restaurant ID
   useEffect(() => {
     const fetchRestaurantId = async () => {
       try {
@@ -144,6 +158,7 @@ const Rooms = () => {
     fetchRestaurantId();
   }, [toast]);
 
+  // Fetch rooms and their food orders
   useEffect(() => {
     const fetchRooms = async () => {
       if (!restaurantId) return;
@@ -164,6 +179,12 @@ const Rooms = () => {
         });
         
         setRooms(roomsWithPrice as Room[]);
+
+        // Fetch food orders for occupied rooms
+        const occupiedRooms = roomsWithPrice.filter(room => room.status === 'occupied');
+        if (occupiedRooms.length > 0) {
+          await fetchRoomFoodOrders(occupiedRooms.map(room => room.id));
+        }
       } catch (error) {
         console.error("Error fetching rooms:", error);
         toast({
@@ -178,6 +199,30 @@ const Rooms = () => {
 
     fetchRooms();
   }, [restaurantId, toast]);
+
+  const fetchRoomFoodOrders = async (roomIds: string[]) => {
+    try {
+      const { data, error } = await supabase
+        .from('room_food_orders')
+        .select('*')
+        .in('room_id', roomIds);
+
+      if (error) throw error;
+
+      // Group orders by room_id
+      const ordersByRoom: Record<string, RoomFoodOrder[]> = {};
+      (data || []).forEach(order => {
+        if (!ordersByRoom[order.room_id]) {
+          ordersByRoom[order.room_id] = [];
+        }
+        ordersByRoom[order.room_id].push(order);
+      });
+
+      setRoomFoodOrders(ordersByRoom);
+    } catch (error) {
+      console.error("Error fetching room food orders:", error);
+    }
+  };
 
   const handleAddRoom = async () => {
     if (!restaurantId) {
@@ -408,8 +453,59 @@ const Rooms = () => {
     }
   };
 
+  const openFoodOrderDialog = async (room: Room) => {
+    try {
+      // Get the current reservation for this room
+      const { data, error } = await supabase
+        .from("reservations")
+        .select("*")
+        .eq("room_id", room.id)
+        .eq("status", "confirmed")
+        .order("start_time", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "No Active Reservation",
+          description: "There is no active reservation for this room.",
+        });
+        return;
+      }
+
+      setCurrentRoom(room);
+      setReservation(prev => ({
+        ...prev,
+        customer_name: data.customer_name,
+      }));
+      setOpenFoodOrder(true);
+    } catch (error) {
+      console.error("Error fetching reservation:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to prepare food order. Please try again.",
+      });
+    }
+  };
+
+  const handleFoodOrderComplete = async () => {
+    setOpenFoodOrder(false);
+    
+    if (currentRoom) {
+      // Refresh food orders for this room
+      await fetchRoomFoodOrders([currentRoom.id]);
+    }
+  };
+
   const getStatusClass = (status: string) => {
     return statusColors[status as keyof typeof statusColors] || "bg-gray-100 text-gray-800";
+  };
+
+  const getRoomFoodOrdersTotal = (roomId: string) => {
+    const orders = roomFoodOrders[roomId] || [];
+    return orders.reduce((sum, order) => sum + (order.total || 0), 0);
   };
 
   if (loading) {
@@ -434,6 +530,17 @@ const Rooms = () => {
         roomId={checkoutRoom.roomId}
         reservationId={checkoutRoom.reservationId}
         onComplete={handleCheckoutComplete}
+      />
+    );
+  }
+
+  if (openFoodOrder && currentRoom) {
+    return (
+      <RoomOrderForm
+        roomId={currentRoom.id}
+        customerName={reservation.customer_name}
+        onSuccess={handleFoodOrderComplete}
+        onCancel={() => setOpenFoodOrder(false)}
       />
     );
   }
@@ -473,27 +580,44 @@ const Rooms = () => {
                       </span>
                     </CardTitle>
                     <CardDescription>
-                      Capacity: {room.capacity} {room.capacity === 1 ? "person" : "people"}
+                      <div>Capacity: {room.capacity} {room.capacity === 1 ? "person" : "people"}</div>
                       <div>Price: ₹{room.price} / night</div>
+                      {room.status === "occupied" && roomFoodOrders[room.id]?.length > 0 && (
+                        <div className="mt-2 font-medium text-purple-600">
+                          Food Orders: ₹{getRoomFoodOrdersTotal(room.id).toFixed(2)}
+                        </div>
+                      )}
                     </CardDescription>
                   </CardHeader>
-                  <CardFooter className="flex justify-between">
+                  <CardFooter className="flex flex-wrap gap-2">
                     <Button variant="outline" onClick={() => openEditDialog(room)}>
                       Edit
                     </Button>
+                    
                     {room.status === "available" ? (
                       <Button
+                        variant="default"
                         onClick={() => openReservationDialog(room)}
                       >
+                        <CalendarCheck className="mr-2 h-4 w-4" />
                         Reserve
                       </Button>
                     ) : room.status === "occupied" ? (
-                      <Button
-                        variant="secondary"
-                        onClick={() => handleCheckout(room.id)}
-                      >
-                        Checkout
-                      </Button>
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => openFoodOrderDialog(room)}
+                        >
+                          <ShoppingBag className="mr-2 h-4 w-4" />
+                          Food Order
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() => handleCheckout(room.id)}
+                        >
+                          Checkout
+                        </Button>
+                      </>
                     ) : (
                       <Button
                         variant="outline"
@@ -671,7 +795,7 @@ const Rooms = () => {
       </Dialog>
 
       <Dialog open={openReservation} onOpenChange={setOpenReservation}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               New Reservation for {currentRoom?.name}
@@ -721,7 +845,7 @@ const Rooms = () => {
                 }
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>Check-in Date</Label>
                 <div className="border rounded-md p-2">

@@ -77,22 +77,6 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
     },
   });
 
-  // Determine if an item is vegetarian based on its category
-  const isVegetarian = (category: string | undefined) => {
-    if (!category) return false;
-    return category.toLowerCase().includes('veg') && !category.toLowerCase().includes('non');
-  };
-
-  // Determine if an item is special
-  const isSpecial = (name: string | undefined, description: string | undefined, category: string | undefined) => {
-    if (!name && !description && !category) return false;
-    return (
-      (category && category.toLowerCase().includes('special')) ||
-      (name && name.toLowerCase().includes('special')) ||
-      (description && description.toLowerCase().includes('special'))
-    );
-  };
-
   const form = useForm<FormData>({
     defaultValues: {
       name: editingItem?.name || "",
@@ -100,30 +84,22 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
       price: editingItem?.price ? String(editingItem.price) : "",
       category: editingItem?.category || "",
       image_url: editingItem?.image_url || "",
-      is_veg: editingItem?.is_veg || isVegetarian(editingItem?.category) || false,
-      is_special: editingItem?.is_special || isSpecial(editingItem?.name, editingItem?.description, editingItem?.category) || false,
+      is_veg: editingItem?.is_veg ?? false,
+      is_special: editingItem?.is_special ?? false,
     },
   });
 
   // Keep this in useEffect to handle any changes to editingItem
   useEffect(() => {
     if (editingItem) {
-      const isVeg = editingItem.is_veg !== undefined ? 
-                   editingItem.is_veg : 
-                   isVegetarian(editingItem.category);
-      
-      const isItemSpecial = editingItem.is_special !== undefined ? 
-                          editingItem.is_special : 
-                          isSpecial(editingItem.name, editingItem.description, editingItem.category);
-      
       form.reset({
         name: editingItem.name || "",
         description: editingItem.description || "",
         price: editingItem.price ? String(editingItem.price) : "",
         category: editingItem.category || "",
         image_url: editingItem.image_url || "",
-        is_veg: isVeg,
-        is_special: isItemSpecial,
+        is_veg: editingItem.is_veg ?? false,
+        is_special: editingItem.is_special ?? false,
       });
       setUploadedImageUrl(editingItem.image_url || "");
     }
@@ -267,6 +243,8 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
         is_special: data.is_special,
       };
 
+      console.log("Saving menu item with data:", menuItemData);
+
       if (editingItem) {
         // Update existing menu item
         const { error } = await supabase
@@ -362,20 +340,7 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                 <FormItem>
                   <FormLabel>Category</FormLabel>
                   <Select 
-                    onValueChange={(value) => {
-                      field.onChange(value);
-                      // Automatically set is_veg if the category is vegetarian
-                      if (value.toLowerCase().includes("veg") && !value.toLowerCase().includes("non")) {
-                        form.setValue("is_veg", true);
-                      } else if (value.toLowerCase().includes("non-veg")) {
-                        form.setValue("is_veg", false);
-                      }
-                      
-                      // Automatically set is_special if the category is special
-                      if (value.toLowerCase().includes("special")) {
-                        form.setValue("is_special", true);
-                      }
-                    }}
+                    onValueChange={field.onChange}
                     defaultValue={field.value}
                     value={field.value}
                   >

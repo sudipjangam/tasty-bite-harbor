@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from 'react-router-dom';
@@ -44,7 +45,8 @@ import {
   Banknote, 
   QrCode, 
   Plus, 
-  Trash2 
+  Trash2,
+  UtensilsCrossed
 } from 'lucide-react';
 
 interface RoomCheckoutProps {
@@ -76,6 +78,21 @@ interface AdditionalCharge {
   amount: number;
 }
 
+interface FoodOrder {
+  id: string;
+  items: OrderItem[];
+  total: number;
+  created_at: string;
+  status: string;
+}
+
+interface OrderItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
 const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onComplete }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -90,10 +107,13 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
   const [daysStayed, setDaysStayed] = useState(0);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [foodOrders, setFoodOrders] = useState<FoodOrder[]>([]);
+  const [foodOrdersTotal, setFoodOrdersTotal] = useState(0);
 
   useEffect(() => {
     const fetchDetails = async () => {
       try {
+        // Fetch room details
         const { data: roomData, error: roomError } = await supabase
           .from('rooms')
           .select('*')
@@ -108,6 +128,7 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
         
         setRoom(roomData as RoomDetails);
 
+        // Fetch reservation details
         const { data: reservationData, error: reservationError } = await supabase
           .from('reservations')
           .select('*')
@@ -117,11 +138,38 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
         if (reservationError) throw reservationError;
         setReservation(reservationData);
 
+        // Calculate days stayed
         const startDate = new Date(reservationData.start_time);
         const endDate = new Date(reservationData.end_time);
         const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         setDaysStayed(diffDays === 0 ? 1 : diffDays);
+
+        // Fetch food orders for this room
+        const { data: foodOrdersData, error: foodOrdersError } = await supabase
+          .from('room_food_orders')
+          .select('*')
+          .eq('room_id', roomId)
+          .eq('status', 'pending');
+
+        if (foodOrdersError) throw foodOrdersError;
+        
+        if (foodOrdersData && foodOrdersData.length > 0) {
+          setFoodOrders(foodOrdersData);
+          
+          // Calculate total food orders amount
+          const totalFoodOrders = foodOrdersData.reduce((sum, order) => sum + order.total, 0);
+          setFoodOrdersTotal(totalFoodOrders);
+          
+          // Add food orders as an additional charge if there are any
+          if (totalFoodOrders > 0) {
+            setAdditionalCharges([{
+              id: 'food-orders',
+              name: 'Food Orders',
+              amount: totalFoodOrders
+            }]);
+          }
+        }
       } catch (error) {
         console.error('Error fetching details:', error);
         toast({
@@ -171,6 +219,7 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
         amount: Number(charge.amount)
       }));
 
+      // Create billing record
       const { data, error } = await supabase
         .from('room_billings')
         .insert({
@@ -195,6 +244,7 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
         throw error;
       }
 
+      // Update room status
       const { error: roomError } = await supabase
         .from('rooms')
         .update({ status: 'cleaning' })
@@ -203,6 +253,7 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
 
       if (roomError) throw roomError;
 
+      // Update reservation status
       const { error: reservationError } = await supabase
         .from('reservations')
         .update({ status: 'completed' })
@@ -210,6 +261,16 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
         .eq('restaurant_id', room.restaurant_id);
 
       if (reservationError) throw reservationError;
+
+      // Update food orders status if any
+      if (foodOrders.length > 0) {
+        const { error: foodOrdersError } = await supabase
+          .from('room_food_orders')
+          .update({ status: 'completed' })
+          .in('id', foodOrders.map(order => order.id));
+
+        if (foodOrdersError) throw foodOrdersError;
+      }
 
       setShowSuccessDialog(true);
     } catch (error) {
@@ -287,6 +348,47 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
               </Table>
             </div>
 
+            {foodOrders.length > 0 && (
+              <div>
+                <h3 className="text-lg font-medium mb-2 flex items-center">
+                  <UtensilsCrossed className="mr-2 h-4 w-4" />
+                  Food Orders
+                </h3>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Items</TableHead>
+                      <TableHead className="text-right">Amount (₹)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {foodOrders.map((order) => (
+                      <TableRow key={order.id}>
+                        <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          {order.items?.map((item, index) => (
+                            <div key={index} className="text-sm">
+                              {item.name} x{item.quantity} (₹{item.price})
+                            </div>
+                          ))}
+                        </TableCell>
+                        <TableCell className="text-right">₹{order.total}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow>
+                      <TableCell colSpan={2} className="font-medium text-right">
+                        Total Food Orders:
+                      </TableCell>
+                      <TableCell className="text-right font-bold">
+                        ₹{foodOrdersTotal}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
             <div>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-lg font-medium">Additional Charges</h3>
@@ -324,14 +426,16 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
                       <TableCell>{charge.name}</TableCell>
                       <TableCell className="text-right">₹{charge.amount}</TableCell>
                       <TableCell>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => handleRemoveCharge(charge.id)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        {charge.id !== 'food-orders' && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleRemoveCharge(charge.id)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

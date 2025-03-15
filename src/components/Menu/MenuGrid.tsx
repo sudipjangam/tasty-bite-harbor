@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,26 +46,7 @@ const MenuGrid = () => {
       }
 
       console.log('Fetched menu items:', data);
-      
-      // Process the data to determine if items are veg or special
-      const processedData = data.map((item: MenuItem) => {
-        // Determine if item is vegetarian based on category or other indicators
-        const isVeg = item.category?.toLowerCase().includes('veg') && 
-                     !item.category?.toLowerCase().includes('non');
-        
-        // Determine if item is special
-        const isSpecial = item.category?.toLowerCase().includes('special') || 
-                         item.name?.toLowerCase().includes('special') ||
-                         item.description?.toLowerCase().includes('special');
-        
-        return {
-          ...item,
-          is_veg: isVeg,
-          is_special: isSpecial
-        };
-      });
-      
-      return processedData as MenuItem[];
+      return data as MenuItem[];
     },
   });
 
@@ -141,11 +121,11 @@ const MenuGrid = () => {
     if (activeCategory === "all") {
       return matchesSearch;
     } else if (activeCategory === "veg") {
-      return matchesSearch && item.is_veg;
+      return matchesSearch && item.is_veg === true;
     } else if (activeCategory === "non-veg") {
-      return matchesSearch && !item.is_veg;
+      return matchesSearch && item.is_veg === false;
     } else if (activeCategory === "special") {
-      return matchesSearch && item.is_special;
+      return matchesSearch && item.is_special === true;
     } else {
       return matchesSearch && item.category === activeCategory;
     }

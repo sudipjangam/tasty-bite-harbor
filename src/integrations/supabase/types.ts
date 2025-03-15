@@ -108,6 +108,8 @@ export type Database = {
           id: string
           image_url: string | null
           is_available: boolean | null
+          is_special: boolean | null
+          is_veg: boolean | null
           name: string
           price: number
           restaurant_id: string
@@ -120,6 +122,8 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_available?: boolean | null
+          is_special?: boolean | null
+          is_veg?: boolean | null
           name: string
           price: number
           restaurant_id: string
@@ -132,6 +136,8 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_available?: boolean | null
+          is_special?: boolean | null
+          is_veg?: boolean | null
           name?: string
           price?: number
           restaurant_id?: string
