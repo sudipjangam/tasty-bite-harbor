@@ -66,11 +66,31 @@ serve(async (req) => {
         if (error) {
           console.error("Error updating billing record:", error);
           errorDetails = error.message;
+          sendStatus = 'error';
+        } else {
+          console.log(`Successfully marked billing ${billingId} as sent via WhatsApp`);
         }
       }
       
       if (promotionId && recipientId) {
         // Record that a promotion was sent
+        let restaurantId = null;
+        
+        // Get restaurant_id from promotion
+        if (promotionId) {
+          const { data: promotionData, error: promotionError } = await supabase
+            .from('promotion_campaigns')
+            .select('restaurant_id')
+            .eq('id', promotionId)
+            .single();
+            
+          if (promotionError) {
+            console.error("Error getting promotion data:", promotionError);
+          } else if (promotionData) {
+            restaurantId = promotionData.restaurant_id;
+          }
+        }
+        
         const { error } = await supabase
           .from('sent_promotions')
           .insert({
@@ -79,13 +99,16 @@ serve(async (req) => {
             customer_phone: phone,
             sent_status: 'sent',
             sent_method: 'whatsapp',
-            restaurant_id: (await supabase.from('promotion_campaigns').select('restaurant_id').eq('id', promotionId).single()).data?.restaurant_id
+            restaurant_id: restaurantId,
+            customer_name: "Guest" // This should be improved to get the actual customer name
           });
           
         if (error) {
           console.error("Error recording sent promotion:", error);
           errorDetails = error.message;
           sendStatus = 'error';
+        } else {
+          console.log(`Successfully recorded sent promotion ${promotionId} to ${recipientId}`);
         }
       }
     } catch (dbError) {

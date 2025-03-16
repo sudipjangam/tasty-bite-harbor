@@ -1,65 +1,18 @@
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { supabase, PromotionCampaign, SentPromotion } from "@/integrations/supabase/client";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { supabase, PromotionCampaign, SentPromotion, ReservationWithSpecialOccasion } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, Filter, Plus, Send, Tag, Target, User } from "lucide-react";
-import { format } from "date-fns";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CalendarIcon, Check, Plus, Send, Trash2 } from 'lucide-react';
+import { format, parseISO, addDays } from 'date-fns';
 
 interface PromotionsManagerProps {
   restaurantId: string;
@@ -227,7 +180,6 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
 
     setIsSending(true);
     
-    // Find the selected promotion details
     const promotion = campaigns.find(c => c.id === selectedPromotion);
     if (!promotion) {
       toast({
@@ -239,7 +191,6 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
       return;
     }
 
-    // Get selected guest details
     const guests = specialOccasions.filter(g => selectedGuests.includes(g.id));
     let successCount = 0;
     let errorCount = 0;
@@ -251,10 +202,8 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
       }
 
       try {
-        // Prepare WhatsApp message
         const message = `Hello ${guest.customer_name},\n\nWe are excited to offer you a special promotion for your upcoming ${guest.occasion}!\n\n${promotion.name}\n${promotion.description || ""}\nDiscount: ${promotion.discount_percentage}%\nValid from: ${new Date(promotion.start_date).toLocaleDateString()} to ${new Date(promotion.end_date).toLocaleDateString()}\n${promotion.promotion_code ? `Promotion code: ${promotion.promotion_code}` : ""}\n\nWe look forward to celebrating with you!\n\nBest regards,\nYour Restaurant Team`;
 
-        // Send WhatsApp message
         const response = await supabase.functions.invoke("send-whatsapp", {
           body: {
             phone: guest.customer_phone.replace(/\D/g, ""),
@@ -314,7 +263,6 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
             <TabsTrigger value="sent">Sent Promotions</TabsTrigger>
           </TabsList>
           
-          {/* Campaigns Tab */}
           <TabsContent value="campaigns">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium">Current Campaigns</h3>
@@ -559,7 +507,6 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
             )}
           </TabsContent>
           
-          {/* Special Occasions Tab */}
           <TabsContent value="specialOccasions">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium">Special Occasions</h3>
@@ -698,7 +645,6 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
             )}
           </TabsContent>
           
-          {/* Sent Promotions Tab */}
           <TabsContent value="sent">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium">Sent Promotions</h3>

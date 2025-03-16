@@ -1,55 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from 'react-router-dom';
 import { supabase, RoomFoodOrder } from "@/integrations/supabase/client";
-import { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription, 
-  CardContent, 
-  CardFooter 
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle 
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { 
-  CreditCard, 
-  Banknote, 
-  QrCode, 
-  Plus, 
-  Trash2,
-  UtensilsCrossed,
-  Send
-} from 'lucide-react';
+import { Checkbox } from "@/components/Rooms/Checkbox";
+import { Label } from "@/components/Rooms/Label";
+
+// Import the component sub-parts
+import RoomDetailsCard from './CheckoutComponents/RoomDetailsCard';
+import RoomChargesTable from './CheckoutComponents/RoomChargesTable';
+import FoodOrdersList from './CheckoutComponents/FoodOrdersList';
+import AdditionalChargesSection from './CheckoutComponents/AdditionalChargesSection';
+import PaymentMethodSelector from './CheckoutComponents/PaymentMethodSelector';
+import CheckoutSuccessDialog from './CheckoutComponents/CheckoutSuccessDialog';
 
 interface RoomCheckoutProps {
   roomId: string;
@@ -101,7 +65,6 @@ interface OrderItem {
 
 const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onComplete }) => {
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [room, setRoom] = useState<RoomDetails | null>(null);
   const [reservation, setReservation] = useState<ReservationDetails | null>(null);
   const [additionalCharges, setAdditionalCharges] = useState<AdditionalCharge[]>([]);
@@ -447,199 +410,40 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h3 className="text-lg font-medium">Room Details</h3>
-                <p className="text-sm text-muted-foreground">Room: {room.name}</p>
-                <p className="text-sm text-muted-foreground">Rate: ₹{room.price} per day</p>
-                <p className="text-sm text-muted-foreground">Days stayed: {daysStayed}</p>
-              </div>
-              <div>
-                <h3 className="text-lg font-medium">Guest Details</h3>
-                <p className="text-sm text-muted-foreground">Name: {reservation.customer_name}</p>
-                {reservation.customer_email && (
-                  <p className="text-sm text-muted-foreground">Email: {reservation.customer_email}</p>
-                )}
-                {reservation.customer_phone && (
-                  <p className="text-sm text-muted-foreground">Phone: {reservation.customer_phone}</p>
-                )}
-                {reservation.special_occasion && (
-                  <p className="text-sm text-muted-foreground">
-                    Special Occasion: {reservation.special_occasion}
-                    {reservation.special_occasion_date && 
-                      ` (${new Date(reservation.special_occasion_date).toLocaleDateString()})`}
-                  </p>
-                )}
-              </div>
-            </div>
+            <RoomDetailsCard 
+              room={room} 
+              daysStayed={daysStayed}
+              customer={{
+                name: reservation.customer_name,
+                email: reservation.customer_email,
+                phone: reservation.customer_phone,
+                specialOccasion: reservation.special_occasion,
+                specialOccasionDate: reservation.special_occasion_date
+              }}
+            />
 
-            <div>
-              <h3 className="text-lg font-medium mb-2">Room Charges</h3>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Amount (₹)</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell>Room charge ({daysStayed} day{daysStayed !== 1 ? 's' : ''})</TableCell>
-                    <TableCell className="text-right">₹{room.price * daysStayed}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
+            <RoomChargesTable roomPrice={room.price} daysStayed={daysStayed} />
 
             {foodOrders.length > 0 && (
-              <div>
-                <h3 className="text-lg font-medium mb-2 flex items-center">
-                  <UtensilsCrossed className="mr-2 h-4 w-4" />
-                  Food Orders
-                </h3>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Items</TableHead>
-                      <TableHead className="text-right">Amount (₹)</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {foodOrders.map((order) => (
-                      <TableRow key={order.id}>
-                        <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          {order.items?.map((item, index) => (
-                            <div key={index} className="text-sm">
-                              {item.name} x{item.quantity} (₹{item.price})
-                            </div>
-                          ))}
-                        </TableCell>
-                        <TableCell className="text-right">₹{order.total}</TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow>
-                      <TableCell colSpan={2} className="font-medium text-right">
-                        Total Food Orders:
-                      </TableCell>
-                      <TableCell className="text-right font-bold">
-                        ₹{foodOrdersTotal}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </div>
+              <FoodOrdersList foodOrders={foodOrders} foodOrdersTotal={foodOrdersTotal} />
             )}
 
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-medium">Additional Charges</h3>
-                <div className="flex items-center gap-2">
-                  <Input 
-                    placeholder="Service"
-                    className="w-32"
-                    value={newCharge.name}
-                    onChange={(e) => setNewCharge({...newCharge, name: e.target.value})}
-                  />
-                  <Input 
-                    type="number"
-                    placeholder="Amount"
-                    className="w-24"
-                    value={newCharge.amount || ''}
-                    onChange={(e) => setNewCharge({...newCharge, amount: parseFloat(e.target.value) || 0})}
-                  />
-                  <Button size="sm" variant="outline" onClick={handleAddCharge}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+            <AdditionalChargesSection 
+              additionalCharges={additionalCharges}
+              newCharge={newCharge}
+              setNewCharge={setNewCharge}
+              handleAddCharge={handleAddCharge}
+              handleRemoveCharge={handleRemoveCharge}
+              includeServiceCharge={includeServiceCharge}
+              setIncludeServiceCharge={setIncludeServiceCharge}
+              serviceCharge={serviceCharge}
+              setServiceCharge={setServiceCharge}
+            />
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Amount (₹)</TableHead>
-                    <TableHead className="w-16"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {additionalCharges.map((charge) => (
-                    <TableRow key={charge.id}>
-                      <TableCell>{charge.name}</TableCell>
-                      <TableCell className="text-right">₹{charge.amount}</TableCell>
-                      <TableCell>
-                        {charge.id !== 'food-orders' && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => handleRemoveCharge(charge.id)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow>
-                    <TableCell className="flex items-center gap-2">
-                      <Label htmlFor="include-service">Service Charge</Label>
-                      <input
-                        id="include-service"
-                        type="checkbox"
-                        checked={includeServiceCharge}
-                        onChange={(e) => setIncludeServiceCharge(e.target.checked)}
-                        className="mr-2"
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Input
-                        type="number"
-                        value={serviceCharge}
-                        onChange={(e) => setServiceCharge(parseFloat(e.target.value) || 0)}
-                        className="w-24 ml-auto"
-                        disabled={!includeServiceCharge}
-                      />
-                    </TableCell>
-                    <TableCell></TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-medium mb-3">Payment Method</h3>
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant={paymentMethod === 'cash' ? 'default' : 'outline'}
-                  className="flex items-center gap-2"
-                  onClick={() => setPaymentMethod('cash')}
-                >
-                  <Banknote className="h-4 w-4" />
-                  Cash
-                </Button>
-                <Button
-                  type="button"
-                  variant={paymentMethod === 'card' ? 'default' : 'outline'}
-                  className="flex items-center gap-2"
-                  onClick={() => setPaymentMethod('card')}
-                >
-                  <CreditCard className="h-4 w-4" />
-                  Card
-                </Button>
-                <Button
-                  type="button"
-                  variant={paymentMethod === 'online' ? 'default' : 'outline'}
-                  className="flex items-center gap-2"
-                  onClick={() => setPaymentMethod('online')}
-                >
-                  <QrCode className="h-4 w-4" />
-                  Online/QR
-                </Button>
-              </div>
-            </div>
+            <PaymentMethodSelector 
+              selectedMethod={paymentMethod}
+              onMethodChange={setPaymentMethod}
+            />
 
             {reservation.customer_phone && (
               <div className="flex items-center space-x-2 pt-2">
@@ -672,41 +476,18 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
         </CardFooter>
       </Card>
 
-      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Checkout Completed</DialogTitle>
-            <DialogDescription>
-              The room has been checked out successfully and marked for cleaning.
-              {reservation.special_occasion && reservation.marketing_consent && (
-                <p className="mt-2">
-                  A special promotion has been created for the guest's {reservation.special_occasion}.
-                </p>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {reservation.customer_phone && sendWhatsappBill && (
-            <div className="py-4">
-              <Button 
-                onClick={sendWhatsAppBill} 
-                disabled={whatsappSending}
-                className="w-full"
-                variant="secondary"
-              >
-                <Send className="mr-2 h-4 w-4" />
-                {whatsappSending ? "Sending..." : "Send Bill to WhatsApp"}
-              </Button>
-            </div>
-          )}
-          
-          <DialogFooter>
-            <Button onClick={handleSuccessClose}>
-              Done
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CheckoutSuccessDialog 
+        open={showSuccessDialog}
+        onOpenChange={setShowSuccessDialog}
+        onDone={handleSuccessClose}
+        hasSpecialOccasion={!!reservation.special_occasion}
+        hasMarketingConsent={!!reservation.marketing_consent}
+        specialOccasionType={reservation.special_occasion}
+        customerPhone={reservation.customer_phone}
+        sendWhatsappBill={sendWhatsappBill}
+        whatsappSending={whatsappSending}
+        onSendWhatsAppBill={sendWhatsAppBill}
+      />
     </>
   );
 };

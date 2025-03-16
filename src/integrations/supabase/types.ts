@@ -512,6 +512,7 @@ export type Database = {
           service_charge: number
           total_amount: number
           updated_at: string
+          whatsapp_sent: boolean | null
         }
         Insert: {
           additional_charges?: Json
@@ -529,6 +530,7 @@ export type Database = {
           service_charge?: number
           total_amount: number
           updated_at?: string
+          whatsapp_sent?: boolean | null
         }
         Update: {
           additional_charges?: Json
@@ -546,6 +548,7 @@ export type Database = {
           service_charge?: number
           total_amount?: number
           updated_at?: string
+          whatsapp_sent?: boolean | null
         }
         Relationships: [
           {
