@@ -64,3 +64,17 @@ export type PromotionCampaign = {
   created_at: string;
   updated_at: string;
 }
+
+// Type for sent promotions
+export type SentPromotion = {
+  id: string;
+  restaurant_id: string;
+  customer_name: string;
+  customer_email: string | null;
+  customer_phone: string;
+  reservation_id: string | null;
+  promotion_id: string | null;
+  sent_date: string;
+  sent_status: string;
+  sent_method: string;
+}

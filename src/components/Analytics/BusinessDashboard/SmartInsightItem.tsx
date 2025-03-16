@@ -11,7 +11,8 @@ export interface SmartInsightProps {
 const SmartInsightItem: React.FC<SmartInsightProps> = ({ 
   title, 
   description, 
-  type 
+  type,
+  impact 
 }) => {
   const getTypeStyles = () => {
     switch (type) {
@@ -47,6 +48,13 @@ const SmartInsightItem: React.FC<SmartInsightProps> = ({
       <p className={`text-xs ${styles.textColor} mt-1`}>
         {description}
       </p>
+      {impact !== undefined && (
+        <div className="mt-2">
+          <span className={`text-xs font-semibold ${styles.titleColor}`}>
+            Impact: {impact}%
+          </span>
+        </div>
+      )}
     </div>
   );
 };

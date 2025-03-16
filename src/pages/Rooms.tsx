@@ -1,40 +1,17 @@
+
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase, RoomFoodOrder } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
 import RoomCheckout from "@/components/Rooms/RoomCheckout";
 import BillingHistory from "@/components/Rooms/BillingHistory";
 import RoomOrderForm from "@/components/Rooms/RoomOrderForm";
-import { ShoppingBag, CalendarCheck } from "lucide-react";
+import RoomCard from "@/components/Rooms/RoomCard";
+import RoomDialog from "@/components/Rooms/RoomDialog";
+import ReservationDialog from "@/components/Rooms/ReservationDialog";
+import SpecialOccasions from "@/components/Rooms/SpecialOccasions";
+import PromotionsManager from "@/components/Rooms/PromotionsManager";
 
 interface Room {
   id: string;
@@ -43,18 +20,6 @@ interface Room {
   status: string;
   price: number;
   restaurant_id: string;
-}
-
-interface Reservation {
-  id: string;
-  customer_name: string;
-  customer_email: string | null;
-  customer_phone: string | null;
-  room_id: string;
-  start_time: string;
-  end_time: string;
-  status: string | null;
-  notes: string | null;
 }
 
 const statusColors = {
@@ -84,6 +49,7 @@ const Rooms = () => {
     price: 0,
     status: "available",
   });
+  
   const [editRoom, setEditRoom] = useState({
     id: "",
     name: "",
@@ -91,6 +57,7 @@ const Rooms = () => {
     price: 0,
     status: "available",
   });
+  
   const [reservation, setReservation] = useState({
     customer_name: "",
     customer_email: "",
@@ -98,6 +65,9 @@ const Rooms = () => {
     start_date: new Date(),
     end_date: new Date(),
     notes: "",
+    special_occasion: "",
+    special_occasion_date: null as Date | null,
+    marketing_consent: false
   });
 
   const { toast } = useToast();
@@ -305,6 +275,17 @@ const Rooms = () => {
 
   const openReservationDialog = (room: Room) => {
     setCurrentRoom(room);
+    setReservation({
+      customer_name: "",
+      customer_email: "",
+      customer_phone: "",
+      start_date: new Date(),
+      end_date: new Date(),
+      notes: "",
+      special_occasion: "",
+      special_occasion_date: null,
+      marketing_consent: false
+    });
     setOpenReservation(true);
   };
 
@@ -338,6 +319,9 @@ const Rooms = () => {
           notes: reservation.notes || null,
           status: "confirmed",
           restaurant_id: restaurantId,
+          special_occasion: reservation.special_occasion || null,
+          special_occasion_date: reservation.special_occasion_date ? reservation.special_occasion_date.toISOString().split('T')[0] : null,
+          marketing_consent: reservation.marketing_consent
         },
       ]).select();
 
@@ -358,6 +342,9 @@ const Rooms = () => {
         start_date: new Date(),
         end_date: new Date(),
         notes: "",
+        special_occasion: "",
+        special_occasion_date: null,
+        marketing_consent: false
       });
 
       setRooms(
@@ -546,6 +533,8 @@ const Rooms = () => {
         <TabsList className="mb-6">
           <TabsTrigger value="rooms">Rooms</TabsTrigger>
           <TabsTrigger value="billing">Billing History</TabsTrigger>
+          <TabsTrigger value="occasions">Special Occasions</TabsTrigger>
+          <TabsTrigger value="promotions">Promotions</TabsTrigger>
         </TabsList>
 
         <TabsContent value="rooms">
@@ -554,65 +543,16 @@ const Rooms = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {rooms.map((room) => (
-                <Card key={room.id}>
-                  <CardHeader>
-                    <CardTitle className="flex justify-between items-center">
-                      {room.name}
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full ${getStatusClass(room.status)}`}
-                      >
-                        {room.status}
-                      </span>
-                    </CardTitle>
-                    <CardDescription>
-                      <div>Capacity: {room.capacity} {room.capacity === 1 ? "person" : "people"}</div>
-                      <div>Price: ₹{room.price} / night</div>
-                      {room.status === "occupied" && roomFoodOrders[room.id]?.length > 0 && (
-                        <div className="mt-2 font-medium text-purple-600">
-                          Food Orders: ₹{getRoomFoodOrdersTotal(room.id).toFixed(2)}
-                        </div>
-                      )}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardFooter className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={() => openEditDialog(room)}>
-                      Edit
-                    </Button>
-                    
-                    {room.status === "available" ? (
-                      <Button
-                        variant="default"
-                        onClick={() => openReservationDialog(room)}
-                      >
-                        <CalendarCheck className="mr-2 h-4 w-4" />
-                        Reserve
-                      </Button>
-                    ) : room.status === "occupied" ? (
-                      <>
-                        <Button
-                          variant="outline"
-                          onClick={() => openFoodOrderDialog(room)}
-                        >
-                          <ShoppingBag className="mr-2 h-4 w-4" />
-                          Food Order
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          onClick={() => handleCheckout(room.id)}
-                        >
-                          Checkout
-                        </Button>
-                      </>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        disabled={room.status !== "available"}
-                      >
-                        {room.status === "cleaning" ? "Cleaning" : "Maintenance"}
-                      </Button>
-                    )}
-                  </CardFooter>
-                </Card>
+                <RoomCard
+                  key={room.id}
+                  room={room}
+                  foodOrdersTotal={getRoomFoodOrdersTotal(room.id)}
+                  onEdit={openEditDialog}
+                  onReserve={openReservationDialog}
+                  onFoodOrder={openFoodOrderDialog}
+                  onCheckout={handleCheckout}
+                  getStatusClass={getStatusClass}
+                />
               ))}
             </div>
           )}
@@ -621,282 +561,44 @@ const Rooms = () => {
         <TabsContent value="billing">
           {restaurantId && <BillingHistory restaurantId={restaurantId} />}
         </TabsContent>
+
+        <TabsContent value="occasions">
+          {restaurantId && <SpecialOccasions restaurantId={restaurantId} />}
+        </TabsContent>
+
+        <TabsContent value="promotions">
+          {restaurantId && <PromotionsManager restaurantId={restaurantId} />}
+        </TabsContent>
       </Tabs>
 
-      <Dialog open={openAddRoom} onOpenChange={setOpenAddRoom}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Room</DialogTitle>
-            <DialogDescription>
-              Create a new room for your property.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Room Name</Label>
-              <Input
-                id="name"
-                value={newRoom.name}
-                onChange={(e) =>
-                  setNewRoom({ ...newRoom, name: e.target.value })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="capacity">Capacity</Label>
-              <Input
-                id="capacity"
-                type="number"
-                min="1"
-                value={newRoom.capacity}
-                onChange={(e) =>
-                  setNewRoom({
-                    ...newRoom,
-                    capacity: parseInt(e.target.value) || 1,
-                  })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="price">Price per Night (₹)</Label>
-              <Input
-                id="price"
-                type="number"
-                min="0"
-                value={newRoom.price}
-                onChange={(e) =>
-                  setNewRoom({
-                    ...newRoom,
-                    price: parseFloat(e.target.value) || 0,
-                  })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="status">Status</Label>
-              <Select
-                value={newRoom.status}
-                onValueChange={(value) =>
-                  setNewRoom({ ...newRoom, status: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="available">Available</SelectItem>
-                  <SelectItem value="occupied">Occupied</SelectItem>
-                  <SelectItem value="cleaning">Cleaning</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenAddRoom(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddRoom}>Add Room</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Room Dialog (Add/Edit) */}
+      <RoomDialog
+        open={openAddRoom}
+        onOpenChange={setOpenAddRoom}
+        roomData={newRoom}
+        setRoomData={setNewRoom}
+        onSave={handleAddRoom}
+        mode="add"
+      />
 
-      <Dialog open={openEditRoom} onOpenChange={setOpenEditRoom}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Room</DialogTitle>
-            <DialogDescription>
-              Update room details and status.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-name">Room Name</Label>
-              <Input
-                id="edit-name"
-                value={editRoom.name}
-                onChange={(e) =>
-                  setEditRoom({ ...editRoom, name: e.target.value })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-capacity">Capacity</Label>
-              <Input
-                id="edit-capacity"
-                type="number"
-                min="1"
-                value={editRoom.capacity}
-                onChange={(e) =>
-                  setEditRoom({
-                    ...editRoom,
-                    capacity: parseInt(e.target.value) || 1,
-                  })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-price">Price per Night (₹)</Label>
-              <Input
-                id="edit-price"
-                type="number"
-                min="0"
-                value={editRoom.price}
-                onChange={(e) =>
-                  setEditRoom({
-                    ...editRoom,
-                    price: parseFloat(e.target.value) || 0,
-                  })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-status">Status</Label>
-              <Select
-                value={editRoom.status}
-                onValueChange={(value) =>
-                  setEditRoom({ ...editRoom, status: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="available">Available</SelectItem>
-                  <SelectItem value="occupied">Occupied</SelectItem>
-                  <SelectItem value="cleaning">Cleaning</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenEditRoom(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleEditRoom}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <RoomDialog
+        open={openEditRoom}
+        onOpenChange={setOpenEditRoom}
+        roomData={editRoom}
+        setRoomData={setEditRoom}
+        onSave={handleEditRoom}
+        mode="edit"
+      />
 
-      <Dialog open={openReservation} onOpenChange={setOpenReservation}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              New Reservation for {currentRoom?.name}
-            </DialogTitle>
-            <DialogDescription>
-              Create a new reservation for this room.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="customer-name">Guest Name</Label>
-              <Input
-                id="customer-name"
-                value={reservation.customer_name}
-                onChange={(e) =>
-                  setReservation({
-                    ...reservation,
-                    customer_name: e.target.value,
-                  })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="customer-email">Guest Email (Optional)</Label>
-              <Input
-                id="customer-email"
-                type="email"
-                value={reservation.customer_email}
-                onChange={(e) =>
-                  setReservation({
-                    ...reservation,
-                    customer_email: e.target.value,
-                  })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="customer-phone">Guest Phone (Optional)</Label>
-              <Input
-                id="customer-phone"
-                value={reservation.customer_phone}
-                onChange={(e) =>
-                  setReservation({
-                    ...reservation,
-                    customer_phone: e.target.value,
-                  })
-                }
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>Check-in Date</Label>
-                <div className="border rounded-md p-2">
-                  <Calendar
-                    mode="single"
-                    selected={reservation.start_date}
-                    onSelect={(date) =>
-                      date && setReservation({ ...reservation, start_date: date })
-                    }
-                    disabled={(date) => date < new Date()}
-                    initialFocus
-                  />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label>Check-out Date</Label>
-                <div className="border rounded-md p-2">
-                  <Calendar
-                    mode="single"
-                    selected={reservation.end_date}
-                    onSelect={(date) =>
-                      date && setReservation({ ...reservation, end_date: date })
-                    }
-                    disabled={(date) =>
-                      date < new Date() || date <= reservation.start_date
-                    }
-                    initialFocus
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="notes">Notes (Optional)</Label>
-              <Input
-                id="notes"
-                value={reservation.notes}
-                onChange={(e) =>
-                  setReservation({ ...reservation, notes: e.target.value })
-                }
-              />
-            </div>
-            <div className="pt-2">
-              <p className="text-sm">
-                Reservation summary: Check-in on{" "}
-                <strong>{format(reservation.start_date, "PPP")}</strong> and
-                check-out on{" "}
-                <strong>{format(reservation.end_date, "PPP")}</strong>
-              </p>
-              <p className="text-sm mt-1">
-                Total cost: <strong>₹{(currentRoom?.price || 0) * Math.max(1, Math.ceil((reservation.end_date.getTime() - reservation.start_date.getTime()) / (1000 * 60 * 60 * 24)))}</strong>
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenReservation(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateReservation}
-              disabled={!reservation.customer_name}
-            >
-              Create Reservation
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Reservation Dialog */}
+      <ReservationDialog
+        open={openReservation}
+        onOpenChange={setOpenReservation}
+        room={currentRoom}
+        reservation={reservation}
+        setReservation={setReservation}
+        handleCreateReservation={handleCreateReservation}
+      />
     </div>
   );
 };
