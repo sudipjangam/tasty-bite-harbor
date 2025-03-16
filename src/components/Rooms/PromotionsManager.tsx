@@ -1,8 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase, PromotionCampaign, SentPromotion } from "@/integrations/supabase/client";
-import { format, addDays } from "date-fns";
 import {
   Card,
   CardContent,
@@ -11,12 +10,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -35,53 +34,103 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Send, Calendar as CalendarIcon, Percent, DollarSign, Tag, Plus, Trash } from 'lucide-react';
-import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarIcon, Filter, Plus, Send, Tag, Target, User } from "lucide-react";
+import { format } from "date-fns";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 interface PromotionsManagerProps {
   restaurantId: string;
 }
 
+const formSchema = z.object({
+  name: z.string().min(3, { message: "Name must be at least 3 characters" }),
+  description: z.string().optional(),
+  startDate: z.date(),
+  endDate: z.date(),
+  discountPercentage: z.coerce.number().min(0).max(100),
+  discountAmount: z.coerce.number().min(0),
+  promotionCode: z.string().optional(),
+});
+
+type SpecialOccasion = {
+  id: string;
+  customer_name: string;
+  customer_phone: string;
+  occasion: string;
+  occasion_date: string;
+  reservation_id: string;
+};
+
 const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) => {
-  const [promotions, setPromotions] = useState<PromotionCampaign[]>([]);
-  const [sentPromotions, setSentPromotions] = useState<SentPromotion[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [openCreateDialog, setOpenCreateDialog] = useState(false);
-  const [newPromotion, setNewPromotion] = useState({
-    name: '',
-    description: '',
-    start_date: new Date(),
-    end_date: addDays(new Date(), 30),
-    discount_percentage: 10,
-    discount_amount: 0,
-    promotion_code: '',
-  });
-  
   const { toast } = useToast();
+  const [campaigns, setCampaigns] = useState<PromotionCampaign[]>([]);
+  const [sentPromotions, setSentPromotions] = useState<SentPromotion[]>([]);
+  const [specialOccasions, setSpecialOccasions] = useState<SpecialOccasion[]>([]);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [selectedPromotion, setSelectedPromotion] = useState<string | null>(null);
+  const [selectedGuests, setSelectedGuests] = useState<string[]>([]);
+  const [currentTab, setCurrentTab] = useState("campaigns");
+  const [loading, setLoading] = useState(true);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      startDate: new Date(),
+      endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+      discountPercentage: 10,
+      discountAmount: 0,
+      promotionCode: "",
+    },
+  });
 
   useEffect(() => {
-    fetchPromotions();
+    fetchCampaigns();
     fetchSentPromotions();
+    fetchSpecialOccasions();
   }, [restaurantId]);
 
-  const fetchPromotions = async () => {
+  const fetchCampaigns = async () => {
     try {
-      setLoading(true);
       const { data, error } = await supabase
-        .from('promotion_campaigns')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .order('created_at', { ascending: false });
+        .from("promotion_campaigns")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
-      
-      setPromotions(data as PromotionCampaign[]);
+      setCampaigns(data as PromotionCampaign[]);
     } catch (error) {
-      console.error("Error fetching promotions:", error);
+      console.error("Error fetching campaigns:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to load promotions data."
+        description: "Failed to load promotion campaigns.",
       });
     } finally {
       setLoading(false);
@@ -91,547 +140,613 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
   const fetchSentPromotions = async () => {
     try {
       const { data, error } = await supabase
-        .from('sent_promotions')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .order('sent_date', { ascending: false });
+        .from("sent_promotions")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .order("sent_date", { ascending: false });
 
       if (error) throw error;
-      
       setSentPromotions(data as SentPromotion[]);
     } catch (error) {
       console.error("Error fetching sent promotions:", error);
     }
   };
 
-  const handleCreatePromotion = async () => {
+  const fetchSpecialOccasions = async () => {
     try {
       const { data, error } = await supabase
-        .from('promotion_campaigns')
-        .insert({
-          restaurant_id: restaurantId,
-          name: newPromotion.name,
-          description: newPromotion.description || null,
-          start_date: newPromotion.start_date.toISOString(),
-          end_date: newPromotion.end_date.toISOString(),
-          discount_percentage: newPromotion.discount_percentage,
-          discount_amount: newPromotion.discount_amount,
-          promotion_code: newPromotion.promotion_code || null,
-        })
-        .select();
+        .from("reservations")
+        .select("id, customer_name, customer_phone, special_occasion, special_occasion_date")
+        .eq("restaurant_id", restaurantId)
+        .not("special_occasion", "is", null)
+        .not("special_occasion_date", "is", null)
+        .eq("marketing_consent", true);
 
       if (error) throw error;
       
-      setPromotions([data[0] as PromotionCampaign, ...promotions]);
-      setOpenCreateDialog(false);
-      setNewPromotion({
-        name: '',
-        description: '',
-        start_date: new Date(),
-        end_date: addDays(new Date(), 30),
-        discount_percentage: 10,
-        discount_amount: 0,
-        promotion_code: '',
-      });
+      const occasions = data.map(res => ({
+        id: res.id,
+        customer_name: res.customer_name,
+        customer_phone: res.customer_phone || "",
+        occasion: res.special_occasion || "",
+        occasion_date: res.special_occasion_date || "",
+        reservation_id: res.id
+      }));
       
+      setSpecialOccasions(occasions);
+    } catch (error) {
+      console.error("Error fetching special occasions:", error);
+    }
+  };
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    try {
+      setIsCreating(true);
+      
+      const { data, error } = await supabase.from("promotion_campaigns").insert({
+        restaurant_id: restaurantId,
+        name: values.name,
+        description: values.description || null,
+        start_date: values.startDate.toISOString(),
+        end_date: values.endDate.toISOString(),
+        discount_percentage: values.discountPercentage,
+        discount_amount: values.discountAmount,
+        promotion_code: values.promotionCode || null,
+      }).select();
+
+      if (error) throw error;
+
       toast({
         title: "Promotion Created",
         description: "New promotion campaign has been created successfully."
       });
+
+      form.reset();
+      fetchCampaigns();
+      setIsCreating(false);
     } catch (error) {
       console.error("Error creating promotion:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to create promotion. Please try again."
+        description: "Failed to create promotion campaign."
       });
+      setIsCreating(false);
     }
   };
 
-  const handleDeletePromotion = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('promotion_campaigns')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      
-      setPromotions(promotions.filter(promo => promo.id !== id));
-      
-      toast({
-        title: "Promotion Deleted",
-        description: "Promotion campaign has been deleted successfully."
-      });
-    } catch (error) {
-      console.error("Error deleting promotion:", error);
+  const sendPromotions = async () => {
+    if (!selectedPromotion || selectedGuests.length === 0) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to delete promotion. Please try again."
+        description: "Please select a promotion and at least one guest."
       });
+      return;
     }
-  };
 
-  const sendPromotion = async (promotion: PromotionCampaign, phoneNumber: string, customerName: string) => {
-    try {
-      // Call the send-whatsapp edge function
-      const response = await supabase.functions.invoke('send-whatsapp', {
-        body: {
-          phone: phoneNumber.replace(/\D/g, ''),
-          message: generatePromotionMessage(promotion, customerName),
-        }
-      });
-      
-      if (response.error) {
-        throw new Error(response.error);
-      }
-      
-      // Log the sent promotion
-      const { data, error } = await supabase
-        .from('sent_promotions')
-        .insert({
-          restaurant_id: restaurantId,
-          customer_name: customerName,
-          customer_phone: phoneNumber,
-          promotion_id: promotion.id,
-          sent_method: 'whatsapp',
-          sent_status: 'sent',
-        })
-        .select();
-        
-      if (error) throw error;
-      
-      setSentPromotions([data[0] as SentPromotion, ...sentPromotions]);
-      
-      toast({
-        title: "Promotion Sent",
-        description: `Promotion sent to ${customerName} via WhatsApp.`
-      });
-    } catch (error) {
-      console.error("Error sending promotion:", error);
+    setIsSending(true);
+    
+    // Find the selected promotion details
+    const promotion = campaigns.find(c => c.id === selectedPromotion);
+    if (!promotion) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to send promotion. Please try again."
+        description: "Selected promotion not found."
       });
+      setIsSending(false);
+      return;
     }
-  };
 
-  const generatePromotionMessage = (promotion: PromotionCampaign, customerName: string) => {
-    let message = `*Special Offer for ${customerName}*\n\n`;
-    message += `*${promotion.name}*\n\n`;
-    
-    if (promotion.description) {
-      message += `${promotion.description}\n\n`;
-    }
-    
-    message += `Valid from: ${format(new Date(promotion.start_date), "MMM d, yyyy")}\n`;
-    message += `Valid until: ${format(new Date(promotion.end_date), "MMM d, yyyy")}\n\n`;
-    
-    if (promotion.discount_percentage > 0) {
-      message += `Discount: ${promotion.discount_percentage}% off\n`;
-    }
-    
-    if (promotion.discount_amount > 0) {
-      message += `Discount: ₹${promotion.discount_amount} off\n`;
-    }
-    
-    if (promotion.promotion_code) {
-      message += `\nUse code: *${promotion.promotion_code}*\n`;
-    }
-    
-    message += `\nWe look forward to seeing you again!\n`;
-    
-    return message;
-  };
+    // Get selected guest details
+    const guests = specialOccasions.filter(g => selectedGuests.includes(g.id));
+    let successCount = 0;
+    let errorCount = 0;
 
-  const handleSendSpecialOccasionPromotions = async () => {
-    try {
-      // Fetch reservations with special occasions
-      const { data, error } = await supabase
-        .from('reservations')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .not('special_occasion', 'is', null)
-        .eq('marketing_consent', true);
-        
-      if (error) throw error;
-      
-      if (!data || data.length === 0) {
-        toast({
-          title: "No Special Occasions",
-          description: "There are no guests with special occasions to send promotions to."
-        });
-        return;
+    for (const guest of guests) {
+      if (!guest.customer_phone) {
+        errorCount++;
+        continue;
       }
-      
-      // For each reservation with a special occasion, create a promotion and send it
-      let successCount = 0;
-      for (const reservation of data) {
-        if (reservation.special_occasion && reservation.marketing_consent && reservation.customer_phone) {
-          const occasionDate = reservation.special_occasion_date ? new Date(reservation.special_occasion_date) : null;
-          
-          if (occasionDate) {
-            const nextYearDate = new Date(occasionDate);
-            nextYearDate.setFullYear(nextYearDate.getFullYear() + 1);
-            
-            const promotionStartDate = new Date(nextYearDate);
-            promotionStartDate.setDate(promotionStartDate.getDate() - 30);
-            
-            const promotionEndDate = new Date(nextYearDate);
-            promotionEndDate.setDate(promotionEndDate.getDate() + 7);
-            
-            const { data: promoData, error: promoError } = await supabase
-              .from('promotion_campaigns')
-              .insert({
-                restaurant_id: restaurantId,
-                name: `${reservation.special_occasion.charAt(0).toUpperCase() + reservation.special_occasion.slice(1)} Special for ${reservation.customer_name}`,
-                description: `Special offer for ${reservation.customer_name}'s ${reservation.special_occasion}`,
-                start_date: promotionStartDate.toISOString(),
-                end_date: promotionEndDate.toISOString(),
-                discount_percentage: 10,
-                promotion_code: `${reservation.special_occasion.toUpperCase()}_${Math.floor(Math.random() * 10000)}`,
-              })
-              .select();
-            
-            if (promoError) continue;
-            
-            if (promoData && promoData.length > 0) {
-              // Send the promotion
-              await sendPromotion(promoData[0] as PromotionCampaign, reservation.customer_phone, reservation.customer_name);
-              successCount++;
-            }
+
+      try {
+        // Prepare WhatsApp message
+        const message = `Hello ${guest.customer_name},\n\nWe are excited to offer you a special promotion for your upcoming ${guest.occasion}!\n\n${promotion.name}\n${promotion.description || ""}\nDiscount: ${promotion.discount_percentage}%\nValid from: ${new Date(promotion.start_date).toLocaleDateString()} to ${new Date(promotion.end_date).toLocaleDateString()}\n${promotion.promotion_code ? `Promotion code: ${promotion.promotion_code}` : ""}\n\nWe look forward to celebrating with you!\n\nBest regards,\nYour Restaurant Team`;
+
+        // Send WhatsApp message
+        const response = await supabase.functions.invoke("send-whatsapp", {
+          body: {
+            phone: guest.customer_phone.replace(/\D/g, ""),
+            message: message,
+            promotionId: promotion.id,
+            recipientId: guest.reservation_id,
+            recipientType: "reservation"
           }
+        });
+
+        if (response.error) {
+          throw new Error(response.error);
         }
+
+        successCount++;
+      } catch (error) {
+        console.error(`Error sending promotion to ${guest.customer_name}:`, error);
+        errorCount++;
       }
-      
-      if (successCount > 0) {
-        toast({
-          title: "Promotions Created and Sent",
-          description: `Created and sent ${successCount} special occasion promotions.`
-        });
-        // Refresh the promotions list
-        fetchPromotions();
-      } else {
-        toast({
-          title: "No Promotions Sent",
-          description: "No valid special occasions found to create promotions for."
-        });
-      }
-    } catch (error) {
-      console.error("Error sending special occasion promotions:", error);
+    }
+
+    setIsSending(false);
+    fetchSentPromotions();
+
+    if (successCount > 0) {
+      toast({
+        title: "Promotions Sent",
+        description: `Successfully sent ${successCount} promotion(s).${errorCount > 0 ? ` Failed to send ${errorCount}.` : ""}`
+      });
+    } else {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to send special occasion promotions. Please try again."
+        description: "Failed to send promotions. Please try again."
       });
     }
   };
+
+  if (loading) {
+    return <div className="flex justify-center py-8">Loading promotions...</div>;
+  }
 
   return (
-    <Tabs defaultValue="active">
-      <div className="flex justify-between items-center mb-4">
-        <TabsList>
-          <TabsTrigger value="active">Active Promotions</TabsTrigger>
-          <TabsTrigger value="sent">Sent Promotions</TabsTrigger>
-        </TabsList>
-        <div className="space-x-2">
-          <Button onClick={handleSendSpecialOccasionPromotions}>
-            Send Special Occasion Promotions
-          </Button>
-          <Button onClick={() => setOpenCreateDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" /> New Promotion
-          </Button>
-        </div>
-      </div>
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Promotions Manager</CardTitle>
+        <CardDescription>
+          Create and manage promotional campaigns for special occasions
+        </CardDescription>
+      </CardHeader>
       
-      <TabsContent value="active">
-        {loading ? (
-          <p className="text-center py-4">Loading promotions...</p>
-        ) : promotions.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6 pb-4 text-center">
-              <p>No active promotions found. Create your first promotion to get started.</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {promotions.map((promotion) => (
-              <Card key={promotion.id}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <CardTitle>{promotion.name}</CardTitle>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => handleDeletePromotion(promotion.id)}
-                    >
-                      <Trash className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                  <CardDescription>
-                    {promotion.description || "No description provided"}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex items-center">
-                    <CalendarIcon className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span className="text-sm">
-                      {format(new Date(promotion.start_date), "MMM d, yyyy")} - {format(new Date(promotion.end_date), "MMM d, yyyy")}
-                    </span>
-                  </div>
-                  
-                  {promotion.discount_percentage > 0 && (
-                    <div className="flex items-center">
-                      <Percent className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <span className="text-sm">{promotion.discount_percentage}% off</span>
-                    </div>
-                  )}
-                  
-                  {promotion.discount_amount > 0 && (
-                    <div className="flex items-center">
-                      <DollarSign className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <span className="text-sm">₹{promotion.discount_amount} off</span>
-                    </div>
-                  )}
-                  
-                  {promotion.promotion_code && (
-                    <div className="flex items-center">
-                      <Tag className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <span className="text-sm font-medium">Code: {promotion.promotion_code}</span>
-                    </div>
-                  )}
-                </CardContent>
-                <CardFooter>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" className="w-full">
-                        <Send className="h-4 w-4 mr-2" /> Send Promotion
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Send Promotion</DialogTitle>
-                        <DialogDescription>
-                          Send this promotion to a customer via WhatsApp.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="customer-name">Customer Name</Label>
-                          <Input id="customer-name" placeholder="Enter customer name" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="customer-phone">Customer Phone</Label>
-                          <Input id="customer-phone" placeholder="Enter customer phone number" />
-                        </div>
+      <CardContent>
+        <Tabs value={currentTab} onValueChange={setCurrentTab}>
+          <TabsList className="mb-4">
+            <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+            <TabsTrigger value="specialOccasions">Special Occasions</TabsTrigger>
+            <TabsTrigger value="sent">Sent Promotions</TabsTrigger>
+          </TabsList>
+          
+          {/* Campaigns Tab */}
+          <TabsContent value="campaigns">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium">Current Campaigns</h3>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="h-4 w-4 mr-2" /> New Campaign
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[600px]">
+                  <DialogHeader>
+                    <DialogTitle>Create New Promotion Campaign</DialogTitle>
+                    <DialogDescription>
+                      Create a new promotion campaign for your restaurant.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Campaign Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Summer Special" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="description"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Description</FormLabel>
+                            <FormControl>
+                              <Textarea placeholder="Enjoy a special discount this summer" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="startDate"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                              <FormLabel>Start Date</FormLabel>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <FormControl>
+                                    <Button
+                                      variant="outline"
+                                      className="pl-3 text-left font-normal"
+                                    >
+                                      {field.value ? (
+                                        format(field.value, "PPP")
+                                      ) : (
+                                        <span>Pick a date</span>
+                                      )}
+                                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                  </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={field.value}
+                                    onSelect={field.onChange}
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="endDate"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                              <FormLabel>End Date</FormLabel>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <FormControl>
+                                    <Button
+                                      variant="outline"
+                                      className="pl-3 text-left font-normal"
+                                    >
+                                      {field.value ? (
+                                        format(field.value, "PPP")
+                                      ) : (
+                                        <span>Pick a date</span>
+                                      )}
+                                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                  </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={field.value}
+                                    onSelect={field.onChange}
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="discountPercentage"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Discount Percentage (%)</FormLabel>
+                              <FormControl>
+                                <Input type="number" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="discountAmount"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Discount Amount (₹)</FormLabel>
+                              <FormControl>
+                                <Input type="number" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      
+                      <FormField
+                        control={form.control}
+                        name="promotionCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Promotion Code (Optional)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="SUMMER2023" {...field} />
+                            </FormControl>
+                            <FormDescription>
+                              A code customers can use to redeem this promotion
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
                       <DialogFooter>
-                        <Button
-                          onClick={() => {
-                            const nameInput = document.getElementById('customer-name') as HTMLInputElement;
-                            const phoneInput = document.getElementById('customer-phone') as HTMLInputElement;
-                            
-                            if (nameInput?.value && phoneInput?.value) {
-                              sendPromotion(promotion, phoneInput.value, nameInput.value);
-                            } else {
-                              toast({
-                                variant: "destructive",
-                                title: "Missing Information",
-                                description: "Please enter customer name and phone number."
-                              });
-                            }
-                          }}
-                        >
-                          Send
+                        <Button type="submit" disabled={isCreating}>
+                          {isCreating ? "Creating..." : "Create Campaign"}
                         </Button>
                       </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        )}
-      </TabsContent>
-      
-      <TabsContent value="sent">
-        <Card>
-          <CardHeader>
-            <CardTitle>Sent Promotions</CardTitle>
-            <CardDescription>
-              History of promotions sent to customers
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {sentPromotions.length === 0 ? (
-              <p className="text-center py-4">No sent promotions found.</p>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+            </div>
+            
+            {campaigns.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No campaigns found. Create your first promotion campaign.
+              </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Sent Via</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Period</TableHead>
+                    <TableHead>Discount</TableHead>
+                    <TableHead>Code</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sentPromotions.map((sent) => (
-                    <TableRow key={sent.id}>
-                      <TableCell className="font-medium">{sent.customer_name}</TableCell>
-                      <TableCell>{sent.customer_phone}</TableCell>
-                      <TableCell>{sent.sent_method}</TableCell>
-                      <TableCell>
-                        <span className={
-                          sent.sent_status === 'sent' 
-                            ? 'text-green-600' 
-                            : 'text-amber-600'
-                        }>
-                          {sent.sent_status}
-                        </span>
-                      </TableCell>
-                      <TableCell>{format(new Date(sent.sent_date), "MMM d, yyyy")}</TableCell>
+                  {campaigns.map((campaign) => {
+                    const now = new Date();
+                    const startDate = new Date(campaign.start_date);
+                    const endDate = new Date(campaign.end_date);
+                    let status = "Upcoming";
+                    
+                    if (now >= startDate && now <= endDate) {
+                      status = "Active";
+                    } else if (now > endDate) {
+                      status = "Expired";
+                    }
+                    
+                    return (
+                      <TableRow key={campaign.id}>
+                        <TableCell className="font-medium">
+                          <div>{campaign.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {campaign.description && campaign.description.length > 30
+                              ? `${campaign.description.substring(0, 30)}...`
+                              : campaign.description}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {new Date(campaign.start_date).toLocaleDateString()} - {new Date(campaign.end_date).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          {campaign.discount_percentage > 0 && `${campaign.discount_percentage}%`}
+                          {campaign.discount_amount > 0 && campaign.discount_percentage > 0 && " / "}
+                          {campaign.discount_amount > 0 && `₹${campaign.discount_amount}`}
+                        </TableCell>
+                        <TableCell>{campaign.promotion_code || "-"}</TableCell>
+                        <TableCell>
+                          <div className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            status === "Active" 
+                              ? "bg-green-100 text-green-800" 
+                              : status === "Upcoming" 
+                                ? "bg-blue-100 text-blue-800" 
+                                : "bg-gray-100 text-gray-800"
+                          }`}>
+                            {status}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </TabsContent>
+          
+          {/* Special Occasions Tab */}
+          <TabsContent value="specialOccasions">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium">Special Occasions</h3>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline">
+                    <Send className="h-4 w-4 mr-2" /> Send Promotions
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Send Promotions</DialogTitle>
+                    <DialogDescription>
+                      Send a promotion to guests with upcoming special occasions.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Select Promotion</Label>
+                      <Select 
+                        onValueChange={(value) => setSelectedPromotion(value)}
+                        value={selectedPromotion || undefined}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a promotion campaign" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {campaigns
+                            .filter(c => {
+                              const now = new Date();
+                              const startDate = new Date(c.start_date);
+                              const endDate = new Date(c.end_date);
+                              return now <= endDate; // Only show active and upcoming campaigns
+                            })
+                            .map((campaign) => (
+                              <SelectItem key={campaign.id} value={campaign.id}>
+                                {campaign.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <Label>Select Guests</Label>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => {
+                            if (selectedGuests.length === specialOccasions.length) {
+                              setSelectedGuests([]);
+                            } else {
+                              setSelectedGuests(specialOccasions.map(g => g.id));
+                            }
+                          }}
+                        >
+                          {selectedGuests.length === specialOccasions.length ? "Deselect All" : "Select All"}
+                        </Button>
+                      </div>
+                      
+                      <div className="border rounded-md max-h-60 overflow-y-auto p-2">
+                        {specialOccasions.length === 0 ? (
+                          <div className="text-center py-4 text-muted-foreground">
+                            No guests with special occasions found.
+                          </div>
+                        ) : (
+                          specialOccasions.map((guest) => (
+                            <div 
+                              key={guest.id} 
+                              className="flex items-center space-x-2 py-2 border-b last:border-0"
+                            >
+                              <Checkbox 
+                                id={`guest-${guest.id}`}
+                                checked={selectedGuests.includes(guest.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedGuests(prev => [...prev, guest.id]);
+                                  } else {
+                                    setSelectedGuests(prev => prev.filter(id => id !== guest.id));
+                                  }
+                                }}
+                              />
+                              <label 
+                                htmlFor={`guest-${guest.id}`}
+                                className="text-sm flex-1 cursor-pointer"
+                              >
+                                <div className="font-medium">{guest.customer_name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {guest.occasion} - {new Date(guest.occasion_date).toLocaleDateString()}
+                                </div>
+                              </label>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button 
+                      onClick={sendPromotions}
+                      disabled={!selectedPromotion || selectedGuests.length === 0 || isSending}
+                    >
+                      {isSending ? "Sending..." : "Send Promotions"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+            
+            {specialOccasions.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No special occasions found. Guests can select special occasions when making reservations.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Guest Name</TableHead>
+                    <TableHead>Occasion</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Contact</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {specialOccasions.map((occasion) => (
+                    <TableRow key={occasion.id}>
+                      <TableCell className="font-medium">{occasion.customer_name}</TableCell>
+                      <TableCell className="capitalize">{occasion.occasion}</TableCell>
+                      <TableCell>{new Date(occasion.occasion_date).toLocaleDateString()}</TableCell>
+                      <TableCell>{occasion.customer_phone || "-"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             )}
-          </CardContent>
-        </Card>
-      </TabsContent>
-      
-      <Dialog open={openCreateDialog} onOpenChange={setOpenCreateDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Create New Promotion</DialogTitle>
-            <DialogDescription>
-              Create a new promotional campaign for your customers.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="promo-name">Promotion Name</Label>
-              <Input 
-                id="promo-name" 
-                value={newPromotion.name}
-                onChange={(e) => setNewPromotion({...newPromotion, name: e.target.value})}
-                placeholder="Summer Special"
-              />
+          </TabsContent>
+          
+          {/* Sent Promotions Tab */}
+          <TabsContent value="sent">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium">Sent Promotions</h3>
+              <Button size="sm" variant="outline" onClick={fetchSentPromotions}>
+                <Filter className="h-4 w-4 mr-2" /> Refresh
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="promo-desc">Description (Optional)</Label>
-              <Input 
-                id="promo-desc" 
-                value={newPromotion.description}
-                onChange={(e) => setNewPromotion({...newPromotion, description: e.target.value})}
-                placeholder="Enjoy special summer rates"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Start Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !newPromotion.start_date && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newPromotion.start_date ? (
-                        format(newPromotion.start_date, "PPP")
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={newPromotion.start_date}
-                      onSelect={(date) => date && setNewPromotion({...newPromotion, start_date: date})}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+            
+            {sentPromotions.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No sent promotions found. Send a promotion to see the history here.
               </div>
-              <div className="space-y-2">
-                <Label>End Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !newPromotion.end_date && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newPromotion.end_date ? (
-                        format(newPromotion.end_date, "PPP")
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={newPromotion.end_date}
-                      onSelect={(date) => date && setNewPromotion({...newPromotion, end_date: date})}
-                      initialFocus
-                      disabled={(date) => date < newPromotion.start_date}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="discount-percent">Discount Percentage (%)</Label>
-                <Input 
-                  id="discount-percent" 
-                  type="number"
-                  value={newPromotion.discount_percentage}
-                  onChange={(e) => setNewPromotion({...newPromotion, discount_percentage: parseInt(e.target.value) || 0})}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="discount-amount">Discount Amount (₹)</Label>
-                <Input 
-                  id="discount-amount" 
-                  type="number"
-                  value={newPromotion.discount_amount}
-                  onChange={(e) => setNewPromotion({...newPromotion, discount_amount: parseFloat(e.target.value) || 0})}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="promo-code">Promotion Code (Optional)</Label>
-              <Input 
-                id="promo-code" 
-                value={newPromotion.promotion_code}
-                onChange={(e) => setNewPromotion({...newPromotion, promotion_code: e.target.value})}
-                placeholder="SUMMER2023"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenCreateDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreatePromotion} disabled={!newPromotion.name}>
-              Create Promotion
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Tabs>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Recipient</TableHead>
+                    <TableHead>Sent Date</TableHead>
+                    <TableHead>Method</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sentPromotions.map((promotion) => (
+                    <TableRow key={promotion.id}>
+                      <TableCell className="font-medium">{promotion.customer_name}</TableCell>
+                      <TableCell>{new Date(promotion.sent_date).toLocaleString()}</TableCell>
+                      <TableCell className="capitalize">{promotion.sent_method}</TableCell>
+                      <TableCell>
+                        <div className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                          promotion.sent_status === "sent"
+                            ? "bg-green-100 text-green-800"
+                            : promotion.sent_status === "pending"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-red-100 text-red-800"
+                        }`}>
+                          {promotion.sent_status}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
   );
 };
 

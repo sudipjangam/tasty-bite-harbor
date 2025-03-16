@@ -125,7 +125,7 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                 })
               }
             />
-            <p className="text-xs text-muted-foreground">Required for WhatsApp bill notifications</p>
+            <p className="text-xs text-muted-foreground">Required for WhatsApp bill notifications and special occasion promotions</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="grid gap-2">
@@ -179,6 +179,9 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              We offer special promotions for your next year's special occasion!
+            </p>
           </div>
           
           {reservation.special_occasion && (
@@ -194,6 +197,9 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                   initialFocus
                 />
               </div>
+              <p className="text-xs text-muted-foreground">
+                Is this the actual date of your {reservation.special_occasion}? We'll send you a special offer next year!
+              </p>
             </div>
           )}
           
@@ -219,9 +225,9 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                 })
               }
             />
-            <Label htmlFor="marketing-consent" className="text-sm">
-              I agree to receive special offers and promotions via WhatsApp
-            </Label>
+            <label htmlFor="marketing-consent" className="text-sm">
+              I agree to receive bill receipts, special offers, and promotions via WhatsApp
+            </label>
           </div>
           
           <div className="pt-2">

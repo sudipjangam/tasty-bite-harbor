@@ -16,6 +16,9 @@ interface SendWhatsAppRequest {
   phone: string;
   message: string;
   billingId?: string;
+  promotionId?: string;
+  recipientId?: string;
+  recipientType?: string;
 }
 
 serve(async (req) => {
@@ -25,7 +28,7 @@ serve(async (req) => {
   }
 
   try {
-    const { phone, message, billingId } = await req.json() as SendWhatsAppRequest;
+    const { phone, message, billingId, promotionId, recipientId, recipientType } = await req.json() as SendWhatsAppRequest;
     
     if (!phone || !message) {
       return new Response(
@@ -37,30 +40,68 @@ serve(async (req) => {
       );
     }
 
-    // Note: In a real production environment, you would integrate with an actual WhatsApp API
-    // such as Twilio, MessageBird, or Meta's WhatsApp Business API
-    // This is a mock implementation for demonstration purposes
+    // Log the data we received
+    console.log(`Sending WhatsApp message to ${phone}`);
+    console.log(`Message content: ${message}`);
+    console.log(`Additional parameters: billingId=${billingId}, promotionId=${promotionId}, recipientId=${recipientId}, recipientType=${recipientType}`);
+    
+    // In a real implementation, you would integrate with WhatsApp Business API
+    // or a third-party service like Twilio, MessageBird, etc.
+    // For now, this is a mock implementation for demonstration
     
     console.log(`Would send WhatsApp message to ${phone}: ${message}`);
     
-    // Mock successful sending
-    // In a real implementation, you would await the API call to WhatsApp service
+    let sendStatus = 'sent';
+    let errorDetails = null;
     
-    // If billing ID was provided, update the sent status in the database
-    if (billingId) {
-      const { error } = await supabase
-        .from('room_billings')
-        .update({ whatsapp_sent: true })
-        .eq('id', billingId);
-        
-      if (error) {
-        console.error("Error updating billing record:", error);
+    // Update database records based on what type of message was sent
+    try {
+      if (billingId) {
+        // Update room billing record
+        const { error } = await supabase
+          .from('room_billings')
+          .update({ whatsapp_sent: true })
+          .eq('id', billingId);
+          
+        if (error) {
+          console.error("Error updating billing record:", error);
+          errorDetails = error.message;
+        }
       }
+      
+      if (promotionId && recipientId) {
+        // Record that a promotion was sent
+        const { error } = await supabase
+          .from('sent_promotions')
+          .insert({
+            promotion_id: promotionId,
+            reservation_id: recipientType === 'reservation' ? recipientId : null,
+            customer_phone: phone,
+            sent_status: 'sent',
+            sent_method: 'whatsapp',
+            restaurant_id: (await supabase.from('promotion_campaigns').select('restaurant_id').eq('id', promotionId).single()).data?.restaurant_id
+          });
+          
+        if (error) {
+          console.error("Error recording sent promotion:", error);
+          errorDetails = error.message;
+          sendStatus = 'error';
+        }
+      }
+    } catch (dbError) {
+      console.error("Database error:", dbError);
+      errorDetails = dbError.message;
+      sendStatus = 'error';
     }
     
     // Return success response
     return new Response(
-      JSON.stringify({ success: true, phone, message }),
+      JSON.stringify({ 
+        success: true, 
+        phone, 
+        status: sendStatus,
+        error: errorDetails
+      }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

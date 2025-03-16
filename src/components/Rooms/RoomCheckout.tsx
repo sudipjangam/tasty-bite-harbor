@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from 'react-router-dom';
@@ -308,20 +309,43 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
         const promotionEndDate = new Date(nextYearDate);
         promotionEndDate.setDate(promotionEndDate.getDate() + 7);
         
-        const { error } = await supabase
+        // Create the promotion for next year's special occasion
+        const { data, error } = await supabase
           .from('promotion_campaigns')
           .insert({
             restaurant_id: restaurantId,
             name: `${reservation.special_occasion.charAt(0).toUpperCase() + reservation.special_occasion.slice(1)} Special for ${reservation.customer_name}`,
-            description: `Special offer for ${reservation.customer_name}'s ${reservation.special_occasion}`,
+            description: `Special offer for ${reservation.customer_name}'s ${reservation.special_occasion} next year`,
             start_date: promotionStartDate.toISOString(),
             end_date: promotionEndDate.toISOString(),
             discount_percentage: 10,
             promotion_code: `${reservation.special_occasion.toUpperCase()}_${Math.floor(Math.random() * 10000)}`,
-          });
+          })
+          .select();
         
         if (error) {
           console.error("Error creating promotion:", error);
+          return;
+        }
+        
+        // If customer consented to marketing, send them a notification about the future promotion
+        if (reservation.customer_phone && reservation.marketing_consent && data && data.length > 0) {
+          const promotionId = data[0].id;
+          const message = `Hello ${reservation.customer_name},\n\nThank you for staying with us and sharing your ${reservation.special_occasion} details! We've created a special offer for your next ${reservation.special_occasion}.\n\nMark your calendar for next year, and we look forward to celebrating with you again!\n\nBest wishes,\nOur Restaurant Team`;
+          
+          try {
+            await supabase.functions.invoke("send-whatsapp", {
+              body: {
+                phone: reservation.customer_phone.replace(/\D/g, ''),
+                message: message,
+                promotionId: promotionId,
+                recipientId: reservation.id,
+                recipientType: "reservation"
+              }
+            });
+          } catch (sendError) {
+            console.error("Error sending promotion notification:", sendError);
+          }
         }
       }
     } catch (error) {
@@ -336,6 +360,7 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
     try {
       const billText = generateBillText();
       
+      console.log("Sending WhatsApp bill to:", reservation.customer_phone.replace(/\D/g, ''));
       const response = await supabase.functions.invoke('send-whatsapp', {
         body: {
           phone: reservation.customer_phone.replace(/\D/g, ''),
@@ -343,6 +368,8 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({ roomId, reservationId, onCo
           billingId
         }
       });
+      
+      console.log("WhatsApp response:", response);
       
       if (response.error) {
         throw new Error(response.error);
