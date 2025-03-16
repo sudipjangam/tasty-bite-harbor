@@ -2,41 +2,15 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash2, Users } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-type RestaurantTable = {
-  id: string;
-  name: string;
-  capacity: number;
-  status: string;
-  restaurant_id: string;
-  created_at: string;
-  updated_at: string;
-};
+import TableCard, { TableData } from "@/components/Tables/TableCard";
+import TableDialog from "@/components/Tables/TableDialog";
 
 const Tables = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingTable, setEditingTable] = useState<RestaurantTable | null>(null);
+  const [editingTable, setEditingTable] = useState<TableData | null>(null);
   const { toast } = useToast();
   const [userName, setUserName] = useState<string>("");
 
@@ -88,7 +62,7 @@ const Tables = () => {
         console.error("Error fetching tables:", error);
         throw error;
       }
-      return data as RestaurantTable[];
+      return data as TableData[];
     },
   });
 
@@ -173,17 +147,9 @@ const Tables = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "occupied":
-        return "bg-red-500";
-      case "available":
-        return "bg-green-500";
-      case "reserved":
-        return "bg-yellow-500";
-      default:
-        return "bg-gray-500";
-    }
+  const handleEditTable = (table: TableData) => {
+    setEditingTable(table);
+    setIsAddDialogOpen(true);
   };
 
   return (
@@ -197,110 +163,35 @@ const Tables = () => {
             Welcome {userName || "User"}!
           </p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setEditingTable(null)} className="bg-purple-600 hover:bg-purple-700">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Table
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editingTable ? "Edit Table" : "Add New Table"}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="name">Table Name</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  defaultValue={editingTable?.name}
-                  placeholder="e.g., Table 1"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="capacity">Capacity</Label>
-                <Input
-                  id="capacity"
-                  name="capacity"
-                  type="number"
-                  min="1"
-                  defaultValue={editingTable?.capacity}
-                  placeholder="Number of seats"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <Select name="status" defaultValue={editingTable?.status || "available"}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="available">Available</SelectItem>
-                    <SelectItem value="occupied">Occupied</SelectItem>
-                    <SelectItem value="reserved">Reserved</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button type="submit" className="w-full">
-                {editingTable ? "Update" : "Add"} Table
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button 
+          onClick={() => {
+            setEditingTable(null);
+            setIsAddDialogOpen(true);
+          }} 
+          className="bg-purple-600 hover:bg-purple-700"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Add Table
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {tables.map((table) => (
-          <Card
-            key={table.id}
-            className="p-4 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow"
-          >
-            <div className="flex flex-col space-y-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-semibold text-lg">{table.name}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      Capacity: {table.capacity}
-                    </span>
-                  </div>
-                </div>
-                <Badge className={getStatusColor(table.status)}>
-                  {table.status}
-                </Badge>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setEditingTable(table);
-                    setIsAddDialogOpen(true);
-                  }}
-                >
-                  <Edit className="h-4 w-4 mr-1" />
-                  Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDelete(table.id)}
-                  className="text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete
-                </Button>
-              </div>
-            </div>
-          </Card>
+          <TableCard 
+            key={table.id} 
+            table={table} 
+            onEdit={handleEditTable} 
+            onDelete={handleDelete} 
+          />
         ))}
       </div>
+
+      <TableDialog 
+        isOpen={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        editingTable={editingTable}
+        onSubmit={handleSubmit}
+      />
     </div>
   );
 };
