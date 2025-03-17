@@ -190,18 +190,25 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         });
       }
       
-      // Create billing record - FIXED to match database schema
+      // Add food orders as an additional charge if any exist
+      if (calculateFoodOrdersTotal() > 0) {
+        allAdditionalCharges.push({
+          id: 'food-orders',
+          name: 'Food Orders',
+          amount: calculateFoodOrdersTotal()
+        });
+      }
+      
+      // Create billing record - Updated to match database schema
       const { data: billingData, error: billingError } = await supabase
         .from("room_billings")
         .insert({
           room_id: roomId,
           reservation_id: reservationId,
           room_charges: calculateRoomTotal(),
-          // food_charges is not in the schema, store it in additional_charges JSON
+          // Include discount info in additional_charges JSON
           additional_charges: JSON.stringify(allAdditionalCharges),
           service_charge: includeServiceCharge ? serviceCharge : 0,
-          discount_type: discountType,
-          discount_value: discountValue,
           total_amount: calculateGrandTotal(),
           payment_method: paymentMethod,
           payment_status: "paid",
