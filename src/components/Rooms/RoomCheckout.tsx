@@ -19,6 +19,12 @@ interface RoomCheckoutProps {
   onComplete: () => Promise<void>;
 }
 
+interface AdditionalCharge {
+  id: string;
+  name: string;
+  amount: number;
+}
+
 const RoomCheckout: React.FC<RoomCheckoutProps> = ({ 
   roomId, 
   reservationId,
@@ -34,13 +40,18 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
   const [loading, setLoading] = useState(true);
   
   // Checkout state
-  const [additionalCharges, setAdditionalCharges] = useState<{ description: string; amount: number }[]>([]);
+  const [additionalCharges, setAdditionalCharges] = useState<AdditionalCharge[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
   const [checkoutComplete, setCheckoutComplete] = useState(false);
   
   // New discount state
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed' | 'none'>('none');
   const [discountValue, setDiscountValue] = useState<number>(0);
+  
+  // New state for additional charges form
+  const [newCharge, setNewCharge] = useState<{ name: string; amount: number }>({ name: '', amount: 0 });
+  const [includeServiceCharge, setIncludeServiceCharge] = useState(false);
+  const [serviceCharge, setServiceCharge] = useState(0);
   
   useEffect(() => {
     const fetchCheckoutData = async () => {
@@ -125,7 +136,11 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
   };
   
   const calculateAdditionalChargesTotal = () => {
-    return additionalCharges.reduce((total, charge) => total + (charge.amount || 0), 0);
+    let total = additionalCharges.reduce((total, charge) => total + (charge.amount || 0), 0);
+    if (includeServiceCharge) {
+      total += serviceCharge;
+    }
+    return total;
   };
   
   const calculateDiscountAmount = () => {
@@ -145,27 +160,54 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
     return subtotal - discount;
   };
   
+  const handleAddCharge = () => {
+    if (newCharge.name.trim() && newCharge.amount > 0) {
+      setAdditionalCharges([
+        ...additionalCharges,
+        { id: Date.now().toString(), ...newCharge }
+      ]);
+      setNewCharge({ name: '', amount: 0 });
+    }
+  };
+  
+  const handleRemoveCharge = (id: string) => {
+    setAdditionalCharges(additionalCharges.filter(charge => charge.id !== id));
+  };
+  
   const handleCheckout = async () => {
     try {
-      // Create billing record with room and food charges
+      if (!reservation || !room) {
+        throw new Error("Missing reservation or room data");
+      }
+      
+      // Prepare additional charges including service charge if enabled
+      const allAdditionalCharges = [...additionalCharges];
+      if (includeServiceCharge && serviceCharge > 0) {
+        allAdditionalCharges.push({
+          id: 'service-charge',
+          name: 'Service Charge',
+          amount: serviceCharge
+        });
+      }
+      
+      // Create billing record
       const { data: billingData, error: billingError } = await supabase
         .from("room_billings")
-        .insert([
-          {
-            room_id: roomId,
-            reservation_id: reservationId,
-            room_charges: calculateRoomTotal(),
-            food_charges: calculateFoodOrdersTotal(),
-            additional_charges: calculateAdditionalChargesTotal(),
-            discount_type: discountType,
-            discount_value: discountValue,
-            discount_amount: calculateDiscountAmount(),
-            total_amount: calculateGrandTotal(),
-            payment_method: paymentMethod,
-            payment_status: "paid",
-            additional_charges_details: additionalCharges
-          }
-        ])
+        .insert({
+          room_id: roomId,
+          reservation_id: reservationId,
+          room_charges: calculateRoomTotal(),
+          food_charges: calculateFoodOrdersTotal(),
+          additional_charges: JSON.stringify(allAdditionalCharges),
+          service_charge: includeServiceCharge ? serviceCharge : 0,
+          discount_type: discountType,
+          discount_value: discountValue,
+          total_amount: calculateGrandTotal(),
+          payment_method: paymentMethod,
+          payment_status: "paid",
+          customer_name: reservation.customer_name,
+          days_stayed: calculateDuration()
+        })
         .select()
         .single();
         
@@ -224,6 +266,21 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
     );
   }
   
+  // Prepare customer object for RoomDetailsCard
+  const customer = reservation ? {
+    name: reservation.customer_name,
+    email: reservation.customer_email,
+    phone: reservation.customer_phone,
+    specialOccasion: reservation.special_occasion,
+    specialOccasionDate: reservation.special_occasion_date
+  } : {
+    name: '',
+    email: null,
+    phone: null,
+    specialOccasion: null,
+    specialOccasionDate: null
+  };
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -247,27 +304,33 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
           {room && reservation && (
             <RoomDetailsCard 
               room={room} 
-              reservation={reservation}
-              duration={calculateDuration()}
+              daysStayed={calculateDuration()}
+              customer={customer}
             />
           )}
           
           <RoomChargesTable 
             roomPrice={room?.price || 0}
-            duration={calculateDuration()}
-            total={calculateRoomTotal()}
+            daysStayed={calculateDuration()}
           />
           
           {foodOrders.length > 0 && (
             <FoodOrdersList 
               foodOrders={foodOrders} 
-              total={calculateFoodOrdersTotal()} 
+              foodOrdersTotal={calculateFoodOrdersTotal()} 
             />
           )}
           
           <AdditionalChargesSection
-            charges={additionalCharges}
-            setCharges={setAdditionalCharges}
+            additionalCharges={additionalCharges}
+            newCharge={newCharge}
+            setNewCharge={setNewCharge}
+            handleAddCharge={handleAddCharge}
+            handleRemoveCharge={handleRemoveCharge}
+            includeServiceCharge={includeServiceCharge}
+            setIncludeServiceCharge={setIncludeServiceCharge}
+            serviceCharge={serviceCharge}
+            setServiceCharge={setServiceCharge}
           />
           
           <DiscountSection
@@ -279,8 +342,8 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
           />
           
           <PaymentMethodSelector
-            paymentMethod={paymentMethod}
-            onPaymentMethodChange={setPaymentMethod}
+            selectedMethod={paymentMethod}
+            onMethodChange={setPaymentMethod}
           />
         </div>
         
@@ -338,10 +401,15 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
       
       <CheckoutSuccessDialog
         open={checkoutComplete}
-        onClose={handleSuccessClose}
-        roomName={room?.name || ''}
-        totalAmount={calculateGrandTotal()}
-        paymentMethod={paymentMethod}
+        onOpenChange={setCheckoutComplete}
+        onDone={handleSuccessClose}
+        hasSpecialOccasion={!!reservation?.special_occasion}
+        hasMarketingConsent={!!reservation?.marketing_consent}
+        specialOccasionType={reservation?.special_occasion || null}
+        customerPhone={reservation?.customer_phone || null}
+        sendWhatsappBill={false}
+        whatsappSending={false}
+        onSendWhatsAppBill={() => {}}
       />
     </div>
   );
