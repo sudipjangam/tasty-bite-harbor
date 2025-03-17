@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import RoomCard from "@/components/Rooms/RoomCard";
@@ -122,10 +121,8 @@ const RoomsList: React.FC<RoomsListProps> = ({
   const handleCreateReservation = async () => {
     if (!currentRoom) return;
     
-    // Create a clean version of the reservation data
     const cleanReservation = {
       ...reservation,
-      // If special_occasion is "none", set it to empty string for database
       special_occasion: reservation.special_occasion === "none" ? "" : reservation.special_occasion
     };
     
@@ -153,6 +150,16 @@ const RoomsList: React.FC<RoomsListProps> = ({
           description: "There is no active reservation for this room.",
         });
         return;
+      }
+
+      const { data: foodOrders, error: foodOrdersError } = await supabase
+        .from("room_food_orders")
+        .select("*")
+        .eq("room_id", roomId)
+        .eq("status", "delivered");
+      
+      if (foodOrdersError) {
+        console.error("Error fetching food orders:", foodOrdersError);
       }
 
       setCheckoutRoom({
@@ -209,7 +216,6 @@ const RoomsList: React.FC<RoomsListProps> = ({
     return statusColors[status as keyof typeof statusColors] || "bg-gray-100 text-gray-800";
   };
 
-  // Handle RoomCheckout component rendering
   if (checkoutRoom) {
     const RoomCheckout = React.lazy(() => import("@/components/Rooms/RoomCheckout"));
     
@@ -224,7 +230,6 @@ const RoomsList: React.FC<RoomsListProps> = ({
     );
   }
 
-  // Handle RoomOrderForm component rendering
   if (openFoodOrder && currentRoom) {
     const RoomOrderForm = React.lazy(() => import("@/components/Rooms/RoomOrderForm"));
     
@@ -268,7 +273,6 @@ const RoomsList: React.FC<RoomsListProps> = ({
         </div>
       )}
 
-      {/* Room Dialog (Add/Edit) */}
       <RoomDialog
         open={openAddRoom}
         onOpenChange={setOpenAddRoom}
@@ -287,7 +291,6 @@ const RoomsList: React.FC<RoomsListProps> = ({
         mode="edit"
       />
 
-      {/* Reservation Dialog */}
       {currentRoom && (
         <ReservationDialog
           open={openReservation}
