@@ -11,28 +11,9 @@ import {
   CardFooter 
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Label } from "@/components/ui/label";
-import { Search, Plus, Minus, Trash2 } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-interface MenuItem {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-  description?: string;
-  is_veg?: boolean;
-}
+import MenuFilter from './MenuFilter';
+import MenuItemsList, { MenuItem } from './MenuItemsList';
+import OrderSummary from './OrderSummary';
 
 interface RoomOrderFormProps {
   roomId: string;
@@ -249,147 +230,27 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <Label>Filter by Category</Label>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(category => (
-                    <SelectItem key={category} value={category}>
-                      {category.charAt(0).toUpperCase() + category.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1">
-              <Label>Search Menu Items</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Search menu items..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-          </div>
+          <MenuFilter 
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            categoryFilter={categoryFilter}
+            setCategoryFilter={setCategoryFilter}
+            categories={categories}
+          />
 
-          <div className="border rounded-md">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center py-4">Loading menu items...</TableCell>
-                  </TableRow>
-                ) : filteredItems.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center py-4">No menu items found</TableCell>
-                  </TableRow>
-                ) : (
-                  filteredItems.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">
-                        {item.name}
-                        {item.is_veg !== undefined && (
-                          <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${item.is_veg ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                            {item.is_veg ? 'Veg' : 'Non-Veg'}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>{item.category}</TableCell>
-                      <TableCell className="text-right">₹{item.price.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={() => handleAddItem(item)}
-                        >
-                          <Plus className="h-4 w-4" />
-                          <span className="ml-1 hidden sm:inline">Add</span>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          <MenuItemsList 
+            isLoading={isLoading}
+            filteredItems={filteredItems}
+            onAddItem={handleAddItem}
+          />
           
           <div className="mt-6">
             <h3 className="text-lg font-medium mb-2">Order Summary</h3>
-            {orderItems.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">No items added to order</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead className="text-center">Quantity</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {orderItems.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-center">
-                          <Button 
-                            size="icon" 
-                            variant="outline" 
-                            className="h-7 w-7"
-                            onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
-                          >
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <span className="w-10 text-center">{item.quantity}</span>
-                          <Button 
-                            size="icon" 
-                            variant="outline" 
-                            className="h-7 w-7"
-                            onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">₹{item.price.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">₹{(item.price * item.quantity).toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          className="h-7 w-7"
-                          onClick={() => handleRemoveItem(item.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-right font-bold">Total:</TableCell>
-                    <TableCell className="text-right font-bold">₹{calculateTotal().toFixed(2)}</TableCell>
-                    <TableCell></TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            )}
+            <OrderSummary 
+              orderItems={orderItems}
+              onUpdateQuantity={handleUpdateQuantity}
+              onRemoveItem={handleRemoveItem}
+            />
           </div>
         </div>
       </CardContent>
