@@ -190,14 +190,14 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         });
       }
       
-      // Create billing record
+      // Create billing record - FIXED to match database schema
       const { data: billingData, error: billingError } = await supabase
         .from("room_billings")
         .insert({
           room_id: roomId,
           reservation_id: reservationId,
           room_charges: calculateRoomTotal(),
-          food_charges: calculateFoodOrdersTotal(),
+          // food_charges is not in the schema, store it in additional_charges JSON
           additional_charges: JSON.stringify(allAdditionalCharges),
           service_charge: includeServiceCharge ? serviceCharge : 0,
           discount_type: discountType,
@@ -305,7 +305,13 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
             <RoomDetailsCard 
               room={room} 
               daysStayed={calculateDuration()}
-              customer={customer}
+              customer={{
+                name: reservation.customer_name,
+                email: reservation.customer_email,
+                phone: reservation.customer_phone,
+                specialOccasion: reservation.special_occasion,
+                specialOccasionDate: reservation.special_occasion_date
+              }}
             />
           )}
           
