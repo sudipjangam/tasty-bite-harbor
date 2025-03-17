@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -33,22 +32,18 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Room and reservation data
   const [room, setRoom] = useState<any>(null);
   const [reservation, setReservation] = useState<any>(null);
   const [foodOrders, setFoodOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Checkout state
   const [additionalCharges, setAdditionalCharges] = useState<AdditionalCharge[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
   const [checkoutComplete, setCheckoutComplete] = useState(false);
   
-  // New discount state
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed' | 'none'>('none');
   const [discountValue, setDiscountValue] = useState<number>(0);
   
-  // New state for additional charges form
   const [newCharge, setNewCharge] = useState<{ name: string; amount: number }>({ name: '', amount: 0 });
   const [includeServiceCharge, setIncludeServiceCharge] = useState(false);
   const [serviceCharge, setServiceCharge] = useState(0);
@@ -58,7 +53,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
       try {
         setLoading(true);
         
-        // Fetch room data
         const { data: roomData, error: roomError } = await supabase
           .from("rooms")
           .select("*")
@@ -67,7 +61,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
           
         if (roomError) throw roomError;
         
-        // Fetch reservation data
         const { data: reservationData, error: reservationError } = await supabase
           .from("reservations")
           .select("*")
@@ -76,7 +69,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
           
         if (reservationError) throw reservationError;
         
-        // Fetch food orders
         const { data: foodOrdersData, error: foodOrdersError } = await supabase
           .from("room_food_orders")
           .select("*")
@@ -113,7 +105,7 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
     const diffTime = Math.abs(endTime.getTime() - startTime.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    return diffDays === 0 ? 1 : diffDays; // Minimum 1 day
+    return diffDays === 0 ? 1 : diffDays;
   };
   
   const calculateRoomTotal = () => {
@@ -180,7 +172,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         throw new Error("Missing reservation or room data");
       }
       
-      // Prepare additional charges including service charge if enabled
       const allAdditionalCharges = [...additionalCharges];
       if (includeServiceCharge && serviceCharge > 0) {
         allAdditionalCharges.push({
@@ -190,7 +181,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         });
       }
       
-      // Add food orders as an additional charge if any exist
       if (calculateFoodOrdersTotal() > 0) {
         allAdditionalCharges.push({
           id: 'food-orders',
@@ -199,14 +189,13 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         });
       }
       
-      // Create billing record - Updated to match database schema
       const { data: billingData, error: billingError } = await supabase
         .from("room_billings")
         .insert({
           room_id: roomId,
           reservation_id: reservationId,
+          restaurant_id: room.restaurant_id,
           room_charges: calculateRoomTotal(),
-          // Include discount info in additional_charges JSON
           additional_charges: JSON.stringify(allAdditionalCharges),
           service_charge: includeServiceCharge ? serviceCharge : 0,
           total_amount: calculateGrandTotal(),
@@ -220,7 +209,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         
       if (billingError) throw billingError;
       
-      // Update room status to cleaning
       const { error: roomUpdateError } = await supabase
         .from("rooms")
         .update({ status: "cleaning" })
@@ -228,7 +216,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         
       if (roomUpdateError) throw roomUpdateError;
       
-      // Update reservation status to completed
       const { error: reservationUpdateError } = await supabase
         .from("reservations")
         .update({ status: "completed" })
@@ -236,7 +223,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         
       if (reservationUpdateError) throw reservationUpdateError;
       
-      // Update all food orders to billed status
       if (foodOrders.length > 0) {
         const foodOrderIds = foodOrders.map(order => order.id);
         const { error: foodOrderUpdateError } = await supabase
@@ -247,7 +233,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         if (foodOrderUpdateError) throw foodOrderUpdateError;
       }
       
-      // Show success dialog
       setCheckoutComplete(true);
       
     } catch (error) {
@@ -273,7 +258,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
     );
   }
   
-  // Prepare customer object for RoomDetailsCard
   const customer = reservation ? {
     name: reservation.customer_name,
     email: reservation.customer_email,
@@ -303,7 +287,7 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         
         <h1 className="text-3xl font-bold">Room Checkout</h1>
         
-        <div className="w-20"></div> {/* Spacer for centering */}
+        <div className="w-20"></div>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
