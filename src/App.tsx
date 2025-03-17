@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ThemeProvider } from "@/hooks/useTheme";
-import Sidebar from "./components/Layout/Sidebar";
+import ModernSidebar from "./components/Layout/ModernSidebar";
 import Watermark from "./components/Layout/Watermark";
 import Index from "./pages/Index";
 import Menu from "./pages/Menu";
@@ -333,8 +333,8 @@ const App = () => {
                 path="/*"
                 element={
                   <ProtectedRoute>
-                    <div className="flex min-h-screen w-full bg-gradient-pattern">
-                      <Sidebar />
+                    <div className="flex min-h-screen w-full bg-gray-50 dark:bg-gray-900">
+                      <ModernSidebar />
                       <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
                         <div className="max-w-7xl mx-auto">
                           <Routes>
