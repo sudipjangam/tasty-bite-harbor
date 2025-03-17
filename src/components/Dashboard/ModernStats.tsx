@@ -1,59 +1,28 @@
-
 import React from "react";
-import { Doughnut, Bar } from "react-chartjs-2";
-import { Chart, ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from "chart.js";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
 import { Users, DollarSign, ShoppingBag, Clock } from "lucide-react";
 
-// Register Chart.js components
-Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
-
 const ModernStats = () => {
   // Sample data for charts
-  const doughnutData = {
-    labels: ["Main Course", "Appetizers", "Drinks", "Desserts"],
-    datasets: [
-      {
-        data: [45, 20, 20, 15],
-        backgroundColor: ["#4299E1", "#48BB78", "#F6AD55", "#F6E05E"],
-        borderWidth: 0,
-      },
-    ],
-  };
+  const pieData = [
+    { name: "Main Course", value: 45 },
+    { name: "Appetizers", value: 20 },
+    { name: "Drinks", value: 20 },
+    { name: "Desserts", value: 15 }
+  ];
 
-  const barData = {
-    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    datasets: [
-      {
-        label: "Revenue",
-        data: [2300, 1700, 3100, 3500, 4700, 5200, 4100],
-        backgroundColor: "#4299E1",
-        borderRadius: 4,
-      },
-    ],
-  };
+  const barData = [
+    { name: "Mon", revenue: 2300 },
+    { name: "Tue", revenue: 1700 },
+    { name: "Wed", revenue: 3100 },
+    { name: "Thu", revenue: 3500 },
+    { name: "Fri", revenue: 4700 },
+    { name: "Sat", revenue: 5200 },
+    { name: "Sun", revenue: 4100 }
+  ];
 
-  const barOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        display: false,
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        grid: {
-          display: false,
-        },
-      },
-      x: {
-        grid: {
-          display: false,
-        },
-      },
-    },
-  };
+  const COLORS = ["#4299E1", "#48BB78", "#F6AD55", "#F6E05E"];
 
   return (
     <div className="space-y-6">
@@ -105,7 +74,15 @@ const ModernStats = () => {
             </div>
             <p className="text-sm text-gray-500 mb-4">Revenue breakdown by day</p>
             <div className="h-64">
-              <Bar data={barData} options={barOptions} />
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={barData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                  <YAxis axisLine={false} tickLine={false} />
+                  <Tooltip />
+                  <Bar dataKey="revenue" fill="#4299E1" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
@@ -121,23 +98,26 @@ const ModernStats = () => {
             </div>
             <p className="text-sm text-gray-500 mb-4">Distribution by category</p>
             <div className="h-64 flex justify-center">
-              <div className="w-48">
-                <Doughnut 
-                  data={doughnutData} 
-                  options={{ 
-                    responsive: true, 
-                    plugins: { 
-                      legend: { 
-                        position: 'bottom',
-                        labels: { 
-                          boxWidth: 10, 
-                          padding: 15 
-                        } 
-                      } 
-                    } 
-                  }} 
-                />
-              </div>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    paddingAngle={2}
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>

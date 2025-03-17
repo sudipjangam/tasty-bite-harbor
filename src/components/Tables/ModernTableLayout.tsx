@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit, Users, Circle, Rectangle, Check } from "lucide-react";
+import { Plus, Edit, Users, Circle, Square, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface TableData {
@@ -239,7 +239,7 @@ const ModernTableLayout = () => {
                       {table.shape === "circle" ? (
                         <><Circle className="h-3 w-3 mr-1" /> Circle</>
                       ) : (
-                        <><Rectangle className="h-3 w-3 mr-1" /> Rectangle</>
+                        <><Square className="h-3 w-3 mr-1" /> Rectangle</>
                       )}
                     </Badge>
                     <Badge variant="outline" className="text-xs">{table.location}</Badge>
