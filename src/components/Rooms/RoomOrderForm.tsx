@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase, OrderItem } from "@/integrations/supabase/client";
@@ -191,14 +192,25 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
 
     setIsSubmitting(true);
     try {
+      // Get the current authenticated user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("You must be logged in to create an order");
+      }
+
       const orderData = {
         room_id: roomId,
         restaurant_id: restaurantId,
         customer_name: customerName,
         items: orderItems,
         total: calculateTotal(),
-        status: 'pending'
+        status: 'pending',
+        // Add user_id to meet potential RLS requirements
+        user_id: user.id
       };
+
+      console.log("Submitting order data:", orderData);
 
       const { data, error } = await supabase
         .from('room_food_orders')
@@ -217,7 +229,7 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
       console.error('Error creating order:', error);
       toast({
         title: "Error",
-        description: "Failed to place order",
+        description: "Failed to place order. Please ensure you have the proper permissions.",
         variant: "destructive"
       });
     } finally {
