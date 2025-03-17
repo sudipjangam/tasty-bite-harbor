@@ -14,7 +14,6 @@ export const XAxis: React.FC<XAxisProps> = (props) => {
     allowDataOverflow = false,
     allowDecimals = true,
     allowDuplicatedCategory = true,
-    angle = 0,
     axisLine = true,
     domain = ['auto', 'auto'],
     height = 30,
@@ -35,7 +34,6 @@ export const XAxis: React.FC<XAxisProps> = (props) => {
       allowDataOverflow={allowDataOverflow}
       allowDecimals={allowDecimals}
       allowDuplicatedCategory={allowDuplicatedCategory}
-      angle={angle}
       axisLine={axisLine}
       domain={domain}
       height={height}
@@ -56,11 +54,11 @@ export const XAxis: React.FC<XAxisProps> = (props) => {
 // Custom wrapper for YAxis to avoid defaultProps warning
 export const YAxis: React.FC<YAxisProps> = (props) => {
   // Default values provided as parameters instead of defaultProps
+  // Remove 'angle' property which is causing the TypeScript error
   const {
     allowDataOverflow = false,
     allowDecimals = true,
     allowDuplicatedCategory = true,
-    angle = 0,
     axisLine = true,
     domain = ['auto', 'auto'],
     height = 0,
@@ -81,7 +79,6 @@ export const YAxis: React.FC<YAxisProps> = (props) => {
       allowDataOverflow={allowDataOverflow}
       allowDecimals={allowDecimals}
       allowDuplicatedCategory={allowDuplicatedCategory}
-      angle={angle}
       axisLine={axisLine}
       domain={domain}
       height={height}
