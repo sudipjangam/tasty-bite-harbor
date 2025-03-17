@@ -122,7 +122,14 @@ const RoomsList: React.FC<RoomsListProps> = ({
   const handleCreateReservation = async () => {
     if (!currentRoom) return;
     
-    const success = await onCreateReservation(currentRoom, reservation);
+    // Create a clean version of the reservation data
+    const cleanReservation = {
+      ...reservation,
+      // If special_occasion is "none", set it to empty string for database
+      special_occasion: reservation.special_occasion === "none" ? "" : reservation.special_occasion
+    };
+    
+    const success = await onCreateReservation(currentRoom, cleanReservation);
     if (success) {
       setOpenReservation(false);
     }

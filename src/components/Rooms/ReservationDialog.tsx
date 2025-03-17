@@ -46,7 +46,7 @@ interface ReservationDialogProps {
 }
 
 const SPECIAL_OCCASIONS = [
-  { value: "", label: "None" },
+  { value: "none", label: "None" },
   { value: "birthday", label: "Birthday" },
   { value: "anniversary", label: "Anniversary" },
   { value: "engagement", label: "Engagement" },
@@ -163,9 +163,12 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
           <div className="grid gap-2">
             <Label htmlFor="special-occasion">Special Occasion</Label>
             <Select
-              value={reservation.special_occasion}
+              value={reservation.special_occasion || "none"}
               onValueChange={(value) =>
-                setReservation({ ...reservation, special_occasion: value })
+                setReservation({ 
+                  ...reservation, 
+                  special_occasion: value === "none" ? "" : value 
+                })
               }
             >
               <SelectTrigger>
@@ -184,7 +187,7 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
             </p>
           </div>
           
-          {reservation.special_occasion && (
+          {reservation.special_occasion && reservation.special_occasion !== "none" && (
             <div className="grid gap-2">
               <Label>Occasion Date</Label>
               <div className="border rounded-md p-2">
