@@ -21,15 +21,17 @@ export interface MenuItem {
 }
 
 interface MenuItemsListProps {
+  menuItems: MenuItem[];
   isLoading: boolean;
-  filteredItems: MenuItem[];
-  onAddItem: (item: MenuItem) => void;
+  error: string | null;
+  onAddToOrder: (item: MenuItem) => void;
 }
 
 const MenuItemsList: React.FC<MenuItemsListProps> = ({ 
+  menuItems, 
   isLoading, 
-  filteredItems, 
-  onAddItem 
+  error,
+  onAddToOrder 
 }) => {
   return (
     <div className="border rounded-md">
@@ -47,12 +49,16 @@ const MenuItemsList: React.FC<MenuItemsListProps> = ({
             <TableRow>
               <TableCell colSpan={4} className="text-center py-4">Loading menu items...</TableCell>
             </TableRow>
-          ) : filteredItems.length === 0 ? (
+          ) : error ? (
+            <TableRow>
+              <TableCell colSpan={4} className="text-center py-4 text-red-500">{error}</TableCell>
+            </TableRow>
+          ) : menuItems.length === 0 ? (
             <TableRow>
               <TableCell colSpan={4} className="text-center py-4">No menu items found</TableCell>
             </TableRow>
           ) : (
-            filteredItems.map((item) => (
+            menuItems.map((item) => (
               <TableRow key={item.id}>
                 <TableCell className="font-medium">
                   {item.name}
@@ -68,7 +74,7 @@ const MenuItemsList: React.FC<MenuItemsListProps> = ({
                   <Button 
                     size="sm" 
                     variant="outline" 
-                    onClick={() => onAddItem(item)}
+                    onClick={() => onAddToOrder(item)}
                   >
                     <Plus className="h-4 w-4" />
                     <span className="ml-1 hidden sm:inline">Add</span>

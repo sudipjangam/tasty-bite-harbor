@@ -237,11 +237,13 @@ const RoomsList: React.FC<RoomsListProps> = ({
       <React.Suspense fallback={<div>Loading order form...</div>}>
         <RoomOrderForm
           roomId={currentRoom.id}
-          customerName={reservation.customer_name}
+          open={openFoodOrder}
+          onClose={() => setOpenFoodOrder(false)}
           onSuccess={() => {
             setOpenFoodOrder(false);
           }}
-          onCancel={() => setOpenFoodOrder(false)}
+          restaurantId={currentRoom.restaurant_id}
+          customerName={reservation.customer_name}
         />
       </React.Suspense>
     );

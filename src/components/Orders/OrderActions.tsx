@@ -19,7 +19,7 @@ const OrderActions: React.FC<OrderActionsProps> = ({
   onStatusUpdate,
   onDelete,
 }) => {
-  // Return early if order is undefined
+  // Return early if order is undefined or null
   if (!order) {
     return null;
   }

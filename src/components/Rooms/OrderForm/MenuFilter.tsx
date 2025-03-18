@@ -12,25 +12,25 @@ import {
 } from "@/components/ui/select";
 
 interface MenuFilterProps {
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
-  categoryFilter: string;
-  setCategoryFilter: (category: string) => void;
   categories: string[];
+  selectedCategory: string;
+  onCategoryChange: (category: string) => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
 }
 
 const MenuFilter: React.FC<MenuFilterProps> = ({
-  searchQuery,
-  setSearchQuery,
-  categoryFilter,
-  setCategoryFilter,
   categories,
+  selectedCategory,
+  onCategoryChange,
+  searchQuery,
+  onSearchChange,
 }) => {
   return (
     <div className="flex flex-col md:flex-row gap-4">
       <div className="flex-1">
         <Label>Filter by Category</Label>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+        <Select value={selectedCategory} onValueChange={onCategoryChange}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select category" />
           </SelectTrigger>
@@ -50,7 +50,7 @@ const MenuFilter: React.FC<MenuFilterProps> = ({
           <Input
             placeholder="Search menu items..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => onSearchChange(e.target.value)}
             className="pl-10"
           />
         </div>
