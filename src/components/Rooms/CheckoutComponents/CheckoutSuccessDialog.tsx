@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Send } from 'lucide-react';
+import { Send, Check } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface CheckoutSuccessDialogProps {
@@ -29,12 +29,6 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
   whatsappSending,
   onSendWhatsAppBill
 }) => {
-  // Handler to close dialog and call the onDone callback
-  const handleDone = () => {
-    onOpenChange(false);
-    onDone();
-  };
-  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -52,20 +46,31 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
         
         {customerPhone && sendWhatsappBill && (
           <div className="py-4">
-            <Button 
-              onClick={onSendWhatsAppBill} 
-              disabled={whatsappSending}
-              className="w-full"
-              variant="secondary"
-            >
-              <Send className="mr-2 h-4 w-4" />
-              {whatsappSending ? "Sending..." : "Send Bill to WhatsApp"}
-            </Button>
+            {whatsappSending ? (
+              <Button 
+                disabled
+                className="w-full"
+                variant="secondary"
+              >
+                <div className="animate-spin w-4 h-4 mr-2 border-2 border-current border-t-transparent rounded-full" />
+                Sending bill to WhatsApp...
+              </Button>
+            ) : (
+              <Button 
+                onClick={onSendWhatsAppBill} 
+                className="w-full"
+                variant="secondary"
+              >
+                <Send className="mr-2 h-4 w-4" />
+                Send Bill to WhatsApp
+              </Button>
+            )}
           </div>
         )}
         
         <DialogFooter>
-          <Button onClick={handleDone}>
+          <Button onClick={onDone} className="flex items-center">
+            <Check className="mr-2 h-4 w-4" />
             Done
           </Button>
         </DialogFooter>

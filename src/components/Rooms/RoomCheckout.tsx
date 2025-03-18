@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,11 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
   const [includeServiceCharge, setIncludeServiceCharge] = useState(false);
   const [serviceCharge, setServiceCharge] = useState(0);
   
+  // New state for WhatsApp bill sending
+  const [sendWhatsappBill, setSendWhatsappBill] = useState(true);
+  const [whatsappSending, setWhatsappSending] = useState(false);
+  const [billingId, setBillingId] = useState<string | null>(null);
+  
   useEffect(() => {
     const fetchCheckoutData = async () => {
       try {
@@ -69,6 +75,7 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
           
         if (reservationError) throw reservationError;
         
+        // Fetch food orders for the room with status "delivered"
         const { data: foodOrdersData, error: foodOrdersError } = await supabase
           .from("room_food_orders")
           .select("*")
@@ -172,6 +179,7 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         throw new Error("Missing reservation or room data");
       }
       
+      // Prepare additional charges, including food orders
       const allAdditionalCharges = [...additionalCharges];
       if (includeServiceCharge && serviceCharge > 0) {
         allAdditionalCharges.push({
@@ -181,14 +189,7 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         });
       }
       
-      if (calculateFoodOrdersTotal() > 0) {
-        allAdditionalCharges.push({
-          id: 'food-orders',
-          name: 'Food Orders',
-          amount: calculateFoodOrdersTotal()
-        });
-      }
-      
+      // Create the room billing record
       const { data: billingData, error: billingError } = await supabase
         .from("room_billings")
         .insert({
@@ -202,13 +203,19 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
           payment_method: paymentMethod,
           payment_status: "paid",
           customer_name: reservation.customer_name,
-          days_stayed: calculateDuration()
+          days_stayed: calculateDuration(),
+          food_orders_total: calculateFoodOrdersTotal(), // Add food orders total to the billing
+          food_orders_ids: foodOrders.length > 0 ? foodOrders.map(order => order.id) : null // Store food order IDs
         })
         .select()
         .single();
         
       if (billingError) throw billingError;
       
+      // Store the billing ID for WhatsApp bill sending
+      setBillingId(billingData.id);
+      
+      // Update room status to cleaning
       const { error: roomUpdateError } = await supabase
         .from("rooms")
         .update({ status: "cleaning" })
@@ -216,6 +223,7 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         
       if (roomUpdateError) throw roomUpdateError;
       
+      // Update reservation status to completed
       const { error: reservationUpdateError } = await supabase
         .from("reservations")
         .update({ status: "completed" })
@@ -223,6 +231,7 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         
       if (reservationUpdateError) throw reservationUpdateError;
       
+      // If there are food orders, update their status to billed
       if (foodOrders.length > 0) {
         const foodOrderIds = foodOrders.map(order => order.id);
         const { error: foodOrderUpdateError } = await supabase
@@ -245,6 +254,63 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
     }
   };
   
+  // Function to send the bill to WhatsApp
+  const handleSendWhatsAppBill = async () => {
+    if (!billingId || !reservation?.customer_phone) return;
+    
+    try {
+      setWhatsappSending(true);
+      
+      // Format the bill details
+      const billDetails = `
+*Room Checkout Receipt*
+*Guest:* ${reservation.customer_name}
+*Room:* ${room?.name}
+*Duration:* ${calculateDuration()} day(s)
+*Room Charges:* ₹${calculateRoomTotal()}
+${foodOrders.length > 0 ? `*Food Orders:* ₹${calculateFoodOrdersTotal()}` : ''}
+${additionalCharges.length > 0 ? `*Additional Charges:* ₹${calculateAdditionalChargesTotal()}` : ''}
+${calculateDiscountAmount() > 0 ? `*Discount:* -₹${calculateDiscountAmount()}` : ''}
+*Total Amount:* ₹${calculateGrandTotal()}
+*Payment Method:* ${paymentMethod}
+
+Thank you for staying with us!
+`;
+
+      // Send the bill via WhatsApp (call the Edge Function)
+      const { error } = await supabase.functions.invoke('send-whatsapp', {
+        body: { 
+          phone: reservation.customer_phone,
+          message: billDetails,
+          billingId: billingId
+        }
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Bill Sent",
+        description: "The bill has been sent to the customer's WhatsApp.",
+      });
+      
+      // Update the room_billings record to indicate WhatsApp was sent
+      await supabase
+        .from("room_billings")
+        .update({ whatsapp_sent: true })
+        .eq("id", billingId);
+        
+    } catch (error) {
+      console.error("Error sending WhatsApp bill:", error);
+      toast({
+        variant: "destructive",
+        title: "Sending Failed",
+        description: "Failed to send the bill via WhatsApp. Please try again.",
+      });
+    } finally {
+      setWhatsappSending(false);
+    }
+  };
+  
   const handleSuccessClose = async () => {
     await onComplete();
     navigate("/rooms");
@@ -257,20 +323,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
       </div>
     );
   }
-  
-  const customer = reservation ? {
-    name: reservation.customer_name,
-    email: reservation.customer_email,
-    phone: reservation.customer_phone,
-    specialOccasion: reservation.special_occasion,
-    specialOccasionDate: reservation.special_occasion_date
-  } : {
-    name: '',
-    email: null,
-    phone: null,
-    specialOccasion: null,
-    specialOccasionDate: null
-  };
   
   return (
     <div className="space-y-6">
@@ -345,7 +397,7 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         </div>
         
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-lg shadow-md p-6 sticky top-6">
+          <div className="bg-white rounded-lg shadow-md p-6 sticky top-6 dark:bg-gray-800">
             <h2 className="text-xl font-bold mb-4">Payment Summary</h2>
             
             <div className="space-y-3 mb-6">
@@ -381,6 +433,20 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
               </div>
             </div>
             
+            {reservation?.customer_phone && (
+              <div className="mb-4">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={sendWhatsappBill}
+                    onChange={(e) => setSendWhatsappBill(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <span className="text-sm">Send bill via WhatsApp</span>
+                </label>
+              </div>
+            )}
+            
             <Button 
               onClick={handleCheckout} 
               className="w-full bg-primary hover:bg-primary/90 text-white"
@@ -404,9 +470,9 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         hasMarketingConsent={!!reservation?.marketing_consent}
         specialOccasionType={reservation?.special_occasion || null}
         customerPhone={reservation?.customer_phone || null}
-        sendWhatsappBill={false}
-        whatsappSending={false}
-        onSendWhatsAppBill={() => {}}
+        sendWhatsappBill={sendWhatsappBill}
+        whatsappSending={whatsappSending}
+        onSendWhatsAppBill={handleSendWhatsAppBill}
       />
     </div>
   );
