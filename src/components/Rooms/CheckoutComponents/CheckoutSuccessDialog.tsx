@@ -29,6 +29,12 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
   whatsappSending,
   onSendWhatsAppBill
 }) => {
+  // Handler to close dialog and call the onDone callback
+  const handleDone = () => {
+    onOpenChange(false);
+    onDone();
+  };
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -59,7 +65,7 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
         )}
         
         <DialogFooter>
-          <Button onClick={onDone}>
+          <Button onClick={handleDone}>
             Done
           </Button>
         </DialogFooter>

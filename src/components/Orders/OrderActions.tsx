@@ -6,19 +6,24 @@ import type { Order } from "@/types/orders";
 
 interface OrderActionsProps {
   order: Order;
-  loading: boolean;
+  loading?: boolean;
   onEdit?: (order: Order) => void;
-  onStatusUpdate: (orderId: string, newStatus: string) => void;
-  onDelete: (orderId: string) => void;
+  onStatusUpdate?: (orderId: string, newStatus: string) => void;
+  onDelete?: (orderId: string) => void;
 }
 
 const OrderActions: React.FC<OrderActionsProps> = ({
   order,
-  loading,
+  loading = false,
   onEdit,
   onStatusUpdate,
   onDelete,
 }) => {
+  // Return early if order is undefined
+  if (!order) {
+    return null;
+  }
+
   return (
     <div className="flex gap-2 mt-2">
       {onEdit && (
@@ -34,7 +39,7 @@ const OrderActions: React.FC<OrderActionsProps> = ({
         </Button>
       )}
       
-      {order.status === "pending" ? (
+      {onStatusUpdate && order.status === "pending" ? (
         <Button
           variant="outline"
           size="sm"
@@ -45,7 +50,7 @@ const OrderActions: React.FC<OrderActionsProps> = ({
           <Check className="w-4 h-4" />
           <span className="ml-1 hidden sm:inline">Complete</span>
         </Button>
-      ) : order.status === "completed" ? (
+      ) : onStatusUpdate && order.status === "completed" ? (
         <Button
           variant="outline"
           size="sm"
@@ -58,15 +63,17 @@ const OrderActions: React.FC<OrderActionsProps> = ({
         </Button>
       ) : null}
       
-      <Button
-        variant="destructive"
-        size="sm"
-        onClick={() => onDelete(order.id)}
-        disabled={loading}
-      >
-        <Trash className="w-4 h-4" />
-        <span className="ml-1 hidden sm:inline">Delete</span>
-      </Button>
+      {onDelete && (
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => onDelete(order.id)}
+          disabled={loading}
+        >
+          <Trash className="w-4 h-4" />
+          <span className="ml-1 hidden sm:inline">Delete</span>
+        </Button>
+      )}
     </div>
   );
 };

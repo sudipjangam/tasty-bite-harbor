@@ -1,7 +1,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip } from "recharts";
+import { BarChart, Bar, ResponsiveContainer, CartesianGrid, Tooltip } from "recharts";
+import { XAxis, YAxis } from "@/components/ui/chart"; // Use our custom wrappers
 import { Skeleton } from "@/components/ui/skeleton";
 import { startOfWeek, addDays, format } from "date-fns";
 import { useTheme } from "@/hooks/useTheme";

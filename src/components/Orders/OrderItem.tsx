@@ -45,10 +45,9 @@ const OrderItem: React.FC<OrderItemProps> = ({ order, onStatusChange, onEdit }) 
 
           <div className="flex justify-end">
             <OrderActions 
-              orderId={order.id} 
-              currentStatus={order.status} 
-              onStatusChange={onStatusChange} 
-              onEdit={onEdit}
+              order={order}
+              onStatusUpdate={onStatusChange}
+              onEdit={onEdit ? () => onEdit() : undefined}
             />
           </div>
         </div>
