@@ -52,7 +52,8 @@ const WeeklySalesChart = () => {
     },
   });
 
-  if (isLoading) {
+  // Return a loading state while data is being fetched
+  if (isLoading || !weeklyData) {
     return <Skeleton className="w-full h-[300px] rounded-lg bg-secondary/20" />;
   }
 
@@ -64,7 +65,7 @@ const WeeklySalesChart = () => {
 
   const chartOptions: Options = {
     chart: {
-      type: 'column',
+      type: 'column' as const,
       backgroundColor: backgroundColor,
       style: {
         fontFamily: 'Inter, sans-serif'
@@ -130,7 +131,7 @@ const WeeklySalesChart = () => {
       }
     },
     series: [{
-      type: 'column' as const, // Use const assertion for literal type
+      type: 'column' as const,
       name: 'Revenue',
       data: weeklyData.map(item => item.amount),
       colorByPoint: false
