@@ -123,6 +123,7 @@ const RevenueChart = ({ data }: RevenueChartProps) => {
     },
     series: [
       {
+        type: 'line',
         name: 'Revenue',
         color: '#2D3748',
         data: chartData.map(item => item.revenue),
@@ -138,6 +139,7 @@ const RevenueChart = ({ data }: RevenueChartProps) => {
         }
       },
       {
+        type: 'line',
         name: 'Orders',
         color: '#48BB78',
         data: chartData.map(item => item.orders),
@@ -151,6 +153,7 @@ const RevenueChart = ({ data }: RevenueChartProps) => {
         }
       },
       {
+        type: 'line',
         name: 'Avg Order Value',
         color: '#F6AD55',
         data: chartData.map(item => item.average),

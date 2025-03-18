@@ -129,6 +129,7 @@ const WeeklySalesChart = () => {
       }
     },
     series: [{
+      type: 'column',
       name: 'Revenue',
       data: weeklyData.map(item => item.amount),
       colorByPoint: false

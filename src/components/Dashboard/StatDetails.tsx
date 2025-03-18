@@ -1,4 +1,3 @@
-
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTheme } from "@/hooks/useTheme";
@@ -106,6 +105,7 @@ const StatDetails = ({ title, data, type, onClose }: StatDetailsProps) => {
             }
           },
           series: [{
+            type: 'line',
             name: 'Amount',
             data: data.chart.map((item: any) => item.amount),
           }]

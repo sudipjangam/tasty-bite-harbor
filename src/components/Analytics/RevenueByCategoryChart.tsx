@@ -73,13 +73,14 @@ const RevenueByCategoryChart = ({ data }: RevenueByCategoryChartProps) => {
     },
     legend: {
       enabled: true,
-      align: 'center',
+      align: 'center' as const,
       verticalAlign: 'bottom',
       itemStyle: {
         color: isDarkMode ? '#F9FAFB' : '#1F2937'
       }
     },
     series: [{
+      type: 'pie' as const,
       name: 'Categories',
       colorByPoint: true,
       data: sortedData.map(item => ({

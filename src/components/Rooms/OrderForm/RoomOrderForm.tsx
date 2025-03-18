@@ -30,13 +30,13 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
 }) => {
   const { toast } = useToast();
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [filteredItems, setFilteredItems] = useState<MenuItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchRestaurantId = async () => {
@@ -76,9 +76,9 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
 
         if (error) throw error;
         setMenuItems(data || []);
-        setFilteredItems(data || []);
       } catch (error) {
         console.error('Error fetching menu items:', error);
+        setError("Failed to load menu items");
         toast({
           variant: "destructive",
           title: "Error",
@@ -92,21 +92,15 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
     fetchMenuItems();
   }, [restaurantId, toast]);
 
-  useEffect(() => {
-    const filtered = menuItems.filter(item => {
-      const matchesSearch = 
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.description?.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      if (categoryFilter === 'all') return matchesSearch;
-      if (categoryFilter === 'veg') return matchesSearch && item.is_veg === true;
-      if (categoryFilter === 'non-veg') return matchesSearch && item.is_veg === false;
-      
-      return matchesSearch && item.category === categoryFilter;
-    });
+  // Filter menu items based on category and search query
+  const filteredMenuItems = menuItems.filter(item => {
+    const matchesSearch = 
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    setFilteredItems(filtered);
-  }, [searchQuery, categoryFilter, menuItems]);
+    if (categoryFilter === 'all') return matchesSearch;
+    return matchesSearch && item.category === categoryFilter;
+  });
 
   const handleAddItem = (menuItem: MenuItem) => {
     setOrderItems(prevItems => {
@@ -173,22 +167,13 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
 
     setIsSubmitting(true);
     try {
-      // Get the current authenticated user
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error("You must be logged in to create an order");
-      }
-
       const orderData = {
         room_id: roomId,
         restaurant_id: restaurantId,
         customer_name: customerName,
         items: orderItems,
         total: calculateTotal(),
-        status: 'pending',
-        // Add user_id to meet potential RLS requirements
-        user_id: user.id
+        status: 'pending'
       };
 
       console.log("Submitting order data:", orderData);
@@ -210,7 +195,7 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
       console.error('Error creating order:', error);
       toast({
         title: "Error",
-        description: "Failed to place order. Please ensure you have the proper permissions.",
+        description: "Failed to place order. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -218,7 +203,7 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
     }
   };
 
-  const categories = ['all', 'veg', 'non-veg', ...new Set(menuItems.map(item => item.category))];
+  const categories = ['all', ...new Set(menuItems.map(item => item.category))];
 
   return (
     <Card className="w-full max-w-3xl mx-auto">
@@ -231,17 +216,18 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
       <CardContent className="space-y-4">
         <div className="space-y-4">
           <MenuFilter 
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            categoryFilter={categoryFilter}
-            setCategoryFilter={setCategoryFilter}
             categories={categories}
+            selectedCategory={categoryFilter}
+            onCategoryChange={setCategoryFilter}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
           />
 
           <MenuItemsList 
+            menuItems={filteredMenuItems}
             isLoading={isLoading}
-            filteredItems={filteredItems}
-            onAddItem={handleAddItem}
+            error={error}
+            onAddToOrder={handleAddItem}
           />
           
           <div className="mt-6">
