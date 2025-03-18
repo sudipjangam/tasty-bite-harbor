@@ -1,8 +1,8 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format } from "date-fns";
 import { useTheme } from "@/hooks/useTheme";
+import { HighchartComponent } from "@/components/ui/highcharts";
 
 interface RevenueChartProps {
   data: {
@@ -27,11 +27,147 @@ const RevenueChart = ({ data }: RevenueChartProps) => {
     }));
 
   // Theme-aware colors
+  const backgroundColor = 'transparent';
   const textColor = isDarkMode ? '#F7FAFC' : '#2D3748';
   const gridColor = isDarkMode ? '#4A5568' : '#E2E8F0';
-  const backgroundColor = isDarkMode ? 'rgba(45, 55, 72, 0.8)' : 'rgba(255, 255, 255, 0.9)';
-  const tooltipBackgroundColor = isDarkMode ? '#2D3748' : '#ffffff';
-  const tooltipBorderColor = isDarkMode ? '#4A5568' : '#E2E8F0';
+
+  const chartOptions = {
+    chart: {
+      type: 'line',
+      backgroundColor: backgroundColor,
+      style: {
+        fontFamily: 'Inter, sans-serif'
+      },
+      height: 400
+    },
+    title: {
+      text: null
+    },
+    xAxis: {
+      categories: chartData.map(item => item.date),
+      labels: {
+        style: {
+          color: textColor
+        }
+      },
+      lineColor: gridColor,
+      tickColor: gridColor
+    },
+    yAxis: [
+      {
+        // Primary y-axis for revenue
+        title: {
+          text: 'Revenue (₹)',
+          style: {
+            color: '#2D3748'
+          }
+        },
+        labels: {
+          format: '₹{value}',
+          style: {
+            color: '#2D3748'
+          }
+        },
+        gridLineColor: gridColor
+      },
+      {
+        // Secondary y-axis for orders
+        title: {
+          text: 'Orders',
+          style: {
+            color: '#48BB78'
+          }
+        },
+        labels: {
+          style: {
+            color: '#48BB78'
+          }
+        },
+        opposite: true,
+        gridLineColor: gridColor
+      },
+      {
+        // Third y-axis for average order value
+        title: {
+          text: 'Avg Order Value (₹)',
+          style: {
+            color: '#F6AD55'
+          }
+        },
+        labels: {
+          format: '₹{value}',
+          style: {
+            color: '#F6AD55'
+          }
+        },
+        opposite: true,
+        gridLineColor: gridColor
+      }
+    ],
+    legend: {
+      enabled: true,
+      itemStyle: {
+        color: textColor
+      }
+    },
+    credits: {
+      enabled: false
+    },
+    tooltip: {
+      shared: true,
+      backgroundColor: isDarkMode ? '#2D3748' : '#FFFFFF',
+      borderColor: isDarkMode ? '#4A5568' : '#E2E8F0',
+      style: {
+        color: textColor
+      }
+    },
+    series: [
+      {
+        name: 'Revenue',
+        color: '#2D3748',
+        data: chartData.map(item => item.revenue),
+        tooltip: {
+          valuePrefix: '₹'
+        },
+        lineWidth: 3,
+        marker: {
+          radius: 3,
+          lineWidth: 2,
+          lineColor: '#2C5282',
+          fillColor: '#2D3748'
+        }
+      },
+      {
+        name: 'Orders',
+        color: '#48BB78',
+        data: chartData.map(item => item.orders),
+        yAxis: 1,
+        lineWidth: 2,
+        marker: {
+          radius: 3,
+          lineWidth: 2,
+          lineColor: '#276749',
+          fillColor: '#48BB78'
+        }
+      },
+      {
+        name: 'Avg Order Value',
+        color: '#F6AD55',
+        data: chartData.map(item => item.average),
+        yAxis: 2,
+        lineWidth: 2,
+        tooltip: {
+          valuePrefix: '₹'
+        },
+        marker: {
+          radius: 3,
+          lineWidth: 2,
+          lineColor: '#C05621',
+          fillColor: '#F6AD55'
+        }
+      }
+    ]
+  };
 
   return (
     <Card className="col-span-4 shadow-card hover:shadow-card-hover transition-all duration-300">
@@ -40,67 +176,7 @@ const RevenueChart = ({ data }: RevenueChartProps) => {
       </CardHeader>
       <CardContent>
         <div className="h-[400px] chart-container">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" stroke={gridColor} />
-              <XAxis 
-                dataKey="date"
-                tick={{ fill: textColor, fontSize: 12, fontWeight: 500 }}
-                axisLine={{ stroke: gridColor }}
-              />
-              <YAxis 
-                tick={{ fill: textColor, fontSize: 12, fontWeight: 500 }}
-                axisLine={{ stroke: gridColor }}
-                tickFormatter={(value) => `₹${value}`}
-              />
-              <Tooltip 
-                formatter={(value) => [`₹${value}`, '']}
-                labelFormatter={(value) => `Date: ${value}`}
-                contentStyle={{ 
-                  backgroundColor: tooltipBackgroundColor,
-                  border: `1px solid ${tooltipBorderColor}`,
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                  color: textColor,
-                  fontWeight: 500
-                }}
-                cursor={{ stroke: '#48BB78', strokeWidth: 1, strokeDasharray: '5 5' }}
-              />
-              <Legend 
-                verticalAlign="top" 
-                height={36}
-                wrapperStyle={{ paddingTop: '10px' }}
-                formatter={(value) => <span style={{ color: textColor, fontWeight: 500 }}>{value}</span>}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="revenue" 
-                name="Revenue" 
-                stroke="#2D3748" 
-                strokeWidth={3}
-                dot={{ r: 3, strokeWidth: 2 }}
-                activeDot={{ r: 6, stroke: '#2C5282', strokeWidth: 2, fill: '#2D3748' }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="orders" 
-                name="Orders" 
-                stroke="#48BB78" 
-                strokeWidth={2}
-                dot={{ r: 3, strokeWidth: 2 }}
-                activeDot={{ r: 5, stroke: '#276749', strokeWidth: 2, fill: '#48BB78' }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="average" 
-                name="Avg Order Value" 
-                stroke="#F6AD55" 
-                strokeWidth={2}
-                dot={{ r: 3, strokeWidth: 2 }}
-                activeDot={{ r: 5, stroke: '#C05621', strokeWidth: 2, fill: '#F6AD55' }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <HighchartComponent options={chartOptions} />
         </div>
       </CardContent>
     </Card>

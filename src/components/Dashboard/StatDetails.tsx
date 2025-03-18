@@ -1,8 +1,8 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useTheme } from "@/hooks/useTheme";
+import { HighchartComponent } from "@/components/ui/highcharts";
 
 interface StatDetailsProps {
   title: string | null;
@@ -18,11 +18,10 @@ const StatDetails = ({ title, data, type, onClose }: StatDetailsProps) => {
   const formatCurrency = (value: number) => `₹${value.toFixed(2)}`;
 
   // Theme-aware colors
+  const backgroundColor = 'transparent';
   const textColor = isDarkMode ? '#F7FAFC' : '#2D3748';
   const gridColor = isDarkMode ? '#4A5568' : '#E2E8F0';
-  const tooltipBg = isDarkMode ? '#2D3748' : 'white';
-  const tooltipBorder = isDarkMode ? '#4A5568' : '#E2E8F0';
-  
+
   // Line colors based on stat type
   const getLineColor = () => {
     if (type === "sales") return "#2D3748";
@@ -33,46 +32,91 @@ const StatDetails = ({ title, data, type, onClose }: StatDetailsProps) => {
   const renderContent = () => {
     switch (type) {
       case "sales":
-      case "revenue":
+      case "revenue": {
+        const chartOptions = {
+          chart: {
+            type: 'line',
+            backgroundColor: backgroundColor,
+            style: {
+              fontFamily: 'Inter, sans-serif'
+            },
+            height: 400
+          },
+          title: {
+            text: null
+          },
+          xAxis: {
+            categories: data.chart.map((item: any) => item.date || item.time),
+            labels: {
+              style: {
+                color: textColor
+              }
+            },
+            lineColor: gridColor,
+            tickColor: gridColor
+          },
+          yAxis: {
+            title: {
+              text: 'Amount (₹)',
+              style: {
+                color: textColor
+              }
+            },
+            labels: {
+              style: {
+                color: textColor
+              },
+              formatter: function() {
+                return '₹' + this.value;
+              }
+            },
+            gridLineColor: gridColor
+          },
+          legend: {
+            enabled: false
+          },
+          credits: {
+            enabled: false
+          },
+          tooltip: {
+            headerFormat: '<span style="font-size:10px">{point.key}</span><table>',
+            pointFormat: '<tr><td style="color:{series.color};padding:0">{series.name}: </td>' +
+              '<td style="padding:0"><b>₹{point.y:.2f}</b></td></tr>',
+            footerFormat: '</table>',
+            shared: true,
+            useHTML: true,
+            backgroundColor: isDarkMode ? '#2D3748' : '#FFFFFF',
+            borderColor: isDarkMode ? '#4A5568' : '#E2E8F0',
+            style: {
+              color: textColor
+            }
+          },
+          plotOptions: {
+            line: {
+              color: getLineColor(),
+              lineWidth: 2,
+              marker: {
+                enabled: true,
+                radius: 4,
+                lineWidth: 2
+              },
+              animation: {
+                duration: 1000
+              }
+            }
+          },
+          series: [{
+            name: 'Amount',
+            data: data.chart.map((item: any) => item.amount),
+          }]
+        };
+
         return (
           <div className="h-[400px] w-full chart-container rounded-lg p-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.chart}>
-                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                <XAxis 
-                  dataKey={type === "sales" ? "date" : "time"} 
-                  tick={{ fill: textColor, fontSize: 12, fontWeight: 500 }}
-                  axisLine={{ stroke: gridColor }}
-                />
-                <YAxis 
-                  tickFormatter={formatCurrency} 
-                  tick={{ fill: textColor, fontSize: 12, fontWeight: 500 }}
-                  axisLine={{ stroke: gridColor }}
-                />
-                <Tooltip 
-                  formatter={(value) => [formatCurrency(value as number), "Amount"]} 
-                  contentStyle={{ 
-                    backgroundColor: tooltipBg,
-                    border: `1px solid ${tooltipBorder}`,
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                    color: isDarkMode ? '#F7FAFC' : '#2D3748',
-                    fontWeight: 500
-                  }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="amount" 
-                  stroke={getLineColor()}
-                  strokeWidth={2}
-                  dot={{ strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, strokeWidth: 2 }}
-                  animationDuration={1000}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <HighchartComponent options={chartOptions} />
           </div>
         );
+      }
 
       case "orders":
         return (

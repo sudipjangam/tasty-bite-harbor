@@ -1,9 +1,9 @@
 
 import { useState } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useTheme } from "@/hooks/useTheme";
 import { PieChart as PieChartIcon } from "lucide-react";
+import { HighchartComponent } from "@/components/ui/highcharts";
 
 interface CategoryData {
   name: string;
@@ -29,6 +29,66 @@ const RevenueByCategoryChart = ({ data }: RevenueByCategoryChartProps) => {
   
   // Sort data by value (revenue) in descending order
   const sortedData = [...data].sort((a, b) => b.value - a.value);
+
+  const chartOptions = {
+    chart: {
+      type: 'pie',
+      backgroundColor: 'transparent',
+      style: {
+        fontFamily: 'Inter, sans-serif'
+      }
+    },
+    title: {
+      text: null
+    },
+    credits: {
+      enabled: false
+    },
+    tooltip: {
+      pointFormat: '<b>{point.percentage:.1f}%</b><br>Revenue: <b>₹{point.y}</b>',
+      backgroundColor: isDarkMode ? '#334155' : '#FFFFFF',
+      borderColor: isDarkMode ? '#4B5563' : '#E5E7EB',
+      style: {
+        color: isDarkMode ? '#F9FAFB' : '#1F2937'
+      }
+    },
+    plotOptions: {
+      pie: {
+        allowPointSelect: true,
+        cursor: 'pointer',
+        colors: COLORS,
+        borderWidth: 2,
+        borderColor: isDarkMode ? '#334155' : '#FFFFFF',
+        dataLabels: {
+          enabled: true,
+          format: '{point.name}: {point.percentage:.1f}%',
+          style: {
+            color: isDarkMode ? '#F9FAFB' : '#1F2937',
+            textOutline: 'none'
+          }
+        },
+        innerSize: '60%',
+        showInLegend: true
+      }
+    },
+    legend: {
+      enabled: true,
+      align: 'center',
+      verticalAlign: 'bottom',
+      itemStyle: {
+        color: isDarkMode ? '#F9FAFB' : '#1F2937'
+      }
+    },
+    series: [{
+      name: 'Categories',
+      colorByPoint: true,
+      data: sortedData.map(item => ({
+        name: item.name,
+        y: item.value,
+        percentage: item.percentage
+      }))
+    }]
+  };
 
   return (
     <Card className="shadow-md hover:shadow-lg transition-all duration-300">
@@ -70,40 +130,7 @@ const RevenueByCategoryChart = ({ data }: RevenueByCategoryChartProps) => {
       <CardContent>
         <div className="flex flex-col md:flex-row items-center">
           <div className="w-full md:w-2/3 h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={sortedData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={120}
-                  paddingAngle={2}
-                  dataKey="value"
-                  label={({ name, percentage }) => `${name}: ${percentage}%`}
-                  labelLine={false}
-                >
-                  {sortedData.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={COLORS[index % COLORS.length]}
-                      stroke={isDarkMode ? '#334155' : '#ffffff'}
-                      strokeWidth={2}
-                    />
-                  ))}
-                </Pie>
-                <Legend layout="horizontal" verticalAlign="bottom" align="center" />
-                <Tooltip 
-                  formatter={(value) => [`₹${value}`, 'Revenue']}
-                  contentStyle={{
-                    backgroundColor: isDarkMode ? '#334155' : '#ffffff',
-                    border: isDarkMode ? '1px solid #4B5563' : '1px solid #E5E7EB',
-                    borderRadius: '0.375rem',
-                    color: isDarkMode ? '#F9FAFB' : '#1F2937'
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            <HighchartComponent options={chartOptions} />
           </div>
           <div className="w-full md:w-1/3">
             <div className="mt-4 md:mt-0 space-y-2">

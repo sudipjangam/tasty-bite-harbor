@@ -1,12 +1,11 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { BarChart, Bar, ResponsiveContainer, CartesianGrid, Tooltip } from "recharts";
-import { XAxis, YAxis } from "@/components/ui/chart"; // Use our custom wrappers
-import { Skeleton } from "@/components/ui/skeleton";
 import { startOfWeek, addDays, format } from "date-fns";
 import { useTheme } from "@/hooks/useTheme";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { HighchartComponent } from "@/components/ui/highcharts";
 
 const WeeklySalesChart = () => {
   const { theme } = useTheme();
@@ -52,53 +51,93 @@ const WeeklySalesChart = () => {
     },
   });
 
-  // Theme-aware colors
-  const textColor = isDarkMode ? '#F7FAFC' : '#2D3748';
-  const gridColor = isDarkMode ? '#4A5568' : '#E2E8F0';
-  const barColor = isDarkMode ? '#48BB78' : '#48BB78';
-  const cursorFill = isDarkMode ? 'rgba(72, 187, 120, 0.2)' : 'rgba(72, 187, 120, 0.1)';
-  const tooltipBg = isDarkMode ? '#2D3748' : 'white';
-  const tooltipBorder = isDarkMode ? '#4A5568' : '#E2E8F0';
-
   if (isLoading) {
     return <Skeleton className="w-full h-[300px] rounded-lg bg-secondary/20" />;
   }
 
+  // Theme-aware colors
+  const backgroundColor = isDarkMode ? 'transparent' : 'transparent';
+  const textColor = isDarkMode ? '#F7FAFC' : '#2D3748';
+  const gridColor = isDarkMode ? '#4A5568' : '#E2E8F0';
+  const barColor = isDarkMode ? '#48BB78' : '#48BB78';
+
+  const chartOptions = {
+    chart: {
+      type: 'column',
+      backgroundColor: backgroundColor,
+      style: {
+        fontFamily: 'Inter, sans-serif'
+      },
+      height: 300
+    },
+    title: {
+      text: null
+    },
+    xAxis: {
+      categories: weeklyData.map(item => item.day),
+      labels: {
+        style: {
+          color: textColor
+        }
+      },
+      lineColor: gridColor,
+      tickColor: gridColor
+    },
+    yAxis: {
+      title: {
+        text: 'Revenue (₹)',
+        style: {
+          color: textColor
+        }
+      },
+      labels: {
+        style: {
+          color: textColor
+        },
+        formatter: function() {
+          return '₹' + this.value;
+        }
+      },
+      gridLineColor: gridColor
+    },
+    legend: {
+      enabled: false
+    },
+    credits: {
+      enabled: false
+    },
+    tooltip: {
+      headerFormat: '<span style="font-size:10px">{point.key}</span><table>',
+      pointFormat: '<tr><td style="color:{series.color};padding:0">Revenue: </td>' +
+        '<td style="padding:0"><b>₹{point.y:.0f}</b></td></tr>',
+      footerFormat: '</table>',
+      shared: true,
+      useHTML: true,
+      backgroundColor: isDarkMode ? '#2D3748' : '#FFFFFF',
+      borderColor: isDarkMode ? '#4A5568' : '#E2E8F0',
+      style: {
+        color: textColor
+      }
+    },
+    plotOptions: {
+      column: {
+        borderRadius: 6,
+        color: barColor,
+        animation: {
+          duration: 1000
+        }
+      }
+    },
+    series: [{
+      name: 'Revenue',
+      data: weeklyData.map(item => item.amount),
+      colorByPoint: false
+    }]
+  };
+
   return (
     <Card className="p-4 shadow-card hover:shadow-card-hover transition-all duration-300">
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={weeklyData} className="mt-4">
-          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" stroke={gridColor} />
-          <XAxis 
-            dataKey="day"
-            tick={{ fill: textColor, fontSize: 12, fontWeight: 500 }}
-            axisLine={{ stroke: gridColor }}
-          />
-          <YAxis 
-            tick={{ fill: textColor, fontSize: 12, fontWeight: 500 }}
-            axisLine={{ stroke: gridColor }}
-            tickFormatter={(value) => `₹${value}`}
-          />
-          <Tooltip 
-            formatter={(value) => [`₹${value}`, 'Revenue']}
-            contentStyle={{ 
-              backgroundColor: tooltipBg,
-              border: `1px solid ${tooltipBorder}`,
-              borderRadius: '8px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-              color: isDarkMode ? '#F7FAFC' : '#2D3748',
-              fontWeight: 500
-            }}
-            cursor={{ fill: cursorFill }}
-          />
-          <Bar 
-            dataKey="amount" 
-            fill={barColor}
-            radius={[6, 6, 0, 0]}
-            animationDuration={1000}
-          />
-        </BarChart>
-      </ResponsiveContainer>
+      <HighchartComponent options={chartOptions} />
     </Card>
   );
 };
