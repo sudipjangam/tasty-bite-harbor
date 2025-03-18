@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import Stats from "@/components/Dashboard/Stats";
@@ -71,7 +70,6 @@ const Index = () => {
         <OrderList orders={orders} onOrdersChange={refetch} />
       </div>
 
-      {/* Add Chatbot component */}
       <Chatbot />
     </div>
   );

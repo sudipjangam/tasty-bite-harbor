@@ -1,61 +1,58 @@
 
 import React from "react";
-import { Card } from "@/components/ui/card";
-import { User, Clock } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { formatDistanceToNow } from "date-fns";
 import OrderStatus from "./OrderStatus";
 import OrderActions from "./OrderActions";
 import type { Order } from "@/types/orders";
 
 interface OrderItemProps {
   order: Order;
-  loading: boolean;
-  onEdit?: (order: Order) => void;
-  onStatusUpdate: (orderId: string, newStatus: string) => void;
-  onDelete: (orderId: string) => void;
+  onStatusChange: (orderId: string, newStatus: string) => Promise<void>;
+  onEdit?: () => void;
 }
 
-const OrderItem: React.FC<OrderItemProps> = ({
-  order,
-  loading,
-  onEdit,
-  onStatusUpdate,
-  onDelete,
-}) => {
+const OrderItem: React.FC<OrderItemProps> = ({ order, onStatusChange, onEdit }) => {
+  const formattedDate = formatDistanceToNow(new Date(order.created_at), {
+    addSuffix: true,
+  });
+
   return (
-    <Card key={order.id} className="p-4 hover:shadow-lg transition-shadow bg-card/50 backdrop-blur-xl border border-border/5">
-      <div className="flex justify-between items-start">
-        <div>
-          <div className="flex items-center space-x-2">
-            <h3 className="font-semibold text-foreground">Order #{order.id.slice(0, 8)}</h3>
-            <OrderStatus status={order.status} />
+    <Card className="overflow-hidden hover:shadow-md transition-shadow">
+      <CardContent className="p-0">
+        <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+          <div className="space-y-1">
+            <div className="flex flex-wrap gap-2 items-center">
+              <h3 className="font-medium">{order.customer_name}</h3>
+              <OrderStatus status={order.status} />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Ordered {formattedDate}
+            </p>
+            <div className="mt-2">
+              <p className="text-sm font-medium">Items:</p>
+              <ul className="text-sm text-muted-foreground">
+                {order.items.map((item, index) => (
+                  <li key={index}>{item}</li>
+                ))}
+              </ul>
+            </div>
           </div>
-          <div className="flex items-center text-sm text-muted-foreground mt-1">
-            <User className="w-4 h-4 mr-1" />
-            {order.customer_name}
+
+          <div className="text-right md:text-center">
+            <span className="text-2xl font-bold">${order.total.toFixed(2)}</span>
           </div>
-          <div className="mt-2">
-            {order.items.map((item, index) => (
-              <p key={index} className="text-sm text-muted-foreground">
-                • {item}
-              </p>
-            ))}
+
+          <div className="flex justify-end">
+            <OrderActions 
+              orderId={order.id} 
+              currentStatus={order.status} 
+              onStatusChange={onStatusChange} 
+              onEdit={onEdit}
+            />
           </div>
         </div>
-        <div className="text-right">
-          <p className="font-bold text-foreground">₹{order.total.toFixed(2)}</p>
-          <div className="flex items-center text-sm text-muted-foreground mt-1">
-            <Clock className="w-4 h-4 mr-1" />
-            {new Date(order.created_at).toLocaleString()}
-          </div>
-          <OrderActions 
-            order={order}
-            loading={loading}
-            onEdit={onEdit}
-            onStatusUpdate={onStatusUpdate}
-            onDelete={onDelete}
-          />
-        </div>
-      </div>
+      </CardContent>
     </Card>
   );
 };
