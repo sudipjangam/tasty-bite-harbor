@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useTheme } from "@/hooks/useTheme";
 import { PieChart as PieChartIcon } from "lucide-react";
 import { HighchartComponent } from "@/components/ui/highcharts";
-import { Options, SeriesPieOptions } from "highcharts";
+import { Options } from "highcharts";
 
 interface CategoryData {
   name: string;
@@ -33,7 +33,7 @@ const RevenueByCategoryChart = ({ data }: RevenueByCategoryChartProps) => {
 
   const chartOptions: Options = {
     chart: {
-      type: 'pie',
+      type: 'pie' as const,
       backgroundColor: 'transparent',
       style: {
         fontFamily: 'Inter, sans-serif'
@@ -74,14 +74,14 @@ const RevenueByCategoryChart = ({ data }: RevenueByCategoryChartProps) => {
     },
     legend: {
       enabled: true,
-      align: 'center',
-      verticalAlign: 'bottom',
+      align: 'center' as const,
+      verticalAlign: 'bottom' as const,
       itemStyle: {
         color: isDarkMode ? '#F9FAFB' : '#1F2937'
       }
     },
     series: [{
-      type: 'pie',
+      type: 'pie' as const,
       name: 'Categories',
       colorByPoint: true,
       data: sortedData.map(item => ({
@@ -89,7 +89,7 @@ const RevenueByCategoryChart = ({ data }: RevenueByCategoryChartProps) => {
         y: item.value,
         percentage: item.percentage
       }))
-    } as SeriesPieOptions]
+    }]
   };
 
   return (

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { useTheme } from "@/hooks/useTheme";
 import { HighchartComponent } from "@/components/ui/highcharts";
-import { Options, SeriesLineOptions } from "highcharts";
+import { Options } from "highcharts";
 
 interface RevenueChartProps {
   data: {
@@ -34,7 +34,7 @@ const RevenueChart = ({ data }: RevenueChartProps) => {
 
   const chartOptions: Options = {
     chart: {
-      type: 'line',
+      type: 'line' as const,
       backgroundColor: backgroundColor,
       style: {
         fontFamily: 'Inter, sans-serif'
@@ -124,7 +124,7 @@ const RevenueChart = ({ data }: RevenueChartProps) => {
     },
     series: [
       {
-        type: 'line',
+        type: 'line' as const,
         name: 'Revenue',
         color: '#2D3748',
         data: chartData.map(item => item.revenue),
@@ -138,9 +138,9 @@ const RevenueChart = ({ data }: RevenueChartProps) => {
           lineColor: '#2C5282',
           fillColor: '#2D3748'
         }
-      } as SeriesLineOptions,
+      },
       {
-        type: 'line',
+        type: 'line' as const,
         name: 'Orders',
         color: '#48BB78',
         data: chartData.map(item => item.orders),
@@ -152,9 +152,9 @@ const RevenueChart = ({ data }: RevenueChartProps) => {
           lineColor: '#276749',
           fillColor: '#48BB78'
         }
-      } as SeriesLineOptions,
+      },
       {
-        type: 'line',
+        type: 'line' as const,
         name: 'Avg Order Value',
         color: '#F6AD55',
         data: chartData.map(item => item.average),
@@ -169,7 +169,7 @@ const RevenueChart = ({ data }: RevenueChartProps) => {
           lineColor: '#C05621',
           fillColor: '#F6AD55'
         }
-      } as SeriesLineOptions
+      }
     ]
   };
 

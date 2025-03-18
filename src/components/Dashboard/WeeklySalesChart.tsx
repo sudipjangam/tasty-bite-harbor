@@ -6,7 +6,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HighchartComponent } from "@/components/ui/highcharts";
-import { Options, SeriesColumnOptions } from "highcharts";
+import { Options } from "highcharts";
 
 const WeeklySalesChart = () => {
   const { theme } = useTheme();
@@ -130,11 +130,11 @@ const WeeklySalesChart = () => {
       }
     },
     series: [{
-      type: 'column',
+      type: 'column' as const, // Use const assertion for literal type
       name: 'Revenue',
       data: weeklyData.map(item => item.amount),
       colorByPoint: false
-    } as SeriesColumnOptions]
+    }]
   };
 
   return (
