@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, subDays, subMonths, subYears, startOfDay, startOfWeek, startOfMonth, startOfYear } from "date-fns";
 import { useTheme } from "@/hooks/useTheme";
 import { BarChart3, TrendingUp } from "lucide-react";
+import { Options, SeriesColumnOptions, SeriesLineOptions } from "highcharts";
 
 interface RevenueHighchartProps {
   data: {
@@ -68,7 +69,7 @@ const RevenueHighchart = ({ data }: RevenueHighchartProps) => {
   const textColor = isDarkMode ? '#e2e8f0' : '#334155';
   const gridColor = isDarkMode ? '#334155' : '#e2e8f0';
   
-  const options: Highcharts.Options = {
+  const options: Options = {
     chart: {
       type: chartType,
       backgroundColor: backgroundColor,
@@ -128,8 +129,6 @@ const RevenueHighchart = ({ data }: RevenueHighchartProps) => {
       pointFormat: '<tr><td style="color: {series.color}">{series.name}: </td>' +
                     '<td style="text-align: right"><b>{point.y}</b></td></tr>',
       footerFormat: '</table>',
-      // Fix: removed the incorrect string comparison
-      valuePrefix: undefined,
       backgroundColor: isDarkMode ? '#334155' : '#ffffff',
       borderColor: gridColor,
       style: {
@@ -164,14 +163,14 @@ const RevenueHighchart = ({ data }: RevenueHighchartProps) => {
         tooltip: {
           valuePrefix: '₹'
         }
-      },
+      } as SeriesLineOptions | SeriesColumnOptions,
       {
         name: 'Orders',
         type: chartType,
         yAxis: 1,
         data: orders,
         color: '#22c55e'
-      },
+      } as SeriesLineOptions | SeriesColumnOptions,
       {
         name: 'Avg Order Value',
         type: chartType,
@@ -181,7 +180,7 @@ const RevenueHighchart = ({ data }: RevenueHighchartProps) => {
         tooltip: {
           valuePrefix: '₹'
         }
-      }
+      } as SeriesLineOptions | SeriesColumnOptions
     ]
   };
 

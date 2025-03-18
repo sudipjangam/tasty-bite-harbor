@@ -1,7 +1,9 @@
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTheme } from "@/hooks/useTheme";
 import { HighchartComponent } from "@/components/ui/highcharts";
+import { Options, SeriesLineOptions } from "highcharts";
 
 interface StatDetailsProps {
   title: string | null;
@@ -32,7 +34,7 @@ const StatDetails = ({ title, data, type, onClose }: StatDetailsProps) => {
     switch (type) {
       case "sales":
       case "revenue": {
-        const chartOptions = {
+        const chartOptions: Options = {
           chart: {
             type: 'line',
             backgroundColor: backgroundColor,
@@ -108,7 +110,7 @@ const StatDetails = ({ title, data, type, onClose }: StatDetailsProps) => {
             type: 'line',
             name: 'Amount',
             data: data.chart.map((item: any) => item.amount),
-          }]
+          } as SeriesLineOptions]
         };
 
         return (

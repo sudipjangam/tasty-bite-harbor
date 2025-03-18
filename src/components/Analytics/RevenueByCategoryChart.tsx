@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useTheme } from "@/hooks/useTheme";
 import { PieChart as PieChartIcon } from "lucide-react";
 import { HighchartComponent } from "@/components/ui/highcharts";
+import { Options, SeriesPieOptions } from "highcharts";
 
 interface CategoryData {
   name: string;
@@ -30,7 +31,7 @@ const RevenueByCategoryChart = ({ data }: RevenueByCategoryChartProps) => {
   // Sort data by value (revenue) in descending order
   const sortedData = [...data].sort((a, b) => b.value - a.value);
 
-  const chartOptions = {
+  const chartOptions: Options = {
     chart: {
       type: 'pie',
       backgroundColor: 'transparent',
@@ -73,14 +74,14 @@ const RevenueByCategoryChart = ({ data }: RevenueByCategoryChartProps) => {
     },
     legend: {
       enabled: true,
-      align: 'center' as const,
+      align: 'center',
       verticalAlign: 'bottom',
       itemStyle: {
         color: isDarkMode ? '#F9FAFB' : '#1F2937'
       }
     },
     series: [{
-      type: 'pie' as const,
+      type: 'pie',
       name: 'Categories',
       colorByPoint: true,
       data: sortedData.map(item => ({
@@ -88,7 +89,7 @@ const RevenueByCategoryChart = ({ data }: RevenueByCategoryChartProps) => {
         y: item.value,
         percentage: item.percentage
       }))
-    }]
+    } as SeriesPieOptions]
   };
 
   return (

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { useTheme } from "@/hooks/useTheme";
 import { HighchartComponent } from "@/components/ui/highcharts";
+import { Options, SeriesLineOptions } from "highcharts";
 
 interface RevenueChartProps {
   data: {
@@ -31,7 +32,7 @@ const RevenueChart = ({ data }: RevenueChartProps) => {
   const textColor = isDarkMode ? '#F7FAFC' : '#2D3748';
   const gridColor = isDarkMode ? '#4A5568' : '#E2E8F0';
 
-  const chartOptions = {
+  const chartOptions: Options = {
     chart: {
       type: 'line',
       backgroundColor: backgroundColor,
@@ -137,7 +138,7 @@ const RevenueChart = ({ data }: RevenueChartProps) => {
           lineColor: '#2C5282',
           fillColor: '#2D3748'
         }
-      },
+      } as SeriesLineOptions,
       {
         type: 'line',
         name: 'Orders',
@@ -151,7 +152,7 @@ const RevenueChart = ({ data }: RevenueChartProps) => {
           lineColor: '#276749',
           fillColor: '#48BB78'
         }
-      },
+      } as SeriesLineOptions,
       {
         type: 'line',
         name: 'Avg Order Value',
@@ -168,7 +169,7 @@ const RevenueChart = ({ data }: RevenueChartProps) => {
           lineColor: '#C05621',
           fillColor: '#F6AD55'
         }
-      }
+      } as SeriesLineOptions
     ]
   };
 

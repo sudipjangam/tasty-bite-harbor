@@ -6,6 +6,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HighchartComponent } from "@/components/ui/highcharts";
+import { Options, SeriesColumnOptions } from "highcharts";
 
 const WeeklySalesChart = () => {
   const { theme } = useTheme();
@@ -61,7 +62,7 @@ const WeeklySalesChart = () => {
   const gridColor = isDarkMode ? '#4A5568' : '#E2E8F0';
   const barColor = isDarkMode ? '#48BB78' : '#48BB78';
 
-  const chartOptions = {
+  const chartOptions: Options = {
     chart: {
       type: 'column',
       backgroundColor: backgroundColor,
@@ -133,7 +134,7 @@ const WeeklySalesChart = () => {
       name: 'Revenue',
       data: weeklyData.map(item => item.amount),
       colorByPoint: false
-    }]
+    } as SeriesColumnOptions]
   };
 
   return (

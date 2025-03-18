@@ -5,6 +5,7 @@ import HighchartsReact from 'highcharts-react-official';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useTheme } from "@/hooks/useTheme";
 import { TrendingUp } from "lucide-react";
+import { Options, SeriesLineOptions } from "highcharts";
 
 interface SalesPredictionData {
   date: string;
@@ -38,7 +39,7 @@ const SalesPrediction = ({ data }: SalesPredictionProps) => {
   const textColor = isDarkMode ? '#e2e8f0' : '#334155';
   const gridColor = isDarkMode ? '#334155' : '#e2e8f0';
   
-  const options: Highcharts.Options = {
+  const options: Options = {
     chart: {
       type: 'line',
       backgroundColor: backgroundColor,
@@ -114,7 +115,7 @@ const SalesPrediction = ({ data }: SalesPredictionProps) => {
         data: filteredData.map(item => item.actual),
         color: '#8b5cf6',
         zIndex: 2
-      },
+      } as SeriesLineOptions,
       {
         name: 'Predicted Sales',
         type: 'line',
@@ -122,7 +123,7 @@ const SalesPrediction = ({ data }: SalesPredictionProps) => {
         color: '#22c55e',
         dashStyle: 'ShortDash',
         zIndex: 1
-      }
+      } as SeriesLineOptions
     ]
   };
 
