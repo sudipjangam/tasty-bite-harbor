@@ -83,7 +83,7 @@ const RevenueByCategoryChart = ({ data }: RevenueByCategoryChartProps) => {
     series: [{
       type: 'pie' as const,
       name: 'Categories',
-      colorByPoint: true,
+      // Remove the colorByPoint property as it's not recognized in the SeriesPieOptions type
       data: sortedData.map(item => ({
         name: item.name,
         y: item.value,
