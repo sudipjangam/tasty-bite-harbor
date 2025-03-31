@@ -28,7 +28,7 @@ serve(async (req) => {
     }
 
     // Get API key and base URL from environment variables
-    const apiKey = Deno.env.get("API_KEY") || "ddc-3g2SyDqvcA3252JsJTtoAjWWaTHKGFaXHG93BgnIncARD3eVG5";
+    const apiKey = Deno.env.get("API_KEY") || "ddc-beta-y0crha35uy-4Z2OWYr9TX14ua2VyTnuNnJypOjemZhLeJi";
     // const baseUrl = Deno.env.get('BASE_URL') || 'https://api.sree.shop/v1';
     const baseUrl = Deno.env.get("BASE_URL") || "https://beta.sree.shop/v1";
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -124,7 +124,7 @@ serve(async (req) => {
 
     // Create the payload for the API request
     const payload = {
-      model: "gpt-4o", // Explicitly set to gpt-4o
+      model: "Provider-1/DeepSeek-R1", // Explicitly set to gpt-4o
       messages: [
         {
           role: "system",
