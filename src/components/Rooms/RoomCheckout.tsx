@@ -12,6 +12,7 @@ import AdditionalChargesSection from './CheckoutComponents/AdditionalChargesSect
 import DiscountSection from './CheckoutComponents/DiscountSection';
 import PaymentMethodSelector from './CheckoutComponents/PaymentMethodSelector';
 import CheckoutSuccessDialog from './CheckoutComponents/CheckoutSuccessDialog';
+import PrintBillButton from './CheckoutComponents/PrintBillButton';
 import { useNavigate } from 'react-router-dom';
 
 interface RoomCheckoutProps {
@@ -63,6 +64,8 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
   const [billingId, setBillingId] = useState<string | null>(null);
   const [foodOrders, setFoodOrders] = useState<FoodOrder[]>([]);
   const [restaurantPhone, setRestaurantPhone] = useState<string | null>(null);
+  const [restaurantName, setRestaurantName] = useState<string>('');
+  const [restaurantAddress, setRestaurantAddress] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -103,16 +106,18 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         if (ordersError) throw ordersError;
         setFoodOrders(ordersData || []);
         
-        // Fetch restaurant info for phone number
+        // Fetch restaurant info
         if (roomData?.restaurant_id) {
           const { data: restaurantData, error: restaurantError } = await supabase
             .from('restaurants')
-            .select('phone')
+            .select('name, phone, address')
             .eq('id', roomData.restaurant_id)
             .single();
           
           if (!restaurantError && restaurantData) {
             setRestaurantPhone(restaurantData.phone || null);
+            setRestaurantName(restaurantData.name || 'Your Hotel');
+            setRestaurantAddress(restaurantData.address || 'Hotel Address');
           }
         }
         
@@ -346,14 +351,47 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
                   <span>₹{grandTotal.toFixed(2)}</span>
                 </div>
                 
-                <Button 
-                  className="w-full mt-4" 
-                  size="lg"
-                  disabled={isSubmitting}
-                  onClick={handleCheckout}
-                >
-                  {isSubmitting ? 'Processing...' : 'Complete Checkout'}
-                </Button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
+                  <Button 
+                    className="w-full" 
+                    size="lg"
+                    disabled={isSubmitting}
+                    onClick={handleCheckout}
+                  >
+                    {isSubmitting ? 'Processing...' : 'Complete Checkout'}
+                  </Button>
+                  
+                  {billingId ? (
+                    <PrintBillButton
+                      restaurantName={restaurantName}
+                      restaurantAddress={restaurantAddress}
+                      customerName={reservation.customer_name}
+                      customerPhone={reservation.customer_phone || ''}
+                      roomName={room.name}
+                      checkInDate={format(new Date(reservation.start_time), 'PPP')}
+                      checkOutDate={format(new Date(reservation.end_time), 'PPP')}
+                      daysStayed={daysStayed}
+                      roomPrice={room.price}
+                      roomCharges={roomTotal}
+                      foodOrders={foodOrders}
+                      additionalCharges={additionalCharges}
+                      serviceCharge={serviceCharge}
+                      discount={calculatedDiscount}
+                      grandTotal={grandTotal}
+                      paymentMethod={paymentMethod}
+                      billId={billingId}
+                    />
+                  ) : (
+                    <Button 
+                      className="w-full" 
+                      variant="outline" 
+                      size="lg"
+                      disabled={true}
+                    >
+                      Print Bill (After Checkout)
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
