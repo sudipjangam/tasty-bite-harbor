@@ -1,37 +1,22 @@
 
 import React from 'react';
-import { UtensilsCrossed } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-interface FoodOrder {
-  id: string;
-  items: OrderItem[];
-  total: number;
-  created_at: string;
-  status: string;
-}
-
-interface OrderItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-}
+import { format } from 'date-fns';
 
 interface FoodOrdersListProps {
-  foodOrders: FoodOrder[];
-  foodOrdersTotal: number;
+  foodOrders: {
+    id: string;
+    customer_name: string;
+    items: any;
+    total: number;
+    created_at: string;
+  }[];
 }
 
-const FoodOrdersList: React.FC<FoodOrdersListProps> = ({ foodOrders, foodOrdersTotal }) => {
-  if (foodOrders.length === 0) return null;
-  
+const FoodOrdersList: React.FC<FoodOrdersListProps> = ({ foodOrders }) => {
   return (
-    <div className="bg-white rounded-lg shadow-sm p-4 dark:bg-gray-800">
-      <h3 className="text-lg font-medium mb-2 flex items-center">
-        <UtensilsCrossed className="mr-2 h-5 w-5 text-orange-500" />
-        Food Orders
-      </h3>
+    <div>
+      <h3 className="text-lg font-medium mb-2">Food Orders</h3>
       <Table>
         <TableHeader>
           <TableRow>
@@ -43,23 +28,33 @@ const FoodOrdersList: React.FC<FoodOrdersListProps> = ({ foodOrders, foodOrdersT
         <TableBody>
           {foodOrders.map((order) => (
             <TableRow key={order.id}>
-              <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
+              <TableCell>{format(new Date(order.created_at), 'PPP')}</TableCell>
               <TableCell>
-                {Array.isArray(order.items) && order.items.map((item, index) => (
-                  <div key={index} className="text-sm">
-                    {item.name} x{item.quantity} (₹{item.price})
-                  </div>
-                ))}
+                <div className="text-sm">
+                  {Array.isArray(order.items) ? (
+                    <ul className="list-disc list-inside">
+                      {order.items.map((item: any, index: number) => (
+                        <li key={index}>
+                          {item.name} x {item.quantity} (₹{item.price.toFixed(2)})
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <span>No items information</span>
+                  )}
+                </div>
               </TableCell>
-              <TableCell className="text-right font-medium">₹{order.total.toFixed(2)}</TableCell>
+              <TableCell className="text-right font-medium">
+                ₹{order.total.toFixed(2)}
+              </TableCell>
             </TableRow>
           ))}
           <TableRow>
-            <TableCell colSpan={2} className="font-medium text-right">
-              Total Food Orders:
+            <TableCell colSpan={2} className="text-right font-bold">
+              Total:
             </TableCell>
             <TableCell className="text-right font-bold">
-              ₹{foodOrdersTotal.toFixed(2)}
+              ₹{foodOrders.reduce((sum, order) => sum + order.total, 0).toFixed(2)}
             </TableCell>
           </TableRow>
         </TableBody>

@@ -502,6 +502,8 @@ export type Database = {
           created_at: string
           customer_name: string
           days_stayed: number
+          food_orders_ids: string[] | null
+          food_orders_total: number | null
           id: string
           payment_method: string
           payment_status: string
@@ -520,6 +522,8 @@ export type Database = {
           created_at?: string
           customer_name: string
           days_stayed: number
+          food_orders_ids?: string[] | null
+          food_orders_total?: number | null
           id?: string
           payment_method: string
           payment_status?: string
@@ -538,6 +542,8 @@ export type Database = {
           created_at?: string
           customer_name?: string
           days_stayed?: number
+          food_orders_ids?: string[] | null
+          food_orders_total?: number | null
           id?: string
           payment_method?: string
           payment_status?: string

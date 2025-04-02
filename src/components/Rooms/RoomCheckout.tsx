@@ -1,479 +1,340 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { differenceInDays, format } from 'date-fns';
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import RoomDetailsCard from "./CheckoutComponents/RoomDetailsCard";
-import RoomChargesTable from "./CheckoutComponents/RoomChargesTable";
-import FoodOrdersList from "./CheckoutComponents/FoodOrdersList";
-import AdditionalChargesSection from "./CheckoutComponents/AdditionalChargesSection";
-import PaymentMethodSelector from "./CheckoutComponents/PaymentMethodSelector";
-import DiscountSection from "./CheckoutComponents/DiscountSection";
-import CheckoutSuccessDialog from "./CheckoutComponents/CheckoutSuccessDialog";
-import { OrderItem } from "@/integrations/supabase/client";
+import RoomDetailsCard from './CheckoutComponents/RoomDetailsCard';
+import RoomChargesTable from './CheckoutComponents/RoomChargesTable';
+import FoodOrdersList from './CheckoutComponents/FoodOrdersList';
+import AdditionalChargesSection from './CheckoutComponents/AdditionalChargesSection';
+import DiscountSection from './CheckoutComponents/DiscountSection';
+import PaymentMethodSelector from './CheckoutComponents/PaymentMethodSelector';
+import CheckoutSuccessDialog from './CheckoutComponents/CheckoutSuccessDialog';
+import { useNavigate } from 'react-router-dom';
 
 interface RoomCheckoutProps {
-  roomId: string;
-  reservationId: string;
-  onComplete: () => Promise<void>;
+  room: {
+    id: string;
+    name: string;
+    capacity: number;
+    status: string;
+    price: number;
+    restaurant_id: string;
+  };
+  reservation: {
+    id: string;
+    customer_name: string;
+    customer_phone?: string;
+    start_time: string;
+    end_time: string;
+  };
+  onClose: () => void;
+  onCheckoutComplete: () => void;
 }
 
-interface AdditionalCharge {
+interface FoodOrder {
   id: string;
-  name: string;
-  amount: number;
+  room_id: string;
+  customer_name: string;
+  items: any;
+  total: number;
+  status: string;
+  created_at: string;
 }
 
 const RoomCheckout: React.FC<RoomCheckoutProps> = ({ 
-  roomId, 
-  reservationId,
-  onComplete
+  room, 
+  reservation, 
+  onClose,
+  onCheckoutComplete
 }) => {
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  
-  const [room, setRoom] = useState<any>(null);
-  const [reservation, setReservation] = useState<any>(null);
-  const [foodOrders, setFoodOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  const [additionalCharges, setAdditionalCharges] = useState<AdditionalCharge[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<string>("cash");
-  const [checkoutComplete, setCheckoutComplete] = useState(false);
-  
-  const [discountType, setDiscountType] = useState<'percentage' | 'fixed' | 'none'>('none');
-  const [discountValue, setDiscountValue] = useState<number>(0);
-  
-  const [newCharge, setNewCharge] = useState<{ name: string; amount: number }>({ name: '', amount: 0 });
-  const [includeServiceCharge, setIncludeServiceCharge] = useState(false);
-  const [serviceCharge, setServiceCharge] = useState(0);
-  
-  // New state for WhatsApp bill sending
-  const [sendWhatsappBill, setSendWhatsappBill] = useState(true);
-  const [whatsappSending, setWhatsappSending] = useState(false);
+  const [additionalCharges, setAdditionalCharges] = useState<{name: string; amount: number}[]>([]);
+  const [discountPercent, setDiscountPercent] = useState(0);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [billingId, setBillingId] = useState<string | null>(null);
+  const [foodOrders, setFoodOrders] = useState<FoodOrder[]>([]);
+  const [restaurantPhone, setRestaurantPhone] = useState<string | null>(null);
+  const { toast } = useToast();
+  const navigate = useNavigate();
   
+  // Calculate days stayed
+  const startDate = new Date(reservation.start_time);
+  const endDate = new Date(reservation.end_time);
+  const daysStayed = differenceInDays(endDate, startDate) || 1; // Minimum 1 day
+  
+  // Calculate room charges
+  const roomTotal = room.price * daysStayed;
+  
+  // Get food orders for this room
   useEffect(() => {
-    const fetchCheckoutData = async () => {
+    const fetchFoodOrders = async () => {
       try {
-        setLoading(true);
+        const { data: orders, error } = await supabase
+          .from('room_food_orders')
+          .select('*')
+          .eq('room_id', room.id)
+          .eq('status', 'completed');
         
-        const { data: roomData, error: roomError } = await supabase
-          .from("rooms")
-          .select("*")
-          .eq("id", roomId)
-          .single();
-          
-        if (roomError) throw roomError;
-        
-        const { data: reservationData, error: reservationError } = await supabase
-          .from("reservations")
-          .select("*")
-          .eq("id", reservationId)
-          .single();
-          
-        if (reservationError) throw reservationError;
-        
-        // Fetch food orders for the room with status "delivered"
-        const { data: foodOrdersData, error: foodOrdersError } = await supabase
-          .from("room_food_orders")
-          .select("*")
-          .eq("room_id", roomId)
-          .eq("status", "delivered");
-          
-        if (foodOrdersError) throw foodOrdersError;
-        
-        setRoom(roomData);
-        setReservation(reservationData);
-        setFoodOrders(foodOrdersData || []);
+        if (error) throw error;
+        setFoodOrders(orders || []);
       } catch (error) {
-        console.error("Error fetching checkout data:", error);
+        console.error('Error fetching food orders:', error);
         toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to load checkout data. Please try again.",
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to load food orders'
         });
-        navigate("/rooms");
-      } finally {
-        setLoading(false);
       }
     };
-    
-    fetchCheckoutData();
-  }, [roomId, reservationId, navigate, toast]);
-  
-  const calculateDuration = () => {
-    if (!reservation) return 0;
-    
-    const startTime = new Date(reservation.start_time);
-    const endTime = new Date(reservation.end_time);
-    
-    const diffTime = Math.abs(endTime.getTime() - startTime.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    return diffDays === 0 ? 1 : diffDays;
-  };
-  
-  const calculateRoomTotal = () => {
-    if (!room || !reservation) return 0;
-    return room.price * calculateDuration();
-  };
-  
-  const calculateFoodOrdersTotal = () => {
-    return foodOrders.reduce((total, order) => {
-      if (typeof order.total === 'number') {
-        return total + order.total;
+
+    const fetchRestaurantInfo = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('restaurants')
+          .select('phone')
+          .eq('id', room.restaurant_id)
+          .single();
+        
+        if (error) throw error;
+        setRestaurantPhone(data?.phone || null);
+      } catch (error) {
+        console.error('Error fetching restaurant info:', error);
       }
-      if (order.items && Array.isArray(order.items)) {
-        return total + (order.items as OrderItem[]).reduce((itemTotal, item) => {
-          return itemTotal + (item.price * item.quantity);
-        }, 0);
-      }
-      return total;
-    }, 0);
-  };
+    };
+
+    fetchFoodOrders();
+    fetchRestaurantInfo();
+  }, [room.id, room.restaurant_id, toast]);
+
+  // Calculate food orders total
+  const foodOrdersTotal = foodOrders.reduce((sum, order) => sum + (order.total || 0), 0);
   
-  const calculateAdditionalChargesTotal = () => {
-    let total = additionalCharges.reduce((total, charge) => total + (charge.amount || 0), 0);
-    if (includeServiceCharge) {
-      total += serviceCharge;
-    }
-    return total;
-  };
+  // Calculate additional charges total
+  const additionalChargesTotal = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
   
-  const calculateDiscountAmount = () => {
-    const subtotal = calculateRoomTotal() + calculateFoodOrdersTotal() + calculateAdditionalChargesTotal();
-    
-    if (discountType === 'none') return 0;
-    if (discountType === 'fixed') return discountValue;
-    if (discountType === 'percentage') {
-      return (discountValue / 100) * subtotal;
-    }
-    return 0;
-  };
+  // Calculate discount
+  const calculatedDiscount = discountPercent > 0 
+    ? (roomTotal + foodOrdersTotal + additionalChargesTotal) * (discountPercent / 100)
+    : discountAmount;
   
-  const calculateGrandTotal = () => {
-    const subtotal = calculateRoomTotal() + calculateFoodOrdersTotal() + calculateAdditionalChargesTotal();
-    const discount = calculateDiscountAmount();
-    return subtotal - discount;
-  };
+  // Calculate service charge (5% of room total)
+  const serviceCharge = roomTotal * 0.05;
   
-  const handleAddCharge = () => {
-    if (newCharge.name.trim() && newCharge.amount > 0) {
-      setAdditionalCharges([
-        ...additionalCharges,
-        { id: Date.now().toString(), ...newCharge }
-      ]);
-      setNewCharge({ name: '', amount: 0 });
-    }
-  };
-  
-  const handleRemoveCharge = (id: string) => {
-    setAdditionalCharges(additionalCharges.filter(charge => charge.id !== id));
-  };
-  
+  // Calculate grand total
+  const grandTotal = roomTotal + foodOrdersTotal + additionalChargesTotal + serviceCharge - calculatedDiscount;
+
   const handleCheckout = async () => {
+    setIsSubmitting(true);
+    
     try {
-      if (!reservation || !room) {
-        throw new Error("Missing reservation or room data");
-      }
+      // Format the additional charges for storing in JSON
+      const formattedAdditionalCharges = additionalCharges.map(charge => ({
+        name: charge.name,
+        amount: charge.amount
+      }));
       
-      // Prepare additional charges, including food orders
-      const allAdditionalCharges = [...additionalCharges];
-      if (includeServiceCharge && serviceCharge > 0) {
-        allAdditionalCharges.push({
-          id: 'service-charge',
-          name: 'Service Charge',
-          amount: serviceCharge
-        });
-      }
+      // Create an array of food order IDs
+      const foodOrderIds = foodOrders.map(order => order.id);
       
-      // Create the room billing record
+      // Create a new billing record
       const { data: billingData, error: billingError } = await supabase
-        .from("room_billings")
-        .insert({
-          room_id: roomId,
-          reservation_id: reservationId,
-          restaurant_id: room.restaurant_id,
-          room_charges: calculateRoomTotal(),
-          additional_charges: JSON.stringify(allAdditionalCharges),
-          service_charge: includeServiceCharge ? serviceCharge : 0,
-          total_amount: calculateGrandTotal(),
-          payment_method: paymentMethod,
-          payment_status: "paid",
+        .from('room_billings')
+        .insert([{
+          room_id: room.id,
+          reservation_id: reservation.id,
           customer_name: reservation.customer_name,
-          days_stayed: calculateDuration(),
-          food_orders_total: calculateFoodOrdersTotal(), // Add food orders total to the billing
-          food_orders_ids: foodOrders.length > 0 ? foodOrders.map(order => order.id) : null // Store food order IDs
-        })
+          room_charges: roomTotal,
+          service_charge: serviceCharge,
+          additional_charges: formattedAdditionalCharges,
+          total_amount: grandTotal,
+          payment_method: paymentMethod,
+          payment_status: 'completed',
+          restaurant_id: room.restaurant_id,
+          days_stayed: daysStayed,
+          food_orders_total: foodOrdersTotal,
+          food_orders_ids: foodOrderIds,
+          whatsapp_sent: false
+        }])
         .select()
         .single();
-        
+      
       if (billingError) throw billingError;
       
-      // Store the billing ID for WhatsApp bill sending
-      setBillingId(billingData.id);
+      // Update room status to available
+      const { error: roomError } = await supabase
+        .from('rooms')
+        .update({ status: 'available' })
+        .eq('id', room.id);
       
-      // Update room status to cleaning
-      const { error: roomUpdateError } = await supabase
-        .from("rooms")
-        .update({ status: "cleaning" })
-        .eq("id", roomId);
-        
-      if (roomUpdateError) throw roomUpdateError;
+      if (roomError) throw roomError;
       
-      // Update reservation status to completed
-      const { error: reservationUpdateError } = await supabase
-        .from("reservations")
-        .update({ status: "completed" })
-        .eq("id", reservationId);
-        
-      if (reservationUpdateError) throw reservationUpdateError;
+      // Set the created billing ID
+      setBillingId(billingData?.id || null);
       
-      // If there are food orders, update their status to billed
-      if (foodOrders.length > 0) {
-        const foodOrderIds = foodOrders.map(order => order.id);
-        const { error: foodOrderUpdateError } = await supabase
-          .from("room_food_orders")
-          .update({ status: "billed" })
-          .in("id", foodOrderIds);
-          
-        if (foodOrderUpdateError) throw foodOrderUpdateError;
-      }
+      // Show success message
+      toast({
+        title: 'Checkout Successful',
+        description: `${reservation.customer_name} has been checked out successfully.`
+      });
       
-      setCheckoutComplete(true);
+      // Show success dialog
+      setShowSuccessDialog(true);
       
+      // Call the onCheckoutComplete callback
+      onCheckoutComplete();
     } catch (error) {
-      console.error("Error during checkout:", error);
+      console.error('Error during checkout:', error);
       toast({
-        variant: "destructive",
-        title: "Checkout Failed",
-        description: "There was an error processing the checkout. Please try again.",
-      });
-    }
-  };
-  
-  // Function to send the bill to WhatsApp
-  const handleSendWhatsAppBill = async () => {
-    if (!billingId || !reservation?.customer_phone) return;
-    
-    try {
-      setWhatsappSending(true);
-      
-      // Format the bill details
-      const billDetails = `
-*Room Checkout Receipt*
-*Guest:* ${reservation.customer_name}
-*Room:* ${room?.name}
-*Duration:* ${calculateDuration()} day(s)
-*Room Charges:* ₹${calculateRoomTotal()}
-${foodOrders.length > 0 ? `*Food Orders:* ₹${calculateFoodOrdersTotal()}` : ''}
-${additionalCharges.length > 0 ? `*Additional Charges:* ₹${calculateAdditionalChargesTotal()}` : ''}
-${calculateDiscountAmount() > 0 ? `*Discount:* -₹${calculateDiscountAmount()}` : ''}
-*Total Amount:* ₹${calculateGrandTotal()}
-*Payment Method:* ${paymentMethod}
-
-Thank you for staying with us!
-`;
-
-      // Send the bill via WhatsApp (call the Edge Function)
-      const { error } = await supabase.functions.invoke('send-whatsapp', {
-        body: { 
-          phone: reservation.customer_phone,
-          message: billDetails,
-          billingId: billingId
-        }
-      });
-      
-      if (error) throw error;
-      
-      toast({
-        title: "Bill Sent",
-        description: "The bill has been sent to the customer's WhatsApp.",
-      });
-      
-      // Update the room_billings record to indicate WhatsApp was sent
-      await supabase
-        .from("room_billings")
-        .update({ whatsapp_sent: true })
-        .eq("id", billingId);
-        
-    } catch (error) {
-      console.error("Error sending WhatsApp bill:", error);
-      toast({
-        variant: "destructive",
-        title: "Sending Failed",
-        description: "Failed to send the bill via WhatsApp. Please try again.",
+        variant: 'destructive',
+        title: 'Checkout Failed',
+        description: 'An error occurred during checkout. Please try again.'
       });
     } finally {
-      setWhatsappSending(false);
+      setIsSubmitting(false);
     }
   };
-  
-  const handleSuccessClose = async () => {
-    await onComplete();
-    navigate("/rooms");
+
+  const handleCloseSuccessDialog = () => {
+    setShowSuccessDialog(false);
+    navigate('/rooms');
   };
-  
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-  
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <button 
-          onClick={() => navigate("/rooms")}
-          className="text-sm flex items-center text-muted-foreground hover:text-primary transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
-            <path d="M19 12H5M12 19l-7-7 7-7"/>
-          </svg>
-          Back to Rooms
-        </button>
-        
-        <h1 className="text-3xl font-bold">Room Checkout</h1>
-        
-        <div className="w-20"></div>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Room Checkout</h2>
+        <Button variant="outline" onClick={onClose}>Cancel</Button>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          {room && reservation && (
-            <RoomDetailsCard 
-              room={room} 
-              daysStayed={calculateDuration()}
-              customer={{
-                name: reservation.customer_name,
-                email: reservation.customer_email,
-                phone: reservation.customer_phone,
-                specialOccasion: reservation.special_occasion,
-                specialOccasionDate: reservation.special_occasion_date
-              }}
-            />
-          )}
-          
-          <RoomChargesTable 
-            roomPrice={room?.price || 0}
-            daysStayed={calculateDuration()}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-6">
+          <RoomDetailsCard 
+            room={room} 
+            customerName={reservation.customer_name} 
+            checkInDate={format(new Date(reservation.start_time), 'PPP')}
+            checkOutDate={format(new Date(reservation.end_time), 'PPP')}
+            daysStayed={daysStayed}
           />
+          
+          <Card>
+            <CardContent className="pt-6">
+              <RoomChargesTable roomPrice={room.price} daysStayed={daysStayed} />
+            </CardContent>
+          </Card>
           
           {foodOrders.length > 0 && (
-            <FoodOrdersList 
-              foodOrders={foodOrders} 
-              foodOrdersTotal={calculateFoodOrdersTotal()} 
-            />
+            <Card>
+              <CardContent className="pt-6">
+                <FoodOrdersList foodOrders={foodOrders} />
+              </CardContent>
+            </Card>
           )}
           
-          <AdditionalChargesSection
-            additionalCharges={additionalCharges}
-            newCharge={newCharge}
-            setNewCharge={setNewCharge}
-            handleAddCharge={handleAddCharge}
-            handleRemoveCharge={handleRemoveCharge}
-            includeServiceCharge={includeServiceCharge}
-            setIncludeServiceCharge={setIncludeServiceCharge}
-            serviceCharge={serviceCharge}
-            setServiceCharge={setServiceCharge}
-          />
-          
-          <DiscountSection
-            discountType={discountType}
-            discountValue={discountValue}
-            onDiscountTypeChange={setDiscountType}
-            onDiscountValueChange={setDiscountValue}
-            totalBeforeDiscount={calculateRoomTotal() + calculateFoodOrdersTotal() + calculateAdditionalChargesTotal()}
-          />
-          
-          <PaymentMethodSelector
-            selectedMethod={paymentMethod}
-            onMethodChange={setPaymentMethod}
-          />
+          <Card>
+            <CardContent className="pt-6">
+              <AdditionalChargesSection 
+                charges={additionalCharges} 
+                onChargesChange={setAdditionalCharges} 
+              />
+            </CardContent>
+          </Card>
         </div>
         
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-lg shadow-md p-6 sticky top-6 dark:bg-gray-800">
-            <h2 className="text-xl font-bold mb-4">Payment Summary</h2>
-            
-            <div className="space-y-3 mb-6">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Room Charges:</span>
-                <span>₹{calculateRoomTotal().toFixed(2)}</span>
-              </div>
-              
-              {calculateFoodOrdersTotal() > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Food Orders:</span>
-                  <span>₹{calculateFoodOrdersTotal().toFixed(2)}</span>
+        <div className="space-y-6">
+          <Card>
+            <CardContent className="pt-6">
+              <DiscountSection 
+                subtotal={roomTotal + foodOrdersTotal + additionalChargesTotal}
+                discountPercent={discountPercent}
+                discountAmount={discountAmount}
+                onDiscountPercentChange={setDiscountPercent}
+                onDiscountAmountChange={setDiscountAmount}
+              />
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <PaymentMethodSelector 
+                selectedMethod={paymentMethod} 
+                onMethodChange={setPaymentMethod} 
+              />
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div className="flex justify-between text-sm">
+                  <span>Room Charges:</span>
+                  <span>₹{roomTotal.toFixed(2)}</span>
                 </div>
-              )}
-              
-              {calculateAdditionalChargesTotal() > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Additional Charges:</span>
-                  <span>₹{calculateAdditionalChargesTotal().toFixed(2)}</span>
+                
+                {foodOrdersTotal > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span>Food Orders:</span>
+                    <span>₹{foodOrdersTotal.toFixed(2)}</span>
+                  </div>
+                )}
+                
+                {additionalChargesTotal > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span>Additional Charges:</span>
+                    <span>₹{additionalChargesTotal.toFixed(2)}</span>
+                  </div>
+                )}
+                
+                <div className="flex justify-between text-sm">
+                  <span>Service Charge (5%):</span>
+                  <span>₹{serviceCharge.toFixed(2)}</span>
                 </div>
-              )}
-              
-              {calculateDiscountAmount() > 0 && (
-                <div className="flex justify-between text-green-600">
-                  <span>Discount:</span>
-                  <span>-₹{calculateDiscountAmount().toFixed(2)}</span>
+                
+                {calculatedDiscount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Discount:</span>
+                    <span>-₹{calculatedDiscount.toFixed(2)}</span>
+                  </div>
+                )}
+                
+                <div className="border-t pt-4 flex justify-between font-bold">
+                  <span>Total Amount:</span>
+                  <span>₹{grandTotal.toFixed(2)}</span>
                 </div>
-              )}
-              
-              <div className="border-t pt-3 flex justify-between font-bold text-lg">
-                <span>Total:</span>
-                <span>₹{calculateGrandTotal().toFixed(2)}</span>
+                
+                <Button 
+                  className="w-full mt-4" 
+                  size="lg"
+                  disabled={isSubmitting}
+                  onClick={handleCheckout}
+                >
+                  {isSubmitting ? 'Processing...' : 'Complete Checkout'}
+                </Button>
               </div>
-            </div>
-            
-            {reservation?.customer_phone && (
-              <div className="mb-4">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={sendWhatsappBill}
-                    onChange={(e) => setSendWhatsappBill(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                  />
-                  <span className="text-sm">Send bill via WhatsApp</span>
-                </label>
-              </div>
-            )}
-            
-            <Button 
-              onClick={handleCheckout} 
-              className="w-full bg-primary hover:bg-primary/90 text-white"
-              size="lg"
-            >
-              Complete Checkout
-            </Button>
-            
-            <p className="text-xs text-muted-foreground mt-4 text-center">
-              By completing checkout, the room status will be changed to "cleaning" and the reservation will be marked as completed.
-            </p>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
       
-      <CheckoutSuccessDialog
-        open={checkoutComplete}
-        onOpenChange={setCheckoutComplete}
-        onDone={handleSuccessClose}
-        hasSpecialOccasion={!!reservation?.special_occasion}
-        hasMarketingConsent={!!reservation?.marketing_consent}
-        specialOccasionType={reservation?.special_occasion || null}
-        customerPhone={reservation?.customer_phone || null}
-        sendWhatsappBill={sendWhatsappBill}
-        whatsappSending={whatsappSending}
-        onSendWhatsAppBill={handleSendWhatsAppBill}
-      />
+      {/* Checkout Success Dialog */}
+      {showSuccessDialog && billingId && (
+        <CheckoutSuccessDialog 
+          open={showSuccessDialog} 
+          onClose={handleCloseSuccessDialog}
+          billingId={billingId}
+          customerName={reservation.customer_name}
+          customerPhone={reservation.customer_phone || ''}
+          roomName={room.name}
+          checkoutDate={format(new Date(), 'PPP')}
+          totalAmount={grandTotal}
+          restaurantId={room.restaurant_id}
+          restaurantPhone={restaurantPhone || ''}
+        />
+      )}
     </div>
   );
 };
