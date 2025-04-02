@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { differenceInDays, format } from 'date-fns';
 import { supabase } from "@/integrations/supabase/client";
@@ -70,13 +69,11 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Fetch room and reservation details
   useEffect(() => {
     const fetchCheckoutData = async () => {
       try {
         setLoading(true);
         
-        // Fetch room details
         const { data: roomData, error: roomError } = await supabase
           .from('rooms')
           .select('*')
@@ -86,7 +83,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         if (roomError) throw roomError;
         setRoom(roomData);
         
-        // Fetch reservation details
         const { data: reservationData, error: reservationError } = await supabase
           .from('reservations')
           .select('*')
@@ -96,7 +92,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         if (reservationError) throw reservationError;
         setReservation(reservationData);
         
-        // Fetch food orders
         const { data: ordersData, error: ordersError } = await supabase
           .from('room_food_orders')
           .select('*')
@@ -106,7 +101,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         if (ordersError) throw ordersError;
         setFoodOrders(ordersData || []);
         
-        // Fetch restaurant info
         if (roomData?.restaurant_id) {
           const { data: restaurantData, error: restaurantError } = await supabase
             .from('restaurants')
@@ -140,45 +134,35 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
     return <div className="p-8 text-center">Loading checkout data...</div>;
   }
   
-  // Calculate days stayed
   const startDate = new Date(reservation.start_time);
   const endDate = new Date(reservation.end_time);
-  const daysStayed = Math.max(differenceInDays(endDate, startDate), 1); // Minimum 1 day
+  const daysStayed = Math.max(differenceInDays(endDate, startDate), 1);
   
-  // Calculate room charges
   const roomTotal = room.price * daysStayed;
   
-  // Calculate food orders total
   const foodOrdersTotal = foodOrders.reduce((sum, order) => sum + (order.total || 0), 0);
   
-  // Calculate additional charges total
   const additionalChargesTotal = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
   
-  // Calculate discount
   const calculatedDiscount = discountPercent > 0 
     ? (roomTotal + foodOrdersTotal + additionalChargesTotal) * (discountPercent / 100)
     : discountAmount;
   
-  // Calculate service charge (5% of room total)
   const serviceCharge = roomTotal * 0.05;
   
-  // Calculate grand total
   const grandTotal = roomTotal + foodOrdersTotal + additionalChargesTotal + serviceCharge - calculatedDiscount;
 
   const handleCheckout = async () => {
     setIsSubmitting(true);
     
     try {
-      // Format the additional charges for storing in JSON
       const formattedAdditionalCharges = additionalCharges.map(charge => ({
         name: charge.name,
         amount: charge.amount
       }));
       
-      // Create an array of food order IDs
       const foodOrderIds = foodOrders.map(order => order.id);
       
-      // Create a new billing record
       const { data: billingData, error: billingError } = await supabase
         .from('room_billings')
         .insert([{
@@ -202,7 +186,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
       
       if (billingError) throw billingError;
       
-      // Update room status to available
       const { error: roomError } = await supabase
         .from('rooms')
         .update({ status: 'available' })
@@ -210,19 +193,15 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
       
       if (roomError) throw roomError;
       
-      // Set the created billing ID
       setBillingId(billingData?.id || null);
       
-      // Show success message
       toast({
         title: 'Checkout Successful',
         description: `${reservation.customer_name} has been checked out successfully.`
       });
       
-      // Show success dialog
       setShowSuccessDialog(true);
       
-      // Call the onComplete callback
       onComplete();
     } catch (error) {
       console.error('Error during checkout:', error);
@@ -361,36 +340,25 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
                     {isSubmitting ? 'Processing...' : 'Complete Checkout'}
                   </Button>
                   
-                  {billingId ? (
-                    <PrintBillButton
-                      restaurantName={restaurantName}
-                      restaurantAddress={restaurantAddress}
-                      customerName={reservation.customer_name}
-                      customerPhone={reservation.customer_phone || ''}
-                      roomName={room.name}
-                      checkInDate={format(new Date(reservation.start_time), 'PPP')}
-                      checkOutDate={format(new Date(reservation.end_time), 'PPP')}
-                      daysStayed={daysStayed}
-                      roomPrice={room.price}
-                      roomCharges={roomTotal}
-                      foodOrders={foodOrders}
-                      additionalCharges={additionalCharges}
-                      serviceCharge={serviceCharge}
-                      discount={calculatedDiscount}
-                      grandTotal={grandTotal}
-                      paymentMethod={paymentMethod}
-                      billId={billingId}
-                    />
-                  ) : (
-                    <Button 
-                      className="w-full" 
-                      variant="outline" 
-                      size="lg"
-                      disabled={true}
-                    >
-                      Print Bill (After Checkout)
-                    </Button>
-                  )}
+                  <PrintBillButton
+                    restaurantName={restaurantName}
+                    restaurantAddress={restaurantAddress}
+                    customerName={reservation.customer_name}
+                    customerPhone={reservation.customer_phone || ''}
+                    roomName={room.name}
+                    checkInDate={format(new Date(reservation.start_time), 'PPP')}
+                    checkOutDate={format(new Date(reservation.end_time), 'PPP')}
+                    daysStayed={daysStayed}
+                    roomPrice={room.price}
+                    roomCharges={roomTotal}
+                    foodOrders={foodOrders}
+                    additionalCharges={additionalCharges}
+                    serviceCharge={serviceCharge}
+                    discount={calculatedDiscount}
+                    grandTotal={grandTotal}
+                    paymentMethod={paymentMethod}
+                    billId={billingId || 'N/A'}
+                  />
                 </div>
               </div>
             </CardContent>
