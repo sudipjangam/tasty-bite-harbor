@@ -56,6 +56,44 @@ const PrintBillButton: React.FC<PrintBillButtonProps> = (props) => {
           table { width: 100%; border-collapse: collapse; }
           th, td { padding: 5px; }
           th { text-align: left; }
+          .border-b { border-bottom: 1px solid #e5e5e5; }
+          .border-t { border-top: 1px solid #e5e5e5; }
+          .border { border: 1px solid #e5e5e5; }
+          .border-2 { border: 2px solid #999; }
+          .rounded { border-radius: 0.375rem; }
+          .bg-yellow-50 { background-color: #fefce8; }
+          .bg-gray-50 { background-color: #f9fafb; }
+          .font-bold { font-weight: bold; }
+          .font-medium { font-weight: 500; }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          .text-green-600 { color: #059669; }
+          .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+          .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+          .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+          .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+          .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+          .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+          .text-xs { font-size: 0.75rem; line-height: 1rem; }
+          .mb-1 { margin-bottom: 0.25rem; }
+          .mb-2 { margin-bottom: 0.5rem; }
+          .mb-4 { margin-bottom: 1rem; }
+          .mb-6 { margin-bottom: 1.5rem; }
+          .ml-4 { margin-left: 1rem; }
+          .mt-4 { margin-top: 1rem; }
+          .mt-6 { margin-top: 1.5rem; }
+          .p-2 { padding: 0.5rem; }
+          .p-4 { padding: 1rem; }
+          .p-8 { padding: 2rem; }
+          .pb-1 { padding-bottom: 0.25rem; }
+          .pb-4 { padding-bottom: 1rem; }
+          .pt-4 { padding-top: 1rem; }
+          .grid { display: grid; }
+          .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .gap-4 { gap: 1rem; }
+          .list-disc { list-style-type: disc; }
+          .list-inside { list-style-position: inside; }
+          .align-top { vertical-align: top; }
         `);
         printWindow.document.write('</style>');
         printWindow.document.write('</head><body>');
