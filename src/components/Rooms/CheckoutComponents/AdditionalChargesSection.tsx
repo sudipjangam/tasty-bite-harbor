@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2 } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
 
 interface AdditionalChargesSectionProps {
   charges: { name: string; amount: number; }[];

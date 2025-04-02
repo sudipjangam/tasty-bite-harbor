@@ -72,8 +72,8 @@ redirect_uri = ""
 # or any other third-party OIDC providers.
 url = ""
 
-[functions]
 # Port to use for Functions.
+[functions]
 port = 54328
 
 [functions.send-whatsapp-bill]
