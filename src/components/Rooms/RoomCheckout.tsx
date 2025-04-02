@@ -15,23 +15,9 @@ import CheckoutSuccessDialog from './CheckoutComponents/CheckoutSuccessDialog';
 import { useNavigate } from 'react-router-dom';
 
 interface RoomCheckoutProps {
-  room: {
-    id: string;
-    name: string;
-    capacity: number;
-    status: string;
-    price: number;
-    restaurant_id: string;
-  };
-  reservation: {
-    id: string;
-    customer_name: string;
-    customer_phone?: string;
-    start_time: string;
-    end_time: string;
-  };
-  onClose: () => void;
-  onCheckoutComplete: () => void;
+  roomId: string;
+  reservationId: string;
+  onComplete: () => Promise<void>;
 }
 
 interface FoodOrder {
@@ -44,12 +30,30 @@ interface FoodOrder {
   created_at: string;
 }
 
+interface RoomDetails {
+  id: string;
+  name: string;
+  capacity: number;
+  status: string;
+  price: number;
+  restaurant_id: string;
+}
+
+interface ReservationDetails {
+  id: string;
+  customer_name: string;
+  customer_phone?: string;
+  start_time: string;
+  end_time: string;
+}
+
 const RoomCheckout: React.FC<RoomCheckoutProps> = ({ 
-  room, 
-  reservation, 
-  onClose,
-  onCheckoutComplete
+  roomId, 
+  reservationId, 
+  onComplete 
 }) => {
+  const [room, setRoom] = useState<RoomDetails | null>(null);
+  const [reservation, setReservation] = useState<ReservationDetails | null>(null);
   const [additionalCharges, setAdditionalCharges] = useState<{name: string; amount: number}[]>([]);
   const [discountPercent, setDiscountPercent] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
@@ -59,58 +63,86 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
   const [billingId, setBillingId] = useState<string | null>(null);
   const [foodOrders, setFoodOrders] = useState<FoodOrder[]>([]);
   const [restaurantPhone, setRestaurantPhone] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Fetch room and reservation details
+  useEffect(() => {
+    const fetchCheckoutData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch room details
+        const { data: roomData, error: roomError } = await supabase
+          .from('rooms')
+          .select('*')
+          .eq('id', roomId)
+          .single();
+        
+        if (roomError) throw roomError;
+        setRoom(roomData);
+        
+        // Fetch reservation details
+        const { data: reservationData, error: reservationError } = await supabase
+          .from('reservations')
+          .select('*')
+          .eq('id', reservationId)
+          .single();
+        
+        if (reservationError) throw reservationError;
+        setReservation(reservationData);
+        
+        // Fetch food orders
+        const { data: ordersData, error: ordersError } = await supabase
+          .from('room_food_orders')
+          .select('*')
+          .eq('room_id', roomId)
+          .eq('status', 'delivered');
+        
+        if (ordersError) throw ordersError;
+        setFoodOrders(ordersData || []);
+        
+        // Fetch restaurant info for phone number
+        if (roomData?.restaurant_id) {
+          const { data: restaurantData, error: restaurantError } = await supabase
+            .from('restaurants')
+            .select('phone')
+            .eq('id', roomData.restaurant_id)
+            .single();
+          
+          if (!restaurantError && restaurantData) {
+            setRestaurantPhone(restaurantData.phone || null);
+          }
+        }
+        
+      } catch (error) {
+        console.error('Error fetching checkout data:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to load checkout data'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCheckoutData();
+  }, [roomId, reservationId, toast]);
+  
+  if (loading || !room || !reservation) {
+    return <div className="p-8 text-center">Loading checkout data...</div>;
+  }
   
   // Calculate days stayed
   const startDate = new Date(reservation.start_time);
   const endDate = new Date(reservation.end_time);
-  const daysStayed = differenceInDays(endDate, startDate) || 1; // Minimum 1 day
+  const daysStayed = Math.max(differenceInDays(endDate, startDate), 1); // Minimum 1 day
   
   // Calculate room charges
   const roomTotal = room.price * daysStayed;
   
-  // Get food orders for this room
-  useEffect(() => {
-    const fetchFoodOrders = async () => {
-      try {
-        const { data: orders, error } = await supabase
-          .from('room_food_orders')
-          .select('*')
-          .eq('room_id', room.id)
-          .eq('status', 'completed');
-        
-        if (error) throw error;
-        setFoodOrders(orders || []);
-      } catch (error) {
-        console.error('Error fetching food orders:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Failed to load food orders'
-        });
-      }
-    };
-
-    const fetchRestaurantInfo = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('restaurants')
-          .select('phone')
-          .eq('id', room.restaurant_id)
-          .single();
-        
-        if (error) throw error;
-        setRestaurantPhone(data?.phone || null);
-      } catch (error) {
-        console.error('Error fetching restaurant info:', error);
-      }
-    };
-
-    fetchFoodOrders();
-    fetchRestaurantInfo();
-  }, [room.id, room.restaurant_id, toast]);
-
   // Calculate food orders total
   const foodOrdersTotal = foodOrders.reduce((sum, order) => sum + (order.total || 0), 0);
   
@@ -146,7 +178,7 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         .from('room_billings')
         .insert([{
           room_id: room.id,
-          reservation_id: reservation.id,
+          reservation_id: reservationId,
           customer_name: reservation.customer_name,
           room_charges: roomTotal,
           service_charge: serviceCharge,
@@ -185,8 +217,8 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
       // Show success dialog
       setShowSuccessDialog(true);
       
-      // Call the onCheckoutComplete callback
-      onCheckoutComplete();
+      // Call the onComplete callback
+      onComplete();
     } catch (error) {
       console.error('Error during checkout:', error);
       toast({
@@ -199,6 +231,10 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
     }
   };
 
+  const handleCancel = () => {
+    navigate('/rooms');
+  };
+
   const handleCloseSuccessDialog = () => {
     setShowSuccessDialog(false);
     navigate('/rooms');
@@ -208,18 +244,22 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Room Checkout</h2>
-        <Button variant="outline" onClick={onClose}>Cancel</Button>
+        <Button variant="outline" onClick={handleCancel}>Cancel</Button>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-6">
-          <RoomDetailsCard 
-            room={room} 
-            customerName={reservation.customer_name} 
-            checkInDate={format(new Date(reservation.start_time), 'PPP')}
-            checkOutDate={format(new Date(reservation.end_time), 'PPP')}
-            daysStayed={daysStayed}
-          />
+          <Card>
+            <CardContent className="pt-6">
+              <RoomDetailsCard 
+                room={room} 
+                customerName={reservation.customer_name} 
+                checkInDate={format(new Date(reservation.start_time), 'PPP')}
+                checkOutDate={format(new Date(reservation.end_time), 'PPP')}
+                daysStayed={daysStayed}
+              />
+            </CardContent>
+          </Card>
           
           <Card>
             <CardContent className="pt-6">
@@ -320,7 +360,6 @@ const RoomCheckout: React.FC<RoomCheckoutProps> = ({
         </div>
       </div>
       
-      {/* Checkout Success Dialog */}
       {showSuccessDialog && billingId && (
         <CheckoutSuccessDialog 
           open={showSuccessDialog} 

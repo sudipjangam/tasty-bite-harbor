@@ -1,40 +1,43 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2 } from 'lucide-react';
-
-interface AdditionalCharge {
-  id: string;
-  name: string;
-  amount: number;
-}
+import { v4 as uuidv4 } from 'uuid';
 
 interface AdditionalChargesSectionProps {
-  additionalCharges: AdditionalCharge[];
-  newCharge: { name: string; amount: number };
-  setNewCharge: (charge: { name: string; amount: number }) => void;
-  handleAddCharge: () => void;
-  handleRemoveCharge: (id: string) => void;
-  includeServiceCharge: boolean;
-  setIncludeServiceCharge: (include: boolean) => void;
-  serviceCharge: number;
-  setServiceCharge: (amount: number) => void;
+  charges: { name: string; amount: number; }[];
+  onChargesChange: (charges: { name: string; amount: number; }[]) => void;
 }
 
 const AdditionalChargesSection: React.FC<AdditionalChargesSectionProps> = ({
-  additionalCharges,
-  newCharge,
-  setNewCharge,
-  handleAddCharge,
-  handleRemoveCharge,
-  includeServiceCharge,
-  setIncludeServiceCharge,
-  serviceCharge,
-  setServiceCharge
+  charges,
+  onChargesChange
 }) => {
+  const [newCharge, setNewCharge] = useState<{ name: string; amount: number }>({
+    name: '',
+    amount: 0
+  });
+
+  const handleAddCharge = () => {
+    if (newCharge.name.trim() === '' || newCharge.amount <= 0) return;
+    
+    const chargeToAdd = {
+      name: newCharge.name.trim(),
+      amount: newCharge.amount
+    };
+    
+    onChargesChange([...charges, chargeToAdd]);
+    setNewCharge({ name: '', amount: 0 });
+  };
+
+  const handleRemoveCharge = (index: number) => {
+    const updatedCharges = [...charges];
+    updatedCharges.splice(index, 1);
+    onChargesChange(updatedCharges);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
@@ -59,57 +62,35 @@ const AdditionalChargesSection: React.FC<AdditionalChargesSectionProps> = ({
         </div>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Description</TableHead>
-            <TableHead className="text-right">Amount (₹)</TableHead>
-            <TableHead className="w-16"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {additionalCharges.map((charge) => (
-            <TableRow key={charge.id}>
-              <TableCell>{charge.name}</TableCell>
-              <TableCell className="text-right">₹{charge.amount}</TableCell>
-              <TableCell>
-                {charge.id !== 'food-orders' && (
+      {charges.length > 0 && (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Description</TableHead>
+              <TableHead className="text-right">Amount (₹)</TableHead>
+              <TableHead className="w-16"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {charges.map((charge, index) => (
+              <TableRow key={index}>
+                <TableCell>{charge.name}</TableCell>
+                <TableCell className="text-right">₹{charge.amount.toFixed(2)}</TableCell>
+                <TableCell>
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    onClick={() => handleRemoveCharge(charge.id)}
+                    onClick={() => handleRemoveCharge(index)}
                     className="h-8 w-8 p-0"
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-          <TableRow>
-            <TableCell className="flex items-center gap-2">
-              <Label htmlFor="include-service">Service Charge</Label>
-              <input
-                id="include-service"
-                type="checkbox"
-                checked={includeServiceCharge}
-                onChange={(e) => setIncludeServiceCharge(e.target.checked)}
-                className="mr-2"
-              />
-            </TableCell>
-            <TableCell className="text-right">
-              <Input
-                type="number"
-                value={serviceCharge}
-                onChange={(e) => setServiceCharge(parseFloat(e.target.value) || 0)}
-                className="w-24 ml-auto"
-                disabled={!includeServiceCharge}
-              />
-            </TableCell>
-            <TableCell></TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </div>
   );
 };

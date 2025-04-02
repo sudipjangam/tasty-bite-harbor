@@ -6,17 +6,19 @@ interface RoomDetailsCardProps {
     name: string;
     price: number;
   };
+  customerName: string;
+  checkInDate: string;
+  checkOutDate: string;
   daysStayed: number;
-  customer: {
-    name: string;
-    email: string | null;
-    phone: string | null;
-    specialOccasion: string | null;
-    specialOccasionDate: string | null;
-  };
 }
 
-const RoomDetailsCard: React.FC<RoomDetailsCardProps> = ({ room, daysStayed, customer }) => {
+const RoomDetailsCard: React.FC<RoomDetailsCardProps> = ({ 
+  room, 
+  customerName, 
+  checkInDate, 
+  checkOutDate,
+  daysStayed 
+}) => {
   return (
     <div className="grid grid-cols-2 gap-4">
       <div>
@@ -27,20 +29,9 @@ const RoomDetailsCard: React.FC<RoomDetailsCardProps> = ({ room, daysStayed, cus
       </div>
       <div>
         <h3 className="text-lg font-medium">Guest Details</h3>
-        <p className="text-sm text-muted-foreground">Name: {customer.name}</p>
-        {customer.email && (
-          <p className="text-sm text-muted-foreground">Email: {customer.email}</p>
-        )}
-        {customer.phone && (
-          <p className="text-sm text-muted-foreground">Phone: {customer.phone}</p>
-        )}
-        {customer.specialOccasion && (
-          <p className="text-sm text-muted-foreground">
-            Special Occasion: {customer.specialOccasion}
-            {customer.specialOccasionDate && 
-              ` (${new Date(customer.specialOccasionDate).toLocaleDateString()})`}
-          </p>
-        )}
+        <p className="text-sm text-muted-foreground">Name: {customerName}</p>
+        <p className="text-sm text-muted-foreground">Check-in: {checkInDate}</p>
+        <p className="text-sm text-muted-foreground">Check-out: {checkOutDate}</p>
       </div>
     </div>
   );
