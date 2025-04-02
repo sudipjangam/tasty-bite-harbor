@@ -19,6 +19,7 @@ interface SendWhatsAppRequest {
   promotionId?: string;
   recipientId?: string;
   recipientType?: string;
+  restaurantId?: string;
 }
 
 serve(async (req) => {
@@ -28,7 +29,7 @@ serve(async (req) => {
   }
 
   try {
-    const { phone, message, billingId, promotionId, recipientId, recipientType } = await req.json() as SendWhatsAppRequest;
+    const { phone, message, billingId, promotionId, recipientId, recipientType, restaurantId } = await req.json() as SendWhatsAppRequest;
     
     if (!phone || !message) {
       return new Response(
@@ -43,13 +44,17 @@ serve(async (req) => {
     // Log the data we received
     console.log(`Sending WhatsApp message to ${phone}`);
     console.log(`Message content: ${message}`);
-    console.log(`Additional parameters: billingId=${billingId}, promotionId=${promotionId}, recipientId=${recipientId}, recipientType=${recipientType}`);
+    console.log(`Additional parameters: billingId=${billingId}, promotionId=${promotionId}, recipientId=${recipientId}, recipientType=${recipientType}, restaurantId=${restaurantId}`);
+    
+    // Format phone number for WhatsApp (remove spaces, ensure international format)
+    const formattedPhone = phone.replace(/\s+/g, '');
+    const whatsappPhone = formattedPhone.startsWith('+') ? formattedPhone.substring(1) : formattedPhone;
+    
+    console.log(`Formatted phone for WhatsApp: ${whatsappPhone}`);
     
     // In a real implementation, you would integrate with WhatsApp Business API
     // or a third-party service like Twilio, MessageBird, etc.
     // For now, this is a mock implementation for demonstration
-    
-    console.log(`Would send WhatsApp message to ${phone}: ${message}`);
     
     let sendStatus = 'sent';
     let errorDetails = null;

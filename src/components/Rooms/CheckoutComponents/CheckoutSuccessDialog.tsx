@@ -54,16 +54,28 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
       // Fetch restaurant name
       const { data: restaurantData, error: restaurantError } = await supabase
         .from('restaurants')
-        .select('name')
+        .select('name, address')
         .eq('id', restaurantId)
         .single();
       
-      if (restaurantError) throw restaurantError;
+      if (restaurantError) {
+        console.error('Error fetching restaurant data:', restaurantError);
+      }
       
       const restaurantName = restaurantData?.name || 'Our Restaurant';
       
+      console.log('Sending WhatsApp bill:', {
+        billingId,
+        phoneNumber: phoneToUse,
+        restaurantName,
+        customerName,
+        total: totalAmount,
+        roomName,
+        checkoutDate
+      });
+      
       // Call the WhatsApp edge function
-      const { data, error } = await supabase.functions.invoke('send-whatsapp-bill', {
+      const response = await supabase.functions.invoke('send-whatsapp-bill', {
         body: {
           billingId,
           phoneNumber: phoneToUse,
@@ -75,7 +87,11 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
         }
       });
 
-      if (error) throw error;
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      
+      console.log('WhatsApp bill response:', response.data);
       
       setWhatsAppSent(true);
       toast({
@@ -87,7 +103,7 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to send bill via WhatsApp'
+        description: 'Failed to send bill via WhatsApp. ' + (error instanceof Error ? error.message : 'Unknown error')
       });
     } finally {
       setIsSendingWhatsApp(false);
