@@ -72,7 +72,7 @@ redirect_uri = ""
 # or any other third-party OIDC providers.
 url = ""
 
-# Port to use for Functions.
+# Functions config
 [functions]
 port = 54328
 
@@ -82,3 +82,5 @@ verify_jwt = true
 [functions.chat-with-api]
 verify_jwt = true
 
+[functions.send-whatsapp]
+verify_jwt = true
