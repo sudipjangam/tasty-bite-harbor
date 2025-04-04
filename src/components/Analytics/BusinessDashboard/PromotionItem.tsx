@@ -12,49 +12,35 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-export type PromotionStatus = "active" | "scheduled" | "draft" | "completed";
+export type PromotionStatus = "active" | "scheduled" | "draft" | "completed" | "suggested";
 
 export interface PromotionItemProps {
-  id: string;
   name: string;
-  description: string;
-  startDate: string;
-  endDate: string;
-  discount: string;
-  target: string;
+  timePeriod: string;
+  potentialIncrease: string;
   status: PromotionStatus;
-  performance?: {
-    views: number;
-    usage: number;
-    revenue: number;
-  };
-  onActivate: (id: string) => void;
-  onEdit: (id: string) => void;
+  description?: string;
 }
 
 const PromotionItem: React.FC<PromotionItemProps> = ({
-  id,
   name,
-  description,
-  startDate,
-  endDate,
-  discount,
-  target,
+  timePeriod,
+  potentialIncrease,
   status,
-  performance,
-  onActivate,
-  onEdit
+  description
 }) => {
   const getStatusBadge = (status: PromotionStatus) => {
     switch (status) {
       case "active":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Active</Badge>;
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-300 dark:hover:bg-green-800/30">Active</Badge>;
       case "scheduled":
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Scheduled</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-800/30">Scheduled</Badge>;
       case "draft":
-        return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-200">Draft</Badge>;
+        return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">Draft</Badge>;
       case "completed":
-        return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-200">Completed</Badge>;
+        return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:hover:bg-purple-800/30">Completed</Badge>;
+      case "suggested":
+        return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-800/30">Suggested</Badge>;
     }
   };
 
@@ -66,67 +52,31 @@ const PromotionItem: React.FC<PromotionItemProps> = ({
             <h4 className="font-medium">{name}</h4>
             {getStatusBadge(status)}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">{description}</p>
+          {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
         </div>
         <div className="flex gap-2">
-          {status === "draft" || status === "scheduled" ? (
+          {status === "suggested" && (
             <Button 
               size="sm" 
               variant="outline" 
-              className="h-7 px-2 border-green-500 text-green-700 hover:bg-green-50"
-              onClick={() => onActivate(id)}
+              className="h-7 px-2 border-green-500 text-green-700 hover:bg-green-50 dark:border-green-600 dark:text-green-400 dark:hover:bg-green-900/20"
             >
-              <Check className="h-3.5 w-3.5 mr-1" /> Activate
+              <Check className="h-3.5 w-3.5 mr-1" /> Implement
             </Button>
-          ) : null}
-          <Button 
-            size="sm" 
-            variant="outline" 
-            className="h-7 px-2"
-            onClick={() => onEdit(id)}
-          >
-            <Edit className="h-3.5 w-3.5 mr-1" /> Edit
-          </Button>
+          )}
         </div>
       </div>
       
-      <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
+      <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
         <div className="flex items-center">
           <Calendar className="h-3.5 w-3.5 text-gray-500 mr-1" />
-          <span>{new Date(startDate).toLocaleDateString()} - {new Date(endDate).toLocaleDateString()}</span>
+          <span>{timePeriod}</span>
         </div>
         <div className="flex items-center">
           <Tag className="h-3.5 w-3.5 text-gray-500 mr-1" />
-          <span>{discount}</span>
-        </div>
-        <div className="flex items-center">
-          <Users className="h-3.5 w-3.5 text-gray-500 mr-1" />
-          <span>{target}</span>
+          <span>Potential: {potentialIncrease}</span>
         </div>
       </div>
-      
-      {performance && (
-        <div className="grid grid-cols-3 gap-4 mt-3 pt-3 border-t text-xs">
-          <div className="flex flex-col items-center">
-            <div className="flex items-center text-muted-foreground">
-              <Star className="h-3.5 w-3.5 mr-1" /> Views
-            </div>
-            <span className="text-sm font-medium">{performance.views}</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="flex items-center text-muted-foreground">
-              <Check className="h-3.5 w-3.5 mr-1" /> Usage
-            </div>
-            <span className="text-sm font-medium">{performance.usage}</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="flex items-center text-muted-foreground">
-              <Clock className="h-3.5 w-3.5 mr-1" /> Revenue
-            </div>
-            <span className="text-sm font-medium">₹{performance.revenue}</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

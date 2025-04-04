@@ -14,20 +14,20 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 export interface DocumentItemProps {
-  id: string;
   name: string;
   type: string;
   date: string;
   insights: string;
+  icon?: React.ReactNode;
   url?: string;
 }
 
 const DocumentItem: React.FC<DocumentItemProps> = ({
-  id,
   name,
   type,
   date,
   insights,
+  icon,
   url
 }) => {
   const getFileIcon = (fileType: string) => {
@@ -48,7 +48,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
     <div className="flex justify-between items-center border-b pb-3 last:border-0">
       <div className="flex items-start space-x-3">
         <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-md">
-          {getFileIcon(type)}
+          {icon || getFileIcon(type)}
         </div>
         <div>
           <div className="flex items-center space-x-2">

@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -237,7 +236,6 @@ const DocumentRepository = () => {
                   type={doc.type}
                   date={doc.date}
                   insights={doc.insights}
-                  icon={getFileIcon(doc.type)}
                 />
               ))}
             </div>

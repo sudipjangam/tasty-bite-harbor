@@ -1,7 +1,7 @@
 
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import PromotionItem from "./PromotionItem";
+import PromotionItem, { PromotionStatus } from "./PromotionItem";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -53,7 +53,7 @@ const PromotionalCampaigns = () => {
         name: campaign.name,
         timePeriod: `${new Date(campaign.start_date).toLocaleDateString()} - ${new Date(campaign.end_date).toLocaleDateString()}`,
         potentialIncrease: campaign.discount_percentage ? `${campaign.discount_percentage}%` : "N/A",
-        status: new Date(campaign.end_date) < new Date() ? "completed" : "active",
+        status: new Date(campaign.end_date) < new Date() ? "completed" : "active" as PromotionStatus,
         description: campaign.description || ""
       }));
     }
