@@ -124,7 +124,7 @@ serve(async (req) => {
 
     // Create the payload for the API request
     const payload = {
-      model: "Provider-7/chatgpt-4o-latest", // Explicitly set to gpt-4o
+      model: "Provider-4/DeepSeek-R1-Distill-Llama-70B", // Explicitly set to gpt-4o
       messages: [
         {
           role: "system",
