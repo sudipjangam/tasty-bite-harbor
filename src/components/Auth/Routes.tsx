@@ -18,6 +18,7 @@ import Analytics from "@/pages/Analytics";
 import Settings from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
 import BusinessDashboard from "@/components/Analytics/BusinessDashboard";
+import AI from "@/pages/AI";
 
 const AppRoutes = () => {
   return (
@@ -80,6 +81,11 @@ const AppRoutes = () => {
                     <Route path="/business-dashboard" element={
                       <ComponentAccessGuard requiredComponent="business_dashboard">
                         <BusinessDashboard />
+                      </ComponentAccessGuard>
+                    } />
+                    <Route path="/ai" element={
+                      <ComponentAccessGuard requiredComponent="dashboard">
+                        <AI />
                       </ComponentAccessGuard>
                     } />
                     <Route path="/settings" element={

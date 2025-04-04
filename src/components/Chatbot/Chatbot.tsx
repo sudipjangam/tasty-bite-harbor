@@ -6,8 +6,13 @@ import { Card } from "@/components/ui/card";
 import ChatWindow from "./ChatWindow";
 import { useChatWithApi } from "@/hooks/useChatWithApi";
 
-const Chatbot = () => {
-  const [isOpen, setIsOpen] = useState(false);
+interface ChatbotProps {
+  initialOpen?: boolean;
+  fixedPosition?: boolean;
+}
+
+const Chatbot = ({ initialOpen = false, fixedPosition = true }: ChatbotProps) => {
+  const [isOpen, setIsOpen] = useState(initialOpen);
   const [isMaximized, setIsMaximized] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -22,6 +27,26 @@ const Chatbot = () => {
   const toggleMaximize = () => {
     setIsMaximized(!isMaximized);
   };
+
+  // If we're not in fixed position mode, render just the chat window
+  if (!fixedPosition) {
+    return (
+      <Card className="w-full h-full">
+        <ChatWindow
+          messages={messages}
+          isLoading={isLoading}
+          isUploading={isUploading}
+          isMaximized={false}
+          onSendMessage={handleSendMessage}
+          onClose={() => {}}
+          onToggleMaximize={() => {}}
+          onFileUpload={handleFileUpload}
+          fileInputRef={fileInputRef}
+          embedded={true}
+        />
+      </Card>
+    );
+  }
 
   return (
     <>
@@ -47,6 +72,7 @@ const Chatbot = () => {
             onToggleMaximize={toggleMaximize}
             onFileUpload={handleFileUpload}
             fileInputRef={fileInputRef}
+            embedded={false}
           />
         </Card>
       )}

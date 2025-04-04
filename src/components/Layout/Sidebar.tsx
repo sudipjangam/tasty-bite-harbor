@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -15,6 +16,7 @@ import {
   X,
   LogOut,
   LayoutDashboard,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
@@ -104,6 +106,7 @@ const Sidebar = () => {
     { name: "Suppliers", href: "/suppliers", icon: Truck, component: "suppliers" },
     { name: "Analytics", href: "/analytics", icon: BarChart3, component: "analytics" },
     { name: "Business Dashboard", href: "/business-dashboard", icon: LayoutDashboard, component: "business_dashboard" },
+    { name: "AI Assistant", href: "/ai", icon: Bot, component: "dashboard" },
     { name: "Settings", href: "/settings", icon: Settings, component: "settings" },
   ];
 
