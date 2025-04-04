@@ -48,7 +48,7 @@ serve(async (req) => {
       }
 
       const data = await response.json();
-      console.log("Successfully uploaded to imgbb");
+      console.log("Successfully uploaded to imgbb", data);
       
       if (!data.success) {
         throw new Error("ImgBB upload failed: " + (data.error?.message || "Unknown error"));
@@ -57,6 +57,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true,
+          status_code: 200,
           image: {
             url: data.data.url,
             display_url: data.data.display_url,
@@ -81,6 +82,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
+          status_code: 200,
           image: {
             url: fileUrl,
             display_url: fileUrl,
@@ -98,6 +100,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
+          status_code: 200,
           image: {
             url: fileUrl,
             display_url: fileUrl,

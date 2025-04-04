@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/components/ui/use-toast";
@@ -162,7 +163,11 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
       
       // Use Supabase Edge Function as a proxy to bypass CORS
       const { data, error } = await supabase.functions.invoke('upload-image', {
-        body: { base64Image: base64String }
+        body: { 
+          base64Image: base64String,
+          fileName: selectedFile.name,
+          fileType: selectedFile.type
+        }
       });
       
       if (error) {
@@ -175,7 +180,7 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
       
       setUploadProgress(100);
       
-      if (data.status_code === 200 && data.image && data.image.url) {
+      if (data.success && data.image && data.image.url) {
         setUploadedImageUrl(data.image.url);
         form.setValue('image_url', data.image.url);
         toast({

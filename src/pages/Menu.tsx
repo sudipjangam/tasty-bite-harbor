@@ -1,6 +1,9 @@
 
-import MenuGrid from "@/components/Menu/MenuGrid";
+import { Suspense, lazy } from "react";
 import { Card } from "@/components/ui/card";
+
+// Lazy load the MenuGrid component
+const MenuGrid = lazy(() => import("@/components/Menu/MenuGrid"));
 
 const Menu = () => {
   return (
@@ -14,7 +17,9 @@ const Menu = () => {
         </p>
       </Card>
       <Card variant="default" className="p-6 rounded-xl">
-        <MenuGrid />
+        <Suspense fallback={<div className="p-8 text-center">Loading menu items...</div>}>
+          <MenuGrid />
+        </Suspense>
       </Card>
     </div>
   );
