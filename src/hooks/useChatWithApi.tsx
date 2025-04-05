@@ -62,8 +62,8 @@ export const useChatWithApi = () => {
         console.warn("Warning: No restaurant ID available. The chatbot won't be able to access restaurant-specific data.");
       }
       
-      // Using the chat-with-gemini endpoint which will automatically fall back to chat-with-api if needed
-      console.log("Invoking chat-with-gemini function...");
+      // Always use the chat-with-gemini function directly
+      console.log("Invoking chat-with-gemini function directly...");
       const { data, error } = await supabase.functions.invoke('chat-with-gemini', {
         body: { 
           messages: [...messages, userMessage].map(m => ({ 
@@ -106,7 +106,7 @@ export const useChatWithApi = () => {
         ...prev,
         { 
           role: "assistant", 
-          content: "I'm sorry, I encountered an error. Please check that the API keys are configured correctly in the Supabase Edge Function secrets." 
+          content: "I'm sorry, I encountered an error. Please check that the Gemini API key is configured correctly in the Supabase Edge Function secrets." 
         },
       ]);
       
@@ -212,7 +212,8 @@ export const useChatWithApi = () => {
         description: `Analyzing ${file.name}...`,
       });
 
-      const { data: analysisData, error: analysisError } = await supabase.functions.invoke('chat-with-api', {
+      // Use the gemini function directly for file analysis as well
+      const { data: analysisData, error: analysisError } = await supabase.functions.invoke('chat-with-gemini', {
         body: { 
           messages: [...messages, 
             { role: "user", content: `I've uploaded a ${fileTypeDescription} file named "${file.name}" for analysis.` },
