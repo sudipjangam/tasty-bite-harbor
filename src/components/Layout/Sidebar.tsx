@@ -18,7 +18,6 @@ import {
   LayoutDashboard,
   Bot,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";

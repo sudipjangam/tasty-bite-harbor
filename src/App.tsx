@@ -4,7 +4,7 @@ import { Routes, Route, BrowserRouter } from "react-router-dom";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { Sidebar } from "@/components/ui/sidebar";
+import Sidebar from "@/components/Layout/Sidebar";
 import ProtectedRoute from "@/components/Auth/ProtectedRoute";
 import Auth from "@/pages/Auth";
 import Index from "@/pages/Index";
