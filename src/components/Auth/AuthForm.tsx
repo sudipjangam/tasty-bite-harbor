@@ -26,28 +26,40 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
 
     try {
       if (authMode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
         if (error) throw error;
         
-        navigate("/");
+        if (data?.session) {
+          navigate("/");
+        }
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
         });
 
         if (error) throw error;
 
-        toast({
-          title: "Account created",
-          description: "Please check your email to confirm your registration.",
-        });
+        if (data?.user?.identities?.length === 0) {
+          toast({
+            title: "User already exists",
+            description: "Please sign in instead",
+            variant: "destructive",
+          });
+          setAuthMode("signin");
+        } else {
+          toast({
+            title: "Account created",
+            description: "Please check your email to confirm your registration.",
+          });
+        }
       }
     } catch (error: any) {
+      console.error("Auth error:", error);
       toast({
         title: "Authentication error",
         description: error.message || "An error occurred during authentication",

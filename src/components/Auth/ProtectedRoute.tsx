@@ -21,37 +21,73 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     
     async function checkSession() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
         
         if (!mounted) return;
         
-        setSession(session);
+        if (error) {
+          console.error("Session error:", error);
+          setSession(null);
+          setLoading(false);
+          return;
+        }
         
-        if (session) {
+        setSession(data.session);
+        
+        if (data.session) {
           try {
-            const { data: profile } = await supabase
+            const { data: profile, error: profileError } = await supabase
               .from("profiles")
               .select("restaurant_id")
-              .eq("id", session.user.id)
+              .eq("id", data.session.user.id)
               .maybeSingle();
+
+            if (profileError) {
+              console.error("Profile error:", profileError);
+              if (mounted) {
+                setHasActiveSubscription(false);
+                setLoading(false);
+              }
+              return;
+            }
 
             if (profile?.restaurant_id) {
               setRestaurantId(profile.restaurant_id);
-              const subscriptionActive = await checkSubscriptionStatus(profile.restaurant_id);
-              setHasActiveSubscription(subscriptionActive);
+              try {
+                const subscriptionActive = await checkSubscriptionStatus(profile.restaurant_id);
+                if (mounted) {
+                  setHasActiveSubscription(subscriptionActive);
+                }
+              } catch (subError) {
+                console.error("Subscription check error:", subError);
+                if (mounted) {
+                  setHasActiveSubscription(false);
+                }
+              }
             } else {
-              setHasActiveSubscription(false);
+              if (mounted) {
+                setHasActiveSubscription(false);
+              }
             }
           } catch (error) {
-            console.error("Error checking session:", error);
-            setHasActiveSubscription(false);
+            console.error("Error checking profile:", error);
+            if (mounted) {
+              setHasActiveSubscription(false);
+            }
+          } finally {
+            if (mounted) {
+              setLoading(false);
+            }
+          }
+        } else {
+          if (mounted) {
+            setLoading(false);
           }
         }
-        
-        setLoading(false);
       } catch (error) {
         console.error("Error in checkSession:", error);
         if (mounted) {
+          setSession(null);
           setLoading(false);
         }
       }
@@ -69,28 +105,54 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
       if (session) {
         setLoading(true);
         try {
-          const { data: profile } = await supabase
+          const { data: profile, error: profileError } = await supabase
             .from("profiles")
             .select("restaurant_id")
             .eq("id", session.user.id)
             .maybeSingle();
 
+          if (profileError) {
+            console.error("Profile error:", profileError);
+            if (mounted) {
+              setHasActiveSubscription(false);
+              setLoading(false);
+            }
+            return;
+          }
+
           if (profile?.restaurant_id) {
             setRestaurantId(profile.restaurant_id);
-            const subscriptionActive = await checkSubscriptionStatus(profile.restaurant_id);
-            setHasActiveSubscription(subscriptionActive);
+            try {
+              const subscriptionActive = await checkSubscriptionStatus(profile.restaurant_id);
+              if (mounted) {
+                setHasActiveSubscription(subscriptionActive);
+              }
+            } catch (subError) {
+              console.error("Subscription check error:", subError);
+              if (mounted) {
+                setHasActiveSubscription(false);
+              }
+            }
           } else {
-            setHasActiveSubscription(false);
+            if (mounted) {
+              setHasActiveSubscription(false);
+            }
           }
         } catch (error) {
           console.error("Error in auth state change:", error);
-          setHasActiveSubscription(false);
+          if (mounted) {
+            setHasActiveSubscription(false);
+          }
         } finally {
-          setLoading(false);
+          if (mounted) {
+            setLoading(false);
+          }
         }
       } else {
-        setHasActiveSubscription(null);
-        setLoading(false);
+        if (mounted) {
+          setHasActiveSubscription(null);
+          setLoading(false);
+        }
       }
     });
 

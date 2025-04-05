@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Routes, Route, BrowserRouter } from "react-router-dom";
 import { ThemeProvider } from "@/components/ui/theme-provider";
@@ -30,21 +29,46 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+    
     const checkUser = async () => {
-      const { data } = await supabase.auth.getSession();
-      setIsLoggedIn(!!data.session);
-      setIsLoading(false);
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Session error:", error);
+          if (isMounted) {
+            setIsLoggedIn(false);
+            setIsLoading(false);
+          }
+          return;
+        }
+        
+        if (isMounted) {
+          setIsLoggedIn(!!data.session);
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
+        if (isMounted) {
+          setIsLoggedIn(false);
+          setIsLoading(false);
+        }
+      }
     };
 
     checkUser();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        setIsLoggedIn(!!session);
+        if (isMounted) {
+          setIsLoggedIn(!!session);
+        }
       }
     );
 
     return () => {
+      isMounted = false;
       authListener?.subscription.unsubscribe();
     };
   }, []);
