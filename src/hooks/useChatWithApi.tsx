@@ -55,14 +55,15 @@ export const useChatWithApi = () => {
     setIsLoading(true);
 
     try {
-      console.log("Calling chat-with-api function with messages:", [...messages, userMessage]);
+      console.log("Calling AI assistant with messages:", [...messages, userMessage]);
       console.log("Using restaurant ID:", restaurantId);
       
       if (!restaurantId) {
         console.warn("Warning: No restaurant ID available. The chatbot won't be able to access restaurant-specific data.");
       }
       
-      const { data, error } = await supabase.functions.invoke('chat-with-api', {
+      // Using the chat-with-gemini endpoint which will automatically fall back to chat-with-api if needed
+      const { data, error } = await supabase.functions.invoke('chat-with-gemini', {
         body: { 
           messages: [...messages, userMessage].map(m => ({ 
             role: m.role, 

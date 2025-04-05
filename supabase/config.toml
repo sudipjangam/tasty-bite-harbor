@@ -8,11 +8,10 @@ project_id = "clmsoetktmvhazctlans"
 port = 54321
 # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
 # endpoints. public and storage are always included.
-schemas = ["public", "storage", "graphql_public"]
+schemas = ["public", "storage"]
 # Extra schemas to add to the search_path of every request. public is always included.
 extra_search_path = ["public", "extensions"]
-# The maximum number of rows returns from a view, table, or stored procedure. Limits payload size
-# for accidental or malicious requests.
+# Maximum rows returns in a single response. Defaults to 1000.
 max_rows = 1000
 
 [db]
@@ -44,14 +43,9 @@ file_size_limit = "50MiB"
 site_url = "http://localhost:3000"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 additional_redirect_urls = ["https://localhost:3000"]
-# How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 seconds (one
-# week).
+# How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # Allow/disallow new user signups to your project.
-enable_signup = true
-
-[auth.email]
-# Allow/disallow new user signups via email to your project.
 enable_signup = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
@@ -59,28 +53,18 @@ double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
 enable_confirmations = false
 
-# Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
-# `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin`, `notion`, `twitch`,
-# `twitter`, `slack`, `spotify`, `workos`, `zoom`.
-[auth.external.apple]
-enabled = false
-client_id = ""
-secret = ""
-# Overrides the default auth redirectUrl.
-redirect_uri = ""
-# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
-# or any other third-party OIDC providers.
-url = ""
+# Configure Storage
+[storage.tmp_astra_cache_policy]
+# Cache-Control headers
+download_expiry = 60
 
-# Functions config
-[functions]
-port = 54328
-
-[functions.send-whatsapp-bill]
-verify_jwt = true
+# Use the dashboard to manage your secrets.
 
 [functions.chat-with-api]
-verify_jwt = true
+verify_jwt = false
 
-[functions.send-whatsapp]
-verify_jwt = true
+[functions.upload-image]
+verify_jwt = false
+
+[functions.chat-with-gemini]
+verify_jwt = false
