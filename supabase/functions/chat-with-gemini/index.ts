@@ -17,10 +17,12 @@ serve(async (req) => {
   }
 
   try {
+    console.log("chat-with-gemini function called");
     const requestData = await req.json();
     const { messages, restaurantId } = requestData;
 
     if (!messages || !Array.isArray(messages)) {
+      console.error("Invalid messages format");
       return new Response(
         JSON.stringify({ error: 'Invalid messages format' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
@@ -31,6 +33,8 @@ serve(async (req) => {
     const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    console.log("Gemini API Key available:", !!geminiApiKey);
 
     // If Gemini API key is not set, forward to the original chat-with-api function
     if (!geminiApiKey) {
@@ -173,6 +177,9 @@ ALWAYS base your answers on this specific data. When asked for a sales overview,
       });
     }
 
+    console.log("Preparing to call Gemini API");
+    console.log(`API URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiApiKey ? "[API KEY PRESENT]" : "[API KEY MISSING]"}`);
+
     // Make the API request to Gemini
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
@@ -190,6 +197,8 @@ ALWAYS base your answers on this specific data. When asked for a sales overview,
       })
     });
 
+    console.log("Gemini API response status:", response.status);
+    
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Gemini API error: Status ${response.status}`, errorText);
@@ -197,7 +206,7 @@ ALWAYS base your answers on this specific data. When asked for a sales overview,
     }
 
     const data = await response.json();
-    console.log('Received successful Gemini API response');
+    console.log('Received successful Gemini API response:', JSON.stringify(data).substring(0, 100) + "...");
 
     // Format the response to match our expected format
     const formattedResponse = {
@@ -205,7 +214,7 @@ ALWAYS base your answers on this specific data. When asked for a sales overview,
         {
           message: {
             role: "assistant",
-            content: data.candidates[0].content.parts[0].text
+            content: data.candidates?.[0]?.content?.parts?.[0]?.text || "I couldn't generate a response at this time."
           }
         }
       ]

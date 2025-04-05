@@ -17,10 +17,12 @@ serve(async (req) => {
   }
 
   try {
+    console.log("chat-with-api function called");
     const requestData = await req.json();
     const { messages, restaurantId } = requestData;
 
     if (!messages || !Array.isArray(messages)) {
+      console.error("Invalid messages format");
       return new Response(
         JSON.stringify({ error: 'Invalid messages format' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
@@ -122,9 +124,33 @@ serve(async (req) => {
       systemPrompt += " When provided with data files like images, CSV, Excel, or PDF files, analyze them and provide insights and recommendations for the restaurant owner. For Excel/CSV files, assume they contain restaurant data like sales, inventory, or customer information and provide relevant analysis.";
     }
 
-    // Create the payload for the API request
+    // Check if restaurant data is very large, truncate if needed to avoid token limits
+    let restaurantDataContext = "";
+    if (restaurantData) {
+      // Create shorter context without circular references
+      restaurantDataContext = `Here is the restaurant's actual database records to inform your answers. When giving sales overviews or inventory analysis, ALWAYS use this specific data:
+        
+INVENTORY ITEMS (${restaurantData.inventoryItems?.length || 0} items):
+${JSON.stringify(restaurantData.inventoryItems.slice(0, 10), null, 2)}
+
+REVENUE STATS (last 10 days):
+${JSON.stringify(restaurantData.revenueStats.slice(0, 10), null, 2)}
+
+RECENT ORDERS (last 10):
+${JSON.stringify(restaurantData.recentOrders.slice(0, 10), null, 2)}
+
+CUSTOMER INSIGHTS (top 10 by spending):
+${JSON.stringify(restaurantData.customerInsights.slice(0, 10), null, 2)}
+
+MENU ITEMS (first 10):
+${JSON.stringify(restaurantData.menuItems.slice(0, 10), null, 2)}
+
+ALWAYS base your answers on this specific data. When asked for a sales overview, calculate totals, trends, and metrics from the REVENUE STATS and ORDERS data. When asked about inventory, analyze the actual INVENTORY ITEMS data. Your answers should NEVER be generic - they should directly reflect the numbers and patterns in this data.`;
+    }
+
+    // Create the payload for the API request - reduced data to avoid token limits
     const payload = {
-      model: "Provider-4/DeepSeek-R1-Distill-Llama-70B", // Explicitly set to gpt-4o
+      model: "Provider-4/DeepSeek-R1-Distill-Llama-70B", 
       messages: [
         {
           role: "system",
@@ -134,29 +160,12 @@ serve(async (req) => {
       ]
     };
 
-    // Add context data if available
-    if (restaurantData) {
+    // Add context data if available - ensuring we don't exceed token limits
+    if (restaurantDataContext) {
       // Add a hidden context message with the restaurant data
       payload.messages.splice(1, 0, {
         role: "system",
-        content: `Here is the restaurant's actual database records to inform your answers. When giving sales overviews or inventory analysis, ALWAYS use this specific data:
-        
-INVENTORY ITEMS (${restaurantData.inventoryItems?.length || 0} items):
-${JSON.stringify(restaurantData.inventoryItems, null, 2)}
-
-REVENUE STATS (last 30 days):
-${JSON.stringify(restaurantData.revenueStats, null, 2)}
-
-RECENT ORDERS (last 50):
-${JSON.stringify(restaurantData.recentOrders, null, 2)}
-
-CUSTOMER INSIGHTS (top 50 by spending):
-${JSON.stringify(restaurantData.customerInsights, null, 2)}
-
-MENU ITEMS:
-${JSON.stringify(restaurantData.menuItems, null, 2)}
-
-ALWAYS base your answers on this specific data. When asked for a sales overview, calculate totals, trends, and metrics from the REVENUE STATS and ORDERS data. When asked about inventory, analyze the actual INVENTORY ITEMS data. Your answers should NEVER be generic - they should directly reflect the numbers and patterns in this data.`
+        content: restaurantDataContext
       });
     }
 

@@ -63,6 +63,7 @@ export const useChatWithApi = () => {
       }
       
       // Using the chat-with-gemini endpoint which will automatically fall back to chat-with-api if needed
+      console.log("Invoking chat-with-gemini function...");
       const { data, error } = await supabase.functions.invoke('chat-with-gemini', {
         body: { 
           messages: [...messages, userMessage].map(m => ({ 
@@ -82,7 +83,7 @@ export const useChatWithApi = () => {
         throw new Error("No data returned from function");
       }
 
-      console.log("Response data:", data);
+      console.log("Response data from AI:", data);
       
       // Extract the assistant message from the response
       const assistantMessage = data.choices?.[0]?.message;
