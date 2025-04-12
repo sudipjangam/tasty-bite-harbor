@@ -116,199 +116,201 @@ const PredictiveAnalytics = () => {
         </Tabs>
       </div>
 
-      <TabsContent value="sales" className="mt-0">
-        <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            {salesForecasts.length > 0 && (
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-medium">
-                  {forecastDays}-Day Forecast
-                </h3>
-                <Badge variant={trendIsPositive ? "success" : "destructive"} className="flex items-center">
-                  {trendIsPositive ? <ArrowUp className="h-3 w-3 mr-1" /> : <ArrowDown className="h-3 w-3 mr-1" />}
-                  {Math.abs(salesTrend).toFixed(1)}%
-                </Badge>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-0">
+        <TabsContent value="sales">
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              {salesForecasts.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-medium">
+                    {forecastDays}-Day Forecast
+                  </h3>
+                  <Badge variant={trendIsPositive ? "success" : "destructive"} className="flex items-center">
+                    {trendIsPositive ? <ArrowUp className="h-3 w-3 mr-1" /> : <ArrowDown className="h-3 w-3 mr-1" />}
+                    {Math.abs(salesTrend).toFixed(1)}%
+                  </Badge>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant={forecastDays === 7 ? "default" : "outline"} 
+                size="sm"
+                onClick={() => setForecastDays(7)}
+                disabled={isLoadingSales}
+              >
+                7 Days
+              </Button>
+              <Button 
+                variant={forecastDays === 14 ? "default" : "outline"} 
+                size="sm"
+                onClick={() => setForecastDays(14)}
+                disabled={isLoadingSales}
+              >
+                14 Days
+              </Button>
+              <Button 
+                variant={forecastDays === 30 ? "default" : "outline"} 
+                size="sm"
+                onClick={() => setForecastDays(30)}
+                disabled={isLoadingSales}
+              >
+                30 Days
+              </Button>
+            </div>
+          </div>
+
+          {isLoadingSales ? (
+            <div className="flex justify-center items-center p-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2">Loading AI predictions...</span>
+            </div>
+          ) : salesForecasts.length > 0 ? (
+            <div>
+              <div className="h-64 md:h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={salesForecasts}
+                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0.2}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fill: 'var(--color-foreground)' }}
+                      tickFormatter={(date) => {
+                        const d = new Date(date);
+                        return `${d.getDate()}/${d.getMonth() + 1}`;
+                      }}
+                    />
+                    <YAxis 
+                      tick={{ fill: 'var(--color-foreground)' }}
+                      tickFormatter={(value) => formatCurrency(value)}
+                    />
+                    <Tooltip
+                      formatter={(value: number) => [formatCurrency(value), "Predicted Revenue"]}
+                      labelFormatter={(date) => {
+                        const d = new Date(date);
+                        return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                      }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="predicted_revenue" 
+                      stroke="var(--color-primary)" 
+                      fillOpacity={1} 
+                      fill="url(#colorRevenue)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button 
-              variant={forecastDays === 7 ? "default" : "outline"} 
-              size="sm"
-              onClick={() => setForecastDays(7)}
-              disabled={isLoadingSales}
-            >
-              7 Days
-            </Button>
-            <Button 
-              variant={forecastDays === 14 ? "default" : "outline"} 
-              size="sm"
-              onClick={() => setForecastDays(14)}
-              disabled={isLoadingSales}
-            >
-              14 Days
-            </Button>
-            <Button 
-              variant={forecastDays === 30 ? "default" : "outline"} 
-              size="sm"
-              onClick={() => setForecastDays(30)}
-              disabled={isLoadingSales}
-            >
-              30 Days
-            </Button>
-          </div>
-        </div>
 
-        {isLoadingSales ? (
-          <div className="flex justify-center items-center p-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="ml-2">Loading AI predictions...</span>
-          </div>
-        ) : salesForecasts.length > 0 ? (
-          <div>
-            <div className="h-64 md:h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={salesForecasts}
-                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0.2}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                  <XAxis 
-                    dataKey="date" 
-                    tick={{ fill: 'var(--color-foreground)' }}
-                    tickFormatter={(date) => {
-                      const d = new Date(date);
-                      return `${d.getDate()}/${d.getMonth() + 1}`;
-                    }}
-                  />
-                  <YAxis 
-                    tick={{ fill: 'var(--color-foreground)' }}
-                    tickFormatter={(value) => formatCurrency(value)}
-                  />
-                  <Tooltip
-                    formatter={(value: number) => [formatCurrency(value), "Predicted Revenue"]}
-                    labelFormatter={(date) => {
-                      const d = new Date(date);
-                      return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-                    }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="predicted_revenue" 
-                    stroke="var(--color-primary)" 
-                    fillOpacity={1} 
-                    fill="url(#colorRevenue)" 
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-              {salesForecasts.slice(0, 3).map((forecast, index) => (
-                <Card key={index} className="p-4 bg-card/50">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(forecast.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-                      </p>
-                      <p className="text-2xl font-semibold mt-1">{formatCurrency(forecast.predicted_revenue)}</p>
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                {salesForecasts.slice(0, 3).map((forecast, index) => (
+                  <Card key={index} className="p-4 bg-card/50">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(forecast.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                        </p>
+                        <p className="text-2xl font-semibold mt-1">{formatCurrency(forecast.predicted_revenue)}</p>
+                      </div>
+                      <Badge variant="outline" className="bg-primary/10">
+                        {forecast.confidence}% confidence
+                      </Badge>
                     </div>
-                    <Badge variant="outline" className="bg-primary/10">
-                      {forecast.confidence}% confidence
-                    </Badge>
-                  </div>
-                  <div className="mt-2">
-                    <p className="text-sm font-medium">Key factors:</p>
-                    <ul className="text-xs text-muted-foreground mt-1">
-                      {forecast.factors.map((factor, idx) => (
-                        <li key={idx} className="flex items-center gap-1">• {factor}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center p-8 text-center">
-            <AlertTriangle className="h-12 w-12 text-amber-500 mb-2" />
-            <h3 className="text-lg font-medium">No forecast data available</h3>
-            <p className="text-muted-foreground mt-1">
-              We couldn't generate predictions at this time. This could be due to insufficient historical data.
-            </p>
-          </div>
-        )}
-      </TabsContent>
-
-      <TabsContent value="inventory" className="mt-0">
-        <div className="mb-4">
-          <h3 className="text-lg font-medium">Intelligent Inventory Recommendations</h3>
-          <p className="text-sm text-muted-foreground">
-            AI-powered suggestions to optimize your inventory and prevent stockouts
-          </p>
-        </div>
-
-        {isLoadingInventory ? (
-          <div className="flex justify-center items-center p-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="ml-2">Analyzing inventory data...</span>
-          </div>
-        ) : inventoryRecommendations.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left px-4 py-2">Item</th>
-                  <th className="text-right px-4 py-2">Current Stock</th>
-                  <th className="text-right px-4 py-2">Order Recommendation</th>
-                  <th className="text-right px-4 py-2">Days Until Stockout</th>
-                  <th className="text-left px-4 py-2">Reason</th>
-                </tr>
-              </thead>
-              <tbody>
-                {inventoryRecommendations.map((item, index) => (
-                  <tr key={index} className={index % 2 === 0 ? 'bg-muted/50' : ''}>
-                    <td className="px-4 py-3 font-medium">{item.name}</td>
-                    <td className="text-right px-4 py-3">
-                      <Badge variant={item.current_stock <= 0 ? "destructive" : "outline"} className="font-mono">
-                        {item.current_stock}
-                      </Badge>
-                    </td>
-                    <td className="text-right px-4 py-3 font-medium">
-                      {item.recommended_order}
-                    </td>
-                    <td className="text-right px-4 py-3">
-                      <Badge 
-                        variant={
-                          item.days_until_stockout <= 1 ? "destructive" : 
-                          item.days_until_stockout <= 3 ? "warning" : "outline"
-                        }
-                      >
-                        {item.days_until_stockout} days
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{item.reason}</td>
-                  </tr>
+                    <div className="mt-2">
+                      <p className="text-sm font-medium">Key factors:</p>
+                      <ul className="text-xs text-muted-foreground mt-1">
+                        {forecast.factors.map((factor, idx) => (
+                          <li key={idx} className="flex items-center gap-1">• {factor}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </Card>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center p-8 text-center">
-            <Package className="h-12 w-12 text-muted-foreground mb-2" />
-            <h3 className="text-lg font-medium">No inventory recommendations</h3>
-            <p className="text-muted-foreground mt-1">
-              Your inventory levels appear to be optimal, or we don't have enough data to make recommendations.
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center p-8 text-center">
+              <AlertTriangle className="h-12 w-12 text-amber-500 mb-2" />
+              <h3 className="text-lg font-medium">No forecast data available</h3>
+              <p className="text-muted-foreground mt-1">
+                We couldn't generate predictions at this time. This could be due to insufficient historical data.
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="inventory">
+          <div className="mb-4">
+            <h3 className="text-lg font-medium">Intelligent Inventory Recommendations</h3>
+            <p className="text-sm text-muted-foreground">
+              AI-powered suggestions to optimize your inventory and prevent stockouts
             </p>
           </div>
-        )}
-      </TabsContent>
+
+          {isLoadingInventory ? (
+            <div className="flex justify-center items-center p-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2">Analyzing inventory data...</span>
+            </div>
+          ) : inventoryRecommendations.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left px-4 py-2">Item</th>
+                    <th className="text-right px-4 py-2">Current Stock</th>
+                    <th className="text-right px-4 py-2">Order Recommendation</th>
+                    <th className="text-right px-4 py-2">Days Until Stockout</th>
+                    <th className="text-left px-4 py-2">Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inventoryRecommendations.map((item, index) => (
+                    <tr key={index} className={index % 2 === 0 ? 'bg-muted/50' : ''}>
+                      <td className="px-4 py-3 font-medium">{item.name}</td>
+                      <td className="text-right px-4 py-3">
+                        <Badge variant={item.current_stock <= 0 ? "destructive" : "outline"} className="font-mono">
+                          {item.current_stock}
+                        </Badge>
+                      </td>
+                      <td className="text-right px-4 py-3 font-medium">
+                        {item.recommended_order}
+                      </td>
+                      <td className="text-right px-4 py-3">
+                        <Badge 
+                          variant={
+                            item.days_until_stockout <= 1 ? "destructive" : 
+                            item.days_until_stockout <= 3 ? "warning" : "outline"
+                          }
+                        >
+                          {item.days_until_stockout} days
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">{item.reason}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center p-8 text-center">
+              <Package className="h-12 w-12 text-muted-foreground mb-2" />
+              <h3 className="text-lg font-medium">No inventory recommendations</h3>
+              <p className="text-muted-foreground mt-1">
+                Your inventory levels appear to be optimal, or we don't have enough data to make recommendations.
+              </p>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </Card>
   );
 };

@@ -13,6 +13,7 @@ import { RefreshCw, AlertTriangle } from "lucide-react";
 
 const BusinessDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState("insights"); // Add state for active tab
   const queryClient = useQueryClient();
 
   const { data: profile, isLoading: profileLoading, error: profileError } = useQuery({
@@ -95,7 +96,7 @@ const BusinessDashboard = () => {
       </div>
       
       <div className="grid grid-cols-1 gap-6">
-        <Tabs defaultValue="insights" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-4">
             <TabsTrigger value="insights">Smart Insights</TabsTrigger>
             <TabsTrigger value="promotions">Promotional Campaigns</TabsTrigger>

@@ -41,7 +41,6 @@ const Rooms = () => {
   return (
     <div className="container mx-auto py-8">
       <Tabs 
-        defaultValue="rooms" 
         value={activeTab} 
         onValueChange={setActiveTab} 
         className="w-full"
