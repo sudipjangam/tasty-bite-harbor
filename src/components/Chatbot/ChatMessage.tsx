@@ -2,6 +2,7 @@
 import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { Bot, User } from "lucide-react";
 
 type ChatMessageProps = {
   message: {
@@ -16,30 +17,30 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
   return (
     <div
       className={cn(
-        "flex w-full gap-2 py-2",
+        "flex w-full gap-3 py-2",
         isUser ? "justify-end" : "justify-start"
       )}
     >
       {!isUser && (
-        <Avatar className="h-8 w-8">
+        <Avatar className="h-8 w-8 bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-300">
           <AvatarImage src="/placeholder.svg" />
-          <AvatarFallback className="bg-primary text-primary-foreground">AI</AvatarFallback>
+          <AvatarFallback><Bot className="h-4 w-4" /></AvatarFallback>
         </Avatar>
       )}
       <div
         className={cn(
-          "rounded-lg px-3 py-2 max-w-[80%]",
+          "rounded-lg px-4 py-2 max-w-[80%] shadow-sm",
           isUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-muted"
+            ? "bg-purple-600 text-white"
+            : "bg-muted text-foreground"
         )}
       >
-        <p className="text-sm">{message.content}</p>
+        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
       </div>
       {isUser && (
-        <Avatar className="h-8 w-8">
+        <Avatar className="h-8 w-8 bg-purple-600 text-white">
           <AvatarImage src="/placeholder.svg" />
-          <AvatarFallback className="bg-purple-600 text-white">You</AvatarFallback>
+          <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
         </Avatar>
       )}
     </div>

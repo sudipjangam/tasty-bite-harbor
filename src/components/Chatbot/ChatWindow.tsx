@@ -49,29 +49,34 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     return (
       <div className="flex flex-col h-full w-full">
         <div className="flex items-center justify-between border-b p-3 bg-purple-600 text-white rounded-t-lg">
-          <h3 className="font-semibold">Restaurant AI Assistant</h3>
+          <h3 className="font-semibold flex items-center gap-2">
+            <div className="bg-white/20 p-1 rounded">
+              <Loader2 className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </div>
+            Restaurant AI Assistant
+          </h3>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-background min-h-[400px]">
+        <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-background min-h-[500px]">
           {messages.map((message, index) => (
             <ChatMessage key={index} message={message} />
           ))}
           {isLoading && (
             <div className="flex items-center gap-2 py-2">
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
               <p className="text-sm text-muted-foreground">Assistant is thinking...</p>
             </div>
           )}
           {isUploading && (
             <div className="flex items-center gap-2 py-2">
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
               <p className="text-sm text-muted-foreground">Uploading and processing file...</p>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
         
-        <div className="border-t p-2 bg-background">
+        <div className="p-2 bg-background border-t">
           <FileUploadButton 
             fileInputRef={fileInputRef} 
             onFileUpload={onFileUpload} 
@@ -90,7 +95,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   return (
     <div className={chatWindowClasses}>
       <div className="flex items-center justify-between border-b p-3 bg-purple-600 text-white rounded-t-lg">
-        <h3 className="font-semibold">Restaurant Assistant</h3>
+        <h3 className="font-semibold flex items-center gap-2">
+          <div className="bg-white/20 p-1 rounded">
+            <Loader2 className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </div>
+          Restaurant Assistant
+        </h3>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -117,20 +127,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         ))}
         {isLoading && (
           <div className="flex items-center gap-2 py-2">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
             <p className="text-sm text-muted-foreground">Assistant is thinking...</p>
           </div>
         )}
         {isUploading && (
           <div className="flex items-center gap-2 py-2">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
             <p className="text-sm text-muted-foreground">Uploading and processing file...</p>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
       
-      <div className="border-t p-2 bg-background">
+      <div className="p-2 bg-background border-t">
         <FileUploadButton 
           fileInputRef={fileInputRef} 
           onFileUpload={onFileUpload} 

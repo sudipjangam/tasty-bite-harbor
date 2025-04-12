@@ -21,15 +21,16 @@ const FileUploadButton: React.FC<FileUploadButtonProps> = ({
         <Button 
           variant="outline" 
           size="sm" 
-          className="mb-2 text-xs"
+          className="mb-2 text-xs bg-muted/50 hover:bg-muted w-full flex justify-center gap-1"
           disabled={isDisabled}
         >
-          <Upload className="h-3 w-3 mr-1" /> Upload File for Analysis
+          <Upload className="h-3 w-3" /> Upload File for Analysis
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-2 bg-white dark:bg-slate-800 border shadow-md">
-        <div className="text-sm text-muted-foreground mb-2">
-          Upload a file for AI analysis (CSV, Excel, PDF, images)
+      <PopoverContent className="w-auto p-3 bg-white dark:bg-slate-800 border shadow-md">
+        <div className="text-sm font-medium mb-2">Upload a file for AI analysis</div>
+        <div className="text-xs text-muted-foreground mb-3">
+          Supported formats: CSV, Excel, PDF, images
         </div>
         <input
           type="file"
