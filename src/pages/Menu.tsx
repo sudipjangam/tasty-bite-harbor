@@ -28,7 +28,9 @@ const Menu = () => {
             </div>
           </div>
         }>
-          <MenuGrid />
+          <div className="overflow-x-auto">
+            <MenuGrid />
+          </div>
         </Suspense>
       </Card>
     </div>

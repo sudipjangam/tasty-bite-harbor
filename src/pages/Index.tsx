@@ -41,7 +41,7 @@ const Index = () => {
   });
 
   return (
-    <div className="space-y-6 animate-fade-in px-4 md:px-6">
+    <div className="space-y-6 animate-fade-in px-4 md:px-6 max-w-full overflow-hidden">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
           Dashboard Overview
@@ -75,7 +75,9 @@ const Index = () => {
         <h2 className="text-xl font-semibold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
           Recent Orders
         </h2>
-        <OrderList orders={orders} onOrdersChange={refetch} />
+        <div className="overflow-x-auto">
+          <OrderList orders={orders} onOrdersChange={refetch} />
+        </div>
       </div>
 
       <Chatbot />

@@ -47,12 +47,14 @@ const Rooms = () => {
         onValueChange={setActiveTab} 
         className="w-full"
       >
-        <TabsList className="mb-6 w-full overflow-x-auto flex justify-start md:justify-center space-x-1 p-1">
-          <TabsTrigger value="rooms" className="flex-1 md:flex-none whitespace-nowrap">Rooms</TabsTrigger>
-          <TabsTrigger value="billing" className="flex-1 md:flex-none whitespace-nowrap">Billing History</TabsTrigger>
-          <TabsTrigger value="occasions" className="flex-1 md:flex-none whitespace-nowrap">Special Occasions</TabsTrigger>
-          <TabsTrigger value="promotions" className="flex-1 md:flex-none whitespace-nowrap">Promotions</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto pb-2">
+          <TabsList className="mb-6 inline-flex w-auto min-w-full md:w-auto space-x-1 p-1">
+            <TabsTrigger value="rooms" className="whitespace-nowrap">Rooms</TabsTrigger>
+            <TabsTrigger value="billing" className="whitespace-nowrap">Billing History</TabsTrigger>
+            <TabsTrigger value="occasions" className="whitespace-nowrap">Special Occasions</TabsTrigger>
+            <TabsTrigger value="promotions" className="whitespace-nowrap">Promotions</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="rooms" className="mt-2">
           <RoomsList 

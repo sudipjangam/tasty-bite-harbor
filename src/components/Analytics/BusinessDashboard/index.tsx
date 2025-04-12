@@ -99,11 +99,14 @@ const BusinessDashboard = () => {
       
       <div className="grid grid-cols-1 gap-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className={`${isMobile ? 'flex flex-wrap gap-1' : 'grid grid-cols-3'} w-full mb-4`}>
-            <TabsTrigger value="insights" className="whitespace-nowrap">Smart Insights</TabsTrigger>
-            <TabsTrigger value="promotions" className="whitespace-nowrap">Promotional Campaigns</TabsTrigger>
-            <TabsTrigger value="documents" className="whitespace-nowrap">Document Repository</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto pb-2">
+            <TabsList className="inline-flex w-auto min-w-full md:w-auto mb-4">
+              <TabsTrigger value="insights" className="whitespace-nowrap">Smart Insights</TabsTrigger>
+              <TabsTrigger value="promotions" className="whitespace-nowrap">Promotional Campaigns</TabsTrigger>
+              <TabsTrigger value="documents" className="whitespace-nowrap">Document Repository</TabsTrigger>
+            </TabsList>
+          </div>
+          
           <TabsContent value="insights" className="space-y-4">
             <SmartInsights />
           </TabsContent>

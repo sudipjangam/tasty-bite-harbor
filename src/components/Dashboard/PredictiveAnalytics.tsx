@@ -97,27 +97,30 @@ const PredictiveAnalytics = () => {
   };
 
   return (
-    <Card className="p-6 bg-gradient-to-br from-card/50 to-background/50 backdrop-blur-xl border border-primary/10">
+    <Card className="p-4 md:p-6 bg-gradient-to-br from-card/50 to-background/50 backdrop-blur-xl border border-primary/10">
       <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h2 className="text-xl font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
           AI-Powered Predictions
         </h2>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="sales">
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Sales Forecast
-            </TabsTrigger>
-            <TabsTrigger value="inventory">
-              <Package className="h-4 w-4 mr-2" />
-              Inventory
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        
+        <div className="w-full sm:w-auto overflow-x-auto pb-1">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="sales" className="flex items-center whitespace-nowrap">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Sales Forecast
+              </TabsTrigger>
+              <TabsTrigger value="inventory" className="flex items-center whitespace-nowrap">
+                <Package className="h-4 w-4 mr-2" />
+                Inventory
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-0">
-        <TabsContent value="sales">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsContent value="sales" className="mt-0">
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               {salesForecasts.length > 0 && (
@@ -132,7 +135,7 @@ const PredictiveAnalytics = () => {
                 </div>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button 
                 variant={forecastDays === 7 ? "default" : "outline"} 
                 size="sm"
