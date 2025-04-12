@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -138,14 +139,14 @@ const Sidebar = () => {
   return (
     <>
       {mobileToggle}
-      <SidebarComponent>
+      <SidebarComponent className="bg-sidebar-purple">
         <SidebarHeader className="border-b border-sidebar-border p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                <Utensils className="h-4 w-4 text-primary-foreground" />
+              <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
+                <Utensils className="h-4 w-4 text-sidebar-purple" />
               </div>
-              <h1 className="text-lg font-bold text-sidebar-foreground">Restaurant</h1>
+              <h1 className="text-lg font-bold text-white">RMS Pro</h1>
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
@@ -153,7 +154,7 @@ const Sidebar = () => {
                 onClick={() => setOpenMobile(false)}
                 variant="ghost"
                 size="icon"
-                className="lg:hidden"
+                className="lg:hidden text-white hover:bg-sidebar-purple-dark"
               >
                 <X className="h-5 w-5" />
               </Button>
@@ -169,6 +170,10 @@ const Sidebar = () => {
                   asChild 
                   isActive={location.pathname === item.href}
                   tooltip={item.name}
+                  className={location.pathname === item.href 
+                    ? "bg-white text-sidebar-purple hover:bg-white hover:text-sidebar-purple" 
+                    : "text-white hover:bg-sidebar-purple-dark"
+                  }
                 >
                   <NavLink to={item.href} className="flex items-center space-x-2">
                     <item.icon className="h-4 w-4" />
@@ -182,14 +187,14 @@ const Sidebar = () => {
 
         <SidebarFooter className="border-t border-sidebar-border p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-sidebar-accent flex items-center justify-center text-sidebar-accent-foreground font-medium">
+            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-sidebar-purple font-medium">
               {staffName ? staffName.charAt(0) : "?"}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate text-sidebar-foreground">
+              <p className="text-sm font-medium truncate text-white">
                 {staffName || "Loading..."}
               </p>
-              <p className="text-xs text-muted-foreground truncate">
+              <p className="text-xs text-white/70 truncate">
                 Staff Member
               </p>
             </div>
@@ -198,6 +203,7 @@ const Sidebar = () => {
               size="icon"
               onClick={handleSignOut}
               title="Sign Out"
+              className="text-white hover:bg-sidebar-purple-dark"
             >
               <LogOut className="h-4 w-4" />
             </Button>

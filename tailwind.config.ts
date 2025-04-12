@@ -69,6 +69,14 @@ export default {
         "brand-warm-orange": "#F6AD55",
         "brand-light-grey": "#F7FAFC",
         "brand-dark-grey": "#1A202C",
+        // New colors from the screenshot
+        "sidebar-purple": "#3f3698",
+        "sidebar-purple-dark": "#2f2b7a",
+        "card-light-bg": "#f8f9fc",
+        "insights-bg": "#f0f4ff",
+        "insights-border": "#dbe4fe",
+        "stat-card-bg": "#ffffff",
+        "chart-area-bg": "#f8f9fc",
       },
       borderRadius: {
         lg: "var(--radius)",

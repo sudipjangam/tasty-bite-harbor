@@ -1,13 +1,14 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 220 33% 98%;  /* #F7FAFC */
+    --background: 220 33% 98%;  /* #F7FAFC - light background */
     --foreground: 222 47% 11%;  /* #1A202C */
 
-    --card: 0 0% 100%;
+    --card: 0 0% 100%;  /* White */
     --card-foreground: 222 47% 11%;  /* #1A202C */
     
     --card-glass: 0 0% 100%;
@@ -19,7 +20,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 220 24% 23%;  /* #2D3748 */
+    --primary: 247 61% 39%;  /* #3f3698 - sidebar purple */
     --primary-foreground: 210 40% 98%;
 
     --secondary: 153 55% 50%;  /* #48BB78 */
@@ -42,14 +43,14 @@
 
     --radius: 0.5rem;
 
-    --sidebar-background: 220 24% 23%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 153 55% 50%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 220 13% 17%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 220 13% 17%;
-    --sidebar-ring: 153 55% 50%;
+    --sidebar-background: 247 61% 39%;  /* #3f3698 - sidebar purple */
+    --sidebar-foreground: 0 0% 100%;  /* White text */
+    --sidebar-primary: 0 0% 100%;  /* White for active items */
+    --sidebar-primary-foreground: 247 61% 39%;  /* Sidebar purple */
+    --sidebar-accent: 249 48% 33%;  /* #2f2b7a - darker purple */
+    --sidebar-accent-foreground: 0 0% 100%;  /* White text */
+    --sidebar-border: 249 48% 33%;  /* #2f2b7a - darker purple */
+    --sidebar-ring: 0 0% 100%;  /* White ring */
   }
 
   .dark {
@@ -68,7 +69,7 @@
     --popover: 222 47% 11%;
     --popover-foreground: 220 33% 98%;
 
-    --primary: 220 24% 60%;  /* Lighter version of #2D3748 for dark mode */
+    --primary: 247 61% 29%;  /* Darker version of sidebar purple */
     --primary-foreground: 210 40% 98%;
 
     --secondary: 153 55% 45%;  /* Slightly darker version of #48BB78 for dark mode */
@@ -89,14 +90,14 @@
     
     --toast-background: 217 33% 18%;
 
-    --sidebar-background: 222 47% 11%;
+    --sidebar-background: 249 48% 23%;  /* Darker sidebar purple */
     --sidebar-foreground: 220 33% 98%;
-    --sidebar-primary: 153 55% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 33% 18%;
+    --sidebar-primary: 220 33% 98%;
+    --sidebar-primary-foreground: 249 48% 23%;
+    --sidebar-accent: 247 61% 29%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 25%; /* Brighter border */
-    --sidebar-ring: 153 55% 50%;
+    --sidebar-border: 247 61% 19%;
+    --sidebar-ring: 220 33% 98%;
   }
 }
 
@@ -137,7 +138,7 @@
   }
   
   .chart-container {
-    @apply bg-white dark:bg-brand-deep-blue/80 backdrop-blur-sm border border-border/50 rounded-lg p-4 shadow-card;
+    @apply bg-chart-area-bg dark:bg-brand-deep-blue/80 backdrop-blur-sm border border-border/50 rounded-lg p-4 shadow-card;
   }
   
   .toast-card {
@@ -145,7 +146,7 @@
   }
   
   .btn-primary {
-    @apply bg-brand-deep-blue text-white hover:bg-brand-deep-blue/90 transition-colors;
+    @apply bg-primary text-white hover:bg-primary/90 transition-colors;
   }
   
   .btn-success {
@@ -154,6 +155,14 @@
   
   .btn-accent {
     @apply bg-brand-warm-orange text-brand-dark-grey hover:bg-brand-warm-orange/90 transition-colors;
+  }
+  
+  .insights-card {
+    @apply bg-insights-bg border border-insights-border rounded-lg p-4;
+  }
+  
+  .stat-card {
+    @apply bg-stat-card-bg border border-border/50 rounded-lg p-4 shadow-card;
   }
 }
 

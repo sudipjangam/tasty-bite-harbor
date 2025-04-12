@@ -8,16 +8,16 @@ const MenuGrid = lazy(() => import("@/components/Menu/MenuGrid"));
 
 const Menu = () => {
   return (
-    <div className="p-4 md:p-6 animate-fade-in">
-      <Card variant="glass" className="p-4 md:p-6 mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+    <div className="p-4 md:p-6 animate-fade-in bg-background">
+      <Card className="p-4 md:p-6 mb-6 bg-white border border-border/50 shadow-sm">
+        <h1 className="text-2xl md:text-3xl font-bold text-primary">
           Restaurant Menu
         </h1>
         <p className="text-muted-foreground mt-1">
           Manage your restaurant's menu items
         </p>
       </Card>
-      <Card variant="default" className="p-4 md:p-6 rounded-xl">
+      <Card className="p-4 md:p-6 rounded-xl bg-white border border-border/50 shadow-sm">
         <Suspense fallback={
           <div className="space-y-4">
             <Skeleton className="h-12 w-full" />

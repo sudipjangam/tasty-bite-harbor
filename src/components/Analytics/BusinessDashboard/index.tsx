@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { RefreshCw, AlertTriangle } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Card } from "@/components/ui/card";
 
 const BusinessDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
@@ -83,27 +84,30 @@ const BusinessDashboard = () => {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in p-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-xl font-semibold">Business Intelligence Dashboard</h2>
-        <Button 
-          variant="outline"
-          size="sm"
-          onClick={refreshData}
-          disabled={refreshing}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Refreshing...' : 'Refresh Data'}
-        </Button>
-      </div>
+    <div className="space-y-6 animate-fade-in p-4 bg-background">
+      <Card className="p-4 shadow-sm border border-border/50 bg-white">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h2 className="text-xl font-semibold text-primary">Business Intelligence Dashboard</h2>
+          <Button 
+            variant="outline"
+            size="sm"
+            onClick={refreshData}
+            disabled={refreshing}
+            className="border-primary/30 text-primary hover:bg-primary/10"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh Data'}
+          </Button>
+        </div>
+      </Card>
       
       <div className="grid grid-cols-1 gap-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="overflow-x-auto pb-2">
-            <TabsList className="inline-flex w-auto min-w-full md:w-auto mb-4">
-              <TabsTrigger value="insights" className="whitespace-nowrap">Smart Insights</TabsTrigger>
-              <TabsTrigger value="promotions" className="whitespace-nowrap">Promotional Campaigns</TabsTrigger>
-              <TabsTrigger value="documents" className="whitespace-nowrap">Document Repository</TabsTrigger>
+            <TabsList className="inline-flex w-auto min-w-full md:w-auto mb-4 bg-card-light-bg">
+              <TabsTrigger value="insights" className="whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">Smart Insights</TabsTrigger>
+              <TabsTrigger value="promotions" className="whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">Promotional Campaigns</TabsTrigger>
+              <TabsTrigger value="documents" className="whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">Document Repository</TabsTrigger>
             </TabsList>
           </div>
           

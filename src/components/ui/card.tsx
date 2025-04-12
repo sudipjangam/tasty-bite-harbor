@@ -5,12 +5,13 @@ import { cn } from "@/lib/utils"
 
 const Card = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & { variant?: "default" | "glass" | "accent" }
+  React.HTMLAttributes<HTMLDivElement> & { variant?: "default" | "glass" | "accent" | "insights" }
 >(({ className, variant = "default", ...props }, ref) => {
   const variantClasses = {
     default: "bg-white dark:bg-brand-deep-blue/80 text-card-foreground shadow-card border border-border/30",
     glass: "card-glass",
-    accent: "card-accent"
+    accent: "card-accent",
+    insights: "insights-card"
   };
   
   return (

@@ -31,16 +31,16 @@ export function ThemeToggle() {
 
   return (
     <Button
-      variant="outline"
+      variant="ghost"
       size="icon"
       onClick={toggleTheme}
       aria-label="Toggle theme"
-      className="rounded-full w-10 h-10 transition-all duration-300 hover:bg-secondary/20 bg-white/90 dark:bg-gray-800/90 border-gray-200 dark:border-gray-700 shadow-sm"
+      className="rounded-full w-8 h-8 transition-all duration-300 hover:bg-sidebar-purple-dark bg-transparent text-white"
     >
       {theme === "dark" ? (
-        <Sun className="h-5 w-5 text-brand-warm-orange transition-transform duration-300 hover:rotate-45" />
+        <Sun className="h-4 w-4 transition-transform duration-300 hover:rotate-45" />
       ) : (
-        <Moon className="h-5 w-5 text-brand-deep-blue transition-transform duration-300 hover:-rotate-12" />
+        <Moon className="h-4 w-4 transition-transform duration-300 hover:-rotate-12" />
       )}
     </Button>
   );
