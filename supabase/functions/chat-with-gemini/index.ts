@@ -179,7 +179,7 @@ ALWAYS base your answers on this specific data. When asked for a sales overview,
     console.log("Sending request to Gemini API with proper format");
 
     // Make request to Gemini API
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/Gemini 2.0 Flash-Lite:generateContent", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -276,7 +276,7 @@ For each prediction, include a confidence level (0-100) and the key factors that
 `;
 
     // Make request to Gemini API
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/Gemini 2.0 Flash-Lite:generateContent", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -392,7 +392,7 @@ Only include items that need attention - don't include items with sufficient sto
 `;
 
     // Make request to Gemini API
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/Gemini 2.0 Flash-Lite:generateContent", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
