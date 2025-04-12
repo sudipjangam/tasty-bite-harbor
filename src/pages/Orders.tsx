@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,16 +10,18 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Order } from "@/types/orders";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Orders = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const { data: orders, isLoading, refetch } = useQuery({
     queryKey: ["orders"],
     queryFn: async () => {
-      console.log("Fetching orders...");
       const { data: profile } = await supabase
         .from("profiles")
         .select("restaurant_id")
@@ -36,7 +39,6 @@ const Orders = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      console.log("Fetched orders:", data);
       return data as Order[];
     },
   });
@@ -57,7 +59,18 @@ const Orders = () => {
   };
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="p-4 md:p-6 space-y-6">
+        <Skeleton className="h-12 w-3/4" />
+        <Skeleton className="h-8 w-1/2" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Skeleton className="h-24 w-full rounded-lg" />
+          <Skeleton className="h-24 w-full rounded-lg" />
+          <Skeleton className="h-24 w-full rounded-lg" />
+        </div>
+        <Skeleton className="h-64 w-full rounded-lg" />
+      </div>
+    );
   }
 
   const orderStats = {
@@ -67,10 +80,10 @@ const Orders = () => {
   };
 
   return (
-    <div className="p-6 space-y-6 bg-gradient-to-br from-purple-50 to-white dark:from-gray-900 dark:to-gray-800">
-      <div className="flex justify-between items-center">
+    <div className="p-4 md:p-6 space-y-6 bg-gradient-to-br from-purple-50 to-white dark:from-gray-900 dark:to-gray-800">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
             Orders Management
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -123,7 +136,7 @@ const Orders = () => {
       </div>
 
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className={`${isMobile ? 'w-[95%] max-w-lg' : 'max-w-4xl'} max-h-[90vh] overflow-y-auto`}>
           <AddOrderForm
             onSuccess={handleOrderAdded}
             onCancel={() => {

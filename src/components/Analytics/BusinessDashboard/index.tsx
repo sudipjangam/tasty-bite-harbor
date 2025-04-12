@@ -10,10 +10,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { RefreshCw, AlertTriangle } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const BusinessDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState("insights"); // Add state for active tab
+  const [activeTab, setActiveTab] = useState("insights");
+  const isMobile = useIsMobile();
   const queryClient = useQueryClient();
 
   const { data: profile, isLoading: profileLoading, error: profileError } = useQuery({
@@ -49,7 +51,7 @@ const BusinessDashboard = () => {
 
   if (profileLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-4">
         <Skeleton className="h-12 w-full" />
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-64 w-full" />
@@ -59,7 +61,7 @@ const BusinessDashboard = () => {
 
   if (profileError) {
     return (
-      <Alert variant="destructive" className="my-4">
+      <Alert variant="destructive" className="my-4 mx-4">
         <AlertTriangle className="h-4 w-4" />
         <AlertTitle>Error</AlertTitle>
         <AlertDescription>
@@ -81,8 +83,8 @@ const BusinessDashboard = () => {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 animate-fade-in p-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-xl font-semibold">Business Intelligence Dashboard</h2>
         <Button 
           variant="outline"
@@ -97,10 +99,10 @@ const BusinessDashboard = () => {
       
       <div className="grid grid-cols-1 gap-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4">
-            <TabsTrigger value="insights">Smart Insights</TabsTrigger>
-            <TabsTrigger value="promotions">Promotional Campaigns</TabsTrigger>
-            <TabsTrigger value="documents">Document Repository</TabsTrigger>
+          <TabsList className={`${isMobile ? 'flex flex-wrap gap-1' : 'grid grid-cols-3'} w-full mb-4`}>
+            <TabsTrigger value="insights" className="whitespace-nowrap">Smart Insights</TabsTrigger>
+            <TabsTrigger value="promotions" className="whitespace-nowrap">Promotional Campaigns</TabsTrigger>
+            <TabsTrigger value="documents" className="whitespace-nowrap">Document Repository</TabsTrigger>
           </TabsList>
           <TabsContent value="insights" className="space-y-4">
             <SmartInsights />
