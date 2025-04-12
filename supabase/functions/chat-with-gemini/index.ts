@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -113,6 +112,7 @@ serve(async (req) => {
        msg.content.includes('image'))
     );
 
+    // Build the system prompt
     let systemPrompt = "You are a restaurant assistant bot that provides SPECIFIC DATA-DRIVEN ANSWERS based on the restaurant's actual database records. You must ALWAYS analyze the provided restaurant data for insights rather than providing generic information. When asked about sales, inventory, customers, etc., respond with precise numbers and specifics from the data you have access to. DO NOT provide generic overviews that could apply to any restaurant.";
     
     if (restaurantData) {
@@ -159,25 +159,16 @@ ${JSON.stringify(restaurantData.menuItems.slice(0, 10), null, 2)}
 ALWAYS base your answers on this specific data. When asked for a sales overview, calculate totals, trends, and metrics from the REVENUE STATS and ORDERS data. When asked about inventory, analyze the actual INVENTORY ITEMS data. Your answers should NEVER be generic - they should directly reflect the numbers and patterns in this data.`;
     }
 
-    // Create the payload for the API request
+    // Create the payload for the API request with the new Gemini API format
     const payload = {
-      contents: [
-        {
-          role: "system",
-          parts: [{ text: systemPrompt }]
-        }
-      ]
+      contents: [],
+      systemInstruction: {
+        role: "system",
+        parts: [{ text: systemPrompt + (restaurantDataContext ? "\n\n" + restaurantDataContext : "") }]
+      }
     };
 
-    // Add restaurant data context if available
-    if (restaurantDataContext) {
-      payload.contents.push({
-        role: "system",
-        parts: [{ text: restaurantDataContext }]
-      });
-    }
-
-    // Add user messages
+    // Add user and assistant messages from the conversation history
     for (const message of messages) {
       payload.contents.push({
         role: message.role === "assistant" ? "model" : "user",
@@ -185,7 +176,7 @@ ALWAYS base your answers on this specific data. When asked for a sales overview,
       });
     }
 
-    console.log("Sending request to Gemini API");
+    console.log("Sending request to Gemini API with proper format");
 
     // Make request to Gemini API
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent", {
