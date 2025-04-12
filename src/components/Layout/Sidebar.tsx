@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -119,11 +118,10 @@ const Sidebar = () => {
     { name: "Settings", href: "/settings", icon: Settings, component: "settings" },
   ];
 
-  const navigation = allNavigation.filter(item => 
-    allowedComponents.includes(item.component)
-  );
+  const navigation = allowedComponents.length > 0
+    ? allNavigation.filter(item => allowedComponents.includes(item.component))
+    : allNavigation;
 
-  // Mobile toggle button
   const mobileToggle = (
     <div className="fixed top-4 left-4 z-40 lg:hidden">
       <Button
