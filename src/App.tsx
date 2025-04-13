@@ -17,6 +17,7 @@ import Inventory from "@/pages/Inventory";
 import Suppliers from "@/pages/Suppliers";
 import Staff from "@/pages/Staff";
 import Analytics from "@/pages/Analytics";
+import BusinessDashboard from "./components/Analytics/BusinessDashboard";
 import AI from "@/pages/AI";
 import Customers from "@/pages/Customers";
 import { supabase } from "@/integrations/supabase/client";
@@ -170,6 +171,14 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/business-dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <BusinessDashboard />
+                    </ProtectedRoute>
+                  }
+                /> 
                 <Route
                   path="/ai"
                   element={
