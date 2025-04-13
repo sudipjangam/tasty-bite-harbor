@@ -51,14 +51,31 @@ serve(async (req) => {
         
         console.log(`Fetching data for restaurant ID: ${restaurantId}`);
         
-        // Fetch restaurant data for context
+        // Enhanced: Fetch comprehensive restaurant data from all relevant tables
         const [
           { data: revenueStats },
           { data: customerInsights },
           { data: recentOrders },
           { data: menuItems },
-          { data: inventoryItems }
+          { data: inventoryItems },
+          { data: rooms },
+          { data: reservations },
+          { data: staff },
+          { data: restaurantTables },
+          { data: suppliers },
+          { data: supplierOrders },
+          { data: supplierOrderItems },
+          { data: roomFoodOrders },
+          { data: roomBillings },
+          { data: promotionCampaigns },
+          { data: sentPromotions },
+          { data: staffLeaves },
+          { data: notificationPreferences },
+          { data: subscriptionPlans },
+          { data: restaurantDetails },
+          { data: restaurantSubscriptions }
         ] = await Promise.all([
+          // Financial and operations data
           supabase.from("daily_revenue_stats").select("*")
             .eq("restaurant_id", restaurantId)
             .order("date", { ascending: false })
@@ -74,18 +91,108 @@ serve(async (req) => {
           supabase.from("menu_items").select("*")
             .eq("restaurant_id", restaurantId),
           supabase.from("inventory_items").select("*")
+            .eq("restaurant_id", restaurantId),
+            
+          // Room management
+          supabase.from("rooms").select("*")
+            .eq("restaurant_id", restaurantId),
+          supabase.from("reservations").select("*")
+            .eq("restaurant_id", restaurantId)
+            .order("start_time", { ascending: false })
+            .limit(30),
+            
+          // Staff and tables
+          supabase.from("staff").select("*")
+            .eq("restaurant_id", restaurantId),
+          supabase.from("restaurant_tables").select("*")
+            .eq("restaurant_id", restaurantId),
+            
+          // Suppliers and inventory
+          supabase.from("suppliers").select("*")
+            .eq("restaurant_id", restaurantId),
+          supabase.from("supplier_orders").select("*")
+            .eq("restaurant_id", restaurantId)
+            .order("order_date", { ascending: false })
+            .limit(20),
+          supabase.from("supplier_order_items").select("*")
+            .limit(50),
+            
+          // Room-related orders and billings
+          supabase.from("room_food_orders").select("*")
+            .eq("restaurant_id", restaurantId)
+            .order("created_at", { ascending: false })
+            .limit(30),
+          supabase.from("room_billings").select("*")
+            .eq("restaurant_id", restaurantId)
+            .order("checkout_date", { ascending: false })
+            .limit(30),
+            
+          // Marketing and promotions
+          supabase.from("promotion_campaigns").select("*")
+            .eq("restaurant_id", restaurantId),
+          supabase.from("sent_promotions").select("*")
+            .eq("restaurant_id", restaurantId)
+            .order("sent_date", { ascending: false })
+            .limit(30),
+            
+          // Administrative
+          supabase.from("staff_leaves").select("*")
+            .eq("restaurant_id", restaurantId)
+            .order("start_date", { ascending: false })
+            .limit(20),
+          supabase.from("notification_preferences").select("*")
+            .eq("restaurant_id", restaurantId)
+            .single(),
+          supabase.from("subscription_plans").select("*"),
+            
+          // Restaurant info
+          supabase.from("restaurants").select("*")
+            .eq("id", restaurantId)
+            .single(),
+          supabase.from("restaurant_subscriptions").select("*")
             .eq("restaurant_id", restaurantId)
         ]);
         
         restaurantData = {
+          // Financial and operations
           revenueStats: revenueStats || [],
           customerInsights: customerInsights || [],
           recentOrders: recentOrders || [],
           menuItems: menuItems || [],
           inventoryItems: inventoryItems || [],
+          
+          // Room management
+          rooms: rooms || [],
+          reservations: reservations || [],
+          
+          // Staff and tables
+          staff: staff || [],
+          restaurantTables: restaurantTables || [],
+          
+          // Suppliers and inventory
+          suppliers: suppliers || [],
+          supplierOrders: supplierOrders || [],
+          supplierOrderItems: supplierOrderItems || [],
+          
+          // Room orders and billings
+          roomFoodOrders: roomFoodOrders || [],
+          roomBillings: roomBillings || [],
+          
+          // Marketing and promotions
+          promotionCampaigns: promotionCampaigns || [],
+          sentPromotions: sentPromotions || [],
+          
+          // Administrative
+          staffLeaves: staffLeaves || [],
+          notificationPreferences: notificationPreferences || {},
+          subscriptionPlans: subscriptionPlans || [],
+          
+          // Restaurant info
+          restaurantDetails: restaurantDetails || {},
+          restaurantSubscriptions: restaurantSubscriptions || []
         };
         
-        console.log(`Successfully fetched restaurant data. Found ${revenueStats?.length || 0} revenue records, ${recentOrders?.length || 0} orders, ${inventoryItems?.length || 0} inventory items`);
+        console.log(`Successfully fetched restaurant data from all tables. Found ${revenueStats?.length || 0} revenue records, ${recentOrders?.length || 0} orders, ${inventoryItems?.length || 0} inventory items, ${rooms?.length || 0} rooms, ${staff?.length || 0} staff members, etc.`);
       } catch (error) {
         console.error("Error fetching restaurant data:", error);
       }
@@ -156,6 +263,48 @@ ${JSON.stringify(restaurantData.customerInsights.slice(0, 10), null, 2)}
 
 MENU ITEMS (first 10):
 ${JSON.stringify(restaurantData.menuItems.slice(0, 10), null, 2)}
+
+ROOMS (first 10):
+${JSON.stringify(restaurantData.rooms?.slice(0, 10), null, 2)}
+
+RESERVATIONS (last 10):
+${JSON.stringify(restaurantData.reservations?.slice(0, 10), null, 2)}
+
+STAFF MEMBERS (first 10):
+${JSON.stringify(restaurantData.staff?.slice(0, 10), null, 2)}
+
+RESTAURANT TABLES (first 10):
+${JSON.stringify(restaurantData.restaurantTables?.slice(0, 10), null, 2)}
+
+SUPPLIER INFORMATION (first 5):
+${JSON.stringify(restaurantData.suppliers?.slice(0, 5), null, 2)}
+
+RECENT SUPPLIER ORDERS (last 5):
+${JSON.stringify(restaurantData.supplierOrders?.slice(0, 5), null, 2)}
+
+ROOM FOOD ORDERS (last 5):
+${JSON.stringify(restaurantData.roomFoodOrders?.slice(0, 5), null, 2)}
+
+RECENT ROOM BILLINGS (last 5):
+${JSON.stringify(restaurantData.roomBillings?.slice(0, 5), null, 2)}
+
+PROMOTION CAMPAIGNS (first 5):
+${JSON.stringify(restaurantData.promotionCampaigns?.slice(0, 5), null, 2)}
+
+RECENT SENT PROMOTIONS (last 5):
+${JSON.stringify(restaurantData.sentPromotions?.slice(0, 5), null, 2)}
+
+STAFF LEAVES (last 5):
+${JSON.stringify(restaurantData.staffLeaves?.slice(0, 5), null, 2)}
+
+NOTIFICATION PREFERENCES:
+${JSON.stringify(restaurantData.notificationPreferences, null, 2)}
+
+RESTAURANT DETAILS:
+${JSON.stringify(restaurantData.restaurantDetails, null, 2)}
+
+RESTAURANT SUBSCRIPTION:
+${JSON.stringify(restaurantData.restaurantSubscriptions?.slice(0, 1), null, 2)}
 
 ALWAYS base your answers on this specific data. When asked for a sales overview, calculate totals, trends, and metrics from the REVENUE STATS and ORDERS data. When asked about inventory, analyze the actual INVENTORY ITEMS data. Your answers should NEVER be generic - they should directly reflect the numbers and patterns in this data.`;
     }

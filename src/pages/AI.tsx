@@ -2,7 +2,7 @@
 import { Suspense } from "react";
 import { Card } from "@/components/ui/card";
 import Chatbot from "@/components/Chatbot/Chatbot";
-import { Bot, Brain, ChefHat, LineChart, ShoppingCart } from "lucide-react";
+import { Bot, Brain, ChefHat, Database, LineChart, ShoppingCart } from "lucide-react";
 
 const AI = () => {
   return (
@@ -12,7 +12,7 @@ const AI = () => {
           AI Restaurant Assistant
         </h1>
         <p className="text-muted-foreground mt-1">
-          Get instant insights and answers about your restaurant data
+          Get comprehensive insights across all your restaurant data
         </p>
       </Card>
       
@@ -27,6 +27,56 @@ const AI = () => {
         
         <div className="lg:col-span-1">
           <Card variant="default" className="p-4 md:p-6 rounded-xl mb-6">
+            <div className="flex items-center mb-3">
+              <Database className="h-5 w-5 mr-2 text-purple-500" />
+              <h3 className="text-lg font-medium">Comprehensive Data Access</h3>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              Your AI assistant has full access to all your restaurant data tables including:
+            </p>
+            <div className="grid grid-cols-2 gap-1 text-xs mb-4">
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
+                <span>Orders</span>
+              </div>
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
+                <span>Inventory</span>
+              </div>
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
+                <span>Menu Items</span>
+              </div>
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
+                <span>Revenue</span>
+              </div>
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
+                <span>Rooms</span>
+              </div>
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
+                <span>Reservations</span>
+              </div>
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
+                <span>Staff</span>
+              </div>
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
+                <span>Customers</span>
+              </div>
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
+                <span>Suppliers</span>
+              </div>
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
+                <span>And more...</span>
+              </div>
+            </div>
+            
             <div className="flex items-center mb-3">
               <Brain className="h-5 w-5 mr-2 text-purple-500" />
               <h3 className="text-lg font-medium">AI Capabilities</h3>
@@ -81,9 +131,14 @@ const AI = () => {
               {[
                 "What were my sales this week compared to last week?",
                 "Which menu items have the highest profit margin?",
-                "When are my peak business hours?",
-                "What inventory items need to be reordered soon?",
-                "Can you analyze this sales spreadsheet I uploaded?"
+                "How many reservations do we have for next week?",
+                "What's the status of our current inventory?",
+                "How many staff members are on leave this month?",
+                "What are our busiest dining tables?",
+                "Analyze our customer spending patterns",
+                "When are our peak business hours?",
+                "List our top 5 customers by total spending",
+                "What supplier orders are pending delivery?"
               ].map((question, index) => (
                 <div 
                   key={index} 
