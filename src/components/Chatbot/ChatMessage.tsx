@@ -31,22 +31,23 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
   return (
     <div
       className={cn(
-        "flex w-full gap-3 py-2",
+        "flex w-full gap-3 py-3",
         isUser ? "justify-end" : "justify-start"
       )}
     >
       {!isUser && (
-        <Avatar className="h-8 w-8 bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-300">
+        <Avatar className="h-8 w-8 bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-300 flex-shrink-0 mt-1">
           <AvatarImage src="/placeholder.svg" />
           <AvatarFallback><Bot className="h-4 w-4" /></AvatarFallback>
         </Avatar>
       )}
+      
       <div
         className={cn(
-          "rounded-lg px-4 py-2 max-w-[80%] shadow-sm",
-          isUser
-            ? "bg-purple-600 text-white"
-            : "bg-muted text-foreground"
+          "px-4 py-3 max-w-[85%] shadow-sm",
+          isUser 
+            ? "chat-bubble-user bg-primary text-white rounded-2xl rounded-br-none" 
+            : "chat-bubble-ai bg-muted text-foreground rounded-2xl rounded-bl-none"
         )}
       >
         <p 
@@ -54,8 +55,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           dangerouslySetInnerHTML={{ __html: formatContent(message.content) }}
         />
       </div>
+      
       {isUser && (
-        <Avatar className="h-8 w-8 bg-purple-600 text-white">
+        <Avatar className="h-8 w-8 bg-primary text-white flex-shrink-0 mt-1">
           <AvatarImage src="/placeholder.svg" />
           <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
         </Avatar>

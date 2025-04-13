@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import ChatMessage from "./ChatMessage";
 import ChatInput from "./ChatInput";
 import FileUploadButton from "./FileUploadButton";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type Message = {
   role: "user" | "assistant";
@@ -48,7 +49,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   if (embedded) {
     return (
       <div className="flex flex-col h-full w-full">
-        <div className="flex items-center justify-between border-b p-3 bg-purple-600 text-white rounded-t-lg">
+        <div className="flex items-center justify-between border-b p-3 bg-primary text-white rounded-t-lg">
           <h3 className="font-semibold flex items-center gap-2">
             <div className="bg-white/20 p-1 rounded">
               <Loader2 className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -57,24 +58,26 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           </h3>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-background min-h-[500px]">
-          {messages.map((message, index) => (
-            <ChatMessage key={index} message={message} />
-          ))}
-          {isLoading && (
-            <div className="flex items-center gap-2 py-2">
-              <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
-              <p className="text-sm text-muted-foreground">Assistant is thinking...</p>
-            </div>
-          )}
-          {isUploading && (
-            <div className="flex items-center gap-2 py-2">
-              <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
-              <p className="text-sm text-muted-foreground">Uploading and processing file...</p>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+        <ScrollArea className="flex-1 p-3 space-y-3 bg-background min-h-[500px] max-h-[500px]">
+          <div className="space-y-2">
+            {messages.map((message, index) => (
+              <ChatMessage key={index} message={message} />
+            ))}
+            {isLoading && (
+              <div className="flex items-center gap-2 py-2">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Assistant is thinking...</p>
+              </div>
+            )}
+            {isUploading && (
+              <div className="flex items-center gap-2 py-2">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Uploading and processing file...</p>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        </ScrollArea>
         
         <div className="p-2 bg-background border-t">
           <FileUploadButton 
@@ -94,7 +97,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
   return (
     <div className={chatWindowClasses}>
-      <div className="flex items-center justify-between border-b p-3 bg-purple-600 text-white rounded-t-lg">
+      <div className="flex items-center justify-between border-b p-3 bg-primary text-white rounded-t-lg">
         <h3 className="font-semibold flex items-center gap-2">
           <div className="bg-white/20 p-1 rounded">
             <Loader2 className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -106,7 +109,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             variant="ghost"
             size="icon"
             onClick={onToggleMaximize}
-            className="text-white hover:bg-purple-700"
+            className="text-white hover:bg-primary-foreground/10"
           >
             {isMaximized ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </Button>
@@ -114,31 +117,33 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="text-white hover:bg-purple-700"
+            className="text-white hover:bg-primary-foreground/10"
           >
             <X className="h-4 w-4" />
           </Button>
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-background">
-        {messages.map((message, index) => (
-          <ChatMessage key={index} message={message} />
-        ))}
-        {isLoading && (
-          <div className="flex items-center gap-2 py-2">
-            <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
-            <p className="text-sm text-muted-foreground">Assistant is thinking...</p>
-          </div>
-        )}
-        {isUploading && (
-          <div className="flex items-center gap-2 py-2">
-            <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
-            <p className="text-sm text-muted-foreground">Uploading and processing file...</p>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+      <ScrollArea className="flex-1 p-3 space-y-3 bg-background">
+        <div className="space-y-2">
+          {messages.map((message, index) => (
+            <ChatMessage key={index} message={message} />
+          ))}
+          {isLoading && (
+            <div className="flex items-center gap-2 py-2">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Assistant is thinking...</p>
+            </div>
+          )}
+          {isUploading && (
+            <div className="flex items-center gap-2 py-2">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Uploading and processing file...</p>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
       
       <div className="p-2 bg-background border-t">
         <FileUploadButton 

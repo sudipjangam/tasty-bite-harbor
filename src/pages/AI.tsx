@@ -2,7 +2,8 @@
 import { Suspense } from "react";
 import { Card } from "@/components/ui/card";
 import Chatbot from "@/components/Chatbot/Chatbot";
-import { Bot, Brain, ChefHat, Database, LineChart, ShoppingCart } from "lucide-react";
+import { Bot, Brain, ChefHat, Database, LineChart, ShoppingCart, Users, MessageSquareQuestion } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const AI = () => {
   return (
@@ -25,129 +26,109 @@ const AI = () => {
           </Card>
         </div>
         
-        <div className="lg:col-span-1">
-          <Card variant="default" className="p-4 md:p-6 rounded-xl mb-6">
-            <div className="flex items-center mb-3">
-              <Database className="h-5 w-5 mr-2 text-purple-500" />
-              <h3 className="text-lg font-medium">Comprehensive Data Access</h3>
-            </div>
-            <p className="text-xs text-muted-foreground mb-3">
-              Your AI assistant has full access to all your restaurant data tables including:
-            </p>
-            <div className="grid grid-cols-2 gap-1 text-xs mb-4">
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
-                <span>Orders</span>
-              </div>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
-                <span>Inventory</span>
-              </div>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
-                <span>Menu Items</span>
-              </div>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
-                <span>Revenue</span>
-              </div>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
-                <span>Rooms</span>
-              </div>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
-                <span>Reservations</span>
-              </div>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
-                <span>Staff</span>
-              </div>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
-                <span>Customers</span>
-              </div>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
-                <span>Suppliers</span>
-              </div>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
-                <span>And more...</span>
-              </div>
-            </div>
+        <div className="lg:col-span-1 space-y-6">
+          <Card variant="default" className="p-4 md:p-6 rounded-xl">
+            <h3 className="text-lg font-medium flex items-center mb-4">
+              <Brain className="h-5 w-5 mr-2 text-primary" />
+              AI Capabilities
+            </h3>
             
-            <div className="flex items-center mb-3">
-              <Brain className="h-5 w-5 mr-2 text-purple-500" />
-              <h3 className="text-lg font-medium">AI Capabilities</h3>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg">
-                  <LineChart className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="capability-card border border-gray-200 rounded-lg p-3 hover:border-primary cursor-pointer">
+                <div className="flex items-center mb-1">
+                  <LineChart className="h-4 w-4 mr-2 text-primary" />
+                  <h4 className="font-semibold text-sm">Sales Analysis</h4>
                 </div>
-                <div>
-                  <h4 className="text-sm font-medium">Sales Analysis</h4>
-                  <p className="text-xs text-muted-foreground">Get insights on revenue trends, order patterns, and financial performance</p>
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  Analyze revenue trends, order patterns, and financial performance.
+                </p>
               </div>
               
-              <div className="flex items-start gap-3">
-                <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg">
-                  <ShoppingCart className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              <div className="capability-card border border-gray-200 rounded-lg p-3 hover:border-primary cursor-pointer">
+                <div className="flex items-center mb-1">
+                  <ShoppingCart className="h-4 w-4 mr-2 text-purple-500" />
+                  <h4 className="font-semibold text-sm">Inventory Insights</h4>
                 </div>
-                <div>
-                  <h4 className="text-sm font-medium">Inventory Management</h4>
-                  <p className="text-xs text-muted-foreground">Check stock levels, get reordering suggestions, and track item usage</p>
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  Check stock levels, get reorder suggestions, and track usage.
+                </p>
               </div>
               
-              <div className="flex items-start gap-3">
-                <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg">
-                  <ChefHat className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              <div className="capability-card border border-gray-200 rounded-lg p-3 hover:border-primary cursor-pointer">
+                <div className="flex items-center mb-1">
+                  <ChefHat className="h-4 w-4 mr-2 text-amber-500" />
+                  <h4 className="font-semibold text-sm">Menu Optimization</h4>
                 </div>
-                <div>
-                  <h4 className="text-sm font-medium">Menu Optimization</h4>
-                  <p className="text-xs text-muted-foreground">Analyze menu performance and get suggestions for menu improvements</p>
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  Analyze menu performance and get suggestions for improvements.
+                </p>
               </div>
               
-              <div className="flex items-start gap-3">
-                <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg">
-                  <Bot className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              <div className="capability-card border border-gray-200 rounded-lg p-3 hover:border-primary cursor-pointer">
+                <div className="flex items-center mb-1">
+                  <Users className="h-4 w-4 mr-2 text-red-500" />
+                  <h4 className="font-semibold text-sm">Staff Performance</h4>
                 </div>
-                <div>
-                  <h4 className="text-sm font-medium">Document Analysis</h4>
-                  <p className="text-xs text-muted-foreground">Upload files and images for AI-powered analysis and insights</p>
+                <p className="text-xs text-muted-foreground">
+                  Analyze staff efficiency, sales per server, and scheduling effectiveness.
+                </p>
+              </div>
+              
+              <div className="sm:col-span-2 border border-gray-200 rounded-lg p-3 bg-gray-50 dark:bg-gray-800">
+                <div className="flex items-center mb-1">
+                  <Database className="h-4 w-4 mr-2 text-gray-500" />
+                  <h4 className="font-semibold text-sm">Comprehensive Data Access</h4>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Analyzes Orders, Inventory, Revenue, Menu Items, Staff, Customers, Suppliers, Reservations & more.
+                </p>
               </div>
             </div>
           </Card>
           
           <Card variant="default" className="p-4 md:p-6 rounded-xl">
-            <h3 className="text-sm font-medium mb-2">Sample Questions</h3>
-            <div className="space-y-2">
-              {[
-                "What were my sales this week compared to last week?",
-                "Which menu items have the highest profit margin?",
-                "How many reservations do we have for next week?",
-                "What's the status of our current inventory?",
-                "How many staff members are on leave this month?",
-                "What are our busiest dining tables?",
-                "Analyze our customer spending patterns",
-                "When are our peak business hours?",
-                "List our top 5 customers by total spending",
-                "What supplier orders are pending delivery?"
-              ].map((question, index) => (
-                <div 
-                  key={index} 
-                  className="text-xs p-2 bg-muted rounded-lg cursor-pointer hover:bg-muted/80 transition-colors"
-                >
-                  {question}
-                </div>
-              ))}
-            </div>
+            <h3 className="text-lg font-medium flex items-center mb-4">
+              <MessageSquareQuestion className="h-5 w-5 mr-2 text-primary" />
+              Sample Questions
+            </h3>
+            
+            <ScrollArea className="h-[240px] pr-4">
+              <div className="space-y-2">
+                {[
+                  "What were my sales this week compared to last week?",
+                  "Which menu items have the highest profit margin?",
+                  "Show me the inventory items below par level.",
+                  "Predict sales for next Saturday.",
+                  "How many reservations do we have for next week?",
+                  "What's the status of our current inventory?",
+                  "How many staff members are on leave this month?",
+                  "What are our busiest dining tables?",
+                  "Analyze our customer spending patterns",
+                  "When are our peak business hours?",
+                  "List our top 5 customers by total spending",
+                  "What supplier orders are pending delivery?"
+                ].map((question, index) => (
+                  <button 
+                    key={index} 
+                    className="sample-question-btn w-full text-left text-sm p-2 rounded-md bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-800/40 hover:text-indigo-800 dark:hover:text-indigo-200 transition-colors"
+                    onClick={() => {
+                      const chatInput = document.querySelector('input[placeholder*="Ask"]') as HTMLInputElement;
+                      if (chatInput) {
+                        chatInput.value = question;
+                        chatInput.focus();
+                        // Trigger the send button click if needed
+                        const sendButton = chatInput.closest('form')?.querySelector('button[type="submit"]');
+                        if (sendButton) {
+                          sendButton.click();
+                        }
+                      }
+                    }}
+                  >
+                    {question}
+                  </button>
+                ))}
+              </div>
+            </ScrollArea>
           </Card>
         </div>
       </div>

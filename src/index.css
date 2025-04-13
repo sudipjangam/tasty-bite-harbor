@@ -164,6 +164,34 @@
   .stat-card {
     @apply bg-stat-card-bg border border-border/50 rounded-lg p-4 shadow-card;
   }
+  
+  /* Chat Component Styles */
+  .chat-bubble-user {
+    background-color: #4f46e5; /* primary */
+    color: white;
+    border-radius: 1rem 1rem 0 1rem; /* Rounded corners, except bottom-right */
+  }
+  
+  .chat-bubble-ai {
+    background-color: #e5e7eb; /* gray-200 */
+    color: #1f2937; /* gray-800 */
+    border-radius: 1rem 1rem 1rem 0; /* Rounded corners, except bottom-left */
+  }
+  
+  /* Capability Card Style */
+  .capability-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  }
+  
+  .capability-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  }
+  
+  /* Sample Question Button Style */
+  .sample-question-btn {
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+  }
 }
 
 @font-face {
