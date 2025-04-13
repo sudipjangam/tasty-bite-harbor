@@ -2,7 +2,7 @@
 import { Suspense } from "react";
 import { Card } from "@/components/ui/card";
 import Chatbot from "@/components/Chatbot/Chatbot";
-import { Bot, Brain, ChefHat, Database, LineChart, ShoppingCart, Users, MessageSquareQuestion } from "lucide-react";
+import { Bot, Brain, ChefHat, Database, LineChart, ShoppingCart, Users, MessageCircleQuestion } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const AI = () => {
@@ -88,7 +88,7 @@ const AI = () => {
           
           <Card variant="default" className="p-4 md:p-6 rounded-xl">
             <h3 className="text-lg font-medium flex items-center mb-4">
-              <MessageSquareQuestion className="h-5 w-5 mr-2 text-primary" />
+              <MessageCircleQuestion className="h-5 w-5 mr-2 text-primary" />
               Sample Questions
             </h3>
             
@@ -119,7 +119,7 @@ const AI = () => {
                         // Trigger the send button click if needed
                         const sendButton = chatInput.closest('form')?.querySelector('button[type="submit"]');
                         if (sendButton) {
-                          sendButton.click();
+                          (sendButton as HTMLButtonElement).click();
                         }
                       }
                     }}
@@ -137,3 +137,4 @@ const AI = () => {
 };
 
 export default AI;
+
