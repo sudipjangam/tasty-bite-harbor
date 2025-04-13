@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -8,7 +7,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       headers: corsHeaders,
@@ -29,7 +27,6 @@ serve(async (req) => {
       );
     }
 
-    // Get API key from environment variables
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -44,14 +41,12 @@ serve(async (req) => {
 
     let restaurantData = null;
     
-    // Create Supabase client with service role key for database access
     if (restaurantId && supabaseUrl && supabaseServiceKey) {
       try {
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
         
         console.log(`Fetching data for restaurant ID: ${restaurantId}`);
         
-        // Enhanced: Fetch comprehensive restaurant data from all relevant tables
         const [
           { data: revenueStats },
           { data: customerInsights },
@@ -75,7 +70,6 @@ serve(async (req) => {
           { data: restaurantDetails },
           { data: restaurantSubscriptions }
         ] = await Promise.all([
-          // Financial and operations data
           supabase.from("daily_revenue_stats").select("*")
             .eq("restaurant_id", restaurantId)
             .order("date", { ascending: false })
@@ -93,7 +87,6 @@ serve(async (req) => {
           supabase.from("inventory_items").select("*")
             .eq("restaurant_id", restaurantId),
             
-          // Room management
           supabase.from("rooms").select("*")
             .eq("restaurant_id", restaurantId),
           supabase.from("reservations").select("*")
@@ -101,13 +94,11 @@ serve(async (req) => {
             .order("start_time", { ascending: false })
             .limit(30),
             
-          // Staff and tables
           supabase.from("staff").select("*")
             .eq("restaurant_id", restaurantId),
           supabase.from("restaurant_tables").select("*")
             .eq("restaurant_id", restaurantId),
             
-          // Suppliers and inventory
           supabase.from("suppliers").select("*")
             .eq("restaurant_id", restaurantId),
           supabase.from("supplier_orders").select("*")
@@ -117,7 +108,6 @@ serve(async (req) => {
           supabase.from("supplier_order_items").select("*")
             .limit(50),
             
-          // Room-related orders and billings
           supabase.from("room_food_orders").select("*")
             .eq("restaurant_id", restaurantId)
             .order("created_at", { ascending: false })
@@ -127,7 +117,6 @@ serve(async (req) => {
             .order("checkout_date", { ascending: false })
             .limit(30),
             
-          // Marketing and promotions
           supabase.from("promotion_campaigns").select("*")
             .eq("restaurant_id", restaurantId),
           supabase.from("sent_promotions").select("*")
@@ -135,7 +124,6 @@ serve(async (req) => {
             .order("sent_date", { ascending: false })
             .limit(30),
             
-          // Administrative
           supabase.from("staff_leaves").select("*")
             .eq("restaurant_id", restaurantId)
             .order("start_date", { ascending: false })
@@ -145,7 +133,6 @@ serve(async (req) => {
             .single(),
           supabase.from("subscription_plans").select("*"),
             
-          // Restaurant info
           supabase.from("restaurants").select("*")
             .eq("id", restaurantId)
             .single(),
@@ -154,40 +141,32 @@ serve(async (req) => {
         ]);
         
         restaurantData = {
-          // Financial and operations
           revenueStats: revenueStats || [],
           customerInsights: customerInsights || [],
           recentOrders: recentOrders || [],
           menuItems: menuItems || [],
           inventoryItems: inventoryItems || [],
           
-          // Room management
           rooms: rooms || [],
           reservations: reservations || [],
           
-          // Staff and tables
           staff: staff || [],
           restaurantTables: restaurantTables || [],
           
-          // Suppliers and inventory
           suppliers: suppliers || [],
           supplierOrders: supplierOrders || [],
           supplierOrderItems: supplierOrderItems || [],
           
-          // Room orders and billings
           roomFoodOrders: roomFoodOrders || [],
           roomBillings: roomBillings || [],
           
-          // Marketing and promotions
           promotionCampaigns: promotionCampaigns || [],
           sentPromotions: sentPromotions || [],
           
-          // Administrative
           staffLeaves: staffLeaves || [],
           notificationPreferences: notificationPreferences || {},
           subscriptionPlans: subscriptionPlans || [],
           
-          // Restaurant info
           restaurantDetails: restaurantDetails || {},
           restaurantSubscriptions: restaurantSubscriptions || []
         };
@@ -198,7 +177,6 @@ serve(async (req) => {
       }
     }
 
-    // Check if this is a special analytics request
     if (analysisType && restaurantData) {
       console.log(`Processing ${analysisType} request`);
       
@@ -211,7 +189,6 @@ serve(async (req) => {
       }
     }
 
-    // Check if any message contains a file URL
     const hasFileForAnalysis = messages.some(msg => 
       typeof msg.content === 'string' && 
       (msg.content.includes('.xlsx') || 
@@ -220,13 +197,11 @@ serve(async (req) => {
        msg.content.includes('image'))
     );
 
-    // Build the system prompt
     let systemPrompt = "You are a restaurant assistant bot that provides SPECIFIC DATA-DRIVEN ANSWERS based on the restaurant's actual database records. You must ALWAYS analyze the provided restaurant data for insights rather than providing generic information. When asked about sales, inventory, customers, etc., respond with precise numbers and specifics from the data you have access to. DO NOT provide generic overviews that could apply to any restaurant.";
     
     if (restaurantData) {
       systemPrompt += " You have direct access to the restaurant's database records. Analyze this specific data carefully and provide precise insights. Format your responses in a visually appealing way with proper spacing, bullet points, and sections where appropriate. Be sure to use actual numbers and metrics from the data provided.";
       
-      // Flag for empty data
       const hasNoData = 
         (!restaurantData.inventoryItems || restaurantData.inventoryItems.length === 0) &&
         (!restaurantData.revenueStats || restaurantData.revenueStats.length === 0) &&
@@ -243,10 +218,8 @@ serve(async (req) => {
       systemPrompt += " When provided with data files like images, CSV, Excel, or PDF files, analyze them and provide insights and recommendations for the restaurant owner. For Excel/CSV files, assume they contain restaurant data like sales, inventory, or customer information and provide relevant analysis.";
     }
 
-    // Truncate data for specific items to avoid token limits
     let restaurantDataContext = "";
     if (restaurantData) {
-      // Create shorter context without circular references
       restaurantDataContext = `Here is the restaurant's actual database records to inform your answers. When giving sales overviews or inventory analysis, ALWAYS use this specific data:
         
 INVENTORY ITEMS (${restaurantData.inventoryItems?.length || 0} items):
@@ -309,7 +282,14 @@ ${JSON.stringify(restaurantData.restaurantSubscriptions?.slice(0, 1), null, 2)}
 ALWAYS base your answers on this specific data. When asked for a sales overview, calculate totals, trends, and metrics from the REVENUE STATS and ORDERS data. When asked about inventory, analyze the actual INVENTORY ITEMS data. Your answers should NEVER be generic - they should directly reflect the numbers and patterns in this data.`;
     }
 
-    // Create the payload for the API request with the new Gemini API format
+    if (messages.some(msg => 
+        msg.content.toLowerCase().includes('predict') || 
+        msg.content.toLowerCase().includes('forecast') ||
+        msg.content.toLowerCase().includes('future sales')
+    )) {
+      systemPrompt += " When asked for predictions, forecasts, or future insights, use statistical methods on the historical data to provide informed predictions. Consider trends, seasonality, and day-of-week patterns.";
+    }
+
     const payload = {
       contents: [],
       systemInstruction: {
@@ -318,7 +298,6 @@ ALWAYS base your answers on this specific data. When asked for a sales overview,
       }
     };
 
-    // Add user and assistant messages from the conversation history
     for (const message of messages) {
       payload.contents.push({
         role: message.role === "assistant" ? "model" : "user",
@@ -328,7 +307,6 @@ ALWAYS base your answers on this specific data. When asked for a sales overview,
 
     console.log("Sending request to Gemini API with proper format");
 
-    // Make request to Gemini API - UPDATED to use Gemini 2.0 Flash-Lite model for better RPM
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent", {
       method: "POST",
       headers: {
@@ -347,7 +325,6 @@ ALWAYS base your answers on this specific data. When asked for a sales overview,
     const data = await response.json();
     console.log("Received successful Gemini API response");
     
-    // Format the response to match OpenAI format expected by the frontend
     const formattedResponse = {
       choices: [
         {
@@ -384,21 +361,16 @@ ALWAYS base your answers on this specific data. When asked for a sales overview,
   }
 });
 
-/**
- * Handle sales forecast requests by generating predictions using Gemini API
- */
 async function handleSalesForecast(apiKey, restaurantData, days, corsHeaders) {
   console.log(`Generating sales forecast for ${days} days`);
   
   try {
-    // Format revenue data for the prompt
     const revenueData = restaurantData.revenueStats.slice(0, 30).map(item => ({
       date: item.date,
       revenue: item.total_revenue,
       orders: item.order_count
     }));
     
-    // Prepare the prompt for Gemini
     const prompt = `
 You are a data analyst for a restaurant. Based on the following historical daily revenue data, generate a sales forecast for the next ${days} days.
 
@@ -425,7 +397,6 @@ Base your forecast on trends, patterns, seasonality, and day-of-week effects vis
 For each prediction, include a confidence level (0-100) and the key factors that influenced the prediction.
 `;
 
-    // Make request to Gemini API - UPDATED to use Gemini 2.0 Flash-Lite model
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent", {
       method: "POST",
       headers: {
@@ -456,10 +427,8 @@ For each prediction, include a confidence level (0-100) and the key factors that
     const data = await response.json();
     console.log("Received successful Gemini API forecast response");
     
-    // Parse the JSON from the response
     try {
       const textContent = data.candidates[0].content.parts[0].text;
-      // Remove any markdown code block formatting if present
       const jsonContent = textContent.replace(/```json|```/g, '').trim();
       const forecastData = JSON.parse(jsonContent);
       
@@ -485,14 +454,10 @@ For each prediction, include a confidence level (0-100) and the key factors that
   }
 }
 
-/**
- * Handle inventory recommendations requests by analyzing inventory and order data
- */
 async function handleInventoryRecommendations(apiKey, restaurantData, corsHeaders) {
   console.log("Generating inventory recommendations");
   
   try {
-    // Format inventory and order data for the prompt
     const inventoryData = restaurantData.inventoryItems.map(item => ({
       id: item.id,
       name: item.name,
@@ -502,10 +467,8 @@ async function handleInventoryRecommendations(apiKey, restaurantData, corsHeader
       category: item.category
     }));
     
-    // Get recent orders for consumption analysis
     const recentOrders = restaurantData.recentOrders.slice(0, 30);
     
-    // Prepare the prompt for Gemini
     const prompt = `
 You are an inventory management expert for a restaurant. Based on the following inventory data and recent orders, provide recommendations for inventory restocking.
 
@@ -541,7 +504,6 @@ Sort the recommendations by urgency (items closest to stockout first).
 Only include items that need attention - don't include items with sufficient stock.
 `;
 
-    // Make request to Gemini API - UPDATED to use Gemini 2.0 Flash-Lite model
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent", {
       method: "POST",
       headers: {
@@ -572,10 +534,8 @@ Only include items that need attention - don't include items with sufficient sto
     const data = await response.json();
     console.log("Received successful Gemini API inventory recommendations response");
     
-    // Parse the JSON from the response
     try {
       const textContent = data.candidates[0].content.parts[0].text;
-      // Remove any markdown code block formatting if present
       const jsonContent = textContent.replace(/```json|```/g, '').trim();
       const recommendationsData = JSON.parse(jsonContent);
       

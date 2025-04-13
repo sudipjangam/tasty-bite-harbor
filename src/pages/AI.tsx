@@ -115,11 +115,19 @@ const AI = () => {
                       const chatInput = document.querySelector('input[placeholder*="Ask"]') as HTMLInputElement;
                       if (chatInput) {
                         chatInput.value = question;
+                        // Trigger an input event to update React's state
+                        const inputEvent = new Event('input', { bubbles: true });
+                        chatInput.dispatchEvent(inputEvent);
+                        
+                        // Set focus to the input
                         chatInput.focus();
-                        // Trigger the send button click if needed
-                        const sendButton = chatInput.closest('form')?.querySelector('button[type="submit"]');
+                        
+                        // Trigger the send button click
+                        const sendButton = chatInput.closest('form')?.querySelector('button[type="submit"]') as HTMLButtonElement;
                         if (sendButton) {
-                          (sendButton as HTMLButtonElement).click();
+                          setTimeout(() => {
+                            sendButton.click();
+                          }, 50);
                         }
                       }
                     }}
@@ -137,4 +145,3 @@ const AI = () => {
 };
 
 export default AI;
-

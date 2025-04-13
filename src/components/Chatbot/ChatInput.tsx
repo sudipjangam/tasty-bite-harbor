@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,16 @@ type ChatInputProps = {
 
 const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
   const [message, setMessage] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Trigger input change event to enable the send button when value is set programmatically
+  useEffect(() => {
+    if (inputRef.current && inputRef.current.value) {
+      // Create and dispatch an input event to trigger validation
+      const event = new Event('input', { bubbles: true });
+      inputRef.current.dispatchEvent(event);
+    }
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +46,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
       className="flex items-end gap-2 p-2 bg-background border-t"
     >
       <Input
+        ref={inputRef}
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         onKeyDown={handleKeyDown}
