@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -178,8 +179,8 @@ ALWAYS base your answers on this specific data. When asked for a sales overview,
 
     console.log("Sending request to Gemini API with proper format");
 
-    // Make request to Gemini API
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent", {
+    // Make request to Gemini API - UPDATED to use Gemini 2.0 Flash-Lite model for better RPM
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -275,8 +276,8 @@ Base your forecast on trends, patterns, seasonality, and day-of-week effects vis
 For each prediction, include a confidence level (0-100) and the key factors that influenced the prediction.
 `;
 
-    // Make request to Gemini API
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent", {
+    // Make request to Gemini API - UPDATED to use Gemini 2.0 Flash-Lite model
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -391,8 +392,8 @@ Sort the recommendations by urgency (items closest to stockout first).
 Only include items that need attention - don't include items with sufficient stock.
 `;
 
-    // Make request to Gemini API
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent", {
+    // Make request to Gemini API - UPDATED to use Gemini 2.0 Flash-Lite model
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -14,6 +14,20 @@ type ChatMessageProps = {
 const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
   const isUser = message.role === "user";
 
+  // Function to format message content with markdown-like syntax
+  const formatContent = (content: string) => {
+    // Replace ** with bold styling
+    let formattedContent = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Replace * and - list items with proper bullet points
+    formattedContent = formattedContent.replace(/^[*\-] (.*)$/gm, '• $1');
+    
+    // Add line breaks
+    formattedContent = formattedContent.replace(/\n/g, '<br />');
+    
+    return formattedContent;
+  };
+
   return (
     <div
       className={cn(
@@ -35,7 +49,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
             : "bg-muted text-foreground"
         )}
       >
-        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+        <p 
+          className="text-sm" 
+          dangerouslySetInnerHTML={{ __html: formatContent(message.content) }}
+        />
       </div>
       {isUser && (
         <Avatar className="h-8 w-8 bg-purple-600 text-white">
