@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +11,7 @@ import MenuCategories from "@/components/Orders/MenuCategories";
 import MenuItemsGrid from "@/components/Orders/MenuItemsGrid";
 import CurrentOrder from "@/components/Orders/CurrentOrder";
 import AddOrderForm from "@/components/Orders/AddOrderForm";
+import OrderList from "@/components/Orders/OrderList";
 import { v4 as uuidv4 } from 'uuid';
 import { 
   Select,
@@ -30,7 +30,6 @@ export type OrderItem = {
   modifiers?: string[];
 };
 
-// Table interface
 interface TableData {
   id: string;
   name: string;
@@ -39,22 +38,19 @@ interface TableData {
 }
 
 const Orders = () => {
-  // UI state
   const [selectedCategory, setSelectedCategory] = useState<string>("");
-  const [showPOS, setShowPOS] = useState(true); // Added toggle for POS vs Orders view
-  
-  // Order state
+  const [showPOS, setShowPOS] = useState(true);
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [tableNumber, setTableNumber] = useState("");
   const [orderType, setOrderType] = useState("Dine-In");
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [currentOrderItems, setCurrentOrderItems] = useState<OrderItem[]>([]);
-  
+
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  // Fetch available tables
   const { data: tables, isLoading: isLoadingTables } = useQuery({
     queryKey: ["restaurant-tables"],
     queryFn: async () => {
@@ -78,7 +74,6 @@ const Orders = () => {
     },
   });
 
-  // Set default category when categories are loaded
   const { data: categories } = useQuery({
     queryKey: ['menu-categories'],
     queryFn: async () => {
@@ -107,7 +102,6 @@ const Orders = () => {
     },
   });
 
-  // Set initial table when tables are loaded
   useEffect(() => {
     if (tables && tables.length > 0 && !tableNumber) {
       setTableNumber(tables[0].name);
@@ -242,6 +236,30 @@ const Orders = () => {
     });
   };
 
+  const { data: orders, refetch: refetchOrders } = useQuery({
+    queryKey: ['orders'],
+    queryFn: async () => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("restaurant_id")
+        .eq("id", (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (!profile?.restaurant_id) {
+        throw new Error("No restaurant found for user");
+      }
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('restaurant_id', profile.restaurant_id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as Order[];
+    },
+  });
+
   return (
     <div className="h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
       <div className="flex h-16 items-center justify-between px-4 bg-white dark:bg-gray-800 border-b">
@@ -341,13 +359,11 @@ const Orders = () => {
         </div>
       ) : (
         <div className="p-6">
-          {/* Here we would render the original OrderList component */}
-          <div className="text-center p-10 border rounded-lg bg-white dark:bg-gray-800">
-            <h2 className="text-xl mb-4">Orders History View</h2>
-            <p className="text-muted-foreground">
-              Switch to POS Mode to create new orders
-            </p>
-          </div>
+          <OrderList 
+            orders={orders || []} 
+            onOrdersChange={refetchOrders}
+            onEditOrder={setEditingOrder}
+          />
         </div>
       )}
 
