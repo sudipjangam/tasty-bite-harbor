@@ -1,8 +1,8 @@
 
-import { Plus, Minus } from "lucide-react";
+import { Plus, Minus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { OrderItem } from "@/integrations/supabase/client";
+import { OrderItem } from "@/pages/Orders";
 
 interface CurrentOrderProps {
   items: OrderItem[];
@@ -38,36 +38,53 @@ const CurrentOrder = ({
       </div>
 
       <div className="flex-1 overflow-auto p-4 space-y-4">
-        {items.map((item) => (
-          <div key={item.id} className="flex items-center justify-between gap-4 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <div className="flex-1">
-              <h3 className="font-medium">{item.name}</h3>
-              {/* Remove the reference to item.notes since it doesn't exist in the OrderItem type */}
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-              >
-                <Minus className="h-4 w-4" />
-              </Button>
-              <span className="w-8 text-center">{item.quantity}</span>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            <div className="w-24 text-right font-medium">
-              ₹{(item.price * item.quantity).toFixed(2)}
-            </div>
+        {items.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            No items in order. Select menu items to add.
           </div>
-        ))}
+        ) : (
+          items.map((item) => (
+            <div key={item.id} className="flex items-center justify-between gap-4 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="flex-1">
+                <h3 className="font-medium">{item.name}</h3>
+                {item.modifiers && item.modifiers.length > 0 && (
+                  <p className="text-sm text-muted-foreground">{item.modifiers.join(', ')}</p>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <span className="w-8 text-center">{item.quantity}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="w-24 text-right font-medium">
+                ₹{(item.price * item.quantity).toFixed(2)}
+              </div>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onRemoveItem(item.id)}
+                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))
+        )}
       </div>
 
       <div className="border-t p-4 space-y-4">
