@@ -42,7 +42,7 @@ const CurrentOrder = ({
           <div key={item.id} className="flex items-center justify-between gap-4 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <div className="flex-1">
               <h3 className="font-medium">{item.name}</h3>
-              {item.notes && <p className="text-sm text-muted-foreground">No options</p>}
+              {/* Remove the reference to item.notes since it doesn't exist in the OrderItem type */}
             </div>
             
             <div className="flex items-center gap-2">
