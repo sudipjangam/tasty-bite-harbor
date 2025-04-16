@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +13,6 @@ import CurrentOrder from "@/components/Orders/CurrentOrder";
 import AddOrderForm from "@/components/Orders/AddOrderForm";
 import { v4 as uuidv4 } from 'uuid';
 
-// Define the OrderItem type
 export type OrderItem = {
   id: string;
   menuItemId: string;
@@ -25,7 +23,7 @@ export type OrderItem = {
 };
 
 const Orders = () => {
-  const [selectedCategory, setSelectedCategory] = useState("Appetizers");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [tableNumber, setTableNumber] = useState("12");
@@ -34,7 +32,6 @@ const Orders = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  // Fetch menu items
   const { data: menuItems, isLoading: isLoadingMenu } = useQuery({
     queryKey: ["menu-items"],
     queryFn: async () => {
@@ -58,20 +55,45 @@ const Orders = () => {
     },
   });
 
-  // Current order state
+  const { data: categories } = useQuery({
+    queryKey: ['menu-categories'],
+    queryFn: async () => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("restaurant_id")
+        .eq("id", (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (!profile?.restaurant_id) {
+        throw new Error("No restaurant found for user");
+      }
+
+      const { data, error } = await supabase
+        .from('menu_items')
+        .select('category')
+        .eq('restaurant_id', profile.restaurant_id)
+        .is('is_available', true);
+
+      if (error) throw error;
+
+      const uniqueCategories = Array.from(new Set(data.map(item => item.category)));
+      if (uniqueCategories.length > 0 && !selectedCategory) {
+        setSelectedCategory(uniqueCategories[0]);
+      }
+      return uniqueCategories;
+    },
+  });
+
   const [currentOrderItems, setCurrentOrderItems] = useState<OrderItem[]>([]);
 
-  // Filter menu items by category
   const filteredItems = menuItems?.filter(item => item.category === selectedCategory) || [];
 
-  // Handle adding item to order
   const handleAddItem = (item: any) => {
     const existingItem = currentOrderItems.find(
       orderItem => orderItem.menuItemId === item.id
     );
 
     if (existingItem) {
-      // Update quantity if item already exists
       setCurrentOrderItems(
         currentOrderItems.map(orderItem =>
           orderItem.menuItemId === item.id
@@ -80,7 +102,6 @@ const Orders = () => {
         )
       );
     } else {
-      // Add new item
       setCurrentOrderItems([
         ...currentOrderItems,
         {
@@ -99,7 +120,6 @@ const Orders = () => {
     });
   };
 
-  // Handle updating item quantity
   const handleUpdateQuantity = (id: string, newQuantity: number) => {
     if (newQuantity <= 0) {
       setCurrentOrderItems(currentOrderItems.filter(item => item.id !== id));
@@ -111,12 +131,10 @@ const Orders = () => {
     ));
   };
 
-  // Handle removing item
   const handleRemoveItem = (id: string) => {
     setCurrentOrderItems(currentOrderItems.filter(item => item.id !== id));
   };
 
-  // Handle order actions
   const handleHoldOrder = () => {
     if (currentOrderItems.length === 0) {
       toast({
@@ -220,9 +238,8 @@ const Orders = () => {
           />
           <div className="flex-1 overflow-auto">
             <MenuItemsGrid
-              items={filteredItems}
+              selectedCategory={selectedCategory}
               onSelectItem={handleAddItem}
-              isLoading={isLoadingMenu}
             />
           </div>
         </div>
