@@ -9,7 +9,7 @@ interface MenuCategoriesProps {
 }
 
 const MenuCategories = ({ selectedCategory, onSelectCategory }: MenuCategoriesProps) => {
-  const { data: categories } = useQuery({
+  const { data: categories, isLoading } = useQuery({
     queryKey: ['menu-categories'],
     queryFn: async () => {
       const { data: profile } = await supabase
@@ -25,8 +25,7 @@ const MenuCategories = ({ selectedCategory, onSelectCategory }: MenuCategoriesPr
       const { data, error } = await supabase
         .from('menu_items')
         .select('category')
-        .eq('restaurant_id', profile.restaurant_id)
-        .is('is_available', true);
+        .eq('restaurant_id', profile.restaurant_id);
 
       if (error) throw error;
 
@@ -36,22 +35,38 @@ const MenuCategories = ({ selectedCategory, onSelectCategory }: MenuCategoriesPr
     },
   });
 
+  if (isLoading) {
+    return (
+      <div className="flex overflow-x-auto p-4 border-b bg-white dark:bg-gray-800">
+        <div className="flex space-x-2">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="w-24 h-10 bg-gray-200 dark:bg-gray-700 rounded-md animate-pulse"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-wrap gap-2 p-4 border-b bg-white dark:bg-gray-800 overflow-x-auto">
-      {categories?.map((category) => (
-        <button
-          key={category}
-          onClick={() => onSelectCategory(category)}
-          className={cn(
-            "px-4 py-2 rounded-md transition-colors whitespace-nowrap",
-            selectedCategory === category
-              ? "bg-indigo-600 text-white"
-              : "bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-          )}
-        >
-          {category}
-        </button>
-      ))}
+      {categories?.length ? (
+        categories.map((category) => (
+          <button
+            key={category}
+            onClick={() => onSelectCategory(category)}
+            className={cn(
+              "px-4 py-2 rounded-md transition-colors whitespace-nowrap",
+              selectedCategory === category
+                ? "bg-indigo-600 text-white"
+                : "bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+            )}
+          >
+            {category}
+          </button>
+        ))
+      ) : (
+        <div className="text-muted-foreground">No categories available</div>
+      )}
     </div>
   );
 };

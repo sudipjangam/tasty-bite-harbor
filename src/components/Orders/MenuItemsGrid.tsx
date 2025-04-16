@@ -15,6 +15,7 @@ interface MenuItem {
   category?: string;
   image_url?: string;
   is_available?: boolean;
+  is_veg?: boolean;
 }
 
 interface MenuItemsGridProps {
@@ -28,6 +29,8 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
   const { data: items, isLoading } = useQuery({
     queryKey: ['menu-items', selectedCategory],
     queryFn: async () => {
+      if (!selectedCategory) return [];
+      
       const { data: profile } = await supabase
         .from("profiles")
         .select("restaurant_id")
@@ -42,12 +45,12 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
         .from('menu_items')
         .select('*')
         .eq('restaurant_id', profile.restaurant_id)
-        .eq('category', selectedCategory)
-        .eq('is_available', true);
+        .eq('category', selectedCategory);
 
       if (error) throw error;
       return data as MenuItem[];
     },
+    enabled: !!selectedCategory,
   });
 
   // Filter items based on search query
@@ -92,7 +95,11 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
         />
       </div>
       
-      {filteredItems?.length === 0 ? (
+      {!selectedCategory ? (
+        <div className="text-center py-8 text-gray-500">
+          Please select a category to view menu items
+        </div>
+      ) : filteredItems?.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           {items?.length === 0 ? 
             "No items available in this category" : 
@@ -106,7 +113,7 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
               className="p-4 cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => onSelectItem(item)}
             >
-              <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-md mb-3 flex items-center justify-center">
+              <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-md mb-3 flex items-center justify-center overflow-hidden">
                 {item.image_url ? (
                   <img 
                     src={item.image_url} 
@@ -114,14 +121,24 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
                     className="w-full h-full object-cover rounded-md" 
                   />
                 ) : (
-                  <span className="text-2xl text-gray-400">Item</span>
+                  <div className="flex flex-col items-center justify-center h-full w-full text-gray-400">
+                    <span className="text-2xl mb-2">{item.is_veg ? "🥦" : "🍖"}</span>
+                    <span className="text-sm">No image</span>
+                  </div>
                 )}
               </div>
               <h3 className="font-medium text-lg mb-2 line-clamp-1">{item.name}</h3>
               {item.description && (
                 <p className="text-sm text-gray-500 mb-2 line-clamp-2">{item.description}</p>
               )}
-              <p className="text-lg font-bold text-indigo-600">₹{item.price.toFixed(2)}</p>
+              <div className="flex justify-between items-center">
+                <p className="text-lg font-bold text-indigo-600">₹{item.price.toFixed(2)}</p>
+                {item.is_veg !== undefined && (
+                  <span className={`px-2 py-1 text-xs rounded-full ${item.is_veg ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    {item.is_veg ? 'Veg' : 'Non-Veg'}
+                  </span>
+                )}
+              </div>
             </Card>
           ))}
         </div>
