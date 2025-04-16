@@ -2,25 +2,27 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Plus, ShoppingBag, Calendar, Clock, Check } from "lucide-react";
-import OrderList from "@/components/Orders/OrderList";
-import AddOrderForm from "@/components/Orders/AddOrderForm";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Order } from "@/types/orders";
-import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Pencil } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import MenuCategories from "@/components/Orders/MenuCategories";
+import MenuItemsGrid from "@/components/Orders/MenuItemsGrid";
+import CurrentOrder from "@/components/Orders/CurrentOrder";
+import AddOrderForm from "@/components/Orders/AddOrderForm";
 
 const Orders = () => {
+  const [selectedCategory, setSelectedCategory] = useState("Appetizers");
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  const { data: orders, isLoading, refetch } = useQuery({
-    queryKey: ["orders"],
+  // Fetch menu items
+  const { data: menuItems, isLoading: isLoadingMenu } = useQuery({
+    queryKey: ["menu-items"],
     queryFn: async () => {
       const { data: profile } = await supabase
         .from("profiles")
@@ -33,106 +35,93 @@ const Orders = () => {
       }
 
       const { data, error } = await supabase
-        .from("orders")
+        .from("menu_items")
         .select("*")
-        .eq("restaurant_id", profile.restaurant_id)
-        .order("created_at", { ascending: false });
+        .eq("restaurant_id", profile.restaurant_id);
 
       if (error) throw error;
-      return data as Order[];
+      return data;
     },
   });
+
+  // Filter menu items by category
+  const filteredItems = menuItems?.filter(item => item.category === selectedCategory) || [];
+
+  // Current order state (simplified for example)
+  const [currentOrderItems, setCurrentOrderItems] = useState<any[]>([]);
 
   const handleOrderAdded = () => {
     setShowAddForm(false);
     setEditingOrder(null);
-    refetch();
     toast({
       title: "Success",
-      description: "Order has been added successfully",
+      description: "Order has been processed successfully",
     });
   };
 
-  const handleEditOrder = (order: Order) => {
-    setEditingOrder(order);
-    setShowAddForm(true);
-  };
-
-  if (isLoading) {
-    return (
-      <div className="p-4 md:p-6 space-y-6">
-        <Skeleton className="h-12 w-3/4" />
-        <Skeleton className="h-8 w-1/2" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Skeleton className="h-24 w-full rounded-lg" />
-          <Skeleton className="h-24 w-full rounded-lg" />
-          <Skeleton className="h-24 w-full rounded-lg" />
-        </div>
-        <Skeleton className="h-64 w-full rounded-lg" />
-      </div>
-    );
-  }
-
-  const orderStats = {
-    total: orders?.length || 0,
-    pending: orders?.filter(order => order.status === "pending").length || 0,
-    completed: orders?.filter(order => order.status === "completed").length || 0,
-  };
-
   return (
-    <div className="p-4 md:p-6 space-y-6 bg-gradient-to-br from-purple-50 to-white dark:from-gray-900 dark:to-gray-800">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-            Orders Management
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Manage and track your restaurant orders
-          </p>
+    <div className="h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
+      <div className="flex h-16 items-center justify-between px-4 bg-white dark:bg-gray-800 border-b">
+        <h1 className="text-xl font-bold">Point of Sale</h1>
+        <div className="flex items-center gap-2">
+          <span>Order Type: Dine-In</span>
+          <span>Table: 12</span>
+          <Button variant="outline" size="sm">
+            <Pencil className="h-4 w-4 mr-1" />
+            Edit Details
+          </Button>
         </div>
-        <Button onClick={() => {
-          setEditingOrder(null);
-          setShowAddForm(true);
-        }} className="bg-purple-600 hover:bg-purple-700">
-          <Plus className="mr-2 h-4 w-4" />
-          New Order
-        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4 bg-gradient-to-br from-white to-gray-50 border-none shadow-md">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-full">
-              <ShoppingBag className="h-6 w-6 text-purple-600" />
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-700">Total Orders</h3>
-              <p className="text-2xl font-bold text-purple-600">{orderStats.total}</p>
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 h-[calc(100vh-4rem)]">
+        <div className="col-span-2 overflow-hidden flex flex-col bg-gray-100 dark:bg-gray-800">
+          <MenuCategories
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+          />
+          <div className="flex-1 overflow-auto">
+            <MenuItemsGrid
+              items={filteredItems}
+              onSelectItem={(item) => {
+                setCurrentOrderItems([...currentOrderItems, { ...item, quantity: 1 }]);
+              }}
+              isLoading={isLoadingMenu}
+            />
           </div>
-        </Card>
-        <Card className="p-4 bg-gradient-to-br from-white to-gray-50 border-none shadow-md">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-yellow-100 rounded-full">
-              <Clock className="h-6 w-6 text-yellow-600" />
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-700">Pending</h3>
-              <p className="text-2xl font-bold text-yellow-600">{orderStats.pending}</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4 bg-gradient-to-br from-white to-gray-50 border-none shadow-md">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-full">
-              <Check className="h-6 w-6 text-green-600" />
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-700">Completed</h3>
-              <p className="text-2xl font-bold text-green-600">{orderStats.completed}</p>
-            </div>
-          </div>
-        </Card>
+        </div>
+
+        <div className="overflow-hidden">
+          <CurrentOrder
+            items={currentOrderItems}
+            tableNumber="12"
+            onUpdateQuantity={(id, newQuantity) => {
+              setCurrentOrderItems(currentOrderItems.map(item =>
+                item.id === id ? { ...item, quantity: newQuantity } : item
+              ));
+            }}
+            onRemoveItem={(id) => {
+              setCurrentOrderItems(currentOrderItems.filter(item => item.id !== id));
+            }}
+            onHoldOrder={() => {
+              toast({
+                title: "Order Held",
+                description: "The order has been put on hold",
+              });
+            }}
+            onSendToKitchen={() => {
+              toast({
+                title: "Order Sent",
+                description: "The order has been sent to the kitchen",
+              });
+            }}
+            onProceedToPayment={() => {
+              setShowAddForm(true);
+            }}
+            onClearOrder={() => {
+              setCurrentOrderItems([]);
+            }}
+          />
+        </div>
       </div>
 
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
@@ -147,12 +136,6 @@ const Orders = () => {
           />
         </DialogContent>
       </Dialog>
-
-      <OrderList 
-        orders={orders || []} 
-        onOrdersChange={refetch}
-        onEditOrder={handleEditOrder} 
-      />
     </div>
   );
 };
