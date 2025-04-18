@@ -1,109 +1,146 @@
-
-import { Route, Routes, Navigate } from "react-router-dom";
-import ProtectedRoute from "./ProtectedRoute";
-import ComponentAccessGuard from "./ComponentAccessGuard";
-import Sidebar from "../Layout/Sidebar";
-import Watermark from "../Layout/Watermark";
-
-import Auth from "@/pages/Auth";
-import Index from "@/pages/Index";
-import Menu from "@/pages/Menu";
+import {
+  BrowserRouter as Router,
+  Routes as Switch,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { useUser } from "@supabase/auth-helpers-react";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
+import Home from "@/pages/Home";
 import Orders from "@/pages/Orders";
-import Tables from "@/pages/Tables";
-import Staff from "@/pages/Staff";
-import Inventory from "@/pages/Inventory";
 import Rooms from "@/pages/Rooms";
-import Suppliers from "@/pages/Suppliers";
+import Staff from "@/pages/Staff";
+import Menu from "@/pages/Menu";
+import Tables from "@/pages/Tables";
+import Reservations from "@/pages/Reservations";
+import Customers from "@/pages/Customers";
 import Analytics from "@/pages/Analytics";
 import Settings from "@/pages/Settings";
-import NotFound from "@/pages/NotFound";
-import BusinessDashboard from "@/components/Analytics/BusinessDashboard";
-import AI from "@/pages/AI";
+import KitchenDisplay from "../Kitchen/KitchenDisplay";
 
-const AppRoutes = () => {
+const Routes = () => {
+  const user = useUser();
+
+  const ComponentAccessGuard = ({ children }: { children: JSX.Element }) => {
+    if (!user) {
+      return <Navigate to="/login" />;
+    }
+    return children;
+  };
+
+  const LoginRegisterAccessGuard = ({ children }: { children: JSX.Element }) => {
+    if (user) {
+      return <Navigate to="/" />;
+    }
+    return children;
+  };
+
   return (
-    <Routes>
-      <Route path="/auth" element={<Auth />} />
+    <Switch>
       <Route
-        path="/*"
+        path="/"
         element={
-          <ProtectedRoute>
-            <div className="flex min-h-screen w-full bg-gradient-pattern">
-              <Sidebar />
-              <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
-                <div className="max-w-7xl mx-auto">
-                  <Routes>
-                    <Route path="/" element={
-                      <ComponentAccessGuard requiredComponent="dashboard">
-                        <Index />
-                      </ComponentAccessGuard>
-                    } />
-                    <Route path="/menu" element={
-                      <ComponentAccessGuard requiredComponent="menu">
-                        <Menu />
-                      </ComponentAccessGuard>
-                    } />
-                    <Route path="/orders" element={
-                      <ComponentAccessGuard requiredComponent="orders">
-                        <Orders />
-                      </ComponentAccessGuard>
-                    } />
-                    <Route path="/tables" element={
-                      <ComponentAccessGuard requiredComponent="tables">
-                        <Tables />
-                      </ComponentAccessGuard>
-                    } />
-                    <Route path="/staff" element={
-                      <ComponentAccessGuard requiredComponent="staff">
-                        <Staff />
-                      </ComponentAccessGuard>
-                    } />
-                    <Route path="/inventory" element={
-                      <ComponentAccessGuard requiredComponent="inventory">
-                        <Inventory />
-                      </ComponentAccessGuard>
-                    } />
-                    <Route path="/rooms" element={
-                      <ComponentAccessGuard requiredComponent="rooms">
-                        <Rooms />
-                      </ComponentAccessGuard>
-                    } />
-                    <Route path="/suppliers" element={
-                      <ComponentAccessGuard requiredComponent="suppliers">
-                        <Suppliers />
-                      </ComponentAccessGuard>
-                    } />
-                    <Route path="/analytics" element={
-                      <ComponentAccessGuard requiredComponent="analytics">
-                        <Analytics />
-                      </ComponentAccessGuard>
-                    } />
-                    <Route path="/business-dashboard" element={
-                      <ComponentAccessGuard requiredComponent="business_dashboard">
-                        <BusinessDashboard />
-                      </ComponentAccessGuard>
-                    } />
-                    <Route path="/ai" element={
-                      <ComponentAccessGuard requiredComponent="dashboard">
-                        <AI />
-                      </ComponentAccessGuard>
-                    } />
-                    <Route path="/settings" element={
-                      <ComponentAccessGuard requiredComponent="settings">
-                        <Settings />
-                      </ComponentAccessGuard>
-                    } />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </div>
-              </main>
-              <Watermark />
-            </div>
-          </ProtectedRoute>
+          <ComponentAccessGuard>
+            <Home />
+          </ComponentAccessGuard>
         }
       />
-    </Routes>
+      <Route
+        path="/login"
+        element={
+          <LoginRegisterAccessGuard>
+            <Login />
+          </LoginRegisterAccessGuard>
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <LoginRegisterAccessGuard>
+            <Register />
+          </LoginRegisterAccessGuard>
+        }
+      />
+      <Route
+        path="/orders"
+        element={
+          <ComponentAccessGuard>
+            <Orders />
+          </ComponentAccessGuard>
+        }
+      />
+      <Route
+        path="/rooms"
+        element={
+          <ComponentAccessGuard>
+            <Rooms />
+          </ComponentAccessGuard>
+        }
+      />
+      <Route
+        path="/staff"
+        element={
+          <ComponentAccessGuard>
+            <Staff />
+          </ComponentAccessGuard>
+        }
+      />
+      <Route
+        path="/menu"
+        element={
+          <ComponentAccessGuard>
+            <Menu />
+          </ComponentAccessGuard>
+        }
+      />
+      <Route
+        path="/tables"
+        element={
+          <ComponentAccessGuard>
+            <Tables />
+          </ComponentAccessGuard>
+        }
+      />
+      <Route
+        path="/reservations"
+        element={
+          <ComponentAccessGuard>
+            <Reservations />
+          </ComponentAccessGuard>
+        }
+      />
+      <Route
+        path="/customers"
+        element={
+          <ComponentAccessGuard>
+            <Customers />
+          </ComponentAccessGuard>
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          <ComponentAccessGuard>
+            <Analytics />
+          </ComponentAccessGuard>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ComponentAccessGuard>
+            <Settings />
+          </ComponentAccessGuard>
+        }
+      />
+      <Route path="/kitchen" element={
+        <ComponentAccessGuard>
+          <KitchenDisplay />
+        </ComponentAccessGuard>
+      } />
+    </Switch>
   );
 };
 
-export default AppRoutes;
+export default Routes;

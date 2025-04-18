@@ -172,7 +172,7 @@ const Orders = () => {
     });
   };
 
-  const handleSendToKitchen = () => {
+  const handleSendToKitchen = async () => {
     if (currentOrderItems.length === 0) {
       toast({
         variant: "destructive",
@@ -181,11 +181,46 @@ const Orders = () => {
       });
       return;
     }
-    
-    toast({
-      title: "Order Sent",
-      description: "The order has been sent to the kitchen",
-    });
+
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("restaurant_id")
+        .eq("id", (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (!profile?.restaurant_id) {
+        throw new Error("No restaurant found for user");
+      }
+
+      // Create kitchen order
+      const { error: kitchenError } = await supabase
+        .from("kitchen_orders")
+        .insert({
+          restaurant_id: profile.restaurant_id,
+          source: `${orderType === "dineIn" ? "Table " + tableNumber : "Takeaway"}`,
+          items: currentOrderItems.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+            notes: item.modifiers
+          })),
+          status: "new"
+        });
+
+      if (kitchenError) throw kitchenError;
+      
+      toast({
+        title: "Order Sent",
+        description: "The order has been sent to the kitchen",
+      });
+    } catch (error) {
+      console.error("Error sending order to kitchen:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to send order to kitchen",
+      });
+    }
   };
 
   const handleProceedToPayment = () => {
