@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { Order } from "@/types/orders";
-import { Pencil, ToggleLeft, ToggleRight } from "lucide-react";
+import { ToggleLeft, ToggleRight, Plus, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -12,6 +12,7 @@ import MenuItemsGrid from "@/components/Orders/MenuItemsGrid";
 import CurrentOrder from "@/components/Orders/CurrentOrder";
 import AddOrderForm from "@/components/Orders/AddOrderForm";
 import OrderList from "@/components/Orders/OrderList";
+import OrderStats from "@/components/Orders/OrderStats";
 import { v4 as uuidv4 } from 'uuid';
 import { 
   Select,
@@ -260,11 +261,18 @@ const Orders = () => {
     },
   });
 
+  // Calculate order stats
+  const orderStats = {
+    totalOrders: orders?.length || 0,
+    pendingOrders: orders?.filter(order => order.status === 'pending').length || 0,
+    completedOrders: orders?.filter(order => order.status === 'completed').length || 0,
+  };
+
   return (
-    <div className="h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="flex h-16 items-center justify-between px-4 bg-white dark:bg-gray-800 border-b">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold">Point of Sale</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-bold">Orders Management</h1>
           <Button 
             variant="ghost" 
             onClick={() => setShowPOS(!showPOS)} 
@@ -281,51 +289,14 @@ const Orders = () => {
           </Button>
         </div>
 
-        {showPOS && (
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="font-medium">Order Type:</span>
-              <Select defaultValue={orderType} onValueChange={(value) => setOrderType(value)}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Select order type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Dine-In">Dine-In</SelectItem>
-                  <SelectItem value="Takeaway">Takeaway</SelectItem>
-                  <SelectItem value="Delivery">Delivery</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {orderType === "Dine-In" && (
-              <div className="flex items-center gap-2">
-                <span className="font-medium">Table:</span>
-                <Select value={tableNumber} onValueChange={setTableNumber}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Select a table" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {isLoadingTables ? (
-                      <SelectItem value="loading">Loading...</SelectItem>
-                    ) : tables && tables.length > 0 ? (
-                      tables.map((table) => (
-                        <SelectItem key={table.id} value={table.name}>
-                          {table.name} (Seats: {table.capacity})
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="none">No tables available</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            
-            <Button variant="outline" size="sm" onClick={handleOrderDetailsEdit}>
-              <Pencil className="h-4 w-4 mr-1" />
-              Edit Details
-            </Button>
-          </div>
+        {!showPOS && (
+          <Button 
+            onClick={() => setShowAddForm(true)}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Order
+          </Button>
         )}
       </div>
 
@@ -359,6 +330,18 @@ const Orders = () => {
         </div>
       ) : (
         <div className="p-6">
+          <div className="mb-4">
+            <h2 className="text-lg text-muted-foreground">
+              Manage and track your restaurant orders
+            </h2>
+          </div>
+          
+          <OrderStats 
+            totalOrders={orderStats.totalOrders}
+            pendingOrders={orderStats.pendingOrders}
+            completedOrders={orderStats.completedOrders}
+          />
+
           <OrderList 
             orders={orders || []} 
             onOrdersChange={refetchOrders}
