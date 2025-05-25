@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -953,7 +954,7 @@ const BusinessDashboard = () => {
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
                             promo.status === 'active' 
                               ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-                              : promo.status === 'inactive'
+                              : promo.status === 'paused'
                               ? 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
                               : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
                           }`}>
