@@ -40,7 +40,7 @@ const OrderItem: React.FC<OrderItemProps> = ({ order, onStatusChange, onEdit }) 
           </div>
 
           <div className="text-right md:text-center">
-            <span className="text-2xl font-bold">${order.total.toFixed(2)}</span>
+            <span className="text-2xl font-bold">₹{order.total.toFixed(2)}</span>
           </div>
 
           <div className="flex justify-end">

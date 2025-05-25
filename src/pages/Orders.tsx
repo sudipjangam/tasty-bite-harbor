@@ -1,7 +1,7 @@
 
 import { useState } from "react";
-import { ToggleLeft, ToggleRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import POSMode from "@/components/Orders/POS/POSMode";
 import OrdersView from "@/components/Orders/OrdersView/OrdersView";
 
@@ -13,20 +13,21 @@ const Orders = () => {
       <div className="flex h-16 items-center justify-between px-4 bg-white dark:bg-gray-800 border-b">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold">Orders Management</h1>
-          <Button 
-            variant="ghost" 
-            onClick={() => setShowPOS(!showPOS)} 
-            className="flex items-center gap-2"
-          >
-            {showPOS ? (
-              <ToggleRight className="h-5 w-5 text-indigo-600" />
-            ) : (
-              <ToggleLeft className="h-5 w-5 text-gray-400" />
-            )}
-            <span className="text-sm font-medium">
-              {showPOS ? "POS Mode" : "Orders View"}
+          
+          {/* Improved Toggle with Clear Labels */}
+          <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-700 rounded-lg p-2">
+            <span className={`text-sm font-medium transition-colors ${showPOS ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'}`}>
+              POS Mode
             </span>
-          </Button>
+            <Switch
+              checked={!showPOS}
+              onCheckedChange={(checked) => setShowPOS(!checked)}
+              className="data-[state=checked]:bg-indigo-600"
+            />
+            <span className={`text-sm font-medium transition-colors ${!showPOS ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'}`}>
+              Orders View
+            </span>
+          </div>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShoppingCart, Clock, CheckCircle, DollarSign, TrendingUp } from "lucide-react";
+import { ShoppingCart, Clock, CheckCircle, IndianRupee, TrendingUp } from "lucide-react";
 
 interface OrderStatsProps {
   totalOrders: number;
@@ -46,7 +46,7 @@ const OrderStats: React.FC<OrderStatsProps> = ({
     {
       title: "Total Revenue",
       value: `₹${totalRevenue.toFixed(2)}`,
-      icon: DollarSign,
+      icon: IndianRupee,
       color: "text-purple-600",
       bgColor: "bg-purple-50",
       change: totalOrders > 0 ? `₹${(totalRevenue / totalOrders).toFixed(2)} avg per order` : null

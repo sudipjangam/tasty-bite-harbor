@@ -6,6 +6,7 @@ import { Plus, Search, Filter, Download, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useIsMobile } from "@/hooks/use-mobile";
 import OrderList from "../OrderList";
 import OrderStats from "../OrderStats";
@@ -116,9 +117,9 @@ const OrdersView = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 flex-shrink-0">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Orders Management</h1>
@@ -221,24 +222,26 @@ const OrdersView = () => {
         )}
       </div>
 
-      {/* Content */}
-      <div className="p-6">
-        <OrderStats 
-          totalOrders={orderStats.totalOrders}
-          pendingOrders={orderStats.pendingOrders}
-          completedOrders={orderStats.completedOrders}
-          totalRevenue={orderStats.totalRevenue}
-        />
-
-        <div className="mt-6">
-          <OrderList 
-            orders={filteredOrders} 
-            onOrdersChange={refetchOrders}
-            onEditOrder={setEditingOrder}
-            isLoading={isLoading}
+      {/* Content with Scroll */}
+      <ScrollArea className="flex-1">
+        <div className="p-6">
+          <OrderStats 
+            totalOrders={orderStats.totalOrders}
+            pendingOrders={orderStats.pendingOrders}
+            completedOrders={orderStats.completedOrders}
+            totalRevenue={orderStats.totalRevenue}
           />
+
+          <div className="mt-6">
+            <OrderList 
+              orders={filteredOrders} 
+              onOrdersChange={refetchOrders}
+              onEditOrder={setEditingOrder}
+              isLoading={isLoading}
+            />
+          </div>
         </div>
-      </div>
+      </ScrollArea>
 
       {/* Add/Edit Order Dialog */}
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
