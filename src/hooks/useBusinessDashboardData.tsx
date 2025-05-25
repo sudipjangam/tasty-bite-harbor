@@ -14,8 +14,11 @@ interface InventoryItem {
 
 // Define proper types for order items
 interface OrderItem {
+  name: string;
+  quantity: number;
+  price?: number;
   category?: string;
-  quantity?: number;
+  modifiers?: string[];
 }
 
 // Define proper types for orders
@@ -69,6 +72,20 @@ export const useBusinessDashboardData = () => {
         .gte("created_at", formattedDate)
         .order("created_at", { ascending: false });
 
+      // Fetch menu items to get category information
+      const { data: menuItems } = await supabase
+        .from("menu_items")
+        .select("name, category")
+        .eq("restaurant_id", restaurantId);
+
+      // Create a map of item names to categories
+      const itemCategoryMap: Record<string, string> = {};
+      if (menuItems) {
+        menuItems.forEach(item => {
+          itemCategoryMap[item.name] = item.category || 'Uncategorized';
+        });
+      }
+
       // Fetch inventory data
       const { data: inventoryData } = await supabase
         .from("inventory_items")
@@ -89,8 +106,34 @@ export const useBusinessDashboardData = () => {
         .gte("date", formattedDate)
         .order("date", { ascending: true });
 
-      // Cast data to proper types
-      const typedOrderData = orderData as Order[] || [];
+      // Cast data to proper types and handle the items properly
+      const typedOrderData: Order[] = orderData ? orderData.map(order => ({
+        ...order,
+        items: Array.isArray(order.items) ? order.items.map((item: any) => {
+          // Handle both string and object formats
+          if (typeof item === 'string') {
+            return {
+              name: item,
+              quantity: 1,
+              category: itemCategoryMap[item] || 'Uncategorized'
+            };
+          } else if (typeof item === 'object' && item !== null) {
+            return {
+              name: item.name || 'Unknown Item',
+              quantity: item.quantity || 1,
+              price: item.price,
+              category: item.category || itemCategoryMap[item.name] || 'Uncategorized',
+              modifiers: item.modifiers
+            };
+          }
+          return {
+            name: 'Unknown Item',
+            quantity: 1,
+            category: 'Uncategorized'
+          };
+        }) : []
+      })) : [];
+
       const typedInventoryData = inventoryData as InventoryItem[] || [];
       const typedStaffData = staffData as StaffMember[] || [];
       const typedRevenueStats = revenueStats as RevenueStats[] || [];
@@ -431,32 +474,46 @@ export const useBusinessDashboardData = () => {
         average: day.average_order_value
       })) : [];
 
-      // Calculate top selling item categories from orders
-      const itemCategoryCounts: Record<string, number> = {};
+      // Calculate top selling item categories from orders - FIXED VERSION
+      const categoryCounts: Record<string, number> = {};
       
-      if (typedOrderData) {
+      console.log('Processing orders for top categories:', typedOrderData.length);
+      
+      if (typedOrderData && typedOrderData.length > 0) {
         typedOrderData.forEach(order => {
           if (order.items && Array.isArray(order.items)) {
             order.items.forEach((item) => {
-              if (typeof item === 'object' && item !== null) {
-                const category = item.category || 'Uncategorized';
-                if (!itemCategoryCounts[category]) {
-                  itemCategoryCounts[category] = 0;
-                }
-                itemCategoryCounts[category] += item.quantity || 1;
+              const category = item.category || 'Uncategorized';
+              const quantity = item.quantity || 1;
+              
+              if (!categoryCounts[category]) {
+                categoryCounts[category] = 0;
               }
+              categoryCounts[category] += quantity;
             });
           }
         });
       }
       
-      const topCategories = Object.entries(itemCategoryCounts)
+      console.log('Category counts:', categoryCounts);
+      
+      // If no data from orders, add some default categories for display
+      if (Object.keys(categoryCounts).length === 0) {
+        categoryCounts['Appetizers'] = 0;
+        categoryCounts['Main Course'] = 0;
+        categoryCounts['Beverages'] = 0;
+        categoryCounts['Desserts'] = 0;
+      }
+      
+      const topCategories = Object.entries(categoryCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
         .map(([category, count]) => ({
           category,
           count
         }));
+
+      console.log('Top categories:', topCategories);
 
       return {
         expenseData,
