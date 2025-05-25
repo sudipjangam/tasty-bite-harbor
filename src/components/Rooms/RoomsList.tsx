@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import RoomCard from "@/components/Rooms/RoomCard";
 import RoomDialog from "@/components/Rooms/RoomDialog";
 import ReservationDialog from "@/components/Rooms/ReservationDialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Room } from "@/hooks/useRooms";
+import { Search, Filter } from "lucide-react";
 
 interface RoomsListProps {
   rooms: Room[];
@@ -22,10 +25,10 @@ interface CheckoutRoomState {
 }
 
 const statusColors = {
-  available: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  occupied: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-  cleaning: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  maintenance: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  available: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
+  occupied: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  cleaning: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+  maintenance: "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200",
 };
 
 const RoomsList: React.FC<RoomsListProps> = ({
@@ -43,6 +46,10 @@ const RoomsList: React.FC<RoomsListProps> = ({
   const [checkoutRoom, setCheckoutRoom] = useState<CheckoutRoomState | null>(null);
   const [openFoodOrder, setOpenFoodOrder] = useState(false);
   const { toast } = useToast();
+  
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   
   const [newRoom, setNewRoom] = useState({
     name: "",
@@ -69,6 +76,13 @@ const RoomsList: React.FC<RoomsListProps> = ({
     special_occasion: "",
     special_occasion_date: null as Date | null,
     marketing_consent: false
+  });
+
+  // Filter rooms based on search query and status filter
+  const filteredRooms = rooms.filter(room => {
+    const matchesSearch = room.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === "all" || room.status === statusFilter;
+    return matchesSearch && matchesStatus;
   });
 
   const handleAddRoom = async () => {
@@ -251,16 +265,69 @@ const RoomsList: React.FC<RoomsListProps> = ({
 
   return (
     <>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h1 className="text-3xl font-bold">Rooms Management</h1>
-        <Button onClick={() => setOpenAddRoom(true)}>Add New Room</Button>
+        <Button 
+          onClick={() => setOpenAddRoom(true)}
+          className="bg-primary hover:bg-primary/90 text-white"
+        >
+          Add New Room
+        </Button>
+      </div>
+      
+      {/* Filters */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search rooms..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <Select
+            value={statusFilter}
+            onValueChange={setStatusFilter}
+          >
+            <SelectTrigger className="flex-1 h-10">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="available">Available</SelectItem>
+              <SelectItem value="occupied">Occupied</SelectItem>
+              <SelectItem value="cleaning">Cleaning</SelectItem>
+              <SelectItem value="maintenance">Maintenance</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {rooms.length === 0 ? (
-        <p className="text-center py-8">No rooms found. Add your first room to get started.</p>
+      {filteredRooms.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+          <p className="text-muted-foreground text-center mb-2">
+            {rooms.length === 0 ? 
+              "No rooms found. Add your first room to get started." : 
+              "No rooms match your search criteria."}
+          </p>
+          {rooms.length > 0 && (
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setSearchQuery("");
+                setStatusFilter("all");
+              }}
+            >
+              Clear Filters
+            </Button>
+          )}
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {rooms.map((room) => (
+          {filteredRooms.map((room) => (
             <RoomCard
               key={room.id}
               room={room}
@@ -275,6 +342,7 @@ const RoomsList: React.FC<RoomsListProps> = ({
         </div>
       )}
 
+      {/* Keep existing dialogs */}
       <RoomDialog
         open={openAddRoom}
         onOpenChange={setOpenAddRoom}

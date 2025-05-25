@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase, PromotionCampaign, SentPromotion, ReservationWithSpecialOccasion } from "@/integrations/supabase/client";
@@ -62,6 +63,7 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
   const [selectedGuests, setSelectedGuests] = useState<string[]>([]);
   const [currentTab, setCurrentTab] = useState("campaigns");
   const [loading, setLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<{ id: string, restaurant_id: string } | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -76,11 +78,59 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
     },
   });
 
+  // Fetch user profile first to ensure we have proper authentication
   useEffect(() => {
-    fetchCampaigns();
-    fetchSentPromotions();
-    fetchSpecialOccasions();
-  }, [restaurantId]);
+    const fetchUserProfile = async () => {
+      try {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        
+        if (userError) throw userError;
+        
+        if (!userData.user) {
+          toast({
+            variant: "destructive",
+            title: "Authentication Error",
+            description: "You must be logged in to manage promotions."
+          });
+          return;
+        }
+        
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("id, restaurant_id")
+          .eq("id", userData.user.id)
+          .single();
+        
+        if (profileError) throw profileError;
+        
+        if (!profileData || !profileData.restaurant_id) {
+          toast({
+            variant: "destructive",
+            title: "Profile Error",
+            description: "No restaurant associated with your account."
+          });
+          return;
+        }
+        
+        setUserProfile(profileData);
+        
+        // Now that we have the user profile, fetch the rest of the data
+        fetchCampaigns();
+        fetchSentPromotions();
+        fetchSpecialOccasions();
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+        toast({
+          variant: "destructive",
+          title: "Authentication Error",
+          description: "Failed to authenticate. Please log in again."
+        });
+        setLoading(false);
+      }
+    };
+    
+    fetchUserProfile();
+  }, [restaurantId, toast]);
 
   const fetchCampaigns = async () => {
     try {
@@ -150,6 +200,29 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
     try {
       setIsCreating(true);
       
+      // Ensure we have the user's restaurant ID
+      if (!restaurantId) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "No restaurant ID available. Please log in again."
+        });
+        setIsCreating(false);
+        return;
+      }
+
+      // Explicitly check auth before attempting to insert
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) {
+        toast({
+          variant: "destructive",
+          title: "Authentication Error",
+          description: "You must be logged in to create promotions."
+        });
+        setIsCreating(false);
+        return;
+      }
+      
       const { data, error } = await supabase.from("promotion_campaigns").insert({
         restaurant_id: restaurantId,
         name: values.name,
@@ -161,7 +234,10 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
         promotion_code: values.promotionCode || null,
       }).select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error creating promotion:", error);
+        throw error;
+      }
 
       toast({
         title: "Promotion Created",
@@ -170,14 +246,14 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
 
       form.reset();
       fetchCampaigns();
-      setIsCreating(false);
     } catch (error) {
       console.error("Error creating promotion:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to create promotion campaign."
+        description: "Failed to create promotion campaign. Please ensure you have proper permissions."
       });
+    } finally {
       setIsCreating(false);
     }
   };

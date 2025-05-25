@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export const checkSubscriptionStatus = async (restaurantId: string) => {
@@ -85,8 +84,19 @@ export const fetchAllowedComponents = async (restaurantId: string): Promise<stri
       return [];
     }
 
-    // Extract components array from the plan and convert to string array
-    const componentsJson = subscription.subscription_plans.components || [];
+    // Fix: The subscription_plans might be returned as an array in some cases
+    // We need to handle both cases (object or array) to safely access components
+    let planComponents: any;
+    
+    if (Array.isArray(subscription.subscription_plans)) {
+      // If it's an array, take the first item
+      planComponents = subscription.subscription_plans[0];
+    } else {
+      // Otherwise use it as is
+      planComponents = subscription.subscription_plans;
+    }
+    
+    const componentsJson = planComponents?.components || [];
     
     // Safely convert the JSON array to string array with type checking
     const componentsArray: string[] = [];

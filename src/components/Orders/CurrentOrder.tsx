@@ -2,7 +2,7 @@
 import { Plus, Minus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { OrderItem } from "@/pages/Orders";
+import { OrderItem } from "@/types/orders";
 
 interface CurrentOrderProps {
   items: OrderItem[];

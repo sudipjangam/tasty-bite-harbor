@@ -59,7 +59,8 @@ const Analytics = () => {
     }
   };
 
-  const categoryData = [
+  // Use real category data from the hook, fallback to mock data if needed
+  const categoryData = data?.categoryData || [
     { name: "Main Course", value: 45000, percentage: 35 },
     { name: "Appetizers", value: 25000, percentage: 19 },
     { name: "Desserts", value: 18000, percentage: 14 },

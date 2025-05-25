@@ -5,6 +5,9 @@ import OrderItem from "./OrderItem";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { Order } from "@/types/orders";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
+import AddOrderForm from "./AddOrderForm";
 
 interface OrderListProps {
   orders: Order[];
@@ -18,7 +21,10 @@ const OrderList: React.FC<OrderListProps> = ({
   onEditOrder 
 }) => {
   const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [showEditForm, setShowEditForm] = useState(false);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const filteredOrders = orders.filter(order => {
     if (statusFilter === "all") return true;
@@ -50,6 +56,11 @@ const OrderList: React.FC<OrderListProps> = ({
     }
   };
 
+  const handleEditOrder = (order: Order) => {
+    setSelectedOrder(order);
+    setShowEditForm(true);
+  };
+
   return (
     <div className="space-y-4">
       <OrderFilters statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
@@ -59,17 +70,34 @@ const OrderList: React.FC<OrderListProps> = ({
           <p className="text-muted-foreground">No orders found</p>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-4 h-[calc(100vh-220px)] overflow-auto">
           {filteredOrders.map((order) => (
             <OrderItem 
               key={order.id} 
               order={order} 
               onStatusChange={handleStatusChange}
-              onEdit={onEditOrder ? () => onEditOrder(order) : undefined}
+              onEdit={() => handleEditOrder(order)}
             />
           ))}
         </div>
       )}
+
+      <Dialog open={showEditForm} onOpenChange={setShowEditForm}>
+        <DialogContent className={`${isMobile ? 'w-[95%] max-w-lg' : 'max-w-4xl'} max-h-[90vh] overflow-y-auto`}>
+          <AddOrderForm
+            onSuccess={() => {
+              setShowEditForm(false);
+              setSelectedOrder(null);
+              onOrdersChange();
+            }}
+            onCancel={() => {
+              setShowEditForm(false);
+              setSelectedOrder(null);
+            }}
+            editingOrder={selectedOrder}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

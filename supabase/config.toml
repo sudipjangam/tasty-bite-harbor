@@ -8,12 +8,12 @@ project_id = "clmsoetktmvhazctlans"
 port = 54321
 # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
 # endpoints. public and storage are always included.
-schemas = ["public", "storage", "auth", "extensions"]
-# Extra schemas to add to the search_path of every request.
+schemas = ["public", "storage", "graphql_public"]
+# Extra schemas to expose in the API but not add to the docs. These schemas will not have schemas
+# created in the OpenAPI docs.
+extra_schemas = ["graphql_public"]
+# Extra schemas to add to the search_path of every request. public is always included.
 extra_search_path = ["public", "extensions"]
-# The maximum number of rows returns from a view, table, or stored procedure. Limits payload size
-# for accidental or malicious requests.
-max_rows = 1000
 
 [db]
 # Port to use for the local database URL.
@@ -34,15 +34,23 @@ port = 54324
 smtp_port = 54325
 pop3_port = 54326
 
+[storage]
+# The maximum file size allowed (e.g. "5MB", "500KB").
+file_size_limit = "50MiB"
+
 [auth]
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
 site_url = "http://localhost:3000"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 additional_redirect_urls = ["https://localhost:3000"]
-# How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 seconds (1
-# week).
+# How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
+# If disabled, the refresh token will never expire.
+enable_refresh_token_rotation = true
+# Allows refresh tokens to be reused after expiry, up to the specified interval in seconds.
+# Requires enable_refresh_token_rotation = true.
+refresh_token_reuse_interval = 10
 # Allow/disallow new user signups to your project.
 enable_signup = true
 
@@ -55,64 +63,22 @@ double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
 enable_confirmations = false
 
-# Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
-# `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin`, `notion`, `twitch`,
-# `twitter`, `slack`, `spotify`, `workos`, `zoom`.
-[auth.external.apple]
-enabled = false
-client_id = ""
-secret = ""
-# Overrides the default auth redirectUrl.
+[auth.sms]
+# Allow/disallow new user signups via SMS to your project.
+enable_signup = true
+# If enabled, users need to confirm their phone number before signing in.
+enable_confirmations = false
+
+[auth.oauth.google]
+# When enabled, users can sign up using Google OAuth.
+enabled = true
+client_id = "env(GOOGLE_CLIENT_ID)"
+secret = "env(GOOGLE_CLIENT_SECRET)"
+# Overrides the default auth provider redirect URI. Use this when you want to host the supabase from a different domain.
 redirect_uri = ""
-# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
-# or any other third-party OIDC providers.
+# Overrides the default auth provider URL. Use this when you are self-hosting your own OAuth server.
 url = ""
 
-[analytics]
-enabled = false
-port = 54327
-vector_port = 54328
-# Setup BigQuery project to enable log viewer on local development stack.
-# See: https://supabase.com/docs/guides/getting-started/local-development#enabling-local-logging
-gcp_project_id = ""
-gcp_project_number = ""
-gcp_jwt_path = "supabase/gcloud.json"
-
-# Configure one of the supported email testing tools: `sendgrid`, `resend` or `mailgun`.
-[email.sendgrid]
-enabled = false
-sender = ""
-key = ""
-
-[email.resend]
-enabled = false
-sender = ""
-key = ""
-
-[email.mailgun]
-enabled = false
-sender = ""
-key = ""
-
-# Configure storage TUS server to use this experimental feature.
-[experimental.storage]
-file_size_limit = "10MiB"
-use_tus = false
-
-[experimental.functions.chat-with-api]
-verify_jwt = true
-
-[experimental.functions.chat-with-gemini]
-verify_jwt = true
-
-[experimental.functions.check-low-stock]
-verify_jwt = true
-
-[experimental.functions.send-whatsapp-bill]
-verify_jwt = true
-
-[experimental.functions.send-whatsapp]
-verify_jwt = true
-
-[experimental.functions.upload-image]
+[functions]
+[functions.record-clock-entry]
 verify_jwt = true

@@ -3,34 +3,30 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, User, Trash2, Edit } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { useToast } from "@/components/ui/use-toast";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import StaffLeaveManager from "@/components/Staff/StaffLeaveManager";
+import { useToast } from "@/hooks/use-toast";
 import { useLocation, useNavigate } from "react-router-dom";
-
-interface StaffMember {
-  id: string;
-  first_name: string;
-  last_name: string;
-  position: string;
-  email: string;
-  phone: string;
-  Shift: string;
-}
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import StaffList from "@/components/Staff/StaffList";
+import StaffDetail from "@/components/Staff/StaffDetail";
+import StaffDialog from "@/components/Staff/StaffDialog";
+import StaffLeaveManager from "@/components/Staff/StaffLeaveManager";
+import TimeClockDialog from "@/components/Staff/TimeClockDialog";
+import type { StaffMember, StaffRole } from "@/types/staff";
+import { Button } from "@/components/ui/button";
+import { UserPlus, ClockIcon } from "lucide-react";
+import { buttonStyles } from "@/config/buttonStyles";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 const Staff = () => {
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
+  const [isStaffDialogOpen, setIsStaffDialogOpen] = useState(false);
+  const [isTimeClockDialogOpen, setIsTimeClockDialogOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
   const { toast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
+  const { restaurantId, isLoading: loadingRestaurantId } = useRestaurantId();
 
   // Get active tab from URL query parameter
   const searchParams = new URLSearchParams(location.search);
@@ -46,99 +42,46 @@ const Staff = () => {
     }
   }, [activeTab, navigate]);
 
-  const { data: restaurantId } = useQuery({
-    queryKey: ["restaurant-id"],
-    queryFn: async () => {
-      const { data: profile } = await supabase.auth.getUser();
-      if (!profile.user) throw new Error("No user found");
-
-      const { data: userProfile } = await supabase
-        .from("profiles")
-        .select("restaurant_id")
-        .eq("id", profile.user.id)
-        .single();
-
-      return userProfile?.restaurant_id;
-    },
-  });
-
-  const { data: staff = [], refetch } = useQuery({
-    queryKey: ["staff", restaurantId],
+  // Fetch staff roles
+  const { data: roles = [] } = useQuery<StaffRole[]>({
+    queryKey: ["staff-roles", restaurantId],
     enabled: !!restaurantId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("staff")
+        .from("staff_roles")
         .select("*")
         .eq("restaurant_id", restaurantId);
 
       if (error) throw error;
-      return data as StaffMember[];
+      return data as StaffRole[];
     },
   });
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const staffData = {
-      first_name: formData.get("firstName") as string,
-      last_name: formData.get("lastName") as string,
-      position: formData.get("position") as string,
-      email: formData.get("email") as string,
-      phone: formData.get("phone") as string,
-      Shift: formData.get("shift") as string,
-    };
-
-    try {
-      if (editingStaff) {
-        const { error } = await supabase
-          .from("staff")
-          .update(staffData)
-          .eq("id", editingStaff.id);
-
-        if (error) throw error;
-        toast({ title: "Staff member updated successfully" });
-      } else {
-        if (!restaurantId) throw new Error("No restaurant found");
-
-        const { error } = await supabase
-          .from("staff")
-          .insert([{ ...staffData, restaurant_id: restaurantId }]);
-
-        if (error) throw error;
-        toast({ title: "Staff member added successfully" });
-      }
-
-      refetch();
-      setIsAddDialogOpen(false);
-      setEditingStaff(null);
-    } catch (error) {
-      console.error("Error:", error);
-      toast({
-        title: "Error",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive",
-      });
-    }
+  const handleAddStaff = () => {
+    setEditingStaff(null);
+    setIsStaffDialogOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      const { error } = await supabase.from("staff").delete().eq("id", id);
-      if (error) throw error;
-      toast({ title: "Staff member deleted successfully" });
-      refetch();
-    } catch (error) {
-      console.error("Error:", error);
-      toast({
-        title: "Error",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive",
-      });
+  const handleEditStaff = (staff: StaffMember) => {
+    setEditingStaff(staff);
+    setIsStaffDialogOpen(true);
+  };
+
+  const handleStaffDialogSuccess = () => {
+    toast({
+      title: editingStaff ? "Staff Updated" : "Staff Added",
+      description: editingStaff 
+        ? `${editingStaff.first_name} ${editingStaff.last_name}'s profile has been updated.` 
+        : "New staff member has been added successfully.",
+    });
+    // If we were editing the currently selected staff, update it
+    if (editingStaff && selectedStaff && editingStaff.id === selectedStaff.id) {
+      // Will be refreshed by the realtime subscription
     }
   };
 
   return (
-    <div className="p-6 space-y-6 bg-gradient-to-br from-purple-50 to-white dark:from-gray-900 dark:to-gray-800">
+    <div className="p-6 space-y-6 bg-gradient-to-br from-purple-50 to-white dark:from-gray-900 dark:to-gray-800 min-h-screen">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
@@ -148,183 +91,92 @@ const Staff = () => {
             Manage your restaurant's staff and leave requests
           </p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button
-              onClick={() => setEditingStaff(null)}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Staff
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>
-                {editingStaff ? "Edit Staff Member" : "Add New Staff Member"}
-              </DialogTitle>
-              <DialogDescription>
-                {editingStaff ? "Update the staff member's details below." : "Fill in the details below to add a new staff member."}
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input
-                    id="firstName"
-                    name="firstName"
-                    defaultValue={editingStaff?.first_name}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input
-                    id="lastName"
-                    name="lastName"
-                    defaultValue={editingStaff?.last_name}
-                    required
-                  />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="position">Position</Label>
-                <Input
-                  id="position"
-                  name="position"
-                  defaultValue={editingStaff?.position}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  defaultValue={editingStaff?.email}
-                />
-              </div>
-              <div>
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  name="phone"
-                  defaultValue={editingStaff?.phone}
-                />
-              </div>
-              <div>
-                <Label htmlFor="shift">Shift</Label>
-                <Select name="shift" defaultValue={editingStaff?.Shift || "none"}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select shift" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No Shift</SelectItem>
-                    <SelectItem value="Morning">Morning</SelectItem>
-                    <SelectItem value="Afternoon">Afternoon</SelectItem>
-                    <SelectItem value="Evening">Evening</SelectItem>
-                    <SelectItem value="Night">Night</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700">
-                {editingStaff ? "Update" : "Add"} Staff Member
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-3">
+          <Button 
+            onClick={() => setIsTimeClockDialogOpen(true)}
+            variant="outline"
+            className={buttonStyles.view}
+          >
+            <ClockIcon className="h-4 w-4 mr-2" />
+            Clock In/Out
+          </Button>
+          <Button 
+            onClick={handleAddStaff}
+            className={buttonStyles.primary}
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Add Staff
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="staff">Staff List</TabsTrigger>
-          <TabsTrigger value="leaves">Leave Management</TabsTrigger>
+        <TabsList className="mb-6 bg-white dark:bg-gray-800 p-1 border border-gray-200 dark:border-gray-700 rounded-lg">
+          <TabsTrigger 
+            value="staff" 
+            className="data-[state=active]:bg-primary data-[state=active]:text-white transition-colors"
+          >
+            Staff List
+          </TabsTrigger>
+          <TabsTrigger 
+            value="leaves"
+            className="data-[state=active]:bg-primary data-[state=active]:text-white transition-colors"
+          >
+            Leave Management
+          </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="staff">
-          <Card className="bg-white dark:bg-gray-800 shadow-md p-6">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]"></TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Position</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Shift</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {staff.map((staffMember) => (
-                  <TableRow key={staffMember.id}>
-                    <TableCell>
-                      <div className="bg-primary/10 p-2 rounded-full w-10 h-10 flex items-center justify-center">
-                        <User className="h-5 w-5 text-primary" />
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {staffMember.first_name} {staffMember.last_name}
-                    </TableCell>
-                    <TableCell>{staffMember.position}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        {staffMember.email && (
-                          <a
-                            href={`mailto:${staffMember.email}`}
-                            className="text-blue-600 hover:underline"
-                          >
-                            {staffMember.email}
-                          </a>
-                        )}
-                        {staffMember.phone && (
-                          <a
-                            href={`tel:${staffMember.phone}`}
-                            className="text-blue-600 hover:underline"
-                          >
-                            {staffMember.phone}
-                          </a>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {staffMember.Shift || "Not assigned"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setEditingStaff(staffMember);
-                            setIsAddDialogOpen(true);
-                          }}
-                          className="hover:bg-purple-100"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(staffMember.id)}
-                          className="hover:bg-red-100"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+        <TabsContent value="staff" className="animate-in fade-in">
+          <ErrorBoundary>
+            {selectedStaff ? (
+              <Card className="p-6 bg-white dark:bg-gray-800 shadow-md border-t-4 border-t-primary">
+                <StaffDetail 
+                  staffId={selectedStaff.id}
+                  restaurantId={restaurantId}
+                  onEdit={handleEditStaff}
+                  onBack={() => setSelectedStaff(null)}
+                />
+              </Card>
+            ) : (
+              <StaffList
+                selectedStaffId={selectedStaff?.id || null}
+                onSelectStaff={setSelectedStaff}
+                restaurantId={restaurantId}
+                onAddStaff={handleAddStaff}
+              />
+            )}
+          </ErrorBoundary>
         </TabsContent>
         
-        <TabsContent value="leaves">
-          <StaffLeaveManager />
+        <TabsContent value="leaves" className="animate-in fade-in">
+          <ErrorBoundary>
+            <Card className="p-6 bg-white dark:bg-gray-800 shadow-md">
+              <StaffLeaveManager />
+            </Card>
+          </ErrorBoundary>
         </TabsContent>
       </Tabs>
+
+      <StaffDialog
+        isOpen={isStaffDialogOpen}
+        onClose={() => setIsStaffDialogOpen(false)}
+        staff={editingStaff || undefined}
+        restaurantId={restaurantId}
+        onSuccess={handleStaffDialogSuccess}
+        roles={roles}
+      />
+
+      <TimeClockDialog
+        isOpen={isTimeClockDialogOpen}
+        onClose={() => setIsTimeClockDialogOpen(false)}
+        restaurantId={restaurantId}
+        onSuccess={() => {
+          toast({
+            title: "Time clock entry saved",
+            description: "Your time clock entry has been recorded successfully.",
+          });
+        }}
+      />
     </div>
   );
 };
