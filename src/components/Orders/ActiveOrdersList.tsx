@@ -22,7 +22,7 @@ interface OrderItem {
 interface ActiveOrder {
   id: string;
   source: string;
-  status: "new" | "preparing" | "ready" | "completed"; // Added "completed" to the type
+  status: "new" | "preparing" | "ready" | "completed";
   items: OrderItem[];
   created_at: string;
 }
@@ -45,12 +45,25 @@ const ActiveOrdersList = () => {
 
       if (!profile?.restaurant_id) return;
 
-      const { data: orders } = await supabase
+      // Build query based on status filter
+      let query = supabase
         .from("kitchen_orders")
         .select("*")
-        .eq("restaurant_id", profile.restaurant_id)
-        .not("status", "eq", "completed")
-        .order("created_at", { ascending: false });
+        .eq("restaurant_id", profile.restaurant_id);
+
+      // Only filter out completed orders if status filter is not "all"
+      if (statusFilter !== "all") {
+        if (statusFilter === "completed") {
+          query = query.eq("status", "completed");
+        } else {
+          query = query.not("status", "eq", "completed");
+          if (statusFilter !== "all") {
+            query = query.eq("status", statusFilter);
+          }
+        }
+      }
+
+      const { data: orders } = await query.order("created_at", { ascending: false });
 
       if (orders) {
         const formattedOrders: ActiveOrder[] = orders.map(order => ({
@@ -128,8 +141,8 @@ const ActiveOrdersList = () => {
           } else if (payload.eventType === "UPDATE") {
             const updatedOrder = payload.new;
             
-            setActiveOrders((prev) =>
-              prev.map((order) =>
+            setActiveOrders((prev) => {
+              const updatedOrders = prev.map((order) =>
                 order.id === updatedOrder.id 
                   ? {
                       ...order,
@@ -137,8 +150,15 @@ const ActiveOrdersList = () => {
                       items: parseOrderItems(updatedOrder.items)
                     } 
                   : order
-              ).filter(order => order.status !== "completed")
-            );
+              );
+
+              // If status filter is not "all" and not "completed", filter out completed orders
+              if (statusFilter !== "all" && statusFilter !== "completed") {
+                return updatedOrders.filter(order => order.status !== "completed");
+              }
+              
+              return updatedOrders;
+            });
             
             if (updatedOrder.status === "ready") {
               toast({
@@ -156,7 +176,7 @@ const ActiveOrdersList = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [toast]);
+  }, [toast, statusFilter]);
 
   // Apply date filtering
   const getDateFilteredOrders = (orders: ActiveOrder[]) => {
@@ -189,13 +209,8 @@ const ActiveOrdersList = () => {
     }
   };
 
-  // Filter orders based on search term, status, and date
+  // Filter orders based on search term and date
   const filteredOrders = getDateFilteredOrders(activeOrders).filter(order => {
-    // Filter by status
-    if (statusFilter !== "all" && order.status !== statusFilter) {
-      return false;
-    }
-
     // Filter by search term
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
@@ -226,13 +241,26 @@ const ActiveOrdersList = () => {
         return "bg-[#fee2e2] border-l-4 border-red-400";
       case "ready":
         return "bg-[#F2FCE2] border-l-4 border-green-400";
+      case "completed":
+        return "bg-[#e5f3ff] border-l-4 border-blue-400";
       default:
         return "bg-white border";
     }
   };
 
-  const handleEditOrder = (orderId: string) => {
-    // Will be implemented in OrderDetailsDialog
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case "new":
+        return "bg-yellow-100 text-yellow-800";
+      case "preparing":
+        return "bg-red-100 text-red-800";
+      case "ready":
+        return "bg-green-100 text-green-800";
+      case "completed":
+        return "bg-blue-100 text-blue-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
   };
 
   return (
@@ -258,6 +286,7 @@ const ActiveOrdersList = () => {
             <SelectItem value="new">New Orders</SelectItem>
             <SelectItem value="preparing">Preparing</SelectItem>
             <SelectItem value="ready">Ready</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -284,7 +313,7 @@ const ActiveOrdersList = () => {
               <div className="flex flex-col h-full">
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-semibold text-sm truncate mr-2 flex-1">{order.source}</h3>
-                  <span className="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700">
+                  <span className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(order.status)}`}>
                     {order.status}
                   </span>
                 </div>
