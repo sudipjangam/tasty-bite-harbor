@@ -12,6 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { RefreshCw, AlertTriangle } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Card } from "@/components/ui/card";
+import { useBusinessDashboardData } from "@/hooks/useBusinessDashboardData";
 
 const BusinessDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
@@ -36,10 +37,13 @@ const BusinessDashboard = () => {
     },
   });
 
+  const { data: businessData, isLoading: businessDataLoading, error: businessDataError } = useBusinessDashboardData();
+
   const refreshData = async () => {
     setRefreshing(true);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["business-dashboard-profile"] }),
+      queryClient.invalidateQueries({ queryKey: ["business-dashboard-data"] }),
       queryClient.invalidateQueries({ queryKey: ["smart-insights-data"] }),
       queryClient.invalidateQueries({ queryKey: ["promotional-campaigns"] }),
       queryClient.invalidateQueries({ queryKey: ["document-repository-restaurant-id"] }),
@@ -50,7 +54,7 @@ const BusinessDashboard = () => {
     }, 1000);
   };
 
-  if (profileLoading) {
+  if (profileLoading || businessDataLoading) {
     return (
       <div className="space-y-6 p-4">
         <Skeleton className="h-12 w-full" />
@@ -60,7 +64,7 @@ const BusinessDashboard = () => {
     );
   }
 
-  if (profileError) {
+  if (profileError || businessDataError) {
     return (
       <Alert variant="destructive" className="my-4 mx-4">
         <AlertTriangle className="h-4 w-4" />
@@ -115,7 +119,7 @@ const BusinessDashboard = () => {
             <SmartInsights />
           </TabsContent>
           <TabsContent value="promotions" className="space-y-4">
-            <PromotionalCampaigns />
+            <PromotionalCampaigns promotions={businessData?.promotionalData || []} />
           </TabsContent>
           <TabsContent value="documents" className="space-y-4">
             <DocumentRepository />
