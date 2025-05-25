@@ -1,10 +1,11 @@
 
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Printer } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Printer, DollarSign, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -148,81 +149,103 @@ const PaymentDialog = ({ isOpen, onClose, orderItems, onSuccess }: PaymentDialog
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl">
-        <div className="p-4">
-          <h2 className="text-2xl font-bold mb-4">Payment</h2>
-          <div className="space-y-4">
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="customerName">Customer Name*</Label>
-                  <Input 
-                    id="customerName"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Enter customer name"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="customerPhone">Customer Phone</Label>
-                  <Input 
-                    id="customerPhone"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="Enter phone number"
-                  />
-                </div>
-              </div>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-green-600" />
+            Payment Processing
+          </DialogTitle>
+          <button
+            onClick={onClose}
+            className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </DialogHeader>
+        
+        <div className="space-y-6 pt-4">
+          {/* Customer Information */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="customerName" className="text-sm font-medium">Customer Name*</Label>
+              <Input 
+                id="customerName"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Enter customer name"
+                className="focus:ring-2 focus:ring-purple-500"
+                required
+              />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="customerPhone" className="text-sm font-medium">Customer Phone</Label>
+              <Input 
+                id="customerPhone"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                placeholder="Enter phone number"
+                className="focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+          </div>
 
-            <div id="payment-summary" className="border rounded p-4">
-              <h3 className="font-semibold mb-2">Order Summary</h3>
+          {/* Order Summary Card */}
+          <Card id="payment-summary" className="p-4 bg-gray-50 dark:bg-gray-800">
+            <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">Order Summary</h3>
+            <div className="space-y-2">
               {orderItems.map((item) => (
                 <div key={item.id} className="flex justify-between text-sm">
-                  <span>{item.quantity}x {item.name}</span>
-                  <span>₹{(item.price * item.quantity).toFixed(2)}</span>
+                  <span className="text-gray-600 dark:text-gray-300">{item.quantity}x {item.name}</span>
+                  <span className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</span>
                 </div>
               ))}
-              <div className="border-t mt-2 pt-2">
-                <div className="flex justify-between">
+              
+              <div className="border-t pt-3 mt-3 space-y-2">
+                <div className="flex justify-between text-sm">
                   <span>Subtotal</span>
                   <span>₹{subtotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between text-sm text-gray-500">
                   <span>Tax (10%)</span>
                   <span>₹{tax.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between font-bold mt-2">
+                <div className="flex justify-between font-bold text-lg border-t pt-2">
                   <span>Total</span>
-                  <span>₹{total.toFixed(2)}</span>
+                  <span className="text-purple-600">₹{total.toFixed(2)}</span>
                 </div>
               </div>
             </div>
-            
-            <div>
-              <h3 className="font-semibold mb-2">Payment Method</h3>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select payment method" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="upi">UPI</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          </Card>
+          
+          {/* Payment Method */}
+          <div>
+            <Label className="text-sm font-medium">Payment Method</Label>
+            <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Select payment method" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cash">Cash</SelectItem>
+                <SelectItem value="card">Card</SelectItem>
+                <SelectItem value="upi">UPI</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
+          {/* Action Buttons */}
+          <div className="flex justify-between gap-3 pt-4 border-t">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <div className="flex gap-2">
               <Button variant="outline" onClick={handlePrintBill}>
                 <Printer className="w-4 h-4 mr-2" />
                 Print Bill
               </Button>
-              <Button onClick={handleCompletePayment}>
+              <Button 
+                onClick={handleCompletePayment}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
                 Complete Payment
               </Button>
             </div>

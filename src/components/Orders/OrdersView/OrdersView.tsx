@@ -48,8 +48,9 @@ const OrdersView = () => {
     }
   };
 
+  // Fetch both regular orders and kitchen orders (POS orders)
   const { data: orders, refetch: refetchOrders, isLoading } = useQuery({
-    queryKey: ['orders', dateFilter],
+    queryKey: ['all-orders', dateFilter],
     queryFn: async () => {
       const { data: profile } = await supabase
         .from("profiles")
@@ -63,7 +64,8 @@ const OrdersView = () => {
 
       const dateRange = getDateRange(dateFilter);
       
-      const { data, error } = await supabase
+      // Fetch regular orders
+      const { data: regularOrders, error: ordersError } = await supabase
         .from('orders')
         .select('*')
         .eq('restaurant_id', profile.restaurant_id)
@@ -71,8 +73,36 @@ const OrdersView = () => {
         .lte('created_at', dateRange.end.toISOString())
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return data as Order[];
+      if (ordersError) throw ordersError;
+
+      // Fetch kitchen orders (POS orders)
+      const { data: kitchenOrders, error: kitchenError } = await supabase
+        .from('kitchen_orders')
+        .select('*')
+        .eq('restaurant_id', profile.restaurant_id)
+        .gte('created_at', dateRange.start.toISOString())
+        .lte('created_at', dateRange.end.toISOString())
+        .order('created_at', { ascending: false });
+
+      if (kitchenError) throw kitchenError;
+
+      // Convert kitchen orders to Order format
+      const convertedKitchenOrders: Order[] = (kitchenOrders || []).map(ko => ({
+        id: ko.id,
+        customer_name: ko.source || 'POS Customer',
+        items: Array.isArray(ko.items) ? ko.items.map((item: any) => `${item.quantity}x ${item.name}`) : [],
+        total: Array.isArray(ko.items) ? ko.items.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0) : 0,
+        status: ko.status === 'new' ? 'pending' : ko.status === 'ready' ? 'completed' : ko.status as 'completed' | 'pending' | 'preparing' | 'ready' | 'cancelled',
+        created_at: ko.created_at,
+        restaurant_id: ko.restaurant_id || profile.restaurant_id,
+        updated_at: ko.updated_at
+      }));
+
+      // Combine and sort all orders
+      const allOrders = [...(regularOrders || []), ...convertedKitchenOrders];
+      allOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      return allOrders as Order[];
     },
   });
 
@@ -100,7 +130,7 @@ const OrdersView = () => {
 
   const orderStats = {
     totalOrders: filteredOrders.length || 0,
-    pendingOrders: filteredOrders.filter(order => order.status === 'pending').length || 0,
+    pendingOrders: filteredOrders.filter(order => order.status === 'pending' || order.status === 'preparing').length || 0,
     completedOrders: filteredOrders.filter(order => order.status === 'completed').length || 0,
     totalRevenue: filteredOrders.reduce((sum, order) => sum + order.total, 0) || 0,
   };
@@ -223,25 +253,27 @@ const OrdersView = () => {
       </div>
 
       {/* Content with Scroll */}
-      <ScrollArea className="flex-1">
-        <div className="p-6">
-          <OrderStats 
-            totalOrders={orderStats.totalOrders}
-            pendingOrders={orderStats.pendingOrders}
-            completedOrders={orderStats.completedOrders}
-            totalRevenue={orderStats.totalRevenue}
-          />
-
-          <div className="mt-6">
-            <OrderList 
-              orders={filteredOrders} 
-              onOrdersChange={refetchOrders}
-              onEditOrder={setEditingOrder}
-              isLoading={isLoading}
+      <div className="flex-1 overflow-hidden">
+        <ScrollArea className="h-full">
+          <div className="p-6">
+            <OrderStats 
+              totalOrders={orderStats.totalOrders}
+              pendingOrders={orderStats.pendingOrders}
+              completedOrders={orderStats.completedOrders}
+              totalRevenue={orderStats.totalRevenue}
             />
+
+            <div className="mt-6">
+              <OrderList 
+                orders={filteredOrders} 
+                onOrdersChange={refetchOrders}
+                onEditOrder={setEditingOrder}
+                isLoading={isLoading}
+              />
+            </div>
           </div>
-        </div>
-      </ScrollArea>
+        </ScrollArea>
+      </div>
 
       {/* Add/Edit Order Dialog */}
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>

@@ -14,19 +14,28 @@ const Orders = () => {
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold">Orders Management</h1>
           
-          {/* Improved Toggle with Clear Labels */}
-          <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-700 rounded-lg p-2">
-            <span className={`text-sm font-medium transition-colors ${showPOS ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'}`}>
+          {/* Improved Toggle with Better Visual Design */}
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            <button
+              onClick={() => setShowPOS(true)}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                showPOS 
+                  ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm' 
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
               POS Mode
-            </span>
-            <Switch
-              checked={!showPOS}
-              onCheckedChange={(checked) => setShowPOS(!checked)}
-              className="data-[state=checked]:bg-indigo-600"
-            />
-            <span className={`text-sm font-medium transition-colors ${!showPOS ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'}`}>
+            </button>
+            <button
+              onClick={() => setShowPOS(false)}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                !showPOS 
+                  ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm' 
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
               Orders View
-            </span>
+            </button>
           </div>
         </div>
       </div>

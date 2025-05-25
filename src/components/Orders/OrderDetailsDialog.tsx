@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatDistanceToNow } from "date-fns";
-import { Printer, Edit, DollarSign, Check, Percent } from "lucide-react";
+import { Printer, Edit, DollarSign, Check, Percent, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
@@ -306,77 +306,89 @@ const OrderDetailsDialog = ({ isOpen, onClose, order, onPrintBill, onEditOrder }
   if (showPaymentDialog) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Payment</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-green-600" />
+              Payment Processing
+            </DialogTitle>
+            <button
+              onClick={onClose}
+              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </DialogHeader>
           
-          <div className="space-y-4">
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="customerName">Customer Name*</Label>
-                  <Input 
-                    id="customerName"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Enter customer name"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="customerPhone">Customer Phone</Label>
-                  <Input 
-                    id="customerPhone"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="Enter phone number"
-                  />
-                </div>
+          <div className="space-y-6 pt-4">
+            {/* Customer Information */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="customerName" className="text-sm font-medium">Customer Name*</Label>
+                <Input 
+                  id="customerName"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Enter customer name"
+                  className="focus:ring-2 focus:ring-purple-500"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="customerPhone" className="text-sm font-medium">Customer Phone</Label>
+                <Input 
+                  id="customerPhone"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="Enter phone number"
+                  className="focus:ring-2 focus:ring-purple-500"
+                />
               </div>
             </div>
             
-            <div className="border rounded-lg p-4">
-              <h3 className="font-semibold mb-2">Order Summary</h3>
+            {/* Order Summary Card */}
+            <Card className="p-4 bg-gray-50 dark:bg-gray-800">
+              <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">Order Summary</h3>
               <div className="space-y-2">
                 {order.items.map((item, index) => (
                   <div key={index} className="flex justify-between text-sm">
-                    <span>{item.quantity}x {item.name}</span>
-                    <span>₹{item.price ? (item.price * item.quantity).toFixed(2) : '0.00'}</span>
+                    <span className="text-gray-600 dark:text-gray-300">{item.quantity}x {item.name}</span>
+                    <span className="font-medium">₹{item.price ? (item.price * item.quantity).toFixed(2) : '0.00'}</span>
                   </div>
                 ))}
                 
-                <div className="border-t pt-2 mt-2">
-                  <div className="flex justify-between">
+                <div className="border-t pt-3 mt-3 space-y-2">
+                  <div className="flex justify-between text-sm">
                     <span>Subtotal</span>
                     <span>₹{subtotal.toFixed(2)}</span>
                   </div>
                   
                   {discountPercent > 0 && (
-                    <div className="flex justify-between text-green-600">
+                    <div className="flex justify-between text-sm text-green-600">
                       <span>Discount ({discountPercent}%)</span>
                       <span>-₹{discountAmount.toFixed(2)}</span>
                     </div>
                   )}
                   
-                  <div className="flex justify-between text-sm text-muted-foreground">
+                  <div className="flex justify-between text-sm text-gray-500">
                     <span>Tax (10%)</span>
                     <span>₹{tax.toFixed(2)}</span>
                   </div>
                   
-                  <div className="flex justify-between font-bold mt-2">
+                  <div className="flex justify-between font-bold text-lg border-t pt-2">
                     <span>Total</span>
-                    <span>₹{grandTotal.toFixed(2)}</span>
+                    <span className="text-purple-600">₹{grandTotal.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
-            </div>
+            </Card>
 
+            {/* Promotion and Discount Section */}
             <div className="space-y-4">
               <div>
                 <Label className="text-sm font-medium">Apply Promotion</Label>
                 <Select value={selectedPromotion} onValueChange={handlePromotionChange}>
-                  <SelectTrigger>
+                  <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select promotion" />
                   </SelectTrigger>
                   <SelectContent>
@@ -392,7 +404,7 @@ const OrderDetailsDialog = ({ isOpen, onClose, order, onPrintBill, onEditOrder }
               
               <div className="flex gap-2 items-end">
                 <div className="flex-1">
-                  <Label htmlFor="discountPercent">Custom Discount (%)</Label>
+                  <Label htmlFor="discountPercent" className="text-sm font-medium">Custom Discount (%)</Label>
                   <Input
                     id="discountPercent"
                     type="number"
@@ -400,14 +412,15 @@ const OrderDetailsDialog = ({ isOpen, onClose, order, onPrintBill, onEditOrder }
                     max={100}
                     value={discountPercent}
                     onChange={(e) => setDiscountPercent(Number(e.target.value))}
+                    className="mt-1"
                   />
                 </div>
                 <Button 
                   variant="outline" 
-                  className="flex items-center gap-1"
+                  size="sm"
                   onClick={() => setDiscountPercent(0)}
                 >
-                  <Percent className="h-4 w-4" />
+                  <Percent className="h-4 w-4 mr-1" />
                   Clear
                 </Button>
               </div>
@@ -415,7 +428,7 @@ const OrderDetailsDialog = ({ isOpen, onClose, order, onPrintBill, onEditOrder }
               <div>
                 <Label className="text-sm font-medium">Payment Method</Label>
                 <Select defaultValue="cash">
-                  <SelectTrigger>
+                  <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select payment method" />
                   </SelectTrigger>
                   <SelectContent>
@@ -427,17 +440,23 @@ const OrderDetailsDialog = ({ isOpen, onClose, order, onPrintBill, onEditOrder }
               </div>
             </div>
 
-            <div className="flex justify-end gap-2">
+            {/* Action Buttons */}
+            <div className="flex justify-between gap-3 pt-4 border-t">
               <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
                 Cancel
               </Button>
-              <Button variant="outline" onClick={handlePrintBill}>
-                <Printer className="w-4 h-4 mr-2" />
-                Print Bill
-              </Button>
-              <Button onClick={handleCompletePayment}>
-                Complete Payment
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handlePrintBill}>
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print Bill
+                </Button>
+                <Button 
+                  onClick={handleCompletePayment}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  Complete Payment
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
@@ -447,57 +466,80 @@ const OrderDetailsDialog = ({ isOpen, onClose, order, onPrintBill, onEditOrder }
 
   return (
     <Dialog open={isOpen} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Order Details</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Edit className="h-5 w-5 text-blue-600" />
+            Order Details
+          </DialogTitle>
           <DialogDescription>View and manage order details</DialogDescription>
         </DialogHeader>
         
-        <div id="bill-content" className="space-y-4 p-4">
-          <div className="grid grid-cols-2 gap-4">
+        <div id="bill-content" className="space-y-6 p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Order Information Card */}
             <Card className="p-4">
-              <h3 className="font-semibold mb-2">Order Information</h3>
-              <dl className="space-y-1 text-sm">
+              <h3 className="font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                Order Information
+              </h3>
+              <dl className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Order ID:</dt>
-                  <dd>{order.id.slice(0, 8)}</dd>
+                  <dt className="text-gray-500">Order ID:</dt>
+                  <dd className="font-mono">{order.id.slice(0, 8)}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Source:</dt>
-                  <dd>{order.source}</dd>
+                  <dt className="text-gray-500">Source:</dt>
+                  <dd className="capitalize">{order.source}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Status:</dt>
-                  <dd className="capitalize">{order.status}</dd>
+                  <dt className="text-gray-500">Status:</dt>
+                  <dd className="capitalize">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      order.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      order.status === 'preparing' ? 'bg-yellow-100 text-yellow-800' :
+                      order.status === 'ready' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {order.status}
+                    </span>
+                  </dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Created:</dt>
+                  <dt className="text-gray-500">Created:</dt>
                   <dd>{formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}</dd>
                 </div>
               </dl>
             </Card>
 
+            {/* Items Card */}
             <Card className="p-4">
-              <h3 className="font-semibold mb-2">Items</h3>
-              <ul className="space-y-2 max-h-40 overflow-auto">
-                {order.items.map((item, index) => (
-                  <li key={index} className="flex justify-between text-sm">
-                    <span className="truncate flex-1">{item.quantity}x {item.name}</span>
-                    <span className="pl-2">₹{item.price ? (item.quantity * item.price).toFixed(2) : '0.00'}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-4 pt-2 border-t">
-                <div className="flex justify-between font-semibold">
+              <h3 className="font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                Items
+              </h3>
+              <div className="max-h-48 overflow-y-auto">
+                <ul className="space-y-2">
+                  {order.items.map((item, index) => (
+                    <li key={index} className="flex justify-between text-sm bg-gray-50 dark:bg-gray-700 p-2 rounded">
+                      <span className="flex-1">{item.quantity}x {item.name}</span>
+                      <span className="font-medium text-purple-600">₹{item.price ? (item.quantity * item.price).toFixed(2) : '0.00'}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="mt-4 pt-3 border-t">
+                <div className="flex justify-between font-bold text-lg">
                   <span>Total</span>
-                  <span>₹{subtotal.toFixed(2)}</span>
+                  <span className="text-purple-600">₹{subtotal.toFixed(2)}</span>
                 </div>
               </div>
             </Card>
           </div>
         </div>
 
-        <div className="flex flex-wrap justify-end gap-2 mt-4">
+        {/* Action Buttons */}
+        <div className="flex flex-wrap justify-end gap-3 mt-6 pt-4 border-t">
           {order.status === "new" && (
             <Button variant="outline" className="bg-blue-50 text-blue-600 hover:bg-blue-100" onClick={() => handleUpdateStatus("preparing")}>
               <Edit className="w-4 h-4 mr-2" />
@@ -514,7 +556,6 @@ const OrderDetailsDialog = ({ isOpen, onClose, order, onPrintBill, onEditOrder }
           
           {order.status === "ready" && (
             <Button 
-              variant="secondary" 
               className="bg-purple-600 hover:bg-purple-700 text-white"
               onClick={handleProceedToPayment}
             >
