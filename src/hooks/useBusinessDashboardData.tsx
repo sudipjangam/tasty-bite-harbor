@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, startOfWeek, addDays, isSameDay } from "date-fns";
@@ -40,6 +39,15 @@ interface RevenueStats {
   total_revenue: number;
   order_count: number;
   average_order_value: number;
+}
+
+// Define proper types for promotional campaigns
+interface Promotion {
+  id: number;
+  name: string;
+  timePeriod: string;
+  potentialIncrease: string;
+  status: "active" | "suggested" | "paused";
 }
 
 export const useBusinessDashboardData = () => {
@@ -302,14 +310,14 @@ export const useBusinessDashboardData = () => {
         item.quantity <= (item.reorder_level || 0)
       ) || [];
 
-      // Create promotional suggestions based on data analysis
-      const promotionalData = [
+      // Create promotional suggestions based on data analysis with proper typing
+      const promotionalData: Promotion[] = [
         { 
           id: 1, 
           name: "Happy Hour", 
           timePeriod: "5 PM - 7 PM", 
           potentialIncrease: "25%", 
-          status: peakHoursData.find(d => d.hour === "5 PM")?.customers < 
+          status: (peakHoursData.find(d => d.hour === "5 PM")?.customers || 0) < 
                  (Math.max(...peakHoursData.map(h => h.customers)) * 0.7) ? "suggested" : "active" 
         },
         { 
@@ -324,7 +332,7 @@ export const useBusinessDashboardData = () => {
           name: `${slowestWeekday} Special`, 
           timePeriod: `Every ${slowestWeekday}`, 
           potentialIncrease: "20%", 
-          status: "suggested" 
+          status: "suggested" as const
         },
         { 
           id: 4, 
@@ -338,7 +346,7 @@ export const useBusinessDashboardData = () => {
           name: "Seasonal Menu", 
           timePeriod: format(new Date(), 'MMM - ') + format(addDays(new Date(), 90), 'MMM'), 
           potentialIncrease: "40%", 
-          status: "suggested" 
+          status: "suggested" as const
         }
       ];
 
