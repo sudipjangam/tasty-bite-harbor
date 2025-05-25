@@ -2,14 +2,16 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus } from "lucide-react";
+import { Plus, Search, Filter, Download, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useIsMobile } from "@/hooks/use-mobile";
 import OrderList from "../OrderList";
 import OrderStats from "../OrderStats";
 import AddOrderForm from "../AddOrderForm";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { startOfToday, subDays, subMonths, startOfDay, endOfDay } from "date-fns";
 import type { Order } from "@/types/orders";
 
@@ -17,6 +19,8 @@ const OrdersView = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [dateFilter, setDateFilter] = useState<string>("today");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const isMobile = useIsMobile();
 
   const getDateRange = (filter: string) => {
@@ -43,7 +47,7 @@ const OrdersView = () => {
     }
   };
 
-  const { data: orders, refetch: refetchOrders } = useQuery({
+  const { data: orders, refetch: refetchOrders, isLoading } = useQuery({
     queryKey: ['orders', dateFilter],
     queryFn: async () => {
       const { data: profile } = await supabase
@@ -77,21 +81,105 @@ const OrdersView = () => {
     refetchOrders();
   };
 
+  const handleRefresh = () => {
+    refetchOrders();
+  };
+
+  // Filter orders based on search and status
+  const filteredOrders = orders?.filter(order => {
+    const matchesSearch = !searchQuery || 
+      order.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.items.some(item => item.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  }) || [];
+
   const orderStats = {
-    totalOrders: orders?.length || 0,
-    pendingOrders: orders?.filter(order => order.status === 'pending').length || 0,
-    completedOrders: orders?.filter(order => order.status === 'completed').length || 0,
+    totalOrders: filteredOrders.length || 0,
+    pendingOrders: filteredOrders.filter(order => order.status === 'pending').length || 0,
+    completedOrders: filteredOrders.filter(order => order.status === 'completed').length || 0,
+    totalRevenue: filteredOrders.reduce((sum, order) => sum + order.total, 0) || 0,
+  };
+
+  const getDateFilterLabel = () => {
+    switch (dateFilter) {
+      case "today": return "Today";
+      case "yesterday": return "Yesterday";
+      case "last7days": return "Last 7 Days";
+      case "last30days": return "Last 30 Days";
+      case "lastMonth": return "Last Month";
+      default: return "Today";
+    }
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-4">
-          <h2 className="text-lg text-muted-foreground">
-            Manage and track your restaurant orders
-          </h2>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Header */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Orders Management</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Manage and track your restaurant orders • {getDateFilterLabel()}
+            </p>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button 
+              variant="outline" 
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            
+            <Button 
+              onClick={() => setShowAddForm(true)}
+              className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              New Order
+            </Button>
+          </div>
+        </div>
+
+        {/* Filters Bar */}
+        <div className="flex flex-col lg:flex-row gap-4 mt-6">
+          {/* Search */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search orders, customers, or items..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          {/* Status Filter */}
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Orders</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="preparing">Preparing</SelectItem>
+              <SelectItem value="ready">Ready</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Date Filter */}
           <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Select time range" />
             </SelectTrigger>
             <SelectContent>
@@ -103,29 +191,58 @@ const OrdersView = () => {
             </SelectContent>
           </Select>
         </div>
-        <Button 
-          onClick={() => setShowAddForm(true)}
-          className="bg-purple-600 hover:bg-purple-700"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          New Order
-        </Button>
+
+        {/* Active Filters */}
+        {(searchQuery || statusFilter !== "all") && (
+          <div className="flex flex-wrap gap-2 mt-4">
+            {searchQuery && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Search: "{searchQuery}"
+                <button 
+                  onClick={() => setSearchQuery("")}
+                  className="ml-1 hover:bg-gray-200 rounded-full w-4 h-4 flex items-center justify-center"
+                >
+                  ×
+                </button>
+              </Badge>
+            )}
+            {statusFilter !== "all" && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Status: {statusFilter}
+                <button 
+                  onClick={() => setStatusFilter("all")}
+                  className="ml-1 hover:bg-gray-200 rounded-full w-4 h-4 flex items-center justify-center"
+                >
+                  ×
+                </button>
+              </Badge>
+            )}
+          </div>
+        )}
       </div>
-      
-      <OrderStats 
-        totalOrders={orderStats.totalOrders}
-        pendingOrders={orderStats.pendingOrders}
-        completedOrders={orderStats.completedOrders}
-      />
 
-      <OrderList 
-        orders={orders || []} 
-        onOrdersChange={refetchOrders}
-        onEditOrder={setEditingOrder}
-      />
+      {/* Content */}
+      <div className="p-6">
+        <OrderStats 
+          totalOrders={orderStats.totalOrders}
+          pendingOrders={orderStats.pendingOrders}
+          completedOrders={orderStats.completedOrders}
+          totalRevenue={orderStats.totalRevenue}
+        />
 
+        <div className="mt-6">
+          <OrderList 
+            orders={filteredOrders} 
+            onOrdersChange={refetchOrders}
+            onEditOrder={setEditingOrder}
+            isLoading={isLoading}
+          />
+        </div>
+      </div>
+
+      {/* Add/Edit Order Dialog */}
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
-        <DialogContent className={`${isMobile ? 'w-[95%] max-w-lg' : 'max-w-4xl'} max-h-[90vh] overflow-y-auto`}>
+        <DialogContent className={`${isMobile ? 'w-[95%] max-w-lg' : 'max-w-5xl'} max-h-[95vh] overflow-y-auto p-0`}>
           <AddOrderForm
             onSuccess={handleOrderAdded}
             onCancel={() => {
