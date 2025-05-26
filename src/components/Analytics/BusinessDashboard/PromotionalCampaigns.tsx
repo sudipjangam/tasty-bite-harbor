@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -100,7 +99,7 @@ const PromotionalCampaigns: React.FC<PromotionalCampaignsProps> = ({ promotions:
   const handleToggleStatus = (promotionId: number) => {
     const updatedPromotions = promotions.map(promotion => {
       if (promotion.id === promotionId) {
-        const newStatus = promotion.status === "active" ? "paused" : "active";
+        const newStatus: "active" | "paused" = promotion.status === "active" ? "paused" : "active";
         return { ...promotion, status: newStatus };
       }
       return promotion;
