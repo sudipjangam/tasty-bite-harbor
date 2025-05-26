@@ -738,10 +738,14 @@ export type Database = {
           discount_percentage: number | null
           end_date: string
           id: string
+          is_active: boolean | null
           name: string
+          potential_increase: string | null
           promotion_code: string | null
           restaurant_id: string
           start_date: string
+          status: string | null
+          time_period: string | null
           updated_at: string
         }
         Insert: {
@@ -751,10 +755,14 @@ export type Database = {
           discount_percentage?: number | null
           end_date: string
           id?: string
+          is_active?: boolean | null
           name: string
+          potential_increase?: string | null
           promotion_code?: string | null
           restaurant_id: string
           start_date: string
+          status?: string | null
+          time_period?: string | null
           updated_at?: string
         }
         Update: {
@@ -764,10 +772,14 @@ export type Database = {
           discount_percentage?: number | null
           end_date?: string
           id?: string
+          is_active?: boolean | null
           name?: string
+          potential_increase?: string | null
           promotion_code?: string | null
           restaurant_id?: string
           start_date?: string
+          status?: string | null
+          time_period?: string | null
           updated_at?: string
         }
         Relationships: []

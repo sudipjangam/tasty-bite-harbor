@@ -41,13 +41,33 @@ interface RevenueStats {
   average_order_value: number;
 }
 
-// Define proper types for promotional campaigns
+// Define proper types for promotional campaigns from database
+interface PromotionCampaign {
+  id: string;
+  name: string;
+  description: string | null;
+  start_date: string;
+  end_date: string;
+  discount_percentage: number;
+  discount_amount: number;
+  promotion_code: string | null;
+  restaurant_id: string;
+  status: "active" | "suggested" | "paused";
+  time_period: string | null;
+  potential_increase: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Define proper types for promotional data used in UI
 interface Promotion {
   id: number;
   name: string;
   timePeriod: string;
   potentialIncrease: string;
   status: "active" | "suggested" | "paused";
+  description?: string;
 }
 
 export const useBusinessDashboardData = () => {
@@ -68,6 +88,13 @@ export const useBusinessDashboardData = () => {
       }
 
       const restaurantId = userProfile.restaurant_id;
+
+      // Fetch promotional campaigns from database
+      const { data: promotionCampaigns } = await supabase
+        .from("promotion_campaigns")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .order("created_at", { ascending: false });
 
       // Fetch orders data with date range
       const thirtyDaysAgo = subDays(new Date(), 30);
@@ -246,53 +273,101 @@ export const useBusinessDashboardData = () => {
         customers
       }));
 
-      // Analyze orders by day of week
-      const dayOfWeekCounts: Record<string, number> = { 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0 };
-      const dayOfWeekRevenue: Record<string, number> = { 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0 };
-      const dayPartCounts: Record<string, number> = { 
-        'breakfast': 0, 
-        'lunch': 0, 
-        'evening': 0, 
-        'dinner': 0, 
-        'late-night': 0 
-      };
-      
-      if (typedOrderData) {
-        typedOrderData.forEach(order => {
-          const orderDate = new Date(order.created_at);
-          const dayOfWeek = format(orderDate, 'EEE');
-          const hour = orderDate.getHours();
-          
-          // Update day of week counts and revenue
-          dayOfWeekCounts[dayOfWeek] = (dayOfWeekCounts[dayOfWeek] || 0) + 1;
-          dayOfWeekRevenue[dayOfWeek] = (dayOfWeekRevenue[dayOfWeek] || 0) + order.total;
-          
-          // Update day part counts
-          if (hour >= 7 && hour < 11) {
-            dayPartCounts['breakfast'] += 1;
-          } else if (hour >= 11 && hour < 15) {
-            dayPartCounts['lunch'] += 1;
-          } else if (hour >= 15 && hour < 18) {
-            dayPartCounts['evening'] += 1;
-          } else if (hour >= 18 && hour < 22) {
-            dayPartCounts['dinner'] += 1;
-          } else {
-            dayPartCounts['late-night'] += 1;
+      // Convert database promotional campaigns to UI format
+      const promotionalData: Promotion[] = (promotionCampaigns || []).map((campaign: PromotionCampaign, index: number) => ({
+        id: index + 1,
+        name: campaign.name,
+        timePeriod: campaign.time_period || `${format(new Date(campaign.start_date), 'MMM dd')} - ${format(new Date(campaign.end_date), 'MMM dd')}`,
+        potentialIncrease: campaign.potential_increase || `${campaign.discount_percentage || campaign.discount_amount}%`,
+        status: campaign.status || (campaign.is_active ? "active" : "paused"),
+        description: campaign.description || undefined
+      }));
+
+      // If no promotional campaigns exist, create some suggested ones based on data analysis
+      if (promotionalData.length === 0) {
+        // Analyze orders by day of week
+        const dayOfWeekCounts: Record<string, number> = { 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0 };
+        const dayPartCounts: Record<string, number> = { 
+          'breakfast': 0, 
+          'lunch': 0, 
+          'evening': 0, 
+          'dinner': 0, 
+          'late-night': 0 
+        };
+        
+        if (typedOrderData) {
+          typedOrderData.forEach(order => {
+            const orderDate = new Date(order.created_at);
+            const dayOfWeek = format(orderDate, 'EEE');
+            const hour = orderDate.getHours();
+            
+            // Update day of week counts
+            dayOfWeekCounts[dayOfWeek] = (dayOfWeekCounts[dayOfWeek] || 0) + 1;
+            
+            // Update day part counts
+            if (hour >= 7 && hour < 11) {
+              dayPartCounts['breakfast'] += 1;
+            } else if (hour >= 11 && hour < 15) {
+              dayPartCounts['lunch'] += 1;
+            } else if (hour >= 15 && hour < 18) {
+              dayPartCounts['evening'] += 1;
+            } else if (hour >= 18 && hour < 22) {
+              dayPartCounts['dinner'] += 1;
+            } else {
+              dayPartCounts['late-night'] += 1;
+            }
+          });
+        }
+
+        // Find the slowest weekday by order count
+        const weekdayEntries = Object.entries(dayOfWeekCounts)
+          .filter(([day]) => !['Sat', 'Sun'].includes(day));
+        
+        const slowestWeekday = weekdayEntries.length > 0 ? 
+          [...weekdayEntries].sort((a, b) => a[1] - b[1])[0][0] : 'Mon';
+        
+        // Find the lowest performing day part
+        const lowestDayPart = Object.entries(dayPartCounts)
+          .sort((a, b) => a[1] - b[1])[0][0];
+
+        // Create promotional suggestions based on data analysis
+        promotionalData.push(
+          { 
+            id: 1, 
+            name: "Happy Hour", 
+            timePeriod: "5 PM - 7 PM", 
+            potentialIncrease: "25%", 
+            status: (peakHoursData.find(d => d.hour === "5 PM")?.customers || 0) < 
+                   (Math.max(...peakHoursData.map(h => h.customers)) * 0.7) ? "suggested" : "active",
+            description: "Boost evening revenue with discounted drinks and appetizers"
+          },
+          { 
+            id: 2, 
+            name: "Weekend Brunch", 
+            timePeriod: "Sat-Sun, 10 AM - 2 PM", 
+            potentialIncrease: "35%", 
+            status: "suggested",
+            description: "Attract weekend crowds with special brunch menu"
+          },
+          { 
+            id: 3, 
+            name: `${slowestWeekday} Special`, 
+            timePeriod: `Every ${slowestWeekday}`, 
+            potentialIncrease: "20%", 
+            status: "suggested",
+            description: `Boost sales on your slowest day with special offers`
+          },
+          { 
+            id: 4, 
+            name: "Corporate Lunch", 
+            timePeriod: "Weekdays, 12 PM - 2 PM", 
+            potentialIncrease: "30%", 
+            status: lowestDayPart === 'lunch' ? "suggested" : "active",
+            description: "Target office workers with quick lunch deals"
           }
-        });
+        );
       }
-
-      // Find the slowest weekday by order count
-      const weekdayEntries = Object.entries(dayOfWeekCounts)
-        .filter(([day]) => !['Sat', 'Sun'].includes(day));
       
-      const slowestWeekday = weekdayEntries.length > 0 ? 
-        [...weekdayEntries].sort((a, b) => a[1] - b[1])[0][0] : 'Mon';
-      
-      // Find the lowest performing day part
-      const lowestDayPart = Object.entries(dayPartCounts)
-        .sort((a, b) => a[1] - b[1])[0][0];
-
       // Get revenue trend from daily_revenue_stats
       let revenueTrend = 0;
       
@@ -310,48 +385,7 @@ export const useBusinessDashboardData = () => {
         item.quantity <= (item.reorder_level || 0)
       ) || [];
 
-      // Create promotional suggestions based on data analysis with proper typing
-      const promotionalData: Promotion[] = [
-        { 
-          id: 1, 
-          name: "Happy Hour", 
-          timePeriod: "5 PM - 7 PM", 
-          potentialIncrease: "25%", 
-          status: (peakHoursData.find(d => d.hour === "5 PM")?.customers || 0) < 
-                 (Math.max(...peakHoursData.map(h => h.customers)) * 0.7) ? "suggested" : "active" 
-        },
-        { 
-          id: 2, 
-          name: "Weekend Brunch", 
-          timePeriod: "Sat-Sun, 10 AM - 2 PM", 
-          potentialIncrease: "35%", 
-          status: dayOfWeekCounts['Sat'] > dayOfWeekCounts['Sun'] * 1.5 ? "active" : "suggested" 
-        },
-        { 
-          id: 3, 
-          name: `${slowestWeekday} Special`, 
-          timePeriod: `Every ${slowestWeekday}`, 
-          potentialIncrease: "20%", 
-          status: "suggested" as const
-        },
-        { 
-          id: 4, 
-          name: "Corporate Lunch", 
-          timePeriod: "Weekdays, 12 PM - 2 PM", 
-          potentialIncrease: "30%", 
-          status: lowestDayPart === 'lunch' ? "suggested" : "active" 
-        },
-        { 
-          id: 5, 
-          name: "Seasonal Menu", 
-          timePeriod: format(new Date(), 'MMM - ') + format(addDays(new Date(), 90), 'MMM'), 
-          potentialIncrease: "40%", 
-          status: "suggested" as const
-        }
-      ];
-
       // For document analysis, use actual order data
-      // Recent orders converted to "documents" for analysis
       const documents = typedOrderData ? typedOrderData.slice(0, 5).map(order => {
         return {
           name: `Order_${order.id.slice(0, 8)}.xlsx`,
@@ -373,24 +407,12 @@ export const useBusinessDashboardData = () => {
         });
       }
       
-      // Revenue insights based on day of week analysis
-      const lowestRevenueDay = Object.entries(dayOfWeekRevenue)
-        .filter(([day]) => !['Sat', 'Sun'].includes(day))
-        .sort((a, b) => a[1] - b[1])[0];
-      
-      if (lowestRevenueDay) {
-        const [day, revenue] = lowestRevenueDay;
-        const highestRevenueWeekday = Object.entries(dayOfWeekRevenue)
-          .filter(([d]) => !['Sat', 'Sun'].includes(d))
-          .sort((a, b) => b[1] - a[1])[0];
-        
-        const percentageDifference = highestRevenueWeekday[1] > 0 ? 
-          Math.round(((highestRevenueWeekday[1] - revenue) / highestRevenueWeekday[1]) * 100) : 0;
-        
+      // Promotional insights
+      if (promotionalData.filter(p => p.status === "active").length === 0) {
         insights.push({
           type: "revenue",
-          title: "Revenue Opportunity",
-          message: `${day} ${lowestDayPart} hours are underperforming by ${percentageDifference}% compared to other weekdays. Consider a lunch special promotion.`
+          title: "Promotional Opportunity",
+          message: `No active promotions running. Consider activating suggested promotions to boost revenue.`
         });
       }
       
@@ -402,34 +424,19 @@ export const useBusinessDashboardData = () => {
         message: `${currentMonth} is approaching. Prepare special promotions to increase traffic based on previous year's data.`
       });
 
-      // Add inventory cost insight if relevant
-      const highCostCategory: Record<string, number> = {};
+      // Analyze orders by day of week
+      const dayOfWeekCounts: Record<string, number> = { 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0 };
+      const dayOfWeekRevenue: Record<string, number> = { 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0 };
       
-      if (typedInventoryData) {
-        typedInventoryData.forEach(item => {
-          if (!highCostCategory[item.category]) {
-            highCostCategory[item.category] = 0;
-          }
-          highCostCategory[item.category] += (item.cost_per_unit || 0) * (item.quantity || 0);
-        });
-      }
-      
-      if (Object.keys(highCostCategory).length > 0) {
-        const sortedCategories = Object.entries(highCostCategory)
-          .sort((a, b) => b[1] - a[1]);
-        
-        if (sortedCategories.length > 0) {
-          const [topCategory, cost] = sortedCategories[0];
-          const percentOfTotal = Math.round((cost / ingredientsCost) * 100);
+      if (typedOrderData) {
+        typedOrderData.forEach(order => {
+          const orderDate = new Date(order.created_at);
+          const dayOfWeek = format(orderDate, 'EEE');
           
-          if (percentOfTotal > 30) {
-            insights.push({
-              type: "inventory",
-              title: "Inventory Cost Analysis",
-              message: `${topCategory} costs account for ${percentOfTotal}% of your inventory expenses. Consider alternative suppliers or menu adjustments.`
-            });
-          }
-        }
+          // Update day of week counts and revenue
+          dayOfWeekCounts[dayOfWeek] = (dayOfWeekCounts[dayOfWeek] || 0) + 1;
+          dayOfWeekRevenue[dayOfWeek] = (dayOfWeekRevenue[dayOfWeek] || 0) + order.total;
+        });
       }
 
       // Prepare weekday distribution data for charts
@@ -482,10 +489,8 @@ export const useBusinessDashboardData = () => {
         average: day.average_order_value
       })) : [];
 
-      // Calculate top selling item categories from orders - FIXED VERSION
+      // Calculate top selling item categories from orders
       const categoryCounts: Record<string, number> = {};
-      
-      console.log('Processing orders for top categories:', typedOrderData.length);
       
       if (typedOrderData && typedOrderData.length > 0) {
         typedOrderData.forEach(order => {
@@ -503,8 +508,6 @@ export const useBusinessDashboardData = () => {
         });
       }
       
-      console.log('Category counts:', categoryCounts);
-      
       // If no data from orders, add some default categories for display
       if (Object.keys(categoryCounts).length === 0) {
         categoryCounts['Appetizers'] = 0;
@@ -520,8 +523,6 @@ export const useBusinessDashboardData = () => {
           category,
           count
         }));
-
-      console.log('Top categories:', topCategories);
 
       return {
         expenseData,

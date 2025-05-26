@@ -4,9 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useBusinessDashboardData } from "@/hooks/useBusinessDashboardData";
-import { Brain, TrendingUp, AlertTriangle, DollarSign, Users, Clock, Lightbulb } from "lucide-react";
+import { Brain, TrendingUp, AlertTriangle, DollarSign, Users, Clock, Lightbulb, Play, Pause, Edit } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import PromotionalCampaigns from "./PromotionalCampaigns";
 
 const SmartInsights = () => {
   const { data: businessData, isLoading, error } = useBusinessDashboardData();
@@ -35,41 +36,6 @@ const SmartInsights = () => {
   const promotionalData = businessData?.promotionalData || [];
   const lowStockItems = businessData?.lowStockItems || [];
   const revenueTrend = businessData?.revenueTrend || 0;
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "suggested":
-        return "bg-amber-100 text-amber-800 border-amber-200";
-      case "paused":
-        return "bg-gray-100 text-gray-800 border-gray-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
-    }
-  };
-
-  const getActionButton = (promotion: any) => {
-    if (promotion.status === "suggested") {
-      return (
-        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
-          Activate
-        </Button>
-      );
-    } else if (promotion.status === "active") {
-      return (
-        <Button size="sm" variant="destructive">
-          Deactivate
-        </Button>
-      );
-    } else {
-      return (
-        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
-          Activate
-        </Button>
-      );
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -110,63 +76,8 @@ const SmartInsights = () => {
         </CardContent>
       </Card>
 
-      {/* Promotional Opportunities */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5 text-green-600" />
-            Promotional Opportunities
-          </CardTitle>
-          <CardDescription>
-            Optimize revenue with targeted promotions during peak periods
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {promotionalData.length > 0 ? (
-            <div className="space-y-4">
-              {/* Table Header */}
-              <div className="grid grid-cols-12 gap-4 py-2 border-b font-medium text-sm text-gray-600">
-                <div className="col-span-3">Promotion Name</div>
-                <div className="col-span-2">Time Period</div>
-                <div className="col-span-2">Potential Increase</div>
-                <div className="col-span-2">Status</div>
-                <div className="col-span-3">Actions</div>
-              </div>
-              
-              {/* Table Rows */}
-              {promotionalData.map((promotion) => (
-                <div key={promotion.id} className="grid grid-cols-12 gap-4 py-3 border-b hover:bg-gray-50 transition-colors">
-                  <div className="col-span-3">
-                    <span className="font-medium text-blue-600">{promotion.name}</span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-sm text-gray-600">{promotion.timePeriod}</span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-sm font-medium text-blue-600">{promotion.potentialIncrease}</span>
-                  </div>
-                  <div className="col-span-2">
-                    <Badge variant="outline" className={getStatusColor(promotion.status)}>
-                      {promotion.status}
-                    </Badge>
-                  </div>
-                  <div className="col-span-3 flex gap-2">
-                    {getActionButton(promotion)}
-                    <Button size="sm" variant="outline">
-                      Edit
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              <DollarSign className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No promotional opportunities identified yet.</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Enhanced Promotional Opportunities */}
+      <PromotionalCampaigns promotions={promotionalData} />
 
       {/* Revenue Performance Overview */}
       <Card>
