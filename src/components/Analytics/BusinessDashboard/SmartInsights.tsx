@@ -1,223 +1,226 @@
 
-import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import SmartInsightItem, { SmartInsightProps } from "./SmartInsightItem";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { Skeleton } from "@/components/ui/skeleton";
+import React from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { useBusinessDashboardData } from "@/hooks/useBusinessDashboardData";
+import { Brain, TrendingUp, AlertTriangle, DollarSign, Users, Clock, Lightbulb } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const SmartInsights = () => {
-  const [aiInsights, setAiInsights] = useState<SmartInsightProps[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  // Fetch restaurant data
-  const { data: restaurantData, isLoading } = useQuery({
-    queryKey: ["smart-insights-data"],
-    queryFn: async () => {
-      const { data: profile } = await supabase.auth.getUser();
-      if (!profile.user) throw new Error("No user found");
-
-      const { data: userProfile } = await supabase
-        .from("profiles")
-        .select("restaurant_id")
-        .eq("id", profile.user.id)
-        .single();
-
-      if (!userProfile?.restaurant_id) {
-        throw new Error("No restaurant found for user");
-      }
-
-      const restaurantId = userProfile.restaurant_id;
-
-      // Fetch relevant restaurant data for AI analysis
-      const [
-        { data: revenueStats },
-        { data: inventoryItems },
-        { data: staffData },
-        { data: orderData }
-      ] = await Promise.all([
-        supabase
-          .from("daily_revenue_stats")
-          .select("*")
-          .eq("restaurant_id", restaurantId)
-          .order("date", { ascending: false })
-          .limit(30),
-        supabase
-          .from("inventory_items")
-          .select("*")
-          .eq("restaurant_id", restaurantId),
-        supabase
-          .from("staff")
-          .select("*")
-          .eq("restaurant_id", restaurantId),
-        supabase
-          .from("orders")
-          .select("*")
-          .eq("restaurant_id", restaurantId)
-          .order("created_at", { ascending: false })
-          .limit(50)
-      ]);
-
-      return {
-        revenueStats: revenueStats || [],
-        inventoryItems: inventoryItems || [],
-        staff: staffData || [],
-        orders: orderData || []
-      };
-    }
-  });
-
-  // Generate insights using AI
-  const generateAiInsights = async () => {
-    if (!restaurantData) return;
-    
-    setIsGenerating(true);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('chat-with-api', {
-        body: { 
-          messages: [
-            { 
-              role: "user", 
-              content: `Analyze this restaurant data and generate 3-5 specific business insights with actionable recommendations. 
-              For each insight, specify if it's an "opportunity", "alert", or "seasonal" trend, and estimate the potential impact percentage.
-              Format each insight as a JSON object with title, description, type (opportunity, alert, or seasonal), and impact (percentage number).
-              Only return the JSON array without any additional text or explanation.
-              
-              Revenue Data: ${JSON.stringify(restaurantData.revenueStats)}
-              Inventory Items: ${JSON.stringify(restaurantData.inventoryItems)}
-              Staff Data: ${JSON.stringify(restaurantData.staff)}
-              Recent Orders: ${JSON.stringify(restaurantData.orders)}`
-            }
-          ],
-          restaurantId: (await supabase.auth.getUser()).data.user?.id
-        },
-      });
-
-      if (error) throw error;
-      
-      if (data && data.choices && data.choices[0]?.message?.content) {
-        // Extract JSON from the response
-        const content = data.choices[0].message.content;
-        let jsonStart = content.indexOf('[');
-        let jsonEnd = content.lastIndexOf(']') + 1;
-        
-        if (jsonStart >= 0 && jsonEnd > jsonStart) {
-          try {
-            const jsonContent = content.substring(jsonStart, jsonEnd);
-            const parsedInsights = JSON.parse(jsonContent);
-            
-            // Validate and transform insights to match SmartInsightProps
-            const formattedInsights = parsedInsights.map(insight => ({
-              title: insight.title || "Insight",
-              description: insight.description || "No description available",
-              type: ["opportunity", "alert", "seasonal"].includes(insight.type) 
-                ? insight.type as "opportunity" | "alert" | "seasonal"
-                : "opportunity",
-              impact: typeof insight.impact === 'number' ? insight.impact : undefined
-            }));
-            
-            setAiInsights(formattedInsights);
-          } catch (e) {
-            console.error("Failed to parse AI response as JSON:", e);
-            // Fallback to static insights if parsing fails
-            setAiInsights(getStaticInsights());
-          }
-        } else {
-          console.error("Could not find valid JSON in AI response");
-          setAiInsights(getStaticInsights());
-        }
-      } else {
-        console.error("Invalid response format from AI");
-        setAiInsights(getStaticInsights());
-      }
-    } catch (error) {
-      console.error("Error generating AI insights:", error);
-      setAiInsights(getStaticInsights());
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  // Generate insights on component mount or when data changes
-  useEffect(() => {
-    if (restaurantData && !isGenerating && aiInsights.length === 0) {
-      generateAiInsights();
-    }
-  }, [restaurantData]);
-
-  // Fallback static insights for when AI fails or no data is available
-  const getStaticInsights = (): SmartInsightProps[] => [
-    {
-      title: "Revenue Opportunity",
-      description: "Weekday lunch hours are underperforming compared to other periods. Consider introducing a lunch special promotion.",
-      type: "opportunity",
-      impact: 25
-    },
-    {
-      title: "Inventory Alert",
-      description: "Several key ingredients are below reorder levels. Schedule a stock review and place orders.",
-      type: "alert",
-      impact: 15
-    },
-    {
-      title: "Seasonal Trend",
-      description: "Customer traffic is showing typical seasonal patterns. Prepare special promotions for upcoming holidays.",
-      type: "seasonal",
-      impact: 30
-    }
-  ];
+  const { data: businessData, isLoading, error } = useBusinessDashboardData();
 
   if (isLoading) {
     return (
-      <Card className="shadow-md">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg font-medium">Smart Insights</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-24 w-full rounded-md" />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
     );
   }
 
-  const displayInsights = aiInsights.length > 0 ? aiInsights : getStaticInsights();
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>
+          Failed to load business insights. Please try refreshing the page.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  const insights = businessData?.insights || [];
+  const promotionalData = businessData?.promotionalData || [];
+  const lowStockItems = businessData?.lowStockItems || [];
+  const revenueTrend = businessData?.revenueTrend || 0;
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "active":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "suggested":
+        return "bg-amber-100 text-amber-800 border-amber-200";
+      case "paused":
+        return "bg-gray-100 text-gray-800 border-gray-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
+
+  const getActionButton = (promotion: any) => {
+    if (promotion.status === "suggested") {
+      return (
+        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+          Activate
+        </Button>
+      );
+    } else if (promotion.status === "active") {
+      return (
+        <Button size="sm" variant="destructive">
+          Deactivate
+        </Button>
+      );
+    } else {
+      return (
+        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+          Activate
+        </Button>
+      );
+    }
+  };
 
   return (
-    <Card className="shadow-md">
-      <CardHeader className="pb-2 flex flex-row items-center justify-between">
-        <CardTitle className="text-lg font-medium">Smart Insights</CardTitle>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={generateAiInsights} 
-          disabled={isGenerating}
-          className="h-8 w-8 p-0"
-        >
-          <RefreshCw className={`h-4 w-4 ${isGenerating ? 'animate-spin' : ''}`} />
-          <span className="sr-only">Refresh insights</span>
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {displayInsights.map((insight, index) => (
-            <SmartInsightItem 
-              key={index}
-              title={insight.title}
-              description={insight.description}
-              type={insight.type}
-              impact={insight.impact}
-            />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="space-y-6">
+      {/* AI-Generated Insights */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="h-5 w-5 text-blue-600" />
+            AI-Generated Business Insights
+          </CardTitle>
+          <CardDescription>
+            Smart recommendations based on your restaurant's performance data
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {insights.length > 0 ? (
+            insights.map((insight, index) => (
+              <div key={index} className="p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-purple-50">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-blue-100 rounded-full">
+                    {insight.type === "revenue" && <TrendingUp className="h-4 w-4 text-blue-600" />}
+                    {insight.type === "inventory" && <AlertTriangle className="h-4 w-4 text-amber-600" />}
+                    {insight.type === "seasonal" && <Lightbulb className="h-4 w-4 text-purple-600" />}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900">{insight.title}</h4>
+                    <p className="text-sm text-gray-600 mt-1">{insight.message}</p>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <Brain className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>No insights available yet. More data is needed for AI analysis.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Promotional Opportunities */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-green-600" />
+            Promotional Opportunities
+          </CardTitle>
+          <CardDescription>
+            Optimize revenue with targeted promotions during peak periods
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {promotionalData.length > 0 ? (
+            <div className="space-y-4">
+              {/* Table Header */}
+              <div className="grid grid-cols-12 gap-4 py-2 border-b font-medium text-sm text-gray-600">
+                <div className="col-span-3">Promotion Name</div>
+                <div className="col-span-2">Time Period</div>
+                <div className="col-span-2">Potential Increase</div>
+                <div className="col-span-2">Status</div>
+                <div className="col-span-3">Actions</div>
+              </div>
+              
+              {/* Table Rows */}
+              {promotionalData.map((promotion) => (
+                <div key={promotion.id} className="grid grid-cols-12 gap-4 py-3 border-b hover:bg-gray-50 transition-colors">
+                  <div className="col-span-3">
+                    <span className="font-medium text-blue-600">{promotion.name}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-sm text-gray-600">{promotion.timePeriod}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-sm font-medium text-blue-600">{promotion.potentialIncrease}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <Badge variant="outline" className={getStatusColor(promotion.status)}>
+                      {promotion.status}
+                    </Badge>
+                  </div>
+                  <div className="col-span-3 flex gap-2">
+                    {getActionButton(promotion)}
+                    <Button size="sm" variant="outline">
+                      Edit
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <DollarSign className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>No promotional opportunities identified yet.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Revenue Performance Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-purple-600" />
+            Revenue Performance Overview
+          </CardTitle>
+          <CardDescription>
+            Weekly revenue trend and key performance indicators
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-green-800">Revenue Trend</p>
+                  <p className="text-2xl font-bold text-green-900">
+                    {revenueTrend > 0 ? '+' : ''}{revenueTrend.toFixed(1)}%
+                  </p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-green-600" />
+              </div>
+              <p className="text-xs text-green-700 mt-1">vs. previous week</p>
+            </div>
+            
+            <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-800">Active Promotions</p>
+                  <p className="text-2xl font-bold text-blue-900">
+                    {promotionalData.filter(p => p.status === "active").length}
+                  </p>
+                </div>
+                <Users className="h-8 w-8 text-blue-600" />
+              </div>
+              <p className="text-xs text-blue-700 mt-1">currently running</p>
+            </div>
+            
+            <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-amber-800">Low Stock Items</p>
+                  <p className="text-2xl font-bold text-amber-900">{lowStockItems.length}</p>
+                </div>
+                <AlertTriangle className="h-8 w-8 text-amber-600" />
+              </div>
+              <p className="text-xs text-amber-700 mt-1">need attention</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
