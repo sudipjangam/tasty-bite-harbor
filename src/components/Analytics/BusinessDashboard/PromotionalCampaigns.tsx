@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +24,8 @@ interface PromotionalCampaignsProps {
   promotions: Promotion[];
 }
 
+type PromotionStatus = "active" | "suggested" | "paused";
+
 const PromotionalCampaigns: React.FC<PromotionalCampaignsProps> = ({ promotions: initialPromotions }) => {
   const { toast } = useToast();
   const [promotions, setPromotions] = useState(initialPromotions);
@@ -36,7 +37,7 @@ const PromotionalCampaigns: React.FC<PromotionalCampaignsProps> = ({ promotions:
     timePeriod: "",
     potentialIncrease: "",
     description: "",
-    status: "suggested" as const,
+    status: "suggested" as PromotionStatus,
   });
 
   const getStatusColor = (status: string) => {
@@ -419,7 +420,7 @@ const PromotionalCampaigns: React.FC<PromotionalCampaignsProps> = ({ promotions:
             </div>
             <div className="grid gap-2">
               <Label htmlFor="create-status">Initial Status</Label>
-              <Select value={editForm.status} onValueChange={(value: "active" | "suggested" | "paused") => setEditForm({ ...editForm, status: value })}>
+              <Select value={editForm.status} onValueChange={(value: PromotionStatus) => setEditForm({ ...editForm, status: value })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -490,7 +491,7 @@ const PromotionalCampaigns: React.FC<PromotionalCampaignsProps> = ({ promotions:
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-status">Status</Label>
-              <Select value={editForm.status} onValueChange={(value: "active" | "suggested" | "paused") => setEditForm({ ...editForm, status: value })}>
+              <Select value={editForm.status} onValueChange={(value: PromotionStatus) => setEditForm({ ...editForm, status: value })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
