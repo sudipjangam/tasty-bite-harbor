@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
-import { Send } from "lucide-react";
+import { Send, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -43,22 +43,32 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex items-end gap-2 p-2 bg-background border-t"
+      className="flex items-end gap-3"
     >
-      <Input
-        ref={inputRef}
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Ask anything about your restaurant..."
-        className="flex-1 bg-muted/50 border-muted-foreground/20"
-        disabled={isLoading}
-      />
+      <div className="flex-1 relative">
+        <Input
+          ref={inputRef}
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask anything about your restaurant..."
+          className="pr-12 py-3 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 rounded-full focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          disabled={isLoading}
+        />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 h-8 w-8"
+          disabled={true}
+        >
+          <Mic className="h-4 w-4" />
+        </Button>
+      </div>
       <Button
         type="submit"
         size="icon"
         disabled={isLoading || !message.trim()}
-        className="bg-purple-600 hover:bg-purple-700 text-white"
+        className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-full h-10 w-10 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
       >
         <Send className="h-4 w-4" />
       </Button>
