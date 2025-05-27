@@ -18,6 +18,7 @@ import BusinessDashboard from "@/components/Analytics/BusinessDashboard";
 import Inventory from "@/pages/Inventory";
 import Suppliers from "@/pages/Suppliers";
 import CRM from "@/pages/CRM";
+import Expenses from "@/pages/Expenses";
 import Sidebar from "../Layout/Sidebar";
 import NotFound from "@/pages/NotFound";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -236,6 +237,19 @@ export const AppRoutes = (
             <Sidebar />
             <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
               <Suppliers />
+            </main>
+          </SidebarProvider>
+        </div>
+      </ComponentAccessGuard>
+    } />
+    
+    <Route path="/expenses" element={
+      <ComponentAccessGuard>
+        <div className="flex h-screen w-full">
+          <SidebarProvider>
+            <Sidebar />
+            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+              <Expenses />
             </main>
           </SidebarProvider>
         </div>

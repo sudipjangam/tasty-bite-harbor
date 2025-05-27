@@ -15,6 +15,7 @@ import {
   Bot,
   ChefHat,
   Contact,
+  Receipt,
 } from "lucide-react";
 import {
   SidebarContent,
@@ -34,6 +35,7 @@ const navigationItems = [
   { name: "Inventory", href: "/inventory", icon: PackageOpen, component: "inventory" },
   { name: "Rooms", href: "/rooms", icon: Bed, component: "rooms" },
   { name: "Suppliers", href: "/suppliers", icon: Truck, component: "suppliers" },
+  { name: "Expenses", href: "/expenses", icon: Receipt, component: "analytics" },
   { name: "Analytics", href: "/analytics", icon: BarChart3, component: "analytics" },
   {
     name: "Business Dashboard",
