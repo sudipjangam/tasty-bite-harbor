@@ -1,134 +1,217 @@
 
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Lightbulb, TrendingUp, AlertTriangle, Target, Calendar, Users, DollarSign, Package, Clock, BarChart3 } from "lucide-react";
 import { useBusinessDashboardData } from "@/hooks/useBusinessDashboardData";
-import { Brain, TrendingUp, AlertTriangle, DollarSign, Users, Clock, Lightbulb, Play, Pause, Edit } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import PromotionalCampaigns from "./PromotionalCampaigns";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 
 const SmartInsights = () => {
-  const { data: businessData, isLoading, error } = useBusinessDashboardData();
+  const { data: businessData, isLoading } = useBusinessDashboardData();
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-48 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
+    return <div className="p-6">Loading insights...</div>;
   }
 
-  if (error) {
-    return (
-      <Alert variant="destructive">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>
-          Failed to load business insights. Please try refreshing the page.
-        </AlertDescription>
-      </Alert>
-    );
+  if (!businessData) {
+    return <div className="p-6">No data available for insights.</div>;
   }
 
-  const insights = businessData?.insights || [];
-  const promotionalData = businessData?.promotionalData || [];
-  const lowStockItems = businessData?.lowStockItems || [];
-  const revenueTrend = businessData?.revenueTrend || 0;
+  const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6B7280'];
 
   return (
     <div className="space-y-6">
-      {/* AI-Generated Insights */}
+      {/* Key Metrics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Monthly Expenses</p>
+                <p className="text-2xl font-bold">₹{businessData.totalOperationalCost?.toLocaleString() || '0'}</p>
+              </div>
+              <DollarSign className="h-8 w-8 text-red-500" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Staff Expenses</p>
+                <p className="text-2xl font-bold">₹{businessData.staffExpenses?.toLocaleString() || '0'}</p>
+              </div>
+              <Users className="h-8 w-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Low Stock Items</p>
+                <p className="text-2xl font-bold">{businessData.lowStockItems?.length || 0}</p>
+              </div>
+              <Package className="h-8 w-8 text-orange-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Revenue Trend</p>
+                <p className="text-2xl font-bold">{businessData.revenueTrend > 0 ? '+' : ''}{businessData.revenueTrend?.toFixed(1) || '0'}%</p>
+              </div>
+              <TrendingUp className={`h-8 w-8 ${businessData.revenueTrend > 0 ? 'text-green-500' : 'text-red-500'}`} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Expense Breakdown */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-purple-600" />
+              Expense Breakdown
+            </CardTitle>
+            <CardDescription>Current month expenses by category</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={businessData.expenseData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percentage }) => `${name}: ${percentage}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {businessData.expenseData?.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => [`₹${value}`, 'Amount']} />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Peak Hours Analysis */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-blue-600" />
+              Peak Hours Analysis
+            </CardTitle>
+            <CardDescription>Customer traffic by hour</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={businessData.peakHoursData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="hour" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="customers" fill="#3B82F6" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Monthly Expense Trend */}
+        {businessData.expenseTrendData && businessData.expenseTrendData.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-green-600" />
+                Monthly Expense Trend
+              </CardTitle>
+              <CardDescription>Daily expense tracking</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={businessData.expenseTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => [`₹${value}`, 'Amount']} />
+                  <Line type="monotone" dataKey="amount" stroke="#10B981" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Weekday Performance */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-orange-600" />
+              Weekday Performance
+            </CardTitle>
+            <CardDescription>Orders by day of week</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={businessData.weekdayData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="day" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="orders" fill="#F59E0B" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Insights and Recommendations */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Brain className="h-5 w-5 text-blue-600" />
-            AI-Generated Business Insights
+            <Lightbulb className="h-5 w-5 text-yellow-600" />
+            AI-Powered Insights & Recommendations
           </CardTitle>
           <CardDescription>
-            Smart recommendations based on your restaurant's performance data
+            Smart analysis of your business data with actionable insights
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {insights.length > 0 ? (
-            insights.map((insight, index) => (
-              <div key={index} className="p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-purple-50">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-blue-100 rounded-full">
-                    {insight.type === "revenue" && <TrendingUp className="h-4 w-4 text-blue-600" />}
-                    {insight.type === "inventory" && <AlertTriangle className="h-4 w-4 text-amber-600" />}
-                    {insight.type === "seasonal" && <Lightbulb className="h-4 w-4 text-purple-600" />}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900">{insight.title}</h4>
-                    <p className="text-sm text-gray-600 mt-1">{insight.message}</p>
-                  </div>
+          {businessData.insights && businessData.insights.length > 0 ? (
+            businessData.insights.map((insight, index) => (
+              <div key={index} className="flex items-start gap-3 p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
+                <div className="flex-shrink-0 mt-1">
+                  {insight.type === "inventory" && <AlertTriangle className="h-5 w-5 text-orange-600" />}
+                  {insight.type === "revenue" && <Target className="h-5 w-5 text-green-600" />}
+                  {insight.type === "seasonal" && <Calendar className="h-5 w-5 text-blue-600" />}
+                  {insight.type === "expense" && <DollarSign className="h-5 w-5 text-red-600" />}
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-1">
+                    {insight.title}
+                  </h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    {insight.message}
+                  </p>
                 </div>
               </div>
             ))
           ) : (
             <div className="text-center py-8 text-gray-500">
-              <Brain className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No insights available yet. More data is needed for AI analysis.</p>
+              <Lightbulb className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <p>Gathering business insights...</p>
+              <p className="text-sm">Add more data to get personalized recommendations.</p>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Enhanced Promotional Opportunities */}
-      <PromotionalCampaigns promotions={promotionalData} />
-
-      {/* Revenue Performance Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-purple-600" />
-            Revenue Performance Overview
-          </CardTitle>
-          <CardDescription>
-            Weekly revenue trend and key performance indicators
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-green-800">Revenue Trend</p>
-                  <p className="text-2xl font-bold text-green-900">
-                    {revenueTrend > 0 ? '+' : ''}{revenueTrend.toFixed(1)}%
-                  </p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-green-600" />
-              </div>
-              <p className="text-xs text-green-700 mt-1">vs. previous week</p>
-            </div>
-            
-            <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-blue-800">Active Promotions</p>
-                  <p className="text-2xl font-bold text-blue-900">
-                    {promotionalData.filter(p => p.status === "active").length}
-                  </p>
-                </div>
-                <Users className="h-8 w-8 text-blue-600" />
-              </div>
-              <p className="text-xs text-blue-700 mt-1">currently running</p>
-            </div>
-            
-            <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-amber-800">Low Stock Items</p>
-                  <p className="text-2xl font-bold text-amber-900">{lowStockItems.length}</p>
-                </div>
-                <AlertTriangle className="h-8 w-8 text-amber-600" />
-              </div>
-              <p className="text-xs text-amber-700 mt-1">need attention</p>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>

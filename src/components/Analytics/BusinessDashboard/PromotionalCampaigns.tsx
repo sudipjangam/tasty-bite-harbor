@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Megaphone, TrendingUp, Calendar, Users, Edit, Power, PowerOff, Plus, Target, Clock, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Promotion {
   id: number;
@@ -28,6 +29,7 @@ type PromotionStatus = "active" | "suggested" | "paused";
 
 const PromotionalCampaigns: React.FC<PromotionalCampaignsProps> = ({ promotions: initialPromotions }) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [promotions, setPromotions] = useState(initialPromotions);
   const [editingPromotion, setEditingPromotion] = useState<Promotion | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -130,6 +132,49 @@ const PromotionalCampaigns: React.FC<PromotionalCampaignsProps> = ({ promotions:
     }
   };
 
+  const updatePromotionInDatabase = async (promotionId: number, promotionData: any) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No session found");
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("restaurant_id")
+        .eq("id", session.user.id)
+        .single();
+
+      if (!profile?.restaurant_id) throw new Error("No restaurant found");
+
+      // Find the corresponding database record
+      const { data: campaigns } = await supabase
+        .from("promotion_campaigns")
+        .select("*")
+        .eq("restaurant_id", profile.restaurant_id)
+        .order("created_at", { ascending: false });
+
+      if (campaigns && campaigns[promotionId - 1]) {
+        const campaignId = campaigns[promotionId - 1].id;
+        
+        const { error } = await supabase
+          .from("promotion_campaigns")
+          .update({
+            name: promotionData.name,
+            description: promotionData.description,
+            time_period: promotionData.timePeriod,
+            potential_increase: promotionData.potentialIncrease,
+            status: promotionData.status,
+            is_active: promotionData.status === 'active'
+          })
+          .eq("id", campaignId);
+
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error("Error updating promotion:", error);
+      throw error;
+    }
+  };
+
   const handleSaveCreate = async () => {
     try {
       await savePromotionToDatabase(editForm);
@@ -146,6 +191,9 @@ const PromotionalCampaigns: React.FC<PromotionalCampaignsProps> = ({ promotions:
       setPromotions([...promotions, newPromotion]);
       setIsCreateDialogOpen(false);
 
+      // Refresh business dashboard data
+      queryClient.invalidateQueries({ queryKey: ["business-dashboard-data"] });
+
       toast({
         title: "Promotion Created",
         description: "The new promotion has been successfully created.",
@@ -159,67 +207,115 @@ const PromotionalCampaigns: React.FC<PromotionalCampaignsProps> = ({ promotions:
     }
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingPromotion) return;
 
-    const updatedPromotions = promotions.map(promotion =>
-      promotion.id === editingPromotion.id
-        ? {
-            ...promotion,
-            name: editForm.name,
-            timePeriod: editForm.timePeriod,
-            potentialIncrease: editForm.potentialIncrease,
-            description: editForm.description,
-            status: editForm.status,
-          }
-        : promotion
-    );
+    try {
+      await updatePromotionInDatabase(editingPromotion.id, editForm);
 
-    setPromotions(updatedPromotions);
-    setIsEditDialogOpen(false);
-    setEditingPromotion(null);
+      const updatedPromotions = promotions.map(promotion =>
+        promotion.id === editingPromotion.id
+          ? {
+              ...promotion,
+              name: editForm.name,
+              timePeriod: editForm.timePeriod,
+              potentialIncrease: editForm.potentialIncrease,
+              description: editForm.description,
+              status: editForm.status,
+            }
+          : promotion
+      );
 
-    toast({
-      title: "Promotion Updated",
-      description: "The promotion has been successfully updated.",
-    });
+      setPromotions(updatedPromotions);
+      setIsEditDialogOpen(false);
+      setEditingPromotion(null);
+
+      // Refresh business dashboard data
+      queryClient.invalidateQueries({ queryKey: ["business-dashboard-data"] });
+
+      toast({
+        title: "Promotion Updated",
+        description: "The promotion has been successfully updated.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update promotion. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleToggleStatus = (promotionId: number) => {
-    const updatedPromotions = promotions.map(promotion => {
-      if (promotion.id === promotionId) {
-        const newStatus: "active" | "paused" = promotion.status === "active" ? "paused" : "active";
-        return { ...promotion, status: newStatus };
-      }
-      return promotion;
-    });
+  const handleToggleStatus = async (promotionId: number) => {
+    try {
+      const promotion = promotions.find(p => p.id === promotionId);
+      if (!promotion) return;
 
-    setPromotions(updatedPromotions);
-    
-    const promotion = promotions.find(p => p.id === promotionId);
-    const newStatus = promotion?.status === "active" ? "paused" : "active";
-    
-    toast({
-      title: `Promotion ${newStatus === "active" ? "Activated" : "Deactivated"}`,
-      description: `${promotion?.name} has been ${newStatus === "active" ? "activated" : "deactivated"}.`,
-    });
+      const newStatus: "active" | "paused" = promotion.status === "active" ? "paused" : "active";
+      
+      await updatePromotionInDatabase(promotionId, {
+        ...promotion,
+        status: newStatus
+      });
+
+      const updatedPromotions = promotions.map(p => {
+        if (p.id === promotionId) {
+          return { ...p, status: newStatus };
+        }
+        return p;
+      });
+
+      setPromotions(updatedPromotions);
+      
+      // Refresh business dashboard data
+      queryClient.invalidateQueries({ queryKey: ["business-dashboard-data"] });
+      
+      toast({
+        title: `Promotion ${newStatus === "active" ? "Activated" : "Deactivated"}`,
+        description: `${promotion.name} has been ${newStatus === "active" ? "activated" : "deactivated"}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update promotion status. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleActivateSuggested = (promotionId: number) => {
-    const updatedPromotions = promotions.map(promotion => {
-      if (promotion.id === promotionId && promotion.status === "suggested") {
-        return { ...promotion, status: "active" as const };
-      }
-      return promotion;
-    });
+  const handleActivateSuggested = async (promotionId: number) => {
+    try {
+      const promotion = promotions.find(p => p.id === promotionId);
+      if (!promotion) return;
 
-    setPromotions(updatedPromotions);
-    
-    const promotion = promotions.find(p => p.id === promotionId);
-    toast({
-      title: "Promotion Activated",
-      description: `${promotion?.name} has been activated successfully.`,
-    });
+      await updatePromotionInDatabase(promotionId, {
+        ...promotion,
+        status: "active"
+      });
+
+      const updatedPromotions = promotions.map(p => {
+        if (p.id === promotionId && p.status === "suggested") {
+          return { ...p, status: "active" as const };
+        }
+        return p;
+      });
+
+      setPromotions(updatedPromotions);
+      
+      // Refresh business dashboard data
+      queryClient.invalidateQueries({ queryKey: ["business-dashboard-data"] });
+      
+      toast({
+        title: "Promotion Activated",
+        description: `${promotion.name} has been activated successfully.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to activate promotion. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Group promotions by status for better organization

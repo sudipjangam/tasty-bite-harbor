@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, startOfWeek, addDays, isSameDay } from "date-fns";
+import { useExpenseData } from "./useExpenseData";
 
 // Define proper types for inventory items
 interface InventoryItem {
@@ -71,6 +72,8 @@ interface Promotion {
 }
 
 export const useBusinessDashboardData = () => {
+  const { data: expenseData } = useExpenseData();
+
   return useQuery({
     queryKey: ["business-dashboard-data"],
     queryFn: async () => {
@@ -173,7 +176,16 @@ export const useBusinessDashboardData = () => {
       const typedStaffData = staffData as StaffMember[] || [];
       const typedRevenueStats = revenueStats as RevenueStats[] || [];
 
-      // Calculate expense breakdown based on real data
+      // Use live expense data instead of static calculations
+      const expenseBreakdown = expenseData?.expenseBreakdown || [
+        { name: "Ingredients", value: 0, percentage: 0 },
+        { name: "Utilities", value: 0, percentage: 0 },
+        { name: "Staff", value: 0, percentage: 0 },
+        { name: "Rent", value: 0, percentage: 0 },
+        { name: "Other", value: 0, percentage: 0 }
+      ];
+
+      // Calculate expense breakdown based on live data
       const totalOrderRevenue = typedOrderData.reduce((sum, order) => sum + order.total, 0) || 0;
       
       // Calculate ingredient costs (from inventory)
@@ -185,7 +197,7 @@ export const useBusinessDashboardData = () => {
       // Utilities cost estimation (12% of total revenue)
       const utilitiesCost = totalOrderRevenue * 0.12;
       
-      // Staff cost calculation based on real staff data
+      // Staff cost calculation based on live staff data
       const staffCost = typedStaffData.reduce((sum, staff) => {
         // Approximate salary based on position
         let baseSalary = 12000; // Default monthly salary
@@ -407,6 +419,19 @@ export const useBusinessDashboardData = () => {
         });
       }
       
+      // Expense-based insights
+      if (expenseData?.totalMonthlyExpenses && expenseData.totalMonthlyExpenses > 0) {
+        const highestExpenseCategory = expenseData.expenseBreakdown.reduce((max, current) => 
+          current.value > max.value ? current : max
+        );
+        
+        insights.push({
+          type: "expense",
+          title: "Expense Analysis",
+          message: `${highestExpenseCategory.name} is your highest expense category this month at ₹${highestExpenseCategory.value}.`
+        });
+      }
+
       // Promotional insights
       if (promotionalData.filter(p => p.status === "active").length === 0) {
         insights.push({
@@ -525,12 +550,12 @@ export const useBusinessDashboardData = () => {
         }));
 
       return {
-        expenseData,
+        expenseData: expenseBreakdown,
         peakHoursData,
         promotionalData,
         documents,
         insights,
-        totalOperationalCost,
+        totalOperationalCost: expenseData?.totalMonthlyExpenses || 0,
         staffData: typedStaffData || [],
         revenueTrend,
         weekdayData,
@@ -542,9 +567,11 @@ export const useBusinessDashboardData = () => {
           name: item.name,
           quantity: item.quantity,
           reorderLevel: item.reorder_level
-        }))
+        })),
+        expenseTrendData: expenseData?.expenseTrendData || [],
+        staffExpenses: expenseData?.staffExpenses || 0,
       };
     },
-    refetchInterval: 60000, // Refetch every minute
+    refetchInterval: 60000,
   });
 };

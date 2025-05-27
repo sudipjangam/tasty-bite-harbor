@@ -212,6 +212,99 @@ export type Database = {
           },
         ]
       }
+      expense_categories: {
+        Row: {
+          budget_limit: number | null
+          color_code: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          budget_limit?: number | null
+          color_code?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          budget_limit?: number | null
+          color_code?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          expense_date: string
+          id: string
+          is_recurring: boolean | null
+          payment_method: string | null
+          receipt_url: string | null
+          recurring_frequency: string | null
+          restaurant_id: string
+          status: string | null
+          subcategory: string | null
+          updated_at: string
+          vendor_name: string | null
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          expense_date?: string
+          id?: string
+          is_recurring?: boolean | null
+          payment_method?: string | null
+          receipt_url?: string | null
+          recurring_frequency?: string | null
+          restaurant_id: string
+          status?: string | null
+          subcategory?: string | null
+          updated_at?: string
+          vendor_name?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          expense_date?: string
+          id?: string
+          is_recurring?: boolean | null
+          payment_method?: string | null
+          receipt_url?: string | null
+          recurring_frequency?: string | null
+          restaurant_id?: string
+          status?: string | null
+          subcategory?: string | null
+          updated_at?: string
+          vendor_name?: string | null
+        }
+        Relationships: []
+      }
       inventory_items: {
         Row: {
           category: string
@@ -617,6 +710,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      monthly_budgets: {
+        Row: {
+          actual_amount: number | null
+          budgeted_amount: number
+          category: string
+          created_at: string
+          id: string
+          month: number
+          restaurant_id: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          actual_amount?: number | null
+          budgeted_amount: number
+          category: string
+          created_at?: string
+          id?: string
+          month: number
+          restaurant_id: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          actual_amount?: number | null
+          budgeted_amount?: number
+          category?: string
+          created_at?: string
+          id?: string
+          month?: number
+          restaurant_id?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
       }
       notification_preferences: {
         Row: {
