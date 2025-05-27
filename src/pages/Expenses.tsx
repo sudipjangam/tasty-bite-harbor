@@ -5,13 +5,13 @@ import AuthLoader from "@/components/Auth/AuthLoader";
 import ExpensesList from "@/components/Expenses/ExpensesList";
 
 const Expenses = () => {
-  const { session, loading } = useAuthState();
+  const { user, loading } = useAuthState();
 
   if (loading) {
     return <AuthLoader />;
   }
 
-  if (!session) {
+  if (!user) {
     return <AuthLoader />;
   }
 

@@ -72,7 +72,7 @@ interface Promotion {
 }
 
 export const useBusinessDashboardData = () => {
-  const { data: expenseData } = useExpenseData();
+  const { data: expenseDataFromHook } = useExpenseData();
 
   return useQuery({
     queryKey: ["business-dashboard-data"],
@@ -176,8 +176,8 @@ export const useBusinessDashboardData = () => {
       const typedStaffData = staffData as StaffMember[] || [];
       const typedRevenueStats = revenueStats as RevenueStats[] || [];
 
-      // Use live expense data instead of static calculations
-      const expenseBreakdown = expenseData?.expenseBreakdown || [
+      // Use live expense data from the expense hook
+      const expenseBreakdown = expenseDataFromHook?.expenseBreakdown || [
         { name: "Ingredients", value: 0, percentage: 0 },
         { name: "Utilities", value: 0, percentage: 0 },
         { name: "Staff", value: 0, percentage: 0 },
@@ -227,34 +227,36 @@ export const useBusinessDashboardData = () => {
       // Total operational costs
       const totalOperationalCost = ingredientsCost + utilitiesCost + staffCost + rentCost + otherCost;
 
-      // Format expense data for charts
-      const expenseData = [
-        { 
-          name: "Ingredients", 
-          value: Math.round(ingredientsCost), 
-          percentage: Math.round((ingredientsCost / totalOperationalCost) * 100) 
-        },
-        { 
-          name: "Utilities", 
-          value: Math.round(utilitiesCost), 
-          percentage: Math.round((utilitiesCost / totalOperationalCost) * 100) 
-        },
-        { 
-          name: "Staff", 
-          value: Math.round(staffCost), 
-          percentage: Math.round((staffCost / totalOperationalCost) * 100) 
-        },
-        { 
-          name: "Rent", 
-          value: Math.round(rentCost), 
-          percentage: Math.round((rentCost / totalOperationalCost) * 100) 
-        },
-        { 
-          name: "Other", 
-          value: Math.round(otherCost), 
-          percentage: Math.round((otherCost / totalOperationalCost) * 100) 
-        }
-      ];
+      // Format expense data for charts - use live data if available, otherwise use calculated estimates
+      const expenseData = expenseDataFromHook?.expenseBreakdown && expenseDataFromHook.expenseBreakdown.length > 0 
+        ? expenseDataFromHook.expenseBreakdown 
+        : [
+            { 
+              name: "Ingredients", 
+              value: Math.round(ingredientsCost), 
+              percentage: Math.round((ingredientsCost / totalOperationalCost) * 100) 
+            },
+            { 
+              name: "Utilities", 
+              value: Math.round(utilitiesCost), 
+              percentage: Math.round((utilitiesCost / totalOperationalCost) * 100) 
+            },
+            { 
+              name: "Staff", 
+              value: Math.round(staffCost), 
+              percentage: Math.round((staffCost / totalOperationalCost) * 100) 
+            },
+            { 
+              name: "Rent", 
+              value: Math.round(rentCost), 
+              percentage: Math.round((rentCost / totalOperationalCost) * 100) 
+            },
+            { 
+              name: "Other", 
+              value: Math.round(otherCost), 
+              percentage: Math.round((otherCost / totalOperationalCost) * 100) 
+            }
+          ];
 
       // Calculate peak hours data based on order timestamps
       const hourCounts: Record<string, number> = {};
@@ -420,8 +422,9 @@ export const useBusinessDashboardData = () => {
       }
       
       // Expense-based insights
-      if (expenseData?.totalMonthlyExpenses && expenseData.totalMonthlyExpenses > 0) {
-        const highestExpenseCategory = expenseData.expenseBreakdown.reduce((max, current) => 
+      const totalMonthlyExpenses = expenseDataFromHook?.totalMonthlyExpenses || 0;
+      if (totalMonthlyExpenses > 0) {
+        const highestExpenseCategory = expenseData.reduce((max, current) => 
           current.value > max.value ? current : max
         );
         
@@ -550,12 +553,12 @@ export const useBusinessDashboardData = () => {
         }));
 
       return {
-        expenseData: expenseBreakdown,
+        expenseData,
         peakHoursData,
         promotionalData,
         documents,
         insights,
-        totalOperationalCost: expenseData?.totalMonthlyExpenses || 0,
+        totalOperationalCost: totalMonthlyExpenses || totalOperationalCost,
         staffData: typedStaffData || [],
         revenueTrend,
         weekdayData,
@@ -568,8 +571,8 @@ export const useBusinessDashboardData = () => {
           quantity: item.quantity,
           reorderLevel: item.reorder_level
         })),
-        expenseTrendData: expenseData?.expenseTrendData || [],
-        staffExpenses: expenseData?.staffExpenses || 0,
+        expenseTrendData: expenseDataFromHook?.expenseTrendData || [],
+        staffExpenses: expenseDataFromHook?.staffExpenses || 0,
       };
     },
     refetchInterval: 60000,
