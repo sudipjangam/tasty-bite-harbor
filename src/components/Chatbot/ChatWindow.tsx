@@ -50,7 +50,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     return (
       <div className="flex flex-col h-full w-full bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 rounded-xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-600 to-purple-700 text-white">
+        <div className="flex-shrink-0 flex items-center justify-between p-4 bg-gradient-to-r from-purple-600 to-purple-700 text-white">
           <div className="flex items-center gap-3">
             <div className="bg-white/20 p-2 rounded-full">
               <Sparkles className="h-5 w-5" />
@@ -67,45 +67,67 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           </div>
         </div>
         
-        {/* Messages Area */}
-        <ScrollArea className="flex-1 bg-gradient-to-b from-gray-50/50 to-white dark:from-gray-800/50 dark:to-gray-900">
-          <div className="p-4 space-y-1">
-            {messages.map((message, index) => (
-              <ChatMessage key={index} message={message} />
-            ))}
-            {isLoading && (
-              <div className="flex items-center gap-3 py-4 px-2">
-                <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center">
-                  <Loader2 className="h-5 w-5 animate-spin text-white" />
-                </div>
-                <div className="bg-white dark:bg-gray-800 px-4 py-3 rounded-2xl rounded-bl-md border border-gray-200 dark:border-gray-700 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                    </div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">AI is thinking...</span>
+        {/* Messages Area with fixed height and scrolling */}
+        <div className="flex-1 min-h-0 bg-gradient-to-b from-gray-50/50 to-white dark:from-gray-800/50 dark:to-gray-900">
+          <ScrollArea className="h-full">
+            <div className="p-4 space-y-1">
+              {messages.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-64 text-center">
+                  <div className="bg-gradient-to-br from-purple-500 to-purple-700 p-4 rounded-full mb-4">
+                    <Sparkles className="h-8 w-8 text-white" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                    Welcome to your AI Assistant!
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4 max-w-md">
+                    Ask me anything about your restaurant data - sales, inventory, staff, customers, and more!
+                  </p>
+                  <div className="text-sm text-purple-600 dark:text-purple-400">
+                    Try asking: "What were my sales this week?"
                   </div>
                 </div>
-              </div>
-            )}
-            {isUploading && (
-              <div className="flex items-center gap-3 py-4 px-2">
-                <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center">
-                  <Loader2 className="h-5 w-5 animate-spin text-white" />
+              )}
+              
+              {messages.map((message, index) => (
+                <ChatMessage key={index} message={message} />
+              ))}
+              
+              {isLoading && (
+                <div className="flex items-center gap-3 py-4 px-2">
+                  <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center">
+                    <Loader2 className="h-5 w-5 animate-spin text-white" />
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 px-4 py-3 rounded-2xl rounded-bl-md border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="flex gap-1">
+                        <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                        <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                      </div>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">AI is thinking...</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-white dark:bg-gray-800 px-4 py-3 rounded-2xl rounded-bl-md border border-gray-200 dark:border-gray-700 shadow-sm">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Processing your file...</p>
+              )}
+              
+              {isUploading && (
+                <div className="flex items-center gap-3 py-4 px-2">
+                  <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center">
+                    <Loader2 className="h-5 w-5 animate-spin text-white" />
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 px-4 py-3 rounded-2xl rounded-bl-md border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Processing your file...</p>
+                  </div>
                 </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        </ScrollArea>
+              )}
+              
+              <div ref={messagesEndRef} />
+            </div>
+          </ScrollArea>
+        </div>
         
         {/* Input Area */}
-        <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex-shrink-0 p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
           <div className="mb-2">
             <FileUploadButton 
               fileInputRef={fileInputRef} 

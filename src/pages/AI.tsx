@@ -7,9 +7,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 const AI = () => {
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
-      <div className="p-4 md:p-6">
+      <div className="flex-shrink-0 p-4 md:p-6">
         <Card variant="glass" className="p-4 md:p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-white/20">
           <div className="flex items-center gap-3">
             <div className="bg-gradient-to-br from-purple-600 to-purple-700 p-3 rounded-full">
@@ -28,88 +28,90 @@ const AI = () => {
       </div>
       
       {/* Main Content */}
-      <div className="flex-1 px-4 md:px-6 pb-6 min-h-0">
+      <div className="flex-1 px-4 md:px-6 pb-6 overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
           {/* Chat Section */}
-          <div className="lg:col-span-2 h-full">
-            <Card variant="default" className="p-0 rounded-xl h-full overflow-hidden shadow-xl bg-white dark:bg-gray-800">
-              <div className="h-full">
+          <div className="lg:col-span-2 flex flex-col min-h-0">
+            <Card variant="default" className="p-0 rounded-xl flex-1 overflow-hidden shadow-xl bg-white dark:bg-gray-800">
+              <div className="h-full flex flex-col">
                 <Chatbot initialOpen={true} fixedPosition={false} />
               </div>
             </Card>
           </div>
           
           {/* Sidebar */}
-          <div className="lg:col-span-1 flex flex-col gap-6 h-full">
+          <div className="lg:col-span-1 flex flex-col gap-6 overflow-hidden">
             {/* AI Capabilities */}
-            <Card variant="default" className="p-4 md:p-6 rounded-xl flex-1 bg-white dark:bg-gray-800 shadow-lg">
+            <Card variant="default" className="p-4 md:p-6 rounded-xl flex-1 bg-white dark:bg-gray-800 shadow-lg overflow-hidden">
               <h3 className="text-lg font-semibold flex items-center mb-4 text-gray-800 dark:text-gray-200">
                 <Brain className="h-5 w-5 mr-2 text-purple-600" />
                 AI Capabilities
               </h3>
               
-              <div className="grid grid-cols-1 gap-3">
-                <div className="capability-card border border-purple-100 dark:border-purple-800 rounded-lg p-3 hover:border-purple-300 dark:hover:border-purple-600 cursor-pointer transition-all duration-200 hover:shadow-md bg-gradient-to-r from-purple-50/50 to-transparent dark:from-purple-900/20">
-                  <div className="flex items-center mb-2">
-                    <LineChart className="h-4 w-4 mr-2 text-purple-600" />
-                    <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200">Sales Analysis</h4>
+              <ScrollArea className="h-full">
+                <div className="grid grid-cols-1 gap-3 pr-2">
+                  <div className="capability-card border border-purple-100 dark:border-purple-800 rounded-lg p-3 hover:border-purple-300 dark:hover:border-purple-600 cursor-pointer transition-all duration-200 hover:shadow-md bg-gradient-to-r from-purple-50/50 to-transparent dark:from-purple-900/20">
+                    <div className="flex items-center mb-2">
+                      <LineChart className="h-4 w-4 mr-2 text-purple-600" />
+                      <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200">Sales Analysis</h4>
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      Analyze revenue trends, order patterns, and financial performance.
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Analyze revenue trends, order patterns, and financial performance.
-                  </p>
-                </div>
-                
-                <div className="capability-card border border-purple-100 dark:border-purple-800 rounded-lg p-3 hover:border-purple-300 dark:hover:border-purple-600 cursor-pointer transition-all duration-200 hover:shadow-md bg-gradient-to-r from-purple-50/50 to-transparent dark:from-purple-900/20">
-                  <div className="flex items-center mb-2">
-                    <ShoppingCart className="h-4 w-4 mr-2 text-purple-600" />
-                    <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200">Inventory Insights</h4>
+                  
+                  <div className="capability-card border border-purple-100 dark:border-purple-800 rounded-lg p-3 hover:border-purple-300 dark:hover:border-purple-600 cursor-pointer transition-all duration-200 hover:shadow-md bg-gradient-to-r from-purple-50/50 to-transparent dark:from-purple-900/20">
+                    <div className="flex items-center mb-2">
+                      <ShoppingCart className="h-4 w-4 mr-2 text-purple-600" />
+                      <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200">Inventory Insights</h4>
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      Check stock levels, get reorder suggestions, and track usage.
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Check stock levels, get reorder suggestions, and track usage.
-                  </p>
-                </div>
-                
-                <div className="capability-card border border-purple-100 dark:border-purple-800 rounded-lg p-3 hover:border-purple-300 dark:hover:border-purple-600 cursor-pointer transition-all duration-200 hover:shadow-md bg-gradient-to-r from-purple-50/50 to-transparent dark:from-purple-900/20">
-                  <div className="flex items-center mb-2">
-                    <ChefHat className="h-4 w-4 mr-2 text-purple-600" />
-                    <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200">Menu Optimization</h4>
+                  
+                  <div className="capability-card border border-purple-100 dark:border-purple-800 rounded-lg p-3 hover:border-purple-300 dark:hover:border-purple-600 cursor-pointer transition-all duration-200 hover:shadow-md bg-gradient-to-r from-purple-50/50 to-transparent dark:from-purple-900/20">
+                    <div className="flex items-center mb-2">
+                      <ChefHat className="h-4 w-4 mr-2 text-purple-600" />
+                      <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200">Menu Optimization</h4>
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      Analyze menu performance and get suggestions for improvements.
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Analyze menu performance and get suggestions for improvements.
-                  </p>
-                </div>
-                
-                <div className="capability-card border border-purple-100 dark:border-purple-800 rounded-lg p-3 hover:border-purple-300 dark:hover:border-purple-600 cursor-pointer transition-all duration-200 hover:shadow-md bg-gradient-to-r from-purple-50/50 to-transparent dark:from-purple-900/20">
-                  <div className="flex items-center mb-2">
-                    <Users className="h-4 w-4 mr-2 text-purple-600" />
-                    <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200">Staff Performance</h4>
+                  
+                  <div className="capability-card border border-purple-100 dark:border-purple-800 rounded-lg p-3 hover:border-purple-300 dark:hover:border-purple-600 cursor-pointer transition-all duration-200 hover:shadow-md bg-gradient-to-r from-purple-50/50 to-transparent dark:from-purple-900/20">
+                    <div className="flex items-center mb-2">
+                      <Users className="h-4 w-4 mr-2 text-purple-600" />
+                      <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200">Staff Performance</h4>
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      Analyze staff efficiency, sales per server, and scheduling effectiveness.
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Analyze staff efficiency, sales per server, and scheduling effectiveness.
-                  </p>
-                </div>
-                
-                <div className="border border-purple-100 dark:border-purple-800 rounded-lg p-3 bg-gradient-to-r from-purple-100/50 to-purple-50/50 dark:from-purple-900/30 dark:to-purple-800/30">
-                  <div className="flex items-center mb-2">
-                    <Database className="h-4 w-4 mr-2 text-purple-600" />
-                    <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200">Comprehensive Data Access</h4>
+                  
+                  <div className="border border-purple-100 dark:border-purple-800 rounded-lg p-3 bg-gradient-to-r from-purple-100/50 to-purple-50/50 dark:from-purple-900/30 dark:to-purple-800/30">
+                    <div className="flex items-center mb-2">
+                      <Database className="h-4 w-4 mr-2 text-purple-600" />
+                      <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200">Comprehensive Data Access</h4>
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      Analyzes Orders, Inventory, Revenue, Menu Items, Staff, Customers, Suppliers, Reservations & more.
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Analyzes Orders, Inventory, Revenue, Menu Items, Staff, Customers, Suppliers, Reservations & more.
-                  </p>
                 </div>
-              </div>
+              </ScrollArea>
             </Card>
             
             {/* Sample Questions */}
-            <Card variant="default" className="p-4 md:p-6 rounded-xl flex-1 bg-white dark:bg-gray-800 shadow-lg">
+            <Card variant="default" className="p-4 md:p-6 rounded-xl flex-1 bg-white dark:bg-gray-800 shadow-lg overflow-hidden">
               <h3 className="text-lg font-semibold flex items-center mb-4 text-gray-800 dark:text-gray-200">
                 <MessageCircleQuestion className="h-5 w-5 mr-2 text-purple-600" />
                 Sample Questions
               </h3>
               
-              <ScrollArea className="h-[280px] pr-2">
-                <div className="space-y-2">
+              <ScrollArea className="h-full">
+                <div className="space-y-2 pr-2">
                   {[
                     "What were my sales this week compared to last week?",
                     "Which menu items have the highest profit margin?",
