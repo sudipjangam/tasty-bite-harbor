@@ -45,11 +45,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   }, [messages]);
 
-  // If embedded in a page, use a different style
+  // If embedded in a page, use a different style with proper height management
   if (embedded) {
     return (
-      <div className="flex flex-col h-full w-full bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 rounded-xl overflow-hidden">
-        {/* Header */}
+      <div className="flex flex-col h-full max-h-[calc(100vh-2rem)] bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 rounded-xl overflow-hidden">
+        {/* Header - Fixed height */}
         <div className="flex-shrink-0 flex items-center justify-between p-4 bg-gradient-to-r from-purple-600 to-purple-700 text-white">
           <div className="flex items-center gap-3">
             <div className="bg-white/20 p-2 rounded-full">
@@ -67,10 +67,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           </div>
         </div>
         
-        {/* Messages Area with fixed height and scrolling */}
-        <div className="flex-1 min-h-0 bg-gradient-to-b from-gray-50/50 to-white dark:from-gray-800/50 dark:to-gray-900">
+        {/* Messages Area - Flexible height with scroll */}
+        <div className="flex-1 min-h-0 bg-gradient-to-b from-gray-50/50 to-white dark:from-gray-800/50 dark:to-gray-900 overflow-hidden">
           <ScrollArea className="h-full">
-            <div className="p-4 space-y-1">
+            <div className="p-4 space-y-1 min-h-full">
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-64 text-center">
                   <div className="bg-gradient-to-br from-purple-500 to-purple-700 p-4 rounded-full mb-4">
@@ -126,7 +126,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           </ScrollArea>
         </div>
         
-        {/* Input Area */}
+        {/* Input Area - Fixed height at bottom */}
         <div className="flex-shrink-0 p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
           <div className="mb-2">
             <FileUploadButton 
