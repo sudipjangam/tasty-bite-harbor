@@ -67,7 +67,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
       <Button
         type="submit"
         size="icon"
-        disabled={isLoading || !message.trim()}
+        disabled={isLoading}
         className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-full h-10 w-10 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
       >
         <Send className="h-4 w-4" />
