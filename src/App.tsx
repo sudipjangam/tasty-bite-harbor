@@ -21,11 +21,9 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-  const isMobile = useIsMobile();
-
   return (
-    <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
-      <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
         <AuthProvider>
           <ErrorBoundary>
             <Router>
@@ -36,8 +34,8 @@ function App() {
             </Router>
           </ErrorBoundary>
         </AuthProvider>
-      </QueryClientProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 
