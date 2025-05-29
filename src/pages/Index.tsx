@@ -1,9 +1,11 @@
+
 import React from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { PermissionGuard } from "@/components/Auth/PermissionGuard";
+import { PermissionGuard, RoleGuard } from "@/components/Auth/PermissionGuard";
 import { PageHeader } from "@/components/Layout/PageHeader";
 import { StandardizedCard } from "@/components/ui/standardized-card";
 import { StandardizedButton } from "@/components/ui/standardized-button";
+import { RoleBadge } from "@/components/ui/role-badge";
 import { 
   BarChart3, 
   ShoppingCart, 
@@ -14,7 +16,8 @@ import {
   Eye,
   Settings,
   Coffee,
-  Bed
+  Bed,
+  Shield
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Stats from "@/components/Dashboard/Stats";
@@ -66,6 +69,33 @@ const Index = () => {
         description="Here's an overview of your restaurant and hotel operations"
       />
 
+      {/* User Role Information */}
+      <StandardizedCard className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Shield className="h-5 w-5 text-purple-600" />
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                Your Access Level
+                {user?.role && <RoleBadge role={user.role} />}
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                {user?.role === 'super_admin' && "You have full system access and can manage all features."}
+                {user?.role === 'admin' && "You can manage most features except user roles and system settings."}
+                {user?.role === 'manager' && "You can view and manage daily operations and analytics."}
+                {user?.role === 'staff' && "You have access to POS, orders, and basic customer management."}
+                {user?.role === 'viewer' && "You have read-only access to most features."}
+              </p>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 px-3 py-1 rounded-full">
+            <span className="text-xs font-medium text-purple-600 dark:text-purple-400">
+              {hasPermission('ai.access') ? 'AI Enabled' : 'Limited Access'}
+            </span>
+          </div>
+        </div>
+      </StandardizedCard>
+
       {/* Quick Actions */}
       <StandardizedCard>
         <h2 className="text-lg font-semibold mb-4 flex items-center">
@@ -101,12 +131,12 @@ const Index = () => {
         </div>
       </StandardizedCard>
 
-      {/* Stats Section */}
+      {/* Stats Section - Only for roles with dashboard access */}
       <PermissionGuard permission="dashboard.view">
         <Stats />
       </PermissionGuard>
 
-      {/* Charts Section */}
+      {/* Charts Section - Only for roles with analytics access */}
       <PermissionGuard permission="dashboard.analytics">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <StandardizedCard>
@@ -146,28 +176,53 @@ const Index = () => {
         </div>
       </PermissionGuard>
 
-      {/* Role-based Information Panel */}
-      <StandardizedCard className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-              Your Role: {user?.role?.replace('_', ' ').toUpperCase()}
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              {user?.role === 'super_admin' && "You have full system access and can manage all features."}
-              {user?.role === 'admin' && "You can manage most features except user roles and system settings."}
-              {user?.role === 'manager' && "You can view and manage daily operations and analytics."}
-              {user?.role === 'staff' && "You have access to POS, orders, and basic customer management."}
-              {user?.role === 'viewer' && "You have read-only access to most features."}
-            </p>
+      {/* Admin-only section */}
+      <RoleGuard roles={['super_admin', 'admin']} requireAll={false}>
+        <StandardizedCard className="border-orange-200 bg-orange-50 dark:bg-orange-900/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-orange-900 dark:text-orange-100 flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Admin Tools
+              </h3>
+              <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
+                Administrative functions available to admin users
+              </p>
+            </div>
+            <StandardizedButton
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate('/settings')}
+            >
+              Manage Settings
+            </StandardizedButton>
           </div>
-          <div className="bg-white dark:bg-gray-800 px-3 py-1 rounded-full">
-            <span className="text-xs font-medium text-purple-600 dark:text-purple-400">
-              {hasPermission('ai.access') ? 'AI Enabled' : 'Limited Access'}
-            </span>
+        </StandardizedCard>
+      </RoleGuard>
+
+      {/* Manager-only section */}
+      <RoleGuard roles={['manager']} requireAll={false}>
+        <StandardizedCard className="border-blue-200 bg-blue-50 dark:bg-blue-900/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Manager Dashboard
+              </h3>
+              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                Staff management and operational oversight
+              </p>
+            </div>
+            <StandardizedButton
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate('/staff')}
+            >
+              Manage Staff
+            </StandardizedButton>
           </div>
-        </div>
-      </StandardizedCard>
+        </StandardizedCard>
+      </RoleGuard>
     </div>
   );
 };

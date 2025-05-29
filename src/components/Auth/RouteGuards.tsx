@@ -1,9 +1,16 @@
 
 import { Navigate } from "react-router-dom";
 import { useAuthState } from "@/hooks/useAuthState";
+import { PermissionGuard } from "./PermissionGuard";
+import { Permission } from "@/types/auth";
 
 interface GuardProps {
   children: JSX.Element;
+}
+
+interface ComponentGuardProps {
+  children: JSX.Element;
+  requiredComponent?: string;
 }
 
 /**
@@ -26,7 +33,7 @@ export const LoginRegisterAccessGuard: React.FC<GuardProps> = ({ children }) => 
 /**
  * Prevents unauthenticated users from accessing protected pages
  */
-export const ComponentAccessGuard: React.FC<GuardProps> = ({ children }) => {
+export const ComponentAccessGuard: React.FC<ComponentGuardProps> = ({ children, requiredComponent }) => {
   const { user, loading } = useAuthState();
   
   if (loading) {
@@ -38,4 +45,34 @@ export const ComponentAccessGuard: React.FC<GuardProps> = ({ children }) => {
   }
   
   return children;
+};
+
+/**
+ * Permission-based route guard that checks specific permissions
+ */
+interface PermissionRouteGuardProps {
+  children: JSX.Element;
+  permission?: Permission;
+  permissions?: Permission[];
+  requireAll?: boolean;
+  fallbackPath?: string;
+}
+
+export const PermissionRouteGuard: React.FC<PermissionRouteGuardProps> = ({
+  children,
+  permission,
+  permissions,
+  requireAll = false,
+  fallbackPath = "/"
+}) => {
+  return (
+    <PermissionGuard
+      permission={permission}
+      permissions={permissions}
+      requireAll={requireAll}
+      fallback={<Navigate to={fallbackPath} replace />}
+    >
+      {children}
+    </PermissionGuard>
+  );
 };

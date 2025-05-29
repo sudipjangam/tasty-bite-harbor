@@ -1,7 +1,7 @@
 
 import React from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Permission } from "@/types/auth";
+import { Permission, UserRole } from "@/types/auth";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Lock } from "lucide-react";
 
@@ -12,10 +12,12 @@ interface PermissionGuardProps {
   requireAll?: boolean;
   fallback?: React.ReactNode;
   showError?: boolean;
+  roles?: UserRole[];
+  requireAnyRole?: boolean;
 }
 
 /**
- * Component that conditionally renders children based on user permissions
+ * Component that conditionally renders children based on user permissions and/or roles
  */
 export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   children,
@@ -23,9 +25,11 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   permissions,
   requireAll = false,
   fallback,
-  showError = false
+  showError = false,
+  roles,
+  requireAnyRole = false
 }) => {
-  const { hasPermission, hasAnyPermission, user } = useAuth();
+  const { hasPermission, hasAnyPermission, isRole, user } = useAuth();
 
   // If no user is logged in, don't show anything
   if (!user) {
@@ -41,6 +45,37 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   let hasAccess = false;
 
+  // Check role-based access first if roles are specified
+  if (roles && roles.length > 0) {
+    if (requireAnyRole) {
+      hasAccess = roles.some(role => isRole(role));
+    } else {
+      // Require all roles
+      hasAccess = roles.every(role => isRole(role));
+    }
+    
+    // If role check fails, deny access
+    if (!hasAccess && !permission && !permissions) {
+      if (fallback) {
+        return <>{fallback}</>;
+      }
+      
+      if (showError) {
+        return (
+          <Alert variant="destructive">
+            <Lock className="h-4 w-4" />
+            <AlertDescription>
+              Your role doesn't have access to this feature.
+            </AlertDescription>
+          </Alert>
+        );
+      }
+      
+      return null;
+    }
+  }
+
+  // Check permission-based access
   if (permission) {
     hasAccess = hasPermission(permission);
   } else if (permissions) {
@@ -49,8 +84,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     } else {
       hasAccess = hasAnyPermission(permissions);
     }
-  } else {
-    // If no permissions specified, allow access
+  } else if (!roles || roles.length === 0) {
+    // If no permissions or roles specified, allow access
     hasAccess = true;
   }
 
@@ -74,4 +109,34 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   }
 
   return <>{children}</>;
+};
+
+/**
+ * Role-specific guard component
+ */
+interface RoleGuardProps {
+  children: React.ReactNode;
+  roles: UserRole[];
+  requireAll?: boolean;
+  fallback?: React.ReactNode;
+  showError?: boolean;
+}
+
+export const RoleGuard: React.FC<RoleGuardProps> = ({
+  children,
+  roles,
+  requireAll = false,
+  fallback,
+  showError = false
+}) => {
+  return (
+    <PermissionGuard
+      roles={roles}
+      requireAnyRole={!requireAll}
+      fallback={fallback}
+      showError={showError}
+    >
+      {children}
+    </PermissionGuard>
+  );
 };

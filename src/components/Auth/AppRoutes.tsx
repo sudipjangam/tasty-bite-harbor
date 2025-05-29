@@ -1,6 +1,6 @@
 
 import { Route, Routes } from "react-router-dom";
-import { ComponentAccessGuard, LoginRegisterAccessGuard } from "./RouteGuards";
+import { ComponentAccessGuard, LoginRegisterAccessGuard, PermissionRouteGuard } from "./RouteGuards";
 import Auth from "@/pages/Auth";
 import Index from "@/pages/Index";
 import Orders from "@/pages/Orders";
@@ -24,7 +24,7 @@ import NotFound from "@/pages/NotFound";
 import { SidebarProvider } from "@/components/ui/sidebar";
 
 /**
- * All application routes defined for better organization
+ * All application routes defined with proper permission guards
  */
 export const AppRoutes = (
   <Routes>
@@ -37,222 +37,256 @@ export const AppRoutes = (
     {/* Authenticated routes with sidebar layout */}
     <Route path="/" element={
       <ComponentAccessGuard>
-        <div className="flex h-screen w-full">
-          <SidebarProvider>
-            <Sidebar />
-            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
-              <Index />
-            </main>
-          </SidebarProvider>
-        </div>
+        <PermissionRouteGuard permission="dashboard.view">
+          <div className="flex h-screen w-full">
+            <SidebarProvider>
+              <Sidebar />
+              <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+                <Index />
+              </main>
+            </SidebarProvider>
+          </div>
+        </PermissionRouteGuard>
       </ComponentAccessGuard>
     } />
     
     <Route path="/orders" element={
       <ComponentAccessGuard>
-        <div className="flex h-screen w-full">
-          <SidebarProvider>
-            <Sidebar />
-            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
-              <Orders />
-            </main>
-          </SidebarProvider>
-        </div>
+        <PermissionRouteGuard permission="orders.view">
+          <div className="flex h-screen w-full">
+            <SidebarProvider>
+              <Sidebar />
+              <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+                <Orders />
+              </main>
+            </SidebarProvider>
+          </div>
+        </PermissionRouteGuard>
       </ComponentAccessGuard>
     } />
     
     <Route path="/rooms" element={
       <ComponentAccessGuard>
-        <div className="flex h-screen w-full">
-          <SidebarProvider>
-            <Sidebar />
-            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
-              <Rooms />
-            </main>
-          </SidebarProvider>
-        </div>
+        <PermissionRouteGuard permission="rooms.view">
+          <div className="flex h-screen w-full">
+            <SidebarProvider>
+              <Sidebar />
+              <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+                <Rooms />
+              </main>
+            </SidebarProvider>
+          </div>
+        </PermissionRouteGuard>
       </ComponentAccessGuard>
     } />
     
     <Route path="/staff" element={
       <ComponentAccessGuard>
-        <div className="flex h-screen w-full">
-          <SidebarProvider>
-            <Sidebar />
-            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
-              <Staff />
-            </main>
-          </SidebarProvider>
-        </div>
+        <PermissionRouteGuard permission="staff.view">
+          <div className="flex h-screen w-full">
+            <SidebarProvider>
+              <Sidebar />
+              <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+                <Staff />
+              </main>
+            </SidebarProvider>
+          </div>
+        </PermissionRouteGuard>
       </ComponentAccessGuard>
     } />
     
     <Route path="/menu" element={
       <ComponentAccessGuard>
-        <div className="flex h-screen w-full">
-          <SidebarProvider>
-            <Sidebar />
-            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
-              <Menu />
-            </main>
-          </SidebarProvider>
-        </div>
+        <PermissionRouteGuard permission="menu.view">
+          <div className="flex h-screen w-full">
+            <SidebarProvider>
+              <Sidebar />
+              <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+                <Menu />
+              </main>
+            </SidebarProvider>
+          </div>
+        </PermissionRouteGuard>
       </ComponentAccessGuard>
     } />
     
     <Route path="/tables" element={
       <ComponentAccessGuard>
-        <div className="flex h-screen w-full">
-          <SidebarProvider>
-            <Sidebar />
-            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
-              <Tables />
-            </main>
-          </SidebarProvider>
-        </div>
+        <PermissionRouteGuard permission="orders.view">
+          <div className="flex h-screen w-full">
+            <SidebarProvider>
+              <Sidebar />
+              <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+                <Tables />
+              </main>
+            </SidebarProvider>
+          </div>
+        </PermissionRouteGuard>
       </ComponentAccessGuard>
     } />
     
     <Route path="/reservations" element={
       <ComponentAccessGuard>
-        <div className="flex h-screen w-full">
-          <SidebarProvider>
-            <Sidebar />
-            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
-              <Reservations />
-            </main>
-          </SidebarProvider>
-        </div>
+        <PermissionRouteGuard permission="reservations.view">
+          <div className="flex h-screen w-full">
+            <SidebarProvider>
+              <Sidebar />
+              <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+                <Reservations />
+              </main>
+            </SidebarProvider>
+          </div>
+        </PermissionRouteGuard>
       </ComponentAccessGuard>
     } />
     
     <Route path="/customers" element={
       <ComponentAccessGuard>
-        <div className="flex h-screen w-full">
-          <SidebarProvider>
-            <Sidebar />
-            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
-              <Customers />
-            </main>
-          </SidebarProvider>
-        </div>
+        <PermissionRouteGuard permission="customers.view">
+          <div className="flex h-screen w-full">
+            <SidebarProvider>
+              <Sidebar />
+              <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+                <Customers />
+              </main>
+            </SidebarProvider>
+          </div>
+        </PermissionRouteGuard>
       </ComponentAccessGuard>
     } />
     
     <Route path="/crm" element={
       <ComponentAccessGuard>
-        <div className="flex h-screen w-full">
-          <SidebarProvider>
-            <Sidebar />
-            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
-              <CRM />
-            </main>
-          </SidebarProvider>
-        </div>
+        <PermissionRouteGuard permission="customers.view">
+          <div className="flex h-screen w-full">
+            <SidebarProvider>
+              <Sidebar />
+              <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+                <CRM />
+              </main>
+            </SidebarProvider>
+          </div>
+        </PermissionRouteGuard>
       </ComponentAccessGuard>
     } />
     
     <Route path="/analytics" element={
       <ComponentAccessGuard>
-        <div className="flex h-screen w-full">
-          <SidebarProvider>
-            <Sidebar />
-            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
-              <Analytics />
-            </main>
-          </SidebarProvider>
-        </div>
+        <PermissionRouteGuard permission="analytics.view">
+          <div className="flex h-screen w-full">
+            <SidebarProvider>
+              <Sidebar />
+              <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+                <Analytics />
+              </main>
+            </SidebarProvider>
+          </div>
+        </PermissionRouteGuard>
       </ComponentAccessGuard>
     } />
     
     <Route path="/settings" element={
       <ComponentAccessGuard>
-        <div className="flex h-screen w-full">
-          <SidebarProvider>
-            <Sidebar />
-            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
-              <Settings />
-            </main>
-          </SidebarProvider>
-        </div>
+        <PermissionRouteGuard permission="settings.view">
+          <div className="flex h-screen w-full">
+            <SidebarProvider>
+              <Sidebar />
+              <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+                <Settings />
+              </main>
+            </SidebarProvider>
+          </div>
+        </PermissionRouteGuard>
       </ComponentAccessGuard>
     } />
     
     <Route path="/kitchen" element={
       <ComponentAccessGuard>
-        <div className="flex h-screen w-full">
-          <SidebarProvider>
-            <Sidebar />
-            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
-              <KitchenDisplay />
-            </main>
-          </SidebarProvider>
-        </div>
+        <PermissionRouteGuard permission="orders.view">
+          <div className="flex h-screen w-full">
+            <SidebarProvider>
+              <Sidebar />
+              <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+                <KitchenDisplay />
+              </main>
+            </SidebarProvider>
+          </div>
+        </PermissionRouteGuard>
       </ComponentAccessGuard>
     } />
     
     <Route path="/ai" element={
       <ComponentAccessGuard>
-        <div className="flex h-screen w-full">
-          <SidebarProvider>
-            <Sidebar />
-            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
-              <AI />
-            </main>
-          </SidebarProvider>
-        </div>
+        <PermissionRouteGuard permission="ai.access">
+          <div className="flex h-screen w-full">
+            <SidebarProvider>
+              <Sidebar />
+              <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+                <AI />
+              </main>
+            </SidebarProvider>
+          </div>
+        </PermissionRouteGuard>
       </ComponentAccessGuard>
     } />
     
     <Route path="/business-dashboard" element={
       <ComponentAccessGuard>
-        <div className="flex h-screen w-full">
-          <SidebarProvider>
-            <Sidebar />
-            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
-              <BusinessDashboard />
-            </main>
-          </SidebarProvider>
-        </div>
+        <PermissionRouteGuard permission="dashboard.analytics">
+          <div className="flex h-screen w-full">
+            <SidebarProvider>
+              <Sidebar />
+              <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+                <BusinessDashboard />
+              </main>
+            </SidebarProvider>
+          </div>
+        </PermissionRouteGuard>
       </ComponentAccessGuard>
     } />
     
     <Route path="/inventory" element={
       <ComponentAccessGuard>
-        <div className="flex h-screen w-full">
-          <SidebarProvider>
-            <Sidebar />
-            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
-              <Inventory />
-            </main>
-          </SidebarProvider>
-        </div>
+        <PermissionRouteGuard permission="inventory.view">
+          <div className="flex h-screen w-full">
+            <SidebarProvider>
+              <Sidebar />
+              <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+                <Inventory />
+              </main>
+            </SidebarProvider>
+          </div>
+        </PermissionRouteGuard>
       </ComponentAccessGuard>
     } />
     
     <Route path="/suppliers" element={
       <ComponentAccessGuard>
-        <div className="flex h-screen w-full">
-          <SidebarProvider>
-            <Sidebar />
-            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
-              <Suppliers />
-            </main>
-          </SidebarProvider>
-        </div>
+        <PermissionRouteGuard permission="inventory.view">
+          <div className="flex h-screen w-full">
+            <SidebarProvider>
+              <Sidebar />
+              <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+                <Suppliers />
+              </main>
+            </SidebarProvider>
+          </div>
+        </PermissionRouteGuard>
       </ComponentAccessGuard>
     } />
     
     <Route path="/expenses" element={
       <ComponentAccessGuard>
-        <div className="flex h-screen w-full">
-          <SidebarProvider>
-            <Sidebar />
-            <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
-              <Expenses />
-            </main>
-          </SidebarProvider>
-        </div>
+        <PermissionRouteGuard permission="analytics.view">
+          <div className="flex h-screen w-full">
+            <SidebarProvider>
+              <Sidebar />
+              <main className="flex-1 overflow-auto pl-[3rem] md:pl-[18rem] transition-all duration-300">
+                <Expenses />
+              </main>
+            </SidebarProvider>
+          </div>
+        </PermissionRouteGuard>
       </ComponentAccessGuard>
     } />
     
