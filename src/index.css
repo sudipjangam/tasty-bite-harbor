@@ -117,6 +117,101 @@
 }
 
 @layer components {
+  /* Standardized component classes */
+  .standardized-page {
+    @apply p-4 md:p-6 space-y-6 bg-gradient-to-br from-gray-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 min-h-screen;
+  }
+  
+  .standardized-header {
+    @apply mb-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-6;
+  }
+  
+  .standardized-title {
+    @apply text-2xl md:text-3xl font-bold bg-gradient-to-r from-purple-600 to-purple-800 bg-clip-text text-transparent;
+  }
+  
+  .standardized-description {
+    @apply text-gray-600 dark:text-gray-400 mt-1;
+  }
+  
+  .standardized-card {
+    @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-200;
+  }
+  
+  .standardized-card-elevated {
+    @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200;
+  }
+  
+  .standardized-card-glass {
+    @apply bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20 dark:border-gray-700/30 rounded-xl shadow-lg transition-all duration-200;
+  }
+  
+  .standardized-button-primary {
+    @apply bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-medium px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .standardized-button-secondary {
+    @apply bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200;
+  }
+  
+  .standardized-input {
+    @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-800;
+  }
+  
+  .standardized-table {
+    @apply w-full border-collapse bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-sm;
+  }
+  
+  .standardized-table-header {
+    @apply bg-gray-50 dark:bg-gray-700 px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider;
+  }
+  
+  .standardized-table-cell {
+    @apply px-4 py-3 text-sm text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600;
+  }
+  
+  .standardized-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .standardized-badge-success {
+    @apply bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400;
+  }
+  
+  .standardized-badge-warning {
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400;
+  }
+  
+  .standardized-badge-error {
+    @apply bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400;
+  }
+  
+  .standardized-badge-info {
+    @apply bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400;
+  }
+  
+  /* Role-based styling */
+  .role-super-admin {
+    @apply bg-gradient-to-r from-purple-500 to-purple-700 text-white;
+  }
+  
+  .role-admin {
+    @apply bg-gradient-to-r from-blue-500 to-blue-600 text-white;
+  }
+  
+  .role-manager {
+    @apply bg-gradient-to-r from-green-500 to-green-600 text-white;
+  }
+  
+  .role-staff {
+    @apply bg-gradient-to-r from-yellow-500 to-yellow-600 text-white;
+  }
+  
+  .role-viewer {
+    @apply bg-gradient-to-r from-gray-500 to-gray-600 text-white;
+  }
+
+  /* Legacy styles for existing components */
   .bg-gradient-pattern {
     @apply bg-background bg-toast-pattern;
   }

@@ -1,146 +1,174 @@
 
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { startOfDay, endOfDay, subDays, startOfWeek, startOfMonth } from "date-fns";
-import Stats from "@/components/Dashboard/Stats";
-import OrderList from "@/components/Orders/OrderList";
-import WeeklySalesChart from "@/components/Dashboard/WeeklySalesChart";
-import QuickStats from "@/components/Dashboard/QuickStats";
-import Chatbot from "@/components/Chatbot/Chatbot";
-import PredictiveAnalytics from "@/components/Dashboard/PredictiveAnalytics";
-import DashboardHeader from "@/components/Dashboard/DashboardHeader";
-import { useToast } from "@/hooks/use-toast";
-import { useRestaurantId } from "@/hooks/useRestaurantId";
-import type { Order } from "@/types/orders";
-import { Card } from "@/components/ui/card";
+import React from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { PermissionGuard } from "@/components/Auth/PermissionGuard";
+import { PageHeader } from "@/components/Layout/PageHeader";
+import { StandardizedCard } from "@/components/ui/standardized-card";
+import { StandardizedButton } from "@/components/ui/standardized-button";
+import { 
+  BarChart3, 
+  ShoppingCart, 
+  Users, 
+  DollarSign, 
+  TrendingUp,
+  Plus,
+  Eye,
+  Settings,
+  Coffee,
+  Bed
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Stats } from "@/components/Dashboard/Stats";
+import { WeeklySalesChart } from "@/components/Dashboard/WeeklySalesChart";
 
 const Index = () => {
-  const [timeRange, setTimeRange] = useState<string>("today");
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const { toast } = useToast();
-  const { restaurantId, isLoading: loadingRestaurantId } = useRestaurantId();
-  
-  // Calculate date range based on selected time range
-  const getDateRange = () => {
-    const today = new Date();
-    
-    switch (timeRange) {
-      case "week":
-        return {
-          start: startOfWeek(today),
-          end: endOfDay(today)
-        };
-      case "month":
-        return {
-          start: startOfMonth(today),
-          end: endOfDay(today)
-        };
-      case "today":
-      default:
-        return {
-          start: startOfDay(today),
-          end: endOfDay(today)
-        };
-    }
-  };
-  
-  const dateRange = getDateRange();
-  
-  const { data: orders = [], refetch, isLoading: loadingOrders } = useQuery({
-    queryKey: ["orders", restaurantId, dateRange.start, dateRange.end],
-    queryFn: async () => {
-      if (!restaurantId) return [];
-      
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .gte('created_at', dateRange.start.toISOString())
-        .lte('created_at', dateRange.end.toISOString())
-        .order("created_at", { ascending: false });
+  const { user, hasPermission } = useAuth();
+  const navigate = useNavigate();
 
-      if (error) throw error;
-      return data as Order[];
+  const quickActions = [
+    {
+      title: "New Order",
+      description: "Create a new order",
+      icon: <Plus className="h-5 w-5" />,
+      onClick: () => navigate('/orders'),
+      permission: 'orders.create' as const,
+      variant: 'primary' as const
     },
-    enabled: !!restaurantId,
-  });
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await refetch();
-      toast({
-        title: "Dashboard refreshed",
-        description: `Data updated for ${timeRange === "today" ? "today" : timeRange === "week" ? "this week" : "this month"}.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Error refreshing data",
-        description: "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsRefreshing(false);
+    {
+      title: "View Menu",
+      description: "Manage menu items",
+      icon: <Coffee className="h-5 w-5" />,
+      onClick: () => navigate('/menu'),
+      permission: 'menu.view' as const,
+      variant: 'secondary' as const
+    },
+    {
+      title: "Room Status",
+      description: "Check room availability",
+      icon: <Bed className="h-5 w-5" />,
+      onClick: () => navigate('/rooms'),
+      permission: 'rooms.view' as const,
+      variant: 'secondary' as const
+    },
+    {
+      title: "Analytics",
+      description: "View business insights",
+      icon: <BarChart3 className="h-5 w-5" />,
+      onClick: () => navigate('/analytics'),
+      permission: 'analytics.view' as const,
+      variant: 'secondary' as const
     }
-  };
-
-  // Automatically refresh when time range changes
-  useEffect(() => {
-    refetch();
-  }, [timeRange, refetch]);
+  ];
 
   return (
-    <div className="space-y-6 animate-fade-in px-4 md:px-6 max-w-full overflow-hidden">
-      <DashboardHeader
-        onRefresh={handleRefresh}
-        timeRange={timeRange}
-        setTimeRange={setTimeRange}
-        isRefreshing={isRefreshing}
+    <div className="p-4 md:p-6 space-y-6 bg-gradient-to-br from-gray-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 min-h-screen">
+      <PageHeader
+        title={`Welcome back${user?.first_name ? `, ${user.first_name}` : ''}!`}
+        description="Here's an overview of your restaurant and hotel operations"
       />
-      
-      <div className="rounded-xl bg-gradient-to-br from-card/50 to-background/50 backdrop-blur-xl border border-primary/10 p-4 md:p-6">
-        <QuickStats timeRange={timeRange} />
-      </div>
-      
-      {/* AI-Powered Predictive Analytics */}
-      <PredictiveAnalytics />
-      
-      <div className="rounded-xl bg-gradient-to-br from-card/50 to-background/50 backdrop-blur-xl border border-primary/10 p-4 md:p-6">
-        <h2 className="text-xl font-semibold mb-4">Weekly Sales Overview</h2>
-        <WeeklySalesChart />
-      </div>
-      
-      <div className="rounded-xl bg-gradient-to-br from-card/50 to-background/50 backdrop-blur-xl border border-primary/10 p-4 md:p-6">
-        <h2 className="text-xl font-semibold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-          Stats Overview
-        </h2>
-        <Stats />
-      </div>
-      
-      <div className="rounded-xl bg-gradient-to-br from-card/50 to-background/50 backdrop-blur-xl border border-primary/10 p-4 md:p-6">
-        <h2 className="text-xl font-semibold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-          Recent Orders {orders.length > 0 ? `(${orders.length})` : ""}
-        </h2>
-        <div className="overflow-x-auto">
-          {loadingOrders ? (
-            <Card className="p-8 flex items-center justify-center">
-              <div className="flex flex-col items-center gap-2">
-                <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-muted-foreground">Loading orders...</p>
-              </div>
-            </Card>
-          ) : orders.length === 0 ? (
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground">No orders found for the selected time range.</p>
-            </Card>
-          ) : (
-            <OrderList orders={orders} onOrdersChange={refetch} />
-          )}
-        </div>
-      </div>
 
-      <Chatbot />
+      {/* Quick Actions */}
+      <StandardizedCard>
+        <h2 className="text-lg font-semibold mb-4 flex items-center">
+          <Settings className="h-5 w-5 mr-2 text-purple-600" />
+          Quick Actions
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {quickActions.map((action, index) => (
+            <PermissionGuard key={index} permission={action.permission}>
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-purple-300 dark:hover:border-purple-600 transition-all duration-200 hover:shadow-md bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg">
+                    {action.icon}
+                  </div>
+                </div>
+                <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-1">
+                  {action.title}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  {action.description}
+                </p>
+                <StandardizedButton
+                  variant={action.variant}
+                  size="sm"
+                  onClick={action.onClick}
+                  className="w-full"
+                >
+                  {action.title}
+                </StandardizedButton>
+              </div>
+            </PermissionGuard>
+          ))}
+        </div>
+      </StandardizedCard>
+
+      {/* Stats Section */}
+      <PermissionGuard permission="dashboard.view">
+        <Stats />
+      </PermissionGuard>
+
+      {/* Charts Section */}
+      <PermissionGuard permission="dashboard.analytics">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <StandardizedCard>
+            <h2 className="text-lg font-semibold mb-4 flex items-center">
+              <TrendingUp className="h-5 w-5 mr-2 text-purple-600" />
+              Sales Overview
+            </h2>
+            <WeeklySalesChart />
+          </StandardizedCard>
+          
+          <StandardizedCard>
+            <h2 className="text-lg font-semibold mb-4 flex items-center">
+              <BarChart3 className="h-5 w-5 mr-2 text-purple-600" />
+              Performance Metrics
+            </h2>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                  Customer Satisfaction
+                </span>
+                <span className="text-lg font-bold text-green-600">96%</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                  Table Turnover Rate
+                </span>
+                <span className="text-lg font-bold text-blue-600">2.3x</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                <span className="text-sm font-medium text-purple-800 dark:text-purple-200">
+                  Room Occupancy
+                </span>
+                <span className="text-lg font-bold text-purple-600">78%</span>
+              </div>
+            </div>
+          </StandardizedCard>
+        </div>
+      </PermissionGuard>
+
+      {/* Role-based Information Panel */}
+      <StandardizedCard className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+              Your Role: {user?.role?.replace('_', ' ').toUpperCase()}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              {user?.role === 'super_admin' && "You have full system access and can manage all features."}
+              {user?.role === 'admin' && "You can manage most features except user roles and system settings."}
+              {user?.role === 'manager' && "You can view and manage daily operations and analytics."}
+              {user?.role === 'staff' && "You have access to POS, orders, and basic customer management."}
+              {user?.role === 'viewer' && "You have read-only access to most features."}
+            </p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 px-3 py-1 rounded-full">
+            <span className="text-xs font-medium text-purple-600 dark:text-purple-400">
+              {hasPermission('ai.access') ? 'AI Enabled' : 'Limited Access'}
+            </span>
+          </div>
+        </div>
+      </StandardizedCard>
     </div>
   );
 };
