@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
@@ -18,8 +17,8 @@ import {
   Bed
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Stats } from "@/components/Dashboard/Stats";
-import { WeeklySalesChart } from "@/components/Dashboard/WeeklySalesChart";
+import Stats from "@/components/Dashboard/Stats";
+import WeeklySalesChart from "@/components/Dashboard/WeeklySalesChart";
 
 const Index = () => {
   const { user, hasPermission } = useAuth();
