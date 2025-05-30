@@ -3,6 +3,9 @@ import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Navigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import BrandingSection from "@/components/Auth/BrandingSection";
 import AuthForm from "@/components/Auth/AuthForm";
 
@@ -10,11 +13,13 @@ const Auth = () => {
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
   const [sessionChecked, setSessionChecked] = useState(false);
   const [session, setSession] = useState<any>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        console.log("Auth page session check:", session ? "found" : "not found");
         setSession(session);
         setSessionChecked(true);
       } catch (error) {
@@ -26,6 +31,32 @@ const Auth = () => {
     checkSession();
   }, []);
 
+  const handleClearAuth = async () => {
+    try {
+      console.log("Clearing authentication state");
+      await supabase.auth.signOut();
+      
+      // Clear any stored auth data
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Force reload to clear any stuck state
+      window.location.reload();
+      
+      toast({
+        title: "Authentication cleared",
+        description: "All authentication data has been cleared.",
+      });
+    } catch (error) {
+      console.error("Error clearing auth:", error);
+      toast({
+        title: "Error",
+        description: "Failed to clear authentication. Please try refreshing the page.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Redirect to dashboard if already authenticated
   if (sessionChecked && session) {
     return <Navigate to="/" replace />;
@@ -33,6 +64,14 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      {/* Debug logout button */}
+      <div className="fixed top-4 right-4 z-50">
+        <Button onClick={handleClearAuth} variant="outline" size="sm">
+          <LogOut className="h-4 w-4 mr-2" />
+          Clear Auth
+        </Button>
+      </div>
+
       {/* Left side - branding and info */}
       <div className="w-full lg:w-3/5 p-6 md:p-12 flex flex-col justify-center relative overflow-hidden">
         {/* Decorative background elements */}
