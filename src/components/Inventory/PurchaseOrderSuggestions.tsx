@@ -46,14 +46,19 @@ const PurchaseOrderSuggestions = () => {
 
       if (numberError) throw numberError;
 
-      // Get low stock items for this supplier
-      const { data: lowStockItems, error: itemsError } = await supabase
+      // Get low stock items for this supplier - fetch all items and filter in memory
+      const { data: allItems, error: itemsError } = await supabase
         .from("inventory_items")
         .select("*")
         .eq("restaurant_id", restaurantId)
-        .lte("quantity", supabase.raw("reorder_level"));
+        .not("reorder_level", "is", null);
 
       if (itemsError) throw itemsError;
+
+      // Filter low stock items in memory
+      const lowStockItems = allItems.filter(item => 
+        item.quantity <= (item.reorder_level || 0)
+      );
 
       // Create purchase order
       const { data: purchaseOrder, error: orderError } = await supabase
