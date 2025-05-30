@@ -9,14 +9,23 @@ import AuthLoader from "./AuthLoader";
  * Refactored to improve maintainability and readability
  */
 const Routes = () => {
-  const { loading } = useAuthState();
+  const { user, loading } = useAuthState();
+  
+  console.log("Routes component - Loading:", loading, "User:", user ? "authenticated" : "not authenticated");
   
   // If authentication is still loading, show the loader
   if (loading) {
     return <AuthLoader />;
   }
 
-  // Once authentication check is complete, render routes
+  // If no user is authenticated, redirect to auth page
+  if (!user) {
+    console.log("No user found, redirecting to /auth");
+    return <Navigate to="/auth" replace />;
+  }
+
+  // Once authentication check is complete and user exists, render routes
+  console.log("User authenticated, rendering app routes");
   return <>{AppRoutes}</>;
 };
 
