@@ -305,6 +305,50 @@ export type Database = {
         }
         Relationships: []
       }
+      inventory_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          alert_type: string
+          created_at: string
+          id: string
+          inventory_item_id: string
+          is_read: boolean | null
+          message: string
+          restaurant_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_type: string
+          created_at?: string
+          id?: string
+          inventory_item_id: string
+          is_read?: boolean | null
+          message: string
+          restaurant_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_type?: string
+          created_at?: string
+          id?: string
+          inventory_item_id?: string
+          is_read?: boolean | null
+          message?: string
+          restaurant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_alerts_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_items: {
         Row: {
           category: string
@@ -351,6 +395,53 @@ export type Database = {
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_transactions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          inventory_item_id: string
+          notes: string | null
+          quantity_change: number
+          reference_id: string | null
+          reference_type: string | null
+          restaurant_id: string
+          transaction_type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inventory_item_id: string
+          notes?: string | null
+          quantity_change: number
+          reference_id?: string | null
+          reference_type?: string | null
+          restaurant_id: string
+          transaction_type: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inventory_item_id?: string
+          notes?: string | null
+          quantity_change?: number
+          reference_id?: string | null
+          reference_type?: string | null
+          restaurant_id?: string
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_transactions_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
             referencedColumns: ["id"]
           },
         ]
@@ -909,6 +1000,111 @@ export type Database = {
           start_date?: string
           status?: string | null
           time_period?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      purchase_order_items: {
+        Row: {
+          created_at: string
+          id: string
+          inventory_item_id: string
+          purchase_order_id: string
+          quantity: number
+          received_quantity: number
+          total_cost: number
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          inventory_item_id: string
+          purchase_order_id: string
+          quantity: number
+          received_quantity?: number
+          total_cost: number
+          unit_cost: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          inventory_item_id?: string
+          purchase_order_id?: string
+          quantity?: number
+          received_quantity?: number
+          total_cost?: number
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_items_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_orders: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          delivery_date: string | null
+          expected_delivery_date: string | null
+          id: string
+          notes: string | null
+          order_date: string
+          order_number: string
+          restaurant_id: string
+          status: string
+          supplier_id: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          delivery_date?: string | null
+          expected_delivery_date?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string
+          order_number: string
+          restaurant_id: string
+          status?: string
+          supplier_id: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          delivery_date?: string | null
+          expected_delivery_date?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string
+          order_number?: string
+          restaurant_id?: string
+          status?: string
+          supplier_id?: string
+          total_amount?: number
           updated_at?: string
         }
         Relationships: []
@@ -1796,7 +1992,11 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          is_active: boolean | null
+          lead_time_days: number | null
+          minimum_order_amount: number | null
           name: string
+          payment_terms: string | null
           phone: string | null
           restaurant_id: string
           updated_at: string
@@ -1807,7 +2007,11 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          is_active?: boolean | null
+          lead_time_days?: number | null
+          minimum_order_amount?: number | null
           name: string
+          payment_terms?: string | null
           phone?: string | null
           restaurant_id: string
           updated_at?: string
@@ -1818,7 +2022,11 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          is_active?: boolean | null
+          lead_time_days?: number | null
+          minimum_order_amount?: number | null
           name?: string
+          payment_terms?: string | null
           phone?: string | null
           restaurant_id?: string
           updated_at?: string
@@ -1916,6 +2124,10 @@ export type Database = {
         Args: { customer_points: number; restaurant_id_param: string }
         Returns: string
       }
+      generate_purchase_order_number: {
+        Args: { restaurant_id_param: string }
+        Returns: string
+      }
       get_customer_activities: {
         Args: { customer_id_param: string }
         Returns: {
@@ -1956,6 +2168,15 @@ export type Database = {
       has_active_subscription: {
         Args: { restaurant_id: string }
         Returns: boolean
+      }
+      suggest_purchase_orders: {
+        Args: { restaurant_id_param: string }
+        Returns: {
+          supplier_id: string
+          supplier_name: string
+          items_count: number
+          estimated_total: number
+        }[]
       }
     }
     Enums: {

@@ -1,17 +1,21 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash2, Package, AlertTriangle, Carrot, Apple, ShoppingBag, Bell } from "lucide-react";
+import { Plus, Edit, Trash2, Package, AlertTriangle, Carrot, Apple, ShoppingBag, Bell, ShoppingCart, BarChart3, History } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReportExport from "@/components/Inventory/ReportExport";
+import InventoryAlerts from "@/components/Inventory/InventoryAlerts";
+import PurchaseOrders from "@/components/Inventory/PurchaseOrders";
+import PurchaseOrderSuggestions from "@/components/Inventory/PurchaseOrderSuggestions";
+import InventoryTransactions from "@/components/Inventory/InventoryTransactions";
 
 interface InventoryItem {
   id: string;
@@ -209,250 +213,296 @@ const Inventory = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-            Inventory Management
+            Enhanced Inventory Management
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage your restaurant's inventory items
+            Complete inventory control with automated alerts and purchase orders
           </p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button 
-              onClick={() => setEditingItem(null)}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Item
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px] bg-white dark:bg-gray-800">
-            <DialogHeader>
-              <DialogTitle>
-                {editingItem ? "Edit Inventory Item" : "Add New Inventory Item"}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="name">Item Name</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  defaultValue={editingItem?.name}
-                  required
-                  placeholder="Enter item name"
-                  className="bg-gray-50"
-                />
-              </div>
-              <div>
-                <Label htmlFor="category">Category</Label>
-                <Select name="category" defaultValue={editingItem?.category || "Other"}>
-                  <SelectTrigger className="bg-gray-50">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="quantity">Quantity</Label>
-                <Input
-                  id="quantity"
-                  name="quantity"
-                  type="number"
-                  step="0.01"
-                  defaultValue={editingItem?.quantity}
-                  required
-                  placeholder="Enter quantity"
-                  className="bg-gray-50"
-                />
-              </div>
-              <div>
-                <Label htmlFor="unit">Unit</Label>
-                <Select name="unit" defaultValue={editingItem?.unit || commonUnits[0]}>
-                  <SelectTrigger className="bg-gray-50">
-                    <SelectValue placeholder="Select unit" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {commonUnits.map((unit) => (
-                      <SelectItem key={unit} value={unit}>
-                        {unit}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="reorderLevel">Reorder Level</Label>
-                <Input
-                  id="reorderLevel"
-                  name="reorderLevel"
-                  type="number"
-                  step="0.01"
-                  defaultValue={editingItem?.reorder_level || ""}
-                  placeholder="Enter reorder level"
-                  className="bg-gray-50"
-                />
-              </div>
-              <div>
-                <Label htmlFor="costPerUnit">Cost per Unit (₹)</Label>
-                <Input
-                  id="costPerUnit"
-                  name="costPerUnit"
-                  type="number"
-                  step="0.01"
-                  defaultValue={editingItem?.cost_per_unit || ""}
-                  placeholder="Enter cost per unit"
-                  className="bg-gray-50"
-                />
-              </div>
-              <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700">
-                {editingItem ? "Update" : "Add"} Item
+      </div>
+
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="overview" className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="alerts" className="flex items-center gap-2">
+            <Bell className="h-4 w-4" />
+            Alerts
+          </TabsTrigger>
+          <TabsTrigger value="purchase-orders" className="flex items-center gap-2">
+            <ShoppingCart className="h-4 w-4" />
+            Purchase Orders
+          </TabsTrigger>
+          <TabsTrigger value="suggestions" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Suggestions
+          </TabsTrigger>
+          <TabsTrigger value="transactions" className="flex items-center gap-2">
+            <History className="h-4 w-4" />
+            Transactions
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6 mt-6">
+          <div className="flex justify-between items-center">
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button 
+                  onClick={() => setEditingItem(null)}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Item
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px] bg-white dark:bg-gray-800">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingItem ? "Edit Inventory Item" : "Add New Inventory Item"}
+                  </DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <Label htmlFor="name">Item Name</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      defaultValue={editingItem?.name}
+                      required
+                      placeholder="Enter item name"
+                      className="bg-gray-50"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="category">Category</Label>
+                    <Select name="category" defaultValue={editingItem?.category || "Other"}>
+                      <SelectTrigger className="bg-gray-50">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="quantity">Quantity</Label>
+                    <Input
+                      id="quantity"
+                      name="quantity"
+                      type="number"
+                      step="0.01"
+                      defaultValue={editingItem?.quantity}
+                      required
+                      placeholder="Enter quantity"
+                      className="bg-gray-50"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="unit">Unit</Label>
+                    <Select name="unit" defaultValue={editingItem?.unit || commonUnits[0]}>
+                      <SelectTrigger className="bg-gray-50">
+                        <SelectValue placeholder="Select unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {commonUnits.map((unit) => (
+                          <SelectItem key={unit} value={unit}>
+                            {unit}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="reorderLevel">Reorder Level</Label>
+                    <Input
+                      id="reorderLevel"
+                      name="reorderLevel"
+                      type="number"
+                      step="0.01"
+                      defaultValue={editingItem?.reorder_level || ""}
+                      placeholder="Enter reorder level"
+                      className="bg-gray-50"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="costPerUnit">Cost per Unit (₹)</Label>
+                    <Input
+                      id="costPerUnit"
+                      name="costPerUnit"
+                      type="number"
+                      step="0.01"
+                      defaultValue={editingItem?.cost_per_unit || ""}
+                      placeholder="Enter cost per unit"
+                      className="bg-gray-50"
+                    />
+                  </div>
+                  <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700">
+                    {editingItem ? "Update" : "Add"} Item
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <div className="flex flex-col sm:flex-row justify-between gap-4">
+            <div className="flex flex-wrap gap-4">
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-[150px] bg-white">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {Object.keys(groupedItems).map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Button 
+                variant={showLowStockOnly ? "default" : "outline"} 
+                onClick={() => setShowLowStockOnly(!showLowStockOnly)}
+                className={showLowStockOnly ? "bg-red-600 hover:bg-red-700" : ""}
+              >
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                Low Stock ({lowStockCount})
               </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <div className="flex flex-wrap gap-4">
-          <Select value={filterCategory} onValueChange={setFilterCategory}>
-            <SelectTrigger className="w-[150px] bg-white">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {Object.keys(groupedItems).map((category) => (
-                <SelectItem key={category} value={category}>
-                  {category}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <Button 
-            variant={showLowStockOnly ? "default" : "outline"} 
-            onClick={() => setShowLowStockOnly(!showLowStockOnly)}
-            className={showLowStockOnly ? "bg-red-600 hover:bg-red-700" : ""}
-          >
-            <AlertTriangle className="mr-2 h-4 w-4" />
-            Low Stock ({lowStockCount})
-          </Button>
-        </div>
-        
-        <ReportExport 
-          items={showLowStockOnly || filterCategory !== "all" ? filteredItems : items} 
-          title={
-            showLowStockOnly 
-              ? "Low Stock Items Report" 
-              : filterCategory !== "all" 
-                ? `${filterCategory} Inventory Report` 
-                : "Complete Inventory Report"
-          }
-        />
-      </div>
-
-      <div className="flex flex-wrap gap-4">
-        {Object.entries(groupedItems).map(([category, categoryItems]) => (
-          <Card 
-            key={category} 
-            className={`flex items-center gap-3 p-4 border-none shadow-md cursor-pointer ${
-              filterCategory === category 
-                ? "bg-gradient-to-br from-purple-100 to-purple-50 border-purple-200" 
-                : "bg-gradient-to-br from-white to-gray-50"
-            }`}
-            onClick={() => setFilterCategory(category === filterCategory ? "all" : category)}
-          >
-            {getCategoryIcon(category)}
-            <div>
-              <h3 className="font-medium text-gray-700">{category}</h3>
-              <p className="text-sm text-muted-foreground">
-                {categoryItems.length} items
-              </p>
             </div>
-          </Card>
-        ))}
-      </div>
+            
+            <ReportExport 
+              items={showLowStockOnly || filterCategory !== "all" ? filteredItems : items} 
+              title={
+                showLowStockOnly 
+                  ? "Low Stock Items Report" 
+                  : filterCategory !== "all" 
+                    ? `${filterCategory} Inventory Report` 
+                    : "Complete Inventory Report"
+              }
+            />
+          </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filteredItems.map((item) => (
-          <Card 
-            key={item.id} 
-            className={`p-4 shadow-md hover:shadow-lg transition-shadow ${
-              item.reorder_level && item.quantity <= item.reorder_level
-                ? "bg-red-50 dark:bg-red-900/20 border-red-200"
-                : "bg-white dark:bg-gray-800"
-            }`}
-          >
-            <div className="flex justify-between items-start">
-              <div className="flex items-start space-x-3">
-                <div className={`p-2 rounded-full ${
-                  item.reorder_level && item.quantity <= item.reorder_level
-                    ? "bg-red-100"
-                    : "bg-primary/10"
-                }`}>
-                  {getCategoryIcon(item.category)}
-                </div>
+          <div className="flex flex-wrap gap-4">
+            {Object.entries(groupedItems).map(([category, categoryItems]) => (
+              <Card 
+                key={category} 
+                className={`flex items-center gap-3 p-4 border-none shadow-md cursor-pointer ${
+                  filterCategory === category 
+                    ? "bg-gradient-to-br from-purple-100 to-purple-50 border-purple-200" 
+                    : "bg-gradient-to-br from-white to-gray-50"
+                }`}
+                onClick={() => setFilterCategory(category === filterCategory ? "all" : category)}
+              >
+                {getCategoryIcon(category)}
                 <div>
-                  <h3 className="font-semibold text-gray-800 dark:text-gray-200">{item.name}</h3>
+                  <h3 className="font-medium text-gray-700">{category}</h3>
                   <p className="text-sm text-muted-foreground">
-                    {item.quantity} {item.unit}
+                    {categoryItems.length} items
                   </p>
-                  {item.reorder_level && item.quantity <= item.reorder_level && (
-                    <div className="flex items-center gap-1 mt-2">
-                      <AlertTriangle className="h-4 w-4 text-red-500" />
-                      <Badge variant="destructive" className="text-xs">
-                        Low Stock
-                      </Badge>
-                      {item.notification_sent && (
-                        <div className="flex items-center">
-                          <Bell className="h-4 w-4 text-amber-500 ml-1" />
-                          <span className="text-xs text-amber-500 ml-1">Notification sent</span>
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredItems.map((item) => (
+              <Card 
+                key={item.id} 
+                className={`p-4 shadow-md hover:shadow-lg transition-shadow ${
+                  item.reorder_level && item.quantity <= item.reorder_level
+                    ? "bg-red-50 dark:bg-red-900/20 border-red-200"
+                    : "bg-white dark:bg-gray-800"
+                }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex items-start space-x-3">
+                    <div className={`p-2 rounded-full ${
+                      item.reorder_level && item.quantity <= item.reorder_level
+                        ? "bg-red-100"
+                        : "bg-primary/10"
+                    }`}>
+                      {getCategoryIcon(item.category)}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-800 dark:text-gray-200">{item.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {item.quantity} {item.unit}
+                      </p>
+                      {item.reorder_level && item.quantity <= item.reorder_level && (
+                        <div className="flex items-center gap-1 mt-2">
+                          <AlertTriangle className="h-4 w-4 text-red-500" />
+                          <Badge variant="destructive" className="text-xs">
+                            Low Stock
+                          </Badge>
+                          {item.notification_sent && (
+                            <div className="flex items-center">
+                              <Bell className="h-4 w-4 text-amber-500 ml-1" />
+                              <span className="text-xs text-amber-500 ml-1">Notification sent</span>
+                            </div>
+                          )}
                         </div>
                       )}
+                      {item.cost_per_unit && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Cost: ₹{item.cost_per_unit}/{item.unit}
+                        </p>
+                      )}
+                      {item.reorder_level && (
+                        <p className="text-sm text-muted-foreground">
+                          Reorder at: {item.reorder_level} {item.unit}
+                        </p>
+                      )}
                     </div>
-                  )}
-                  {item.cost_per_unit && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Cost: ₹{item.cost_per_unit}/{item.unit}
-                    </p>
-                  )}
-                  {item.reorder_level && (
-                    <p className="text-sm text-muted-foreground">
-                      Reorder at: {item.reorder_level} {item.unit}
-                    </p>
-                  )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setEditingItem(item);
+                        setIsAddDialogOpen(true);
+                      }}
+                      className="hover:bg-purple-100"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(item.id)}
+                      className="hover:bg-red-100"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    setEditingItem(item);
-                    setIsAddDialogOpen(true);
-                  }}
-                  className="hover:bg-purple-100"
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleDelete(item.id)}
-                  className="hover:bg-red-100"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="alerts" className="mt-6">
+          <InventoryAlerts />
+        </TabsContent>
+
+        <TabsContent value="purchase-orders" className="mt-6">
+          <PurchaseOrders />
+        </TabsContent>
+
+        <TabsContent value="suggestions" className="mt-6">
+          <PurchaseOrderSuggestions />
+        </TabsContent>
+
+        <TabsContent value="transactions" className="mt-6">
+          <InventoryTransactions />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

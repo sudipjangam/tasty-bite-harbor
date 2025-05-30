@@ -45,21 +45,36 @@ serve(async (req) => {
       throw new Error('Invalid request body');
     }
 
-    // Query for low stock items
+    console.log(`Checking low stock for restaurant: ${restaurantId}`);
+
+    // Query for low stock items using proper comparison
     const { data: lowStockItems, error } = await supabase
       .from('inventory_items')
       .select('*')
       .eq('restaurant_id', restaurantId)
-      .lt('quantity', supabase.raw('reorder_level'))
+      .not('reorder_level', 'is', null)
       .eq('notification_sent', false);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error fetching inventory items:', error);
+      throw error;
+    }
+
+    console.log(`Found ${lowStockItems?.length || 0} items to check`);
+
+    // Filter items where quantity <= reorder_level
+    const actualLowStockItems = (lowStockItems || []).filter(item => 
+      item.quantity <= item.reorder_level
+    );
+
+    console.log(`Found ${actualLowStockItems.length} low stock items`);
 
     // Process low stock items
-    const updates = [];
     const notifications = [];
 
-    for (const item of (lowStockItems || [])) {
+    for (const item of actualLowStockItems) {
+      console.log(`Processing low stock item: ${item.name}, quantity: ${item.quantity}, reorder_level: ${item.reorder_level}`);
+      
       // Mark notification as sent
       const { error: updateError } = await supabase
         .from('inventory_items')
@@ -72,6 +87,21 @@ serve(async (req) => {
         continue;
       }
 
+      // Create inventory alert
+      const { error: alertError } = await supabase
+        .from('inventory_alerts')
+        .insert({
+          restaurant_id: restaurantId,
+          inventory_item_id: item.id,
+          alert_type: 'low_stock',
+          message: `Item "${item.name}" is running low. Current quantity: ${item.quantity} ${item.unit}, Reorder level: ${item.reorder_level} ${item.unit}`
+        });
+
+      if (alertError) {
+        console.error(`Error creating alert for item ${item.id}:`, alertError);
+        continue;
+      }
+
       // Get notification preferences
       const { data: preferences, error: prefError } = await supabase
         .from('notification_preferences')
@@ -80,7 +110,7 @@ serve(async (req) => {
         .single();
 
       if (prefError || !preferences || !preferences.notify_low_stock) {
-        console.log(`Skipping notification for restaurant ${restaurantId}`);
+        console.log(`Skipping notification for restaurant ${restaurantId} - preferences not set or disabled`);
         continue;
       }
 
@@ -93,11 +123,14 @@ serve(async (req) => {
       });
     }
 
+    console.log(`Created ${notifications.length} notifications`);
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         notifications,
-        items_checked: lowStockItems?.length || 0
+        items_checked: lowStockItems?.length || 0,
+        low_stock_items: actualLowStockItems.length
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
