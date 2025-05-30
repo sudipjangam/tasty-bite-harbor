@@ -3,76 +3,62 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Custom hook to manage authentication state
+ * Simplified custom hook to manage authentication state
  */
 export const useAuthState = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log("Setting up auth state listener");
+    console.log("useAuthState: Setting up auth listener");
     
-    // First set up the auth listener
+    // Set up auth listener first
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log("Auth state changed:", event, session ? "session exists" : "no session");
+        console.log("useAuthState: Auth event:", event, session ? "with session" : "no session");
         
-        // Clear any stuck state
-        if (event === 'SIGNED_OUT' || !session) {
-          setUser(null);
+        if (session?.user) {
+          setUser(session.user);
           setLoading(false);
-          return;
-        }
-        
-        setUser(session?.user || null);
-        
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          // Small delay to ensure smoother transition
-          setTimeout(() => {
-            setLoading(false);
-          }, 100);
-        } else if (event === 'INITIAL_SESSION') {
+        } else {
+          setUser(null);
           setLoading(false);
         }
       }
     );
     
-    // Then check the current session
-    const checkUser = async () => {
+    // Then check current session
+    const checkCurrentSession = async () => {
       try {
-        console.log("Checking current session");
-        const { data, error } = await supabase.auth.getSession();
+        console.log("useAuthState: Checking current session");
+        const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error("Error getting session:", error);
+          console.error("useAuthState: Session error:", error);
           setUser(null);
           setLoading(false);
           return;
         }
         
-        console.log("Session check result:", data.session ? "session found" : "no session");
+        console.log("useAuthState: Current session:", session ? "found" : "none");
         
-        if (data.session?.user) {
-          setUser(data.session.user);
+        if (session?.user) {
+          setUser(session.user);
         } else {
           setUser(null);
         }
-        
-        // Reduced delay to prevent long loading states
-        setTimeout(() => {
-          setLoading(false);
-        }, 200);
+        setLoading(false);
       } catch (error) {
-        console.error("Error checking auth:", error);
+        console.error("useAuthState: Error checking session:", error);
         setUser(null);
         setLoading(false);
       }
     };
     
-    checkUser();
+    checkCurrentSession();
     
     return () => {
-      console.log("Cleaning up auth listener");
+      console.log("useAuthState: Cleaning up auth listener");
       authListener?.subscription?.unsubscribe();
     };
   }, []);

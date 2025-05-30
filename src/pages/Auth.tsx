@@ -4,71 +4,97 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/ca
 import { supabase } from "@/integrations/supabase/client";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import BrandingSection from "@/components/Auth/BrandingSection";
 import AuthForm from "@/components/Auth/AuthForm";
 
 const Auth = () => {
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
-  const [sessionChecked, setSessionChecked] = useState(false);
-  const [session, setSession] = useState<any>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    const checkSession = async () => {
+    console.log("Auth page: Checking authentication status");
+    
+    const checkAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        console.log("Auth page session check:", session ? "found" : "not found");
-        setSession(session);
-        setSessionChecked(true);
+        console.log("Auth page: Session check result:", session ? "authenticated" : "not authenticated");
+        setIsAuthenticated(!!session);
       } catch (error) {
-        console.error("Error checking session:", error);
-        setSessionChecked(true);
+        console.error("Auth page: Error checking session:", error);
+        setIsAuthenticated(false);
       }
     };
 
-    checkSession();
+    checkAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log("Auth page: Auth state changed:", event, session ? "authenticated" : "not authenticated");
+        setIsAuthenticated(!!session);
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const handleClearAuth = async () => {
+  const handleForceLogout = async () => {
     try {
-      console.log("Clearing authentication state");
+      console.log("Auth page: Force logout initiated");
       await supabase.auth.signOut();
       
-      // Clear any stored auth data
+      // Clear all storage
       localStorage.clear();
       sessionStorage.clear();
       
-      // Force reload to clear any stuck state
-      window.location.reload();
+      setIsAuthenticated(false);
       
       toast({
-        title: "Authentication cleared",
-        description: "All authentication data has been cleared.",
+        title: "Logged out",
+        description: "You have been successfully logged out.",
       });
+      
+      // Force page reload after a short delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error) {
-      console.error("Error clearing auth:", error);
+      console.error("Auth page: Error during logout:", error);
       toast({
         title: "Error",
-        description: "Failed to clear authentication. Please try refreshing the page.",
+        description: "Failed to logout. Refreshing page...",
         variant: "destructive",
       });
+      
+      // Force reload on error
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     }
   };
 
-  // Redirect to dashboard if already authenticated
-  if (sessionChecked && session) {
+  // If authenticated, redirect to dashboard
+  if (isAuthenticated === true) {
+    console.log("Auth page: User is authenticated, redirecting to dashboard");
     return <Navigate to="/" replace />;
   }
 
+  // Show auth form
+  console.log("Auth page: Showing authentication form");
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-      {/* Debug logout button */}
-      <div className="fixed top-4 right-4 z-50">
-        <Button onClick={handleClearAuth} variant="outline" size="sm">
+      {/* Force logout button for debugging */}
+      <div className="fixed top-4 right-4 z-50 flex gap-2">
+        <Button onClick={handleForceLogout} variant="outline" size="sm">
           <LogOut className="h-4 w-4 mr-2" />
-          Clear Auth
+          Force Logout
+        </Button>
+        <Button onClick={() => window.location.reload()} variant="outline" size="sm">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
         </Button>
       </div>
 

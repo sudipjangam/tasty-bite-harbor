@@ -25,7 +25,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 
 /**
  * All application routes defined with proper permission guards
- * Temporarily removed ProtectedRoute wrapper to test authentication flow
+ * Simplified without ProtectedRoute wrapper for debugging
  */
 export const AppRoutes = (
   <Routes>
@@ -35,7 +35,7 @@ export const AppRoutes = (
       </LoginRegisterAccessGuard>
     } />
     
-    {/* Authenticated routes with sidebar layout - ProtectedRoute temporarily removed */}
+    {/* Authenticated routes with sidebar layout */}
     <Route path="/" element={
       <ComponentAccessGuard>
         <PermissionRouteGuard permission="dashboard.view">
