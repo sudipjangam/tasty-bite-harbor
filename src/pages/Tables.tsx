@@ -3,16 +3,31 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TableCard, { TableData } from "@/components/Tables/TableCard";
 import TableDialog from "@/components/Tables/TableDialog";
+import ReservationDialog from "@/components/Tables/ReservationDialog";
+import ReservationsList from "@/components/Tables/ReservationsList";
+import { useReservations } from "@/hooks/useReservations";
+import { ReservationFormData } from "@/types/reservations";
 
 const Tables = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isReservationDialogOpen, setIsReservationDialogOpen] = useState(false);
   const [editingTable, setEditingTable] = useState<TableData | null>(null);
+  const [selectedTableForReservation, setSelectedTableForReservation] = useState<TableData | null>(null);
   const { toast } = useToast();
   const [userName, setUserName] = useState<string>("");
+
+  const {
+    reservations,
+    isLoading: reservationsLoading,
+    createReservation,
+    updateReservationStatus,
+    deleteReservation,
+  } = useReservations();
 
   // Fetch user profile to get the username
   useQuery({
@@ -152,12 +167,34 @@ const Tables = () => {
     setIsAddDialogOpen(true);
   };
 
+  const handleReserveTable = (table: TableData) => {
+    setSelectedTableForReservation(table);
+    setIsReservationDialogOpen(true);
+  };
+
+  const handleCreateReservation = async (data: ReservationFormData) => {
+    if (!selectedTableForReservation) return;
+    
+    await createReservation.mutateAsync({
+      ...data,
+      table_id: selectedTableForReservation.id,
+    });
+  };
+
+  const handleUpdateReservationStatus = (id: string, status: any) => {
+    updateReservationStatus.mutate({ id, status });
+  };
+
+  const handleDeleteReservation = (id: string) => {
+    deleteReservation.mutate(id);
+  };
+
   return (
     <div className="p-6 space-y-6 bg-gradient-to-br from-purple-50 to-white dark:from-gray-900 dark:to-gray-800">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-            Table Management
+            Table & Reservation Management
           </h1>
           <p className="text-muted-foreground mt-1">
             Welcome {userName || "User"}!
@@ -175,22 +212,54 @@ const Tables = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {tables.map((table) => (
-          <TableCard 
-            key={table.id} 
-            table={table} 
-            onEdit={handleEditTable} 
-            onDelete={handleDelete} 
-          />
-        ))}
-      </div>
+      <Tabs defaultValue="tables" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="tables">Tables</TabsTrigger>
+          <TabsTrigger value="reservations" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Reservations
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="tables" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {tables.map((table) => (
+              <TableCard 
+                key={table.id} 
+                table={table} 
+                onEdit={handleEditTable} 
+                onDelete={handleDelete}
+                onReserve={handleReserveTable}
+              />
+            ))}
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="reservations" className="space-y-4">
+          {reservationsLoading ? (
+            <div>Loading reservations...</div>
+          ) : (
+            <ReservationsList
+              reservations={reservations}
+              onUpdateStatus={handleUpdateReservationStatus}
+              onDelete={handleDeleteReservation}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
 
       <TableDialog 
         isOpen={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
         editingTable={editingTable}
         onSubmit={handleSubmit}
+      />
+
+      <ReservationDialog
+        isOpen={isReservationDialogOpen}
+        onOpenChange={setIsReservationDialogOpen}
+        table={selectedTableForReservation}
+        onSubmit={handleCreateReservation}
       />
     </div>
   );

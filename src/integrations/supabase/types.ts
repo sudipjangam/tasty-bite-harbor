@@ -1178,6 +1178,39 @@ export type Database = {
           },
         ]
       }
+      restaurant_operating_hours: {
+        Row: {
+          closing_time: string
+          created_at: string
+          day_of_week: number
+          id: string
+          is_closed: boolean
+          opening_time: string
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          closing_time: string
+          created_at?: string
+          day_of_week: number
+          id?: string
+          is_closed?: boolean
+          opening_time: string
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          closing_time?: string
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          is_closed?: boolean
+          opening_time?: string
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       restaurant_subscriptions: {
         Row: {
           cancel_at_period_end: boolean | null
@@ -2041,6 +2074,118 @@ export type Database = {
           },
         ]
       }
+      table_availability_slots: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          is_available: boolean
+          max_party_size: number | null
+          restaurant_id: string
+          table_id: string
+          time_slot: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          is_available?: boolean
+          max_party_size?: number | null
+          restaurant_id: string
+          table_id: string
+          time_slot: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          is_available?: boolean
+          max_party_size?: number | null
+          restaurant_id?: string
+          table_id?: string
+          time_slot?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_availability_slots_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      table_reservations: {
+        Row: {
+          arrival_time: string | null
+          created_at: string
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
+          departure_time: string | null
+          duration_minutes: number
+          id: string
+          notes: string | null
+          party_size: number
+          reservation_date: string
+          reservation_time: string
+          restaurant_id: string
+          special_requests: string | null
+          status: string
+          table_id: string
+          updated_at: string
+        }
+        Insert: {
+          arrival_time?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          departure_time?: string | null
+          duration_minutes?: number
+          id?: string
+          notes?: string | null
+          party_size: number
+          reservation_date: string
+          reservation_time: string
+          restaurant_id: string
+          special_requests?: string | null
+          status?: string
+          table_id: string
+          updated_at?: string
+        }
+        Update: {
+          arrival_time?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          departure_time?: string | null
+          duration_minutes?: number
+          id?: string
+          notes?: string | null
+          party_size?: number
+          reservation_date?: string
+          reservation_time?: string
+          restaurant_id?: string
+          special_requests?: string | null
+          status?: string
+          table_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_reservations_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       customer_insights: {
@@ -2127,6 +2272,16 @@ export type Database = {
       generate_purchase_order_number: {
         Args: { restaurant_id_param: string }
         Returns: string
+      }
+      generate_time_slots_for_date: {
+        Args: {
+          p_restaurant_id: string
+          p_date: string
+          p_slot_duration_minutes?: number
+        }
+        Returns: {
+          time_slot: string
+        }[]
       }
       get_customer_activities: {
         Args: { customer_id_param: string }

@@ -3,7 +3,7 @@ import React from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, Users } from "lucide-react";
+import { Edit, Trash2, Users, Calendar } from "lucide-react";
 
 export interface TableData {
   id: string;
@@ -19,9 +19,10 @@ interface TableCardProps {
   table: TableData;
   onEdit: (table: TableData) => void;
   onDelete: (id: string) => void;
+  onReserve?: (table: TableData) => void;
 }
 
-const TableCard: React.FC<TableCardProps> = ({ table, onEdit, onDelete }) => {
+const TableCard: React.FC<TableCardProps> = ({ table, onEdit, onDelete, onReserve }) => {
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case "occupied":
@@ -36,9 +37,7 @@ const TableCard: React.FC<TableCardProps> = ({ table, onEdit, onDelete }) => {
   };
 
   return (
-    <Card
-      className="p-4 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow"
-    >
+    <Card className="p-4 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
       <div className="flex flex-col space-y-4">
         <div className="flex justify-between items-start">
           <div>
@@ -54,7 +53,7 @@ const TableCard: React.FC<TableCardProps> = ({ table, onEdit, onDelete }) => {
             {table.status}
           </Badge>
         </div>
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
@@ -63,6 +62,17 @@ const TableCard: React.FC<TableCardProps> = ({ table, onEdit, onDelete }) => {
             <Edit className="h-4 w-4 mr-1" />
             Edit
           </Button>
+          {onReserve && table.status === 'available' && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => onReserve(table)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Calendar className="h-4 w-4 mr-1" />
+              Reserve
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
