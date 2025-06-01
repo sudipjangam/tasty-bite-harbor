@@ -1,4 +1,3 @@
-
 import { Route, Routes } from "react-router-dom";
 import { ComponentAccessGuard, LoginRegisterAccessGuard, PermissionRouteGuard } from "./RouteGuards";
 import Auth from "@/pages/Auth";
@@ -25,9 +24,8 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 
 /**
  * All application routes defined with proper permission guards
- * Simplified without ProtectedRoute wrapper for debugging
  */
-export const AppRoutes = (
+export const AppRoutes = () => (
   <Routes>
     <Route path="/auth" element={
       <LoginRegisterAccessGuard>

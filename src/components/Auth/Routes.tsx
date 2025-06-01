@@ -6,7 +6,7 @@ import AuthLoader from "./AuthLoader";
 import Auth from "@/pages/Auth";
 
 /**
- * Simplified Routes component that handles authentication routing
+ * Main routing component that handles authentication-based routing
  */
 const Routes = () => {
   const { user, loading } = useAuthState();
@@ -32,7 +32,7 @@ const Routes = () => {
 
   // User is authenticated, show app routes
   console.log("Routes: User authenticated, showing app routes");
-  return <>{AppRoutes}</>;
+  return <AppRoutes />;
 };
 
 export default Routes;

@@ -41,9 +41,11 @@ const Auth = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleForceLogout = async () => {
+  const handleClearAuth = async () => {
     try {
-      console.log("Auth page: Force logout initiated");
+      console.log("Auth page: Clearing all auth data");
+      
+      // Sign out from Supabase
       await supabase.auth.signOut();
       
       // Clear all storage
@@ -53,23 +55,22 @@ const Auth = () => {
       setIsAuthenticated(false);
       
       toast({
-        title: "Logged out",
-        description: "You have been successfully logged out.",
+        title: "Authentication cleared",
+        description: "All authentication data has been cleared.",
       });
       
-      // Force page reload after a short delay
+      // Force page reload to reset everything
       setTimeout(() => {
         window.location.reload();
       }, 1000);
     } catch (error) {
-      console.error("Auth page: Error during logout:", error);
+      console.error("Auth page: Error clearing auth:", error);
       toast({
         title: "Error",
-        description: "Failed to logout. Refreshing page...",
+        description: "Failed to clear auth data. Refreshing page...",
         variant: "destructive",
       });
       
-      // Force reload on error
       setTimeout(() => {
         window.location.reload();
       }, 1000);
@@ -86,11 +87,11 @@ const Auth = () => {
   console.log("Auth page: Showing authentication form");
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-      {/* Force logout button for debugging */}
+      {/* Clear auth button for debugging */}
       <div className="fixed top-4 right-4 z-50 flex gap-2">
-        <Button onClick={handleForceLogout} variant="outline" size="sm">
+        <Button onClick={handleClearAuth} variant="outline" size="sm">
           <LogOut className="h-4 w-4 mr-2" />
-          Force Logout
+          Clear Auth
         </Button>
         <Button onClick={() => window.location.reload()} variant="outline" size="sm">
           <RefreshCw className="h-4 w-4 mr-2" />
