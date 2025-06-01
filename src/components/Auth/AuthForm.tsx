@@ -27,28 +27,44 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
 
     try {
       if (authMode === "signin") {
+        console.log("AuthForm: Attempting sign in");
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error("AuthForm: Sign in error:", error);
+          throw error;
+        }
         
         if (data?.session) {
+          console.log("AuthForm: Sign in successful, session:", !!data.session);
           toast({
             title: "Welcome back!",
             description: "You have been successfully signed in.",
             className: "bg-green-50 border-green-200 text-green-800",
           });
-          navigate("/");
+          
+          // Small delay to ensure auth state is updated
+          setTimeout(() => {
+            navigate("/");
+          }, 100);
         }
       } else {
+        console.log("AuthForm: Attempting sign up");
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+          }
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error("AuthForm: Sign up error:", error);
+          throw error;
+        }
 
         if (data?.user?.identities?.length === 0) {
           toast({
@@ -58,6 +74,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
           });
           setAuthMode("signin");
         } else {
+          console.log("AuthForm: Sign up successful");
           toast({
             title: "Account created successfully!",
             description: "Please check your email to confirm your registration.",
@@ -66,7 +83,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
         }
       }
     } catch (error: any) {
-      console.error("Auth error:", error);
+      console.error("AuthForm: Auth error:", error);
       toast({
         title: "Authentication error",
         description: error.message || "An error occurred during authentication",

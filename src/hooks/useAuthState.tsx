@@ -3,23 +3,20 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Simplified custom hook to manage authentication state with proper refresh handling
+ * Simplified custom hook to manage authentication state with proper session handling
  */
 export const useAuthState = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (initialized) return; // Prevent multiple initializations
+    let mounted = true;
     
     console.log("useAuthState: Initializing authentication");
     
-    let mounted = true;
-    
     const initializeAuth = async () => {
       try {
-        // First, get the current session
+        // Get the current session first
         console.log("useAuthState: Getting current session");
         const { data: { session }, error } = await supabase.auth.getSession();
         
@@ -28,7 +25,6 @@ export const useAuthState = () => {
           if (mounted) {
             setUser(null);
             setLoading(false);
-            setInitialized(true);
           }
           return;
         }
@@ -36,55 +32,38 @@ export const useAuthState = () => {
         console.log("useAuthState: Initial session:", session ? "found" : "none");
         
         if (mounted) {
-          if (session?.user) {
-            setUser(session.user);
-          } else {
-            setUser(null);
-          }
+          setUser(session?.user || null);
           setLoading(false);
-          setInitialized(true);
         }
-        
-        // Then set up the auth state listener
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          (event, session) => {
-            if (!mounted) return;
-            
-            console.log("useAuthState: Auth event:", event, session ? "with session" : "no session");
-            
-            if (session?.user) {
-              setUser(session.user);
-            } else {
-              setUser(null);
-            }
-            
-            if (initialized) {
-              setLoading(false);
-            }
-          }
-        );
-        
-        return () => {
-          subscription.unsubscribe();
-        };
-        
       } catch (error) {
-        console.error("useAuthState: Initialization error:", error);
+        console.error("useAuthState: Error getting session:", error);
         if (mounted) {
           setUser(null);
           setLoading(false);
-          setInitialized(true);
         }
       }
     };
     
-    const cleanup = initializeAuth();
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (!mounted) return;
+        
+        console.log("useAuthState: Auth event:", event, session ? "with session" : "no session");
+        
+        setUser(session?.user || null);
+        setLoading(false);
+      }
+    );
+    
+    // Initialize auth
+    initializeAuth();
     
     return () => {
       mounted = false;
-      cleanup?.then(unsubscribe => unsubscribe?.());
+      subscription.unsubscribe();
     };
-  }, [initialized]);
+  }, []);
 
   return { user, loading };
 };
