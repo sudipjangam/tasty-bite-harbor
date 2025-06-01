@@ -11,61 +11,9 @@ import AuthForm from "@/components/Auth/AuthForm";
 
 const Auth = () => {
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [sessionChecked, setSessionChecked] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    console.log("Auth page: Checking authentication status");
-    
-    let mounted = true;
-    
-    const checkAuth = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error("Auth page: Error checking session:", error);
-          if (mounted) {
-            setIsAuthenticated(false);
-            setSessionChecked(true);
-          }
-          return;
-        }
-        
-        console.log("Auth page: Session check result:", session ? "authenticated" : "not authenticated");
-        
-        if (mounted) {
-          setIsAuthenticated(!!session);
-          setSessionChecked(true);
-        }
-      } catch (error) {
-        console.error("Auth page: Error in checkAuth:", error);
-        if (mounted) {
-          setIsAuthenticated(false);
-          setSessionChecked(true);
-        }
-      }
-    };
-
-    checkAuth();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (!mounted) return;
-        
-        console.log("Auth page: Auth state changed:", event, session ? "authenticated" : "not authenticated");
-        setIsAuthenticated(!!session);
-        setSessionChecked(true);
-      }
-    );
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
+  console.log("Auth page: Rendering auth form");
 
   const handleClearAuth = async () => {
     try {
@@ -77,8 +25,6 @@ const Auth = () => {
       // Clear all storage
       localStorage.clear();
       sessionStorage.clear();
-      
-      setIsAuthenticated(false);
       
       toast({
         title: "Authentication cleared",
@@ -103,26 +49,7 @@ const Auth = () => {
     }
   };
 
-  // Wait for session check to complete
-  if (!sessionChecked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-        <div className="flex flex-col items-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
-          <p className="mt-4 text-muted-foreground">Checking authentication...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // If authenticated, redirect to dashboard
-  if (isAuthenticated === true) {
-    console.log("Auth page: User is authenticated, redirecting to dashboard");
-    return <Navigate to="/" replace />;
-  }
-
-  // Show auth form
-  console.log("Auth page: Showing authentication form");
+  // Show auth form directly
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Clear auth button for debugging */}

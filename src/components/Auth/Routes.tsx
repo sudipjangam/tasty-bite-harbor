@@ -19,9 +19,9 @@ const Routes = () => {
     return <AuthLoader />;
   }
 
-  // If no user, show auth page
+  // If no user, show auth page for any route
   if (!user) {
-    console.log("Routes: No user, showing Auth page");
+    console.log("Routes: No user, redirecting to auth");
     return (
       <Switch>
         <Route path="/auth" element={<Auth />} />
@@ -32,7 +32,12 @@ const Routes = () => {
 
   // User is authenticated, show app routes
   console.log("Routes: User authenticated, showing app routes");
-  return <AppRoutes />;
+  return (
+    <Switch>
+      <Route path="/auth" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<AppRoutes />} />
+    </Switch>
+  );
 };
 
 export default Routes;

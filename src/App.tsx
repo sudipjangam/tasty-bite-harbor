@@ -6,7 +6,6 @@ import { Toaster } from "./components/ui/toaster";
 import "./App.css";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { AuthProvider } from "@/hooks/useAuth";
-import { useIsMobile } from "./hooks/use-mobile";
 import { ErrorBoundary } from "./components/ui/error-boundary";
 import Routes from "./components/Auth/Routes";
 
@@ -16,11 +15,14 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1,
     },
   },
 });
 
 function App() {
+  console.log("App: Rendering application");
+  
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">

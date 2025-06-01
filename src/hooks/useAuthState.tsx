@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -8,15 +8,21 @@ import { supabase } from "@/integrations/supabase/client";
 export const useAuthState = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const initialized = useRef(false);
 
   useEffect(() => {
-    let mounted = true;
+    // Prevent multiple initializations
+    if (initialized.current) {
+      return;
+    }
     
-    console.log("useAuthState: Initializing authentication");
+    initialized.current = true;
+    console.log("useAuthState: Initializing authentication (single instance)");
+    
+    let mounted = true;
     
     const initializeAuth = async () => {
       try {
-        // Get the current session first
         console.log("useAuthState: Getting current session");
         const { data: { session }, error } = await supabase.auth.getSession();
         
@@ -60,10 +66,11 @@ export const useAuthState = () => {
     initializeAuth();
     
     return () => {
+      console.log("useAuthState: Cleaning up");
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, []); // Empty dependency array to run only once
 
   return { user, loading };
 };
