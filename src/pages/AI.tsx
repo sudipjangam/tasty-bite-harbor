@@ -2,7 +2,7 @@
 import React from "react";
 import { useSimpleAuth } from "@/hooks/useSimpleAuth";
 import { PageHeader } from "@/components/Layout/PageHeader";
-import { Chatbot } from "@/components/Chatbot/Chatbot";
+import Chatbot from "@/components/Chatbot/Chatbot";
 
 const AI = () => {
   const { user } = useSimpleAuth();
