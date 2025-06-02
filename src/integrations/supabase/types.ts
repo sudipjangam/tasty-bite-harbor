@@ -305,6 +305,157 @@ export type Database = {
         }
         Relationships: []
       }
+      guest_feedback: {
+        Row: {
+          assigned_to: string | null
+          comment: string | null
+          created_at: string
+          feedback_type: string
+          guest_email: string | null
+          guest_name: string
+          guest_phone: string | null
+          id: string
+          is_complaint: boolean | null
+          rating: number
+          reservation_id: string | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          restaurant_id: string
+          room_id: string | null
+          status: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          comment?: string | null
+          created_at?: string
+          feedback_type: string
+          guest_email?: string | null
+          guest_name: string
+          guest_phone?: string | null
+          id?: string
+          is_complaint?: boolean | null
+          rating: number
+          reservation_id?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          restaurant_id: string
+          room_id?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          comment?: string | null
+          created_at?: string
+          feedback_type?: string
+          guest_email?: string | null
+          guest_name?: string
+          guest_phone?: string | null
+          id?: string
+          is_complaint?: boolean | null
+          rating?: number
+          reservation_id?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          restaurant_id?: string
+          room_id?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_feedback_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_feedback_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_feedback_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_feedback_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guest_preferences: {
+        Row: {
+          created_at: string
+          food_preferences: Json | null
+          guest_email: string | null
+          guest_name: string
+          guest_phone: string | null
+          id: string
+          last_stay: string | null
+          notes: string | null
+          restaurant_id: string
+          room_preferences: Json | null
+          service_preferences: Json | null
+          special_occasions: Json | null
+          total_stays: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          food_preferences?: Json | null
+          guest_email?: string | null
+          guest_name: string
+          guest_phone?: string | null
+          id?: string
+          last_stay?: string | null
+          notes?: string | null
+          restaurant_id: string
+          room_preferences?: Json | null
+          service_preferences?: Json | null
+          special_occasions?: Json | null
+          total_stays?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          food_preferences?: Json | null
+          guest_email?: string | null
+          guest_name?: string
+          guest_phone?: string | null
+          id?: string
+          last_stay?: string | null
+          notes?: string | null
+          restaurant_id?: string
+          room_preferences?: Json | null
+          service_preferences?: Json | null
+          special_occasions?: Json | null
+          total_stays?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_preferences_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_alerts: {
         Row: {
           acknowledged_at: string | null
@@ -1107,7 +1258,15 @@ export type Database = {
           total_amount?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reservations: {
         Row: {
@@ -1330,6 +1489,114 @@ export type Database = {
         }
         Relationships: []
       }
+      room_amenities: {
+        Row: {
+          category: string
+          cost_per_unit: number | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          is_complimentary: boolean | null
+          name: string
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          cost_per_unit?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_complimentary?: boolean | null
+          name: string
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          cost_per_unit?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_complimentary?: boolean | null
+          name?: string
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_amenities_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_amenity_inventory: {
+        Row: {
+          amenity_id: string
+          condition: string
+          created_at: string
+          id: string
+          last_checked: string | null
+          notes: string | null
+          quantity: number
+          restaurant_id: string
+          room_id: string
+          updated_at: string
+        }
+        Insert: {
+          amenity_id: string
+          condition?: string
+          created_at?: string
+          id?: string
+          last_checked?: string | null
+          notes?: string | null
+          quantity?: number
+          restaurant_id: string
+          room_id: string
+          updated_at?: string
+        }
+        Update: {
+          amenity_id?: string
+          condition?: string
+          created_at?: string
+          id?: string
+          last_checked?: string | null
+          notes?: string | null
+          quantity?: number
+          restaurant_id?: string
+          room_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_amenity_inventory_amenity_id_fkey"
+            columns: ["amenity_id"]
+            isOneToOne: false
+            referencedRelation: "room_amenities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_amenity_inventory_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_amenity_inventory_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       room_billings: {
         Row: {
           additional_charges: Json
@@ -1415,6 +1682,82 @@ export type Database = {
           },
         ]
       }
+      room_cleaning_schedules: {
+        Row: {
+          actual_end_time: string | null
+          actual_start_time: string | null
+          assigned_staff_id: string | null
+          checklist_completed: Json | null
+          cleaning_type: string
+          created_at: string
+          estimated_duration: number
+          id: string
+          notes: string | null
+          restaurant_id: string
+          room_id: string
+          scheduled_date: string
+          scheduled_time: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actual_end_time?: string | null
+          actual_start_time?: string | null
+          assigned_staff_id?: string | null
+          checklist_completed?: Json | null
+          cleaning_type?: string
+          created_at?: string
+          estimated_duration?: number
+          id?: string
+          notes?: string | null
+          restaurant_id: string
+          room_id: string
+          scheduled_date: string
+          scheduled_time: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          actual_end_time?: string | null
+          actual_start_time?: string | null
+          assigned_staff_id?: string | null
+          checklist_completed?: Json | null
+          cleaning_type?: string
+          created_at?: string
+          estimated_duration?: number
+          id?: string
+          notes?: string | null
+          restaurant_id?: string
+          room_id?: string
+          scheduled_date?: string
+          scheduled_time?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_cleaning_schedules_assigned_staff_id_fkey"
+            columns: ["assigned_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_cleaning_schedules_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_cleaning_schedules_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       room_food_orders: {
         Row: {
           created_at: string
@@ -1459,6 +1802,98 @@ export type Database = {
           },
           {
             foreignKeyName: "room_food_orders_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_maintenance_requests: {
+        Row: {
+          actual_cost: number | null
+          assigned_to: string | null
+          completed_date: string | null
+          created_at: string
+          description: string
+          estimated_cost: number | null
+          id: string
+          images: Json | null
+          notes: string | null
+          priority: string
+          reported_by: string | null
+          request_type: string
+          restaurant_id: string
+          room_id: string
+          scheduled_date: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          actual_cost?: number | null
+          assigned_to?: string | null
+          completed_date?: string | null
+          created_at?: string
+          description: string
+          estimated_cost?: number | null
+          id?: string
+          images?: Json | null
+          notes?: string | null
+          priority?: string
+          reported_by?: string | null
+          request_type: string
+          restaurant_id: string
+          room_id: string
+          scheduled_date?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          actual_cost?: number | null
+          assigned_to?: string | null
+          completed_date?: string | null
+          created_at?: string
+          description?: string
+          estimated_cost?: number | null
+          id?: string
+          images?: Json | null
+          notes?: string | null
+          priority?: string
+          reported_by?: string | null
+          request_type?: string
+          restaurant_id?: string
+          room_id?: string
+          scheduled_date?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_maintenance_requests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_maintenance_requests_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_maintenance_requests_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_maintenance_requests_room_id_fkey"
             columns: ["room_id"]
             isOneToOne: false
             referencedRelation: "rooms"
