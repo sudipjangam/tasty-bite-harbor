@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useLocation, Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -19,9 +20,10 @@ import {
 
 interface SidebarNavigationProps {
   className?: string;
+  allowedComponents?: string[];
 }
 
-const SidebarNavigation = () => {
+const SidebarNavigation = ({ allowedComponents = [] }: SidebarNavigationProps) => {
   const location = useLocation();
   
   const navigationItems = [
