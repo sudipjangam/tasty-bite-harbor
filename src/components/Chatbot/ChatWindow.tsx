@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect } from "react";
 import { Loader2, Minimize2, Maximize2, X, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,7 +47,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   // If embedded in a page, use a different style with proper height management
   if (embedded) {
     return (
-      <div className="flex flex-col h-full max-h-[calc(100vh-2rem)] bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 rounded-xl overflow-hidden">
+      <div className="flex flex-col h-full max-h-[calc(100vh-2rem)] bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
         {/* Header - Fixed height */}
         <div className="flex-shrink-0 flex items-center justify-between p-4 bg-gradient-to-r from-purple-600 to-purple-700 text-white">
           <div className="flex items-center gap-3">
@@ -56,8 +55,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-semibold">AI Restaurant Assistant</h3>
-              <p className="text-xs text-purple-100">Powered by advanced AI</p>
+              <h3 className="font-semibold">Restaurant AI Assistant</h3>
+              <p className="text-xs text-purple-100">Powered by advanced AI with full database access</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -77,13 +76,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                     <Sparkles className="h-8 w-8 text-white" />
                   </div>
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                    Welcome to your AI Assistant!
+                    Welcome to your Restaurant AI Assistant!
                   </h3>
                   <p className="text-gray-600 dark:text-gray-400 mb-4 max-w-md">
-                    Ask me anything about your restaurant data - sales, inventory, staff, customers, and more!
+                    I have access to all your restaurant data - sales, inventory, staff, customers, orders, menu items, suppliers, reservations, and more!
                   </p>
                   <div className="text-sm text-purple-600 dark:text-purple-400">
-                    Try asking: "What were my sales this week?"
+                    Try asking: "What were my sales this week?" or click a sample question above
                   </div>
                 </div>
               )}
@@ -104,7 +103,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                         <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
                         <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
                       </div>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">AI is thinking...</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">AI is analyzing your data...</span>
                     </div>
                   </div>
                 </div>

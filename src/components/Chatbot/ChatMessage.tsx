@@ -37,7 +37,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
     >
       {!isUser && (
         <Avatar className="h-10 w-10 bg-gradient-to-br from-purple-500 to-purple-700 text-white flex-shrink-0 mt-1 ring-2 ring-purple-200 dark:ring-purple-800">
-          <AvatarImage src="https://images.unsplash.com/photo-1582562124811-c09040d0a901?w=40&h=40&fit=crop&crop=face" alt="AI Assistant" />
+          <AvatarImage src="https://images.unsplash.com/photo-1677442136019-21780ecad995?w=40&h=40&fit=crop&crop=face" alt="AI Assistant" />
           <AvatarFallback className="bg-gradient-to-br from-purple-500 to-purple-700">
             <Bot className="h-5 w-5" />
           </AvatarFallback>
@@ -55,7 +55,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
         {!isUser && (
           <div className="text-xs font-medium text-purple-600 dark:text-purple-400 mb-2 flex items-center gap-1">
             <Bot className="h-3 w-3" />
-            AI Assistant
+            Restaurant AI Assistant
           </div>
         )}
         <p 
@@ -78,7 +78,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
       
       {isUser && (
         <Avatar className="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 text-white flex-shrink-0 mt-1 ring-2 ring-blue-200 dark:ring-blue-800">
-          <AvatarImage src="https://images.unsplash.com/photo-1535268647677-300dbf3d78d1?w=40&h=40&fit=crop&crop=face" alt="User" />
+          <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face" alt="User" />
           <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600">
             <User className="h-5 w-5" />
           </AvatarFallback>
