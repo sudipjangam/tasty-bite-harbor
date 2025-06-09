@@ -28,14 +28,14 @@ const SampleQuestions = ({ onQuestionClick }: SampleQuestionsProps) => {
           Sample Questions
         </h2>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="space-y-2">
         {sampleQuestions.map((question, index) => (
           <StandardizedButton
             key={index}
             variant="secondary"
             size="sm"
             onClick={() => onQuestionClick(question)}
-            className="text-left justify-start h-auto p-3 whitespace-normal text-wrap hover:bg-blue-50 dark:hover:bg-blue-900/20 border-blue-200 dark:border-blue-800"
+            className="w-full text-left justify-start h-auto p-3 whitespace-normal text-wrap hover:bg-blue-50 dark:hover:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-sm"
           >
             {question}
           </StandardizedButton>

@@ -47,11 +47,11 @@ const AiCapabilities = () => {
           AI Capabilities
         </h2>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="space-y-3">
         {capabilities.map((capability, index) => (
           <div
             key={index}
-            className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-purple-300 dark:hover:border-purple-600 transition-all duration-200 hover:shadow-md bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900"
+            className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-purple-300 dark:hover:border-purple-600 transition-all duration-200 hover:shadow-md bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900"
           >
             <div className="flex items-start gap-3">
               <div className={`${capability.color} bg-gray-100 dark:bg-gray-800 p-2 rounded-lg`}>
