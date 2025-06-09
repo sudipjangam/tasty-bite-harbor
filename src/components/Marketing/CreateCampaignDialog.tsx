@@ -235,7 +235,7 @@ const CreateCampaignDialog: React.FC<CreateCampaignDialogProps> = ({
           <div className="flex gap-3 pt-4">
             <StandardizedButton
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={() => onOpenChange(false)}
               className="flex-1"
             >

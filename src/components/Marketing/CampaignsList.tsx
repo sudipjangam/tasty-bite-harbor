@@ -80,17 +80,17 @@ const CampaignsList: React.FC<CampaignsListProps> = ({ campaigns }) => {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <StandardizedButton variant="outline" size="sm">
+              <StandardizedButton variant="secondary" size="sm">
                 <Edit className="h-4 w-4" />
               </StandardizedButton>
-              <StandardizedButton variant="outline" size="sm">
+              <StandardizedButton variant="secondary" size="sm">
                 {campaign.status === 'active' ? (
                   <Pause className="h-4 w-4" />
                 ) : (
                   <Play className="h-4 w-4" />
                 )}
               </StandardizedButton>
-              <StandardizedButton variant="outline" size="sm">
+              <StandardizedButton variant="danger" size="sm">
                 <Trash2 className="h-4 w-4" />
               </StandardizedButton>
             </div>

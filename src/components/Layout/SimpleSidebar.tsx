@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Menu as MenuIcon, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useSimpleAuth } from "@/hooks/useSimpleAuth";
-import SimpleSidebarNavigation from "./SimpleSidebarNavigation";
+import { SimpleSidebarNavigation } from "./SimpleSidebarNavigation";
 
 const SimpleSidebar = () => {
   const [isOpen, setIsOpen] = useState(false);

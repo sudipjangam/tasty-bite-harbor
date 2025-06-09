@@ -3,6 +3,18 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+interface AnalyticsData {
+  messagesSent: number;
+  revenueImpact: number;
+  specialOccasions: number;
+  campaignPerformance: Array<{
+    id: string;
+    name: string;
+    sent: number;
+    revenue: number;
+  }>;
+}
+
 export const useMarketingData = () => {
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
 
@@ -71,10 +83,22 @@ export const useMarketingData = () => {
   });
 
   // Fetch marketing analytics
-  const { data: analytics = {}, isLoading: analyticsLoading } = useQuery({
+  const { data: analytics = {
+    messagesSent: 0,
+    revenueImpact: 0,
+    specialOccasions: 0,
+    campaignPerformance: []
+  } as AnalyticsData, isLoading: analyticsLoading } = useQuery({
     queryKey: ['marketing-analytics', restaurantId],
-    queryFn: async () => {
-      if (!restaurantId) return {};
+    queryFn: async (): Promise<AnalyticsData> => {
+      if (!restaurantId) {
+        return {
+          messagesSent: 0,
+          revenueImpact: 0,
+          specialOccasions: 0,
+          campaignPerformance: []
+        };
+      }
       
       // Fetch sent promotions
       const { data: sentPromotions, error: promoError } = await supabase
