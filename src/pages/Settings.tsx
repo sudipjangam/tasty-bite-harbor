@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -368,7 +367,6 @@ const Settings = () => {
                 <div className="text-center py-6">
                   <p className="text-muted-foreground mb-4">No active subscription found.</p>
                   <Button 
-                    onClick={() => navigate('/')} 
                     className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
                   >
                     View Plans
