@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { LogOut, User, Building, Clock, Shield, CreditCard, Loader2, Mail, Phone, MapPin, CalendarClock, CheckCircle2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useSimpleAuth } from "@/hooks/useSimpleAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -14,28 +14,19 @@ import { format } from "date-fns";
 
 const Settings = () => {
   const { toast } = useToast();
-  const navigate = useNavigate();
+  const { user, signOut } = useSimpleAuth();
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
 
   // Fetch user and profile data
-  const { data: session } = useQuery({
-    queryKey: ['session'],
-    queryFn: async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      return session;
-    },
-  });
-
   const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ['profile', session?.user?.id],
-    enabled: !!session?.user?.id,
+    queryKey: ['profile', user?.id],
+    enabled: !!user?.id,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', session?.user?.id)
+        .eq('id', user?.id)
         .single();
 
       if (error) throw error;
@@ -80,17 +71,18 @@ const Settings = () => {
   const handleLogout = async () => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      console.log("Settings: Starting logout process");
       
       // Clear all queries from the cache on logout
       queryClient.clear();
+      
+      await signOut();
+      console.log("Settings: Logout successful");
       
       toast({
         title: "Success",
         description: "Logged out successfully",
       });
-      navigate("/auth");
     } catch (error) {
       console.error('Error logging out:', error);
       toast({
@@ -174,7 +166,7 @@ const Settings = () => {
                       <Mail className="h-4 w-4" />
                       Email
                     </p>
-                    <p className="font-medium text-lg">{session?.user?.email}</p>
+                    <p className="font-medium text-lg">{user?.email}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -212,8 +204,8 @@ const Settings = () => {
                   Account Created
                 </p>
                 <p className="font-medium">
-                  {session?.user?.created_at
-                    ? format(new Date(session.user.created_at), 'PPP')
+                  {user?.created_at
+                    ? format(new Date(user.created_at), 'PPP')
                     : 'N/A'}
                 </p>
               </div>

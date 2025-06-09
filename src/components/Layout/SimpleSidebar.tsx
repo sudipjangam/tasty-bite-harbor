@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Menu as MenuIcon, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -66,12 +67,14 @@ const SimpleSidebar = () => {
 
   const handleSignOut = async () => {
     try {
+      console.log("SimpleSidebar: Starting logout process");
       await signOut();
-      navigate("/auth");
+      console.log("SimpleSidebar: Logout successful");
       toast({
         title: "Signed out",
         description: "You have been successfully signed out.",
       });
+      // Don't navigate manually - let the auth state change handle routing
     } catch (error) {
       console.error("Sign out error:", error);
       toast({
