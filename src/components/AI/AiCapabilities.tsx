@@ -2,6 +2,7 @@
 import React from "react";
 import { BarChart3, Package, Users, TrendingUp, Database } from "lucide-react";
 import { StandardizedCard } from "@/components/ui/standardized-card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const AiCapabilities = () => {
   const capabilities = [
@@ -38,8 +39,8 @@ const AiCapabilities = () => {
   ];
 
   return (
-    <StandardizedCard className="mb-6">
-      <div className="flex items-center gap-2 mb-4">
+    <StandardizedCard className="h-full flex flex-col">
+      <div className="flex items-center gap-2 mb-4 flex-shrink-0">
         <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg">
           <Database className="h-5 w-5 text-purple-600" />
         </div>
@@ -47,28 +48,30 @@ const AiCapabilities = () => {
           AI Capabilities
         </h2>
       </div>
-      <div className="space-y-3">
-        {capabilities.map((capability, index) => (
-          <div
-            key={index}
-            className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-purple-300 dark:hover:border-purple-600 transition-all duration-200 hover:shadow-md bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900"
-          >
-            <div className="flex items-start gap-3">
-              <div className={`${capability.color} bg-gray-100 dark:bg-gray-800 p-2 rounded-lg`}>
-                {capability.icon}
-              </div>
-              <div className="flex-1">
-                <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-1">
-                  {capability.title}
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {capability.description}
-                </p>
+      <ScrollArea className="flex-1">
+        <div className="space-y-3 pr-2">
+          {capabilities.map((capability, index) => (
+            <div
+              key={index}
+              className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-purple-300 dark:hover:border-purple-600 transition-all duration-200 hover:shadow-md bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900"
+            >
+              <div className="flex items-start gap-3">
+                <div className={`${capability.color} bg-gray-100 dark:bg-gray-800 p-2 rounded-lg`}>
+                  {capability.icon}
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-1">
+                    {capability.title}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {capability.description}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </ScrollArea>
     </StandardizedCard>
   );
 };
