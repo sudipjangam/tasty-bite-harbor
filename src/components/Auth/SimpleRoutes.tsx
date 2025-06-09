@@ -1,37 +1,41 @@
 
-import { Routes as Switch, Route, Navigate } from "react-router-dom";
-import { useSimpleAuth } from "@/hooks/useSimpleAuth";
-import { SimpleAppRoutes } from "./SimpleAppRoutes";
-import Auth from "@/pages/Auth";
+import React from "react";
+import { Routes, Route } from "react-router-dom";
+import Index from "@/pages/Index";
+import Orders from "@/pages/Orders";
+import Menu from "@/pages/Menu";
+import Analytics from "@/pages/Analytics";
+import AI from "@/pages/AI";
+import Settings from "@/pages/Settings";
+import NotFound from "@/pages/NotFound";
+import Tables from "@/pages/Tables";
+import Rooms from "@/pages/Rooms";
+import Reservations from "@/pages/Reservations";
+import Marketing from "@/pages/Marketing";
+import Customers from "@/pages/Customers";
+import Staff from "@/pages/Staff";
+import Inventory from "@/pages/Inventory";
+import Expenses from "@/pages/Expenses";
 
 const SimpleRoutes = () => {
-  const { user, loading } = useSimpleAuth();
-  
-  // Show loading spinner while checking auth
-  if (loading) {
-    return (
-      <div className="flex min-h-screen w-full items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
-      </div>
-    );
-  }
-
-  // If no user, show auth page for any route
-  if (!user) {
-    return (
-      <Switch>
-        <Route path="/auth" element={<Auth />} />
-        <Route path="*" element={<Navigate to="/auth" replace />} />
-      </Switch>
-    );
-  }
-
-  // User is authenticated, show app routes
   return (
-    <Switch>
-      <Route path="/auth" element={<Navigate to="/" replace />} />
-      <Route path="*" element={<SimpleAppRoutes />} />
-    </Switch>
+    <Routes>
+      <Route path="/" element={<Index />} />
+      <Route path="/orders" element={<Orders />} />
+      <Route path="/menu" element={<Menu />} />
+      <Route path="/tables" element={<Tables />} />
+      <Route path="/reservations" element={<Reservations />} />
+      <Route path="/rooms" element={<Rooms />} />
+      <Route path="/customers" element={<Customers />} />
+      <Route path="/marketing" element={<Marketing />} />
+      <Route path="/staff" element={<Staff />} />
+      <Route path="/inventory" element={<Inventory />} />
+      <Route path="/expenses" element={<Expenses />} />
+      <Route path="/analytics" element={<Analytics />} />
+      <Route path="/ai" element={<AI />} />
+      <Route path="/settings" element={<Settings />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 };
 
