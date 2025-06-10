@@ -9,6 +9,149 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      budget_line_items: {
+        Row: {
+          account_id: string
+          actual_amount: number | null
+          budget_id: string
+          budgeted_amount: number
+          created_at: string
+          id: string
+          period_end: string
+          period_start: string
+          updated_at: string
+          variance_amount: number | null
+          variance_percentage: number | null
+        }
+        Insert: {
+          account_id: string
+          actual_amount?: number | null
+          budget_id: string
+          budgeted_amount: number
+          created_at?: string
+          id?: string
+          period_end: string
+          period_start: string
+          updated_at?: string
+          variance_amount?: number | null
+          variance_percentage?: number | null
+        }
+        Update: {
+          account_id?: string
+          actual_amount?: number | null
+          budget_id?: string
+          budgeted_amount?: number
+          created_at?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          updated_at?: string
+          variance_amount?: number | null
+          variance_percentage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_line_items_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_line_items_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "budgets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      budgets: {
+        Row: {
+          budget_name: string
+          budget_type: string
+          budget_year: number
+          created_at: string
+          created_by: string | null
+          id: string
+          restaurant_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          budget_name: string
+          budget_type: string
+          budget_year: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          restaurant_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          budget_name?: string
+          budget_type?: string
+          budget_year?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          restaurant_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      chart_of_accounts: {
+        Row: {
+          account_code: string
+          account_name: string
+          account_subtype: string | null
+          account_type: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          parent_account_id: string | null
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_code: string
+          account_name: string
+          account_subtype?: string | null
+          account_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          parent_account_id?: string | null
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_code?: string
+          account_name?: string
+          account_subtype?: string | null
+          account_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          parent_account_id?: string | null
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chart_of_accounts_parent_account_id_fkey"
+            columns: ["parent_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_activities: {
         Row: {
           activity_type: string
@@ -305,6 +448,39 @@ export type Database = {
         }
         Relationships: []
       }
+      financial_reports: {
+        Row: {
+          generated_at: string
+          generated_by: string | null
+          id: string
+          report_data: Json
+          report_period_end: string
+          report_period_start: string
+          report_type: string
+          restaurant_id: string
+        }
+        Insert: {
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          report_data: Json
+          report_period_end: string
+          report_period_start: string
+          report_type: string
+          restaurant_id: string
+        }
+        Update: {
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          report_data?: Json
+          report_period_end?: string
+          report_period_start?: string
+          report_type?: string
+          restaurant_id?: string
+        }
+        Relationships: []
+      }
       guest_feedback: {
         Row: {
           assigned_to: string | null
@@ -593,6 +769,203 @@ export type Database = {
             columns: ["inventory_item_id"]
             isOneToOne: false
             referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_line_items: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          invoice_id: string
+          quantity: number
+          tax_rate: number | null
+          total_price: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          invoice_id: string
+          quantity?: number
+          tax_rate?: number | null
+          total_price: number
+          unit_price: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          invoice_id?: string
+          quantity?: number
+          tax_rate?: number | null
+          total_price?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_line_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          customer_address: string | null
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
+          discount_amount: number
+          due_date: string
+          id: string
+          invoice_date: string
+          invoice_number: string
+          notes: string | null
+          paid_amount: number
+          payment_terms: string | null
+          restaurant_id: string
+          status: string
+          subtotal: number
+          tax_amount: number
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          customer_address?: string | null
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          discount_amount?: number
+          due_date: string
+          id?: string
+          invoice_date: string
+          invoice_number: string
+          notes?: string | null
+          paid_amount?: number
+          payment_terms?: string | null
+          restaurant_id: string
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          customer_address?: string | null
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          discount_amount?: number
+          due_date?: string
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          notes?: string | null
+          paid_amount?: number
+          payment_terms?: string | null
+          restaurant_id?: string
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      journal_entries: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string
+          entry_date: string
+          entry_number: string
+          id: string
+          reference_id: string | null
+          reference_type: string | null
+          restaurant_id: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description: string
+          entry_date: string
+          entry_number: string
+          id?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          restaurant_id: string
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          entry_date?: string
+          entry_number?: string
+          id?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          restaurant_id?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      journal_entry_lines: {
+        Row: {
+          account_id: string
+          created_at: string
+          credit_amount: number | null
+          debit_amount: number | null
+          description: string | null
+          id: string
+          journal_entry_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          credit_amount?: number | null
+          debit_amount?: number | null
+          description?: string | null
+          id?: string
+          journal_entry_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          credit_amount?: number | null
+          debit_amount?: number | null
+          description?: string | null
+          id?: string
+          journal_entry_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entry_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entry_lines_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
             referencedColumns: ["id"]
           },
         ]
@@ -1059,6 +1432,59 @@ export type Database = {
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          invoice_id: string | null
+          notes: string | null
+          payment_date: string
+          payment_method: string
+          payment_number: string
+          reference_number: string | null
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_id?: string | null
+          notes?: string | null
+          payment_date: string
+          payment_method: string
+          payment_number: string
+          reference_number?: string | null
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_id?: string | null
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string
+          payment_number?: string
+          reference_number?: string | null
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
         ]
@@ -2620,6 +3046,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tax_configurations: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          restaurant_id: string
+          tax_name: string
+          tax_rate: number
+          tax_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          restaurant_id: string
+          tax_name: string
+          tax_rate: number
+          tax_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          restaurant_id?: string
+          tax_name?: string
+          tax_rate?: number
+          tax_type?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {

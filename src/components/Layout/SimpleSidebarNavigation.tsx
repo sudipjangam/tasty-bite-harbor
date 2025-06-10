@@ -1,24 +1,23 @@
 
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
-import { cn } from "@/lib/utils";
-import {
-  LayoutDashboard,
+import { useLocation, useNavigate } from "react-router-dom";
+import { 
+  LayoutDashboard, 
+  Users, 
   ShoppingCart,
-  Users,
-  Utensils,
-  BarChart3,
-  CreditCard,
-  Settings,
-  Bot,
-  Coffee,
-  Bed,
-  Calendar,
+  Menu as MenuIcon,
   UserCheck,
+  Bed,
+  MapPin,
+  Calendar,
   Package,
   TrendingUp,
-  MessageCircle
+  MessageSquare,
+  Settings,
+  DollarSign,
+  Calculator
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const navigationItems = [
   {
@@ -33,12 +32,27 @@ const navigationItems = [
   },
   {
     title: "Menu",
-    icon: Utensils,
+    icon: MenuIcon,
     href: "/menu",
   },
   {
+    title: "Staff",
+    icon: UserCheck,
+    href: "/staff",
+  },
+  {
+    title: "Customers",
+    icon: Users,
+    href: "/customers",
+  },
+  {
+    title: "Rooms",
+    icon: Bed,
+    href: "/rooms",
+  },
+  {
     title: "Tables",
-    icon: Coffee,
+    icon: MapPin,
     href: "/tables",
   },
   {
@@ -47,43 +61,23 @@ const navigationItems = [
     href: "/reservations",
   },
   {
-    title: "Rooms",
-    icon: Bed,
-    href: "/rooms",
-  },
-  {
-    title: "Customers",
-    icon: Users,
-    href: "/customers",
-  },
-  {
-    title: "Marketing",
-    icon: MessageCircle,
-    href: "/marketing",
-  },
-  {
-    title: "Staff",
-    icon: UserCheck,
-    href: "/staff",
-  },
-  {
     title: "Inventory",
     icon: Package,
     href: "/inventory",
   },
   {
-    title: "Expenses",
-    icon: CreditCard,
-    href: "/expenses",
-  },
-  {
     title: "Analytics",
-    icon: BarChart3,
+    icon: TrendingUp,
     href: "/analytics",
   },
   {
+    title: "Financial",
+    icon: Calculator,
+    href: "/financial",
+  },
+  {
     title: "AI Assistant",
-    icon: Bot,
+    icon: MessageSquare,
     href: "/ai",
   },
   {
@@ -93,8 +87,9 @@ const navigationItems = [
   },
 ];
 
-export function SimpleSidebarNavigation() {
+export const SimpleSidebarNavigation = () => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   return (
     <nav className="space-y-2">
@@ -103,21 +98,21 @@ export function SimpleSidebarNavigation() {
         const isActive = location.pathname === item.href;
         
         return (
-          <Link
+          <button
             key={item.href}
-            to={item.href}
+            onClick={() => navigate(item.href)}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-accent",
+              "w-full flex items-center gap-3 px-3 py-2 text-left rounded-lg transition-colors",
               isActive
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-white text-sidebar-purple font-medium"
+                : "text-white hover:bg-sidebar-purple-dark"
             )}
           >
-            <Icon className="h-4 w-4" />
-            {item.title}
-          </Link>
+            <Icon className="h-5 w-5" />
+            <span>{item.title}</span>
+          </button>
         );
       })}
     </nav>
   );
-}
+};
