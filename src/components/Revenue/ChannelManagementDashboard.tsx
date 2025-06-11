@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useChannelManagement } from "@/hooks/useChannelManagement";
-import { Settings, Sync, TrendingUp, AlertTriangle } from "lucide-react";
+import { Settings, RefreshCw, TrendingUp, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const ChannelManagementDashboard = () => {
@@ -46,7 +46,7 @@ const ChannelManagementDashboard = () => {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Channel Management</h2>
         <Button>
-          <Sync className="w-4 h-4 mr-2" />
+          <RefreshCw className="w-4 h-4 mr-2" />
           Sync All Channels
         </Button>
       </div>
@@ -135,7 +135,7 @@ const ChannelManagementDashboard = () => {
                   onClick={() => handleSyncChannel(channel.id)}
                   disabled={!channel.is_active}
                 >
-                  <Sync className="w-4 h-4 mr-2" />
+                  <RefreshCw className="w-4 h-4 mr-2" />
                   Sync Now
                 </Button>
               </div>
