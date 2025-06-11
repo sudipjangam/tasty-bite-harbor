@@ -1,0 +1,251 @@
+
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
+
+export interface BookingChannel {
+  id: string;
+  restaurant_id: string;
+  channel_name: string;
+  channel_type: string;
+  api_endpoint?: string;
+  api_key?: string;
+  api_secret?: string;
+  commission_rate: number;
+  is_active: boolean;
+  last_sync?: string;
+  sync_frequency_minutes: number;
+  channel_settings: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RatePlan {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  description?: string;
+  plan_type: string;
+  base_rate: number;
+  currency: string;
+  is_refundable: boolean;
+  cancellation_policy: any;
+  min_stay_nights: number;
+  max_stay_nights?: number;
+  advance_booking_days?: number;
+  blackout_dates: any[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PricingRule {
+  id: string;
+  restaurant_id: string;
+  rule_name: string;
+  rule_type: string;
+  trigger_condition: any;
+  adjustment_type: string;
+  adjustment_value: number;
+  min_price?: number;
+  max_price?: number;
+  priority: number;
+  is_active: boolean;
+  valid_from?: string;
+  valid_to?: string;
+  days_of_week: number[];
+  created_at: string;
+  updated_at: string;
+}
+
+export const useChannelManagement = () => {
+  const { restaurantId } = useRestaurantId();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Fetch booking channels
+  const { data: bookingChannels = [], isLoading: isLoadingChannels } = useQuery({
+    queryKey: ["booking-channels", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return [];
+      
+      const { data, error } = await supabase
+        .from("booking_channels")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .order("channel_name");
+
+      if (error) throw error;
+      return data as BookingChannel[];
+    },
+    enabled: !!restaurantId,
+  });
+
+  // Fetch rate plans
+  const { data: ratePlans = [], isLoading: isLoadingRatePlans } = useQuery({
+    queryKey: ["rate-plans", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return [];
+      
+      const { data, error } = await supabase
+        .from("rate_plans")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .order("name");
+
+      if (error) throw error;
+      return data as RatePlan[];
+    },
+    enabled: !!restaurantId,
+  });
+
+  // Fetch pricing rules
+  const { data: pricingRules = [], isLoading: isLoadingRules } = useQuery({
+    queryKey: ["pricing-rules", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return [];
+      
+      const { data, error } = await supabase
+        .from("pricing_rules")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .order("priority", { ascending: false });
+
+      if (error) throw error;
+      return data as PricingRule[];
+    },
+    enabled: !!restaurantId,
+  });
+
+  // Update channel settings
+  const updateChannel = useMutation({
+    mutationFn: async ({ channelId, updates }: { channelId: string; updates: Partial<BookingChannel> }) => {
+      const { data, error } = await supabase
+        .from("booking_channels")
+        .update(updates)
+        .eq("id", channelId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["booking-channels"] });
+      toast({
+        title: "Success",
+        description: "Channel updated successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to update channel: ${error.message}`,
+      });
+    },
+  });
+
+  // Create/update rate plan
+  const saveRatePlan = useMutation({
+    mutationFn: async (ratePlan: Partial<RatePlan>) => {
+      if (!restaurantId) throw new Error("No restaurant ID");
+
+      if (ratePlan.id) {
+        const { data, error } = await supabase
+          .from("rate_plans")
+          .update(ratePlan)
+          .eq("id", ratePlan.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      } else {
+        const { data, error } = await supabase
+          .from("rate_plans")
+          .insert([{
+            restaurant_id: restaurantId,
+            ...ratePlan,
+          }])
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["rate-plans"] });
+      toast({
+        title: "Success",
+        description: "Rate plan saved successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to save rate plan: ${error.message}`,
+      });
+    },
+  });
+
+  // Create/update pricing rule
+  const savePricingRule = useMutation({
+    mutationFn: async (rule: Partial<PricingRule>) => {
+      if (!restaurantId) throw new Error("No restaurant ID");
+
+      if (rule.id) {
+        const { data, error } = await supabase
+          .from("pricing_rules")
+          .update(rule)
+          .eq("id", rule.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      } else {
+        const { data, error } = await supabase
+          .from("pricing_rules")
+          .insert([{
+            restaurant_id: restaurantId,
+            ...rule,
+          }])
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pricing-rules"] });
+      toast({
+        title: "Success",
+        description: "Pricing rule saved successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to save pricing rule: ${error.message}`,
+      });
+    },
+  });
+
+  return {
+    bookingChannels,
+    ratePlans,
+    pricingRules,
+    isLoadingChannels,
+    isLoadingRatePlans,
+    isLoadingRules,
+    updateChannel,
+    saveRatePlan,
+    savePricingRule,
+  };
+};

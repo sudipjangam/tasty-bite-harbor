@@ -9,6 +9,108 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      booking_channels: {
+        Row: {
+          api_endpoint: string | null
+          api_key: string | null
+          api_secret: string | null
+          channel_name: string
+          channel_settings: Json | null
+          channel_type: string
+          commission_rate: number | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          last_sync: string | null
+          restaurant_id: string
+          sync_frequency_minutes: number | null
+          updated_at: string
+        }
+        Insert: {
+          api_endpoint?: string | null
+          api_key?: string | null
+          api_secret?: string | null
+          channel_name: string
+          channel_settings?: Json | null
+          channel_type: string
+          commission_rate?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_sync?: string | null
+          restaurant_id: string
+          sync_frequency_minutes?: number | null
+          updated_at?: string
+        }
+        Update: {
+          api_endpoint?: string | null
+          api_key?: string | null
+          api_secret?: string | null
+          channel_name?: string
+          channel_settings?: Json | null
+          channel_type?: string
+          commission_rate?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_sync?: string | null
+          restaurant_id?: string
+          sync_frequency_minutes?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      booking_sources: {
+        Row: {
+          booking_reference: string | null
+          channel_id: string | null
+          commission_amount: number | null
+          created_at: string
+          id: string
+          net_amount: number | null
+          reservation_id: string
+          restaurant_id: string
+          source_type: string
+        }
+        Insert: {
+          booking_reference?: string | null
+          channel_id?: string | null
+          commission_amount?: number | null
+          created_at?: string
+          id?: string
+          net_amount?: number | null
+          reservation_id: string
+          restaurant_id: string
+          source_type: string
+        }
+        Update: {
+          booking_reference?: string | null
+          channel_id?: string | null
+          commission_amount?: number | null
+          created_at?: string
+          id?: string
+          net_amount?: number | null
+          reservation_id?: string
+          restaurant_id?: string
+          source_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_sources_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "booking_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_sources_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       budget_line_items: {
         Row: {
           account_id: string
@@ -101,6 +203,79 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      channel_inventory: {
+        Row: {
+          available_rooms: number
+          channel_id: string
+          closed_to_arrival: boolean | null
+          closed_to_departure: boolean | null
+          created_at: string
+          date: string
+          id: string
+          last_updated: string | null
+          min_stay: number | null
+          price: number
+          rate_plan_id: string
+          restaurant_id: string
+          room_id: string
+          stop_sell: boolean | null
+        }
+        Insert: {
+          available_rooms?: number
+          channel_id: string
+          closed_to_arrival?: boolean | null
+          closed_to_departure?: boolean | null
+          created_at?: string
+          date: string
+          id?: string
+          last_updated?: string | null
+          min_stay?: number | null
+          price: number
+          rate_plan_id: string
+          restaurant_id: string
+          room_id: string
+          stop_sell?: boolean | null
+        }
+        Update: {
+          available_rooms?: number
+          channel_id?: string
+          closed_to_arrival?: boolean | null
+          closed_to_departure?: boolean | null
+          created_at?: string
+          date?: string
+          id?: string
+          last_updated?: string | null
+          min_stay?: number | null
+          price?: number
+          rate_plan_id?: string
+          restaurant_id?: string
+          room_id?: string
+          stop_sell?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_inventory_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "booking_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_inventory_rate_plan_id_fkey"
+            columns: ["rate_plan_id"]
+            isOneToOne: false
+            referencedRelation: "rate_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_inventory_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       chart_of_accounts: {
         Row: {
@@ -242,6 +417,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      competitor_pricing: {
+        Row: {
+          competitor_name: string
+          competitor_url: string | null
+          created_at: string
+          currency: string | null
+          date: string
+          id: string
+          last_scraped: string | null
+          price: number
+          restaurant_id: string
+          room_type: string | null
+        }
+        Insert: {
+          competitor_name: string
+          competitor_url?: string | null
+          created_at?: string
+          currency?: string | null
+          date: string
+          id?: string
+          last_scraped?: string | null
+          price: number
+          restaurant_id: string
+          room_type?: string | null
+        }
+        Update: {
+          competitor_name?: string
+          competitor_url?: string | null
+          created_at?: string
+          currency?: string | null
+          date?: string
+          id?: string
+          last_scraped?: string | null
+          price?: number
+          restaurant_id?: string
+          room_type?: string | null
+        }
+        Relationships: []
       }
       customer_activities: {
         Row: {
@@ -442,6 +656,53 @@ export type Database = {
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demand_forecast: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          demand_level: string | null
+          factors: Json | null
+          forecast_date: string
+          id: string
+          predicted_adr: number | null
+          predicted_occupancy: number | null
+          restaurant_id: string
+          room_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          demand_level?: string | null
+          factors?: Json | null
+          forecast_date: string
+          id?: string
+          predicted_adr?: number | null
+          predicted_occupancy?: number | null
+          restaurant_id: string
+          room_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          demand_level?: string | null
+          factors?: Json | null
+          forecast_date?: string
+          id?: string
+          predicted_adr?: number | null
+          predicted_occupancy?: number | null
+          restaurant_id?: string
+          room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_forecast_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
             referencedColumns: ["id"]
           },
         ]
@@ -1687,6 +1948,117 @@ export type Database = {
           },
         ]
       }
+      price_history: {
+        Row: {
+          change_reason: string | null
+          changed_by: string | null
+          created_at: string
+          date: string
+          id: string
+          new_price: number
+          old_price: number | null
+          rate_plan_id: string | null
+          restaurant_id: string
+          room_id: string
+        }
+        Insert: {
+          change_reason?: string | null
+          changed_by?: string | null
+          created_at?: string
+          date: string
+          id?: string
+          new_price: number
+          old_price?: number | null
+          rate_plan_id?: string | null
+          restaurant_id: string
+          room_id: string
+        }
+        Update: {
+          change_reason?: string | null
+          changed_by?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          new_price?: number
+          old_price?: number | null
+          rate_plan_id?: string | null
+          restaurant_id?: string
+          room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_history_rate_plan_id_fkey"
+            columns: ["rate_plan_id"]
+            isOneToOne: false
+            referencedRelation: "rate_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_history_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pricing_rules: {
+        Row: {
+          adjustment_type: string
+          adjustment_value: number
+          created_at: string
+          days_of_week: Json | null
+          id: string
+          is_active: boolean | null
+          max_price: number | null
+          min_price: number | null
+          priority: number | null
+          restaurant_id: string
+          rule_name: string
+          rule_type: string
+          trigger_condition: Json
+          updated_at: string
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          adjustment_type: string
+          adjustment_value: number
+          created_at?: string
+          days_of_week?: Json | null
+          id?: string
+          is_active?: boolean | null
+          max_price?: number | null
+          min_price?: number | null
+          priority?: number | null
+          restaurant_id: string
+          rule_name: string
+          rule_type: string
+          trigger_condition: Json
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          adjustment_type?: string
+          adjustment_value?: number
+          created_at?: string
+          days_of_week?: Json | null
+          id?: string
+          is_active?: boolean | null
+          max_price?: number | null
+          min_price?: number | null
+          priority?: number | null
+          restaurant_id?: string
+          rule_name?: string
+          rule_type?: string
+          trigger_condition?: Json
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -1891,6 +2263,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      rate_plans: {
+        Row: {
+          advance_booking_days: number | null
+          base_rate: number
+          blackout_dates: Json | null
+          cancellation_policy: Json | null
+          created_at: string
+          currency: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          is_refundable: boolean | null
+          max_stay_nights: number | null
+          min_stay_nights: number | null
+          name: string
+          plan_type: string
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          advance_booking_days?: number | null
+          base_rate: number
+          blackout_dates?: Json | null
+          cancellation_policy?: Json | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_refundable?: boolean | null
+          max_stay_nights?: number | null
+          min_stay_nights?: number | null
+          name: string
+          plan_type: string
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          advance_booking_days?: number | null
+          base_rate?: number
+          blackout_dates?: Json | null
+          cancellation_policy?: Json | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_refundable?: boolean | null
+          max_stay_nights?: number | null
+          min_stay_nights?: number | null
+          name?: string
+          plan_type?: string
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       reservations: {
         Row: {
@@ -2109,6 +2538,54 @@ export type Database = {
           id?: string
           name?: string
           phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      revenue_metrics: {
+        Row: {
+          adr: number | null
+          created_at: string
+          date: string
+          f_and_b_revenue: number | null
+          id: string
+          occupancy_rate: number | null
+          occupied_rooms: number | null
+          restaurant_id: string
+          revpar: number | null
+          room_revenue: number | null
+          total_revenue: number | null
+          total_rooms: number | null
+          updated_at: string
+        }
+        Insert: {
+          adr?: number | null
+          created_at?: string
+          date: string
+          f_and_b_revenue?: number | null
+          id?: string
+          occupancy_rate?: number | null
+          occupied_rooms?: number | null
+          restaurant_id: string
+          revpar?: number | null
+          room_revenue?: number | null
+          total_revenue?: number | null
+          total_rooms?: number | null
+          updated_at?: string
+        }
+        Update: {
+          adr?: number | null
+          created_at?: string
+          date?: string
+          f_and_b_revenue?: number | null
+          id?: string
+          occupancy_rate?: number | null
+          occupied_rooms?: number | null
+          restaurant_id?: string
+          revpar?: number | null
+          room_revenue?: number | null
+          total_revenue?: number | null
+          total_rooms?: number | null
           updated_at?: string
         }
         Relationships: []

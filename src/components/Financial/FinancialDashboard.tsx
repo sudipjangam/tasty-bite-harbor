@@ -8,7 +8,8 @@ import { InvoiceManagement } from "./InvoiceManagement";
 import { BudgetManagement } from "./BudgetManagement";
 import { TaxReporting } from "./TaxReporting";
 import { FinancialReports } from "./FinancialReports";
-import { Calculator, TrendingUp, FileText, PieChart, Receipt, Target } from "lucide-react";
+import HotelRevenueManager from "../Revenue/HotelRevenueManager";
+import { Calculator, TrendingUp, FileText, PieChart, Receipt, Target, Hotel } from "lucide-react";
 
 const FinancialDashboard = () => {
   return (
@@ -19,10 +20,14 @@ const FinancialDashboard = () => {
       />
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
             Overview
+          </TabsTrigger>
+          <TabsTrigger value="revenue" className="flex items-center gap-2">
+            <Hotel className="h-4 w-4" />
+            Revenue Mgmt
           </TabsTrigger>
           <TabsTrigger value="profit-loss" className="flex items-center gap-2">
             <Calculator className="h-4 w-4" />
@@ -48,6 +53,10 @@ const FinancialDashboard = () => {
 
         <TabsContent value="overview" className="mt-6">
           <FinancialReports />
+        </TabsContent>
+
+        <TabsContent value="revenue" className="mt-6">
+          <HotelRevenueManager />
         </TabsContent>
 
         <TabsContent value="profit-loss" className="mt-6">
