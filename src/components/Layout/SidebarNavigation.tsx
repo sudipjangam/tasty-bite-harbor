@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Sparkles,
   Bed,
+  Globe,
 } from "lucide-react";
 
 interface SidebarNavigationProps {
@@ -36,6 +37,7 @@ const SidebarNavigation = ({ allowedComponents = [] }: SidebarNavigationProps) =
     { icon: Bed, label: "Rooms", path: "/rooms" },
     { icon: Calendar, label: "Reservations", path: "/reservations" },
     { icon: Users, label: "Customers", path: "/customers" },
+    { icon: Globe, label: "Channel Management", path: "/channel-management" },
     { icon: TrendingUp, label: "Analytics", path: "/analytics" },
     { icon: DollarSign, label: "Expenses", path: "/expenses" },
     { icon: Truck, label: "Suppliers", path: "/suppliers" },

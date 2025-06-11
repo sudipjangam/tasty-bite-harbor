@@ -17,6 +17,7 @@ import CRM from "@/pages/CRM";
 import Suppliers from "@/pages/Suppliers";
 import Expenses from "@/pages/Expenses";
 import AI from "@/pages/AI";
+import ChannelManagement from "@/pages/ChannelManagement";
 
 /**
  * Main application routes for authenticated users
@@ -43,6 +44,7 @@ export const AppRoutes = () => {
           <Route path="/suppliers" element={<Suppliers />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/ai" element={<AI />} />
+          <Route path="/channel-management" element={<ChannelManagement />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
