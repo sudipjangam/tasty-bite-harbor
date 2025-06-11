@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TableData } from "./TableCard";
+import { Plus, Edit, Table } from "lucide-react";
 
 interface TableDialogProps {
   isOpen: boolean;
@@ -33,25 +34,38 @@ const TableDialog: React.FC<TableDialogProps> = ({
 }) => {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
+        <DialogHeader className="space-y-3 pb-4">
+          <DialogTitle className="text-xl font-semibold text-foreground flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-gradient-to-r from-primary/10 to-primary/5">
+              {editingTable ? (
+                <Edit className="w-5 h-5 text-primary" />
+              ) : (
+                <Plus className="w-5 h-5 text-primary" />
+              )}
+            </div>
             {editingTable ? "Edit Table" : "Add New Table"}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="name">Table Name</Label>
+        <form onSubmit={onSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="name" className="text-sm font-medium text-foreground">
+              Table Name
+            </Label>
             <Input
               id="name"
               name="name"
               defaultValue={editingTable?.name}
               placeholder="e.g., Table 1"
               required
+              className="standardized-input"
             />
           </div>
-          <div>
-            <Label htmlFor="capacity">Capacity</Label>
+          
+          <div className="space-y-2">
+            <Label htmlFor="capacity" className="text-sm font-medium text-foreground">
+              Capacity
+            </Label>
             <Input
               id="capacity"
               name="capacity"
@@ -60,24 +74,58 @@ const TableDialog: React.FC<TableDialogProps> = ({
               defaultValue={editingTable?.capacity}
               placeholder="Number of seats"
               required
+              className="standardized-input"
             />
           </div>
-          <div>
-            <Label htmlFor="status">Status</Label>
+          
+          <div className="space-y-2">
+            <Label htmlFor="status" className="text-sm font-medium text-foreground">
+              Status
+            </Label>
             <Select name="status" defaultValue={editingTable?.status || "available"}>
-              <SelectTrigger>
+              <SelectTrigger className="standardized-input">
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="available">Available</SelectItem>
-                <SelectItem value="occupied">Occupied</SelectItem>
-                <SelectItem value="reserved">Reserved</SelectItem>
+              <SelectContent className="bg-background border-border">
+                <SelectItem value="available" className="hover:bg-primary/10">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    Available
+                  </div>
+                </SelectItem>
+                <SelectItem value="occupied" className="hover:bg-primary/10">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                    Occupied
+                  </div>
+                </SelectItem>
+                <SelectItem value="reserved" className="hover:bg-primary/10">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                    Reserved
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <Button type="submit" className="w-full">
-            {editingTable ? "Update" : "Add"} Table
-          </Button>
+          
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="flex-1 border-border hover:bg-muted"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white shadow-lg"
+            >
+              <Table className="w-4 h-4 mr-2" />
+              {editingTable ? "Update" : "Add"} Table
+            </Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

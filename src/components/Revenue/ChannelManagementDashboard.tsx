@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useChannelManagement } from "@/hooks/useChannelManagement";
-import { Settings, RefreshCw, TrendingUp, AlertTriangle } from "lucide-react";
+import { Settings, RefreshCw, TrendingUp, AlertTriangle, Globe, Zap } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const ChannelManagementDashboard = () => {
@@ -30,52 +30,73 @@ const ChannelManagementDashboard = () => {
 
   const getChannelTypeColor = (type: string) => {
     switch (type) {
-      case 'direct': return 'bg-green-100 text-green-800';
-      case 'ota': return 'bg-blue-100 text-blue-800';
-      case 'gds': return 'bg-purple-100 text-purple-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'direct': return 'bg-gradient-to-r from-green-500 to-green-600 text-white';
+      case 'ota': return 'bg-gradient-to-r from-blue-500 to-blue-600 text-white';
+      case 'gds': return 'bg-gradient-to-r from-purple-500 to-purple-600 text-white';
+      default: return 'bg-gradient-to-r from-gray-500 to-gray-600 text-white';
     }
   };
 
   if (isLoadingChannels) {
-    return <div>Loading channels...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Channel Management</h2>
-        <Button>
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Sync All Channels
-        </Button>
+    <div className="standardized-page">
+      <div className="standardized-header">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="standardized-title flex items-center gap-3">
+              <Globe className="w-8 h-8 text-primary" />
+              Channel Management
+            </h1>
+            <p className="standardized-description">
+              Manage your booking channels, sync rates, and monitor performance
+            </p>
+          </div>
+          <Button className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white shadow-lg">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Sync All Channels
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {bookingChannels.map((channel) => (
-          <Card key={channel.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-medium">
+          <Card key={channel.id} className="standardized-card-elevated group hover:scale-105 transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <CardTitle className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-gradient-to-r from-primary to-primary/80"></div>
                 {channel.channel_name}
               </CardTitle>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-3">
                 <Switch
                   checked={channel.is_active}
                   onCheckedChange={(checked) => handleChannelToggle(channel.id, checked)}
+                  className="data-[state=checked]:bg-primary"
                 />
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" className="hover:bg-primary/10 hover:text-primary transition-colors">
                       <Settings className="w-4 h-4" />
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Channel Settings - {channel.channel_name}</DialogTitle>
+                  <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
+                    <DialogHeader className="space-y-3">
+                      <DialogTitle className="text-xl font-semibold text-foreground flex items-center gap-2">
+                        <Settings className="w-5 h-5 text-primary" />
+                        Channel Settings - {channel.channel_name}
+                      </DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="commission">Commission Rate (%)</Label>
+                    <div className="space-y-6 pt-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="commission" className="text-sm font-medium text-foreground">
+                          Commission Rate (%)
+                        </Label>
                         <Input
                           id="commission"
                           type="number"
@@ -86,10 +107,13 @@ const ChannelManagementDashboard = () => {
                               updates: { commission_rate: parseFloat(e.target.value) }
                             });
                           }}
+                          className="standardized-input"
                         />
                       </div>
-                      <div>
-                        <Label htmlFor="sync-frequency">Sync Frequency (minutes)</Label>
+                      <div className="space-y-2">
+                        <Label htmlFor="sync-frequency" className="text-sm font-medium text-foreground">
+                          Sync Frequency (minutes)
+                        </Label>
                         <Input
                           id="sync-frequency"
                           type="number"
@@ -100,83 +124,89 @@ const ChannelManagementDashboard = () => {
                               updates: { sync_frequency_minutes: parseInt(e.target.value) }
                             });
                           }}
+                          className="standardized-input"
                         />
+                      </div>
+                      <div className="flex justify-end pt-4">
+                        <Button className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white">
+                          Save Changes
+                        </Button>
                       </div>
                     </div>
                   </DialogContent>
                 </Dialog>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <Badge className={getChannelTypeColor(channel.channel_type)}>
-                    {channel.channel_type.toUpperCase()}
-                  </Badge>
-                  <span className="text-sm text-gray-500">
-                    {channel.commission_rate}% commission
-                  </span>
-                </div>
-                
-                <div className="flex justify-between items-center text-sm">
-                  <span>Last Sync:</span>
-                  <span className={!channel.last_sync ? 'text-red-500' : 'text-gray-600'}>
-                    {channel.last_sync 
-                      ? new Date(channel.last_sync).toLocaleDateString()
-                      : 'Never'
-                    }
-                  </span>
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => handleSyncChannel(channel.id)}
-                  disabled={!channel.is_active}
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Sync Now
-                </Button>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Badge className={getChannelTypeColor(channel.channel_type)}>
+                  {channel.channel_type.toUpperCase()}
+                </Badge>
+                <span className="text-sm font-medium text-muted-foreground">
+                  {channel.commission_rate}% commission
+                </span>
               </div>
+              
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Last Sync:</span>
+                <span className={!channel.last_sync ? 'text-red-500 font-medium' : 'text-foreground'}>
+                  {channel.last_sync 
+                    ? new Date(channel.last_sync).toLocaleDateString()
+                    : 'Never'
+                  }
+                </span>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full hover:bg-primary hover:text-white border-primary/30 text-primary transition-all duration-200"
+                onClick={() => handleSyncChannel(channel.id)}
+                disabled={!channel.is_active}
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Sync Now
+              </Button>
             </CardContent>
           </Card>
         ))}
       </div>
 
       {/* Channel Performance Summary */}
-      <Card>
+      <Card className="standardized-card-glass">
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <TrendingUp className="w-5 h-5 mr-2" />
+          <CardTitle className="flex items-center text-xl font-semibold">
+            <div className="p-2 rounded-lg bg-gradient-to-r from-primary/10 to-primary/5 mr-3">
+              <TrendingUp className="w-6 h-6 text-primary" />
+            </div>
             Channel Performance Summary
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
+            <div className="text-center p-4 rounded-lg bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-800">
+              <div className="text-3xl font-bold text-green-600 dark:text-green-400 mb-1">
                 {bookingChannels.filter(c => c.is_active).length}
               </div>
-              <div className="text-sm text-gray-500">Active Channels</div>
+              <div className="text-sm text-green-700 dark:text-green-300 font-medium">Active Channels</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
+            <div className="text-center p-4 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-800">
+              <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">
                 {bookingChannels.filter(c => c.channel_type === 'ota').length}
               </div>
-              <div className="text-sm text-gray-500">OTA Channels</div>
+              <div className="text-sm text-blue-700 dark:text-blue-300 font-medium">OTA Channels</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">
+            <div className="text-center p-4 rounded-lg bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border border-purple-200 dark:border-purple-800">
+              <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-1">
                 {(bookingChannels.reduce((sum, c) => sum + c.commission_rate, 0) / bookingChannels.length).toFixed(1)}%
               </div>
-              <div className="text-sm text-gray-500">Avg Commission</div>
+              <div className="text-sm text-purple-700 dark:text-purple-300 font-medium">Avg Commission</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">
+            <div className="text-center p-4 rounded-lg bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border border-orange-200 dark:border-orange-800">
+              <div className="text-3xl font-bold text-orange-600 dark:text-orange-400 mb-1">
                 {bookingChannels.filter(c => !c.last_sync).length}
               </div>
-              <div className="text-sm text-gray-500">Need Sync</div>
+              <div className="text-sm text-orange-700 dark:text-orange-300 font-medium">Need Sync</div>
             </div>
           </div>
         </CardContent>

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Check, Loader2, Send } from "lucide-react";
+import { Check, Loader2, Send, CheckCircle, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -112,74 +112,85 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-center">
-            <Check className="h-6 w-6 text-green-500" />
-            <span>Checkout Successful</span>
+      <DialogContent className="sm:max-w-lg bg-background border-border shadow-2xl">
+        <DialogHeader className="text-center space-y-4 pb-6">
+          <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-r from-green-500 to-green-600 flex items-center justify-center">
+            <CheckCircle className="h-8 w-8 text-white" />
+          </div>
+          <DialogTitle className="text-2xl font-bold text-foreground">
+            Checkout Successful!
           </DialogTitle>
         </DialogHeader>
         
-        <div className="py-6">
-          <div className="space-y-4">
-            <p className="text-center">
-              <span className="font-semibold">{customerName}</span> has been checked out successfully from <span className="font-semibold">{roomName}</span>.
+        <div className="space-y-6">
+          <div className="text-center">
+            <p className="text-muted-foreground">
+              <span className="font-semibold text-foreground">{customerName}</span> has been checked out successfully from{' '}
+              <span className="font-semibold text-foreground">{roomName}</span>.
             </p>
-            
-            <div className="bg-muted p-4 rounded-lg">
-              <p className="text-sm mb-2">Checkout Summary:</p>
-              <ul className="space-y-1 text-sm">
-                <li className="flex justify-between">
-                  <span>Customer:</span>
-                  <span className="font-medium">{customerName}</span>
-                </li>
-                <li className="flex justify-between">
-                  <span>Room:</span>
-                  <span className="font-medium">{roomName}</span>
-                </li>
-                <li className="flex justify-between">
-                  <span>Checkout Date:</span>
-                  <span className="font-medium">{checkoutDate}</span>
-                </li>
-                <li className="flex justify-between">
-                  <span>Total Amount:</span>
-                  <span className="font-medium">₹{totalAmount.toFixed(2)}</span>
-                </li>
-              </ul>
+          </div>
+          
+          <div className="standardized-card p-6 space-y-4">
+            <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Check className="w-4 h-4 text-green-500" />
+              Checkout Summary
+            </h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center py-2 border-b border-border/50">
+                <span className="text-muted-foreground">Customer:</span>
+                <span className="font-medium text-foreground">{customerName}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-border/50">
+                <span className="text-muted-foreground">Room:</span>
+                <span className="font-medium text-foreground">{roomName}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-border/50">
+                <span className="text-muted-foreground">Checkout Date:</span>
+                <span className="font-medium text-foreground">{checkoutDate}</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-muted-foreground">Total Amount:</span>
+                <span className="font-bold text-lg text-primary">₹{totalAmount.toFixed(2)}</span>
+              </div>
             </div>
-            
-            <div className="text-center">
-              {whatsAppSent ? (
-                <p className="text-green-600 flex items-center justify-center gap-2">
-                  <Check className="h-4 w-4" />
+          </div>
+          
+          <div className="text-center">
+            {whatsAppSent ? (
+              <div className="p-4 rounded-lg bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-800">
+                <p className="text-green-700 dark:text-green-300 flex items-center justify-center gap-2 font-medium">
+                  <CheckCircle className="h-5 w-5" />
                   Bill sent via WhatsApp successfully
                 </p>
-              ) : (
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-2"
-                  onClick={handleSendWhatsApp}
-                  disabled={isSendingWhatsApp}
-                >
-                  {isSendingWhatsApp ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="h-4 w-4" />
-                      Send Bill via WhatsApp
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                className="border-primary/30 text-primary hover:bg-primary hover:text-white transition-all duration-200"
+                onClick={handleSendWhatsApp}
+                disabled={isSendingWhatsApp}
+              >
+                {isSendingWhatsApp ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Phone className="h-4 w-4 mr-2" />
+                    Send Bill via WhatsApp
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
         
-        <DialogFooter>
-          <Button onClick={onClose} className="w-full">
+        <DialogFooter className="pt-6">
+          <Button 
+            onClick={onClose} 
+            className="w-full bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white shadow-lg"
+          >
             Return to Rooms
           </Button>
         </DialogFooter>
