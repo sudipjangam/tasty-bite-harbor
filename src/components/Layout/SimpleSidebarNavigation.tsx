@@ -15,7 +15,8 @@ import {
   MessageSquare,
   Settings,
   DollarSign,
-  Calculator
+  Calculator,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +50,11 @@ const navigationItems = [
     title: "Rooms",
     icon: Bed,
     href: "/rooms",
+  },
+  {
+    title: "Guest Management",
+    icon: Sparkles,
+    href: "/housekeeping",
   },
   {
     title: "Tables",

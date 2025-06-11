@@ -152,6 +152,97 @@ export type Database = {
           },
         ]
       }
+      check_ins: {
+        Row: {
+          actual_check_out: string | null
+          additional_charges: Json | null
+          check_in_method: string
+          check_in_time: string
+          created_at: string
+          created_by: string | null
+          expected_check_out: string
+          guest_profile_id: string
+          id: string
+          key_cards_issued: number | null
+          reservation_id: string
+          restaurant_id: string
+          room_id: string
+          room_rate: number
+          security_deposit: number | null
+          special_requests: string | null
+          staff_notes: string | null
+          status: string
+          total_guests: number
+          updated_at: string
+        }
+        Insert: {
+          actual_check_out?: string | null
+          additional_charges?: Json | null
+          check_in_method?: string
+          check_in_time?: string
+          created_at?: string
+          created_by?: string | null
+          expected_check_out: string
+          guest_profile_id: string
+          id?: string
+          key_cards_issued?: number | null
+          reservation_id: string
+          restaurant_id: string
+          room_id: string
+          room_rate: number
+          security_deposit?: number | null
+          special_requests?: string | null
+          staff_notes?: string | null
+          status?: string
+          total_guests?: number
+          updated_at?: string
+        }
+        Update: {
+          actual_check_out?: string | null
+          additional_charges?: Json | null
+          check_in_method?: string
+          check_in_time?: string
+          created_at?: string
+          created_by?: string | null
+          expected_check_out?: string
+          guest_profile_id?: string
+          id?: string
+          key_cards_issued?: number | null
+          reservation_id?: string
+          restaurant_id?: string
+          room_id?: string
+          room_rate?: number
+          security_deposit?: number | null
+          special_requests?: string | null
+          staff_notes?: string | null
+          status?: string
+          total_guests?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "check_ins_guest_profile_id_fkey"
+            columns: ["guest_profile_id"]
+            isOneToOne: false
+            referencedRelation: "guest_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_ins_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_ins_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_activities: {
         Row: {
           activity_type: string
@@ -481,6 +572,44 @@ export type Database = {
         }
         Relationships: []
       }
+      guest_documents: {
+        Row: {
+          document_number: string | null
+          document_type: string
+          document_url: string
+          expiry_date: string | null
+          guest_profile_id: string
+          id: string
+          uploaded_at: string
+        }
+        Insert: {
+          document_number?: string | null
+          document_type: string
+          document_url: string
+          expiry_date?: string | null
+          guest_profile_id: string
+          id?: string
+          uploaded_at?: string
+        }
+        Update: {
+          document_number?: string | null
+          document_type?: string
+          document_url?: string
+          expiry_date?: string | null
+          guest_profile_id?: string
+          id?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_documents_guest_profile_id_fkey"
+            columns: ["guest_profile_id"]
+            isOneToOne: false
+            referencedRelation: "guest_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_feedback: {
         Row: {
           assigned_to: string | null
@@ -631,6 +760,75 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      guest_profiles: {
+        Row: {
+          address: Json | null
+          blacklisted: boolean | null
+          created_at: string
+          date_of_birth: string | null
+          emergency_contact: Json | null
+          guest_email: string | null
+          guest_name: string
+          guest_phone: string | null
+          id: string
+          id_number: string | null
+          id_type: string | null
+          last_stay: string | null
+          nationality: string | null
+          notes: string | null
+          preferences: Json | null
+          restaurant_id: string
+          total_spent: number | null
+          total_stays: number | null
+          updated_at: string
+          vip_status: boolean | null
+        }
+        Insert: {
+          address?: Json | null
+          blacklisted?: boolean | null
+          created_at?: string
+          date_of_birth?: string | null
+          emergency_contact?: Json | null
+          guest_email?: string | null
+          guest_name: string
+          guest_phone?: string | null
+          id?: string
+          id_number?: string | null
+          id_type?: string | null
+          last_stay?: string | null
+          nationality?: string | null
+          notes?: string | null
+          preferences?: Json | null
+          restaurant_id: string
+          total_spent?: number | null
+          total_stays?: number | null
+          updated_at?: string
+          vip_status?: boolean | null
+        }
+        Update: {
+          address?: Json | null
+          blacklisted?: boolean | null
+          created_at?: string
+          date_of_birth?: string | null
+          emergency_contact?: Json | null
+          guest_email?: string | null
+          guest_name?: string
+          guest_phone?: string | null
+          id?: string
+          id_number?: string | null
+          id_type?: string | null
+          last_stay?: string | null
+          nationality?: string | null
+          notes?: string | null
+          preferences?: Json | null
+          restaurant_id?: string
+          total_spent?: number | null
+          total_stays?: number | null
+          updated_at?: string
+          vip_status?: boolean | null
+        }
+        Relationships: []
       }
       inventory_alerts: {
         Row: {

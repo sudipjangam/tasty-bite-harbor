@@ -16,6 +16,7 @@ import Financial from "@/pages/Financial";
 import AI from "@/pages/AI";
 import Settings from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
+import Housekeeping from "@/pages/Housekeeping";
 
 export const SimpleAppRoutes = () => {
   return (
@@ -33,6 +34,7 @@ export const SimpleAppRoutes = () => {
             <Route path="/tables" element={<Tables />} />
             <Route path="/reservations" element={<Reservations />} />
             <Route path="/rooms" element={<Rooms />} />
+            <Route path="/housekeeping" element={<Housekeeping />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/financial" element={<Financial />} />
             <Route path="/ai" element={<AI />} />
