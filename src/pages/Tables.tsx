@@ -1,9 +1,8 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, Calendar } from "lucide-react";
+import { Plus, Calendar, Users, Utensils } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TableCard, { TableData } from "@/components/Tables/TableCard";
@@ -190,63 +189,88 @@ const Tables = () => {
   };
 
   return (
-    <div className="p-6 space-y-6 bg-gradient-to-br from-purple-50 to-white dark:from-gray-900 dark:to-gray-800">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-            Table & Reservation Management
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Welcome {userName || "User"}!
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950 p-6">
+      {/* Modern Header with Glass Effect */}
+      <div className="mb-8 bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-xl p-8">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-600 rounded-2xl shadow-lg">
+              <Utensils className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 bg-clip-text text-transparent">
+                Table & Reservation Management
+              </h1>
+              <p className="text-gray-600 text-lg mt-2">
+                Welcome {userName || "User"}! Manage your dining spaces efficiently
+              </p>
+            </div>
+          </div>
+          
+          <Button 
+            onClick={() => {
+              setEditingTable(null);
+              setIsAddDialogOpen(true);
+            }} 
+            className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Table
+          </Button>
         </div>
-        <Button 
-          onClick={() => {
-            setEditingTable(null);
-            setIsAddDialogOpen(true);
-          }} 
-          className="bg-purple-600 hover:bg-purple-700"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add Table
-        </Button>
       </div>
 
-      <Tabs defaultValue="tables" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="tables">Tables</TabsTrigger>
-          <TabsTrigger value="reservations" className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Reservations
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="tables" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {tables.map((table) => (
-              <TableCard 
-                key={table.id} 
-                table={table} 
-                onEdit={handleEditTable} 
-                onDelete={handleDelete}
-                onReserve={handleReserveTable}
-              />
-            ))}
+      {/* Modern Tabs with Glass Effect */}
+      <div className="bg-white/90 backdrop-blur-sm border border-white/30 rounded-3xl shadow-xl overflow-hidden">
+        <Tabs defaultValue="tables" className="w-full">
+          <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 p-2">
+            <TabsList className="grid w-full grid-cols-2 bg-white/50 backdrop-blur-sm rounded-2xl">
+              <TabsTrigger 
+                value="tables" 
+                className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white rounded-xl font-semibold"
+              >
+                <Utensils className="h-4 w-4" />
+                Tables
+              </TabsTrigger>
+              <TabsTrigger 
+                value="reservations" 
+                className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white rounded-xl font-semibold"
+              >
+                <Calendar className="h-4 w-4" />
+                Reservations
+              </TabsTrigger>
+            </TabsList>
           </div>
-        </TabsContent>
-        
-        <TabsContent value="reservations" className="space-y-4">
-          {reservationsLoading ? (
-            <div>Loading reservations...</div>
-          ) : (
-            <ReservationsList
-              reservations={reservations}
-              onUpdateStatus={handleUpdateReservationStatus}
-              onDelete={handleDeleteReservation}
-            />
-          )}
-        </TabsContent>
-      </Tabs>
+          
+          <TabsContent value="tables" className="p-8 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {tables.map((table) => (
+                <TableCard 
+                  key={table.id} 
+                  table={table} 
+                  onEdit={handleEditTable} 
+                  onDelete={handleDelete}
+                  onReserve={handleReserveTable}
+                />
+              ))}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="reservations" className="p-8 space-y-6">
+            {reservationsLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+              </div>
+            ) : (
+              <ReservationsList
+                reservations={reservations}
+                onUpdateStatus={handleUpdateReservationStatus}
+                onDelete={handleDeleteReservation}
+              />
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
 
       <TableDialog 
         isOpen={isAddDialogOpen}

@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash2, Package, AlertTriangle, Carrot, Apple, ShoppingBag, Bell, ShoppingCart, BarChart3, History } from "lucide-react";
+import { Plus, Edit, Trash2, Package, AlertTriangle, Carrot, Apple, ShoppingBag, Bell, ShoppingCart, BarChart3, History, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
@@ -209,300 +209,317 @@ const Inventory = () => {
   const categories = ["Vegetables", "Fruits", "Groceries", "Other"];
 
   return (
-    <div className="p-6 space-y-6 bg-gradient-to-br from-purple-50 to-white dark:from-gray-900 dark:to-gray-800">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-            Enhanced Inventory Management
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Complete inventory control with automated alerts and purchase orders
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-emerald-100 dark:from-gray-900 dark:via-slate-900 dark:to-emerald-950 p-6">
+      {/* Modern Header with Glass Effect */}
+      <div className="mb-8 bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-xl p-8">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gradient-to-r from-emerald-500 to-green-600 rounded-2xl shadow-lg">
+              <Package className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 bg-clip-text text-transparent">
+                Enhanced Inventory Management
+              </h1>
+              <p className="text-gray-600 text-lg mt-2 flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-emerald-500" />
+                Complete inventory control with automated alerts and purchase orders
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="alerts" className="flex items-center gap-2">
-            <Bell className="h-4 w-4" />
-            Alerts
-          </TabsTrigger>
-          <TabsTrigger value="purchase-orders" className="flex items-center gap-2">
-            <ShoppingCart className="h-4 w-4" />
-            Purchase Orders
-          </TabsTrigger>
-          <TabsTrigger value="suggestions" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Suggestions
-          </TabsTrigger>
-          <TabsTrigger value="transactions" className="flex items-center gap-2">
-            <History className="h-4 w-4" />
-            Transactions
-          </TabsTrigger>
-        </TabsList>
+      {/* Modern Tabs with Glass Effect */}
+      <div className="bg-white/90 backdrop-blur-sm border border-white/30 rounded-3xl shadow-xl overflow-hidden">
+        <Tabs defaultValue="overview" className="w-full">
+          <div className="bg-gradient-to-r from-emerald-500/10 to-green-500/10 p-2">
+            <TabsList className="grid w-full grid-cols-5 bg-white/50 backdrop-blur-sm rounded-2xl">
+              <TabsTrigger value="overview" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white rounded-xl font-medium">
+                <Package className="h-4 w-4" />
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="alerts" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white rounded-xl font-medium">
+                <Bell className="h-4 w-4" />
+                Alerts
+              </TabsTrigger>
+              <TabsTrigger value="purchase-orders" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white rounded-xl font-medium">
+                <ShoppingCart className="h-4 w-4" />
+                Purchase Orders
+              </TabsTrigger>
+              <TabsTrigger value="suggestions" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white rounded-xl font-medium">
+                <BarChart3 className="h-4 w-4" />
+                Suggestions
+              </TabsTrigger>
+              <TabsTrigger value="transactions" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white rounded-xl font-medium">
+                <History className="h-4 w-4" />
+                Transactions
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-        <TabsContent value="overview" className="space-y-6 mt-6">
-          <div className="flex justify-between items-center">
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button 
-                  onClick={() => setEditingItem(null)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Item
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px] bg-white dark:bg-gray-800">
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingItem ? "Edit Inventory Item" : "Add New Inventory Item"}
-                  </DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <Label htmlFor="name">Item Name</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      defaultValue={editingItem?.name}
-                      required
-                      placeholder="Enter item name"
-                      className="bg-gray-50"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="category">Category</Label>
-                    <Select name="category" defaultValue={editingItem?.category || "Other"}>
-                      <SelectTrigger className="bg-gray-50">
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="quantity">Quantity</Label>
-                    <Input
-                      id="quantity"
-                      name="quantity"
-                      type="number"
-                      step="0.01"
-                      defaultValue={editingItem?.quantity}
-                      required
-                      placeholder="Enter quantity"
-                      className="bg-gray-50"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="unit">Unit</Label>
-                    <Select name="unit" defaultValue={editingItem?.unit || commonUnits[0]}>
-                      <SelectTrigger className="bg-gray-50">
-                        <SelectValue placeholder="Select unit" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {commonUnits.map((unit) => (
-                          <SelectItem key={unit} value={unit}>
-                            {unit}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="reorderLevel">Reorder Level</Label>
-                    <Input
-                      id="reorderLevel"
-                      name="reorderLevel"
-                      type="number"
-                      step="0.01"
-                      defaultValue={editingItem?.reorder_level || ""}
-                      placeholder="Enter reorder level"
-                      className="bg-gray-50"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="costPerUnit">Cost per Unit (₹)</Label>
-                    <Input
-                      id="costPerUnit"
-                      name="costPerUnit"
-                      type="number"
-                      step="0.01"
-                      defaultValue={editingItem?.cost_per_unit || ""}
-                      placeholder="Enter cost per unit"
-                      className="bg-gray-50"
-                    />
-                  </div>
-                  <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700">
-                    {editingItem ? "Update" : "Add"} Item
+          <TabsContent value="overview" className="p-8 space-y-6">
+            <div className="flex justify-between items-center">
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    onClick={() => setEditingItem(null)}
+                    className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Item
                   </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          <div className="flex flex-col sm:flex-row justify-between gap-4">
-            <div className="flex flex-wrap gap-4">
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-[150px] bg-white">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {Object.keys(groupedItems).map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              <Button 
-                variant={showLowStockOnly ? "default" : "outline"} 
-                onClick={() => setShowLowStockOnly(!showLowStockOnly)}
-                className={showLowStockOnly ? "bg-red-600 hover:bg-red-700" : ""}
-              >
-                <AlertTriangle className="mr-2 h-4 w-4" />
-                Low Stock ({lowStockCount})
-              </Button>
-            </div>
-            
-            <ReportExport 
-              items={showLowStockOnly || filterCategory !== "all" ? filteredItems : items} 
-              title={
-                showLowStockOnly 
-                  ? "Low Stock Items Report" 
-                  : filterCategory !== "all" 
-                    ? `${filterCategory} Inventory Report` 
-                    : "Complete Inventory Report"
-              }
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-4">
-            {Object.entries(groupedItems).map(([category, categoryItems]) => (
-              <Card 
-                key={category} 
-                className={`flex items-center gap-3 p-4 border-none shadow-md cursor-pointer ${
-                  filterCategory === category 
-                    ? "bg-gradient-to-br from-purple-100 to-purple-50 border-purple-200" 
-                    : "bg-gradient-to-br from-white to-gray-50"
-                }`}
-                onClick={() => setFilterCategory(category === filterCategory ? "all" : category)}
-              >
-                {getCategoryIcon(category)}
-                <div>
-                  <h3 className="font-medium text-gray-700">{category}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {categoryItems.length} items
-                  </p>
-                </div>
-              </Card>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredItems.map((item) => (
-              <Card 
-                key={item.id} 
-                className={`p-4 shadow-md hover:shadow-lg transition-shadow ${
-                  item.reorder_level && item.quantity <= item.reorder_level
-                    ? "bg-red-50 dark:bg-red-900/20 border-red-200"
-                    : "bg-white dark:bg-gray-800"
-                }`}
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex items-start space-x-3">
-                    <div className={`p-2 rounded-full ${
-                      item.reorder_level && item.quantity <= item.reorder_level
-                        ? "bg-red-100"
-                        : "bg-primary/10"
-                    }`}>
-                      {getCategoryIcon(item.category)}
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px] bg-white/95 backdrop-blur-xl border border-white/30 rounded-3xl shadow-2xl">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+                      {editingItem ? "Edit Inventory Item" : "Add New Inventory Item"}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                      <Label htmlFor="name" className="text-sm font-medium text-gray-700">Item Name</Label>
+                      <Input
+                        id="name"
+                        name="name"
+                        defaultValue={editingItem?.name}
+                        required
+                        placeholder="Enter item name"
+                        className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl"
+                      />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-800 dark:text-gray-200">{item.name}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {item.quantity} {item.unit}
-                      </p>
-                      {item.reorder_level && item.quantity <= item.reorder_level && (
-                        <div className="flex items-center gap-1 mt-2">
-                          <AlertTriangle className="h-4 w-4 text-red-500" />
-                          <Badge variant="destructive" className="text-xs">
-                            Low Stock
-                          </Badge>
-                          {item.notification_sent && (
-                            <div className="flex items-center">
-                              <Bell className="h-4 w-4 text-amber-500 ml-1" />
-                              <span className="text-xs text-amber-500 ml-1">Notification sent</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {item.cost_per_unit && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Cost: ₹{item.cost_per_unit}/{item.unit}
+                      <Label htmlFor="category" className="text-sm font-medium text-gray-700">Category</Label>
+                      <Select name="category" defaultValue={editingItem?.category || "Other"}>
+                        <SelectTrigger className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category} value={category}>
+                              {category}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="quantity" className="text-sm font-medium text-gray-700">Quantity</Label>
+                      <Input
+                        id="quantity"
+                        name="quantity"
+                        type="number"
+                        step="0.01"
+                        defaultValue={editingItem?.quantity}
+                        required
+                        placeholder="Enter quantity"
+                        className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="unit" className="text-sm font-medium text-gray-700">Unit</Label>
+                      <Select name="unit" defaultValue={editingItem?.unit || commonUnits[0]}>
+                        <SelectTrigger className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl">
+                          <SelectValue placeholder="Select unit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {commonUnits.map((unit) => (
+                            <SelectItem key={unit} value={unit}>
+                              {unit}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="reorderLevel" className="text-sm font-medium text-gray-700">Reorder Level</Label>
+                      <Input
+                        id="reorderLevel"
+                        name="reorderLevel"
+                        type="number"
+                        step="0.01"
+                        defaultValue={editingItem?.reorder_level || ""}
+                        placeholder="Enter reorder level"
+                        className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="costPerUnit" className="text-sm font-medium text-gray-700">Cost per Unit (₹)</Label>
+                      <Input
+                        id="costPerUnit"
+                        name="costPerUnit"
+                        type="number"
+                        step="0.01"
+                        defaultValue={editingItem?.cost_per_unit || ""}
+                        placeholder="Enter cost per unit"
+                        className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl"
+                      />
+                    </div>
+                    <Button type="submit" className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold py-3 rounded-xl shadow-lg">
+                      {editingItem ? "Update" : "Add"} Item
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-between gap-4">
+              <div className="flex flex-wrap gap-4">
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger className="w-[150px] bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {Object.keys(groupedItems).map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <Button 
+                  variant={showLowStockOnly ? "default" : "outline"} 
+                  onClick={() => setShowLowStockOnly(!showLowStockOnly)}
+                  className={showLowStockOnly 
+                    ? "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl" 
+                    : "bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl hover:bg-red-50"
+                  }
+                >
+                  <AlertTriangle className="mr-2 h-4 w-4" />
+                  Low Stock ({lowStockCount})
+                </Button>
+              </div>
+              
+              <ReportExport 
+                items={showLowStockOnly || filterCategory !== "all" ? filteredItems : items} 
+                title={
+                  showLowStockOnly 
+                    ? "Low Stock Items Report" 
+                    : filterCategory !== "all" 
+                      ? `${filterCategory} Inventory Report` 
+                      : "Complete Inventory Report"
+                }
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-4">
+              {Object.entries(groupedItems).map(([category, categoryItems]) => (
+                <Card 
+                  key={category} 
+                  className={`flex items-center gap-3 p-4 border-none shadow-lg cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${
+                    filterCategory === category 
+                      ? "bg-gradient-to-br from-emerald-100 via-green-50 to-emerald-100 border-emerald-300" 
+                      : "bg-white/80 backdrop-blur-sm border border-white/30"
+                  }`}
+                  onClick={() => setFilterCategory(category === filterCategory ? "all" : category)}
+                >
+                  {getCategoryIcon(category)}
+                  <div>
+                    <h3 className="font-semibold text-gray-800">{category}</h3>
+                    <p className="text-sm text-gray-600">
+                      {categoryItems.length} items
+                    </p>
+                  </div>
+                </Card>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredItems.map((item) => (
+                <Card 
+                  key={item.id} 
+                  className={`p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-none ${
+                    item.reorder_level && item.quantity <= item.reorder_level
+                      ? "bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border-red-200"
+                      : "bg-white/90 backdrop-blur-sm border border-white/30"
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-start space-x-3 flex-1">
+                      <div className={`p-3 rounded-2xl shadow-lg ${
+                        item.reorder_level && item.quantity <= item.reorder_level
+                          ? "bg-red-100"
+                          : "bg-gradient-to-br from-emerald-100 to-green-100"
+                      }`}>
+                        {getCategoryIcon(item.category)}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-bold text-gray-800 dark:text-gray-200 text-lg">{item.name}</h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {item.quantity} {item.unit}
                         </p>
-                      )}
-                      {item.reorder_level && (
-                        <p className="text-sm text-muted-foreground">
-                          Reorder at: {item.reorder_level} {item.unit}
-                        </p>
-                      )}
+                        {item.reorder_level && item.quantity <= item.reorder_level && (
+                          <div className="flex items-center gap-2 mt-3">
+                            <AlertTriangle className="h-4 w-4 text-red-500" />
+                            <Badge variant="destructive" className="text-xs font-semibold">
+                              Low Stock
+                            </Badge>
+                            {item.notification_sent && (
+                              <div className="flex items-center">
+                                <Bell className="h-4 w-4 text-amber-500 ml-1" />
+                                <span className="text-xs text-amber-600 ml-1 font-medium">Notified</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {item.cost_per_unit && (
+                          <p className="text-sm text-gray-600 mt-2 font-medium">
+                            Cost: ₹{item.cost_per_unit}/{item.unit}
+                          </p>
+                        )}
+                        {item.reorder_level && (
+                          <p className="text-sm text-gray-500 mt-1">
+                            Reorder at: {item.reorder_level} {item.unit}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setEditingItem(item);
+                          setIsAddDialogOpen(true);
+                        }}
+                        className="hover:bg-emerald-100 rounded-xl"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(item.id)}
+                        className="hover:bg-red-100 rounded-xl"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setEditingItem(item);
-                        setIsAddDialogOpen(true);
-                      }}
-                      className="hover:bg-purple-100"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(item.id)}
-                      className="hover:bg-red-100"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
 
-        <TabsContent value="alerts" className="mt-6">
-          <InventoryAlerts />
-        </TabsContent>
+          <TabsContent value="alerts" className="p-8">
+            <InventoryAlerts />
+          </TabsContent>
 
-        <TabsContent value="purchase-orders" className="mt-6">
-          <PurchaseOrders />
-        </TabsContent>
+          <TabsContent value="purchase-orders" className="p-8">
+            <PurchaseOrders />
+          </TabsContent>
 
-        <TabsContent value="suggestions" className="mt-6">
-          <PurchaseOrderSuggestions />
-        </TabsContent>
+          <TabsContent value="suggestions" className="p-8">
+            <PurchaseOrderSuggestions />
+          </TabsContent>
 
-        <TabsContent value="transactions" className="mt-6">
-          <InventoryTransactions />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="transactions" className="p-8">
+            <InventoryTransactions />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 };
