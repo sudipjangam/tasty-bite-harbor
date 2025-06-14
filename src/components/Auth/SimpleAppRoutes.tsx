@@ -24,7 +24,7 @@ export const SimpleAppRoutes = () => {
   return (
     <div className="flex h-screen bg-gray-100">
       <SimpleSidebar />
-      <main className="flex-1 overflow-hidden lg:ml-64">
+      <main className="flex-1 overflow-hidden">
         <div className="h-full overflow-y-auto pt-16 lg:pt-0">
           <Routes>
             <Route path="/" element={<SimpleIndex />} />
