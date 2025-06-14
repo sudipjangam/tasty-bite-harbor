@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/components/ui/use-toast";
@@ -16,7 +15,7 @@ import {
   FormDescription,
 } from "@/components/ui/form";
 import { supabase } from "@/integrations/supabase/client";
-import { X, Upload, Loader2, Image as ImageIcon } from "lucide-react";
+import { X, Upload, Loader2, Image as ImageIcon, Sparkles, ChefHat } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -297,263 +296,322 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
   const categories = ["Main Course", "Appetizers", "Desserts", "Beverages", "Non-Veg", "Vegetarian", "Restaurant Specials", "Other"];
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md relative animate-fade-in overflow-y-auto max-h-[90vh]">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute right-4 top-4"
-          onClick={onClose}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-        <h2 className="text-lg font-semibold mb-4">{editingItem ? "Edit Menu Item" : "Add New Menu Item"}</h2>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Item name" className="bg-gray-50" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Item description" className="bg-gray-50" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Category</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    value={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="bg-gray-50">
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="is_veg"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between space-x-2 rounded-md border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Vegetarian</FormLabel>
-                      <FormDescription>
-                        Mark as vegetarian item
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="is_special"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between space-x-2 rounded-md border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Special</FormLabel>
-                      <FormDescription>
-                        Mark as restaurant special
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white/95 backdrop-blur-xl border border-white/30 rounded-3xl shadow-2xl w-full max-w-2xl relative animate-fade-in overflow-y-auto max-h-[90vh]">
+        {/* Modern Header */}
+        <div className="bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-green-500/20 border-b border-white/20 p-6 rounded-t-3xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl shadow-lg">
+                <ChefHat className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 bg-clip-text text-transparent">
+                  {editingItem ? "Edit Menu Item" : "Add New Menu Item"}
+                </h2>
+                <p className="text-gray-600 text-sm flex items-center gap-1 mt-1">
+                  <Sparkles className="h-4 w-4" />
+                  Create delicious offerings for your customers
+                </p>
+              </div>
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full hover:bg-white/20 transition-all duration-200"
+              onClick={onClose}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
 
-            <FormField
-              control={form.control}
-              name="price"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Price (₹)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      className="bg-gray-50"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        {/* Form Content */}
+        <div className="p-6">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* Basic Information */}
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-gray-700 font-semibold">Item Name</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Enter item name" 
+                          className="bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-200" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="image_url"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Image</FormLabel>
-                  <div className="space-y-4">
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileChange}
-                      accept="image/*"
-                      className="hidden"
-                    />
-                    
-                    {!selectedFile && !uploadedImageUrl && (
-                      <div 
-                        onClick={triggerFileInput}
-                        className="border-2 border-dashed border-gray-300 rounded-md p-6 flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 transition-colors"
-                      >
-                        <ImageIcon className="h-8 w-8 text-gray-400 mb-2" />
-                        <p className="text-sm text-gray-500">Click to upload an image</p>
-                        <p className="text-xs text-gray-400 mt-1">PNG, JPG or GIF (max 5MB)</p>
-                      </div>
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-gray-700 font-semibold">Description</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Describe your delicious item..." 
+                          className="bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-200 min-h-[100px]" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-700 font-semibold">Category</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl focus:border-emerald-400 transition-all duration-200">
+                              <SelectValue placeholder="Select category" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/30 rounded-xl shadow-xl">
+                            {categories.map((category) => (
+                              <SelectItem key={category} value={category} className="rounded-lg">
+                                {category}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                    
-                    {selectedFile && !uploadedImageUrl && (
-                      <div className="border border-gray-200 rounded-md p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium truncate max-w-[200px]">
-                            {selectedFile.name}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={removeImage}
-                            className="h-8 w-8 p-0"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        
-                        {isUploading ? (
-                          <div className="space-y-2">
-                            <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-purple-600 rounded-full transition-all duration-300" 
-                                style={{ width: `${uploadProgress}%` }}
-                              ></div>
-                            </div>
-                            <p className="text-xs text-gray-500 text-center">Uploading... {uploadProgress}%</p>
-                          </div>
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={uploadImage}
-                            className="w-full"
-                          >
-                            <Upload className="h-4 w-4 mr-2" />
-                            Upload image
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                    
-                    {uploadedImageUrl && (
-                      <div className="border border-gray-200 rounded-md overflow-hidden">
-                        <div className="relative aspect-video">
-                          <img 
-                            src={uploadedImageUrl} 
-                            alt="Uploaded" 
-                            className="object-cover w-full h-full"
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="price"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-700 font-semibold">Price (₹)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            className="bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-200"
+                            {...field}
                           />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            onClick={removeImage}
-                            className="absolute top-2 right-2 h-8 w-8 p-0 rounded-full"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <p className="text-xs text-gray-500 p-2 bg-gray-50 truncate">
-                          {uploadedImageUrl}
-                        </p>
-                      </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                    
-                    <Input
-                      type="hidden"
-                      {...field}
-                    />
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                  />
+                </div>
+              </div>
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={onClose} type="button">
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={isSubmitting || isUploading}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {editingItem ? "Updating..." : "Adding..."}
-                  </>
-                ) : (
-                  editingItem ? "Update Item" : "Add Item"
+              {/* Special Options */}
+              <div className="bg-gradient-to-r from-gray-50/80 to-white/80 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-emerald-500" />
+                  Special Options
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="is_veg"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between space-x-2 rounded-xl border border-green-200 bg-green-50/50 p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base font-semibold text-green-700">🌱 Vegetarian</FormLabel>
+                          <FormDescription className="text-green-600">
+                            Mark as vegetarian item
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            className="data-[state=checked]:bg-green-500"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="is_special"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between space-x-2 rounded-xl border border-purple-200 bg-purple-50/50 p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base font-semibold text-purple-700">⭐ Special</FormLabel>
+                          <FormDescription className="text-purple-600">
+                            Mark as restaurant special
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            className="data-[state=checked]:bg-purple-500"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Image Upload Section */}
+              <FormField
+                control={form.control}
+                name="image_url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-gray-700 font-semibold">Item Image</FormLabel>
+                    <div className="space-y-4">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                      
+                      {!selectedFile && !uploadedImageUrl && (
+                        <div 
+                          onClick={triggerFileInput}
+                          className="border-2 border-dashed border-emerald-300 bg-emerald-50/50 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50 transition-all duration-300 group"
+                        >
+                          <div className="p-3 bg-emerald-100 rounded-xl group-hover:bg-emerald-200 transition-all duration-200">
+                            <ImageIcon className="h-8 w-8 text-emerald-600" />
+                          </div>
+                          <p className="text-lg font-semibold text-emerald-700 mt-3">Upload Item Image</p>
+                          <p className="text-sm text-emerald-600 mt-1">PNG, JPG or GIF (max 5MB)</p>
+                        </div>
+                      )}
+                      
+                      {selectedFile && !uploadedImageUrl && (
+                        <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm font-semibold text-gray-700 truncate max-w-[250px]">
+                              📁 {selectedFile.name}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={removeImage}
+                              className="h-8 w-8 p-0 rounded-lg hover:bg-red-100 hover:text-red-600"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          
+                          {isUploading ? (
+                            <div className="space-y-3">
+                              <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500" 
+                                  style={{ width: `${uploadProgress}%` }}
+                                ></div>
+                              </div>
+                              <p className="text-sm text-gray-600 text-center font-medium">Uploading... {uploadProgress}%</p>
+                            </div>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={uploadImage}
+                              className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-600 text-white border-0 rounded-xl"
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Upload Image
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                      
+                      {uploadedImageUrl && (
+                        <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl overflow-hidden">
+                          <div className="relative aspect-video">
+                            <img 
+                              src={uploadedImageUrl} 
+                              alt="Uploaded item" 
+                              className="object-cover w-full h-full"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={removeImage}
+                              className="absolute top-3 right-3 h-8 w-8 p-0 rounded-full shadow-lg backdrop-blur-sm"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="p-3 bg-gray-50/80">
+                            <p className="text-xs text-gray-600 truncate">
+                              ✅ Image uploaded successfully
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <Input
+                        type="hidden"
+                        {...field}
+                      />
+                    </div>
+                    <FormMessage />
+                  </FormItem>
                 )}
-              </Button>
-            </div>
-          </form>
-        </Form>
+              />
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-6 border-t border-gray-200/50">
+                <Button 
+                  variant="outline" 
+                  onClick={onClose} 
+                  type="button"
+                  className="px-6 py-2.5 rounded-xl border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all duration-200"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={isSubmitting || isUploading}
+                  className="px-8 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {editingItem ? "Updating..." : "Adding..."}
+                    </>
+                  ) : (
+                    <>
+                      <ChefHat className="mr-2 h-4 w-4" />
+                      {editingItem ? "Update Item" : "Add Item"}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </div>
       </div>
     </div>
   );
