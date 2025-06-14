@@ -17,6 +17,7 @@ import {
   Sparkles,
   Bed,
   Globe,
+  ChefHat,
 } from "lucide-react";
 
 interface SidebarNavigationProps {
@@ -30,6 +31,7 @@ const SidebarNavigation = ({ allowedComponents = [] }: SidebarNavigationProps) =
   const navigationItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/" },
     { icon: UtensilsCrossed, label: "Orders", path: "/orders" },
+    { icon: ChefHat, label: "Kitchen", path: "/kitchen" },
     { icon: BookOpen, label: "Menu", path: "/menu" },
     { icon: Users, label: "Staff", path: "/staff" },
     { icon: Package, label: "Inventory", path: "/inventory" },

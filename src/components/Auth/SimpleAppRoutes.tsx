@@ -18,6 +18,7 @@ import Settings from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
 import Housekeeping from "@/pages/Housekeeping";
 import ChannelManagement from "@/pages/ChannelManagement";
+import Kitchen from "@/pages/Kitchen";
 
 export const SimpleAppRoutes = () => {
   return (
@@ -41,6 +42,7 @@ export const SimpleAppRoutes = () => {
             <Route path="/ai" element={<AI />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/channel-management" element={<ChannelManagement />} />
+            <Route path="/kitchen" element={<Kitchen />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </div>
