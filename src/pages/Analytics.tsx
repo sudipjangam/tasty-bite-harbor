@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAnalyticsData } from "@/hooks/useAnalyticsData";
 import AnalyticsHeader from "@/components/Analytics/AnalyticsHeader";
@@ -17,6 +16,7 @@ import Watermark from "@/components/Layout/Watermark";
 import { fetchAllowedComponents } from "@/utils/subscriptionUtils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { TrendingUp, BarChart3, Sparkles } from "lucide-react";
 
 const Analytics = () => {
   const { toast } = useToast();
@@ -92,11 +92,21 @@ const Analytics = () => {
 
   if (isLoading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 w-48 bg-muted rounded"></div>
-          <div className="h-96 bg-muted rounded"></div>
-          <div className="h-96 bg-muted rounded"></div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950 p-6">
+        <div className="animate-pulse space-y-6">
+          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8">
+            <div className="h-8 w-48 bg-gradient-to-r from-purple-200 to-indigo-200 rounded"></div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-6">
+                <div className="h-24 bg-gradient-to-r from-purple-100 to-indigo-100 rounded"></div>
+              </div>
+            ))}
+          </div>
+          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8">
+            <div className="h-96 bg-gradient-to-r from-purple-100 to-indigo-100 rounded"></div>
+          </div>
         </div>
       </div>
     );
@@ -104,11 +114,20 @@ const Analytics = () => {
 
   if (!data) {
     return (
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-          Analytics & Reports
-        </h1>
-        <p className="text-muted-foreground">No data available.</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950 p-6">
+        <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="p-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 rounded-2xl shadow-xl">
+              <Sparkles className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 bg-clip-text text-transparent">
+                Analytics & Reports
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">No data available.</p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -362,55 +381,115 @@ const Analytics = () => {
   };
 
   return (
-    <div className="p-6 space-y-6 bg-gradient-to-br from-purple-50 to-white dark:from-gray-900 dark:to-gray-800 animate-fade-in">
-      <AnalyticsHeader 
-        analyticsView={analyticsView}
-        setAnalyticsView={setAnalyticsView}
-        hasBusinessDashboardAccess={hasBusinessDashboardAccess}
-        exportToExcel={exportToExcel}
-        exportToPDF={exportToPDF}
-      />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950 animate-fade-in">
+      {/* Modern Header */}
+      <div className="p-4 md:p-6">
+        <div className="mb-8 bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="p-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 rounded-2xl shadow-xl">
+              <BarChart3 className="h-8 w-8 text-white" />
+            </div>
+            <div className="flex-1">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 bg-clip-text text-transparent">
+                Analytics & Reports
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
+                Comprehensive insights into your restaurant's performance
+              </p>
+            </div>
+            
+            {/* Quick status indicators */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 px-4 py-2 bg-green-100 dark:bg-green-900/30 rounded-xl">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-sm font-medium text-green-700 dark:text-green-300">Live Data</span>
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+                <TrendingUp className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Auto-Refresh</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Enhanced Analytics Header */}
+        <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-6 mb-8 transform hover:scale-[1.01] transition-all duration-300">
+          <AnalyticsHeader 
+            analyticsView={analyticsView}
+            setAnalyticsView={setAnalyticsView}
+            hasBusinessDashboardAccess={hasBusinessDashboardAccess}
+            exportToExcel={exportToExcel}
+            exportToPDF={exportToPDF}
+          />
+        </div>
+      </div>
 
-      {analyticsView === "charts" ? (
-        <>
-          <StatCards 
-            totalRevenue={totalRevenue}
-            totalOrders={totalOrders}
-            averageOrderValue={averageOrderValue}
-            ordersToday={ordersToday}
-          />
+      <div className="px-4 md:px-6 pb-6 space-y-8">
+        {analyticsView === "charts" ? (
+          <>
+            {/* Enhanced Stats Section */}
+            <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl shadow-lg">
+                  <TrendingUp className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                    Performance Overview
+                  </h2>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm">
+                    Key metrics and KPIs at a glance
+                  </p>
+                </div>
+              </div>
+              <StatCards 
+                totalRevenue={totalRevenue}
+                totalOrders={totalOrders}
+                averageOrderValue={averageOrderValue}
+                ordersToday={ordersToday}
+              />
+            </div>
 
-          <TimeRangeSelector 
-            timeRange={timeRange}
-            setTimeRange={setTimeRange}
-          />
+            {/* Enhanced Time Range Selector */}
+            <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-6 transform hover:scale-[1.01] transition-all duration-300">
+              <TimeRangeSelector 
+                timeRange={timeRange}
+                setTimeRange={setTimeRange}
+              />
+            </div>
 
-          <ChartCards 
-            filteredData={getFilteredData(parseInt(timeRange))}
-            categoryData={categoryData}
-            customerTimeData={customerTimeData}
-            timeRange={timeRange}
-            topProducts={data.topProducts}
-            salesPrediction={data.salesPrediction}
-            setExpandedChart={setExpandedChart}
-          />
-          
-          <ExpandedChartDialog 
-            expandedChart={expandedChart}
-            setExpandedChart={setExpandedChart}
-            showDataTable={showDataTable}
-            setShowDataTable={setShowDataTable}
-            filteredData={getFilteredData(parseInt(timeRange))}
-            categoryData={categoryData}
-            customerTimeData={customerTimeData}
-            timeRange={timeRange}
-            topProducts={data.topProducts}
-            salesPrediction={data.salesPrediction}
-          />
-        </>
-      ) : (
-        <BusinessDashboard />
-      )}
+            {/* Enhanced Charts Section */}
+            <div className="space-y-8">
+              <ChartCards 
+                filteredData={getFilteredData(parseInt(timeRange))}
+                categoryData={categoryData}
+                customerTimeData={customerTimeData}
+                timeRange={timeRange}
+                topProducts={data.topProducts}
+                salesPrediction={data.salesPrediction}
+                setExpandedChart={setExpandedChart}
+              />
+            </div>
+            
+            <ExpandedChartDialog 
+              expandedChart={expandedChart}
+              setExpandedChart={setExpandedChart}
+              showDataTable={showDataTable}
+              setShowDataTable={setShowDataTable}
+              filteredData={getFilteredData(parseInt(timeRange))}
+              categoryData={categoryData}
+              customerTimeData={customerTimeData}
+              timeRange={timeRange}
+              topProducts={data.topProducts}
+              salesPrediction={data.salesPrediction}
+            />
+          </>
+        ) : (
+          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
+            <BusinessDashboard />
+          </div>
+        )}
+      </div>
     </div>
   );
 };
