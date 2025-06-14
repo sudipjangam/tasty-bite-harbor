@@ -14,9 +14,10 @@ import TimeClockDialog from "@/components/Staff/TimeClockDialog";
 import type { StaffMember, StaffRole } from "@/types/staff";
 import { Button } from "@/components/ui/button";
 import { UserPlus, ClockIcon } from "lucide-react";
-import { buttonStyles } from "@/config/buttonStyles";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { StandardizedPage } from "@/components/Layout/StandardizedPage";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const Staff = () => {
   const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
@@ -81,46 +82,41 @@ const Staff = () => {
   };
 
   return (
-    <div className="p-6 space-y-6 bg-gradient-to-br from-purple-50 to-white dark:from-gray-900 dark:to-gray-800 min-h-screen">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-            Staff Management
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your restaurant's staff and leave requests
-          </p>
-        </div>
-        <div className="flex gap-3">
+    <StandardizedPage
+      title="Staff Management"
+      description="Manage your restaurant's staff and leave requests"
+      actions={
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
           <Button 
             onClick={() => setIsTimeClockDialogOpen(true)}
             variant="outline"
-            className={buttonStyles.view}
+            className="bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700"
           >
             <ClockIcon className="h-4 w-4 mr-2" />
             Clock In/Out
           </Button>
           <Button 
             onClick={handleAddStaff}
-            className={buttonStyles.primary}
+            className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white"
           >
             <UserPlus className="h-4 w-4 mr-2" />
             Add Staff
           </Button>
         </div>
-      </div>
-
+      }
+    >
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-6 bg-white dark:bg-gray-800 p-1 border border-gray-200 dark:border-gray-700 rounded-lg">
+        <TabsList className="mb-6 bg-white dark:bg-neutral-800 p-1 border border-neutral-200 dark:border-neutral-700 rounded-lg">
           <TabsTrigger 
             value="staff" 
-            className="data-[state=active]:bg-primary data-[state=active]:text-white transition-colors"
+            className="data-[state=active]:bg-primary-500 data-[state=active]:text-white text-neutral-600 dark:text-neutral-300 transition-colors"
           >
             Staff List
           </TabsTrigger>
           <TabsTrigger 
             value="leaves"
-            className="data-[state=active]:bg-primary data-[state=active]:text-white transition-colors"
+            className="data-[state=active]:bg-primary-500 data-[state=active]:text-white text-neutral-600 dark:text-neutral-300 transition-colors"
           >
             Leave Management
           </TabsTrigger>
@@ -129,7 +125,7 @@ const Staff = () => {
         <TabsContent value="staff" className="animate-in fade-in">
           <ErrorBoundary>
             {selectedStaff ? (
-              <Card className="p-6 bg-white dark:bg-gray-800 shadow-md border-t-4 border-t-primary">
+              <Card className="p-6 bg-white dark:bg-neutral-800 shadow-md border-t-4 border-t-primary-500">
                 <StaffDetail 
                   staffId={selectedStaff.id}
                   restaurantId={restaurantId}
@@ -150,7 +146,7 @@ const Staff = () => {
         
         <TabsContent value="leaves" className="animate-in fade-in">
           <ErrorBoundary>
-            <Card className="p-6 bg-white dark:bg-gray-800 shadow-md">
+            <Card className="p-6 bg-white dark:bg-neutral-800 shadow-md">
               <StaffLeaveManager />
             </Card>
           </ErrorBoundary>
@@ -177,7 +173,7 @@ const Staff = () => {
           });
         }}
       />
-    </div>
+    </StandardizedPage>
   );
 };
 

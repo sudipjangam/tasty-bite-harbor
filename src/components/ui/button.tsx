@@ -9,13 +9,13 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-md hover:shadow-lg",
-        destructive: "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-md hover:shadow-lg",
-        outline: "border border-primary-300 bg-white hover:bg-primary-50 hover:border-primary-400 text-primary-600 shadow-sm hover:shadow-md",
-        secondary: "bg-white border border-neutral-300 hover:bg-neutral-50 hover:border-neutral-400 text-neutral-700 shadow-sm hover:shadow-md",
-        ghost: "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300",
-        link: "text-primary-600 underline-offset-4 hover:underline",
-        success: "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md hover:shadow-lg",
+        default: "bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-md hover:shadow-lg border-0",
+        destructive: "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-md hover:shadow-lg border-0",
+        outline: "border-2 border-primary-300 dark:border-primary-400 bg-white dark:bg-neutral-800 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:border-primary-400 dark:hover:border-primary-300 text-primary-600 dark:text-primary-400 shadow-sm hover:shadow-md",
+        secondary: "bg-white dark:bg-neutral-800 border-2 border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-500 text-neutral-700 dark:text-neutral-200 shadow-sm hover:shadow-md",
+        ghost: "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-0",
+        link: "text-primary-600 dark:text-primary-400 underline-offset-4 hover:underline border-0",
+        success: "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md hover:shadow-lg border-0",
       },
       size: {
         default: "h-10 px-4 py-2",

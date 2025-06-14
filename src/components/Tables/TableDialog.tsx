@@ -110,7 +110,7 @@ const TableDialog: React.FC<TableDialogProps> = ({
           <div className="flex gap-3 pt-4">
             <Button
               type="button"
-              variant="secondary"
+              variant="outline"
               onClick={() => onOpenChange(false)}
               className="flex-1"
             >
@@ -118,6 +118,7 @@ const TableDialog: React.FC<TableDialogProps> = ({
             </Button>
             <Button
               type="submit"
+              variant="default"
               className="flex-1"
             >
               <Table className="w-4 h-4 mr-2" />
