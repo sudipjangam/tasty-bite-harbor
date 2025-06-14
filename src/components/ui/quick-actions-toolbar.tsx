@@ -34,24 +34,27 @@ export const QuickActionsToolbar: React.FC<QuickActionsToolbarProps> = ({
   className
 }) => {
   return (
-    <StandardizedCard variant="elevated" padding="sm" className={className}>
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-sm font-medium text-gray-700 mr-2">Quick Actions:</span>
-        {actions.map((action) => (
-          <StandardizedButton
-            key={action.id}
-            variant={action.variant || 'ghost'}
-            size="sm"
-            onClick={action.onClick}
-            disabled={action.disabled}
-            icon={<action.icon className="h-4 w-4" />}
-            iconPosition="left"
-          >
-            {action.label}
-          </StandardizedButton>
-        ))}
-      </div>
-    </StandardizedCard>
+    <div className={`flex items-center gap-2 flex-wrap ${className}`}>
+      <span className="text-sm font-medium text-gray-700 mr-2">Quick Actions:</span>
+      {actions.map((action) => (
+        <button
+          key={action.id}
+          onClick={action.onClick}
+          disabled={action.disabled}
+          className={`
+            flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300
+            ${action.variant === 'primary' 
+              ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg hover:shadow-xl hover:from-indigo-600 hover:to-purple-700 transform hover:-translate-y-0.5' 
+              : 'bg-white/80 text-gray-700 border border-gray-200 hover:bg-white hover:border-indigo-300 hover:text-indigo-600 shadow-sm hover:shadow-md'
+            }
+            ${action.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+          `}
+        >
+          <action.icon className="h-4 w-4" />
+          {action.label}
+        </button>
+      ))}
+    </div>
   );
 };
 
