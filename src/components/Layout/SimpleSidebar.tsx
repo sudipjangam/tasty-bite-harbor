@@ -1,159 +1,85 @@
 
-import React, { useState, useEffect } from "react";
-import { Menu as MenuIcon, LogOut } from "lucide-react";
+import React, { useState } from "react";
+import { X, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { useSimpleAuth } from "@/hooks/useSimpleAuth";
-import { SimpleSidebarNavigation } from "./SimpleSidebarNavigation";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { ImprovedSidebarNavigation } from "./ImprovedSidebarNavigation";
 
 const SimpleSidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [staffName, setStaffName] = useState<string | null>(null);
-  const [restaurantName, setRestaurantName] = useState<string | null>(null);
-  const { user, signOut } = useSimpleAuth();
-  const navigate = useNavigate();
-  const { toast } = useToast();
-
-  const getProfileData = async () => {
-    try {
-      if (user) {
-        const { data: profile, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .single();
-
-        if (error) {
-          console.error("Error fetching profile:", error);
-          return;
-        }
-
-        const displayName = profile?.first_name
-          ? `${profile.first_name} ${profile.last_name || ""}`
-          : user.email?.split("@")[0] || "User";
-
-        setStaffName(displayName.trim());
-        
-        // Fetch restaurant name
-        if (profile?.restaurant_id) {
-          fetchRestaurantName(profile.restaurant_id);
-        }
-      }
-    } catch (error) {
-      console.error("Profile fetch error:", error);
-    }
-  };
-  
-  const fetchRestaurantName = async (restId: string) => {
-    try {
-      const { data: restaurant, error } = await supabase
-        .from("restaurants")
-        .select("name")
-        .eq("id", restId)
-        .single();
-        
-      if (error) {
-        console.error("Error fetching restaurant:", error);
-        return;
-      }
-      
-      setRestaurantName(restaurant?.name || "Restaurant");
-    } catch (error) {
-      console.error("Restaurant fetch error:", error);
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      console.log("SimpleSidebar: Starting logout process");
-      await signOut();
-      console.log("SimpleSidebar: Logout successful");
-      toast({
-        title: "Signed out",
-        description: "You have been successfully signed out.",
-      });
-      // Don't navigate manually - let the auth state change handle routing
-    } catch (error) {
-      console.error("Sign out error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to sign out. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  useEffect(() => {
-    getProfileData();
-  }, [user]);
 
   return (
     <>
-      {/* Mobile toggle */}
-      <div className="fixed top-4 left-4 z-40 lg:hidden">
+      {/* Mobile menu button */}
+      <div className="lg:hidden fixed top-4 left-4 z-50">
         <Button
-          onClick={() => setIsOpen(true)}
-          variant="outline"
+          variant="ghost"
           size="icon"
-          className="bg-card"
+          onClick={() => setIsOpen(true)}
+          className="bg-white shadow-md hover:bg-gray-50"
         >
-          <MenuIcon className="h-5 w-5" />
+          <Menu className="h-5 w-5" />
         </Button>
       </div>
 
-      {/* Sidebar */}
-      <div className={`
-        fixed inset-y-0 left-0 z-30 w-64 bg-sidebar-purple transform transition-transform duration-300 ease-in-out
-        lg:translate-x-0 lg:static lg:inset-0
-        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
-        {/* Header */}
-        <div className="p-4 border-b border-sidebar-border">
-          <h1 className="text-xl font-bold text-white">
-            {restaurantName || "Restaurant"}
-          </h1>
-          <p className="text-sm text-white/70">Management System</p>
-        </div>
-
-        {/* Navigation */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <SimpleSidebarNavigation />
-        </div>
-
-        {/* Footer */}
-        <div className="border-t border-sidebar-border p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-sidebar-purple font-medium">
-              {staffName ? staffName.charAt(0) : "?"}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate text-white">
-                {staffName || "Loading..."}
-              </p>
-              <p className="text-xs text-white/70 truncate">Staff Member</p>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleSignOut}
-              title="Sign Out"
-              className="text-white hover:bg-sidebar-purple-dark"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Overlay for mobile */}
+      {/* Mobile overlay */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+          className="lg:hidden fixed inset-0 bg-black/50 z-40"
           onClick={() => setIsOpen(false)}
         />
       )}
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed top-0 left-0 z-40 h-full w-64 
+        bg-gradient-to-b from-sidebar-purple to-sidebar-purple-dark 
+        transform transition-transform duration-300 ease-in-out
+        lg:translate-x-0 lg:static lg:z-auto
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
+              <span className="text-sidebar-purple font-bold text-lg">R</span>
+            </div>
+            <div>
+              <h2 className="text-white font-semibold text-sm">Restaurant Pro</h2>
+              <p className="text-white/70 text-xs">Management System</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <ThemeToggle />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsOpen(false)}
+              className="lg:hidden text-white hover:bg-white/10 w-8 h-8"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <div className="flex-1 overflow-y-auto py-4">
+          <ImprovedSidebarNavigation />
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-white/10">
+          <div className="text-center">
+            <p className="text-white/60 text-xs">
+              © 2024 Restaurant Pro
+            </p>
+            <p className="text-white/60 text-xs">
+              Version 2.0
+            </p>
+          </div>
+        </div>
+      </aside>
     </>
   );
 };
