@@ -52,13 +52,13 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask anything about your restaurant..."
-          className="pr-12 py-3 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 rounded-full focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          className="pr-12 py-4 bg-white/80 backdrop-blur-sm border-2 border-gray-200 hover:border-indigo-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 rounded-2xl font-medium text-gray-900 placeholder:text-gray-500 transition-all duration-300"
           disabled={isLoading}
         />
         <Button
           variant="ghost"
           size="icon"
-          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 h-8 w-8"
+          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:text-gray-500 dark:hover:text-gray-300 h-8 w-8 rounded-xl transition-all duration-300"
           disabled={true}
         >
           <Mic className="h-4 w-4" />
@@ -67,10 +67,10 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
       <Button
         type="submit"
         size="icon"
-        disabled={isLoading}
-        className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-full h-10 w-10 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+        disabled={isLoading || !message.trim()}
+        className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:via-purple-700 hover:to-indigo-800 text-white rounded-2xl h-12 w-12 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none transform hover:-translate-y-0.5 transition-all duration-300"
       >
-        <Send className="h-4 w-4" />
+        <Send className="h-5 w-5" />
       </Button>
     </form>
   );
