@@ -1,5 +1,5 @@
 
-import { Clock } from "lucide-react";
+import { Clock, ChefHat, CheckCircle, AlertCircle } from "lucide-react";
 import OrderTicket from "./OrderTicket";
 import type { KitchenOrder } from "./KitchenDisplay";
 
@@ -11,69 +11,87 @@ interface OrdersColumnProps {
 }
 
 const OrdersColumn = ({ title, orders, onStatusUpdate, variant }: OrdersColumnProps) => {
-  const getBgColor = () => {
+  const getColumnStyles = () => {
     switch (variant) {
       case "new":
-        return "bg-gradient-to-b from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/10 border-amber-300 dark:border-amber-700";
+        return {
+          container: "bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 border-amber-200/50",
+          header: "text-amber-800 bg-gradient-to-r from-amber-500 to-orange-500",
+          badge: "bg-amber-500 text-white shadow-lg",
+          icon: <AlertCircle className="w-5 h-5" />
+        };
       case "preparing":
-        return "bg-gradient-to-b from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/10 border-blue-300 dark:border-blue-700";
+        return {
+          container: "bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border-blue-200/50",
+          header: "text-blue-800 bg-gradient-to-r from-blue-500 to-indigo-600",
+          badge: "bg-blue-500 text-white shadow-lg",
+          icon: <ChefHat className="w-5 h-5" />
+        };
       case "ready":
-        return "bg-gradient-to-b from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/10 border-green-300 dark:border-green-700";
+        return {
+          container: "bg-gradient-to-br from-green-50 via-emerald-50 to-green-100 border-green-200/50",
+          header: "text-green-800 bg-gradient-to-r from-green-500 to-emerald-500",
+          badge: "bg-green-500 text-white shadow-lg",
+          icon: <CheckCircle className="w-5 h-5" />
+        };
       default:
-        return "bg-gray-50 dark:bg-gray-800";
-    }
-  };
-  
-  const getHeaderColor = () => {
-    switch (variant) {
-      case "new":
-        return "text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700/50";
-      case "preparing":
-        return "text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-700/50";
-      case "ready":
-        return "text-green-700 dark:text-green-400 border-green-300 dark:border-green-700/50";
-      default:
-        return "text-gray-700 dark:text-gray-300";
-    }
-  };
-  
-  const getCountBadgeColor = () => {
-    switch (variant) {
-      case "new":
-        return "bg-amber-200 text-amber-800 dark:bg-amber-800 dark:text-amber-200";
-      case "preparing":
-        return "bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200";
-      case "ready":
-        return "bg-green-200 text-green-800 dark:bg-green-800 dark:text-green-200";
-      default:
-        return "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
+        return {
+          container: "bg-gray-50 border-gray-200",
+          header: "text-gray-800 bg-gray-500",
+          badge: "bg-gray-500 text-white",
+          icon: <Clock className="w-5 h-5" />
+        };
     }
   };
 
+  const styles = getColumnStyles();
+
   return (
-    <div className={`rounded-lg p-4 border-2 shadow-lg ${getBgColor()}`}>
-      <div className={`flex items-center justify-between mb-4 pb-2 border-b ${getHeaderColor()}`}>
-        <h2 className="text-lg font-bold">{title}</h2>
-        <div className={`flex items-center rounded-full px-2 py-1 ${getCountBadgeColor()}`}>
-          <Clock className="w-4 h-4 mr-1" />
-          <span className="font-bold">{orders.length}</span>
+    <div className={`rounded-3xl border-2 shadow-xl backdrop-blur-sm transition-all duration-300 hover:shadow-2xl ${styles.container}`}>
+      {/* Modern Header with Gradient */}
+      <div className={`${styles.header} text-white p-6 rounded-t-3xl shadow-lg`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {styles.icon}
+            <h2 className="text-xl font-bold">{title}</h2>
+          </div>
+          <div className={`flex items-center rounded-full px-4 py-2 ${styles.badge}`}>
+            <Clock className="w-4 h-4 mr-2" />
+            <span className="font-bold text-lg">{orders.length}</span>
+          </div>
+        </div>
+        
+        {/* Progress Bar */}
+        <div className="mt-4 bg-white/20 rounded-full h-2">
+          <div 
+            className="bg-white/80 h-2 rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${Math.min((orders.length / 10) * 100, 100)}%` }}
+          />
         </div>
       </div>
-      {orders.length === 0 ? (
-        <div className="flex items-center justify-center h-40 text-gray-500 dark:text-gray-400">
-          No orders found
-        </div>
-      ) : (
-        <div className="space-y-4 max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
-          {orders.map((order) => (
-            <OrderTicket
-              key={order.id}
-              order={order}
-              onStatusUpdate={onStatusUpdate}
-            />
-          ))}
-        </div>
-      )}
+
+      {/* Orders Content */}
+      <div className="p-6">
+        {orders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+            <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
+              {styles.icon}
+            </div>
+            <p className="text-lg font-medium">No orders found</p>
+            <p className="text-sm text-gray-400 mt-1">Orders will appear here when received</p>
+          </div>
+        ) : (
+          <div className="space-y-4 max-h-[calc(100vh-320px)] overflow-y-auto pr-2 custom-scrollbar">
+            {orders.map((order) => (
+              <OrderTicket
+                key={order.id}
+                order={order}
+                onStatusUpdate={onStatusUpdate}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

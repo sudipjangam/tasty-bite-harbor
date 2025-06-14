@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Volume2, VolumeX } from "lucide-react";
+import { Volume2, VolumeX, Filter, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import OrderTicket from "./OrderTicket";
 import OrdersColumn from "./OrdersColumn";
@@ -27,6 +26,7 @@ const KitchenDisplay = () => {
   const [filteredOrders, setFilteredOrders] = useState<KitchenOrder[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [dateFilter, setDateFilter] = useState("today");
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const { toast } = useToast();
   
   // Create the audio element with error handling
@@ -228,29 +228,93 @@ const KitchenDisplay = () => {
     return filteredOrders.filter((order) => order.status === status);
   };
 
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
+
+  const totalOrders = filteredOrders.length;
+  const newOrders = filterOrdersByStatus("new").length;
+  const preparingOrders = filterOrdersByStatus("preparing").length;
+  const readyOrders = filterOrdersByStatus("ready").length;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-indigo-950 p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-          Kitchen Display System
-        </h1>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setSoundEnabled(!soundEnabled)}
-          className="ml-2 border-blue-200 dark:border-blue-800"
-        >
-          {soundEnabled ? (
-            <Volume2 className="h-5 w-5 text-blue-600" />
-          ) : (
-            <VolumeX className="h-5 w-5 text-gray-400" />
-          )}
-        </Button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 p-6">
+      {/* Modern Header with Glass Effect */}
+      <div className="mb-8 bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-xl p-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
+              Kitchen Display System
+            </h1>
+            <p className="text-gray-600 text-lg">Real-time order management dashboard</p>
+          </div>
+          
+          {/* Action Buttons with Modern Design */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm rounded-2xl p-2 border border-white/30">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSoundEnabled(!soundEnabled)}
+                className={`rounded-xl transition-all duration-300 ${
+                  soundEnabled 
+                    ? 'bg-green-100 text-green-600 hover:bg-green-200' 
+                    : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                }`}
+              >
+                {soundEnabled ? (
+                  <Volume2 className="h-5 w-5" />
+                ) : (
+                  <VolumeX className="h-5 w-5" />
+                )}
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleFullscreen}
+                className="rounded-xl bg-blue-100 text-blue-600 hover:bg-blue-200 transition-all duration-300"
+              >
+                <Maximize2 className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-4 text-white shadow-lg">
+            <div className="text-2xl font-bold">{totalOrders}</div>
+            <div className="text-blue-100">Total Orders</div>
+          </div>
+          <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl p-4 text-white shadow-lg">
+            <div className="text-2xl font-bold">{newOrders}</div>
+            <div className="text-amber-100">New Orders</div>
+          </div>
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-4 text-white shadow-lg">
+            <div className="text-2xl font-bold">{preparingOrders}</div>
+            <div className="text-purple-100">Preparing</div>
+          </div>
+          <div className="bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl p-4 text-white shadow-lg">
+            <div className="text-2xl font-bold">{readyOrders}</div>
+            <div className="text-green-100">Ready</div>
+          </div>
+        </div>
       </div>
       
-      <DateFilter value={dateFilter} onChange={setDateFilter} />
+      {/* Enhanced Date Filter */}
+      <div className="mb-6">
+        <DateFilter value={dateFilter} onChange={setDateFilter} />
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Modern Orders Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <OrdersColumn
           title="New Orders"
           orders={filterOrdersByStatus("new")}
