@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Customer } from "@/types/customer";
-import { User, Mail, Phone, MapPin, Calendar, FileText, X } from "lucide-react";
+import { User, Mail, Phone, MapPin, Calendar, FileText } from "lucide-react";
 
 interface CustomerDialogProps {
   open: boolean;
@@ -70,30 +70,20 @@ const CustomerDialog: React.FC<CustomerDialogProps> = ({
       <DialogContent className="sm:max-w-[600px] bg-white/95 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl">
         {/* Modern Header */}
         <DialogHeader className="space-y-4 pb-4 border-b border-white/20">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl shadow-lg">
-                <User className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <DialogTitle className="text-xl font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                  {isEditing ? "Edit Customer" : "Add New Customer"}
-                </DialogTitle>
-                <DialogDescription className="text-gray-600 mt-1">
-                  {isEditing
-                    ? "Update customer information and details."
-                    : "Add a new customer to your database."}
-                </DialogDescription>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl shadow-lg">
+              <User className="h-5 w-5 text-white" />
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-              className="rounded-full p-2 hover:bg-gray-100"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            <div>
+              <DialogTitle className="text-xl font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                {isEditing ? "Edit Customer" : "Add New Customer"}
+              </DialogTitle>
+              <DialogDescription className="text-gray-600 mt-1">
+                {isEditing
+                  ? "Update customer information and details."
+                  : "Add a new customer to your database."}
+              </DialogDescription>
+            </div>
           </div>
         </DialogHeader>
         
