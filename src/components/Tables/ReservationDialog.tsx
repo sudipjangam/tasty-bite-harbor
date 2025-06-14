@@ -85,39 +85,37 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg bg-white/95 backdrop-blur-xl border border-white/20 shadow-2xl rounded-3xl overflow-hidden">
-        {/* Header with Gradient */}
-        <div className="bg-gradient-to-r from-blue-500/20 via-indigo-500/20 to-purple-500/20 p-6 -m-6 mb-6 border-b border-white/20">
-          <DialogHeader>
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg">
-                <Calendar className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  Make Reservation
-                </DialogTitle>
-                <p className="text-gray-600 mt-1 flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-blue-500" />
-                  {table?.name}
-                </p>
-              </div>
+      <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto bg-white/95 backdrop-blur-xl border border-white/20 shadow-2xl rounded-3xl">
+        {/* Compact Header */}
+        <DialogHeader className="pb-4 border-b border-white/20">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg">
+              <Calendar className="h-5 w-5 text-white" />
             </div>
-          </DialogHeader>
-        </div>
+            <div>
+              <DialogTitle className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                Make Reservation
+              </DialogTitle>
+              <p className="text-sm text-gray-600 flex items-center gap-2">
+                <Sparkles className="h-3 w-3 text-blue-500" />
+                {table?.name}
+              </p>
+            </div>
+          </div>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6 px-6 pb-6">
-          {/* Customer Information Section */}
-          <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 rounded-2xl p-4 border border-blue-100/50">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <User className="h-5 w-5 text-blue-600" />
+        <form onSubmit={handleSubmit} className="space-y-6 py-4">
+          {/* Customer Information - Compact */}
+          <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 rounded-xl p-4 border border-blue-100/50">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+              <User className="h-4 w-4 text-blue-600" />
               Customer Information
             </h3>
             
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <Label htmlFor="customer_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <User className="h-4 w-4" />
+                <Label htmlFor="customer_name" className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                  <User className="h-3 w-3" />
                   Customer Name *
                 </Label>
                 <Input
@@ -125,30 +123,30 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                   value={formData.customer_name}
                   onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
                   required
-                  className="mt-2 bg-white/80 backdrop-blur-sm border-2 border-gray-200 focus:border-blue-500 rounded-xl transition-all duration-200"
+                  className="mt-1 h-10 bg-white/80 backdrop-blur-sm border border-gray-200 focus:border-blue-500 rounded-lg transition-all duration-200"
                   placeholder="Enter customer name"
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label htmlFor="customer_phone" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <Phone className="h-4 w-4" />
-                    Phone Number
+                  <Label htmlFor="customer_phone" className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                    <Phone className="h-3 w-3" />
+                    Phone
                   </Label>
                   <Input
                     id="customer_phone"
                     type="tel"
                     value={formData.customer_phone}
                     onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
-                    className="mt-2 bg-white/80 backdrop-blur-sm border-2 border-gray-200 focus:border-blue-500 rounded-xl transition-all duration-200"
+                    className="mt-1 h-10 bg-white/80 backdrop-blur-sm border border-gray-200 focus:border-blue-500 rounded-lg transition-all duration-200"
                     placeholder="Phone number"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="customer_email" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <Mail className="h-4 w-4" />
+                  <Label htmlFor="customer_email" className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                    <Mail className="h-3 w-3" />
                     Email
                   </Label>
                   <Input
@@ -156,7 +154,7 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                     type="email"
                     value={formData.customer_email}
                     onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
-                    className="mt-2 bg-white/80 backdrop-blur-sm border-2 border-gray-200 focus:border-blue-500 rounded-xl transition-all duration-200"
+                    className="mt-1 h-10 bg-white/80 backdrop-blur-sm border border-gray-200 focus:border-blue-500 rounded-lg transition-all duration-200"
                     placeholder="Email address"
                   />
                 </div>
@@ -164,27 +162,27 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
             </div>
           </div>
 
-          {/* Reservation Details Section */}
-          <div className="bg-gradient-to-r from-purple-50/50 to-pink-50/50 rounded-2xl p-4 border border-purple-100/50">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-purple-600" />
+          {/* Reservation Details - Compact */}
+          <div className="bg-gradient-to-r from-purple-50/50 to-pink-50/50 rounded-xl p-4 border border-purple-100/50">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-purple-600" />
               Reservation Details
             </h3>
             
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <Label htmlFor="party_size" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Users className="h-4 w-4" />
+                <Label htmlFor="party_size" className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                  <Users className="h-3 w-3" />
                   Party Size *
                 </Label>
                 <Select
                   value={formData.party_size.toString()}
                   onValueChange={(value) => setFormData({ ...formData, party_size: parseInt(value) })}
                 >
-                  <SelectTrigger className="mt-2 bg-white/80 backdrop-blur-sm border-2 border-gray-200 focus:border-purple-500 rounded-xl transition-all duration-200">
+                  <SelectTrigger className="mt-1 h-10 bg-white/80 backdrop-blur-sm border border-gray-200 focus:border-purple-500 rounded-lg transition-all duration-200">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 shadow-xl rounded-2xl">
+                  <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 shadow-xl rounded-xl">
                     {Array.from({ length: table?.capacity || 8 }, (_, i) => i + 1).map((size) => (
                       <SelectItem 
                         key={size} 
@@ -198,10 +196,10 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                 </Select>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label htmlFor="reservation_date" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
+                  <Label htmlFor="reservation_date" className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
                     Date *
                   </Label>
                   <Input
@@ -211,23 +209,23 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                     onChange={(e) => setFormData({ ...formData, reservation_date: e.target.value })}
                     min={new Date().toISOString().split('T')[0]}
                     required
-                    className="mt-2 bg-white/80 backdrop-blur-sm border-2 border-gray-200 focus:border-purple-500 rounded-xl transition-all duration-200"
+                    className="mt-1 h-10 bg-white/80 backdrop-blur-sm border border-gray-200 focus:border-purple-500 rounded-lg transition-all duration-200"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="reservation_time" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
+                  <Label htmlFor="reservation_time" className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
                     Time *
                   </Label>
                   <Select
                     value={formData.reservation_time}
                     onValueChange={(value) => setFormData({ ...formData, reservation_time: value })}
                   >
-                    <SelectTrigger className="mt-2 bg-white/80 backdrop-blur-sm border-2 border-gray-200 focus:border-purple-500 rounded-xl transition-all duration-200">
+                    <SelectTrigger className="mt-1 h-10 bg-white/80 backdrop-blur-sm border border-gray-200 focus:border-purple-500 rounded-lg transition-all duration-200">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 shadow-xl rounded-2xl max-h-60">
+                    <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 shadow-xl rounded-xl max-h-40">
                       {generateTimeSlots().map((time) => (
                         <SelectItem 
                           key={time} 
@@ -243,18 +241,18 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
               </div>
 
               <div>
-                <Label htmlFor="duration_minutes" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
+                <Label htmlFor="duration_minutes" className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
                   Duration
                 </Label>
                 <Select
                   value={formData.duration_minutes.toString()}
                   onValueChange={(value) => setFormData({ ...formData, duration_minutes: parseInt(value) })}
                 >
-                  <SelectTrigger className="mt-2 bg-white/80 backdrop-blur-sm border-2 border-gray-200 focus:border-purple-500 rounded-xl transition-all duration-200">
+                  <SelectTrigger className="mt-1 h-10 bg-white/80 backdrop-blur-sm border border-gray-200 focus:border-purple-500 rounded-lg transition-all duration-200">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 shadow-xl rounded-2xl">
+                  <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 shadow-xl rounded-xl">
                     <SelectItem value="60" className="hover:bg-purple-50 rounded-lg">1 Hour</SelectItem>
                     <SelectItem value="90" className="hover:bg-purple-50 rounded-lg">1.5 Hours</SelectItem>
                     <SelectItem value="120" className="hover:bg-purple-50 rounded-lg">2 Hours</SelectItem>
@@ -266,36 +264,36 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
             </div>
           </div>
 
-          {/* Special Requests Section */}
-          <div className="bg-gradient-to-r from-green-50/50 to-emerald-50/50 rounded-2xl p-4 border border-green-100/50">
-            <Label htmlFor="special_requests" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
+          {/* Special Requests - Compact */}
+          <div className="bg-gradient-to-r from-green-50/50 to-emerald-50/50 rounded-xl p-4 border border-green-100/50">
+            <Label htmlFor="special_requests" className="text-xs font-medium text-gray-700 flex items-center gap-1 mb-2">
+              <MessageSquare className="h-3 w-3" />
               Special Requests
             </Label>
             <Textarea
               id="special_requests"
               value={formData.special_requests}
               onChange={(e) => setFormData({ ...formData, special_requests: e.target.value })}
-              rows={3}
-              className="mt-2 bg-white/80 backdrop-blur-sm border-2 border-gray-200 focus:border-green-500 rounded-xl transition-all duration-200 resize-none"
+              rows={2}
+              className="bg-white/80 backdrop-blur-sm border border-gray-200 focus:border-green-500 rounded-lg transition-all duration-200 resize-none"
               placeholder="Any special requests or notes..."
             />
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
+          {/* Action Buttons - Sticky at bottom */}
+          <div className="flex gap-3 pt-4 border-t border-white/20 bg-white/50 backdrop-blur-sm rounded-xl p-3 -mx-4 -mb-4 sticky bottom-0">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="flex-1 border-2 border-gray-300 hover:border-gray-400 bg-white/80 backdrop-blur-sm text-gray-700 hover:bg-gray-50 rounded-xl py-3 font-semibold transition-all duration-300"
+              className="flex-1 border border-gray-300 hover:border-gray-400 bg-white/80 backdrop-blur-sm text-gray-700 hover:bg-gray-50 rounded-lg py-2 font-medium transition-all duration-300"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-medium py-2 rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               {isSubmitting ? 'Creating...' : 'Create Reservation'}
             </Button>
