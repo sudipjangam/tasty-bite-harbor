@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { TableData } from './TableCard';
 import { ReservationFormData } from '@/types/reservations';
+import { User, Phone, Mail, Users, Calendar, Clock, MessageSquare, Sparkles } from 'lucide-react';
 
 interface ReservationDialogProps {
   isOpen: boolean;
@@ -84,135 +85,217 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            Make Reservation - {table?.name}
-          </DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="customer_name">Customer Name *</Label>
-            <Input
-              id="customer_name"
-              value={formData.customer_name}
-              onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
-              required
-            />
+      <DialogContent className="max-w-lg bg-white/95 backdrop-blur-xl border border-white/20 shadow-2xl rounded-3xl overflow-hidden">
+        {/* Header with Gradient */}
+        <div className="bg-gradient-to-r from-blue-500/20 via-indigo-500/20 to-purple-500/20 p-6 -m-6 mb-6 border-b border-white/20">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg">
+                <Calendar className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  Make Reservation
+                </DialogTitle>
+                <p className="text-gray-600 mt-1 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-blue-500" />
+                  {table?.name}
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6 px-6 pb-6">
+          {/* Customer Information Section */}
+          <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 rounded-2xl p-4 border border-blue-100/50">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <User className="h-5 w-5 text-blue-600" />
+              Customer Information
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="customer_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Customer Name *
+                </Label>
+                <Input
+                  id="customer_name"
+                  value={formData.customer_name}
+                  onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                  required
+                  className="mt-2 bg-white/80 backdrop-blur-sm border-2 border-gray-200 focus:border-blue-500 rounded-xl transition-all duration-200"
+                  placeholder="Enter customer name"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="customer_phone" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    Phone Number
+                  </Label>
+                  <Input
+                    id="customer_phone"
+                    type="tel"
+                    value={formData.customer_phone}
+                    onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
+                    className="mt-2 bg-white/80 backdrop-blur-sm border-2 border-gray-200 focus:border-blue-500 rounded-xl transition-all duration-200"
+                    placeholder="Phone number"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="customer_email" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    Email
+                  </Label>
+                  <Input
+                    id="customer_email"
+                    type="email"
+                    value={formData.customer_email}
+                    onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
+                    className="mt-2 bg-white/80 backdrop-blur-sm border-2 border-gray-200 focus:border-blue-500 rounded-xl transition-all duration-200"
+                    placeholder="Email address"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div>
-            <Label htmlFor="customer_phone">Phone Number</Label>
-            <Input
-              id="customer_phone"
-              type="tel"
-              value={formData.customer_phone}
-              onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
-            />
+          {/* Reservation Details Section */}
+          <div className="bg-gradient-to-r from-purple-50/50 to-pink-50/50 rounded-2xl p-4 border border-purple-100/50">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-purple-600" />
+              Reservation Details
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="party_size" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Party Size *
+                </Label>
+                <Select
+                  value={formData.party_size.toString()}
+                  onValueChange={(value) => setFormData({ ...formData, party_size: parseInt(value) })}
+                >
+                  <SelectTrigger className="mt-2 bg-white/80 backdrop-blur-sm border-2 border-gray-200 focus:border-purple-500 rounded-xl transition-all duration-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 shadow-xl rounded-2xl">
+                    {Array.from({ length: table?.capacity || 8 }, (_, i) => i + 1).map((size) => (
+                      <SelectItem 
+                        key={size} 
+                        value={size.toString()}
+                        className="hover:bg-purple-50 rounded-lg"
+                      >
+                        {size} {size === 1 ? 'Person' : 'People'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="reservation_date" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Date *
+                  </Label>
+                  <Input
+                    id="reservation_date"
+                    type="date"
+                    value={formData.reservation_date}
+                    onChange={(e) => setFormData({ ...formData, reservation_date: e.target.value })}
+                    min={new Date().toISOString().split('T')[0]}
+                    required
+                    className="mt-2 bg-white/80 backdrop-blur-sm border-2 border-gray-200 focus:border-purple-500 rounded-xl transition-all duration-200"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="reservation_time" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Time *
+                  </Label>
+                  <Select
+                    value={formData.reservation_time}
+                    onValueChange={(value) => setFormData({ ...formData, reservation_time: value })}
+                  >
+                    <SelectTrigger className="mt-2 bg-white/80 backdrop-blur-sm border-2 border-gray-200 focus:border-purple-500 rounded-xl transition-all duration-200">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 shadow-xl rounded-2xl max-h-60">
+                      {generateTimeSlots().map((time) => (
+                        <SelectItem 
+                          key={time} 
+                          value={time}
+                          className="hover:bg-purple-50 rounded-lg"
+                        >
+                          {time}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="duration_minutes" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Duration
+                </Label>
+                <Select
+                  value={formData.duration_minutes.toString()}
+                  onValueChange={(value) => setFormData({ ...formData, duration_minutes: parseInt(value) })}
+                >
+                  <SelectTrigger className="mt-2 bg-white/80 backdrop-blur-sm border-2 border-gray-200 focus:border-purple-500 rounded-xl transition-all duration-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 shadow-xl rounded-2xl">
+                    <SelectItem value="60" className="hover:bg-purple-50 rounded-lg">1 Hour</SelectItem>
+                    <SelectItem value="90" className="hover:bg-purple-50 rounded-lg">1.5 Hours</SelectItem>
+                    <SelectItem value="120" className="hover:bg-purple-50 rounded-lg">2 Hours</SelectItem>
+                    <SelectItem value="150" className="hover:bg-purple-50 rounded-lg">2.5 Hours</SelectItem>
+                    <SelectItem value="180" className="hover:bg-purple-50 rounded-lg">3 Hours</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
 
-          <div>
-            <Label htmlFor="customer_email">Email</Label>
-            <Input
-              id="customer_email"
-              type="email"
-              value={formData.customer_email}
-              onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="party_size">Party Size *</Label>
-            <Select
-              value={formData.party_size.toString()}
-              onValueChange={(value) => setFormData({ ...formData, party_size: parseInt(value) })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: table?.capacity || 8 }, (_, i) => i + 1).map((size) => (
-                  <SelectItem key={size} value={size.toString()}>
-                    {size} {size === 1 ? 'Person' : 'People'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="reservation_date">Date *</Label>
-            <Input
-              id="reservation_date"
-              type="date"
-              value={formData.reservation_date}
-              onChange={(e) => setFormData({ ...formData, reservation_date: e.target.value })}
-              min={new Date().toISOString().split('T')[0]}
-              required
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="reservation_time">Time *</Label>
-            <Select
-              value={formData.reservation_time}
-              onValueChange={(value) => setFormData({ ...formData, reservation_time: value })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {generateTimeSlots().map((time) => (
-                  <SelectItem key={time} value={time}>
-                    {time}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="duration_minutes">Duration (minutes)</Label>
-            <Select
-              value={formData.duration_minutes.toString()}
-              onValueChange={(value) => setFormData({ ...formData, duration_minutes: parseInt(value) })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="60">1 Hour</SelectItem>
-                <SelectItem value="90">1.5 Hours</SelectItem>
-                <SelectItem value="120">2 Hours</SelectItem>
-                <SelectItem value="150">2.5 Hours</SelectItem>
-                <SelectItem value="180">3 Hours</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="special_requests">Special Requests</Label>
+          {/* Special Requests Section */}
+          <div className="bg-gradient-to-r from-green-50/50 to-emerald-50/50 rounded-2xl p-4 border border-green-100/50">
+            <Label htmlFor="special_requests" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Special Requests
+            </Label>
             <Textarea
               id="special_requests"
               value={formData.special_requests}
               onChange={(e) => setFormData({ ...formData, special_requests: e.target.value })}
               rows={3}
+              className="mt-2 bg-white/80 backdrop-blur-sm border-2 border-gray-200 focus:border-green-500 rounded-xl transition-all duration-200 resize-none"
+              placeholder="Any special requests or notes..."
             />
           </div>
 
+          {/* Action Buttons */}
           <div className="flex gap-3 pt-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="flex-1"
+              className="flex-1 border-2 border-gray-300 hover:border-gray-400 bg-white/80 backdrop-blur-sm text-gray-700 hover:bg-gray-50 rounded-xl py-3 font-semibold transition-all duration-300"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1"
+              className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               {isSubmitting ? 'Creating...' : 'Create Reservation'}
             </Button>
