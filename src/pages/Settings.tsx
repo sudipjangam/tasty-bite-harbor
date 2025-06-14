@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { LogOut, User, Building, Clock, Shield, CreditCard, Loader2, Mail, Phone, MapPin, CalendarClock, CheckCircle2 } from "lucide-react";
+import { LogOut, User, Building, Clock, Shield, CreditCard, Loader2, Mail, Phone, MapPin, CalendarClock, CheckCircle2, Sparkles, Star } from "lucide-react";
 import { useSimpleAuth } from "@/hooks/useSimpleAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -96,300 +96,352 @@ const Settings = () => {
 
   if (profileLoading || restaurantLoading || subscriptionLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin" />
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-12 h-12 animate-spin text-indigo-600" />
+          <p className="text-gray-600 font-medium">Loading your settings...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-8 bg-gradient-to-br from-purple-50 to-white dark:from-gray-900 dark:to-gray-800">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-            Settings
-          </h1>
-          <p className="text-muted-foreground">
-            Manage your account, restaurant, and subscription settings
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-4 md:p-6">
+      {/* Header Section */}
+      <div className="max-w-7xl mx-auto mb-8">
+        <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-6 md:p-8">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+            <div className="flex items-center gap-4">
+              <div className="p-4 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg">
+                <Sparkles className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  Settings
+                </h1>
+                <p className="text-gray-600 mt-2 text-lg">
+                  Manage your account, restaurant, and subscription settings
+                </p>
+              </div>
+            </div>
+            <Button 
+              variant="destructive" 
+              onClick={handleLogout}
+              className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 shadow-lg hover:shadow-xl transition-all duration-300"
+              disabled={loading}
+              size="lg"
+            >
+              {loading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <LogOut className="w-5 h-5" />
+              )}
+              <span className="font-semibold">Logout</span>
+            </Button>
+          </div>
         </div>
-        <Button 
-          variant="destructive" 
-          onClick={handleLogout}
-          className="flex items-center gap-2"
-          disabled={loading}
-        >
-          {loading ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <LogOut className="w-4 h-4 mr-2" />
-          )}
-          Logout
-        </Button>
       </div>
 
-      <Tabs defaultValue="account" className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="account" className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            <span>Account</span>
-          </TabsTrigger>
-          <TabsTrigger value="restaurant" className="flex items-center gap-2">
-            <Building className="h-4 w-4" />
-            <span>Restaurant</span>
-          </TabsTrigger>
-          <TabsTrigger value="subscription" className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4" />
-            <span>Subscription</span>
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="account">
-          <Card className="shadow-md hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg font-medium">Account Information</CardTitle>
-                  <CardDescription>Your personal account details</CardDescription>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-                  <User className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto">
+        <Tabs defaultValue="account" className="w-full">
+          <div className="bg-white/60 backdrop-blur-lg border border-white/30 rounded-2xl p-2 mb-8 shadow-lg">
+            <TabsList className="w-full bg-transparent grid grid-cols-3 gap-2">
+              <TabsTrigger 
+                value="account" 
+                className="flex items-center gap-3 data-[state=active]:bg-white data-[state=active]:shadow-lg rounded-xl py-4 px-6 transition-all duration-300"
+              >
+                <User className="h-5 w-5" />
+                <span className="font-semibold">Account</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="restaurant" 
+                className="flex items-center gap-3 data-[state=active]:bg-white data-[state=active]:shadow-lg rounded-xl py-4 px-6 transition-all duration-300"
+              >
+                <Building className="h-5 w-5" />
+                <span className="font-semibold">Restaurant</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="subscription" 
+                className="flex items-center gap-3 data-[state=active]:bg-white data-[state=active]:shadow-lg rounded-xl py-4 px-6 transition-all duration-300"
+              >
+                <CreditCard className="h-5 w-5" />
+                <span className="font-semibold">Subscription</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+          
+          <TabsContent value="account">
+            <Card className="bg-white/90 backdrop-blur-lg border border-white/30 rounded-3xl shadow-2xl hover:shadow-3xl transition-all duration-500">
+              <CardHeader className="pb-4 border-b border-gray-100">
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                      <Mail className="h-4 w-4" />
-                      Email
-                    </p>
-                    <p className="font-medium text-lg">{user?.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                      <Shield className="h-4 w-4" />
-                      Role
-                    </p>
-                    <Badge variant="outline" className="text-md capitalize font-medium px-3 py-1 bg-purple-50 text-purple-700 border-purple-200">
-                      {profile?.role || 'N/A'}
-                    </Badge>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      First Name
-                    </p>
-                    <p className="font-medium text-lg">{profile?.first_name || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      Last Name
-                    </p>
-                    <p className="font-medium text-lg">{profile?.last_name || 'N/A'}</p>
-                  </div>
-                </div>
-              </div>
-              
-              <Separator className="my-6" />
-              
-              <div>
-                <p className="text-sm font-medium text-muted-foreground flex items-center gap-2 mb-2">
-                  <Clock className="h-4 w-4" />
-                  Account Created
-                </p>
-                <p className="font-medium">
-                  {user?.created_at
-                    ? format(new Date(user.created_at), 'PPP')
-                    : 'N/A'}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="restaurant">
-          <Card className="shadow-md hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg font-medium">Restaurant Information</CardTitle>
-                  <CardDescription>Your restaurant details</CardDescription>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-teal-500 flex items-center justify-center">
-                  <Building className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                      <Building className="h-4 w-4" />
-                      Restaurant Name
-                    </p>
-                    <p className="font-medium text-lg">{restaurant?.name || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      Address
-                    </p>
-                    <p className="font-medium">{restaurant?.address || 'N/A'}</p>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                      <Phone className="h-4 w-4" />
-                      Phone Number
-                    </p>
-                    <p className="font-medium">
-                      {restaurant?.phone 
-                        ? <a href={`tel:${restaurant.phone}`} className="text-blue-600 hover:underline">{restaurant.phone}</a>
-                        : 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                      <Mail className="h-4 w-4" />
-                      Email
-                    </p>
-                    <p className="font-medium">
-                      {restaurant?.email 
-                        ? <a href={`mailto:${restaurant.email}`} className="text-blue-600 hover:underline">{restaurant.email}</a>
-                        : 'N/A'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              
-              <Separator className="my-6" />
-              
-              <div>
-                <p className="text-sm font-medium text-muted-foreground flex items-center gap-2 mb-2">
-                  <CalendarClock className="h-4 w-4" />
-                  Created On
-                </p>
-                <p className="font-medium">
-                  {restaurant?.created_at
-                    ? format(new Date(restaurant.created_at), 'PPP')
-                    : 'N/A'}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="subscription">
-          <Card className="shadow-md hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg font-medium">Subscription Details</CardTitle>
-                  <CardDescription>Your current plan and billing information</CardDescription>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
-                  <CreditCard className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {subscription ? (
-                <>
-                  <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-lg border border-purple-100">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Current Plan</p>
-                        <h3 className="text-xl font-bold text-primary mt-1">
-                          {subscription.subscription_plans?.name || 'Standard Plan'}
-                        </h3>
-                        <Badge className="mt-2 bg-green-100 hover:bg-green-100 text-green-800 border-green-200">
-                          <CheckCircle2 className="mr-1 h-3 w-3" /> Active
-                        </Badge>
+                    <CardTitle className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                      <div className="p-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl shadow-lg">
+                        <User className="h-6 w-6 text-white" />
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Monthly Price</p>
-                        <p className="text-xl font-bold mt-1">
-                          ₹{subscription.subscription_plans?.price || 'N/A'}
+                      Account Information
+                    </CardTitle>
+                    <CardDescription className="text-gray-600 mt-2 text-lg">
+                      Your personal account details and preferences
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100">
+                      <p className="text-sm font-semibold text-blue-600 flex items-center gap-2 mb-2">
+                        <Mail className="h-4 w-4" />
+                        Email Address
+                      </p>
+                      <p className="font-bold text-xl text-gray-900">{user?.email}</p>
+                    </div>
+                    <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl border border-purple-100">
+                      <p className="text-sm font-semibold text-purple-600 flex items-center gap-2 mb-2">
+                        <Shield className="h-4 w-4" />
+                        Account Role
+                      </p>
+                      <Badge className="text-lg font-bold px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg capitalize">
+                        {profile?.role || 'N/A'}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="space-y-6">
+                    <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-100">
+                      <p className="text-sm font-semibold text-green-600 flex items-center gap-2 mb-2">
+                        <User className="h-4 w-4" />
+                        First Name
+                      </p>
+                      <p className="font-bold text-xl text-gray-900">{profile?.first_name || 'Not Set'}</p>
+                    </div>
+                    <div className="p-6 bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl border border-orange-100">
+                      <p className="text-sm font-semibold text-orange-600 flex items-center gap-2 mb-2">
+                        <User className="h-4 w-4" />
+                        Last Name
+                      </p>
+                      <p className="font-bold text-xl text-gray-900">{profile?.last_name || 'Not Set'}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <Separator className="my-8" />
+                
+                <div className="p-6 bg-gradient-to-br from-gray-50 to-slate-50 rounded-2xl border border-gray-100">
+                  <p className="text-sm font-semibold text-gray-600 flex items-center gap-2 mb-2">
+                    <Clock className="h-4 w-4" />
+                    Account Created
+                  </p>
+                  <p className="font-bold text-xl text-gray-900">
+                    {user?.created_at
+                      ? format(new Date(user.created_at), 'PPPP')
+                      : 'N/A'}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="restaurant">
+            <Card className="bg-white/90 backdrop-blur-lg border border-white/30 rounded-3xl shadow-2xl hover:shadow-3xl transition-all duration-500">
+              <CardHeader className="pb-4 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                      <div className="p-3 bg-gradient-to-r from-blue-500 to-teal-500 rounded-xl shadow-lg">
+                        <Building className="h-6 w-6 text-white" />
+                      </div>
+                      Restaurant Information
+                    </CardTitle>
+                    <CardDescription className="text-gray-600 mt-2 text-lg">
+                      Your restaurant details and contact information
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <div className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl border border-blue-100">
+                      <p className="text-sm font-semibold text-blue-600 flex items-center gap-2 mb-2">
+                        <Building className="h-4 w-4" />
+                        Restaurant Name
+                      </p>
+                      <p className="font-bold text-xl text-gray-900">{restaurant?.name || 'Not Set'}</p>
+                    </div>
+                    <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl border border-purple-100">
+                      <p className="text-sm font-semibold text-purple-600 flex items-center gap-2 mb-2">
+                        <MapPin className="h-4 w-4" />
+                        Address
+                      </p>
+                      <p className="font-medium text-lg text-gray-900">{restaurant?.address || 'Not Set'}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-6">
+                    <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-100">
+                      <p className="text-sm font-semibold text-green-600 flex items-center gap-2 mb-2">
+                        <Phone className="h-4 w-4" />
+                        Phone Number
+                      </p>
+                      <p className="font-bold text-xl text-gray-900">
+                        {restaurant?.phone 
+                          ? <a href={`tel:${restaurant.phone}`} className="text-blue-600 hover:text-blue-800 transition-colors duration-200">{restaurant.phone}</a>
+                          : 'Not Set'}
+                      </p>
+                    </div>
+                    <div className="p-6 bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl border border-orange-100">
+                      <p className="text-sm font-semibold text-orange-600 flex items-center gap-2 mb-2">
+                        <Mail className="h-4 w-4" />
+                        Email
+                      </p>
+                      <p className="font-bold text-xl text-gray-900">
+                        {restaurant?.email 
+                          ? <a href={`mailto:${restaurant.email}`} className="text-blue-600 hover:text-blue-800 transition-colors duration-200">{restaurant.email}</a>
+                          : 'Not Set'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <Separator className="my-8" />
+                
+                <div className="p-6 bg-gradient-to-br from-gray-50 to-slate-50 rounded-2xl border border-gray-100">
+                  <p className="text-sm font-semibold text-gray-600 flex items-center gap-2 mb-2">
+                    <CalendarClock className="h-4 w-4" />
+                    Restaurant Created
+                  </p>
+                  <p className="font-bold text-xl text-gray-900">
+                    {restaurant?.created_at
+                      ? format(new Date(restaurant.created_at), 'PPPP')
+                      : 'N/A'}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="subscription">
+            <Card className="bg-white/90 backdrop-blur-lg border border-white/30 rounded-3xl shadow-2xl hover:shadow-3xl transition-all duration-500">
+              <CardHeader className="pb-4 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                      <div className="p-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg">
+                        <CreditCard className="h-6 w-6 text-white" />
+                      </div>
+                      Subscription Details
+                    </CardTitle>
+                    <CardDescription className="text-gray-600 mt-2 text-lg">
+                      Your current plan and billing information
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-8">
+                {subscription ? (
+                  <>
+                    <div className="bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-600 p-8 rounded-3xl text-white mb-8 shadow-2xl">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="flex items-center gap-3 mb-4">
+                            <Star className="h-8 w-8 text-yellow-300" />
+                            <p className="text-white/80 text-lg font-medium">Current Plan</p>
+                          </div>
+                          <h3 className="text-3xl font-bold mb-4">
+                            {subscription.subscription_plans?.name || 'Standard Plan'}
+                          </h3>
+                          <Badge className="bg-green-500 hover:bg-green-500 text-white border-0 text-lg font-bold px-4 py-2 shadow-lg">
+                            <CheckCircle2 className="mr-2 h-5 w-5" /> Active
+                          </Badge>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-white/80 text-lg font-medium mb-2">Monthly Price</p>
+                          <p className="text-4xl font-bold">
+                            ₹{subscription.subscription_plans?.price || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                      <div className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl border border-blue-100">
+                        <p className="text-sm font-semibold text-blue-600 flex items-center gap-2 mb-2">
+                          <CalendarClock className="h-4 w-4" />
+                          Current Period Start
+                        </p>
+                        <p className="font-bold text-xl text-gray-900">
+                          {subscription?.current_period_start
+                            ? format(new Date(subscription.current_period_start), 'PPP')
+                            : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl border border-purple-100">
+                        <p className="text-sm font-semibold text-purple-600 flex items-center gap-2 mb-2">
+                          <CalendarClock className="h-4 w-4" />
+                          Current Period End
+                        </p>
+                        <p className="font-bold text-xl text-gray-900">
+                          {subscription?.current_period_end
+                            ? format(new Date(subscription.current_period_end), 'PPP')
+                            : 'N/A'}
                         </p>
                       </div>
                     </div>
+                    
+                    {subscription.subscription_plans?.features && (
+                      <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-100">
+                        <p className="text-lg font-bold text-green-700 mb-4 flex items-center gap-2">
+                          <Sparkles className="h-5 w-5" />
+                          Plan Features
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {Array.isArray(subscription.subscription_plans.features) && 
+                            subscription.subscription_plans.features.map((feature: string, index: number) => (
+                              <div key={index} className="flex items-center gap-3 p-3 bg-white rounded-xl shadow-sm">
+                                <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
+                                <span className="font-medium text-gray-900">{feature}</span>
+                              </div>
+                            ))
+                          }
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="p-6 bg-gradient-to-br from-gray-50 to-slate-50 rounded-3xl border border-gray-200 max-w-md mx-auto">
+                      <CreditCard className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">No Active Subscription</h3>
+                      <p className="text-gray-600 mb-6">Choose a plan to unlock all features</p>
+                      <Button 
+                        className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                        size="lg"
+                      >
+                        View Plans
+                      </Button>
+                    </div>
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                        <CalendarClock className="h-4 w-4" />
-                        Current Period Start
-                      </p>
-                      <p className="font-medium mt-1">
-                        {subscription?.current_period_start
-                          ? format(new Date(subscription.current_period_start), 'PP')
-                          : 'N/A'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                        <CalendarClock className="h-4 w-4" />
-                        Current Period End
-                      </p>
-                      <p className="font-medium mt-1">
-                        {subscription?.current_period_end
-                          ? format(new Date(subscription.current_period_end), 'PP')
-                          : 'N/A'}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {subscription.subscription_plans?.features && (
-                    <div className="mt-4">
-                      <p className="text-sm font-medium text-muted-foreground mb-3">Plan Features:</p>
-                      <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {Array.isArray(subscription.subscription_plans.features) && 
-                          subscription.subscription_plans.features.map((feature: string, index: number) => (
-                            <li key={index} className="flex items-center gap-2 text-sm">
-                              <CheckCircle2 className="h-4 w-4 text-green-500" />
-                              <span>{feature}</span>
-                            </li>
-                          ))
-                        }
-                      </ul>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-center py-6">
-                  <p className="text-muted-foreground mb-4">No active subscription found.</p>
+                )}
+              </CardContent>
+              <CardFooter className="bg-gradient-to-r from-gray-50 to-slate-50 border-t border-gray-100 rounded-b-3xl p-6">
+                <div className="flex justify-between items-center w-full">
+                  <p className="text-gray-600 font-medium">
+                    Need help with your subscription?
+                  </p>
                   <Button 
-                    className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                    variant="outline" 
+                    className="bg-white hover:bg-indigo-50 hover:text-indigo-700 border-indigo-200 font-semibold px-6 py-2 rounded-xl shadow-md hover:shadow-lg transition-all duration-300"
+                    onClick={() => window.open('mailto:support@swadeshi.solutions', '_blank')}
                   >
-                    View Plans
+                    Contact Support
                   </Button>
                 </div>
-              )}
-            </CardContent>
-            <CardFooter className="bg-muted/30 border-t flex justify-between">
-              <p className="text-sm text-muted-foreground">
-                Need help with your subscription?
-              </p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="text-sm hover:bg-purple-50 hover:text-purple-700"
-                onClick={() => window.open('mailto:support@swadeshi.solutions', '_blank')}
-              >
-                Contact Support
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 };
