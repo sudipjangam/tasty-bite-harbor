@@ -9,7 +9,7 @@ import {
   Download, 
   Upload,
   Settings,
-  Refresh
+  RefreshCw
 } from "lucide-react";
 
 interface QuickAction {
@@ -95,7 +95,7 @@ export const commonQuickActions = {
   refresh: (onClick: () => void): QuickAction => ({
     id: 'refresh',
     label: 'Refresh',
-    icon: Refresh,
+    icon: RefreshCw,
     onClick,
     variant: 'ghost'
   }),

@@ -99,7 +99,9 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
                 size="sm"
                 onClick={() => setIsOpen(false)}
                 icon={<X className="h-4 w-4" />}
-              />
+              >
+                Close
+              </StandardizedButton>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
