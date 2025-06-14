@@ -47,26 +47,26 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   // If embedded in a page, use a different style with proper height management
   if (embedded) {
     return (
-      <div className="flex flex-col h-full bg-gradient-to-br from-white via-purple-50/30 to-indigo-50/30 backdrop-blur-sm rounded-3xl overflow-hidden">
+      <div className="flex flex-col h-full bg-gradient-to-br from-white via-purple-50/30 to-indigo-50/30 backdrop-blur-sm rounded-2xl overflow-hidden">
         {/* Header - Fixed height */}
-        <div className="flex-shrink-0 flex items-center justify-between p-6 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white rounded-t-3xl">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/20 backdrop-blur-sm rounded-2xl shadow-lg">
-              <Sparkles className="h-6 w-6" />
+        <div className="flex-shrink-0 flex items-center justify-between p-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white rounded-t-2xl">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/20 backdrop-blur-sm rounded-xl shadow-lg">
+              <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-xl font-bold">Restaurant AI Assistant</h3>
-              <p className="text-sm text-purple-100 flex items-center gap-2">
-                <Bot className="h-4 w-4" />
+              <h3 className="text-lg font-bold">Restaurant AI Assistant</h3>
+              <p className="text-xs text-purple-100 flex items-center gap-2">
+                <Bot className="h-3 w-3" />
                 Powered by advanced AI with full database access
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {isLoading && (
-              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-xl px-3 py-2">
-                <Loader2 className="h-4 w-4 animate-spin text-purple-200" />
-                <span className="text-sm text-purple-100">Thinking...</span>
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-lg px-2 py-1">
+                <Loader2 className="h-3 w-3 animate-spin text-purple-200" />
+                <span className="text-xs text-purple-100">Thinking...</span>
               </div>
             )}
           </div>
@@ -75,20 +75,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         {/* Messages Area - Flexible height with scroll */}
         <div className="flex-1 min-h-0 overflow-hidden">
           <ScrollArea className="h-full">
-            <div className="p-6 space-y-4 min-h-full">
+            <div className="p-4 space-y-3">
               {messages.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-64 text-center">
-                  <div className="p-6 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-3xl mb-6 shadow-xl">
-                    <Sparkles className="h-12 w-12 text-white" />
+                <div className="flex flex-col items-center justify-center h-48 text-center">
+                  <div className="p-4 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl mb-4 shadow-xl">
+                    <Sparkles className="h-8 w-8 text-white" />
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-3">
+                  <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">
                     Welcome to your Restaurant AI Assistant!
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md leading-relaxed">
+                  <p className="text-gray-600 dark:text-gray-400 mb-4 max-w-md leading-relaxed text-sm">
                     I have access to all your restaurant data - sales, inventory, staff, customers, orders, menu items, suppliers, reservations, and more!
                   </p>
-                  <div className="bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900/30 dark:to-indigo-900/30 rounded-2xl p-4">
-                    <p className="text-sm text-purple-700 dark:text-purple-300 font-medium">
+                  <div className="bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900/30 dark:to-indigo-900/30 rounded-xl p-3">
+                    <p className="text-xs text-purple-700 dark:text-purple-300 font-medium">
                       💡 Try asking: "What were my sales this week?" or click a sample question above
                     </p>
                   </div>
@@ -100,16 +100,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
               ))}
               
               {isLoading && (
-                <div className="flex items-center gap-4 py-4 px-2">
-                  <div className="h-12 w-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
-                    <Loader2 className="h-6 w-6 animate-spin text-white" />
+                <div className="flex items-center gap-3 py-3 px-2">
+                  <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
+                    <Loader2 className="h-5 w-5 animate-spin text-white" />
                   </div>
-                  <div className="bg-white/90 backdrop-blur-sm px-6 py-4 rounded-2xl border border-gray-200/50 shadow-lg">
-                    <div className="flex items-center gap-3">
+                  <div className="bg-white/90 backdrop-blur-sm px-4 py-3 rounded-xl border border-gray-200/50 shadow-lg">
+                    <div className="flex items-center gap-2">
                       <div className="flex gap-1">
-                        <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                        <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                        <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce"></div>
+                        <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                        <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
                       </div>
                       <span className="text-sm text-gray-700 font-medium">AI is analyzing your data...</span>
                     </div>
@@ -118,11 +118,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
               )}
               
               {isUploading && (
-                <div className="flex items-center gap-4 py-4 px-2">
-                  <div className="h-12 w-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
-                    <Loader2 className="h-6 w-6 animate-spin text-white" />
+                <div className="flex items-center gap-3 py-3 px-2">
+                  <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
+                    <Loader2 className="h-5 w-5 animate-spin text-white" />
                   </div>
-                  <div className="bg-white/90 backdrop-blur-sm px-6 py-4 rounded-2xl border border-gray-200/50 shadow-lg">
+                  <div className="bg-white/90 backdrop-blur-sm px-4 py-3 rounded-xl border border-gray-200/50 shadow-lg">
                     <p className="text-sm text-gray-700 font-medium">Processing your file...</p>
                   </div>
                 </div>
@@ -134,8 +134,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         </div>
         
         {/* Input Area - Fixed height at bottom */}
-        <div className="flex-shrink-0 p-6 bg-white/80 backdrop-blur-sm border-t border-gray-200/50">
-          <div className="mb-3">
+        <div className="flex-shrink-0 p-4 bg-white/80 backdrop-blur-sm border-t border-gray-200/50">
+          <div className="mb-2">
             <FileUploadButton 
               fileInputRef={fileInputRef} 
               onFileUpload={onFileUpload} 
