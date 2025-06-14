@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
+import { Camera, User, UserPlus, Loader2 } from "lucide-react";
 import type { StaffMember, StaffRole } from "@/types/staff";
 
 interface StaffDialogProps {
@@ -233,33 +234,48 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {isEditMode ? `Edit ${staff?.first_name} ${staff?.last_name}` : "Add New Staff Member"}
-          </DialogTitle>
-          <DialogDescription>
-            {isEditMode
-              ? "Update the staff member's information below."
-              : "Fill in the details below to add a new staff member."}
-          </DialogDescription>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white/95 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl">
+        <DialogHeader className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 rounded-2xl p-6 mb-6">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl">
+              {isEditMode ? <User className="h-6 w-6 text-white" /> : <UserPlus className="h-6 w-6 text-white" />}
+            </div>
+            <div>
+              <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                {isEditMode ? `Edit ${staff?.first_name} ${staff?.last_name}` : "Add New Staff Member"}
+              </DialogTitle>
+              <DialogDescription className="text-gray-600 mt-1">
+                {isEditMode
+                  ? "Update the staff member's information below."
+                  : "Fill in the details below to add a new staff member."}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Photo Upload */}
-          <div className="flex flex-col items-center space-y-2">
-            <Label htmlFor="photo" className="cursor-pointer">
-              <Avatar className="h-24 w-24">
-                {photoPreview ? (
-                  <AvatarImage src={photoPreview} />
-                ) : (
-                  <AvatarFallback className="text-xl">
-                    {firstName && lastName ? getInitials(firstName, lastName) : "?"}
-                  </AvatarFallback>
-                )}
-              </Avatar>
-              <div className="mt-2 text-center text-sm text-muted-foreground">
-                Click to upload photo
+          <div className="flex flex-col items-center space-y-4">
+            <Label htmlFor="photo" className="cursor-pointer group">
+              <div className="relative">
+                <Avatar className="h-32 w-32 border-4 border-gradient-to-r from-purple-200 to-indigo-200 shadow-lg group-hover:shadow-xl transition-all duration-300">
+                  {photoPreview ? (
+                    <AvatarImage src={photoPreview} className="object-cover" />
+                  ) : (
+                    <AvatarFallback className="text-2xl bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700">
+                      {firstName && lastName ? getInitials(firstName, lastName) : <Camera className="h-8 w-8" />}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+                <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                  <Camera className="h-8 w-8 text-white" />
+                </div>
+              </div>
+              <div className="mt-3 text-center">
+                <span className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 rounded-xl font-medium hover:from-purple-200 hover:to-indigo-200 transition-all duration-300">
+                  <Camera className="h-4 w-4 mr-2" />
+                  {photoPreview ? 'Change Photo' : 'Upload Photo'}
+                </span>
               </div>
             </Label>
             <Input
@@ -271,139 +287,181 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="firstName">First Name *</Label>
-              <Input
-                id="firstName"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                required
-              />
+          {/* Personal Information */}
+          <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <User className="h-5 w-5 text-purple-600" />
+              Personal Information
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="firstName" className="text-sm font-medium text-gray-700">First Name *</Label>
+                <Input
+                  id="firstName"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                />
+              </div>
+              <div>
+                <Label htmlFor="lastName" className="text-sm font-medium text-gray-700">Last Name *</Label>
+                <Input
+                  id="lastName"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                />
+              </div>
             </div>
+          </div>
+
+          {/* Job Information */}
+          <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800">Job Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="position" className="text-sm font-medium text-gray-700">Position</Label>
+                <Input
+                  id="position"
+                  value={position}
+                  onChange={(e) => setPosition(e.target.value)}
+                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                />
+              </div>
+              <div>
+                <Label htmlFor="status" className="text-sm font-medium text-gray-700">Status</Label>
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 rounded-xl">
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="on_leave">On Leave</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Information */}
+          <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800">Contact Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone" className="text-sm font-medium text-gray-700">Phone</Label>
+                <Input
+                  id="phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Emergency Contact */}
+          <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800">Emergency Contact</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="emergencyContactName" className="text-sm font-medium text-gray-700">Emergency Contact Name</Label>
+                <Input
+                  id="emergencyContactName"
+                  value={emergencyContactName}
+                  onChange={(e) => setEmergencyContactName(e.target.value)}
+                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                />
+              </div>
+              <div>
+                <Label htmlFor="emergencyContactPhone" className="text-sm font-medium text-gray-700">Emergency Contact Phone</Label>
+                <Input
+                  id="emergencyContactPhone"
+                  value={emergencyContactPhone}
+                  onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Work Schedule */}
+          <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800">Work Schedule</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="startDate" className="text-sm font-medium text-gray-700">Start Date</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  max={format(new Date(), "yyyy-MM-dd")}
+                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                />
+              </div>
+              <div>
+                <Label htmlFor="shift" className="text-sm font-medium text-gray-700">Shift</Label>
+                <Select value={shift} onValueChange={setShift}>
+                  <SelectTrigger className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30">
+                    <SelectValue placeholder="Select shift" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 rounded-xl">
+                    <SelectItem value="Morning">Morning</SelectItem>
+                    <SelectItem value="Afternoon">Afternoon</SelectItem>
+                    <SelectItem value="Evening">Evening</SelectItem>
+                    <SelectItem value="Night">Night</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* Availability Notes */}
+          <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800">Additional Information</h3>
             <div>
-              <Label htmlFor="lastName">Last Name *</Label>
-              <Input
-                id="lastName"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                required
+              <Label htmlFor="availabilityNotes" className="text-sm font-medium text-gray-700">Availability Notes</Label>
+              <Textarea
+                id="availabilityNotes"
+                value={availabilityNotes}
+                onChange={(e) => setAvailabilityNotes(e.target.value)}
+                placeholder="Enter availability preferences or other notes..."
+                rows={3}
+                className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200 resize-none"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="position">Position</Label>
-              <Input
-                id="position"
-                value={position}
-                onChange={(e) => setPosition(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="status">Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="on_leave">On Leave</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="phone">Phone</Label>
-              <Input
-                id="phone"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="emergencyContactName">Emergency Contact Name</Label>
-              <Input
-                id="emergencyContactName"
-                value={emergencyContactName}
-                onChange={(e) => setEmergencyContactName(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="emergencyContactPhone">Emergency Contact Phone</Label>
-              <Input
-                id="emergencyContactPhone"
-                value={emergencyContactPhone}
-                onChange={(e) => setEmergencyContactPhone(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="startDate">Start Date</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                max={format(new Date(), "yyyy-MM-dd")}
-              />
-            </div>
-            <div>
-              <Label htmlFor="shift">Shift</Label>
-              <Select value={shift} onValueChange={setShift}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select shift" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Morning">Morning</SelectItem>
-                  <SelectItem value="Afternoon">Afternoon</SelectItem>
-                  <SelectItem value="Evening">Evening</SelectItem>
-                  <SelectItem value="Night">Night</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="availabilityNotes">Availability Notes</Label>
-            <Textarea
-              id="availabilityNotes"
-              value={availabilityNotes}
-              onChange={(e) => setAvailabilityNotes(e.target.value)}
-              placeholder="Enter availability preferences or other notes..."
-              rows={3}
-            />
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+          <DialogFooter className="flex gap-3 pt-6">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onClose}
+              className="bg-white/80 border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold px-6 py-3 rounded-xl transition-all duration-300"
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={saveStaffMutation.isPending}>
+            <Button 
+              type="submit" 
+              disabled={saveStaffMutation.isPending}
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:transform-none"
+            >
               {saveStaffMutation.isPending ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
                   Saving...
                 </>
               ) : (

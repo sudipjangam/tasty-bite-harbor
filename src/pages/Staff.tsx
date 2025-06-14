@@ -13,7 +13,7 @@ import StaffLeaveManager from "@/components/Staff/StaffLeaveManager";
 import TimeClockDialog from "@/components/Staff/TimeClockDialog";
 import type { StaffMember, StaffRole } from "@/types/staff";
 import { Button } from "@/components/ui/button";
-import { UserPlus, ClockIcon } from "lucide-react";
+import { UserPlus, ClockIcon, Users, FileText, Sparkles } from "lucide-react";
 import { buttonStyles } from "@/config/buttonStyles";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
@@ -81,28 +81,35 @@ const Staff = () => {
   };
 
   return (
-    <div className="p-6 space-y-6 bg-gradient-to-br from-purple-50 to-white dark:from-gray-900 dark:to-gray-800 min-h-screen">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-            Staff Management
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your restaurant's staff and leave requests
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950 p-6">
+      {/* Modern Header with Glass Effect */}
+      <div className="mb-8 bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-xl p-8">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="p-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl shadow-lg">
+            <Users className="h-8 w-8 text-white" />
+          </div>
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 bg-clip-text text-transparent">
+              Staff Management
+            </h1>
+            <p className="text-gray-600 text-lg mt-2 flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-purple-500" />
+              Manage your restaurant's staff and leave requests
+            </p>
+          </div>
         </div>
-        <div className="flex gap-3">
+        
+        <div className="flex gap-3 mt-6">
           <Button 
             onClick={() => setIsTimeClockDialogOpen(true)}
-            variant="outline"
-            className={buttonStyles.view}
+            className="bg-white/80 backdrop-blur-sm border-2 border-indigo-200 hover:border-indigo-300 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 text-indigo-700 hover:text-indigo-800 font-semibold px-6 py-3 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300"
           >
             <ClockIcon className="h-4 w-4 mr-2" />
             Clock In/Out
           </Button>
           <Button 
             onClick={handleAddStaff}
-            className={buttonStyles.primary}
+            className="bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
           >
             <UserPlus className="h-4 w-4 mr-2" />
             Add Staff
@@ -111,48 +118,56 @@ const Staff = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-6 bg-white dark:bg-gray-800 p-1 border border-gray-200 dark:border-gray-700 rounded-lg">
-          <TabsTrigger 
-            value="staff" 
-            className="data-[state=active]:bg-primary data-[state=active]:text-white transition-colors"
-          >
-            Staff List
-          </TabsTrigger>
-          <TabsTrigger 
-            value="leaves"
-            className="data-[state=active]:bg-primary data-[state=active]:text-white transition-colors"
-          >
-            Leave Management
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto pb-2 mb-6">
+          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-xl p-2">
+            <TabsList className="inline-flex w-auto min-w-full md:w-auto space-x-1 p-1 bg-transparent rounded-2xl">
+              <TabsTrigger 
+                value="staff" 
+                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
+              >
+                <Users className="h-4 w-4" />
+                Staff List
+              </TabsTrigger>
+              <TabsTrigger 
+                value="leaves"
+                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                Leave Management
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        </div>
         
         <TabsContent value="staff" className="animate-in fade-in">
           <ErrorBoundary>
             {selectedStaff ? (
-              <Card className="p-6 bg-white dark:bg-gray-800 shadow-md border-t-4 border-t-primary">
+              <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-xl p-8">
                 <StaffDetail 
                   staffId={selectedStaff.id}
                   restaurantId={restaurantId}
                   onEdit={handleEditStaff}
                   onBack={() => setSelectedStaff(null)}
                 />
-              </Card>
+              </div>
             ) : (
-              <StaffList
-                selectedStaffId={selectedStaff?.id || null}
-                onSelectStaff={setSelectedStaff}
-                restaurantId={restaurantId}
-                onAddStaff={handleAddStaff}
-              />
+              <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-xl p-8">
+                <StaffList
+                  selectedStaffId={selectedStaff?.id || null}
+                  onSelectStaff={setSelectedStaff}
+                  restaurantId={restaurantId}
+                  onAddStaff={handleAddStaff}
+                />
+              </div>
             )}
           </ErrorBoundary>
         </TabsContent>
         
         <TabsContent value="leaves" className="animate-in fade-in">
           <ErrorBoundary>
-            <Card className="p-6 bg-white dark:bg-gray-800 shadow-md">
+            <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-xl p-8">
               <StaffLeaveManager />
-            </Card>
+            </div>
           </ErrorBoundary>
         </TabsContent>
       </Tabs>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -240,20 +239,28 @@ const StaffDetail: React.FC<StaffDetailProps> = ({
   if (isLoadingStaff) {
     return (
       <div className="flex items-center justify-center h-48">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600"></div>
+          <p className="text-gray-600 animate-pulse">Loading staff details...</p>
+        </div>
       </div>
     );
   }
 
   if (!staff) {
     return (
-      <Card>
+      <Card className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-2xl shadow-lg">
         <CardHeader>
           <CardTitle>Staff not found</CardTitle>
           <CardDescription>The staff member you are looking for does not exist.</CardDescription>
         </CardHeader>
         <CardFooter>
-          <Button onClick={onBack}>Back to staff list</Button>
+          <Button 
+            onClick={onBack}
+            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
+          >
+            Back to staff list
+          </Button>
         </CardFooter>
       </Card>
     );
@@ -261,64 +268,85 @@ const StaffDetail: React.FC<StaffDetailProps> = ({
 
   return (
     <div className="space-y-6">
-      <Card className="p-4">
+      <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl shadow-lg p-6">
         <StaffHeader 
           staff={staff} 
           onBack={onBack} 
           onEdit={onEdit}
           onActivateDeactivate={handleActivateDeactivate}
         />
-      </Card>
+      </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full border-b mb-6">
-          <TabsTrigger value="profile" className="flex items-center gap-2 rounded-none">
-            <UserCheck className="h-4 w-4" /> Profile
-          </TabsTrigger>
-          <TabsTrigger value="schedule" className="flex items-center gap-2 rounded-none">
-            <Calendar className="h-4 w-4" /> Schedule
-          </TabsTrigger>
-          <TabsTrigger value="leave" className="flex items-center gap-2 rounded-none">
-            <FileText className="h-4 w-4" /> Leave
-          </TabsTrigger>
-          <TabsTrigger value="timeclock" className="flex items-center gap-2 rounded-none">
-            <Clock className="h-4 w-4" /> Time Clock
-          </TabsTrigger>
-          <TabsTrigger value="permissions" className="flex items-center gap-2 rounded-none">
-            <Settings className="h-4 w-4" /> Permissions
-          </TabsTrigger>
-        </TabsList>
+      <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl shadow-lg overflow-hidden">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-2">
+            <TabsList className="w-full bg-transparent rounded-xl p-1">
+              <TabsTrigger 
+                value="profile" 
+                className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-4 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
+              >
+                <UserCheck className="h-4 w-4" /> Profile
+              </TabsTrigger>
+              <TabsTrigger 
+                value="schedule" 
+                className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-4 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
+              >
+                <Calendar className="h-4 w-4" /> Schedule
+              </TabsTrigger>
+              <TabsTrigger 
+                value="leave" 
+                className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-4 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
+              >
+                <FileText className="h-4 w-4" /> Leave
+              </TabsTrigger>
+              <TabsTrigger 
+                value="timeclock" 
+                className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-4 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
+              >
+                <Clock className="h-4 w-4" /> Time Clock
+              </TabsTrigger>
+              <TabsTrigger 
+                value="permissions" 
+                className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-4 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
+              >
+                <Settings className="h-4 w-4" /> Permissions
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-        <TabsContent value="profile" className="mt-0">
-          <ProfileTab staff={staff} formatDate={formatDate} />
-        </TabsContent>
+          <div className="p-6">
+            <TabsContent value="profile" className="mt-0">
+              <ProfileTab staff={staff} formatDate={formatDate} />
+            </TabsContent>
 
-        <TabsContent value="schedule" className="mt-0">
-          <ScheduleTab upcomingShifts={upcomingShifts} formatDate={formatDate} />
-        </TabsContent>
+            <TabsContent value="schedule" className="mt-0">
+              <ScheduleTab upcomingShifts={upcomingShifts} formatDate={formatDate} />
+            </TabsContent>
 
-        <TabsContent value="leave" className="mt-0">
-          <LeaveTab 
-            leaveBalances={leaveBalances}
-            upcomingLeave={upcomingLeave}
-            formatDate={formatDate}
-            calculateDuration={calculateDuration}
-            onRequestLeave={() => setIsLeaveRequestDialogOpen(true)}
-          />
-        </TabsContent>
+            <TabsContent value="leave" className="mt-0">
+              <LeaveTab 
+                leaveBalances={leaveBalances}
+                upcomingLeave={upcomingLeave}
+                formatDate={formatDate}
+                calculateDuration={calculateDuration}
+                onRequestLeave={() => setIsLeaveRequestDialogOpen(true)}
+              />
+            </TabsContent>
 
-        <TabsContent value="timeclock" className="mt-0">
-          <TimeClockTab 
-            timeClockEntries={timeClockEntries} 
-            formatDate={formatDate} 
-            onClockInOut={() => setIsTimeClockDialogOpen(true)}
-          />
-        </TabsContent>
+            <TabsContent value="timeclock" className="mt-0">
+              <TimeClockTab 
+                timeClockEntries={timeClockEntries} 
+                formatDate={formatDate} 
+                onClockInOut={() => setIsTimeClockDialogOpen(true)}
+              />
+            </TabsContent>
 
-        <TabsContent value="permissions" className="mt-0">
-          <PermissionsTab roles={roles} />
-        </TabsContent>
-      </Tabs>
+            <TabsContent value="permissions" className="mt-0">
+              <PermissionsTab roles={roles} />
+            </TabsContent>
+          </div>
+        </Tabs>
+      </div>
 
       {/* Status change confirmation dialog */}
       <StaffStatusDialog
