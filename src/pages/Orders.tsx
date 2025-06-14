@@ -22,7 +22,7 @@ const Orders = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950">
       {/* Modern Header with Glass Effect */}
-      <div className="bg-white/80 backdrop-blur-xl border-b border-white/20 shadow-xl">
+      <div className="bg-white/80 backdrop-blur-xl border-b border-white/20 shadow-xl sticky top-0 z-40">
         <StandardizedLayout padding="md">
           <div className="mb-6 bg-white/90 backdrop-blur-sm border border-white/30 rounded-3xl shadow-xl p-6">
             <div className="flex justify-between items-center">
@@ -61,7 +61,7 @@ const Orders = () => {
             </div>
           </div>
           
-          {/* Fixed Quick Actions with better visibility */}
+          {/* Quick Actions with better visibility */}
           <div className="bg-white/90 backdrop-blur-sm border border-white/30 rounded-2xl shadow-lg p-4 mb-4">
             <QuickActionsToolbar 
               actions={quickActions}
@@ -70,10 +70,9 @@ const Orders = () => {
         </StandardizedLayout>
       </div>
 
-      <div className="h-[calc(100vh-200px)] overflow-hidden p-6">
-        <div className="h-full bg-white/80 backdrop-blur-sm border border-white/20 rounded-3xl shadow-xl overflow-hidden">
-          {showPOS ? <POSMode /> : <OrdersView />}
-        </div>
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-hidden">
+        {showPOS ? <POSMode /> : <OrdersView />}
       </div>
       
       <MobileNavigation />
