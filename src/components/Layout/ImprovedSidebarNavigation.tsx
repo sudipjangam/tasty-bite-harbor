@@ -18,7 +18,8 @@ import {
   ChevronRight,
   Sparkles,
   DollarSign,
-  ChefHat
+  ChefHat,
+  Globe
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -117,6 +118,12 @@ const navigationGroups: NavigationGroup[] = [
         icon: Users,
         href: "/customers",
         description: "Customer database"
+      },
+      {
+        title: "Channel Management",
+        icon: Globe,
+        href: "/channel-management",
+        description: "OTA & booking channels"
       },
       {
         title: "Analytics",
