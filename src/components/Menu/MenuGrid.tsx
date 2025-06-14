@@ -1,10 +1,9 @@
-
 import { useState, useEffect, useCallback, memo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit2, Trash2, CakeSlice, Coffee, Pizza, Beef, Soup, Search } from "lucide-react";
+import { Plus, Edit2, Trash2, CakeSlice, Coffee, Pizza, Beef, Soup, Search, Filter } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
@@ -23,7 +22,7 @@ interface MenuItem {
   is_special?: boolean;
 }
 
-// Memoized MenuItem component to avoid re-renders
+// Memoized MenuItem component with optimized image size
 const MenuItemCard = memo(({ 
   item, 
   onEdit, 
@@ -35,8 +34,8 @@ const MenuItemCard = memo(({
   onDelete: (id: string) => void, 
   getCategoryIcon: (category: string) => JSX.Element 
 }) => (
-  <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-    <div className="relative h-48">
+  <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] bg-white/90 backdrop-blur-sm border border-white/20">
+    <div className="relative h-32">
       <img
         src={item.image_url || "/placeholder.svg"}
         alt={item.name}
@@ -44,52 +43,55 @@ const MenuItemCard = memo(({
         loading="lazy"
       />
       <div className="absolute top-2 right-2">
-        <div className="p-2 bg-white/90 rounded-full shadow-md">
+        <div className="p-1.5 bg-white/95 backdrop-blur-sm rounded-lg shadow-md">
           {getCategoryIcon(item.category)}
         </div>
       </div>
-      {item.is_veg && (
-        <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-          Veg
-        </div>
-      )}
-      {!item.is_veg && (
-        <div className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-          Non-Veg
-        </div>
-      )}
-      {item.is_special && (
-        <div className="absolute bottom-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full">
-          Special
-        </div>
-      )}
+      <div className="absolute top-2 left-2 flex gap-1">
+        {item.is_veg !== undefined && (
+          <div className={`text-xs px-2 py-1 rounded-full font-medium ${
+            item.is_veg 
+              ? 'bg-green-500/90 text-white' 
+              : 'bg-red-500/90 text-white'
+          }`}>
+            {item.is_veg ? 'Veg' : 'Non-Veg'}
+          </div>
+        )}
+        {item.is_special && (
+          <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs px-2 py-1 rounded-full font-medium">
+            Special
+          </div>
+        )}
+      </div>
     </div>
     <div className="p-4">
-      <div className="flex justify-between items-start">
-        <div>
-          <h3 className="font-semibold text-gray-800">{item.name}</h3>
-          <p className="text-sm text-muted-foreground">{item.category}</p>
-          {item.description && (
-            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{item.description}</p>
-          )}
+      <div className="flex justify-between items-start mb-2">
+        <div className="flex-1">
+          <h3 className="font-bold text-gray-800 text-lg leading-tight">{item.name}</h3>
+          <p className="text-sm text-emerald-600 font-medium">{item.category}</p>
         </div>
-        <p className="font-bold text-purple-600">₹{item.price}</p>
+        <p className="font-bold text-purple-600 text-lg">₹{item.price}</p>
       </div>
-      <div className="flex gap-2 mt-4">
+      {item.description && (
+        <p className="text-sm text-gray-600 mb-3 line-clamp-2">{item.description}</p>
+      )}
+      <div className="flex gap-2">
         <Button 
           variant="outline" 
-          className="flex-1 hover:bg-purple-50"
+          size="sm"
+          className="flex-1 hover:bg-purple-50 hover:border-purple-300 transition-colors"
           onClick={() => onEdit(item)}
         >
-          <Edit2 className="w-4 h-4 mr-2" />
+          <Edit2 className="w-3 h-3 mr-1" />
           Edit
         </Button>
         <Button 
           variant="outline" 
-          className="flex-1 text-destructive hover:text-destructive hover:bg-red-50"
+          size="sm"
+          className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-300 transition-colors"
           onClick={() => onDelete(item.id)}
         >
-          <Trash2 className="w-4 h-4 mr-2" />
+          <Trash2 className="w-3 h-3 mr-1" />
           Delete
         </Button>
       </div>
@@ -157,15 +159,15 @@ const MenuGrid = () => {
   const getCategoryIcon = useCallback((category: string) => {
     switch (category?.toLowerCase()) {
       case 'desserts':
-        return <CakeSlice className="h-6 w-6 text-pink-500" />;
+        return <CakeSlice className="h-4 w-4 text-pink-500" />;
       case 'beverages':
-        return <Coffee className="h-6 w-6 text-brown-500" />;
+        return <Coffee className="h-4 w-4 text-brown-500" />;
       case 'main course':
-        return <Pizza className="h-6 w-6 text-orange-500" />;
+        return <Pizza className="h-4 w-4 text-orange-500" />;
       case 'non-veg':
-        return <Beef className="h-6 w-6 text-red-500" />;
+        return <Beef className="h-4 w-4 text-red-500" />;
       default:
-        return <Soup className="h-6 w-6 text-primary" />;
+        return <Soup className="h-4 w-4 text-primary" />;
     }
   }, []);
 
@@ -229,11 +231,17 @@ const MenuGrid = () => {
   }
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Menu Items</h2>
+    <div className="space-y-6 animate-fade-in">
+      {/* Modern Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+            Menu Items
+          </h2>
+          <p className="text-gray-600 text-sm mt-1">Manage your restaurant's menu offerings</p>
+        </div>
         <Button 
-          className="bg-purple-600 hover:bg-purple-700 text-white"
+          className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
           onClick={() => {
             setEditingItem(null);
             setShowAddForm(true);
@@ -244,52 +252,78 @@ const MenuGrid = () => {
         </Button>
       </div>
 
-      {/* Search bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-        <Input
-          placeholder="Search menu items..."
-          className="pl-10"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      {/* Enhanced Search and Filter Section */}
+      <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-xl p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl shadow-lg">
+            <Search className="h-5 w-5 text-white" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-800">Search & Filter</h3>
+        </div>
+        
+        {/* Search Input */}
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            placeholder="Search menu items by name, description, or category..."
+            className="pl-10 bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-emerald-300 transition-all duration-200"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
+        {/* Category Filter Tabs */}
+        <Tabs defaultValue="all" value={activeCategory} onValueChange={setActiveCategory}>
+          <TabsList className="bg-gray-100/50 rounded-xl p-1 flex-wrap h-auto">
+            <TabsTrigger value="all" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md">
+              All Items
+            </TabsTrigger>
+            <TabsTrigger value="veg" className="text-green-600 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md">
+              Vegetarian
+            </TabsTrigger>
+            <TabsTrigger value="non-veg" className="text-red-600 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md">
+              Non-Vegetarian
+            </TabsTrigger>
+            <TabsTrigger value="special" className="text-purple-600 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md">
+              Restaurant Specials
+            </TabsTrigger>
+            {Object.keys(groupedItemsData).map((category) => (
+              <TabsTrigger key={category} value={category} className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md">
+                {category}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
 
-      {/* Category tabs */}
-      <Tabs defaultValue="all" value={activeCategory} onValueChange={setActiveCategory}>
-        <TabsList className="mb-4 w-full justify-start overflow-x-auto">
-          <TabsTrigger value="all">All Items</TabsTrigger>
-          <TabsTrigger value="veg" className="text-green-600">Vegetarian</TabsTrigger>
-          <TabsTrigger value="non-veg" className="text-red-600">Non-Vegetarian</TabsTrigger>
-          <TabsTrigger value="special" className="text-purple-600">Restaurant Specials</TabsTrigger>
-          {Object.keys(groupedItemsData).map((category) => (
-            <TabsTrigger key={category} value={category}>
-              {category}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        {/* All items are shown in each tab, but filtered accordingly */}
-        <div className="flex flex-wrap gap-4 mb-6">
-          {activeCategory === "all" && Object.entries(groupedItemsData).map(([category, items]) => (
-            <Card key={category} className="flex items-center gap-3 p-4 bg-gradient-to-br from-white to-gray-50 border-none shadow-md">
-              {getCategoryIcon(category)}
-              <div>
-                <h3 className="font-medium text-gray-700">{category}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {items.length} items
-                </p>
+      {/* Category Overview Cards - Only show on "all" tab */}
+      {activeCategory === "all" && (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {Object.entries(groupedItemsData).map(([category, items]) => (
+            <Card key={category} className="p-4 bg-gradient-to-br from-white to-gray-50/50 border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+              <div className="flex flex-col items-center text-center gap-2">
+                {getCategoryIcon(category)}
+                <div>
+                  <h3 className="font-medium text-gray-700 text-sm">{category}</h3>
+                  <p className="text-xs text-gray-500">
+                    {items.length} items
+                  </p>
+                </div>
               </div>
             </Card>
           ))}
         </div>
-      </Tabs>
+      )}
 
       {/* Menu items grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filteredMenuItems?.length === 0 ? (
-          <div className="col-span-full text-center p-8 text-muted-foreground">
-            No menu items found. Try a different search or category.
+          <div className="col-span-full text-center p-12 text-gray-500">
+            <div className="flex flex-col items-center gap-3">
+              <Search className="h-12 w-12 text-gray-300" />
+              <h3 className="text-lg font-medium">No menu items found</h3>
+              <p className="text-sm">Try adjusting your search or category filter</p>
+            </div>
           </div>
         ) : (
           filteredMenuItems?.map((item) => (
