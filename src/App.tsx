@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter as Router } from "react-router-dom";
 import { Toaster } from "./components/ui/toaster";
 import "./App.css";
-import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SimpleAuthProvider } from "@/hooks/useSimpleAuth";
 import { ErrorBoundary } from "./components/ui/error-boundary";
 import SimpleRoutes from "./components/Auth/SimpleRoutes";
@@ -25,18 +24,16 @@ function App() {
   
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
-        <SimpleAuthProvider>
-          <ErrorBoundary>
-            <Router>
-              <div className="h-screen w-full overflow-hidden bg-gray-100 dark:bg-gray-900">
-                <SimpleRoutes />
-                <Toaster />
-              </div>
-            </Router>
-          </ErrorBoundary>
-        </SimpleAuthProvider>
-      </ThemeProvider>
+      <SimpleAuthProvider>
+        <ErrorBoundary>
+          <Router>
+            <div className="h-screen w-full overflow-hidden bg-gray-100">
+              <SimpleRoutes />
+              <Toaster />
+            </div>
+          </Router>
+        </ErrorBoundary>
+      </SimpleAuthProvider>
     </QueryClientProvider>
   );
 }

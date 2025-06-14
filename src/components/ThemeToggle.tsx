@@ -1,12 +1,10 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Moon, Sun } from "lucide-react";
-import { useTheme } from "@/hooks/useTheme";
+import { Sun } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const { toast } = useToast();
 
@@ -15,12 +13,10 @@ export function ThemeToggle() {
     setMounted(true);
   }, []);
 
-  const toggleTheme = () => {
-    const newTheme = theme === "dark" ? "light" : "dark";
-    setTheme(newTheme);
+  const handleClick = () => {
     toast({
-      title: `${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} Theme Activated`,
-      description: `The application is now in ${newTheme} mode.`,
+      title: "Light Theme Active",
+      description: "The application is in light mode.",
       className: "toast-card",
     });
   };
@@ -33,15 +29,11 @@ export function ThemeToggle() {
     <Button
       variant="ghost"
       size="icon"
-      onClick={toggleTheme}
-      aria-label="Toggle theme"
+      onClick={handleClick}
+      aria-label="Light theme active"
       className="rounded-full w-8 h-8 transition-all duration-300 hover:bg-sidebar-purple-dark bg-transparent text-white"
     >
-      {theme === "dark" ? (
-        <Sun className="h-4 w-4 transition-transform duration-300 hover:rotate-45" />
-      ) : (
-        <Moon className="h-4 w-4 transition-transform duration-300 hover:-rotate-12" />
-      )}
+      <Sun className="h-4 w-4 transition-transform duration-300 hover:rotate-45" />
     </Button>
   );
 };
