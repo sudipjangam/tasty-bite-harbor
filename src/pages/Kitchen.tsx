@@ -1,12 +1,13 @@
 
 import React from "react";
 import KitchenDisplay from "@/components/Kitchen/KitchenDisplay";
+import { StandardizedPage } from "@/components/Layout/StandardizedPage";
 
 const Kitchen = () => {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <StandardizedPage>
       <KitchenDisplay />
-    </div>
+    </StandardizedPage>
   );
 };
 
