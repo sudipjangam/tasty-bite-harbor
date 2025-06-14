@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,26 +6,54 @@ import { Calendar, Clock, Users, AlertTriangle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 const RoomStatusDashboard = () => {
   const { toast } = useToast();
+  const { restaurantId } = useRestaurantId();
+
+  // Real-time subscriptions
+  useRealtimeSubscription({
+    table: 'rooms',
+    queryKey: ['rooms-status', restaurantId],
+    filter: restaurantId ? { column: 'restaurant_id', value: restaurantId } : null,
+  });
+
+  useRealtimeSubscription({
+    table: 'room_cleaning_schedules',
+    queryKey: ['cleaning-schedules-today', restaurantId],
+    filter: restaurantId ? { column: 'restaurant_id', value: restaurantId } : null,
+  });
+
+  useRealtimeSubscription({
+    table: 'room_maintenance_requests',
+    queryKey: ['maintenance-requests-open', restaurantId],
+    filter: restaurantId ? { column: 'restaurant_id', value: restaurantId } : null,
+  });
 
   const { data: roomsData, isLoading: roomsLoading } = useQuery({
-    queryKey: ['rooms-status'],
+    queryKey: ['rooms-status', restaurantId],
     queryFn: async () => {
+      if (!restaurantId) return [];
+      
       const { data, error } = await supabase
         .from('rooms')
         .select('*')
+        .eq('restaurant_id', restaurantId)
         .order('name');
       
       if (error) throw error;
       return data;
     },
+    enabled: !!restaurantId,
   });
 
   const { data: cleaningSchedules } = useQuery({
-    queryKey: ['cleaning-schedules-today'],
+    queryKey: ['cleaning-schedules-today', restaurantId],
     queryFn: async () => {
+      if (!restaurantId) return [];
+      
       const today = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('room_cleaning_schedules')
@@ -35,29 +62,35 @@ const RoomStatusDashboard = () => {
           rooms(name),
           staff(first_name, last_name)
         `)
+        .eq('restaurant_id', restaurantId)
         .eq('scheduled_date', today)
         .order('scheduled_time');
       
       if (error) throw error;
       return data;
     },
+    enabled: !!restaurantId,
   });
 
   const { data: maintenanceRequests } = useQuery({
-    queryKey: ['maintenance-requests-open'],
+    queryKey: ['maintenance-requests-open', restaurantId],
     queryFn: async () => {
+      if (!restaurantId) return [];
+      
       const { data, error } = await supabase
         .from('room_maintenance_requests')
         .select(`
           *,
           rooms(name)
         `)
+        .eq('restaurant_id', restaurantId)
         .in('status', ['open', 'in_progress'])
         .order('priority', { ascending: false });
       
       if (error) throw error;
       return data;
     },
+    enabled: !!restaurantId,
   });
 
   const getStatusColor = (status: string) => {
@@ -203,13 +236,19 @@ const RoomStatusDashboard = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {roomsData?.map((room) => (
-              <div key={room.id} className="p-4 border rounded-lg text-center">
-                <div className={`w-4 h-4 rounded-full mx-auto mb-2 ${getStatusColor(room.status)}`}></div>
-                <p className="font-medium">{room.name}</p>
-                <p className="text-sm text-muted-foreground capitalize">{room.status}</p>
+            {roomsData?.length === 0 ? (
+              <div className="col-span-full text-center text-muted-foreground py-8">
+                No rooms found. Add rooms to get started.
               </div>
-            ))}
+            ) : (
+              roomsData?.map((room) => (
+                <div key={room.id} className="p-4 border rounded-lg text-center">
+                  <div className={`w-4 h-4 rounded-full mx-auto mb-2 ${getStatusColor(room.status)}`}></div>
+                  <p className="font-medium">{room.name}</p>
+                  <p className="text-sm text-muted-foreground capitalize">{room.status}</p>
+                </div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

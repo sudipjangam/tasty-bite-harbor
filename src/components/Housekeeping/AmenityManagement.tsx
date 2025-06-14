@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,8 @@ import { Plus, Edit, Package, DollarSign } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import AmenityDialog from "./AmenityDialog";
 
 const AmenityManagement = () => {
@@ -14,24 +15,44 @@ const AmenityManagement = () => {
   const [selectedAmenity, setSelectedAmenity] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { restaurantId } = useRestaurantId();
+
+  // Real-time subscriptions
+  useRealtimeSubscription({
+    table: 'room_amenities',
+    queryKey: ['room-amenities', restaurantId],
+    filter: restaurantId ? { column: 'restaurant_id', value: restaurantId } : null,
+  });
+
+  useRealtimeSubscription({
+    table: 'room_amenity_inventory',
+    queryKey: ['amenity-inventory', restaurantId],
+    filter: restaurantId ? { column: 'restaurant_id', value: restaurantId } : null,
+  });
 
   const { data: amenities, isLoading } = useQuery({
-    queryKey: ['room-amenities'],
+    queryKey: ['room-amenities', restaurantId],
     queryFn: async () => {
+      if (!restaurantId) return [];
+      
       const { data, error } = await supabase
         .from('room_amenities')
         .select('*')
+        .eq('restaurant_id', restaurantId)
         .order('category')
         .order('name');
       
       if (error) throw error;
       return data;
     },
+    enabled: !!restaurantId,
   });
 
   const { data: amenityInventory } = useQuery({
-    queryKey: ['amenity-inventory'],
+    queryKey: ['amenity-inventory', restaurantId],
     queryFn: async () => {
+      if (!restaurantId) return [];
+      
       const { data, error } = await supabase
         .from('room_amenity_inventory')
         .select(`
@@ -39,11 +60,13 @@ const AmenityManagement = () => {
           amenity:room_amenities(*),
           room:rooms(name)
         `)
+        .eq('restaurant_id', restaurantId)
         .order('last_checked', { ascending: false });
       
       if (error) throw error;
       return data;
     },
+    enabled: !!restaurantId,
   });
 
   const toggleActiveMutation = useMutation({
@@ -116,58 +139,64 @@ const AmenityManagement = () => {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
-            {amenities?.map((amenity) => (
-              <div key={amenity.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center space-x-4">
-                  <div>
-                    <h3 className="font-semibold">{amenity.name}</h3>
-                    <p className="text-sm text-muted-foreground">{amenity.description}</p>
-                    <div className="flex items-center space-x-2 mt-2">
-                      <Badge className={getCategoryColor(amenity.category)}>
-                        {amenity.category}
-                      </Badge>
-                      {amenity.is_complimentary ? (
-                        <Badge variant="secondary">Complimentary</Badge>
-                      ) : (
-                        <Badge variant="outline">
-                          <DollarSign className="h-3 w-3 mr-1" />
-                          ${amenity.cost_per_unit}
+            {amenities?.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                No amenities found. Create your first amenity to get started.
+              </div>
+            ) : (
+              amenities?.map((amenity) => (
+                <div key={amenity.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center space-x-4">
+                    <div>
+                      <h3 className="font-semibold">{amenity.name}</h3>
+                      <p className="text-sm text-muted-foreground">{amenity.description}</p>
+                      <div className="flex items-center space-x-2 mt-2">
+                        <Badge className={getCategoryColor(amenity.category)}>
+                          {amenity.category}
                         </Badge>
-                      )}
+                        {amenity.is_complimentary ? (
+                          <Badge variant="secondary">Complimentary</Badge>
+                        ) : (
+                          <Badge variant="outline">
+                            <DollarSign className="h-3 w-3 mr-1" />
+                            ${amenity.cost_per_unit}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Badge variant={amenity.is_active ? "default" : "secondary"}>
-                    {amenity.is_active ? "Active" : "Inactive"}
-                  </Badge>
                   
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => toggleActiveMutation.mutate({ 
-                      id: amenity.id, 
-                      isActive: !amenity.is_active 
-                    })}
-                    disabled={toggleActiveMutation.isPending}
-                  >
-                    {amenity.is_active ? "Deactivate" : "Activate"}
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedAmenity(amenity);
-                      setOpenDialog(true);
-                    }}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center space-x-2">
+                    <Badge variant={amenity.is_active ? "default" : "secondary"}>
+                      {amenity.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleActiveMutation.mutate({ 
+                        id: amenity.id, 
+                        isActive: !amenity.is_active 
+                      })}
+                      disabled={toggleActiveMutation.isPending}
+                    >
+                      {amenity.is_active ? "Deactivate" : "Activate"}
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedAmenity(amenity);
+                        setOpenDialog(true);
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
@@ -182,23 +211,29 @@ const AmenityManagement = () => {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
-            {amenityInventory?.map((item) => (
-              <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <h3 className="font-semibold">{item.room?.name} - {item.amenity?.name}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Quantity: {item.quantity} | Last checked: {new Date(item.last_checked).toLocaleDateString()}
-                  </p>
-                  {item.notes && (
-                    <p className="text-sm text-muted-foreground mt-1">{item.notes}</p>
-                  )}
-                </div>
-                
-                <Badge className={getConditionColor(item.condition)}>
-                  {item.condition}
-                </Badge>
+            {amenityInventory?.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                No inventory records found.
               </div>
-            ))}
+            ) : (
+              amenityInventory?.map((item) => (
+                <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <h3 className="font-semibold">{item.room?.name} - {item.amenity?.name}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Quantity: {item.quantity} | Last checked: {new Date(item.last_checked).toLocaleDateString()}
+                    </p>
+                    {item.notes && (
+                      <p className="text-sm text-muted-foreground mt-1">{item.notes}</p>
+                    )}
+                  </div>
+                  
+                  <Badge className={getConditionColor(item.condition)}>
+                    {item.condition}
+                  </Badge>
+                </div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,8 @@ import { Calendar, Clock, Plus, Edit, Check, X } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import CleaningScheduleDialog from "./CleaningScheduleDialog";
 
 const CleaningSchedules = () => {
@@ -14,10 +15,20 @@ const CleaningSchedules = () => {
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { restaurantId } = useRestaurantId();
+
+  // Real-time subscription for cleaning schedules
+  useRealtimeSubscription({
+    table: 'room_cleaning_schedules',
+    queryKey: ['cleaning-schedules', restaurantId],
+    filter: restaurantId ? { column: 'restaurant_id', value: restaurantId } : null,
+  });
 
   const { data: schedules, isLoading } = useQuery({
-    queryKey: ['cleaning-schedules'],
+    queryKey: ['cleaning-schedules', restaurantId],
     queryFn: async () => {
+      if (!restaurantId) return [];
+      
       const { data, error } = await supabase
         .from('room_cleaning_schedules')
         .select(`
@@ -25,12 +36,14 @@ const CleaningSchedules = () => {
           rooms(name),
           staff(first_name, last_name)
         `)
+        .eq('restaurant_id', restaurantId)
         .order('scheduled_date', { ascending: false })
         .order('scheduled_time');
       
       if (error) throw error;
       return data;
     },
+    enabled: !!restaurantId,
   });
 
   const updateStatusMutation = useMutation({
@@ -118,75 +131,83 @@ const CleaningSchedules = () => {
       </div>
 
       <div className="grid gap-4">
-        {schedules?.map((schedule) => (
-          <Card key={schedule.id}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div>
-                    <h3 className="font-semibold">{schedule.rooms?.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(schedule.scheduled_date).toLocaleDateString()} at {formatTime(schedule.scheduled_time)}
-                    </p>
-                    {schedule.staff && (
+        {schedules?.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-center text-muted-foreground">
+              No cleaning schedules found. Create your first schedule to get started.
+            </CardContent>
+          </Card>
+        ) : (
+          schedules?.map((schedule) => (
+            <Card key={schedule.id}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div>
+                      <h3 className="font-semibold">{schedule.rooms?.name}</h3>
                       <p className="text-sm text-muted-foreground">
-                        Assigned to: {schedule.staff.first_name} {schedule.staff.last_name}
+                        {new Date(schedule.scheduled_date).toLocaleDateString()} at {formatTime(schedule.scheduled_time)}
                       </p>
+                      {schedule.staff && (
+                        <p className="text-sm text-muted-foreground">
+                          Assigned to: {schedule.staff.first_name} {schedule.staff.last_name}
+                        </p>
+                      )}
+                      <p className="text-sm text-muted-foreground capitalize">
+                        Type: {schedule.cleaning_type}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Badge variant={getStatusColor(schedule.status)}>
+                      {schedule.status}
+                    </Badge>
+                    
+                    {schedule.status === 'pending' && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleStartCleaning(schedule.id)}
+                        disabled={updateStatusMutation.isPending}
+                      >
+                        <Clock className="h-4 w-4 mr-1" />
+                        Start
+                      </Button>
                     )}
-                    <p className="text-sm text-muted-foreground capitalize">
-                      Type: {schedule.cleaning_type}
-                    </p>
+                    
+                    {schedule.status === 'in_progress' && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleCompleteCleaning(schedule.id)}
+                        disabled={updateStatusMutation.isPending}
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        Complete
+                      </Button>
+                    )}
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedSchedule(schedule);
+                        setOpenDialog(true);
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
                 
-                <div className="flex items-center space-x-2">
-                  <Badge variant={getStatusColor(schedule.status)}>
-                    {schedule.status}
-                  </Badge>
-                  
-                  {schedule.status === 'pending' && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleStartCleaning(schedule.id)}
-                      disabled={updateStatusMutation.isPending}
-                    >
-                      <Clock className="h-4 w-4 mr-1" />
-                      Start
-                    </Button>
-                  )}
-                  
-                  {schedule.status === 'in_progress' && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleCompleteCleaning(schedule.id)}
-                      disabled={updateStatusMutation.isPending}
-                    >
-                      <Check className="h-4 w-4 mr-1" />
-                      Complete
-                    </Button>
-                  )}
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedSchedule(schedule);
-                      setOpenDialog(true);
-                    }}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              
-              {schedule.notes && (
-                <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded">
-                  <p className="text-sm">{schedule.notes}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+                {schedule.notes && (
+                  <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded">
+                    <p className="text-sm">{schedule.notes}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       <CleaningScheduleDialog
