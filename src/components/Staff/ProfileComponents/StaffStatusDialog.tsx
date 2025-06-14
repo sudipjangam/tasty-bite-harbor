@@ -10,7 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { UserCheck, UserX } from "lucide-react";
+import { UserCheck, UserX, AlertTriangle } from "lucide-react";
 
 interface StaffStatusDialogProps {
   isInactive: boolean;
@@ -27,9 +27,9 @@ export const StaffStatusDialog: React.FC<StaffStatusDialogProps> = ({
 }) => {
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
-      <AlertDialogContent className="sm:max-w-md">
+      <AlertDialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
         <AlertDialogHeader className="space-y-4">
-          <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/20 dark:to-primary-800/10">
+          <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center bg-gradient-to-r from-primary/10 to-primary/5">
             {isInactive ? (
               <UserCheck className="w-8 h-8 text-green-600" />
             ) : (
@@ -41,14 +41,14 @@ export const StaffStatusDialog: React.FC<StaffStatusDialogProps> = ({
           }`}>
             {isInactive ? "Activate Staff Member" : "Deactivate Staff Member"}
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-center">
+          <AlertDialogDescription className="text-center text-muted-foreground">
             {isInactive 
               ? "This will make the staff member active again. They will appear in all active staff lists and be able to access the system."
               : "This will deactivate the staff member. They will no longer appear in active staff lists and won't be able to access the system."}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex gap-3 pt-6">
-          <AlertDialogCancel className="flex-1">
+          <AlertDialogCancel className="flex-1 border-border hover:bg-muted">
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction

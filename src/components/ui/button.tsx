@@ -2,20 +2,24 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
+
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-md hover:shadow-lg border-0",
-        destructive: "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-md hover:shadow-lg border-0",
-        outline: "border-2 border-primary-300 dark:border-primary-400 bg-white dark:bg-neutral-800 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:border-primary-400 dark:hover:border-primary-300 text-primary-600 dark:text-primary-400 shadow-sm hover:shadow-md",
-        secondary: "bg-white dark:bg-neutral-800 border-2 border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-500 text-neutral-700 dark:text-neutral-200 shadow-sm hover:shadow-md",
-        ghost: "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-0",
-        link: "text-primary-600 dark:text-primary-400 underline-offset-4 hover:underline border-0",
-        success: "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md hover:shadow-lg border-0",
+        default: "bg-brand-deep-blue text-white hover:bg-brand-deep-blue/90",
+        destructive:
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        outline:
+          "border border-input bg-background hover:bg-accent/10 hover:text-accent-foreground",
+        secondary:
+          "bg-brand-success-green text-white hover:bg-brand-success-green/90",
+        ghost: "hover:bg-accent/10 hover:text-accent-foreground",
+        link: "text-primary underline-offset-4 hover:underline",
+        accent: "bg-brand-warm-orange text-brand-dark-grey hover:bg-brand-warm-orange/90",
       },
       size: {
         default: "h-10 px-4 py-2",

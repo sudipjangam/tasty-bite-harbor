@@ -25,11 +25,11 @@ function App() {
   
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
         <SimpleAuthProvider>
           <ErrorBoundary>
             <Router>
-              <div className="h-screen w-full overflow-hidden bg-background">
+              <div className="h-screen w-full overflow-hidden bg-gray-100 dark:bg-gray-900">
                 <SimpleRoutes />
                 <Toaster />
               </div>
