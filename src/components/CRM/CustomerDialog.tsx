@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Customer } from "@/types/customer";
+import { User, Mail, Phone, MapPin, Calendar, FileText, X } from "lucide-react";
 
 interface CustomerDialogProps {
   open: boolean;
@@ -66,103 +67,152 @@ const CustomerDialog: React.FC<CustomerDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] bg-background border border-border">
-        <DialogHeader>
-          <DialogTitle className="text-foreground">
-            {isEditing ? "Edit Customer" : "Add New Customer"}
-          </DialogTitle>
-          <DialogDescription className="text-muted-foreground">
-            {isEditing
-              ? "Update customer information and details."
-              : "Add a new customer to your database."}
-          </DialogDescription>
+      <DialogContent className="sm:max-w-[600px] bg-white/95 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl">
+        {/* Modern Header */}
+        <DialogHeader className="space-y-4 pb-4 border-b border-white/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl shadow-lg">
+                <User className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                  {isEditing ? "Edit Customer" : "Add New Customer"}
+                </DialogTitle>
+                <DialogDescription className="text-gray-600 mt-1">
+                  {isEditing
+                    ? "Update customer information and details."
+                    : "Add a new customer to your database."}
+                </DialogDescription>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              className="rounded-full p-2 hover:bg-gray-100"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </DialogHeader>
         
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="name" className="text-foreground">Name *</Label>
+        <div className="space-y-6 py-4">
+          {/* Name Field */}
+          <div className="space-y-2">
+            <Label htmlFor="name" className="text-gray-700 font-medium flex items-center gap-2">
+              <User className="h-4 w-4 text-purple-500" />
+              Name *
+            </Label>
             <Input
               id="name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Enter customer name"
-              className="bg-background border-input"
+              className="bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-purple-300 transition-all duration-200"
             />
           </div>
           
+          {/* Email and Phone Row */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email" className="text-foreground">Email</Label>
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-gray-700 font-medium flex items-center gap-2">
+                <Mail className="h-4 w-4 text-purple-500" />
+                Email
+              </Label>
               <Input
                 id="email"
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="customer@email.com"
-                className="bg-background border-input"
+                className="bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-purple-300 transition-all duration-200"
               />
             </div>
             
-            <div className="grid gap-2">
-              <Label htmlFor="phone" className="text-foreground">Phone</Label>
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-gray-700 font-medium flex items-center gap-2">
+                <Phone className="h-4 w-4 text-purple-500" />
+                Phone
+              </Label>
               <Input
                 id="phone"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 placeholder="+1 (555) 123-4567"
-                className="bg-background border-input"
+                className="bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-purple-300 transition-all duration-200"
               />
             </div>
           </div>
           
-          <div className="grid gap-2">
-            <Label htmlFor="address" className="text-foreground">Address</Label>
+          {/* Address Field */}
+          <div className="space-y-2">
+            <Label htmlFor="address" className="text-gray-700 font-medium flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-purple-500" />
+              Address
+            </Label>
             <Textarea
               id="address"
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               placeholder="Enter customer address"
-              className="bg-background border-input min-h-[80px]"
+              className="bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-purple-300 transition-all duration-200 min-h-[80px] resize-none"
             />
           </div>
           
-          <div className="grid gap-2">
-            <Label htmlFor="birthday" className="text-foreground">Birthday</Label>
+          {/* Birthday Field */}
+          <div className="space-y-2">
+            <Label htmlFor="birthday" className="text-gray-700 font-medium flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-purple-500" />
+              Birthday
+            </Label>
             <Input
               id="birthday"
               type="date"
               value={formData.birthday}
               onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
-              className="bg-background border-input"
+              className="bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-purple-300 transition-all duration-200"
             />
           </div>
           
-          <div className="grid gap-2">
-            <Label htmlFor="preferences" className="text-foreground">Preferences</Label>
+          {/* Preferences Field */}
+          <div className="space-y-2">
+            <Label htmlFor="preferences" className="text-gray-700 font-medium flex items-center gap-2">
+              <FileText className="h-4 w-4 text-purple-500" />
+              Preferences
+            </Label>
             <Textarea
               id="preferences"
               value={formData.preferences}
               onChange={(e) => setFormData({ ...formData, preferences: e.target.value })}
               placeholder="Customer preferences, dietary restrictions, etc."
-              className="bg-background border-input min-h-[80px]"
+              className="bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-purple-300 transition-all duration-200 min-h-[80px] resize-none"
             />
           </div>
         </div>
         
-        <DialogFooter className="gap-2">
+        {/* Modern Footer */}
+        <DialogFooter className="gap-3 pt-4 border-t border-white/20">
           <Button 
             variant="outline" 
             onClick={() => onOpenChange(false)}
-            className="bg-background border-input text-foreground hover:bg-muted"
+            className="bg-white/50 border-white/30 text-gray-700 hover:bg-white hover:border-gray-300 rounded-xl px-6"
           >
             Cancel
           </Button>
           <Button 
             onClick={handleSave} 
             disabled={!formData.name || isLoading}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl px-6 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
           >
-            {isLoading ? "Saving..." : isEditing ? "Update Customer" : "Add Customer"}
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                Saving...
+              </div>
+            ) : (
+              isEditing ? "Update Customer" : "Add Customer"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
