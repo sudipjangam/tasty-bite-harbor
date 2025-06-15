@@ -22,34 +22,33 @@ async function sendWhatsAppMessage(to: string, message: string) {
   const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
   const fromNumber = Deno.env.get("TWILIO_WHATSAPP_FROM");
 
-  console.log("Environment variables status:", {
+  console.log("Twilio Environment Check:", {
     accountSid: accountSid ? "✓ Present" : "✗ Missing",
-    authToken: authToken ? "✓ Present" : "✗ Missing",
+    authToken: authToken ? "✓ Present" : "✗ Missing", 
     fromNumber: fromNumber ? `✓ Present: ${fromNumber}` : "✗ Missing"
   });
 
   if (!accountSid || !authToken || !fromNumber) {
-    throw new Error("Missing required Twilio credentials. Please check TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_WHATSAPP_FROM in Supabase secrets.");
+    throw new Error("Missing Twilio credentials");
   }
 
-  // Clean and format phone numbers properly
-  let cleanFromNumber = fromNumber.trim();
+  // Format phone numbers for WhatsApp
   let cleanToNumber = to.trim().replace(/\s+/g, '');
-
-  // Ensure country code for recipient
+  
+  // Add country code if missing
   if (!cleanToNumber.startsWith('+')) {
     cleanToNumber = '+91' + cleanToNumber;
   }
 
-  // Format for WhatsApp API
-  const whatsappFrom = cleanFromNumber.startsWith('whatsapp:') ? cleanFromNumber : `whatsapp:${cleanFromNumber}`;
-  const whatsappTo = cleanToNumber.startsWith('whatsapp:') ? cleanToNumber : `whatsapp:${cleanToNumber}`;
+  // Format for WhatsApp - Twilio sandbox uses whatsapp: prefix
+  const whatsappFrom = fromNumber.startsWith('whatsapp:') ? fromNumber : `whatsapp:${fromNumber}`;
+  const whatsappTo = `whatsapp:${cleanToNumber}`;
 
-  console.log("Formatted WhatsApp numbers:", {
+  console.log("WhatsApp Message Details:", {
     from: whatsappFrom,
     to: whatsappTo,
     originalTo: to,
-    originalFrom: fromNumber
+    messageLength: message.length
   });
 
   const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
@@ -60,7 +59,7 @@ async function sendWhatsAppMessage(to: string, message: string) {
   formData.append('To', whatsappTo);
   formData.append('Body', message);
 
-  console.log("Making Twilio API request...");
+  console.log("Sending to Twilio API...");
 
   try {
     const response = await fetch(twilioUrl, {
@@ -73,7 +72,8 @@ async function sendWhatsAppMessage(to: string, message: string) {
     });
 
     const responseText = await response.text();
-    console.log("Twilio API response:", {
+    
+    console.log("Twilio Response:", {
       status: response.status,
       statusText: response.statusText,
       body: responseText
@@ -83,7 +83,15 @@ async function sendWhatsAppMessage(to: string, message: string) {
       throw new Error(`Twilio API error (${response.status}): ${responseText}`);
     }
 
-    return JSON.parse(responseText);
+    const result = JSON.parse(responseText);
+    console.log("Message sent successfully:", {
+      sid: result.sid,
+      status: result.status,
+      to: result.to,
+      from: result.from
+    });
+
+    return result;
   } catch (error) {
     console.error("Twilio API call failed:", error);
     throw error;
@@ -148,22 +156,22 @@ serve(async (req) => {
       }).format(total) : 
       "Amount not specified";
 
-    const billMessage = `🏨 ${restaurantName || "Hotel"}
+    const billMessage = `🏨 *${restaurantName || "Hotel"}*
 
 Dear ${customerName || "Valued Guest"},
 
 Thank you for staying with us! Here's your bill summary:
 
-🏠 Room: ${roomName || "N/A"}
-📅 Checkout: ${checkoutDate || "N/A"}
-💰 Total Amount: ${formattedAmount}
+🏠 *Room:* ${roomName || "N/A"}
+📅 *Checkout:* ${checkoutDate || "N/A"}  
+💰 *Total Amount:* ${formattedAmount}
 
 We hope you had a wonderful stay and look forward to welcoming you again soon!
 
 Best regards,
 ${restaurantName || "Hotel"} Team`;
 
-    console.log("Bill message prepared, character count:", billMessage.length);
+    console.log("Bill message prepared. Character count:", billMessage.length);
 
     // Send WhatsApp message
     let sendResult = null;
@@ -173,9 +181,9 @@ ${restaurantName || "Hotel"} Team`;
     try {
       sendResult = await sendWhatsAppMessage(phoneNumber, billMessage);
       sendStatus = 'sent';
-      console.log("WhatsApp message sent successfully:", sendResult.sid);
+      console.log("✅ WhatsApp message sent successfully! SID:", sendResult.sid);
     } catch (error) {
-      console.error("Failed to send WhatsApp message:", error);
+      console.error("❌ Failed to send WhatsApp message:", error);
       errorMessage = error.message;
       sendStatus = 'failed';
     }
@@ -192,12 +200,8 @@ ${restaurantName || "Hotel"} Team`;
 
       if (updateError) {
         console.error("Failed to update billing record:", updateError);
-        if (sendStatus === 'sent') {
-          // Don't fail the request if message was sent but DB update failed
-          console.warn("WhatsApp sent but DB update failed");
-        }
       } else {
-        console.log("Billing record updated successfully");
+        console.log("✅ Billing record updated successfully");
       }
     } catch (dbError) {
       console.error("Database error:", dbError);
@@ -208,14 +212,18 @@ ${restaurantName || "Hotel"} Team`;
       success: sendStatus === 'sent',
       status: sendStatus,
       message: sendStatus === 'sent' 
-        ? `Bill sent successfully via WhatsApp to ${phoneNumber}` 
-        : `Failed to send bill: ${errorMessage}`,
+        ? `✅ Bill sent successfully via WhatsApp to ${phoneNumber}` 
+        : `❌ Failed to send bill: ${errorMessage}`,
       billingId,
       twilioResponse: sendResult,
       error: errorMessage
     };
 
-    console.log("Request completed:", { success: response.success, status: sendStatus });
+    console.log("Request completed:", { 
+      success: response.success, 
+      status: sendStatus,
+      phoneNumber: phoneNumber ? `${phoneNumber.substring(0, 3)}***` : 'Missing'
+    });
 
     return new Response(
       JSON.stringify(response),
@@ -226,7 +234,7 @@ ${restaurantName || "Hotel"} Team`;
     );
 
   } catch (error) {
-    console.error("Unexpected error in send-whatsapp-bill function:", error);
+    console.error("❌ Unexpected error in send-whatsapp-bill function:", error);
     
     return new Response(
       JSON.stringify({ 
