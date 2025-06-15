@@ -12,20 +12,42 @@ async function sendWhatsAppViaTwilio(to: string, message: string) {
   const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
   const fromNumber = Deno.env.get("TWILIO_WHATSAPP_FROM");
 
+  console.log("Twilio credentials check:", {
+    accountSid: accountSid ? "Present" : "Missing",
+    authToken: authToken ? "Present" : "Missing", 
+    fromNumber: fromNumber || "Missing"
+  });
+
   if (!accountSid || !authToken || !fromNumber) {
     throw new Error("Missing Twilio credentials. Please configure TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_WHATSAPP_FROM in Supabase secrets.");
   }
 
-  // Format phone number for WhatsApp
-  const formattedTo = to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
+  // Ensure the from number is properly formatted for WhatsApp
+  let formattedFrom = fromNumber;
+  if (!formattedFrom.startsWith("whatsapp:")) {
+    formattedFrom = `whatsapp:${formattedFrom}`;
+  }
+
+  // Format the recipient phone number for WhatsApp
+  let formattedTo = to;
+  if (!formattedTo.startsWith("whatsapp:")) {
+    formattedTo = `whatsapp:${formattedTo}`;
+  }
+
+  console.log("Formatted numbers:", {
+    from: formattedFrom,
+    to: formattedTo
+  });
   
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
   
   const body = new URLSearchParams({
-    From: fromNumber,
+    From: formattedFrom,
     To: formattedTo,
     Body: message,
   });
+
+  console.log("Sending request to Twilio API...");
 
   const response = await fetch(url, {
     method: "POST",
@@ -38,6 +60,7 @@ async function sendWhatsAppViaTwilio(to: string, message: string) {
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error("Twilio API error response:", errorText);
     throw new Error(`Twilio API error: ${response.status} ${errorText}`);
   }
 
@@ -55,6 +78,16 @@ serve(async (req) => {
 
   try {
     const { billingId, phoneNumber, restaurantName, customerName, total, roomName, checkoutDate } = await req.json();
+    
+    console.log("Received request:", {
+      billingId,
+      phoneNumber,
+      restaurantName,
+      customerName,
+      total,
+      roomName,
+      checkoutDate
+    });
     
     if (!billingId || !phoneNumber) {
       return new Response(
@@ -79,7 +112,19 @@ serve(async (req) => {
 
     // Construct a message that would be suitable for WhatsApp Business API template
     const formattedTotal = total ? total.toLocaleString('en-IN', { style: 'currency', currency: 'INR' }) : "N/A";
-    const billMessage = `Dear ${customerName || "Guest"},\n\nThank you for staying at ${restaurantName}!\n\nBill Details:\n- Room: ${roomName || "N/A"}\n- Checkout: ${checkoutDate || "N/A"}\n- Total Amount: ${formattedTotal}\n\nWe hope you enjoyed your stay and look forward to serving you again soon.\n\nBest regards,\n${restaurantName} Team`;
+    const billMessage = `Dear ${customerName || "Guest"},
+
+Thank you for staying at ${restaurantName}!
+
+Bill Details:
+- Room: ${roomName || "N/A"}
+- Checkout: ${checkoutDate || "N/A"}
+- Total Amount: ${formattedTotal}
+
+We hope you enjoyed your stay and look forward to serving you again soon.
+
+Best regards,
+${restaurantName} Team`;
 
     console.log(`Bill message to be sent:\n${billMessage}`);
     
