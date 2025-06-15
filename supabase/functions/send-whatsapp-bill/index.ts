@@ -7,68 +7,93 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-async function sendWhatsAppViaTwilio(to: string, message: string) {
+interface WhatsAppBillRequest {
+  billingId: string;
+  phoneNumber: string;
+  restaurantName: string;
+  customerName: string;
+  total: number;
+  roomName: string;
+  checkoutDate: string;
+}
+
+async function sendWhatsAppMessage(to: string, message: string) {
   const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
   const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
   const fromNumber = Deno.env.get("TWILIO_WHATSAPP_FROM");
 
-  console.log("Twilio credentials check:", {
-    accountSid: accountSid ? "Present" : "Missing",
-    authToken: authToken ? "Present" : "Missing", 
-    fromNumber: fromNumber || "Missing"
+  console.log("Environment variables status:", {
+    accountSid: accountSid ? "✓ Present" : "✗ Missing",
+    authToken: authToken ? "✓ Present" : "✗ Missing",
+    fromNumber: fromNumber ? `✓ Present: ${fromNumber}` : "✗ Missing"
   });
 
   if (!accountSid || !authToken || !fromNumber) {
-    throw new Error("Missing Twilio credentials. Please configure TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_WHATSAPP_FROM in Supabase secrets.");
+    throw new Error("Missing required Twilio credentials. Please check TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_WHATSAPP_FROM in Supabase secrets.");
   }
 
-  // Ensure the from number is properly formatted for WhatsApp
-  let formattedFrom = fromNumber;
-  if (!formattedFrom.startsWith("whatsapp:")) {
-    formattedFrom = `whatsapp:${formattedFrom}`;
+  // Clean and format phone numbers properly
+  let cleanFromNumber = fromNumber.trim();
+  let cleanToNumber = to.trim().replace(/\s+/g, '');
+
+  // Ensure country code for recipient
+  if (!cleanToNumber.startsWith('+')) {
+    cleanToNumber = '+91' + cleanToNumber;
   }
 
-  // Format the recipient phone number for WhatsApp
-  let formattedTo = to;
-  if (!formattedTo.startsWith("whatsapp:")) {
-    formattedTo = `whatsapp:${formattedTo}`;
-  }
+  // Format for WhatsApp API
+  const whatsappFrom = cleanFromNumber.startsWith('whatsapp:') ? cleanFromNumber : `whatsapp:${cleanFromNumber}`;
+  const whatsappTo = cleanToNumber.startsWith('whatsapp:') ? cleanToNumber : `whatsapp:${cleanToNumber}`;
 
-  console.log("Formatted numbers:", {
-    from: formattedFrom,
-    to: formattedTo
-  });
-  
-  const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-  
-  const body = new URLSearchParams({
-    From: formattedFrom,
-    To: formattedTo,
-    Body: message,
+  console.log("Formatted WhatsApp numbers:", {
+    from: whatsappFrom,
+    to: whatsappTo,
+    originalTo: to,
+    originalFrom: fromNumber
   });
 
-  console.log("Sending request to Twilio API...");
+  const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+  const auth = btoa(`${accountSid}:${authToken}`);
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Authorization": `Basic ${btoa(`${accountSid}:${authToken}`)}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: body.toString(),
-  });
+  const formData = new URLSearchParams();
+  formData.append('From', whatsappFrom);
+  formData.append('To', whatsappTo);
+  formData.append('Body', message);
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("Twilio API error response:", errorText);
-    throw new Error(`Twilio API error: ${response.status} ${errorText}`);
+  console.log("Making Twilio API request...");
+
+  try {
+    const response = await fetch(twilioUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData.toString(),
+    });
+
+    const responseText = await response.text();
+    console.log("Twilio API response:", {
+      status: response.status,
+      statusText: response.statusText,
+      body: responseText
+    });
+
+    if (!response.ok) {
+      throw new Error(`Twilio API error (${response.status}): ${responseText}`);
+    }
+
+    return JSON.parse(responseText);
+  } catch (error) {
+    console.error("Twilio API call failed:", error);
+    throw error;
   }
-
-  return await response.json();
 }
 
 serve(async (req) => {
-  // Handle preflight requests
+  console.log(`${req.method} request received at ${new Date().toISOString()}`);
+
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       headers: corsHeaders,
@@ -77,11 +102,12 @@ serve(async (req) => {
   }
 
   try {
-    const { billingId, phoneNumber, restaurantName, customerName, total, roomName, checkoutDate } = await req.json();
+    const requestBody = await req.json() as WhatsAppBillRequest;
+    const { billingId, phoneNumber, restaurantName, customerName, total, roomName, checkoutDate } = requestBody;
     
-    console.log("Received request:", {
+    console.log("Processing WhatsApp bill request:", {
       billingId,
-      phoneNumber,
+      phoneNumber: phoneNumber ? `${phoneNumber.substring(0, 3)}***` : 'Missing',
       restaurantName,
       customerName,
       total,
@@ -89,97 +115,107 @@ serve(async (req) => {
       checkoutDate
     });
     
+    // Validate required fields
     if (!billingId || !phoneNumber) {
+      console.error("Missing required fields:", { billingId: !!billingId, phoneNumber: !!phoneNumber });
       return new Response(
-        JSON.stringify({ error: 'Missing required parameters' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        JSON.stringify({ 
+          success: false,
+          error: 'Missing required parameters: billingId and phoneNumber are required' 
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+          status: 400 
+        }
       );
     }
 
-    // Format phone number for WhatsApp (ensure it has country code)
-    let formattedPhone = phoneNumber.replace(/\s+/g, '');
-    if (!formattedPhone.startsWith('+')) {
-      // Assume Indian number if no country code
-      formattedPhone = '+91' + formattedPhone;
-    }
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
-    console.log(`Formatted phone for WhatsApp: ${formattedPhone}`);
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error("Missing Supabase configuration");
+    }
 
-    // Get Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Construct a message that would be suitable for WhatsApp Business API template
-    const formattedTotal = total ? total.toLocaleString('en-IN', { style: 'currency', currency: 'INR' }) : "N/A";
-    const billMessage = `Dear ${customerName || "Guest"},
+    // Create bill message
+    const formattedAmount = total ? 
+      new Intl.NumberFormat('en-IN', { 
+        style: 'currency', 
+        currency: 'INR' 
+      }).format(total) : 
+      "Amount not specified";
 
-Thank you for staying at ${restaurantName}!
+    const billMessage = `🏨 ${restaurantName || "Hotel"}
 
-Bill Details:
-- Room: ${roomName || "N/A"}
-- Checkout: ${checkoutDate || "N/A"}
-- Total Amount: ${formattedTotal}
+Dear ${customerName || "Valued Guest"},
 
-We hope you enjoyed your stay and look forward to serving you again soon.
+Thank you for staying with us! Here's your bill summary:
+
+🏠 Room: ${roomName || "N/A"}
+📅 Checkout: ${checkoutDate || "N/A"}
+💰 Total Amount: ${formattedAmount}
+
+We hope you had a wonderful stay and look forward to welcoming you again soon!
 
 Best regards,
-${restaurantName} Team`;
+${restaurantName || "Hotel"} Team`;
 
-    console.log(`Bill message to be sent:\n${billMessage}`);
-    
-    let sendStatus = 'sent';
-    let errorDetails = null;
-    let twilioResponse = null;
-    
+    console.log("Bill message prepared, character count:", billMessage.length);
+
+    // Send WhatsApp message
+    let sendResult = null;
+    let sendStatus = 'failed';
+    let errorMessage = null;
+
     try {
-      // Send actual WhatsApp message via Twilio
-      twilioResponse = await sendWhatsAppViaTwilio(formattedPhone, billMessage);
-      console.log("Twilio response:", twilioResponse);
+      sendResult = await sendWhatsAppMessage(phoneNumber, billMessage);
       sendStatus = 'sent';
-    } catch (twilioError) {
-      console.error("Twilio error:", twilioError);
-      errorDetails = twilioError.message;
-      sendStatus = 'error';
+      console.log("WhatsApp message sent successfully:", sendResult.sid);
+    } catch (error) {
+      console.error("Failed to send WhatsApp message:", error);
+      errorMessage = error.message;
+      sendStatus = 'failed';
     }
 
-    // Update the billing record to mark WhatsApp as sent
-    const { error: updateError } = await supabase
-      .from('room_billings')
-      .update({ whatsapp_sent: sendStatus === 'sent' })
-      .eq('id', billingId);
+    // Update billing record
+    try {
+      const { error: updateError } = await supabase
+        .from('room_billings')
+        .update({ 
+          whatsapp_sent: sendStatus === 'sent',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', billingId);
 
-    if (updateError) {
-      console.error("Error updating billing record:", updateError);
-      if (!errorDetails) {
-        errorDetails = updateError.message;
-        sendStatus = 'error';
+      if (updateError) {
+        console.error("Failed to update billing record:", updateError);
+        if (sendStatus === 'sent') {
+          // Don't fail the request if message was sent but DB update failed
+          console.warn("WhatsApp sent but DB update failed");
+        }
+      } else {
+        console.log("Billing record updated successfully");
       }
+    } catch (dbError) {
+      console.error("Database error:", dbError);
     }
 
-    // Get all the room_billings info to include in the response
-    const { data: billingData, error: billingError } = await supabase
-      .from('room_billings')
-      .select('*')
-      .eq('id', billingId)
-      .single();
-      
-    if (billingError) {
-      console.warn("Could not fetch billing details:", billingError);
-    }
-
+    // Return response
     const response = {
       success: sendStatus === 'sent',
-      message: sendStatus === 'sent' 
-        ? `WhatsApp bill successfully sent to ${formattedPhone}` 
-        : `Failed to send WhatsApp bill: ${errorDetails}`,
       status: sendStatus,
+      message: sendStatus === 'sent' 
+        ? `Bill sent successfully via WhatsApp to ${phoneNumber}` 
+        : `Failed to send bill: ${errorMessage}`,
       billingId,
-      billingDetails: billingData || null,
-      sentMessage: billMessage,
-      twilioResponse: twilioResponse,
-      error: errorDetails
+      twilioResponse: sendResult,
+      error: errorMessage
     };
+
+    console.log("Request completed:", { success: response.success, status: sendStatus });
 
     return new Response(
       JSON.stringify(response),
@@ -188,15 +224,20 @@ ${restaurantName} Team`;
         status: sendStatus === 'sent' ? 200 : 500
       }
     );
+
   } catch (error) {
-    console.error("Error sending WhatsApp bill:", error);
+    console.error("Unexpected error in send-whatsapp-bill function:", error);
     
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error.message || "An error occurred while sending the WhatsApp bill" 
+        error: "Internal server error",
+        details: error.message 
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+        status: 500 
+      }
     );
   }
 });
