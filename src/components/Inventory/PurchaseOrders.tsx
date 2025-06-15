@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,6 +47,7 @@ const statusColors = {
 const PurchaseOrders = () => {
   const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
   const [isReceivingDialogOpen, setIsReceivingDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { restaurantId } = useRestaurantId();
@@ -140,6 +140,11 @@ const PurchaseOrders = () => {
     receiveItemsMutation.mutate(items);
   };
 
+  const handleViewOrder = (order: PurchaseOrder) => {
+    setSelectedOrder(order);
+    setIsViewDialogOpen(true);
+  };
+
   if (isLoading) {
     return <div>Loading purchase orders...</div>;
   }
@@ -177,7 +182,11 @@ const PurchaseOrders = () => {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleViewOrder(order)}
+                >
                   <Eye className="h-4 w-4" />
                 </Button>
                 {order.status === 'ordered' && (
@@ -207,6 +216,113 @@ const PurchaseOrders = () => {
           </Card>
         ))}
       </div>
+
+      {/* View Order Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-purple-600" />
+              Purchase Order Details - {selectedOrder?.order_number}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedOrder && (
+            <div className="space-y-6">
+              {/* Order Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2">Order Information</h4>
+                  <div className="space-y-1 text-sm">
+                    <p><strong>Order Number:</strong> {selectedOrder.order_number}</p>
+                    <p><strong>Status:</strong> 
+                      <Badge className={`ml-2 ${statusColors[selectedOrder.status as keyof typeof statusColors]}`}>
+                        {selectedOrder.status.replace('_', ' ').toUpperCase()}
+                      </Badge>
+                    </p>
+                    <p><strong>Order Date:</strong> {new Date(selectedOrder.order_date).toLocaleDateString()}</p>
+                    {selectedOrder.expected_delivery_date && (
+                      <p><strong>Expected Delivery:</strong> {new Date(selectedOrder.expected_delivery_date).toLocaleDateString()}</p>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2">Supplier Information</h4>
+                  <div className="space-y-1 text-sm">
+                    <p><strong>Supplier:</strong> {selectedOrder.supplier.name}</p>
+                    <p><strong>Total Amount:</strong> ₹{selectedOrder.total_amount.toFixed(2)}</p>
+                    <p><strong>Total Items:</strong> {selectedOrder.purchase_order_items.length}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Items List */}
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3">Order Items</h4>
+                <div className="space-y-3">
+                  {selectedOrder.purchase_order_items.map((item, index) => (
+                    <div key={item.id} className="border rounded-lg p-4 bg-white">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <h5 className="font-medium text-gray-900">{item.inventory_item.name}</h5>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2 text-sm text-gray-600">
+                            <div>
+                              <span className="font-medium">Ordered:</span>
+                              <p>{item.quantity} {item.inventory_item.unit}</p>
+                            </div>
+                            <div>
+                              <span className="font-medium">Unit Cost:</span>
+                              <p>₹{item.unit_cost.toFixed(2)}</p>
+                            </div>
+                            <div>
+                              <span className="font-medium">Total Cost:</span>
+                              <p>₹{(item.quantity * item.unit_cost).toFixed(2)}</p>
+                            </div>
+                            <div>
+                              <span className="font-medium">Received:</span>
+                              <p className={item.received_quantity > 0 ? "text-green-600" : "text-gray-400"}>
+                                {item.received_quantity || 0} {item.inventory_item.unit}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          {item.received_quantity >= item.quantity ? (
+                            <Badge className="bg-green-100 text-green-800">Fully Received</Badge>
+                          ) : item.received_quantity > 0 ? (
+                            <Badge className="bg-orange-100 text-orange-800">Partially Received</Badge>
+                          ) : (
+                            <Badge className="bg-gray-100 text-gray-800">Pending</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Order Actions */}
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+                  Close
+                </Button>
+                {selectedOrder.status === 'ordered' && (
+                  <Button 
+                    onClick={() => {
+                      setIsViewDialogOpen(false);
+                      setIsReceivingDialogOpen(true);
+                    }}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Truck className="h-4 w-4 mr-1" />
+                    Receive Items
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Receiving Dialog */}
       <Dialog open={isReceivingDialogOpen} onOpenChange={setIsReceivingDialogOpen}>
