@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
-import { Loader2, Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Mail, Lock, ArrowRight, Sparkles } from 'lucide-react';
 import { CardContent, CardFooter } from "@/components/ui/card";
 
 interface AuthFormProps {
@@ -96,13 +96,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
 
   return (
     <form onSubmit={handleAuth} className="space-y-6">
-      <CardContent className="space-y-6 px-8">
+      <CardContent className="space-y-6 px-8 pb-6">
         <div className="space-y-2">
-          <Label htmlFor="email" className="text-sm font-medium text-foreground">
+          <Label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Email address
           </Label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          <div className="relative group">
+            <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 w-5 h-5 transition-colors" />
             <Input
               id="email"
               type="email"
@@ -110,17 +110,17 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="pl-10 h-12 bg-white/50 dark:bg-slate-700/50 border-gray-200 dark:border-slate-600 focus:border-brand-deep-blue focus:ring-brand-deep-blue transition-all duration-200"
+              className="pl-12 h-14 bg-gray-50/50 dark:bg-slate-700/50 border-gray-200 dark:border-slate-600 focus:border-indigo-500 focus:ring-indigo-500/20 focus:ring-2 transition-all duration-200 rounded-xl text-base"
             />
           </div>
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="password" className="text-sm font-medium text-foreground">
+          <Label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Password
           </Label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          <div className="relative group">
+            <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 w-5 h-5 transition-colors" />
             <Input
               id="password"
               type={showPassword ? "text" : "password"}
@@ -128,44 +128,45 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="pl-10 pr-10 h-12 bg-white/50 dark:bg-slate-700/50 border-gray-200 dark:border-slate-600 focus:border-brand-deep-blue focus:ring-brand-deep-blue transition-all duration-200"
+              className="pl-12 pr-12 h-14 bg-gray-50/50 dark:bg-slate-700/50 border-gray-200 dark:border-slate-600 focus:border-indigo-500 focus:ring-indigo-500/20 focus:ring-2 transition-all duration-200 rounded-xl text-base"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
         </div>
       </CardContent>
       
-      <CardFooter className="flex flex-col px-8 pb-8">
+      <CardFooter className="flex flex-col px-8 pb-8 space-y-6">
         <Button
           type="submit"
-          className="w-full h-12 bg-gradient-to-r from-brand-deep-blue to-brand-success-green hover:from-brand-deep-blue/90 hover:to-brand-success-green/90 text-white font-medium rounded-lg transition-all duration-200 transform hover:scale-[1.02] shadow-lg"
+          className="w-full h-14 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:via-purple-700 hover:to-indigo-800 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl text-base"
           disabled={loading || !email || !password}
         >
           {loading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-3 h-5 w-5 animate-spin" />
               {authMode === "signin" ? "Signing in..." : "Creating account..."}
             </>
           ) : (
             <>
               {authMode === "signin" ? "Sign in to dashboard" : "Create account"}
+              <ArrowRight className="ml-2 h-5 w-5" />
             </>
           )}
         </Button>
         
-        <div className="mt-6 text-center">
+        <div className="w-full">
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t border-gray-200 dark:border-slate-600" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white dark:bg-slate-800 px-2 text-muted-foreground">
+              <span className="bg-white dark:bg-slate-800 px-3 text-gray-500 dark:text-gray-400 font-medium">
                 {authMode === "signin" ? "New to RMS Pro?" : "Already have an account?"}
               </span>
             </div>
@@ -174,9 +175,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
           <Button
             type="button"
             variant="ghost"
-            className="mt-4 text-brand-deep-blue hover:text-brand-deep-blue/80 hover:bg-blue-50 dark:hover:bg-slate-700 font-medium transition-all duration-200"
+            className="mt-4 w-full text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-slate-700 font-medium transition-all duration-200 h-12 rounded-xl"
             onClick={() => setAuthMode(authMode === "signin" ? "signup" : "signin")}
           >
+            <Sparkles className="w-4 h-4 mr-2" />
             {authMode === "signin" ? "Create a new account" : "Sign in to existing account"}
           </Button>
         </div>
@@ -185,7 +187,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
           <Button
             type="button"
             variant="link"
-            className="mt-2 text-sm text-muted-foreground hover:text-brand-deep-blue transition-colors"
+            className="text-sm text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors"
           >
             Forgot your password?
           </Button>
