@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Search, Filter, Download, RefreshCw } from "lucide-react";
@@ -15,14 +15,56 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { startOfToday, subDays, subMonths, startOfDay, endOfDay } from "date-fns";
 import type { Order } from "@/types/orders";
+import { useToast } from "@/hooks/use-toast";
+import * as XLSX from 'xlsx';
 
-const OrdersView = () => {
+interface OrdersViewProps {
+  searchTrigger?: number;
+  filterTrigger?: number;
+  exportTrigger?: number;
+  refreshTrigger?: number;
+}
+
+const OrdersView = ({ 
+  searchTrigger = 0, 
+  filterTrigger = 0, 
+  exportTrigger = 0, 
+  refreshTrigger = 0 
+}: OrdersViewProps) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [dateFilter, setDateFilter] = useState<string>("today");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showFilters, setShowFilters] = useState(false);
   const isMobile = useIsMobile();
+  const { toast } = useToast();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle triggers from parent component
+  useEffect(() => {
+    if (searchTrigger > 0) {
+      searchInputRef.current?.focus();
+    }
+  }, [searchTrigger]);
+
+  useEffect(() => {
+    if (filterTrigger > 0) {
+      setShowFilters(!showFilters);
+    }
+  }, [filterTrigger]);
+
+  useEffect(() => {
+    if (exportTrigger > 0) {
+      handleExportOrders();
+    }
+  }, [exportTrigger]);
+
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      refetchOrders();
+    }
+  }, [refreshTrigger]);
 
   const getDateRange = (filter: string) => {
     const now = new Date();
@@ -114,6 +156,57 @@ const OrdersView = () => {
 
   const handleRefresh = () => {
     refetchOrders();
+    toast({
+      title: "Orders Refreshed",
+      description: "Order data has been updated successfully.",
+    });
+  };
+
+  const handleExportOrders = () => {
+    if (!filteredOrders || filteredOrders.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No Data to Export",
+        description: "There are no orders to export for the selected filters.",
+      });
+      return;
+    }
+
+    try {
+      // Prepare data for export
+      const exportData = filteredOrders.map(order => ({
+        'Order ID': order.id,
+        'Customer Name': order.customer_name,
+        'Items': order.items.join(', '),
+        'Total Amount': `₹${order.total.toFixed(2)}`,
+        'Status': order.status,
+        'Created Date': new Date(order.created_at).toLocaleDateString(),
+        'Created Time': new Date(order.created_at).toLocaleTimeString()
+      }));
+
+      // Create workbook and worksheet
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Orders");
+
+      // Generate filename with current date
+      const filename = `orders_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+      // Save file
+      XLSX.writeFile(wb, filename);
+
+      toast({
+        title: "Export Successful",
+        description: `Orders exported to ${filename}`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        variant: "destructive",
+        title: "Export Failed",
+        description: "Failed to export orders. Please try again.",
+      });
+    }
   };
 
   // Filter orders based on search and status
@@ -170,6 +263,16 @@ const OrdersView = () => {
             </Button>
             
             <Button 
+              variant="outline"
+              onClick={handleExportOrders}
+              disabled={!filteredOrders || filteredOrders.length === 0}
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+            
+            <Button 
               onClick={() => setShowAddForm(true)}
               className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2"
             >
@@ -179,12 +282,13 @@ const OrdersView = () => {
           </div>
         </div>
 
-        {/* Filters Bar */}
+        {/* Enhanced Filters Bar */}
         <div className="flex flex-col lg:flex-row gap-4 mt-6">
           {/* Search */}
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
+              ref={searchInputRef}
               placeholder="Search orders, customers, or items..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -192,36 +296,71 @@ const OrdersView = () => {
             />
           </div>
 
-          {/* Status Filter */}
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Orders</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="preparing">Preparing</SelectItem>
-              <SelectItem value="ready">Ready</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Date Filter */}
-          <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Select time range" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="yesterday">Yesterday</SelectItem>
-              <SelectItem value="last7days">Last 7 Days</SelectItem>
-              <SelectItem value="last30days">Last 30 Days</SelectItem>
-              <SelectItem value="lastMonth">Last Month</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Filter Toggle */}
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2"
+          >
+            <Filter className="h-4 w-4" />
+            Filters
+            {(statusFilter !== "all" || dateFilter !== "today") && (
+              <Badge variant="secondary" className="ml-1">
+                Active
+              </Badge>
+            )}
+          </Button>
         </div>
+
+        {/* Expandable Filters */}
+        {showFilters && (
+          <div className="flex flex-col lg:flex-row gap-4 mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            {/* Status Filter */}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Orders</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="preparing">Preparing</SelectItem>
+                <SelectItem value="ready">Ready</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Date Filter */}
+            <Select value={dateFilter} onValueChange={setDateFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Select time range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="yesterday">Yesterday</SelectItem>
+                <SelectItem value="last7days">Last 7 Days</SelectItem>
+                <SelectItem value="last30days">Last 30 Days</SelectItem>
+                <SelectItem value="lastMonth">Last Month</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Clear Filters */}
+            {(searchQuery || statusFilter !== "all" || dateFilter !== "today") && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSearchQuery("");
+                  setStatusFilter("all");
+                  setDateFilter("today");
+                }}
+                className="text-sm"
+              >
+                Clear All
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Active Filters */}
         {(searchQuery || statusFilter !== "all") && (

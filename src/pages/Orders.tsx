@@ -7,16 +7,50 @@ import { StandardizedLayout, StandardizedPageHeader } from "@/components/ui/stan
 import { QuickActionsToolbar, commonQuickActions } from "@/components/ui/quick-actions-toolbar";
 import { MobileNavigation } from "@/components/ui/mobile-navigation";
 import { Plus, Download, Search, Filter, ShoppingCart, Eye } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import AddOrderForm from "@/components/Orders/AddOrderForm";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Orders = () => {
   const [showPOS, setShowPOS] = useState(true);
+  const [showAddOrderDialog, setShowAddOrderDialog] = useState(false);
+  const [searchTrigger, setSearchTrigger] = useState(0);
+  const [filterTrigger, setFilterTrigger] = useState(0);
+  const [exportTrigger, setExportTrigger] = useState(0);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const isMobile = useIsMobile();
+
+  const handleCreateNew = () => {
+    setShowAddOrderDialog(true);
+  };
+
+  const handleSearch = () => {
+    // Trigger search functionality in OrdersView
+    setSearchTrigger(prev => prev + 1);
+  };
+
+  const handleFilter = () => {
+    // Trigger filter functionality in OrdersView
+    setFilterTrigger(prev => prev + 1);
+  };
+
+  const handleExport = () => {
+    // Trigger export functionality in OrdersView
+    setExportTrigger(prev => prev + 1);
+  };
+
+  const handleRefresh = () => {
+    // Trigger refresh functionality in OrdersView
+    setRefreshTrigger(prev => prev + 1);
+    window.location.reload();
+  };
 
   const quickActions = [
-    commonQuickActions.create(() => console.log('Create new order')),
-    commonQuickActions.search(() => console.log('Search orders')),
-    commonQuickActions.filter(() => console.log('Filter orders')),
-    commonQuickActions.export(() => console.log('Export orders')),
-    commonQuickActions.refresh(() => window.location.reload())
+    commonQuickActions.create(handleCreateNew),
+    commonQuickActions.search(handleSearch),
+    commonQuickActions.filter(handleFilter),
+    commonQuickActions.export(handleExport),
+    commonQuickActions.refresh(handleRefresh)
   ];
 
   return (
@@ -72,8 +106,27 @@ const Orders = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden">
-        {showPOS ? <POSMode /> : <OrdersView />}
+        {showPOS ? (
+          <POSMode />
+        ) : (
+          <OrdersView 
+            searchTrigger={searchTrigger}
+            filterTrigger={filterTrigger}
+            exportTrigger={exportTrigger}
+            refreshTrigger={refreshTrigger}
+          />
+        )}
       </div>
+      
+      {/* Add Order Dialog */}
+      <Dialog open={showAddOrderDialog} onOpenChange={setShowAddOrderDialog}>
+        <DialogContent className={`${isMobile ? 'w-[95%] max-w-lg' : 'max-w-5xl'} max-h-[95vh] overflow-y-auto p-0`}>
+          <AddOrderForm
+            onSuccess={() => setShowAddOrderDialog(false)}
+            onCancel={() => setShowAddOrderDialog(false)}
+          />
+        </DialogContent>
+      </Dialog>
       
       <MobileNavigation />
     </div>
