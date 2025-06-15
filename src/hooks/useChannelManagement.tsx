@@ -118,6 +118,39 @@ export const useChannelManagement = () => {
     enabled: !!restaurantId,
   });
 
+  // Create new channel
+  const createChannel = useMutation({
+    mutationFn: async (channelData: Partial<BookingChannel>) => {
+      if (!restaurantId) throw new Error("No restaurant ID");
+
+      const { data, error } = await supabase
+        .from("booking_channels")
+        .insert([{
+          restaurant_id: restaurantId,
+          ...channelData,
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["booking-channels"] });
+      toast({
+        title: "Success",
+        description: "Channel created successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to create channel: ${error.message}`,
+      });
+    },
+  });
+
   // Update channel settings
   const updateChannel = useMutation({
     mutationFn: async ({ channelId, updates }: { channelId: string; updates: Partial<BookingChannel> }) => {
@@ -143,6 +176,32 @@ export const useChannelManagement = () => {
         variant: "destructive",
         title: "Error",
         description: `Failed to update channel: ${error.message}`,
+      });
+    },
+  });
+
+  // Delete channel
+  const deleteChannel = useMutation({
+    mutationFn: async (channelId: string) => {
+      const { error } = await supabase
+        .from("booking_channels")
+        .delete()
+        .eq("id", channelId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["booking-channels"] });
+      toast({
+        title: "Success",
+        description: "Channel deleted successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to delete channel: ${error.message}`,
       });
     },
   });
@@ -244,7 +303,9 @@ export const useChannelManagement = () => {
     isLoadingChannels,
     isLoadingRatePlans,
     isLoadingRules,
+    createChannel,
     updateChannel,
+    deleteChannel,
     saveRatePlan,
     savePricingRule,
   };

@@ -1,22 +1,23 @@
+
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useChannelManagement } from "@/hooks/useChannelManagement";
-import { Settings, RefreshCw, TrendingUp, AlertTriangle, Globe, Zap, Plus, Calendar } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Settings, RefreshCw, TrendingUp, Globe, Edit, Trash2 } from "lucide-react";
 import ChannelIntegrationManager from "./ChannelIntegrationManager";
 import ChannelManagementGuide from "./ChannelManagementGuide";
 import BookingConsolidation from "./BookingConsolidation";
+import AddChannelDialog from "./AddChannelDialog";
+import EditChannelDialog from "./EditChannelDialog";
 
 const ChannelManagementDashboard = () => {
   const { bookingChannels, updateChannel, isLoadingChannels } = useChannelManagement();
   const [selectedChannel, setSelectedChannel] = useState<any>(null);
   const [activeView, setActiveView] = useState("overview");
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const handleChannelToggle = (channelId: string, isActive: boolean) => {
     updateChannel.mutate({
@@ -30,6 +31,11 @@ const ChannelManagementDashboard = () => {
       channelId,
       updates: { last_sync: new Date().toISOString() }
     });
+  };
+
+  const handleEditChannel = (channel: any) => {
+    setSelectedChannel(channel);
+    setEditDialogOpen(true);
   };
 
   const getChannelTypeColor = (type: string) => {
@@ -64,6 +70,7 @@ const ChannelManagementDashboard = () => {
           </div>
           <div className="flex items-center gap-2">
             <ChannelManagementGuide />
+            <AddChannelDialog onChannelAdded={() => window.location.reload()} />
             <Button className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white shadow-lg">
               <RefreshCw className="w-4 h-4 mr-2" />
               Sync All Channels
@@ -88,68 +95,20 @@ const ChannelManagementDashboard = () => {
                     <div className="w-3 h-3 rounded-full bg-gradient-to-r from-primary to-primary/80"></div>
                     {channel.channel_name}
                   </CardTitle>
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2">
                     <Switch
                       checked={channel.is_active}
                       onCheckedChange={(checked) => handleChannelToggle(channel.id, checked)}
                       className="data-[state=checked]:bg-primary"
                     />
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="hover:bg-primary/10 hover:text-primary transition-colors">
-                          <Settings className="w-4 h-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
-                        <DialogHeader className="space-y-3">
-                          <DialogTitle className="text-xl font-semibold text-foreground flex items-center gap-2">
-                            <Settings className="w-5 h-5 text-primary" />
-                            Channel Settings - {channel.channel_name}
-                          </DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-6 pt-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="commission" className="text-sm font-medium text-foreground">
-                              Commission Rate (%)
-                            </Label>
-                            <Input
-                              id="commission"
-                              type="number"
-                              value={channel.commission_rate}
-                              onChange={(e) => {
-                                updateChannel.mutate({
-                                  channelId: channel.id,
-                                  updates: { commission_rate: parseFloat(e.target.value) }
-                                });
-                              }}
-                              className="standardized-input"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="sync-frequency" className="text-sm font-medium text-foreground">
-                              Sync Frequency (minutes)
-                            </Label>
-                            <Input
-                              id="sync-frequency"
-                              type="number"
-                              value={channel.sync_frequency_minutes}
-                              onChange={(e) => {
-                                updateChannel.mutate({
-                                  channelId: channel.id,
-                                  updates: { sync_frequency_minutes: parseInt(e.target.value) }
-                                });
-                              }}
-                              className="standardized-input"
-                            />
-                          </div>
-                          <div className="flex justify-end pt-4">
-                            <Button className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white">
-                              Save Changes
-                            </Button>
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="hover:bg-primary/10 hover:text-primary transition-colors"
+                      onClick={() => handleEditChannel(channel)}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -236,6 +195,12 @@ const ChannelManagementDashboard = () => {
           <BookingConsolidation />
         </TabsContent>
       </Tabs>
+
+      <EditChannelDialog 
+        channel={selectedChannel} 
+        open={editDialogOpen} 
+        onOpenChange={setEditDialogOpen} 
+      />
     </div>
   );
 };
