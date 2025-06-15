@@ -246,9 +246,9 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 p-6 transition-colors duration-300">
       {/* Modern Header */}
-      <div className="mb-8 bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8">
+      <div className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/20 rounded-3xl shadow-2xl p-8 transition-colors duration-300">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl">
@@ -258,7 +258,7 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
               <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 Room Checkout
               </h1>
-              <p className="text-gray-600 text-lg mt-2 flex items-center gap-2">
+              <p className="text-gray-600 dark:text-gray-300 text-lg mt-2 flex items-center gap-2 transition-colors duration-300">
                 <CheckCircle className="h-5 w-5 text-green-500" />
                 Complete guest checkout and billing
               </p>
@@ -267,7 +267,7 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           <Button 
             variant="outline" 
             onClick={handleCancel}
-            className="bg-white/80 backdrop-blur-sm border-2 border-gray-200 hover:border-indigo-300 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 text-gray-700 hover:text-indigo-700 font-semibold px-6 py-3 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300"
+            className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-400 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-indigo-900/20 dark:hover:to-purple-900/20 text-gray-700 dark:text-gray-200 hover:text-indigo-700 dark:hover:text-indigo-300 font-semibold px-6 py-3 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Return to Rooms
@@ -279,9 +279,9 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
         {/* Left Column - Guest & Room Details */}
         <div className="lg:col-span-2 space-y-6">
           {/* Guest Information Card */}
-          <Card className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300">
+          <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300">
             <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-3 text-xl font-bold text-gray-800">
+              <CardTitle className="flex items-center gap-3 text-xl font-bold text-gray-800 dark:text-gray-100 transition-colors duration-300">
                 <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl">
                   <User className="h-5 w-5 text-white" />
                 </div>
@@ -291,33 +291,33 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                    <User className="h-5 w-5 text-gray-500" />
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl transition-colors duration-300">
+                    <User className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                     <div>
-                      <p className="text-sm text-gray-500">Guest Name</p>
-                      <p className="font-semibold text-gray-800">{reservation.customer_name}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Guest Name</p>
+                      <p className="font-semibold text-gray-800 dark:text-gray-100">{reservation.customer_name}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                    <Bed className="h-5 w-5 text-gray-500" />
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl transition-colors duration-300">
+                    <Bed className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                     <div>
-                      <p className="text-sm text-gray-500">Room</p>
-                      <p className="font-semibold text-gray-800">{room.name}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Room</p>
+                      <p className="font-semibold text-gray-800 dark:text-gray-100">{room.name}</p>
                     </div>
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                    <Calendar className="h-5 w-5 text-gray-500" />
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl transition-colors duration-300">
+                    <Calendar className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                     <div>
-                      <p className="text-sm text-gray-500">Check-in</p>
-                      <p className="font-semibold text-gray-800">{format(new Date(reservation.start_time), 'PPP')}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Check-in</p>
+                      <p className="font-semibold text-gray-800 dark:text-gray-100">{format(new Date(reservation.start_time), 'PPP')}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                    <Clock className="h-5 w-5 text-gray-500" />
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl transition-colors duration-300">
+                    <Clock className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                     <div>
-                      <p className="text-sm text-gray-500">Days Stayed</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Days Stayed</p>
                       <Badge variant="secondary" className="font-semibold">{daysStayed} day{daysStayed > 1 ? 's' : ''}</Badge>
                     </div>
                   </div>
@@ -327,9 +327,9 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           </Card>
 
           {/* Room Charges */}
-          <Card className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-xl">
+          <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl transition-colors duration-300">
             <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-3 text-xl font-bold text-gray-800">
+              <CardTitle className="flex items-center gap-3 text-xl font-bold text-gray-800 dark:text-gray-100 transition-colors duration-300">
                 <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl">
                   <DollarSign className="h-5 w-5 text-white" />
                 </div>
@@ -343,7 +343,7 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           
           {/* Food Orders */}
           {foodOrders.length > 0 && (
-            <Card className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-xl">
+            <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl transition-colors duration-300">
               <CardContent className="pt-6">
                 <FoodOrdersList foodOrders={foodOrders} />
               </CardContent>
@@ -351,7 +351,7 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           )}
           
           {/* Additional Charges */}
-          <Card className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-xl">
+          <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl transition-colors duration-300">
             <CardContent className="pt-6">
               <AdditionalChargesSection 
                 charges={additionalCharges} 
@@ -364,7 +364,7 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
         {/* Right Column - Payment & Summary */}
         <div className="space-y-6">
           {/* Discount Section */}
-          <Card className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-xl">
+          <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl transition-colors duration-300">
             <CardContent className="pt-6">
               <DiscountSection 
                 subtotal={roomTotal + foodOrdersTotal + additionalChargesTotal}
@@ -377,7 +377,7 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           </Card>
           
           {/* Payment Method */}
-          <Card className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-xl">
+          <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl transition-colors duration-300">
             <CardContent className="pt-6">
               <PaymentMethodSelector 
                 selectedMethod={paymentMethod} 
@@ -387,9 +387,9 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           </Card>
           
           {/* Bill Summary */}
-          <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200/50 rounded-2xl shadow-xl">
+          <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-2 border-indigo-200/50 dark:border-indigo-700/50 rounded-2xl shadow-xl transition-colors duration-300">
             <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-3 text-xl font-bold text-gray-800">
+              <CardTitle className="flex items-center gap-3 text-xl font-bold text-gray-800 dark:text-gray-100 transition-colors duration-300">
                 <div className="p-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl">
                   <Receipt className="h-5 w-5 text-white" />
                 </div>
@@ -398,34 +398,34 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 bg-white/70 rounded-xl">
-                  <span className="text-gray-700">Room Charges:</span>
-                  <span className="font-semibold">₹{roomTotal.toFixed(2)}</span>
+                <div className="flex justify-between items-center p-3 bg-white/70 dark:bg-gray-800/70 rounded-xl transition-colors duration-300">
+                  <span className="text-gray-700 dark:text-gray-300">Room Charges:</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-100">₹{roomTotal.toFixed(2)}</span>
                 </div>
                 
                 {foodOrdersTotal > 0 && (
-                  <div className="flex justify-between items-center p-3 bg-white/70 rounded-xl">
-                    <span className="text-gray-700">Food Orders:</span>
-                    <span className="font-semibold">₹{foodOrdersTotal.toFixed(2)}</span>
+                  <div className="flex justify-between items-center p-3 bg-white/70 dark:bg-gray-800/70 rounded-xl transition-colors duration-300">
+                    <span className="text-gray-700 dark:text-gray-300">Food Orders:</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-100">₹{foodOrdersTotal.toFixed(2)}</span>
                   </div>
                 )}
                 
                 {additionalChargesTotal > 0 && (
-                  <div className="flex justify-between items-center p-3 bg-white/70 rounded-xl">
-                    <span className="text-gray-700">Additional Charges:</span>
-                    <span className="font-semibold">₹{additionalChargesTotal.toFixed(2)}</span>
+                  <div className="flex justify-between items-center p-3 bg-white/70 dark:bg-gray-800/70 rounded-xl transition-colors duration-300">
+                    <span className="text-gray-700 dark:text-gray-300">Additional Charges:</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-100">₹{additionalChargesTotal.toFixed(2)}</span>
                   </div>
                 )}
                 
-                <div className="flex justify-between items-center p-3 bg-white/70 rounded-xl">
-                  <span className="text-gray-700">Service Charge (5%):</span>
-                  <span className="font-semibold">₹{serviceCharge.toFixed(2)}</span>
+                <div className="flex justify-between items-center p-3 bg-white/70 dark:bg-gray-800/70 rounded-xl transition-colors duration-300">
+                  <span className="text-gray-700 dark:text-gray-300">Service Charge (5%):</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-100">₹{serviceCharge.toFixed(2)}</span>
                 </div>
                 
                 {calculatedDiscount > 0 && (
-                  <div className="flex justify-between items-center p-3 bg-green-50 rounded-xl border border-green-200">
-                    <span className="text-green-700">Discount:</span>
-                    <span className="font-semibold text-green-700">-₹{calculatedDiscount.toFixed(2)}</span>
+                  <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-700 transition-colors duration-300">
+                    <span className="text-green-700 dark:text-green-300">Discount:</span>
+                    <span className="font-semibold text-green-700 dark:text-green-300">-₹{calculatedDiscount.toFixed(2)}</span>
                   </div>
                 )}
               </div>
