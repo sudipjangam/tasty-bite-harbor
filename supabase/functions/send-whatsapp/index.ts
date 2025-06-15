@@ -22,6 +22,43 @@ interface SendWhatsAppRequest {
   restaurantId?: string;
 }
 
+async function sendWhatsAppViaTwilio(to: string, message: string) {
+  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const fromNumber = Deno.env.get("TWILIO_WHATSAPP_FROM");
+
+  if (!accountSid || !authToken || !fromNumber) {
+    throw new Error("Missing Twilio credentials. Please configure TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_WHATSAPP_FROM in Supabase secrets.");
+  }
+
+  // Format phone number for WhatsApp
+  const formattedTo = to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
+  
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+  
+  const body = new URLSearchParams({
+    From: fromNumber,
+    To: formattedTo,
+    Body: message,
+  });
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Twilio API error: ${response.status} ${errorText}`);
+  }
+
+  return await response.json();
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -46,18 +83,29 @@ serve(async (req) => {
     console.log(`Message content: ${message}`);
     console.log(`Additional parameters: billingId=${billingId}, promotionId=${promotionId}, recipientId=${recipientId}, recipientType=${recipientType}, restaurantId=${restaurantId}`);
     
-    // Format phone number for WhatsApp (remove spaces, ensure international format)
-    const formattedPhone = phone.replace(/\s+/g, '');
-    const whatsappPhone = formattedPhone.startsWith('+') ? formattedPhone.substring(1) : formattedPhone;
+    // Format phone number for WhatsApp (ensure it has country code)
+    let formattedPhone = phone.replace(/\s+/g, '');
+    if (!formattedPhone.startsWith('+')) {
+      // Assume Indian number if no country code
+      formattedPhone = '+91' + formattedPhone;
+    }
     
-    console.log(`Formatted phone for WhatsApp: ${whatsappPhone}`);
-    
-    // In a real implementation, you would integrate with WhatsApp Business API
-    // or a third-party service like Twilio, MessageBird, etc.
-    // For now, this is a mock implementation for demonstration
+    console.log(`Formatted phone for WhatsApp: ${formattedPhone}`);
     
     let sendStatus = 'sent';
     let errorDetails = null;
+    let twilioResponse = null;
+    
+    try {
+      // Send actual WhatsApp message via Twilio
+      twilioResponse = await sendWhatsAppViaTwilio(formattedPhone, message);
+      console.log("Twilio response:", twilioResponse);
+      sendStatus = 'sent';
+    } catch (twilioError) {
+      console.error("Twilio error:", twilioError);
+      errorDetails = twilioError.message;
+      sendStatus = 'error';
+    }
     
     // Update database records based on what type of message was sent
     try {
@@ -70,8 +118,10 @@ serve(async (req) => {
           
         if (error) {
           console.error("Error updating billing record:", error);
-          errorDetails = error.message;
-          sendStatus = 'error';
+          if (!errorDetails) {
+            errorDetails = error.message;
+            sendStatus = 'error';
+          }
         } else {
           console.log(`Successfully marked billing ${billingId} as sent via WhatsApp`);
         }
@@ -102,36 +152,41 @@ serve(async (req) => {
             promotion_id: promotionId,
             reservation_id: recipientType === 'reservation' ? recipientId : null,
             customer_phone: phone,
-            sent_status: 'sent',
+            sent_status: sendStatus,
             sent_method: 'whatsapp',
             restaurant_id: restaurantId,
-            customer_name: "Guest" // This should be improved to get the actual customer name
+            customer_name: "Guest"
           });
           
         if (error) {
           console.error("Error recording sent promotion:", error);
-          errorDetails = error.message;
-          sendStatus = 'error';
+          if (!errorDetails) {
+            errorDetails = error.message;
+            sendStatus = 'error';
+          }
         } else {
           console.log(`Successfully recorded sent promotion ${promotionId} to ${recipientId}`);
         }
       }
     } catch (dbError) {
       console.error("Database error:", dbError);
-      errorDetails = dbError.message;
-      sendStatus = 'error';
+      if (!errorDetails) {
+        errorDetails = dbError.message;
+        sendStatus = 'error';
+      }
     }
     
     // Return success response
     return new Response(
       JSON.stringify({ 
-        success: true, 
-        phone, 
+        success: sendStatus === 'sent', 
+        phone: formattedPhone, 
         status: sendStatus,
-        error: errorDetails
+        error: errorDetails,
+        twilioResponse: twilioResponse
       }),
       {
-        status: 200,
+        status: sendStatus === 'sent' ? 200 : 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
