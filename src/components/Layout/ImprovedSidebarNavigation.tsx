@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { 
@@ -291,8 +290,6 @@ export const ImprovedSidebarNavigation = () => {
       <div className="px-3 py-2 border-t border-white/10">
         <div className="text-center">
           <span className="text-xs text-white/60">© 2025 Restaurant Pro</span>
-          <br />
-          <span className="text-xs text-white/40">Version 2.0</span>
         </div>
       </div>
     </div>
