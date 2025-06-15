@@ -1,11 +1,24 @@
-
 import React, { useState, useEffect } from 'react';
 import { differenceInDays, format } from 'date-fns';
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from 'react-router-dom';
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { 
+  ArrowLeft, 
+  User, 
+  Calendar, 
+  MapPin, 
+  CreditCard, 
+  Receipt, 
+  Clock,
+  Bed,
+  DollarSign,
+  CheckCircle
+} from "lucide-react";
 
 import RoomDetailsCard from './RoomDetailsCard';
 import RoomChargesTable from './RoomChargesTable';
@@ -133,7 +146,13 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
   }, [roomId, reservationId, toast]);
   
   if (loading || !room || !reservation) {
-    return <div className="p-8 text-center">Loading checkout data...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 flex justify-center items-center">
+        <div className="animate-pulse bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl">
+          <div className="text-xl font-semibold text-gray-600">Loading checkout data...</div>
+        </div>
+      </div>
+    );
   }
   
   const startDate = new Date(reservation.start_time);
@@ -227,41 +246,112 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Room Checkout</h2>
-        <Button variant="outline" onClick={handleCancel}>Return to Rooms</Button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 p-6">
+      {/* Modern Header */}
+      <div className="mb-8 bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl">
+              <Receipt className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                Room Checkout
+              </h1>
+              <p className="text-gray-600 text-lg mt-2 flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                Complete guest checkout and billing
+              </p>
+            </div>
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={handleCancel}
+            className="bg-white/80 backdrop-blur-sm border-2 border-gray-200 hover:border-indigo-300 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 text-gray-700 hover:text-indigo-700 font-semibold px-6 py-3 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Return to Rooms
+          </Button>
+        </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-6">
-          <Card>
-            <CardContent className="pt-6">
-              <RoomDetailsCard 
-                room={room} 
-                customerName={reservation.customer_name} 
-                checkInDate={format(new Date(reservation.start_time), 'PPP')}
-                checkOutDate={format(new Date(reservation.end_time), 'PPP')}
-                daysStayed={daysStayed}
-              />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column - Guest & Room Details */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Guest Information Card */}
+          <Card className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-xl font-bold text-gray-800">
+                <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl">
+                  <User className="h-5 w-5 text-white" />
+                </div>
+                Guest Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                    <User className="h-5 w-5 text-gray-500" />
+                    <div>
+                      <p className="text-sm text-gray-500">Guest Name</p>
+                      <p className="font-semibold text-gray-800">{reservation.customer_name}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                    <Bed className="h-5 w-5 text-gray-500" />
+                    <div>
+                      <p className="text-sm text-gray-500">Room</p>
+                      <p className="font-semibold text-gray-800">{room.name}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                    <Calendar className="h-5 w-5 text-gray-500" />
+                    <div>
+                      <p className="text-sm text-gray-500">Check-in</p>
+                      <p className="font-semibold text-gray-800">{format(new Date(reservation.start_time), 'PPP')}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                    <Clock className="h-5 w-5 text-gray-500" />
+                    <div>
+                      <p className="text-sm text-gray-500">Days Stayed</p>
+                      <Badge variant="secondary" className="font-semibold">{daysStayed} day{daysStayed > 1 ? 's' : ''}</Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
-          
-          <Card>
-            <CardContent className="pt-6">
+
+          {/* Room Charges */}
+          <Card className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-xl">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-xl font-bold text-gray-800">
+                <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl">
+                  <DollarSign className="h-5 w-5 text-white" />
+                </div>
+                Room Charges
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
               <RoomChargesTable roomPrice={room.price} daysStayed={daysStayed} />
             </CardContent>
           </Card>
           
+          {/* Food Orders */}
           {foodOrders.length > 0 && (
-            <Card>
+            <Card className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-xl">
               <CardContent className="pt-6">
                 <FoodOrdersList foodOrders={foodOrders} />
               </CardContent>
             </Card>
           )}
           
-          <Card>
+          {/* Additional Charges */}
+          <Card className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-xl">
             <CardContent className="pt-6">
               <AdditionalChargesSection 
                 charges={additionalCharges} 
@@ -271,8 +361,10 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           </Card>
         </div>
         
+        {/* Right Column - Payment & Summary */}
         <div className="space-y-6">
-          <Card>
+          {/* Discount Section */}
+          <Card className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-xl">
             <CardContent className="pt-6">
               <DiscountSection 
                 subtotal={roomTotal + foodOrdersTotal + additionalChargesTotal}
@@ -284,7 +376,8 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
             </CardContent>
           </Card>
           
-          <Card>
+          {/* Payment Method */}
+          <Card className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-xl">
             <CardContent className="pt-6">
               <PaymentMethodSelector 
                 selectedMethod={paymentMethod} 
@@ -293,75 +386,87 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
             </CardContent>
           </Card>
           
-          <Card>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                <div className="flex justify-between text-sm">
-                  <span>Room Charges:</span>
-                  <span>₹{roomTotal.toFixed(2)}</span>
+          {/* Bill Summary */}
+          <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200/50 rounded-2xl shadow-xl">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-xl font-bold text-gray-800">
+                <div className="p-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl">
+                  <Receipt className="h-5 w-5 text-white" />
+                </div>
+                Bill Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center p-3 bg-white/70 rounded-xl">
+                  <span className="text-gray-700">Room Charges:</span>
+                  <span className="font-semibold">₹{roomTotal.toFixed(2)}</span>
                 </div>
                 
                 {foodOrdersTotal > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span>Food Orders:</span>
-                    <span>₹{foodOrdersTotal.toFixed(2)}</span>
+                  <div className="flex justify-between items-center p-3 bg-white/70 rounded-xl">
+                    <span className="text-gray-700">Food Orders:</span>
+                    <span className="font-semibold">₹{foodOrdersTotal.toFixed(2)}</span>
                   </div>
                 )}
                 
                 {additionalChargesTotal > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span>Additional Charges:</span>
-                    <span>₹{additionalChargesTotal.toFixed(2)}</span>
+                  <div className="flex justify-between items-center p-3 bg-white/70 rounded-xl">
+                    <span className="text-gray-700">Additional Charges:</span>
+                    <span className="font-semibold">₹{additionalChargesTotal.toFixed(2)}</span>
                   </div>
                 )}
                 
-                <div className="flex justify-between text-sm">
-                  <span>Service Charge (5%):</span>
-                  <span>₹{serviceCharge.toFixed(2)}</span>
+                <div className="flex justify-between items-center p-3 bg-white/70 rounded-xl">
+                  <span className="text-gray-700">Service Charge (5%):</span>
+                  <span className="font-semibold">₹{serviceCharge.toFixed(2)}</span>
                 </div>
                 
                 {calculatedDiscount > 0 && (
-                  <div className="flex justify-between text-sm text-green-600">
-                    <span>Discount:</span>
-                    <span>-₹{calculatedDiscount.toFixed(2)}</span>
+                  <div className="flex justify-between items-center p-3 bg-green-50 rounded-xl border border-green-200">
+                    <span className="text-green-700">Discount:</span>
+                    <span className="font-semibold text-green-700">-₹{calculatedDiscount.toFixed(2)}</span>
                   </div>
                 )}
+              </div>
+              
+              <Separator className="my-4" />
+              
+              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl text-white">
+                <span className="text-lg font-bold">Total Amount:</span>
+                <span className="text-2xl font-bold">₹{grandTotal.toFixed(2)}</span>
+              </div>
+              
+              <div className="grid grid-cols-1 gap-3 mt-6">
+                <Button 
+                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-4 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300" 
+                  size="lg"
+                  disabled={isSubmitting}
+                  onClick={handleCheckout}
+                >
+                  <CreditCard className="w-5 h-5 mr-2" />
+                  {isSubmitting ? 'Processing...' : 'Complete Checkout'}
+                </Button>
                 
-                <div className="border-t pt-4 flex justify-between font-bold">
-                  <span>Total Amount:</span>
-                  <span>₹{grandTotal.toFixed(2)}</span>
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
-                  <Button 
-                    className="w-full" 
-                    size="lg"
-                    disabled={isSubmitting}
-                    onClick={handleCheckout}
-                  >
-                    {isSubmitting ? 'Processing...' : 'Complete Checkout'}
-                  </Button>
-                  
-                  <PrintBillButton
-                    restaurantName={restaurantName}
-                    restaurantAddress={restaurantAddress}
-                    customerName={reservation.customer_name}
-                    customerPhone={reservation.customer_phone || ''}
-                    roomName={room.name}
-                    checkInDate={format(new Date(reservation.start_time), 'PPP')}
-                    checkOutDate={format(new Date(reservation.end_time), 'PPP')}
-                    daysStayed={daysStayed}
-                    roomPrice={room.price}
-                    roomCharges={roomTotal}
-                    foodOrders={foodOrders}
-                    additionalCharges={additionalCharges}
-                    serviceCharge={serviceCharge}
-                    discount={calculatedDiscount}
-                    grandTotal={grandTotal}
-                    paymentMethod={paymentMethod}
-                    billId={billingId || 'TEMP-' + new Date().getTime()}
-                  />
-                </div>
+                <PrintBillButton
+                  restaurantName={restaurantName}
+                  restaurantAddress={restaurantAddress}
+                  customerName={reservation.customer_name}
+                  customerPhone={reservation.customer_phone || ''}
+                  roomName={room.name}
+                  checkInDate={format(new Date(reservation.start_time), 'PPP')}
+                  checkOutDate={format(new Date(reservation.end_time), 'PPP')}
+                  daysStayed={daysStayed}
+                  roomPrice={room.price}
+                  roomCharges={roomTotal}
+                  foodOrders={foodOrders}
+                  additionalCharges={additionalCharges}
+                  serviceCharge={serviceCharge}
+                  discount={calculatedDiscount}
+                  grandTotal={grandTotal}
+                  paymentMethod={paymentMethod}
+                  billId={billingId || 'TEMP-' + new Date().getTime()}
+                />
               </div>
             </CardContent>
           </Card>
