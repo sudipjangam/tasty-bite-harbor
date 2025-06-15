@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/ca
 import { supabase } from "@/integrations/supabase/client";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { LogOut, RefreshCw, Sparkles } from "lucide-react";
+import { LogOut, RefreshCw, Sparkles, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import BrandingSection from "@/components/Auth/BrandingSection";
 import AuthForm from "@/components/Auth/AuthForm";
@@ -133,6 +133,18 @@ const Auth = () => {
                   <h3 className="font-semibold text-gray-900 dark:text-white">Inventory Tracking</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Keep track of stock levels and automate ordering</p>
                 </div>
+              </div>
+              
+              {/* Visit our website button */}
+              <div className="pt-6">
+                <Button 
+                  variant="outline" 
+                  className="group border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm transition-all duration-200"
+                  onClick={() => window.open("https://swadeshisolutions.teleporthq.app", "_blank")}
+                >
+                  <span>Visit our website</span>
+                  <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform duration-200" />
+                </Button>
               </div>
             </div>
           </div>
