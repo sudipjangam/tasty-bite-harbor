@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +16,9 @@ import { startOfToday, subDays, subMonths, startOfDay, endOfDay } from "date-fns
 import type { Order } from "@/types/orders";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
+import { usePagination } from "@/hooks/usePagination";
+import { DataTablePagination } from "@/components/ui/data-table-pagination";
+import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
 
 interface OrdersViewProps {
   searchTrigger?: number;
@@ -37,6 +39,7 @@ const OrdersView = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -221,6 +224,20 @@ const OrdersView = ({
     return matchesSearch && matchesStatus;
   }) || [];
 
+  const {
+    currentPage,
+    totalPages,
+    paginatedData: paginatedOrders,
+    goToPage,
+    startIndex,
+    endIndex,
+    totalItems
+  } = usePagination({
+    data: filteredOrders,
+    itemsPerPage,
+    initialPage: 1
+  });
+
   const orderStats = {
     totalOrders: filteredOrders.length || 0,
     pendingOrders: filteredOrders.filter(order => order.status === 'pending' || order.status === 'preparing').length || 0,
@@ -238,6 +255,21 @@ const OrdersView = ({
       default: return "Today";
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 flex-shrink-0">
+          <EnhancedSkeleton type="orders" count={1} showHeader={false} />
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <div className="p-6">
+            <EnhancedSkeleton type="orders" count={itemsPerPage} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
@@ -404,11 +436,27 @@ const OrdersView = ({
 
             <div className="mt-6">
               <OrderList 
-                orders={filteredOrders} 
+                orders={paginatedOrders} 
                 onOrdersChange={refetchOrders}
                 onEditOrder={setEditingOrder}
                 isLoading={isLoading}
               />
+              
+              {totalPages > 1 && (
+                <div className="mt-6">
+                  <DataTablePagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={totalItems}
+                    itemsPerPage={itemsPerPage}
+                    startIndex={startIndex}
+                    endIndex={endIndex}
+                    onPageChange={goToPage}
+                    onItemsPerPageChange={setItemsPerPage}
+                    showItemsPerPage={true}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </ScrollArea>

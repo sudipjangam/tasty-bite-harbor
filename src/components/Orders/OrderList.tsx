@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import OrderFilters from "./OrderFilters";
 import OrderItem from "./OrderItem";
@@ -7,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Order } from "@/types/orders";
 import { useIsMobile } from "@/hooks/use-mobile";
 import AddOrderForm from "./AddOrderForm";
-import { Skeleton } from "@/components/ui/skeleton";
+import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
 import { AlertCircle } from "lucide-react";
 import { StandardizedModal } from "@/components/ui/standardized-modal";
 import { StandardizedCard } from "@/components/ui/standardized-card";
@@ -70,20 +69,7 @@ const OrderList: React.FC<OrderListProps> = ({
     return (
       <div className="space-y-4">
         <OrderFilters statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
-        <div className="grid gap-4">
-          {[1, 2, 3].map((i) => (
-            <StandardizedCard key={i} padding="lg">
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <Skeleton className="h-5 w-32" />
-                  <Skeleton className="h-4 w-48" />
-                  <Skeleton className="h-4 w-64" />
-                </div>
-                <Skeleton className="h-8 w-24" />
-              </div>
-            </StandardizedCard>
-          ))}
-        </div>
+        <EnhancedSkeleton type="orders" count={5} showHeader={false} />
       </div>
     );
   }

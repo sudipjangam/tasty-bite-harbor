@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Package, Eye, Check, X, Truck, Edit, ChevronDown } from "lucide-react";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
+import { usePagination } from "@/hooks/usePagination";
+import { DataTablePagination } from "@/components/ui/data-table-pagination";
 
 interface PurchaseOrder {
   id: string;
@@ -71,6 +73,7 @@ const PurchaseOrders = () => {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isStatusUpdateDialogOpen, setIsStatusUpdateDialogOpen] = useState(false);
   const [newStatus, setNewStatus] = useState("");
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { restaurantId } = useRestaurantId();
@@ -100,6 +103,22 @@ const PurchaseOrders = () => {
       return data as PurchaseOrder[];
     },
     enabled: !!restaurantId,
+  });
+
+  const {
+    currentPage,
+    totalPages,
+    paginatedData: paginatedOrders,
+    goToPage,
+    canGoNext,
+    canGoPrev,
+    startIndex,
+    endIndex,
+    totalItems
+  } = usePagination({
+    data: purchaseOrders,
+    itemsPerPage,
+    initialPage: 1
   });
 
   const updateOrderStatusMutation = useMutation({
@@ -189,81 +208,121 @@ const PurchaseOrders = () => {
   };
 
   if (isLoading) {
-    return <div>Loading purchase orders...</div>;
+    return (
+      <div className="space-y-6">
+        <EnhancedSkeleton 
+          type="purchase-orders" 
+          count={itemsPerPage} 
+          showHeader={true}
+        />
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Purchase Orders</h2>
+        <div>
+          <h2 className="text-2xl font-bold">Purchase Orders</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Manage your purchase orders and supplier relationships
+          </p>
+        </div>
         <Button className="bg-purple-600 hover:bg-purple-700">
           <Plus className="h-4 w-4 mr-2" />
           Create Purchase Order
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
-        {purchaseOrders.map((order) => (
-          <Card key={order.id} className="p-4">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <Package className="h-5 w-5 text-purple-600" />
-                  <h3 className="font-semibold">{order.order_number}</h3>
-                  <Badge className={statusColors[order.status as keyof typeof statusColors]}>
-                    {statusLabels[order.status as keyof typeof statusLabels]}
-                  </Badge>
+      {purchaseOrders.length === 0 ? (
+        <Card className="p-8 text-center">
+          <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No purchase orders yet</h3>
+          <p className="text-gray-500 mb-4">Create your first purchase order to get started</p>
+          <Button className="bg-purple-600 hover:bg-purple-700">
+            <Plus className="h-4 w-4 mr-2" />
+            Create Purchase Order
+          </Button>
+        </Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4">
+            {paginatedOrders.map((order) => (
+              <Card key={order.id} className="p-4 hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Package className="h-5 w-5 text-purple-600" />
+                      <h3 className="font-semibold">{order.order_number}</h3>
+                      <Badge className={statusColors[order.status as keyof typeof statusColors]}>
+                        {statusLabels[order.status as keyof typeof statusLabels]}
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <p><strong>Supplier:</strong> {order.supplier.name}</p>
+                      <p><strong>Order Date:</strong> {new Date(order.order_date).toLocaleDateString()}</p>
+                      {order.expected_delivery_date && (
+                        <p><strong>Expected Delivery:</strong> {new Date(order.expected_delivery_date).toLocaleDateString()}</p>
+                      )}
+                      <p><strong>Total Amount:</strong> ₹{order.total_amount.toFixed(2)}</p>
+                      <p><strong>Items:</strong> {order.purchase_order_items.length}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleViewOrder(order)}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    
+                    {getAvailableStatuses(order.status).length > 0 && (
+                      <Button 
+                        variant="outline"
+                        size="sm" 
+                        onClick={() => handleStatusUpdate(order)}
+                        className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Update Status
+                      </Button>
+                    )}
+                    
+                    {order.status === 'ordered' && (
+                      <Button 
+                        size="sm" 
+                        onClick={() => {
+                          setSelectedOrder(order);
+                          setIsReceivingDialogOpen(true);
+                        }}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <Truck className="h-4 w-4 mr-1" />
+                        Receive
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="text-sm text-gray-600 space-y-1">
-                  <p><strong>Supplier:</strong> {order.supplier.name}</p>
-                  <p><strong>Order Date:</strong> {new Date(order.order_date).toLocaleDateString()}</p>
-                  {order.expected_delivery_date && (
-                    <p><strong>Expected Delivery:</strong> {new Date(order.expected_delivery_date).toLocaleDateString()}</p>
-                  )}
-                  <p><strong>Total Amount:</strong> ₹{order.total_amount.toFixed(2)}</p>
-                  <p><strong>Items:</strong> {order.purchase_order_items.length}</p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => handleViewOrder(order)}
-                >
-                  <Eye className="h-4 w-4" />
-                </Button>
-                
-                {/* Status Update Button */}
-                {getAvailableStatuses(order.status).length > 0 && (
-                  <Button 
-                    variant="outline"
-                    size="sm" 
-                    onClick={() => handleStatusUpdate(order)}
-                    className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                  >
-                    <Edit className="h-4 w-4 mr-1" />
-                    Update Status
-                  </Button>
-                )}
-                
-                {order.status === 'ordered' && (
-                  <Button 
-                    size="sm" 
-                    onClick={() => {
-                      setSelectedOrder(order);
-                      setIsReceivingDialogOpen(true);
-                    }}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    <Truck className="h-4 w-4 mr-1" />
-                    Receive
-                  </Button>
-                )}
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+              </Card>
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <DataTablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              itemsPerPage={itemsPerPage}
+              startIndex={startIndex}
+              endIndex={endIndex}
+              onPageChange={goToPage}
+              onItemsPerPageChange={setItemsPerPage}
+              showItemsPerPage={true}
+            />
+          )}
+        </>
+      )}
 
       {/* Status Update Dialog */}
       <Dialog open={isStatusUpdateDialogOpen} onOpenChange={setIsStatusUpdateDialogOpen}>
