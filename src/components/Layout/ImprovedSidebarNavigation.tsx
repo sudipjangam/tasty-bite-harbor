@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { 
@@ -18,20 +19,25 @@ import {
   Sparkles,
   DollarSign,
   ChefHat,
-  Globe
+  Globe,
+  Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAuth } from "@/hooks/useAuth";
+
+interface NavigationItem {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  href: string;
+  description?: string;
+  requiredPermissions?: string[];
+}
 
 interface NavigationGroup {
   title: string;
-  items: {
-    title: string;
-    icon: React.ComponentType<{ className?: string }>;
-    href: string;
-    description?: string;
-  }[];
+  items: NavigationItem[];
 }
 
 const navigationGroups: NavigationGroup[] = [
@@ -42,7 +48,8 @@ const navigationGroups: NavigationGroup[] = [
         title: "Overview",
         icon: LayoutDashboard,
         href: "/",
-        description: "Main dashboard and analytics"
+        description: "Main dashboard and analytics",
+        requiredPermissions: ['dashboard.view']
       }
     ]
   },
@@ -53,31 +60,36 @@ const navigationGroups: NavigationGroup[] = [
         title: "Orders",
         icon: ShoppingCart,
         href: "/orders",
-        description: "Manage customer orders"
+        description: "Manage customer orders",
+        requiredPermissions: ['orders.view']
       },
       {
         title: "Kitchen",
         icon: ChefHat,
         href: "/kitchen",
-        description: "Kitchen display system"
+        description: "Kitchen display system",
+        requiredPermissions: ['kitchen.view']
       },
       {
         title: "Menu",
         icon: MenuIcon,
         href: "/menu",
-        description: "Menu management"
+        description: "Menu management",
+        requiredPermissions: ['menu.view']
       },
       {
         title: "Tables",
         icon: MapPin,
         href: "/tables",
-        description: "Table management"
+        description: "Table management",
+        requiredPermissions: ['tables.view']
       },
       {
         title: "Inventory",
         icon: Package,
         href: "/inventory",
-        description: "Stock management"
+        description: "Stock management",
+        requiredPermissions: ['inventory.view']
       }
     ]
   },
@@ -88,19 +100,22 @@ const navigationGroups: NavigationGroup[] = [
         title: "Rooms",
         icon: Bed,
         href: "/rooms",
-        description: "Room management"
+        description: "Room management",
+        requiredPermissions: ['rooms.view']
       },
       {
         title: "Reservations",
         icon: Calendar,
         href: "/reservations",
-        description: "Booking management"
+        description: "Booking management",
+        requiredPermissions: ['reservations.view']
       },
       {
         title: "Housekeeping",
         icon: Sparkles,
         href: "/housekeeping",
-        description: "Cleaning & maintenance"
+        description: "Cleaning & maintenance",
+        requiredPermissions: ['housekeeping.view']
       }
     ]
   },
@@ -111,38 +126,43 @@ const navigationGroups: NavigationGroup[] = [
         title: "Staff",
         icon: UserCheck,
         href: "/staff",
-        description: "Employee management"
+        description: "Employee management",
+        requiredPermissions: ['staff.view']
       },
       {
         title: "Customers",
         icon: Users,
         href: "/customers",
-        description: "Customer database"
+        description: "Customer database",
+        requiredPermissions: ['customers.view']
       },
       {
         title: "Channel Management",
         icon: Globe,
         href: "/channel-management",
-        description: "OTA & booking channels"
+        description: "OTA & booking channels",
+        requiredPermissions: ['rooms.view']
       },
       {
         title: "Analytics",
         icon: TrendingUp,
         href: "/analytics",
-        description: "Business insights"
+        description: "Business insights",
+        requiredPermissions: ['analytics.view']
       },
       {
         title: "Financial",
         icon: DollarSign,
         href: "/financial",
-        description: "Financial reports"
+        description: "Financial reports",
+        requiredPermissions: ['financial.view']
       }
     ]
   }
 ];
 
 // Standalone items outside of groups
-const standaloneItems = [
+const standaloneItems: NavigationItem[] = [
   {
     title: "AI Assistant",
     icon: MessageSquare,
@@ -150,16 +170,25 @@ const standaloneItems = [
     description: "AI-powered help"
   },
   {
+    title: "Security",
+    icon: Shield,
+    href: "/security",
+    description: "Security & compliance",
+    requiredPermissions: ['audit.view', 'gdpr.view', 'backup.view']
+  },
+  {
     title: "Settings",
     icon: Settings,
     href: "/settings",
-    description: "System configuration"
+    description: "System configuration",
+    requiredPermissions: ['settings.view']
   }
 ];
 
 export const ImprovedSidebarNavigation = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { hasAnyPermission } = useAuth();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Dashboard', 'Operations']));
 
   const toggleGroup = (groupTitle: string) => {
@@ -174,12 +203,23 @@ export const ImprovedSidebarNavigation = () => {
 
   const isActive = (href: string) => location.pathname === href;
 
+  const hasPermissionForItem = (item: NavigationItem) => {
+    if (!item.requiredPermissions || item.requiredPermissions.length === 0) {
+      return true;
+    }
+    return hasAnyPermission(item.requiredPermissions as any[]);
+  };
+
   return (
     <div className="flex flex-col h-full">
       <ScrollArea className="flex-1 px-3">
         <nav className="space-y-2 py-2">
           {navigationGroups.map((group) => {
             const isExpanded = expandedGroups.has(group.title);
+            const visibleItems = group.items.filter(hasPermissionForItem);
+            
+            // Don't show groups with no visible items
+            if (visibleItems.length === 0) return null;
             
             return (
               <div key={group.title} className="space-y-1">
@@ -202,7 +242,7 @@ export const ImprovedSidebarNavigation = () => {
                 
                 {(isExpanded || group.title === "Dashboard") && (
                   <div className="space-y-1">
-                    {group.items.map((item) => {
+                    {visibleItems.map((item) => {
                       const Icon = item.icon;
                       const active = isActive(item.href);
                       
@@ -246,7 +286,7 @@ export const ImprovedSidebarNavigation = () => {
           {/* Standalone items outside of groups */}
           <div className="pt-4 border-t border-white/10 mt-4">
             <div className="space-y-1">
-              {standaloneItems.map((item) => {
+              {standaloneItems.filter(hasPermissionForItem).map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
                 

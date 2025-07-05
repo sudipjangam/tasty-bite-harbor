@@ -1,9 +1,8 @@
-
 /**
  * Enhanced authentication and role-based access types
  */
 
-export type UserRole = 'super_admin' | 'admin' | 'manager' | 'staff' | 'viewer';
+export type UserRole = 'owner' | 'admin' | 'manager' | 'chef' | 'waiter' | 'staff' | 'viewer';
 
 export type Permission = 
   // Dashboard permissions
@@ -59,21 +58,55 @@ export type Permission =
   | 'analytics.view'
   | 'analytics.export'
   
+  // Financial permissions
+  | 'financial.view'
+  | 'financial.create'
+  | 'financial.update'
+  | 'financial.delete'
+  | 'financial.reports'
+  
   // Settings permissions
   | 'settings.view'
   | 'settings.update'
   | 'settings.manage_users'
   
-  // AI permissions
-  | 'ai.access'
-  | 'ai.admin';
+  // Kitchen permissions
+  | 'kitchen.view'
+  | 'kitchen.update'
+  
+  // Tables permissions
+  | 'tables.view'
+  | 'tables.create'
+  | 'tables.update'
+  | 'tables.delete'
+  
+  // Housekeeping permissions
+  | 'housekeeping.view'
+  | 'housekeeping.create'
+  | 'housekeeping.update'
+  | 'housekeeping.delete'
+  
+  // Audit permissions
+  | 'audit.view'
+  | 'audit.export'
+  
+  // Backup permissions
+  | 'backup.create'
+  | 'backup.restore'
+  | 'backup.view'
+  
+  // GDPR permissions
+  | 'gdpr.view'
+  | 'gdpr.export'
+  | 'gdpr.delete';
 
 export interface RolePermissions {
   [key: string]: Permission[];
 }
 
 export const rolePermissions: RolePermissions = {
-  super_admin: [
+  owner: [
+    // Full access to everything
     'dashboard.view', 'dashboard.analytics',
     'orders.view', 'orders.create', 'orders.update', 'orders.delete', 'pos.access',
     'menu.view', 'menu.create', 'menu.update', 'menu.delete',
@@ -83,11 +116,38 @@ export const rolePermissions: RolePermissions = {
     'rooms.view', 'rooms.create', 'rooms.update', 'rooms.delete', 'rooms.checkout',
     'reservations.view', 'reservations.create', 'reservations.update', 'reservations.delete',
     'analytics.view', 'analytics.export',
+    'financial.view', 'financial.create', 'financial.update', 'financial.delete', 'financial.reports',
     'settings.view', 'settings.update', 'settings.manage_users',
-    'ai.access', 'ai.admin'
+    'kitchen.view', 'kitchen.update',
+    'tables.view', 'tables.create', 'tables.update', 'tables.delete',
+    'housekeeping.view', 'housekeeping.create', 'housekeeping.update', 'housekeeping.delete',
+    'audit.view', 'audit.export',
+    'backup.create', 'backup.restore', 'backup.view',
+    'gdpr.view', 'gdpr.export', 'gdpr.delete'
   ],
   admin: [
+    // Full access to everything (same as owner)
     'dashboard.view', 'dashboard.analytics',
+    'orders.view', 'orders.create', 'orders.update', 'orders.delete', 'pos.access',
+    'menu.view', 'menu.create', 'menu.update', 'menu.delete',
+    'inventory.view', 'inventory.create', 'inventory.update', 'inventory.delete',
+    'staff.view', 'staff.create', 'staff.update', 'staff.delete', 'staff.manage_roles',
+    'customers.view', 'customers.create', 'customers.update', 'customers.delete',
+    'rooms.view', 'rooms.create', 'rooms.update', 'rooms.delete', 'rooms.checkout',
+    'reservations.view', 'reservations.create', 'reservations.update', 'reservations.delete',
+    'analytics.view', 'analytics.export',
+    'financial.view', 'financial.create', 'financial.update', 'financial.delete', 'financial.reports',
+    'settings.view', 'settings.update', 'settings.manage_users',
+    'kitchen.view', 'kitchen.update',
+    'tables.view', 'tables.create', 'tables.update', 'tables.delete',
+    'housekeeping.view', 'housekeeping.create', 'housekeeping.update', 'housekeeping.delete',
+    'audit.view', 'audit.export',
+    'backup.create', 'backup.restore', 'backup.view',
+    'gdpr.view', 'gdpr.export', 'gdpr.delete'
+  ],
+  manager: [
+    // All access except analytics and financial reports
+    'dashboard.view',
     'orders.view', 'orders.create', 'orders.update', 'orders.delete', 'pos.access',
     'menu.view', 'menu.create', 'menu.update', 'menu.delete',
     'inventory.view', 'inventory.create', 'inventory.update', 'inventory.delete',
@@ -95,30 +155,44 @@ export const rolePermissions: RolePermissions = {
     'customers.view', 'customers.create', 'customers.update', 'customers.delete',
     'rooms.view', 'rooms.create', 'rooms.update', 'rooms.delete', 'rooms.checkout',
     'reservations.view', 'reservations.create', 'reservations.update', 'reservations.delete',
-    'analytics.view', 'analytics.export',
     'settings.view', 'settings.update',
-    'ai.access'
+    'kitchen.view', 'kitchen.update',
+    'tables.view', 'tables.create', 'tables.update', 'tables.delete',
+    'housekeeping.view', 'housekeeping.create', 'housekeeping.update', 'housekeeping.delete',
+    'audit.view',
+    'gdpr.view'
   ],
-  manager: [
-    'dashboard.view', 'dashboard.analytics',
-    'orders.view', 'orders.create', 'orders.update', 'pos.access',
-    'menu.view', 'menu.update',
-    'inventory.view', 'inventory.update',
-    'staff.view', 'staff.update',
-    'customers.view', 'customers.create', 'customers.update',
-    'rooms.view', 'rooms.update', 'rooms.checkout',
-    'reservations.view', 'reservations.create', 'reservations.update',
-    'analytics.view',
-    'ai.access'
-  ],
-  staff: [
+  chef: [
+    // Access to orders, kitchen, inventory, menu management
     'dashboard.view',
     'orders.view', 'orders.create', 'orders.update', 'pos.access',
+    'menu.view', 'menu.create', 'menu.update', 'menu.delete',
+    'inventory.view', 'inventory.create', 'inventory.update', 'inventory.delete',
+    'kitchen.view', 'kitchen.update'
+  ],
+  waiter: [
+    // Access to operations and guest services
+    'dashboard.view',
+    'orders.view', 'orders.create', 'orders.update', 'pos.access',
+    'kitchen.view',
     'menu.view',
+    'tables.view', 'tables.update',
     'inventory.view',
-    'customers.view', 'customers.create',
     'rooms.view', 'rooms.checkout',
-    'reservations.view', 'reservations.create'
+    'reservations.view', 'reservations.create', 'reservations.update',
+    'housekeeping.view'
+  ],
+  staff: [
+    // Same as waiter - access to operations and guest services
+    'dashboard.view',
+    'orders.view', 'orders.create', 'orders.update', 'pos.access',
+    'kitchen.view',
+    'menu.view',
+    'tables.view', 'tables.update',
+    'inventory.view',
+    'rooms.view', 'rooms.checkout',
+    'reservations.view', 'reservations.create', 'reservations.update',
+    'housekeeping.view'
   ],
   viewer: [
     'dashboard.view',
@@ -127,8 +201,7 @@ export const rolePermissions: RolePermissions = {
     'inventory.view',
     'customers.view',
     'rooms.view',
-    'reservations.view',
-    'analytics.view'
+    'reservations.view'
   ]
 };
 
