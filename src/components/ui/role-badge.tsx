@@ -15,9 +15,9 @@ interface RoleBadgeProps {
 export const RoleBadge: React.FC<RoleBadgeProps> = ({ role, className }) => {
   const getRoleConfig = (role: UserRole) => {
     switch (role) {
-      case 'super_admin':
+      case 'owner':
         return {
-          label: 'Super Admin',
+          label: 'Owner',
           variant: 'destructive' as const,
           className: 'bg-red-100 text-red-800 hover:bg-red-100'
         };
@@ -32,6 +32,18 @@ export const RoleBadge: React.FC<RoleBadgeProps> = ({ role, className }) => {
           label: 'Manager',
           variant: 'default' as const,
           className: 'bg-blue-100 text-blue-800 hover:bg-blue-100'
+        };
+      case 'chef':
+        return {
+          label: 'Chef',
+          variant: 'secondary' as const,
+          className: 'bg-purple-100 text-purple-800 hover:bg-purple-100'
+        };
+      case 'waiter':
+        return {
+          label: 'Waiter',
+          variant: 'secondary' as const,
+          className: 'bg-green-100 text-green-800 hover:bg-green-100'
         };
       case 'staff':
         return {
