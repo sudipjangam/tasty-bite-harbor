@@ -25,7 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useAuth } from "@/hooks/useAuth";
+import { useSimpleAuth } from "@/hooks/useSimpleAuth";
 
 interface NavigationItem {
   title: string;
@@ -48,8 +48,7 @@ const navigationGroups: NavigationGroup[] = [
         title: "Overview",
         icon: LayoutDashboard,
         href: "/",
-        description: "Main dashboard and analytics",
-        requiredPermissions: ['dashboard.view']
+        description: "Main dashboard and analytics"
       }
     ]
   },
@@ -60,36 +59,31 @@ const navigationGroups: NavigationGroup[] = [
         title: "Orders",
         icon: ShoppingCart,
         href: "/orders",
-        description: "Manage customer orders",
-        requiredPermissions: ['orders.view']
+        description: "Manage customer orders"
       },
       {
         title: "Kitchen",
         icon: ChefHat,
         href: "/kitchen",
-        description: "Kitchen display system",
-        requiredPermissions: ['kitchen.view']
+        description: "Kitchen display system"
       },
       {
         title: "Menu",
         icon: MenuIcon,
         href: "/menu",
-        description: "Menu management",
-        requiredPermissions: ['menu.view']
+        description: "Menu management"
       },
       {
         title: "Tables",
         icon: MapPin,
         href: "/tables",
-        description: "Table management",
-        requiredPermissions: ['tables.view']
+        description: "Table management"
       },
       {
         title: "Inventory",
         icon: Package,
         href: "/inventory",
-        description: "Stock management",
-        requiredPermissions: ['inventory.view']
+        description: "Stock management"
       }
     ]
   },
@@ -100,22 +94,19 @@ const navigationGroups: NavigationGroup[] = [
         title: "Rooms",
         icon: Bed,
         href: "/rooms",
-        description: "Room management",
-        requiredPermissions: ['rooms.view']
+        description: "Room management"
       },
       {
         title: "Reservations",
         icon: Calendar,
         href: "/reservations",
-        description: "Booking management",
-        requiredPermissions: ['reservations.view']
+        description: "Booking management"
       },
       {
         title: "Housekeeping",
         icon: Sparkles,
         href: "/housekeeping",
-        description: "Cleaning & maintenance",
-        requiredPermissions: ['housekeeping.view']
+        description: "Cleaning & maintenance"
       }
     ]
   },
@@ -126,36 +117,31 @@ const navigationGroups: NavigationGroup[] = [
         title: "Staff",
         icon: UserCheck,
         href: "/staff",
-        description: "Employee management",
-        requiredPermissions: ['staff.view']
+        description: "Employee management"
       },
       {
         title: "Customers",
         icon: Users,
         href: "/customers",
-        description: "Customer database",
-        requiredPermissions: ['customers.view']
+        description: "Customer database"
       },
       {
         title: "Channel Management",
         icon: Globe,
         href: "/channel-management",
-        description: "OTA & booking channels",
-        requiredPermissions: ['rooms.view']
+        description: "OTA & booking channels"
       },
       {
         title: "Analytics",
         icon: TrendingUp,
         href: "/analytics",
-        description: "Business insights",
-        requiredPermissions: ['analytics.view']
+        description: "Business insights"
       },
       {
         title: "Financial",
         icon: DollarSign,
         href: "/financial",
-        description: "Financial reports",
-        requiredPermissions: ['financial.view']
+        description: "Financial reports"
       }
     ]
   }
@@ -173,22 +159,20 @@ const standaloneItems: NavigationItem[] = [
     title: "Security",
     icon: Shield,
     href: "/security",
-    description: "Security & compliance",
-    requiredPermissions: ['audit.view', 'gdpr.view', 'backup.view']
+    description: "Security & compliance"
   },
   {
     title: "Settings",
     icon: Settings,
     href: "/settings",
-    description: "System configuration",
-    requiredPermissions: ['settings.view']
+    description: "System configuration"
   }
 ];
 
 export const ImprovedSidebarNavigation = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { hasAnyPermission } = useAuth();
+  const { user } = useSimpleAuth();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Dashboard', 'Operations']));
 
   const toggleGroup = (groupTitle: string) => {
@@ -203,11 +187,10 @@ export const ImprovedSidebarNavigation = () => {
 
   const isActive = (href: string) => location.pathname === href;
 
+  // For now, show all items since we're using simple auth
+  // This can be enhanced later with proper role-based permissions
   const hasPermissionForItem = (item: NavigationItem) => {
-    if (!item.requiredPermissions || item.requiredPermissions.length === 0) {
-      return true;
-    }
-    return hasAnyPermission(item.requiredPermissions as any[]);
+    return true; // Show all items for authenticated users
   };
 
   return (
