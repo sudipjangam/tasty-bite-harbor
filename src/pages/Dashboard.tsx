@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useSimpleAuth } from "@/hooks/useSimpleAuth";
 import { PageHeader } from "@/components/Layout/PageHeader";
@@ -59,12 +60,15 @@ const Dashboard = () => {
       <PageHeader 
         title={`Welcome back${user?.email ? `, ${user.email.split('@')[0]}` : ''}!`}
         description="Here's what's happening with your restaurant today"
-        icon={<BarChart3 className="h-6 w-6" />}
       />
       
       <div className="p-6 space-y-8">
         {/* Quick Actions */}
-        <StandardizedCard title="Quick Actions" description="Common tasks and shortcuts">
+        <StandardizedCard className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Quick Actions</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Common tasks and shortcuts</p>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {quickActions.map((action, index) => (
               <StandardizedButton
@@ -84,12 +88,20 @@ const Dashboard = () => {
         </StandardizedCard>
 
         {/* Stats Overview */}
-        <StandardizedCard title="Performance Overview" description="Key metrics at a glance">
+        <StandardizedCard className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Performance Overview</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Key metrics at a glance</p>
+          </div>
           <Stats />
         </StandardizedCard>
 
         {/* Weekly Sales Chart */}
-        <StandardizedCard title="Weekly Sales Trend" description="Revenue performance over the past week">
+        <StandardizedCard className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Weekly Sales Trend</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Revenue performance over the past week</p>
+          </div>
           <WeeklySalesChart />
         </StandardizedCard>
       </div>

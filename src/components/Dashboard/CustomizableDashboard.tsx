@@ -4,11 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Settings, Plus, X, GripVertical } from "lucide-react";
-import { KPIWidget } from "./KPIWidget";
-import { InteractiveChart } from "./InteractiveChart";
-import { TrendAnalysis } from "./TrendAnalysis";
 
-interface DashboardWidget {
+export interface DashboardWidget {
   id: string;
   type: 'kpi' | 'chart' | 'trend' | 'custom';
   title: string;

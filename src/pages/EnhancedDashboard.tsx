@@ -7,9 +7,19 @@ import { PageHeader } from "@/components/Layout/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LayoutDashboard, BarChart3, Settings } from "lucide-react";
 
+interface DashboardWidget {
+  id: string;
+  type: 'kpi' | 'chart' | 'trend' | 'custom';
+  title: string;
+  size: 'sm' | 'md' | 'lg' | 'xl';
+  position: { row: number; col: number };
+  data?: any;
+  visible: boolean;
+}
+
 const EnhancedDashboard = () => {
   const { user } = useSimpleAuth();
-  const [dashboardWidgets, setDashboardWidgets] = useState([
+  const [dashboardWidgets, setDashboardWidgets] = useState<DashboardWidget[]>([
     {
       id: 'revenue-kpi',
       type: 'kpi' as const,
@@ -52,7 +62,6 @@ const EnhancedDashboard = () => {
       <PageHeader 
         title="Enhanced Dashboard"
         description="Advanced analytics and customizable insights"
-        icon={<LayoutDashboard className="h-6 w-6" />}
       />
       
       <div className="p-6">
