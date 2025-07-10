@@ -1,42 +1,38 @@
-
-import { Routes as Switch, Route, Navigate } from "react-router-dom";
-import { useAuthState } from "@/hooks/useAuthState";
+import React from "react";
+import { Routes as RouterRoutes, Route } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { AppRoutes } from "./AppRoutes";
-import AuthLoader from "./AuthLoader";
 import Auth from "@/pages/Auth";
+import NotFound from "@/pages/NotFound";
 
-/**
- * Main routing component that handles authentication-based routing
- */
 const Routes = () => {
-  const { user, loading } = useAuthState();
-  
-  console.log("Routes: Loading:", loading, "User:", user ? "authenticated" : "not authenticated");
-  
-  // Show loading spinner while checking auth
-  if (loading) {
-    console.log("Routes: Still loading, showing AuthLoader");
-    return <AuthLoader />;
-  }
+  const { user, loading } = useAuth();
 
-  // If no user, show auth page for any route
-  if (!user) {
-    console.log("Routes: No user, redirecting to auth");
+  console.log("Routes: Loading:", loading, "User:", user ? "authenticated" : "not authenticated");
+
+  if (loading) {
     return (
-      <Switch>
-        <Route path="/auth" element={<Auth />} />
-        <Route path="*" element={<Navigate to="/auth" replace />} />
-      </Switch>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      </div>
     );
   }
 
-  // User is authenticated, show app routes
+  if (!user) {
+    console.log("Routes: No user, showing auth");
+    return (
+      <RouterRoutes>
+        <Route path="*" element={<Auth />} />
+      </RouterRoutes>
+    );
+  }
+
   console.log("Routes: User authenticated, showing app routes");
   return (
-    <Switch>
-      <Route path="/auth" element={<Navigate to="/" replace />} />
-      <Route path="*" element={<AppRoutes />} />
-    </Switch>
+    <RouterRoutes>
+      <Route path="/*" element={<AppRoutes />} />
+      <Route path="*" element={<NotFound />} />
+    </RouterRoutes>
   );
 };
 
