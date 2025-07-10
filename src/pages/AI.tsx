@@ -1,6 +1,6 @@
 
 import React from "react";
-import { useSimpleAuth } from "@/hooks/useSimpleAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/Layout/PageHeader";
 import Chatbot from "@/components/Chatbot/Chatbot";
 import AiCapabilities from "@/components/AI/AiCapabilities";
@@ -9,7 +9,7 @@ import { useChatWithApi } from "@/hooks/useChatWithApi";
 import { Sparkles, Brain, MessageSquare } from "lucide-react";
 
 const AI = () => {
-  const { user } = useSimpleAuth();
+  const { user } = useAuth();
   const { handleSendMessage } = useChatWithApi();
 
   const handleSampleQuestionClick = (question: string) => {

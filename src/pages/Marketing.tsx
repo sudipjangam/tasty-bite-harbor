@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { useSimpleAuth } from "@/hooks/useSimpleAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/Layout/PageHeader";
 import { StandardizedCard } from "@/components/ui/standardized-card";
 import { StandardizedButton } from "@/components/ui/standardized-button";
@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 const Marketing = () => {
-  const { user } = useSimpleAuth();
+  const { user } = useAuth();
   const { campaigns, customers, analytics, isLoading } = useMarketingData();
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
   const [activeTab, setActiveTab] = useState('campaigns');

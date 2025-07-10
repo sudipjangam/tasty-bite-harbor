@@ -1,6 +1,6 @@
 
 import React from "react";
-import { useSimpleAuth } from "@/hooks/useSimpleAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/Layout/PageHeader";
 import { StandardizedCard } from "@/components/ui/standardized-card";
 import { StandardizedButton } from "@/components/ui/standardized-button";
@@ -12,7 +12,7 @@ import { Plus, Calendar, Users, Clock, CalendarCheck, Sparkles } from "lucide-re
 import { useState } from "react";
 
 const Reservations = () => {
-  const { user } = useSimpleAuth();
+  const { user } = useAuth();
   const { 
     reservations, 
     isLoading, 

@@ -1,6 +1,6 @@
 
 import React from "react";
-import { useSimpleAuth } from "@/hooks/useSimpleAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/Layout/PageHeader";
 import { StandardizedCard } from "@/components/ui/standardized-card";
 import { StandardizedButton } from "@/components/ui/standardized-button";
@@ -22,7 +22,7 @@ import Stats from "@/components/Dashboard/Stats";
 import WeeklySalesChart from "@/components/Dashboard/WeeklySalesChart";
 
 const Index = () => {
-  const { user } = useSimpleAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const quickActions = [

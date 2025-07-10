@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { useSimpleAuth } from "@/hooks/useSimpleAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { EnhancedStats } from "@/components/Dashboard/EnhancedStats";
 import { CustomizableDashboard } from "@/components/Dashboard/CustomizableDashboard";
 import { PageHeader } from "@/components/Layout/PageHeader";
@@ -18,7 +18,7 @@ interface DashboardWidget {
 }
 
 const EnhancedDashboard = () => {
-  const { user } = useSimpleAuth();
+  const { user } = useAuth();
   const [dashboardWidgets, setDashboardWidgets] = useState<DashboardWidget[]>([
     {
       id: 'revenue-kpi',
