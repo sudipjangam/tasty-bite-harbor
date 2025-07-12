@@ -16,56 +16,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
+        // Only synchronous state updates here
+        setLoading(false);
+        
         if (session?.user) {
-          // Fetch user profile with role information
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profile) {
-            setUser({
-              id: profile.id,
-              email: session.user.email,
-              first_name: profile.first_name,
-              last_name: profile.last_name,
-              role: profile.role as UserRole,
-              restaurant_id: profile.restaurant_id,
-              avatar_url: profile.avatar_url,
-              phone: profile.phone,
-              is_active: profile.is_active ?? true,
-              created_at: profile.created_at,
-              updated_at: profile.updated_at
-            });
-          } else {
-            // Create default profile if doesn't exist
-            const { data: newProfile } = await supabase
-              .from('profiles')
-              .insert({
-                id: session.user.id,
-                role: 'staff',
-                is_active: true
-              })
-              .select()
-              .single();
-
-            if (newProfile) {
-              setUser({
-                id: newProfile.id,
-                email: session.user.email,
-                role: 'staff',
-                is_active: true,
-                created_at: newProfile.created_at,
-                updated_at: newProfile.updated_at
-              });
-            }
-          }
+          // Defer Supabase calls with setTimeout to prevent deadlock
+          setTimeout(() => {
+            fetchUserProfile(session.user.id, session.user.email);
+          }, 0);
         } else {
           setUser(null);
         }
-        setLoading(false);
       }
     );
 
@@ -78,6 +40,57 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const fetchUserProfile = async (userId: string, email?: string) => {
+    try {
+      // Fetch user profile with role information
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (profile) {
+        setUser({
+          id: profile.id,
+          email: email,
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+          role: profile.role as UserRole,
+          restaurant_id: profile.restaurant_id,
+          avatar_url: profile.avatar_url,
+          phone: profile.phone,
+          is_active: profile.is_active ?? true,
+          created_at: profile.created_at,
+          updated_at: profile.updated_at
+        });
+      } else {
+        // Create default profile if doesn't exist
+        const { data: newProfile } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            role: 'staff',
+            is_active: true
+          })
+          .select()
+          .single();
+
+        if (newProfile) {
+          setUser({
+            id: newProfile.id,
+            email: email,
+            role: 'staff',
+            is_active: true,
+            created_at: newProfile.created_at,
+            updated_at: newProfile.updated_at
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
 
   const hasPermission = (permission: Permission): boolean => {
     if (!user) return false;
