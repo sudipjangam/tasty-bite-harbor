@@ -21,6 +21,7 @@ import ChannelManagement from "@/pages/ChannelManagement";
 import Kitchen from "@/pages/Kitchen";
 import Financial from "@/pages/Financial";
 import Security from "@/pages/Security";
+import UserManagement from "@/pages/UserManagement";
 import { PermissionGuard } from "./PermissionGuard";
 
 /**
@@ -132,6 +133,11 @@ export const AppRoutes = () => {
           <Route path="/security" element={
             <PermissionGuard permission="audit.view">
               <Security />
+            </PermissionGuard>
+          } />
+          <Route path="/user-management" element={
+            <PermissionGuard permission="users.manage">
+              <UserManagement />
             </PermissionGuard>
           } />
           <Route path="*" element={<Navigate to="/" replace />} />

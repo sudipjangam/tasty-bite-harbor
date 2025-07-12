@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Users, 
+  UserPlus,
   ShoppingCart,
   Menu as MenuIcon,
   UserCheck,
@@ -136,6 +137,13 @@ const navigationGroups: NavigationGroup[] = [
         href: "/customers",
         description: "Customer database",
         requiredPermissions: ["customers.view"]
+      },
+      {
+        title: "User Management",
+        icon: UserPlus,
+        href: "/user-management",
+        description: "Manage user accounts & roles",
+        requiredPermissions: ["users.manage"]
       },
       {
         title: "Channel Management",

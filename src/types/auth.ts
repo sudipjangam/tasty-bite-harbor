@@ -69,6 +69,7 @@ export type Permission =
   | 'settings.view'
   | 'settings.update'
   | 'settings.manage_users'
+  | 'users.manage'
   
   // Kitchen permissions
   | 'kitchen.view'
@@ -117,7 +118,7 @@ export const rolePermissions: RolePermissions = {
     'reservations.view', 'reservations.create', 'reservations.update', 'reservations.delete',
     'analytics.view', 'analytics.export',
     'financial.view', 'financial.create', 'financial.update', 'financial.delete', 'financial.reports',
-    'settings.view', 'settings.update', 'settings.manage_users',
+    'settings.view', 'settings.update', 'settings.manage_users', 'users.manage',
     'kitchen.view', 'kitchen.update',
     'tables.view', 'tables.create', 'tables.update', 'tables.delete',
     'housekeeping.view', 'housekeeping.create', 'housekeeping.update', 'housekeeping.delete',
@@ -137,7 +138,7 @@ export const rolePermissions: RolePermissions = {
     'reservations.view', 'reservations.create', 'reservations.update', 'reservations.delete',
     'analytics.view', 'analytics.export',
     'financial.view', 'financial.create', 'financial.update', 'financial.delete', 'financial.reports',
-    'settings.view', 'settings.update', 'settings.manage_users',
+    'settings.view', 'settings.update', 'settings.manage_users', 'users.manage',
     'kitchen.view', 'kitchen.update',
     'tables.view', 'tables.create', 'tables.update', 'tables.delete',
     'housekeeping.view', 'housekeeping.create', 'housekeeping.update', 'housekeeping.delete',
