@@ -110,28 +110,26 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
   const uploadPhoto = async () => {
     if (!file) return null;
     
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-    const filePath = `staff-photos/${fileName}`;
-    
-    const { error: uploadError } = await supabase.storage
-      .from('staff-photos')
-      .upload(filePath, file);
-    
-    if (uploadError) {
+    try {
+      const { uploadImage } = await import('@/utils/imageUpload');
+      const imageUrl = await uploadImage(file, (progress) => {
+        console.log(`Upload progress: ${progress}%`);
+      });
+      
+      toast({
+        title: "Photo uploaded successfully",
+        description: "Staff photo has been uploaded and resized to passport size.",
+      });
+      
+      return imageUrl;
+    } catch (error: any) {
       toast({
         title: "Upload failed",
-        description: uploadError.message,
+        description: error.message || "Failed to upload photo",
         variant: "destructive",
       });
       return null;
     }
-    
-    const { data } = supabase.storage
-      .from('staff-photos')
-      .getPublicUrl(filePath);
-    
-    return data.publicUrl;
   };
 
   // Save staff mutation

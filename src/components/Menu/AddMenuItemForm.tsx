@@ -138,57 +138,22 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
     
     try {
       setIsUploading(true);
-      setUploadProgress(10);
+      setUploadProgress(0);
       
-      // Convert file to base64
-      const reader = new FileReader();
-      
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onload = (e) => {
-          if (e.target?.result) {
-            const base64String = e.target.result.toString().split(',')[1];
-            resolve(base64String);
-          } else {
-            reject(new Error("Failed to convert file to base64"));
-          }
-        };
-        reader.onerror = () => reject(reader.error);
+      const { uploadImage: uploadToFreeHost } = await import('@/utils/imageUpload');
+      const imageUrl = await uploadToFreeHost(selectedFile, (progress) => {
+        setUploadProgress(progress);
       });
       
-      reader.readAsDataURL(selectedFile);
-      const base64String = await base64Promise;
+      setUploadedImageUrl(imageUrl);
+      form.setValue('image_url', imageUrl);
       
-      setUploadProgress(30);
-      
-      // Use Supabase Edge Function as a proxy to bypass CORS
-      const { data, error } = await supabase.functions.invoke('upload-image', {
-        body: { 
-          base64Image: base64String,
-          fileName: selectedFile.name,
-          fileType: selectedFile.type
-        }
+      toast({
+        title: "Image uploaded successfully",
+        description: "Menu item image has been uploaded and resized to passport size.",
       });
       
-      if (error) {
-        throw new Error(`Upload proxy failed: ${error.message}`);
-      }
-      
-      setUploadProgress(80);
-      
-      console.log('Image upload response:', data);
-      
-      setUploadProgress(100);
-      
-      if (data.success && data.image && data.image.url) {
-        setUploadedImageUrl(data.image.url);
-        form.setValue('image_url', data.image.url);
-        toast({
-          title: "Image uploaded successfully",
-        });
-        return data.image.url;
-      } else {
-        throw new Error('Invalid response from image host');
-      }
+      return imageUrl;
     } catch (error) {
       console.error('Error uploading image:', error);
       toast({
@@ -228,7 +193,7 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
       }
       
       // If there's a selected file but not yet uploaded, upload it now
-      let imageUrl = data.image_url;
+      let imageUrl = uploadedImageUrl || data.image_url;
       if (selectedFile && !uploadedImageUrl) {
         const uploadedUrl = await uploadImage();
         if (uploadedUrl) {
