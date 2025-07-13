@@ -1,3 +1,5 @@
+import { supabase } from '@/integrations/supabase/client';
+
 interface FreeImageHostResponse {
   status_code: number;
   success?: {
@@ -100,32 +102,27 @@ export const uploadImageToFreeHost = async (
     const base64String = await base64Promise;
     onProgress?.(60);
     
-    // Upload to freeimage.host API
-    const formData = new FormData();
-    formData.append('key', '6d207e02198a847aa98d0a2a901485a5');
-    formData.append('action', 'upload');
-    formData.append('source', base64String);
-    formData.append('format', 'json');
+    // Use Supabase Edge Function to proxy the upload
+    const { data, error } = await supabase.functions.invoke('freeimage-upload', {
+      body: {
+        base64Image: base64String,
+        fileName: file.name,
+        fileType: file.type
+      }
+    });
     
     onProgress?.(80);
     
-    const response = await fetch('https://freeimage.host/api/1/upload', {
-      method: 'POST',
-      body: formData,
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    if (error) {
+      throw new Error(`Upload failed: ${error.message}`);
     }
     
-    const data: FreeImageHostResponse = await response.json();
     onProgress?.(100);
     
-    if (data.status_code === 200 && data.image?.url) {
-      // Return the medium size URL for better display quality
-      return data.image.medium?.url || data.image.display_url || data.image.url;
+    if (data.success && data.imageUrl) {
+      return data.imageUrl;
     } else {
-      throw new Error(data.status_txt || 'Upload failed');
+      throw new Error(data.error || 'Upload failed');
     }
   } catch (error) {
     console.error('Upload error:', error);
@@ -136,52 +133,10 @@ export const uploadImageToFreeHost = async (
   }
 };
 
-// Fallback to plugin method if API fails
-export const triggerFreeImageHostPlugin = (): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    // Check if the plugin is loaded
-    if (typeof (window as any).PUP === 'undefined') {
-      reject(new Error('FreeImage.host plugin not loaded'));
-      return;
-    }
-    
-    try {
-      // Trigger the plugin
-      (window as any).PUP.activate({
-        onSuccess: (data: any) => {
-          if (data && data.url) {
-            resolve(data.url);
-          } else {
-            reject(new Error('No URL returned from plugin'));
-          }
-        },
-        onError: (error: any) => {
-          reject(new Error(error?.message || 'Plugin upload failed'));
-        }
-      });
-    } catch (error) {
-      reject(new Error('Failed to activate upload plugin'));
-    }
-  });
-};
-
-// Main upload function with fallback
+// Main upload function - now uses Supabase Edge Function to avoid CORS
 export const uploadImage = async (
   file: File,
   onProgress?: (progress: number) => void
 ): Promise<string> => {
-  try {
-    // Try API first
-    return await uploadImageToFreeHost(file, onProgress);
-  } catch (apiError) {
-    console.warn('API upload failed, trying plugin fallback:', apiError);
-    
-    try {
-      // Fallback to plugin
-      return await triggerFreeImageHostPlugin();
-    } catch (pluginError) {
-      console.error('Plugin upload also failed:', pluginError);
-      throw new Error('Both API and plugin upload methods failed. Please try again.');
-    }
-  }
+  return await uploadImageToFreeHost(file, onProgress);
 };
