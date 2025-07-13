@@ -190,8 +190,8 @@ const standaloneItems: NavigationItem[] = [
     title: "Settings",
     icon: Settings,
     href: "/settings",
-    description: "System configuration",
-    requiredPermissions: ["settings.view"]
+    description: "System configuration"
+    // No permissions required - everyone needs access to logout
   }
 ];
 
