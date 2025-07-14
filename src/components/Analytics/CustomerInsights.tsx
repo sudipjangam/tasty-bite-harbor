@@ -11,6 +11,8 @@ import {
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Users, Calendar, CreditCard, TrendingUp } from "lucide-react";
+import { formatIndianCurrency } from "@/utils/formatters";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface CustomerInsight {
   customer_name: string;
@@ -44,7 +46,8 @@ const CustomerInsights = ({ data }: CustomerInsightsProps) => {
     .slice(0, 10);
 
   return (
-    <div className="space-y-6">
+    <TooltipProvider>
+      <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="md:col-span-2 shadow-md hover:shadow-lg transition-shadow">
           <CardHeader className="pb-2">
@@ -74,7 +77,21 @@ const CustomerInsights = ({ data }: CustomerInsightsProps) => {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-right font-semibold">₹{Number(customer.total_spent).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {(() => {
+                        const { formatted, actual } = formatIndianCurrency(Number(customer.total_spent));
+                        return (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-help text-emerald-600 dark:text-emerald-400">{formatted}</span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Exact amount: {actual}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })()}
+                    </TableCell>
                     <TableCell className="text-right">{customer.visit_count}</TableCell>
                   </TableRow>
                 ))}
@@ -112,7 +129,21 @@ const CustomerInsights = ({ data }: CustomerInsightsProps) => {
                       )}
                     </TableCell>
                     <TableCell className="text-right font-semibold">{customer.visit_count}</TableCell>
-                    <TableCell className="text-right">₹{Number(customer.average_order_value).toFixed(2)}</TableCell>
+                     <TableCell className="text-right">
+                       {(() => {
+                         const { formatted, actual } = formatIndianCurrency(Number(customer.average_order_value));
+                         return (
+                           <Tooltip>
+                             <TooltipTrigger asChild>
+                               <span className="cursor-help">{formatted}</span>
+                             </TooltipTrigger>
+                             <TooltipContent>
+                               <p>Exact amount: {actual}</p>
+                             </TooltipContent>
+                           </Tooltip>
+                         );
+                       })()}
+                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -146,8 +177,36 @@ const CustomerInsights = ({ data }: CustomerInsightsProps) => {
                 <TableRow key={index}>
                   <TableCell className="font-medium">{customer.customer_name}</TableCell>
                   <TableCell className="text-right">{customer.visit_count}</TableCell>
-                  <TableCell className="text-right font-semibold">₹{Number(customer.total_spent).toFixed(2)}</TableCell>
-                  <TableCell className="text-right">₹{Number(customer.average_order_value).toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-semibold">
+                    {(() => {
+                      const { formatted, actual } = formatIndianCurrency(Number(customer.total_spent));
+                      return (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-help text-emerald-600 dark:text-emerald-400">{formatted}</span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Exact amount: {actual}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {(() => {
+                      const { formatted, actual } = formatIndianCurrency(Number(customer.average_order_value));
+                      return (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-help">{formatted}</span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Exact amount: {actual}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    })()}
+                  </TableCell>
                   <TableCell>{format(new Date(customer.first_visit), 'dd MMM yyyy')}</TableCell>
                   <TableCell>{format(new Date(customer.last_visit), 'dd MMM yyyy')}</TableCell>
                 </TableRow>
@@ -156,7 +215,8 @@ const CustomerInsights = ({ data }: CustomerInsightsProps) => {
           </Table>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 };
 

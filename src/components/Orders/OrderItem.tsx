@@ -5,6 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 import OrderStatus from "./OrderStatus";
 import OrderActions from "./OrderActions";
 import type { Order } from "@/types/orders";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 
 interface OrderItemProps {
   order: Order;
@@ -40,7 +41,7 @@ const OrderItem: React.FC<OrderItemProps> = ({ order, onStatusChange, onEdit }) 
           </div>
 
           <div className="text-right md:text-center">
-            <span className="text-2xl font-bold">₹{order.total.toFixed(2)}</span>
+            <CurrencyDisplay amount={order.total} className="text-2xl font-bold text-emerald-600 dark:text-emerald-400" />
           </div>
 
           <div className="flex justify-end">
