@@ -2519,31 +2519,112 @@ export type Database = {
       }
       restaurants: {
         Row: {
+          account_number: string | null
           address: string | null
+          bank_name: string | null
           created_at: string
+          cuisine_types: string[] | null
+          delivery_radius_km: number | null
+          description: string | null
           email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          established_date: string | null
+          gstin: string | null
           id: string
+          ifsc_code: string | null
+          is_active: boolean | null
+          license_number: string | null
           name: string
+          operating_hours: Json | null
+          owner_address: string | null
+          owner_email: string | null
+          owner_id_number: string | null
+          owner_id_type: string | null
+          owner_name: string | null
+          owner_phone: string | null
+          pan_number: string | null
           phone: string | null
+          rating: number | null
+          registration_number: string | null
+          seating_capacity: number | null
+          social_media: Json | null
+          total_reviews: number | null
           updated_at: string
+          verification_status: string | null
+          website: string | null
         }
         Insert: {
+          account_number?: string | null
           address?: string | null
+          bank_name?: string | null
           created_at?: string
+          cuisine_types?: string[] | null
+          delivery_radius_km?: number | null
+          description?: string | null
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          established_date?: string | null
+          gstin?: string | null
           id?: string
+          ifsc_code?: string | null
+          is_active?: boolean | null
+          license_number?: string | null
           name: string
+          operating_hours?: Json | null
+          owner_address?: string | null
+          owner_email?: string | null
+          owner_id_number?: string | null
+          owner_id_type?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          pan_number?: string | null
           phone?: string | null
+          rating?: number | null
+          registration_number?: string | null
+          seating_capacity?: number | null
+          social_media?: Json | null
+          total_reviews?: number | null
           updated_at?: string
+          verification_status?: string | null
+          website?: string | null
         }
         Update: {
+          account_number?: string | null
           address?: string | null
+          bank_name?: string | null
           created_at?: string
+          cuisine_types?: string[] | null
+          delivery_radius_km?: number | null
+          description?: string | null
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          established_date?: string | null
+          gstin?: string | null
           id?: string
+          ifsc_code?: string | null
+          is_active?: boolean | null
+          license_number?: string | null
           name?: string
+          operating_hours?: Json | null
+          owner_address?: string | null
+          owner_email?: string | null
+          owner_id_number?: string | null
+          owner_id_type?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          pan_number?: string | null
           phone?: string | null
+          rating?: number | null
+          registration_number?: string | null
+          seating_capacity?: number | null
+          social_media?: Json | null
+          total_reviews?: number | null
           updated_at?: string
+          verification_status?: string | null
+          website?: string | null
         }
         Relationships: []
       }
