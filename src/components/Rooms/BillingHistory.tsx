@@ -71,31 +71,65 @@ const BillingHistory: React.FC<BillingHistoryProps> = ({ restaurantId }) => {
   useEffect(() => {
     const fetchBillings = async () => {
       try {
+        // Query completed check-ins as billing history
         const { data, error } = await supabase
-          .from('room_billings')
+          .from('check_ins')
           .select(`
             *,
             rooms(name, price),
-            reservations(
-              check_in_date,
-              guest_name,
-              guest_phone,
-              guest_email,
-              guest_address
-            )
+            guest_profiles(guest_name, guest_phone, guest_email, address),
+            reservations(customer_name, customer_phone, customer_email, start_time, end_time)
           `)
           .eq('restaurant_id', restaurantId)
-          .order('checkout_date', { ascending: false });
+          .eq('status', 'checked_out')
+          .not('actual_check_out', 'is', null)
+          .order('actual_check_out', { ascending: false });
 
         if (error) throw error;
 
-        // Transform data to include room_name
-        const formattedData = data.map(item => ({
-          ...item,
-          room_name: item.rooms?.name,
-          room_price: item.rooms?.price || 0,
-          guest_details: item.reservations || {}
-        }));
+        // Transform data to match expected BillingRecord format
+        const formattedData = data?.map(item => {
+          const guestProfile = item.guest_profiles;
+          const reservation = item.reservations;
+          const room = item.rooms;
+          
+          // Calculate days stayed
+          const checkInDate = new Date(item.check_in_time);
+          const checkOutDate = new Date(item.actual_check_out!);
+          const daysStayed = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          // Calculate room charges
+          const roomCharges = (room?.price || item.room_rate) * daysStayed;
+          const additionalCharges = Array.isArray(item.additional_charges) ? item.additional_charges : [];
+          const additionalTotal = additionalCharges.reduce((sum: number, charge: any) => sum + (charge.amount || 0), 0);
+          const totalAmount = roomCharges + additionalTotal;
+
+          return {
+            id: item.id,
+            reservation_id: item.reservation_id,
+            room_id: item.room_id,
+            customer_name: guestProfile?.guest_name || reservation?.customer_name || 'Unknown Guest',
+            checkout_date: item.actual_check_out!,
+            total_amount: totalAmount,
+            payment_method: 'cash', // Default since not stored in check_ins
+            payment_status: 'completed',
+            room_name: room?.name || 'Unknown Room',
+            days_stayed: daysStayed,
+            room_charges: roomCharges,
+            service_charge: 0,
+            additional_charges: additionalCharges,
+            food_orders_total: 0,
+            food_orders_ids: [],
+            room_price: room?.price || item.room_rate,
+            guest_details: {
+              guest_name: guestProfile?.guest_name || reservation?.customer_name,
+              guest_phone: guestProfile?.guest_phone || reservation?.customer_phone,
+              guest_email: guestProfile?.guest_email || reservation?.customer_email,
+              guest_address: guestProfile?.address,
+              check_in_date: item.check_in_time
+            }
+          };
+        }) || [];
 
         setBillings(formattedData);
       } catch (error) {
