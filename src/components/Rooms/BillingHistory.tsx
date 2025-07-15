@@ -75,7 +75,7 @@ const BillingHistory: React.FC<BillingHistoryProps> = ({ restaurantId }) => {
           .from('room_billings')
           .select(`
             *,
-            rooms(name, price_per_night),
+            rooms(name, price),
             reservations(
               check_in_date,
               guest_name,
@@ -93,7 +93,7 @@ const BillingHistory: React.FC<BillingHistoryProps> = ({ restaurantId }) => {
         const formattedData = data.map(item => ({
           ...item,
           room_name: item.rooms?.name,
-          room_price: item.rooms?.price_per_night || 0,
+          room_price: item.rooms?.price || 0,
           guest_details: item.reservations || {}
         }));
 
