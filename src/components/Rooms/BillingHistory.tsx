@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { 
   Card, 
@@ -23,16 +23,13 @@ import {
   Banknote, 
   QrCode,
   Printer,
-  Eye,
-  Download
+  Eye
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { formatIndianCurrency } from "@/utils/formatters";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import BillPrint from "./CheckoutComponents/BillPrint";
-import { useToast } from "@/hooks/use-toast";
 
 interface BillingHistoryProps {
   restaurantId: string;
@@ -48,88 +45,31 @@ interface BillingRecord {
   payment_method: string;
   payment_status: string;
   room_name?: string;
-  days_stayed?: number;
-  room_charges?: number;
-  service_charge?: number;
-  additional_charges?: any[];
-  food_orders_total?: number;
-  food_orders_ids?: string[];
-  room_price?: number;
-  guest_details?: any;
 }
 
 const BillingHistory: React.FC<BillingHistoryProps> = ({ restaurantId }) => {
   const [billings, setBillings] = useState<BillingRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedBilling, setSelectedBilling] = useState<BillingRecord | null>(null);
-  const [billPreviewOpen, setBillPreviewOpen] = useState(false);
-  const [restaurantData, setRestaurantData] = useState<any>(null);
-  const [billData, setBillData] = useState<any>(null);
-  const billPrintRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
 
   useEffect(() => {
     const fetchBillings = async () => {
       try {
-        // Query completed check-ins as billing history
         const { data, error } = await supabase
-          .from('check_ins')
+          .from('room_billings')
           .select(`
             *,
-            rooms(name, price),
-            guest_profiles(guest_name, guest_phone, guest_email, address),
-            reservations(customer_name, customer_phone, customer_email, start_time, end_time)
+            rooms(name)
           `)
           .eq('restaurant_id', restaurantId)
-          .eq('status', 'checked_out')
-          .not('actual_check_out', 'is', null)
-          .order('actual_check_out', { ascending: false });
+          .order('checkout_date', { ascending: false });
 
         if (error) throw error;
 
-        // Transform data to match expected BillingRecord format
-        const formattedData = data?.map(item => {
-          const guestProfile = item.guest_profiles;
-          const reservation = item.reservations;
-          const room = item.rooms;
-          
-          // Calculate days stayed
-          const checkInDate = new Date(item.check_in_time);
-          const checkOutDate = new Date(item.actual_check_out!);
-          const daysStayed = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
-          
-          // Calculate room charges
-          const roomCharges = (room?.price || item.room_rate) * daysStayed;
-          const additionalCharges = Array.isArray(item.additional_charges) ? item.additional_charges : [];
-          const additionalTotal = additionalCharges.reduce((sum: number, charge: any) => sum + (charge.amount || 0), 0);
-          const totalAmount = roomCharges + additionalTotal;
-
-          return {
-            id: item.id,
-            reservation_id: item.reservation_id,
-            room_id: item.room_id,
-            customer_name: guestProfile?.guest_name || reservation?.customer_name || 'Unknown Guest',
-            checkout_date: item.actual_check_out!,
-            total_amount: totalAmount,
-            payment_method: 'cash', // Default since not stored in check_ins
-            payment_status: 'completed',
-            room_name: room?.name || 'Unknown Room',
-            days_stayed: daysStayed,
-            room_charges: roomCharges,
-            service_charge: 0,
-            additional_charges: additionalCharges,
-            food_orders_total: 0,
-            food_orders_ids: [],
-            room_price: room?.price || item.room_rate,
-            guest_details: {
-              guest_name: guestProfile?.guest_name || reservation?.customer_name,
-              guest_phone: guestProfile?.guest_phone || reservation?.customer_phone,
-              guest_email: guestProfile?.guest_email || reservation?.customer_email,
-              guest_address: guestProfile?.address,
-              check_in_date: item.check_in_time
-            }
-          };
-        }) || [];
+        // Transform data to include room_name
+        const formattedData = data.map(item => ({
+          ...item,
+          room_name: item.rooms?.name
+        }));
 
         setBillings(formattedData);
       } catch (error) {
@@ -139,23 +79,7 @@ const BillingHistory: React.FC<BillingHistoryProps> = ({ restaurantId }) => {
       }
     };
 
-    const fetchRestaurantData = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('restaurants')
-          .select('*')
-          .eq('id', restaurantId)
-          .single();
-
-        if (error) throw error;
-        setRestaurantData(data);
-      } catch (error) {
-        console.error('Error fetching restaurant data:', error);
-      }
-    };
-
     fetchBillings();
-    fetchRestaurantData();
   }, [restaurantId]);
 
   const getPaymentMethodIcon = (method: string) => {
@@ -171,108 +95,73 @@ const BillingHistory: React.FC<BillingHistoryProps> = ({ restaurantId }) => {
     }
   };
 
-  const prepareBillData = async (billing: BillingRecord) => {
-    try {
-      // Fetch food orders if available
-      let foodOrders = [];
-      if (billing.food_orders_ids && billing.food_orders_ids.length > 0) {
-        const { data: foodOrdersData, error } = await supabase
-          .from('orders')
-          .select('*')
-          .in('id', billing.food_orders_ids);
-        
-        if (!error && foodOrdersData) {
-          foodOrders = foodOrdersData.map(order => ({
-            id: order.id,
-            created_at: order.created_at,
-            items: Array.isArray(order.items) ? order.items : [],
-            total: order.total || 0
-          }));
-        }
-      }
+  const handlePrintBill = (billing: BillingRecord) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
 
-      // Calculate check-in date
-      const checkInDate = billing.guest_details?.check_in_date 
-        ? format(new Date(billing.guest_details.check_in_date), 'dd/MM/yyyy')
-        : format(new Date(new Date(billing.checkout_date).getTime() - (billing.days_stayed || 1) * 24 * 60 * 60 * 1000), 'dd/MM/yyyy');
-
-      return {
-        restaurantName: restaurantData?.name || 'Hotel/Restaurant',
-        restaurantAddress: restaurantData?.address || 'Address not available',
-        restaurantPhone: restaurantData?.phone,
-        restaurantEmail: restaurantData?.email,
-        gstNumber: restaurantData?.gst_number,
-        customerName: billing.guest_details?.guest_name || billing.customer_name,
-        customerPhone: billing.guest_details?.guest_phone || '',
-        customerEmail: billing.guest_details?.guest_email || '',
-        customerAddress: billing.guest_details?.guest_address || '',
-        roomName: billing.room_name || 'N/A',
-        checkInDate,
-        checkOutDate: format(new Date(billing.checkout_date), 'dd/MM/yyyy'),
-        daysStayed: billing.days_stayed || 1,
-        roomPrice: billing.room_price || 0,
-        roomCharges: billing.room_charges || 0,
-        foodOrders,
-        additionalCharges: billing.additional_charges || [],
-        serviceCharge: billing.service_charge || 0,
-        discount: 0, // Not stored in current billing record
-        grandTotal: billing.total_amount,
-        paymentMethod: billing.payment_method,
-        billId: billing.id,
-        billDate: format(new Date(billing.checkout_date), 'dd/MM/yyyy'),
-        taxRate: 0, // Will be calculated based on GST
-        taxAmount: 0 // Will be calculated based on GST
-      };
-    } catch (error) {
-      console.error('Error preparing bill data:', error);
-      return null;
-    }
-  };
-
-  const handleViewBill = async (billing: BillingRecord) => {
-    if (!restaurantData) {
-      toast({
-        title: "Error",
-        description: "Restaurant data not loaded yet. Please try again.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const billData = await prepareBillData(billing);
-    if (billData) {
-      setBillData(billData);
-      setSelectedBilling(billing);
-      setBillPreviewOpen(true);
-    }
-  };
-
-  const handlePrintBill = () => {
-    if (billPrintRef.current) {
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(`
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Bill - ${billData?.customerName}</title>
-              <style>
-                body { margin: 0; padding: 0; }
-                @media print {
-                  body { margin: 0; }
-                  .no-print { display: none; }
-                }
-              </style>
-            </head>
-            <body>
-              ${billPrintRef.current.innerHTML}
-            </body>
-          </html>
-        `);
-        printWindow.document.close();
-        printWindow.print();
-      }
-    }
+    const { formatted: formattedAmount, actual: actualAmount } = formatIndianCurrency(billing.total_amount);
+    
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Bill - ${billing.customer_name}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 20px; }
+            .bill-details { margin: 20px 0; }
+            .row { display: flex; justify-content: space-between; margin: 10px 0; }
+            .label { font-weight: bold; }
+            .amount { font-size: 18px; font-weight: bold; color: #2563eb; }
+            .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+            .payment-method { display: inline-flex; align-items: center; gap: 5px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Hotel Bill Receipt</h1>
+            <p>Bill ID: ${billing.id}</p>
+          </div>
+          
+          <div class="bill-details">
+            <div class="row">
+              <span class="label">Guest Name:</span>
+              <span>${billing.customer_name}</span>
+            </div>
+            <div class="row">
+              <span class="label">Room:</span>
+              <span>${billing.room_name || 'N/A'}</span>
+            </div>
+            <div class="row">
+              <span class="label">Checkout Date:</span>
+              <span>${format(new Date(billing.checkout_date), 'PPP')}</span>
+            </div>
+            <div class="row">
+              <span class="label">Payment Method:</span>
+              <span class="payment-method">${billing.payment_method.charAt(0).toUpperCase() + billing.payment_method.slice(1)}</span>
+            </div>
+            <div class="row">
+              <span class="label">Payment Status:</span>
+              <span>${billing.payment_status.charAt(0).toUpperCase() + billing.payment_status.slice(1)}</span>
+            </div>
+            <hr>
+            <div class="row">
+              <span class="label">Total Amount:</span>
+              <span class="amount">${actualAmount}</span>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>Thank you for staying with us!</p>
+            <p>Generated on ${format(new Date(), 'PPP')}</p>
+          </div>
+        </body>
+      </html>
+    `;
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.print();
   };
 
   return (
@@ -380,7 +269,7 @@ const BillingHistory: React.FC<BillingHistoryProps> = ({ restaurantId }) => {
                                   </div>
                                 </div>
                                 <Button 
-                                  onClick={() => handleViewBill(billing)} 
+                                  onClick={() => handlePrintBill(billing)} 
                                   className="w-full"
                                   variant="outline"
                                 >
@@ -393,7 +282,7 @@ const BillingHistory: React.FC<BillingHistoryProps> = ({ restaurantId }) => {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => handleViewBill(billing)}
+                            onClick={() => handlePrintBill(billing)}
                           >
                             <Printer className="h-4 w-4" />
                           </Button>
@@ -409,43 +298,6 @@ const BillingHistory: React.FC<BillingHistoryProps> = ({ restaurantId }) => {
           )}
         </CardContent>
       </Card>
-
-      {/* Bill Preview Dialog */}
-      <Dialog open={billPreviewOpen} onOpenChange={setBillPreviewOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="flex flex-row items-center justify-between">
-            <DialogTitle>Bill Preview</DialogTitle>
-            <div className="flex gap-2">
-              <Button
-                onClick={handlePrintBill}
-                variant="outline"
-                size="sm"
-              >
-                <Printer className="h-4 w-4 mr-2" />
-                Print
-              </Button>
-              <Button
-                onClick={() => setBillPreviewOpen(false)}
-                variant="outline"
-                size="sm"
-              >
-                Close
-              </Button>
-            </div>
-          </DialogHeader>
-          
-          <div className="mt-4">
-            {billData && (
-              <div className="bg-white rounded-lg" style={{ transform: 'scale(0.8)', transformOrigin: 'top left' }}>
-                <BillPrint
-                  ref={billPrintRef}
-                  {...billData}
-                />
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </TooltipProvider>
   );
 };
