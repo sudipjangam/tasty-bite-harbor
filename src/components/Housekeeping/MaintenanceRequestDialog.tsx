@@ -101,15 +101,23 @@ const MaintenanceRequestDialog: React.FC<MaintenanceRequestDialogProps> = ({
         throw new Error('Please fill in all required fields');
       }
 
-      // Get current user for reported_by field
+      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
+
+      // Try to find the staff record for the current user
+      const { data: staffRecord } = await supabase
+        .from('staff')
+        .select('id')
+        .eq('email', user.email)
+        .eq('restaurant_id', restaurantId)
+        .single();
 
       const payload = {
         ...data,
         restaurant_id: restaurantId,
         estimated_cost: data.estimated_cost ? parseFloat(data.estimated_cost) : null,
-        reported_by: user.id, // Add the current user as the reporter
+        reported_by: staffRecord?.id || null, // Use staff ID if found, otherwise null
         status: 'pending' // Default status
       };
 
