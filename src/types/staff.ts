@@ -17,6 +17,8 @@ export interface StaffMember {
   start_date?: string;
   availability_notes?: string;
   role_ids?: string[];
+  salary?: number;
+  salary_type?: string;
 }
 
 export interface StaffRole {

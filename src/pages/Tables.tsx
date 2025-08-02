@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TableCard, { TableData } from "@/components/Tables/TableCard";
 import TableDialog from "@/components/Tables/TableDialog";
-import ReservationDialog from "@/components/Tables/ReservationDialog";
+import UnifiedReservationDialog from "@/components/UnifiedReservationDialog";
 import ReservationsList from "@/components/Tables/ReservationsList";
 import { useReservations } from "@/hooks/useReservations";
 import { ReservationFormData } from "@/types/reservations";
@@ -279,11 +279,19 @@ const Tables = () => {
         onSubmit={handleSubmit}
       />
 
-      <ReservationDialog
+      <UnifiedReservationDialog
         isOpen={isReservationDialogOpen}
-        onOpenChange={setIsReservationDialogOpen}
-        table={selectedTableForReservation}
-        onSubmit={handleCreateReservation}
+        onOpenChange={(open) => {
+          setIsReservationDialogOpen(open);
+          if (!open) setSelectedTableForReservation(null);
+        }}
+        onSubmit={async (data: any) => {
+          await createReservation.mutateAsync({
+            ...data,
+            table_id: data.table_id,
+          });
+        }}
+        type="table"
       />
     </div>
   );

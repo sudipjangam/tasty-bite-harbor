@@ -62,11 +62,14 @@ export const BackupRecovery = () => {
   }, [user, hasPermission]);
 
   const fetchBackups = async () => {
+    if (!user?.restaurant_id) return;
+    
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('backups')
         .select('*')
+        .eq('restaurant_id', user.restaurant_id)
         .order('created_at', { ascending: false })
         .limit(20);
 
@@ -85,10 +88,13 @@ export const BackupRecovery = () => {
   };
 
   const fetchBackupSettings = async () => {
+    if (!user?.restaurant_id) return;
+    
     try {
       const { data, error } = await supabase
         .from('backup_settings')
         .select('*')
+        .eq('restaurant_id', user.restaurant_id)
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
@@ -108,75 +114,63 @@ export const BackupRecovery = () => {
       return;
     }
 
-    if (!backupName.trim()) {
+    if (!user?.restaurant_id) {
       toast({
         title: "Error",
-        description: "Please provide a backup name",
+        description: "Restaurant ID not found",
         variant: "destructive"
       });
       return;
     }
 
+    const finalBackupName = backupName.trim() || `${type}-backup-${new Date().toISOString().split('T')[0]}`;
+
     try {
       setIsBackupRunning(true);
       setBackupProgress(0);
 
-      const { data, error } = await supabase.functions.invoke('create-backup', {
-        body: {
-          name: backupName,
-          type,
-          settings
-        }
-      });
-
-      if (error) throw error;
-
       // Simulate progress updates
       const progressInterval = setInterval(() => {
         setBackupProgress(prev => {
-          if (prev >= 95) {
+          if (prev >= 90) {
             clearInterval(progressInterval);
-            return 95;
+            return 90;
           }
-          return prev + Math.random() * 10;
+          return prev + 10;
         });
-      }, 1000);
+      }, 200);
 
-      // Check backup status
-      const checkStatus = setInterval(async () => {
-        const { data: statusData } = await supabase
-          .from('backups')
-          .select('status')
-          .eq('id', data.backup_id)
-          .single();
-
-        if (statusData?.status === 'completed' || statusData?.status === 'failed') {
-          clearInterval(checkStatus);
-          clearInterval(progressInterval);
-          setBackupProgress(100);
-          setIsBackupRunning(false);
-          setBackupName("");
-          fetchBackups();
-
-          toast({
-            title: statusData.status === 'completed' ? "Success" : "Error",
-            description: statusData.status === 'completed' 
-              ? "Backup created successfully" 
-              : "Backup failed to complete",
-            variant: statusData.status === 'completed' ? "default" : "destructive"
-          });
+      const { data, error } = await supabase.functions.invoke('backup-restore', {
+        body: { 
+          action: 'backup',
+          restaurant_id: user.restaurant_id,
+          backup_type: type,
+          backup_name: finalBackupName
         }
-      }, 2000);
+      });
 
+      clearInterval(progressInterval);
+      setBackupProgress(100);
+
+      if (error) throw error;
+
+      toast({
+        title: "Backup Created",
+        description: `${type.charAt(0).toUpperCase() + type.slice(1)} backup completed successfully.`,
+      });
+
+      await fetchBackups();
+      setBackupName('');
     } catch (error) {
       console.error('Error creating backup:', error);
+      toast({
+        variant: "destructive",
+        title: "Backup Failed",
+        description: "Failed to create backup. Please try again.",
+      });
+    } finally {
       setIsBackupRunning(false);
       setBackupProgress(0);
-      toast({
-        title: "Error",
-        description: "Failed to create backup",
-        variant: "destructive"
-      });
     }
   };
 
@@ -252,10 +246,20 @@ export const BackupRecovery = () => {
   };
 
   const updateBackupSettings = async () => {
+    if (!user?.restaurant_id) return;
+    
     try {
       const { error } = await supabase
         .from('backup_settings')
-        .upsert(settings);
+        .upsert({
+          restaurant_id: user.restaurant_id,
+          auto_backup_enabled: settings.auto_backup_enabled,
+          backup_frequency: settings.backup_frequency,
+          retention_days: settings.retention_days,
+          backup_location: settings.backup_location,
+        }, {
+          onConflict: 'restaurant_id'
+        });
 
       if (error) throw error;
 

@@ -7,15 +7,86 @@ import { Badge } from "@/components/ui/badge";
 import { useFinancialData } from "@/hooks/useFinancialData";
 import { TrendingUp, TrendingDown, DollarSign, Clock, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 
 export const CashFlowManagement = () => {
   const { data: financialData, isLoading } = useFinancialData();
+  const { toast } = useToast();
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
     }).format(amount);
+  };
+
+  const handleGenerateCashFlowReport = async () => {
+    try {
+      toast({
+        title: "Generating Cash Flow Report",
+        description: "Your report is being prepared...",
+      });
+      
+      if (!financialData?.restaurantId) {
+        toast({
+          title: "Error",
+          description: "Restaurant information not found",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Generate CSV content
+      const csvContent = [
+        ['Date', 'Type', 'Description', 'Amount', 'Status'],
+        ...overdueInvoices.map(invoice => [
+          format(new Date(invoice.due_date), "yyyy-MM-dd"),
+          'Receivable (Overdue)',
+          `Invoice ${invoice.invoice_number} - ${invoice.customer_name}`,
+          (invoice.total_amount - invoice.paid_amount).toString(),
+          invoice.status
+        ]),
+        ...financialData.invoices
+          .filter(invoice => invoice.status !== 'paid' && invoice.status !== 'cancelled' && !overdueInvoices.find(o => o.id === invoice.id))
+          .map(invoice => [
+            format(new Date(invoice.due_date), "yyyy-MM-dd"),
+            'Receivable',
+            `Invoice ${invoice.invoice_number} - ${invoice.customer_name}`,
+            (invoice.total_amount - invoice.paid_amount).toString(),
+            invoice.status
+          ]),
+        ...recentPayments.map(payment => [
+          format(new Date(payment.payment_date), "yyyy-MM-dd"),
+          'Payment Received',
+          `Payment ${payment.payment_number}`,
+          payment.amount.toString(),
+          'Completed'
+        ])
+      ].map(row => row.join(',')).join('\n');
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `cash-flow-report-${format(new Date(), 'yyyy-MM-dd')}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Report Generated",
+        description: "Cash flow report has been downloaded successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate cash flow report",
+        variant: "destructive",
+      });
+    }
   };
 
   const getOverdueInvoices = () => {
@@ -55,7 +126,7 @@ export const CashFlowManagement = () => {
           <h2 className="text-2xl font-bold">Cash Flow Management</h2>
           <p className="text-muted-foreground">Monitor your cash inflows and outflows</p>
         </div>
-        <Button>Generate Cash Flow Report</Button>
+        <Button onClick={() => handleGenerateCashFlowReport()}>Generate Cash Flow Report</Button>
       </div>
 
       {/* Cash Flow Summary Cards */}
@@ -66,7 +137,9 @@ export const CashFlowManagement = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalReceivables)}</div>
+            <div className="text-2xl font-bold">
+              <CurrencyDisplay amount={totalReceivables} />
+            </div>
             <p className="text-xs text-muted-foreground">
               From {financialData?.invoices?.filter(i => i.status !== 'paid').length || 0} unpaid invoices
             </p>
@@ -80,11 +153,11 @@ export const CashFlowManagement = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              {formatCurrency(
-                overdueInvoices.reduce((sum, invoice) => 
+              <CurrencyDisplay 
+                amount={overdueInvoices.reduce((sum, invoice) => 
                   sum + (invoice.total_amount - invoice.paid_amount), 0
-                )
-              )}
+                )}
+              />
             </div>
             <p className="text-xs text-muted-foreground">
               From {overdueInvoices.length} overdue invoices
@@ -99,9 +172,9 @@ export const CashFlowManagement = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(
-                recentPayments.reduce((sum, payment) => sum + payment.amount, 0)
-              )}
+              <CurrencyDisplay 
+                amount={recentPayments.reduce((sum, payment) => sum + payment.amount, 0)}
+              />
             </div>
             <p className="text-xs text-muted-foreground">
               From {recentPayments.length} payments received

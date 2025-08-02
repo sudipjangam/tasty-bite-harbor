@@ -63,3 +63,16 @@ export const calculateDaysSince = (dateString: string | null | undefined): numbe
   const now = new Date();
   return Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
 };
+
+export const formatNumberForChart = (value: number): string => {
+  const { formatted } = formatIndianCurrency(value);
+  return formatted;
+};
+
+export const formatNumberWithTooltip = (value: number): { display: string; tooltip: string } => {
+  const { formatted, actual } = formatIndianCurrency(value);
+  return {
+    display: formatted,
+    tooltip: actual
+  };
+};

@@ -28,6 +28,7 @@ import DiscountSection from './DiscountSection';
 import PaymentMethodSelector from './PaymentMethodSelector';
 import CheckoutSuccessDialog from './CheckoutSuccessDialog';
 import PrintBillButton from './PrintBillButton';
+import QRPaymentDialog from './QRPaymentDialog';
 
 interface RoomCheckoutPageProps {
   roomId: string;
@@ -81,6 +82,8 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
   const [restaurantName, setRestaurantName] = useState<string>('');
   const [restaurantAddress, setRestaurantAddress] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [showQRPayment, setShowQRPayment] = useState(false);
+  const [invoiceNumber, setInvoiceNumber] = useState<string>('');
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -129,6 +132,11 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
             setRestaurantAddress(restaurantData.address || 'Hotel Address');
           }
         }
+
+        // Generate invoice number
+        const timestamp = Date.now();
+        const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        setInvoiceNumber(`TEMP-${timestamp}${randomNum}`);
         
       } catch (error) {
         console.error('Error fetching checkout data:', error);
@@ -243,6 +251,16 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
   const handleCloseSuccessDialog = () => {
     setShowSuccessDialog(false);
     navigate('/rooms');
+  };
+
+  const handleQRPayment = () => {
+    setShowQRPayment(true);
+  };
+
+  const handleQRPaymentComplete = () => {
+    setShowQRPayment(false);
+    setPaymentMethod('qr');
+    handleCheckout();
   };
 
   return (
@@ -381,7 +399,8 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
             <CardContent className="pt-6">
               <PaymentMethodSelector 
                 selectedMethod={paymentMethod} 
-                onMethodChange={setPaymentMethod} 
+                onMethodChange={setPaymentMethod}
+                onQRPayment={handleQRPayment}
               />
             </CardContent>
           </Card>
@@ -487,6 +506,20 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           restaurantPhone={restaurantPhone || ''}
         />
       )}
+
+      {/* QR Payment Dialog */}
+      <QRPaymentDialog
+        open={showQRPayment}
+        onClose={() => setShowQRPayment(false)}
+        onPaymentComplete={handleQRPaymentComplete}
+        amount={grandTotal}
+        customerName={reservation.customer_name}
+        roomName={room.name}
+        invoiceNumber={invoiceNumber}
+        restaurantName={restaurantName}
+        restaurantPhone={restaurantPhone || ''}
+        restaurantId={room.restaurant_id}
+      />
     </div>
   );
 };

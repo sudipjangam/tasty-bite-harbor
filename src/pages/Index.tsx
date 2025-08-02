@@ -1,9 +1,10 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/Layout/PageHeader";
 import { StandardizedCard } from "@/components/ui/standardized-card";
 import { StandardizedButton } from "@/components/ui/standardized-button";
+import { PermissionDeniedDialog } from "@/components/Auth/PermissionDeniedDialog";
 import { 
   BarChart3, 
   ShoppingCart, 
@@ -22,43 +23,77 @@ import Stats from "@/components/Dashboard/Stats";
 import WeeklySalesChart from "@/components/Dashboard/WeeklySalesChart";
 
 const Index = () => {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const navigate = useNavigate();
+  const [permissionDialog, setPermissionDialog] = useState<{
+    open: boolean;
+    featureName: string;
+    requiredPermission: string;
+  }>({
+    open: false,
+    featureName: '',
+    requiredPermission: ''
+  });
+
+  const handleNavigationWithPermission = (
+    path: string, 
+    permission: string, 
+    featureName: string
+  ) => {
+    if (hasPermission(permission as any)) {
+      navigate(path);
+    } else {
+      setPermissionDialog({
+        open: true,
+        featureName,
+        requiredPermission: permission
+      });
+    }
+  };
 
   const quickActions = [
     {
       title: "New Order",
       description: "Create a new order",
       icon: <Plus className="h-5 w-5" />,
-      onClick: () => navigate('/orders'),
+      onClick: () => handleNavigationWithPermission('/orders', 'orders.create', 'Order Management'),
       variant: 'primary' as const,
-      gradient: "from-emerald-500 to-teal-600"
+      gradient: "from-emerald-500 to-teal-600",
+      permission: 'orders.create' as const
     },
     {
       title: "View Menu",
       description: "Manage menu items",
       icon: <Coffee className="h-5 w-5" />,
-      onClick: () => navigate('/menu'),
+      onClick: () => handleNavigationWithPermission('/menu', 'menu.view', 'Menu Management'),
       variant: 'secondary' as const,
-      gradient: "from-amber-500 to-orange-500"
+      gradient: "from-amber-500 to-orange-500",
+      permission: 'menu.view' as const
     },
     {
       title: "Room Status",
       description: "Check room availability",
       icon: <Bed className="h-5 w-5" />,
-      onClick: () => navigate('/rooms'),
+      onClick: () => handleNavigationWithPermission('/rooms', 'rooms.view', 'Room Management'),
       variant: 'secondary' as const,
-      gradient: "from-blue-500 to-indigo-600"
+      gradient: "from-blue-500 to-indigo-600",
+      permission: 'rooms.view' as const
     },
     {
       title: "Analytics",
       description: "View business insights",
       icon: <BarChart3 className="h-5 w-5" />,
-      onClick: () => navigate('/analytics'),
+      onClick: () => handleNavigationWithPermission('/analytics', 'analytics.view', 'Analytics Dashboard'),
       variant: 'secondary' as const,
-      gradient: "from-purple-500 to-pink-600"
+      gradient: "from-purple-500 to-pink-600",
+      permission: 'analytics.view' as const
     }
   ];
+
+  // Filter quick actions based on user permissions
+  const filteredQuickActions = quickActions.filter(action => 
+    hasPermission(action.permission)
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950">
@@ -111,34 +146,48 @@ const Index = () => {
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {quickActions.map((action, index) => (
-              <div 
-                key={index} 
-                className="group relative overflow-hidden bg-white/90 backdrop-blur-sm border border-white/30 rounded-2xl p-6 hover:bg-white hover:border-purple-200 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 cursor-pointer"
-                onClick={action.onClick}
-              >
-                {/* Gradient overlay */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${action.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
-                
-                <div className="relative z-10">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className={`p-3 bg-gradient-to-r ${action.gradient} rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                      {action.icon}
+            {filteredQuickActions.length > 0 ? (
+              filteredQuickActions.map((action, index) => (
+                <div 
+                  key={index} 
+                  className="group relative overflow-hidden bg-white/90 backdrop-blur-sm border border-white/30 rounded-2xl p-6 hover:bg-white hover:border-purple-200 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 cursor-pointer"
+                  onClick={action.onClick}
+                >
+                  {/* Gradient overlay */}
+                  <div className={`absolute inset-0 bg-gradient-to-br ${action.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
+                  
+                  <div className="relative z-10">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className={`p-3 bg-gradient-to-r ${action.gradient} rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                        {action.icon}
+                      </div>
+                      <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all duration-300" />
                     </div>
-                    <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all duration-300" />
+                    
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2 text-lg group-hover:text-purple-700 transition-colors duration-300">
+                      {action.title}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      {action.description}
+                    </p>
+                    
+                    <div className={`w-full h-0.5 bg-gradient-to-r ${action.gradient} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left`}></div>
                   </div>
-                  
-                  <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2 text-lg group-hover:text-purple-700 transition-colors duration-300">
-                    {action.title}
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full text-center py-12">
+                <div className="bg-gray-50 dark:bg-gray-800/30 rounded-2xl p-8">
+                  <Settings className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                    No Quick Actions Available
                   </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    {action.description}
+                  <p className="text-gray-500 dark:text-gray-500">
+                    Contact your administrator to request access to features.
                   </p>
-                  
-                  <div className={`w-full h-0.5 bg-gradient-to-r ${action.gradient} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left`}></div>
                 </div>
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -253,6 +302,15 @@ const Index = () => {
           </div>
         </div>
       </div>
+
+      {/* Permission Denied Dialog */}
+      <PermissionDeniedDialog
+        open={permissionDialog.open}
+        onOpenChange={(open) => setPermissionDialog(prev => ({ ...prev, open }))}
+        featureName={permissionDialog.featureName}
+        requiredPermission={permissionDialog.requiredPermission}
+        onNavigateToHome={() => navigate('/')}
+      />
     </div>
   );
 };

@@ -93,10 +93,24 @@ const MaintenanceRequestDialog: React.FC<MaintenanceRequestDialogProps> = ({
 
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
+      if (!restaurantId) {
+        throw new Error('Restaurant ID is required');
+      }
+
+      if (!data.room_id || !data.title || !data.description || !data.request_type) {
+        throw new Error('Please fill in all required fields');
+      }
+
+      // Get current user for reported_by field
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
       const payload = {
         ...data,
         restaurant_id: restaurantId,
-        estimated_cost: data.estimated_cost ? parseFloat(data.estimated_cost) : null
+        estimated_cost: data.estimated_cost ? parseFloat(data.estimated_cost) : null,
+        reported_by: user.id, // Add the current user as the reporter
+        status: 'pending' // Default status
       };
 
       if (request) {
@@ -121,16 +135,54 @@ const MaintenanceRequestDialog: React.FC<MaintenanceRequestDialogProps> = ({
       onClose();
     },
     onError: (error) => {
+      console.error('Maintenance request save error:', error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to save request",
+        description: error.message || "Failed to save request",
       });
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.room_id) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please select a room",
+      });
+      return;
+    }
+    
+    if (!formData.title.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please enter a title",
+      });
+      return;
+    }
+    
+    if (!formData.description.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please enter a description",
+      });
+      return;
+    }
+    
+    if (!formData.request_type) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please select a request type",
+      });
+      return;
+    }
+    
     saveMutation.mutate(formData);
   };
 
@@ -149,6 +201,7 @@ const MaintenanceRequestDialog: React.FC<MaintenanceRequestDialogProps> = ({
             <Select
               value={formData.room_id}
               onValueChange={(value) => setFormData(prev => ({ ...prev, room_id: value }))}
+              required
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select room" />
@@ -188,6 +241,7 @@ const MaintenanceRequestDialog: React.FC<MaintenanceRequestDialogProps> = ({
             <Select
               value={formData.request_type}
               onValueChange={(value) => setFormData(prev => ({ ...prev, request_type: value }))}
+              required
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select type" />

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 interface KPIWidgetProps {
   title: string;
-  value: string | number;
+  value: string | number | React.ReactNode;
   change?: number;
   changeType?: 'percentage' | 'absolute';
   trend?: 'up' | 'down' | 'neutral';

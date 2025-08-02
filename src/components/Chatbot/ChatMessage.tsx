@@ -3,6 +3,7 @@ import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { Bot, User, Sparkles } from "lucide-react";
+import DOMPurify from "dompurify";
 
 type ChatMessageProps = {
   message: {
@@ -14,7 +15,7 @@ type ChatMessageProps = {
 const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
   const isUser = message.role === "user";
 
-  // Function to format message content with markdown-like syntax
+  // Function to format message content with markdown-like syntax and sanitize HTML
   const formatContent = (content: string) => {
     // Replace ** with bold styling
     let formattedContent = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -25,7 +26,11 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
     // Add line breaks
     formattedContent = formattedContent.replace(/\n/g, '<br />');
     
-    return formattedContent;
+    // Sanitize HTML to prevent XSS attacks
+    return DOMPurify.sanitize(formattedContent, {
+      ALLOWED_TAGS: ['strong', 'br'],
+      ALLOWED_ATTR: []
+    });
   };
 
   return (

@@ -296,6 +296,82 @@ export const useChannelManagement = () => {
     },
   });
 
+  // Sync channels
+  const syncChannels = useMutation({
+    mutationFn: async ({ channelId, syncType = 'all' }: { channelId?: string; syncType?: 'rates' | 'availability' | 'all' }) => {
+      if (!restaurantId) throw new Error("No restaurant ID");
+
+      const { data, error } = await supabase.functions.invoke('sync-channels', {
+        body: {
+          channelId,
+          restaurantId,
+          syncType,
+          bulkSync: !channelId
+        }
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["booking-channels"] });
+      toast({
+        title: "Success",
+        description: "Channels synchronized successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Sync Error",
+        description: `Failed to sync channels: ${error.message}`,
+      });
+    },
+  });
+
+  // Bulk update prices across channels
+  const bulkUpdatePrices = useMutation({
+    mutationFn: async ({ priceAdjustment, channels }: { priceAdjustment: number; channels: string[] }) => {
+      if (!restaurantId) throw new Error("No restaurant ID");
+
+      // Update rate plans with new pricing
+      const updatePromises = channels.map(async (channelId) => {
+        const channel = bookingChannels.find(c => c.id === channelId);
+        if (!channel) return;
+
+        // Apply price adjustment based on channel commission
+        const adjustedRate = priceAdjustment * (1 + channel.commission_rate / 100);
+        
+        return supabase
+          .from('channel_inventory')
+          .upsert({
+            channel_id: channelId,
+            restaurant_id: restaurantId,
+            date: new Date().toISOString().split('T')[0],
+            price: adjustedRate,
+            last_updated: new Date().toISOString()
+          });
+      });
+
+      const results = await Promise.all(updatePromises);
+      return results;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["booking-channels"] });
+      toast({
+        title: "Success",
+        description: "Prices updated across all channels",
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to update prices: ${error.message}`,
+      });
+    },
+  });
+
   return {
     bookingChannels,
     ratePlans,
@@ -308,5 +384,7 @@ export const useChannelManagement = () => {
     deleteChannel,
     saveRatePlan,
     savePricingRule,
+    syncChannels,
+    bulkUpdatePrices,
   };
 };

@@ -46,10 +46,40 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
+
+  const validateForm = () => {
+    const newErrors: {[key: string]: string} = {};
+
+    if (!formData.customer_name.trim()) {
+      newErrors.customer_name = 'Customer name is required';
+    }
+
+    if (formData.customer_phone) {
+      const phoneRegex = /^\d{10}$/;
+      if (!phoneRegex.test(formData.customer_phone.replace(/\D/g, ''))) {
+        newErrors.customer_phone = 'Phone number must be exactly 10 digits';
+      }
+    }
+
+    if (formData.customer_email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.customer_email)) {
+        newErrors.customer_email = 'Please enter a valid email address';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!table) return;
+
+    if (!validateForm()) {
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -64,11 +94,22 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
         duration_minutes: 120,
         special_requests: '',
       });
+      setErrors({});
       onOpenChange(false);
     } catch (error) {
       console.error('Error submitting reservation:', error);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, '');
+    if (value.length <= 10) {
+      setFormData({ ...formData, customer_phone: value });
+      if (errors.customer_phone) {
+        setErrors({ ...errors, customer_phone: '' });
+      }
     }
   };
 
@@ -121,11 +162,19 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                 <Input
                   id="customer_name"
                   value={formData.customer_name}
-                  onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, customer_name: e.target.value });
+                    if (errors.customer_name) {
+                      setErrors({ ...errors, customer_name: '' });
+                    }
+                  }}
                   required
-                  className="mt-1 h-10 bg-white/80 backdrop-blur-sm border border-gray-200 focus:border-blue-500 rounded-lg transition-all duration-200"
+                  className={`mt-1 h-10 bg-white/80 backdrop-blur-sm border ${errors.customer_name ? 'border-red-500' : 'border-gray-200'} focus:border-blue-500 rounded-lg transition-all duration-200`}
                   placeholder="Enter customer name"
                 />
+                {errors.customer_name && (
+                  <p className="text-xs text-red-500 mt-1">{errors.customer_name}</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -138,10 +187,14 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                     id="customer_phone"
                     type="tel"
                     value={formData.customer_phone}
-                    onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
-                    className="mt-1 h-10 bg-white/80 backdrop-blur-sm border border-gray-200 focus:border-blue-500 rounded-lg transition-all duration-200"
-                    placeholder="Phone number"
+                    onChange={handlePhoneChange}
+                    className={`mt-1 h-10 bg-white/80 backdrop-blur-sm border ${errors.customer_phone ? 'border-red-500' : 'border-gray-200'} focus:border-blue-500 rounded-lg transition-all duration-200`}
+                    placeholder="10-digit phone number"
+                    maxLength={10}
                   />
+                  {errors.customer_phone && (
+                    <p className="text-xs text-red-500 mt-1">{errors.customer_phone}</p>
+                  )}
                 </div>
 
                 <div>
@@ -153,10 +206,18 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                     id="customer_email"
                     type="email"
                     value={formData.customer_email}
-                    onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
-                    className="mt-1 h-10 bg-white/80 backdrop-blur-sm border border-gray-200 focus:border-blue-500 rounded-lg transition-all duration-200"
+                    onChange={(e) => {
+                      setFormData({ ...formData, customer_email: e.target.value });
+                      if (errors.customer_email) {
+                        setErrors({ ...errors, customer_email: '' });
+                      }
+                    }}
+                    className={`mt-1 h-10 bg-white/80 backdrop-blur-sm border ${errors.customer_email ? 'border-red-500' : 'border-gray-200'} focus:border-blue-500 rounded-lg transition-all duration-200`}
                     placeholder="Email address"
                   />
+                  {errors.customer_email && (
+                    <p className="text-xs text-red-500 mt-1">{errors.customer_email}</p>
+                  )}
                 </div>
               </div>
             </div>

@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { OrderItem, TableData } from "@/types/orders";
 
 const POSMode = () => {
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [tableNumber, setTableNumber] = useState("");
   const [orderType, setOrderType] = useState("Dine-In");
   const [currentOrderItems, setCurrentOrderItems] = useState<OrderItem[]>([]);

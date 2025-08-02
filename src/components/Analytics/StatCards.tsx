@@ -2,6 +2,7 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, FileText, Users, Calendar, TrendingUp, ArrowUpRight } from "lucide-react";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 
 interface StatCardsProps {
   totalRevenue: number;
@@ -15,7 +16,7 @@ const StatCards = ({ totalRevenue, totalOrders, averageOrderValue, ordersToday }
     {
       title: "Total Revenue",
       subtitle: "30 days",
-      value: `₹${totalRevenue.toFixed(2)}`,
+      value: totalRevenue,
       icon: BarChart3,
       gradient: "from-purple-500 to-indigo-600",
       bgGradient: "from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20",
@@ -35,7 +36,7 @@ const StatCards = ({ totalRevenue, totalOrders, averageOrderValue, ordersToday }
     {
       title: "Average Order",
       subtitle: "Value",
-      value: `₹${averageOrderValue.toFixed(2)}`,
+      value: averageOrderValue,
       icon: Users,
       gradient: "from-green-500 to-emerald-600",
       bgGradient: "from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20",
@@ -87,7 +88,11 @@ const StatCards = ({ totalRevenue, totalOrders, averageOrderValue, ordersToday }
             
             <CardContent className="p-0">
               <div className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-purple-700 dark:group-hover:text-purple-300 transition-colors duration-300">
-                {stat.value}
+                {typeof stat.value === 'number' ? (
+                  <CurrencyDisplay amount={stat.value} showTooltip={true} />
+                ) : (
+                  stat.value
+                )}
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
                 {stat.description}

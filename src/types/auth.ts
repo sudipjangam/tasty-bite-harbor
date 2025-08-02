@@ -147,8 +147,8 @@ export const rolePermissions: RolePermissions = {
     'gdpr.view', 'gdpr.export', 'gdpr.delete'
   ],
   manager: [
-    // All access except analytics and financial reports
-    'dashboard.view',
+    // All access except financial reports - managers can now view analytics
+    'dashboard.view', 'dashboard.analytics',
     'orders.view', 'orders.create', 'orders.update', 'orders.delete', 'pos.access',
     'menu.view', 'menu.create', 'menu.update', 'menu.delete',
     'inventory.view', 'inventory.create', 'inventory.update', 'inventory.delete',
@@ -156,6 +156,7 @@ export const rolePermissions: RolePermissions = {
     'customers.view', 'customers.create', 'customers.update', 'customers.delete',
     'rooms.view', 'rooms.create', 'rooms.update', 'rooms.delete', 'rooms.checkout',
     'reservations.view', 'reservations.create', 'reservations.update', 'reservations.delete',
+    'analytics.view', // Added analytics access for managers
     'settings.view', 'settings.update',
     'kitchen.view', 'kitchen.update',
     'tables.view', 'tables.create', 'tables.update', 'tables.delete',

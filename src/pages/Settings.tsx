@@ -3,13 +3,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { LogOut, User, Building, Clock, Shield, CreditCard, Loader2, Mail, Phone, MapPin, CalendarClock, CheckCircle2, Sparkles, Star } from "lucide-react";
+import { LogOut, User, Building, Clock, Shield, CreditCard, Loader2, Mail, Phone, MapPin, CalendarClock, CheckCircle2, Sparkles, Star, Smartphone } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
+import PaymentSettingsTab from "@/components/Settings/PaymentSettingsTab";
+import { SystemConfigurationTab } from "@/components/Settings/SystemConfigurationTab";
+import { AuditLogTab } from "@/components/Settings/AuditLogTab";
 
 const Settings = () => {
   const { toast } = useToast();
@@ -146,7 +149,7 @@ const Settings = () => {
       <div className="max-w-7xl mx-auto">
         <Tabs defaultValue="account" className="w-full">
           <div className="bg-white/60 backdrop-blur-lg border border-white/30 rounded-2xl p-2 mb-8 shadow-lg">
-            <TabsList className="w-full bg-transparent grid grid-cols-3 gap-2">
+            <TabsList className="w-full bg-transparent grid grid-cols-6 gap-2">
               <TabsTrigger 
                 value="account" 
                 className="flex items-center gap-3 data-[state=active]:bg-white data-[state=active]:shadow-lg rounded-xl py-4 px-6 transition-all duration-300"
@@ -167,6 +170,27 @@ const Settings = () => {
               >
                 <CreditCard className="h-5 w-5" />
                 <span className="font-semibold">Subscription</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="payments" 
+                className="flex items-center gap-3 data-[state=active]:bg-white data-[state=active]:shadow-lg rounded-xl py-4 px-6 transition-all duration-300"
+              >
+                <Smartphone className="h-5 w-5" />
+                <span className="font-semibold">Payments</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="system" 
+                className="flex items-center gap-3 data-[state=active]:bg-white data-[state=active]:shadow-lg rounded-xl py-4 px-6 transition-all duration-300"
+              >
+                <Shield className="h-5 w-5" />
+                <span className="font-semibold">System</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="audit" 
+                className="flex items-center gap-3 data-[state=active]:bg-white data-[state=active]:shadow-lg rounded-xl py-4 px-6 transition-all duration-300"
+              >
+                <Clock className="h-5 w-5" />
+                <span className="font-semibold">Audit</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -261,8 +285,13 @@ const Settings = () => {
                 </div>
               </CardHeader>
               <CardContent className="p-8">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="space-y-6">
+                {/* Basic Information */}
+                <div className="mb-10">
+                  <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                    <Building className="h-5 w-5 text-blue-600" />
+                    Basic Information
+                  </h3>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl border border-blue-100">
                       <p className="text-sm font-semibold text-blue-600 flex items-center gap-2 mb-2">
                         <Building className="h-4 w-4" />
@@ -277,8 +306,6 @@ const Settings = () => {
                       </p>
                       <p className="font-medium text-lg text-gray-900">{restaurant?.address || 'Not Set'}</p>
                     </div>
-                  </div>
-                  <div className="space-y-6">
                     <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-100">
                       <p className="text-sm font-semibold text-green-600 flex items-center gap-2 mb-2">
                         <Phone className="h-4 w-4" />
@@ -303,6 +330,105 @@ const Settings = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Business Details */}
+                <div className="mb-10">
+                  <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-purple-600" />
+                    Business Details
+                  </h3>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="p-6 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-2xl border border-indigo-100">
+                      <p className="text-sm font-semibold text-indigo-600 flex items-center gap-2 mb-2">
+                        <Shield className="h-4 w-4" />
+                        GST Number
+                      </p>
+                      <p className="font-bold text-xl text-gray-900">{restaurant?.gstin || 'Not Set'}</p>
+                    </div>
+                    <div className="p-6 bg-gradient-to-br from-teal-50 to-cyan-50 rounded-2xl border border-teal-100">
+                      <p className="text-sm font-semibold text-teal-600 flex items-center gap-2 mb-2">
+                        <CreditCard className="h-4 w-4" />
+                        Website
+                      </p>
+                      <p className="font-bold text-xl text-gray-900">
+                        {restaurant?.website 
+                          ? <a href={restaurant.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 transition-colors duration-200">{restaurant.website}</a>
+                          : 'Not Set'}
+                      </p>
+                    </div>
+                    <div className="p-6 bg-gradient-to-br from-pink-50 to-rose-50 rounded-2xl border border-pink-100">
+                      <p className="text-sm font-semibold text-pink-600 flex items-center gap-2 mb-2">
+                        <CreditCard className="h-4 w-4" />
+                        Registration Number
+                      </p>
+                      <p className="font-bold text-xl text-gray-900">{restaurant?.registration_number || 'Not Set'}</p>
+                    </div>
+                    <div className="p-6 bg-gradient-to-br from-yellow-50 to-amber-50 rounded-2xl border border-yellow-100">
+                      <p className="text-sm font-semibold text-yellow-600 flex items-center gap-2 mb-2">
+                        <Shield className="h-4 w-4" />
+                        License Number
+                      </p>
+                      <p className="font-bold text-xl text-gray-900">{restaurant?.license_number || 'Not Set'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Additional Information */}
+                <div className="mb-10">
+                  <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                    <User className="h-5 w-5 text-green-600" />
+                    Additional Information
+                  </h3>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="p-6 bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl border border-emerald-100">
+                      <p className="text-sm font-semibold text-emerald-600 flex items-center gap-2 mb-2">
+                        <User className="h-4 w-4" />
+                        Owner Name
+                      </p>
+                      <p className="font-bold text-xl text-gray-900">{restaurant?.owner_name || 'Not Set'}</p>
+                    </div>
+                    <div className="p-6 bg-gradient-to-br from-violet-50 to-purple-50 rounded-2xl border border-violet-100">
+                      <p className="text-sm font-semibold text-violet-600 flex items-center gap-2 mb-2">
+                        <CalendarClock className="h-4 w-4" />
+                        Established Date
+                      </p>
+                      <p className="font-bold text-xl text-gray-900">
+                        {restaurant?.established_date 
+                          ? format(new Date(restaurant.established_date), 'PPPP')
+                          : 'Not Set'}
+                      </p>
+                    </div>
+                    <div className="p-6 bg-gradient-to-br from-cyan-50 to-sky-50 rounded-2xl border border-cyan-100">
+                      <p className="text-sm font-semibold text-cyan-600 flex items-center gap-2 mb-2">
+                        <User className="h-4 w-4" />
+                        Seating Capacity
+                      </p>
+                      <p className="font-bold text-xl text-gray-900">{restaurant?.seating_capacity || 'Not Set'}</p>
+                    </div>
+                    <div className="p-6 bg-gradient-to-br from-slate-50 to-gray-50 rounded-2xl border border-slate-100">
+                      <p className="text-sm font-semibold text-slate-600 flex items-center gap-2 mb-2">
+                        <Star className="h-4 w-4" />
+                        Rating
+                      </p>
+                      <p className="font-bold text-xl text-gray-900">
+                        {restaurant?.rating ? `${restaurant.rating}/5.0` : 'Not Rated'}
+                        {restaurant?.total_reviews > 0 && (
+                          <span className="text-sm text-gray-500 ml-2">({restaurant.total_reviews} reviews)</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Description */}
+                {restaurant?.description && (
+                  <div className="mb-10">
+                    <h3 className="text-xl font-bold text-gray-900 mb-6">Description</h3>
+                    <div className="p-6 bg-gradient-to-br from-gray-50 to-slate-50 rounded-2xl border border-gray-100">
+                      <p className="text-lg text-gray-700 leading-relaxed">{restaurant.description}</p>
+                    </div>
+                  </div>
+                )}
                 
                 <Separator className="my-8" />
                 
@@ -439,6 +565,18 @@ const Settings = () => {
                 </div>
               </CardFooter>
             </Card>
+          </TabsContent>
+          
+          <TabsContent value="payments">
+            <PaymentSettingsTab />
+          </TabsContent>
+          
+          <TabsContent value="system">
+            <SystemConfigurationTab />
+          </TabsContent>
+          
+          <TabsContent value="audit">
+            <AuditLogTab />
           </TabsContent>
         </Tabs>
       </div>

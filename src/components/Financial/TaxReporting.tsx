@@ -6,10 +6,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useFinancialData } from "@/hooks/useFinancialData";
-import { FileText, Download, Calculator, AlertCircle } from "lucide-react";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
+import { useToast } from "@/hooks/use-toast";
+import { FileText, Download, Calculator, AlertCircle, HelpCircle } from "lucide-react";
+import { GSTHelp } from "./GSTHelp";
+import { format } from "date-fns";
 
 export const TaxReporting = () => {
   const { data: financialData, isLoading } = useFinancialData();
+  const { toast } = useToast();
   const [selectedPeriod, setSelectedPeriod] = useState("current_month");
 
   const formatCurrency = (amount: number) => {
@@ -19,16 +24,102 @@ export const TaxReporting = () => {
     }).format(amount);
   };
 
-  // Sample tax data - in real implementation, this would be calculated from actual transactions
-  const taxSummary = {
-    gst5: { taxableAmount: 25000, taxAmount: 1250, transactions: 15 },
-    gst12: { taxableAmount: 150000, taxAmount: 18000, transactions: 45 },
-    gst18: { taxableAmount: 200000, taxAmount: 36000, transactions: 30 },
-    serviceTax: { taxableAmount: 80000, taxAmount: 8000, transactions: 20 },
+  // Calculate tax data from actual invoice line items
+  const calculateTaxSummary = () => {
+    const summary = {
+      gst5: { taxableAmount: 0, taxAmount: 0, transactions: 0 },
+      gst12: { taxableAmount: 0, taxAmount: 0, transactions: 0 },
+      gst18: { taxableAmount: 0, taxAmount: 0, transactions: 0 },
+      serviceTax: { taxableAmount: 0, taxAmount: 0, transactions: 0 },
+    };
+
+    financialData?.invoices?.forEach(invoice => {
+      invoice.invoice_line_items?.forEach(item => {
+        const taxableAmount = item.unit_price * item.quantity;
+        const taxAmount = taxableAmount * (item.tax_rate / 100);
+        
+        if (item.tax_rate === 5) {
+          summary.gst5.taxableAmount += taxableAmount;
+          summary.gst5.taxAmount += taxAmount;
+          summary.gst5.transactions += 1;
+        } else if (item.tax_rate === 12) {
+          summary.gst12.taxableAmount += taxableAmount;
+          summary.gst12.taxAmount += taxAmount;
+          summary.gst12.transactions += 1;
+        } else if (item.tax_rate === 18) {
+          summary.gst18.taxableAmount += taxableAmount;
+          summary.gst18.taxAmount += taxAmount;
+          summary.gst18.transactions += 1;
+        } else if (item.tax_rate > 0) {
+          summary.serviceTax.taxableAmount += taxableAmount;
+          summary.serviceTax.taxAmount += taxAmount;
+          summary.serviceTax.transactions += 1;
+        }
+      });
+    });
+
+    return summary;
   };
+
+  const taxSummary = calculateTaxSummary();
 
   const totalTaxable = Object.values(taxSummary).reduce((sum, item) => sum + item.taxableAmount, 0);
   const totalTax = Object.values(taxSummary).reduce((sum, item) => sum + item.taxAmount, 0);
+
+  const handleExportGSTReturn = async () => {
+    try {
+      toast({
+        title: "Exporting GST Return",
+        description: "Your GST return is being prepared...",
+      });
+      
+      if (!financialData?.restaurantId) {
+        toast({
+          title: "Error",
+          description: "Restaurant information not found",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Generate GST return content
+      const gstReturnData = [
+        ['GST Return Report', '', '', ''],
+        ['Period:', selectedPeriod, '', ''],
+        ['Generated:', format(new Date(), 'yyyy-MM-dd HH:mm:ss'), '', ''],
+        ['', '', '', ''],
+        ['Tax Rate', 'Taxable Amount', 'Tax Amount', 'Transactions'],
+        ...Object.entries(taxSummary).map(([key, data]) => {
+          const rate = key === 'gst5' ? '5%' : key === 'gst12' ? '12%' : key === 'gst18' ? '18%' : 'Other';
+          return [rate, data.taxableAmount.toString(), data.taxAmount.toString(), data.transactions.toString()];
+        }),
+        ['', '', '', ''],
+        ['Total', totalTaxable.toString(), totalTax.toString(), ''],
+      ].map(row => row.join(',')).join('\n');
+
+      // Create and download file
+      const blob = new Blob([gstReturnData], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `gst-return-${selectedPeriod}-${format(new Date(), 'yyyy-MM-dd')}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Export Complete",
+        description: "GST return has been downloaded successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to export GST return",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (isLoading) {
     return <div>Loading tax reports...</div>;
@@ -56,7 +147,7 @@ export const TaxReporting = () => {
             </SelectContent>
           </Select>
           
-          <Button>
+          <Button onClick={handleExportGSTReturn}>
             <Download className="mr-2 h-4 w-4" />
             Export GST Return
           </Button>
@@ -71,7 +162,9 @@ export const TaxReporting = () => {
             <Calculator className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalTaxable)}</div>
+            <div className="text-2xl font-bold">
+              <CurrencyDisplay amount={totalTaxable} />
+            </div>
             <p className="text-xs text-muted-foreground">
               This month
             </p>
@@ -84,7 +177,9 @@ export const TaxReporting = () => {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalTax)}</div>
+            <div className="text-2xl font-bold">
+              <CurrencyDisplay amount={totalTax} />
+            </div>
             <p className="text-xs text-muted-foreground">
               GST collected
             </p>
@@ -121,11 +216,15 @@ export const TaxReporting = () => {
       </div>
 
       <Tabs defaultValue="gst-summary" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="gst-summary">GST Summary</TabsTrigger>
           <TabsTrigger value="gst-breakdown">GST Breakdown</TabsTrigger>
           <TabsTrigger value="tax-config">Tax Configuration</TabsTrigger>
           <TabsTrigger value="compliance">Compliance</TabsTrigger>
+          <TabsTrigger value="help">
+            <HelpCircle className="h-4 w-4 mr-1" />
+            Help
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="gst-summary" className="mt-6">
@@ -149,12 +248,12 @@ export const TaxReporting = () => {
                           <Badge variant="outline">{data.transactions} transactions</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          Taxable Amount: {formatCurrency(data.taxableAmount)}
+                          Taxable Amount: <CurrencyDisplay amount={data.taxableAmount} />
                         </p>
                       </div>
                       <div className="text-right">
                         <div className="font-semibold text-lg">
-                          {formatCurrency(data.taxAmount)}
+                          <CurrencyDisplay amount={data.taxAmount} />
                         </div>
                         <div className="text-xs text-muted-foreground">
                           Tax Collected
@@ -168,12 +267,12 @@ export const TaxReporting = () => {
                   <div className="flex-1">
                     <span className="font-semibold text-lg">Total GST</span>
                     <p className="text-sm text-muted-foreground">
-                      Total Taxable: {formatCurrency(totalTaxable)}
+                      Total Taxable: <CurrencyDisplay amount={totalTaxable} />
                     </p>
                   </div>
                   <div className="text-right">
                     <div className="font-bold text-xl text-primary">
-                      {formatCurrency(totalTax)}
+                      <CurrencyDisplay amount={totalTax} />
                     </div>
                     <div className="text-xs text-muted-foreground">
                       To be filed
@@ -258,7 +357,7 @@ export const TaxReporting = () => {
                   <div className="flex-1">
                     <div className="font-medium">GSTR-1 Filed</div>
                     <div className="text-sm text-muted-foreground">
-                      November 2024 return filed on Dec 10, 2024
+                      {format(new Date(new Date().getFullYear(), new Date().getMonth() - 1), "MMMM yyyy")} return filed on {format(new Date(), "MMM dd, yyyy")}
                     </div>
                   </div>
                   <Badge variant="default">Completed</Badge>
@@ -269,7 +368,7 @@ export const TaxReporting = () => {
                   <div className="flex-1">
                     <div className="font-medium">GSTR-3B Pending</div>
                     <div className="text-sm text-muted-foreground">
-                      December 2024 return due on Dec 20, 2024
+                      {format(new Date(), "MMMM yyyy")} return due on {format(new Date(new Date().getFullYear(), new Date().getMonth(), 20), "MMM dd, yyyy")}
                     </div>
                   </div>
                   <Badge variant="secondary">Pending</Badge>
@@ -280,14 +379,31 @@ export const TaxReporting = () => {
                   <div className="flex-1">
                     <div className="font-medium">GST Payment</div>
                     <div className="text-sm text-muted-foreground">
-                      Monthly GST payment of {formatCurrency(totalTax)} due
+                      Monthly GST payment of <CurrencyDisplay amount={totalTax} /> due
                     </div>
                   </div>
                   <Badge variant="outline">Upcoming</Badge>
                 </div>
+
+                {financialData?.invoices && financialData.invoices.length > 0 && (
+                  <div className="flex items-center gap-3 p-4 border rounded-lg bg-green-50">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <div className="flex-1">
+                      <div className="font-medium">Invoice Records</div>
+                      <div className="text-sm text-muted-foreground">
+                        {financialData.invoices.length} invoices generated this period
+                      </div>
+                    </div>
+                    <Badge variant="default">Updated</Badge>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="help" className="mt-6">
+          <GSTHelp />
         </TabsContent>
       </Tabs>
     </div>

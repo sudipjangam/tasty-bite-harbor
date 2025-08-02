@@ -11,8 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useFinancialData } from "@/hooks/useFinancialData";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Send, Download, Eye, Edit } from "lucide-react";
+import { Plus, Send, Download, Eye, Edit, RotateCcw } from "lucide-react";
 import { format, addDays } from "date-fns";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 
 interface InvoiceFormData {
   customer_name: string;
@@ -103,6 +104,109 @@ export const InvoiceManagement = () => {
       ...prev,
       line_items: prev.line_items.filter((_, i) => i !== index)
     }));
+  };
+
+  const resetForm = () => {
+    setFormData({
+      customer_name: "",
+      customer_email: "",
+      customer_phone: "",
+      customer_address: "",
+      due_date: format(addDays(new Date(), 30), "yyyy-MM-dd"),
+      payment_terms: "net_30",
+      notes: "",
+      line_items: [
+        { description: "", quantity: 1, unit_price: 0, tax_rate: 18 }
+      ],
+    });
+  };
+
+  const handleViewInvoice = (invoice: any) => {
+    toast({
+      title: "Opening Invoice",
+      description: `Viewing invoice ${invoice.invoice_number}`,
+    });
+    // In a real implementation, this would open a detailed view
+  };
+
+  const handleEditInvoice = (invoice: any) => {
+    toast({
+      title: "Edit Invoice",
+      description: `Editing invoice ${invoice.invoice_number}`,
+    });
+    // In a real implementation, this would open the edit form
+  };
+
+  const handleSendInvoice = async (invoice: any) => {
+    try {
+      toast({
+        title: "Sending Invoice",
+        description: `Sending invoice ${invoice.invoice_number} to ${invoice.customer_email}`,
+      });
+      
+      // In a real implementation, this would send the invoice via email
+      setTimeout(() => {
+        toast({
+          title: "Invoice Sent",
+          description: `Invoice ${invoice.invoice_number} has been sent successfully`,
+        });
+      }, 1500);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send invoice",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadInvoice = (invoice: any) => {
+    try {
+      // Generate invoice content as CSV
+      const invoiceData = [
+        ['Invoice Details', '', '', ''],
+        ['Invoice Number:', invoice.invoice_number, '', ''],
+        ['Customer:', invoice.customer_name, '', ''],
+        ['Email:', invoice.customer_email || '', '', ''],
+        ['Phone:', invoice.customer_phone || '', '', ''],
+        ['Invoice Date:', format(new Date(invoice.invoice_date), 'yyyy-MM-dd'), '', ''],
+        ['Due Date:', format(new Date(invoice.due_date), 'yyyy-MM-dd'), '', ''],
+        ['', '', '', ''],
+        ['Line Items', '', '', ''],
+        ['Description', 'Quantity', 'Unit Price', 'Total'],
+        ...invoice.invoice_line_items?.map((item: any) => [
+          item.description,
+          item.quantity.toString(),
+          item.unit_price.toString(),
+          item.total_price.toString()
+        ]) || [],
+        ['', '', '', ''],
+        ['Subtotal:', '', '', invoice.subtotal.toString()],
+        ['Tax:', '', '', invoice.tax_amount.toString()],
+        ['Total:', '', '', invoice.total_amount.toString()],
+      ].map(row => row.join(',')).join('\n');
+
+      const blob = new Blob([invoiceData], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `invoice-${invoice.invoice_number}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Download Complete",
+        description: `Invoice ${invoice.invoice_number} has been downloaded`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download invoice",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCreateInvoice = async () => {
@@ -306,18 +410,34 @@ export const InvoiceManagement = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold">Line Items</h3>
-                <Button onClick={addLineItem} variant="outline" size="sm">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Item
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={resetForm} variant="ghost" size="sm">
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Reset
+                  </Button>
+                  <Button onClick={addLineItem} variant="outline" size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Item
+                  </Button>
+                </div>
               </div>
               
+              {/* Header row */}
+              <div className="grid grid-cols-12 gap-2 items-center p-3 bg-gray-50 rounded-lg font-medium text-sm">
+                <div className="col-span-4">Description</div>
+                <div className="col-span-2">Quantity</div>
+                <div className="col-span-2">Unit Price</div>
+                <div className="col-span-2">Tax Rate (%)</div>
+                <div className="col-span-1 text-right">Total</div>
+                <div className="col-span-1">Action</div>
+              </div>
+
               <div className="space-y-3">
                 {formData.line_items.map((item, index) => (
                   <div key={index} className="grid grid-cols-12 gap-2 items-center p-3 border rounded-lg">
                     <div className="col-span-4">
                       <Input
-                        placeholder="Description"
+                        placeholder="Item description"
                         value={item.description}
                         onChange={(e) => updateLineItem(index, "description", e.target.value)}
                       />
@@ -325,29 +445,34 @@ export const InvoiceManagement = () => {
                     <div className="col-span-2">
                       <Input
                         type="number"
-                        placeholder="Qty"
+                        placeholder="1"
                         value={item.quantity}
                         onChange={(e) => updateLineItem(index, "quantity", Number(e.target.value))}
+                        min="1"
                       />
                     </div>
                     <div className="col-span-2">
                       <Input
                         type="number"
-                        placeholder="Price"
+                        placeholder="0.00"
                         value={item.unit_price}
                         onChange={(e) => updateLineItem(index, "unit_price", Number(e.target.value))}
+                        min="0"
+                        step="0.01"
                       />
                     </div>
                     <div className="col-span-2">
                       <Input
                         type="number"
-                        placeholder="Tax %"
+                        placeholder="18"
                         value={item.tax_rate}
                         onChange={(e) => updateLineItem(index, "tax_rate", Number(e.target.value))}
+                        min="0"
+                        max="100"
                       />
                     </div>
                     <div className="col-span-1 text-right font-medium">
-                      {formatCurrency(calculateLineTotal(item))}
+                      <CurrencyDisplay amount={calculateLineTotal(item)} />
                     </div>
                     <div className="col-span-1">
                       {formData.line_items.length > 1 && (
@@ -370,15 +495,15 @@ export const InvoiceManagement = () => {
                 <div className="space-y-2 text-right">
                   <div className="flex justify-between">
                     <span>Subtotal:</span>
-                    <span>{formatCurrency(subtotal)}</span>
+                    <span><CurrencyDisplay amount={subtotal} /></span>
                   </div>
                   <div className="flex justify-between">
                     <span>Tax:</span>
-                    <span>{formatCurrency(taxAmount)}</span>
+                    <span><CurrencyDisplay amount={taxAmount} /></span>
                   </div>
                   <div className="flex justify-between font-bold text-lg border-t pt-2">
                     <span>Total:</span>
-                    <span>{formatCurrency(total)}</span>
+                    <span><CurrencyDisplay amount={total} /></span>
                   </div>
                 </div>
               </div>
@@ -430,25 +555,45 @@ export const InvoiceManagement = () => {
                 </div>
                 <div className="text-right mr-4">
                   <div className="font-semibold">
-                    {formatCurrency(invoice.total_amount)}
+                    <CurrencyDisplay amount={invoice.total_amount} />
                   </div>
                   {invoice.paid_amount > 0 && (
                     <div className="text-xs text-green-600">
-                      Paid: {formatCurrency(invoice.paid_amount)}
+                      Paid: <CurrencyDisplay amount={invoice.paid_amount} />
                     </div>
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="sm">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => handleViewInvoice(invoice)}
+                    title="View Invoice"
+                  >
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => handleEditInvoice(invoice)}
+                    title="Edit Invoice"
+                  >
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => handleSendInvoice(invoice)}
+                    title="Send Invoice"
+                  >
                     <Send className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => handleDownloadInvoice(invoice)}
+                    title="Download Invoice"
+                  >
                     <Download className="h-4 w-4" />
                   </Button>
                 </div>

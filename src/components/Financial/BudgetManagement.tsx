@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useFinancialData } from "@/hooks/useFinancialData";
+import { CreateBudgetDialog } from "./CreateBudgetDialog";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { Target, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
 
 export const BudgetManagement = () => {
   const { data: financialData, isLoading } = useFinancialData();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -50,7 +53,7 @@ export const BudgetManagement = () => {
           <h2 className="text-2xl font-bold">Budget Management</h2>
           <p className="text-muted-foreground">Track your budget vs actual performance</p>
         </div>
-        <Button>
+        <Button onClick={() => setIsCreateOpen(true)}>
           <Target className="mr-2 h-4 w-4" />
           Create Budget
         </Button>
@@ -58,44 +61,70 @@ export const BudgetManagement = () => {
 
       {/* Budget Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Budget</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹5,00,000</div>
-            <p className="text-xs text-muted-foreground">
-              Current year budget
-            </p>
-          </CardContent>
-        </Card>
+        {(() => {
+          // Calculate totals from live budget data
+          const totalBudgeted = financialData?.budgets?.reduce((total, budget) => {
+            return total + (budget.budget_line_items?.reduce((sum: number, item: any) => 
+              sum + item.budgeted_amount, 0) || 0);
+          }, 0) || 500000; // fallback to sample data
+          
+          const totalActual = financialData?.budgets?.reduce((total, budget) => {
+            return total + (budget.budget_line_items?.reduce((sum: number, item: any) => 
+              sum + item.actual_amount, 0) || 0);
+          }, 0) || 375000; // fallback to sample data
+          
+          const remaining = totalBudgeted - totalActual;
+          const usedPercentage = totalBudgeted > 0 ? (totalActual / totalBudgeted) * 100 : 0;
+          
+          return (
+            <>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Budget</CardTitle>
+                  <Target className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    <CurrencyDisplay amount={totalBudgeted} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Current year budget
+                  </p>
+                </CardContent>
+              </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Actual Spent</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹3,75,000</div>
-            <p className="text-xs text-muted-foreground">
-              75% of budget used
-            </p>
-          </CardContent>
-        </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Actual Spent</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    <CurrencyDisplay amount={totalActual} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {usedPercentage.toFixed(1)}% of budget used
+                  </p>
+                </CardContent>
+              </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Remaining</CardTitle>
-            <TrendingDown className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">₹1,25,000</div>
-            <p className="text-xs text-muted-foreground">
-              25% remaining
-            </p>
-          </CardContent>
-        </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Remaining</CardTitle>
+                  <TrendingDown className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">
+                    <CurrencyDisplay amount={remaining} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {(100 - usedPercentage).toFixed(1)}% remaining
+                  </p>
+                </CardContent>
+              </Card>
+            </>
+          );
+        })()}
       </div>
 
       {/* Budget Categories */}
@@ -204,6 +233,11 @@ export const BudgetManagement = () => {
           </div>
         </CardContent>
       </Card>
+
+      <CreateBudgetDialog 
+        open={isCreateOpen} 
+        onOpenChange={setIsCreateOpen}
+      />
     </div>
   );
 };

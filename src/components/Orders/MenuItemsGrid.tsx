@@ -41,11 +41,17 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
         throw new Error("No restaurant found for user");
       }
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('menu_items')
         .select('*')
-        .eq('restaurant_id', profile.restaurant_id)
-        .eq('category', selectedCategory);
+        .eq('restaurant_id', profile.restaurant_id);
+
+      // If category is "All", don't filter by category
+      if (selectedCategory !== "All") {
+        query = query.eq('category', selectedCategory);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as MenuItem[];
@@ -113,7 +119,7 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
               className="p-4 cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => onSelectItem(item)}
             >
-              <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-md mb-3 flex items-center justify-center overflow-hidden">
+              <div className="h-20 w-20 bg-gray-100 dark:bg-gray-800 rounded-md mb-3 flex items-center justify-center overflow-hidden mx-auto">
                 {item.image_url ? (
                   <img 
                     src={item.image_url} 
@@ -122,8 +128,7 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full w-full text-gray-400">
-                    <span className="text-2xl mb-2">{item.is_veg ? "🥦" : "🍖"}</span>
-                    <span className="text-sm">No image</span>
+                    <span className="text-lg">{item.is_veg ? "🥦" : "🍖"}</span>
                   </div>
                 )}
               </div>

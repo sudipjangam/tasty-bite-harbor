@@ -47,6 +47,8 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
   const [startDate, setStartDate] = useState("");
   const [availabilityNotes, setAvailabilityNotes] = useState("");
   const [roleIds, setRoleIds] = useState<string[]>([]);
+  const [salary, setSalary] = useState("");
+  const [salaryType, setSalaryType] = useState("monthly");
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
 
@@ -66,6 +68,8 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
       setStartDate(staff.start_date ? staff.start_date.split('T')[0] : "");
       setAvailabilityNotes(staff.availability_notes || "");
       setRoleIds(staff.role_ids || []);
+      setSalary(staff.salary?.toString() || "");
+      setSalaryType(staff.salary_type || "monthly");
       setPhotoPreview(staff.photo_url || null);
     } else {
       // Reset form for new staff
@@ -87,6 +91,8 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
     setStartDate("");
     setAvailabilityNotes("");
     setRoleIds([]);
+    setSalary("");
+    setSalaryType("monthly");
     setPhotoPreview(null);
     setFile(null);
   };
@@ -207,6 +213,32 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
       });
       return;
     }
+
+    // Validate phone number if provided
+    if (phone) {
+      const phoneRegex = /^\d{10}$/;
+      if (!phoneRegex.test(phone.replace(/\D/g, ''))) {
+        toast({
+          title: "Invalid phone number",
+          description: "Phone number must be exactly 10 digits.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // Validate email if provided
+    if (email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        toast({
+          title: "Invalid email",
+          description: "Please enter a valid email address.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     
     const staffData = {
       first_name: firstName,
@@ -221,6 +253,8 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
       start_date: startDate || null,
       availability_notes: availabilityNotes,
       role_ids: roleIds.length > 0 ? roleIds : null,
+      salary: salary ? parseFloat(salary) : null,
+      salary_type: salaryType,
     };
     
     saveStaffMutation.mutate(staffData);
@@ -238,6 +272,7 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
             <div className="p-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl">
               {isEditMode ? <User className="h-6 w-6 text-white" /> : <UserPlus className="h-6 w-6 text-white" />}
             </div>
+
             <div>
               <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
                 {isEditMode ? `Edit ${staff?.first_name} ${staff?.last_name}` : "Add New Staff Member"}
@@ -362,9 +397,17 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
                 <Label htmlFor="phone" className="text-sm font-medium text-gray-700">Phone</Label>
                 <Input
                   id="phone"
+                  type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '');
+                    if (value.length <= 10) {
+                      setPhone(value);
+                    }
+                  }}
                   className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                  placeholder="10-digit phone number"
+                  maxLength={10}
                 />
               </div>
             </div>
@@ -391,6 +434,39 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
                   onChange={(e) => setEmergencyContactPhone(e.target.value)}
                   className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Salary Information */}
+          <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800">Salary Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="salary" className="text-sm font-medium text-gray-700">Salary Amount</Label>
+                <Input
+                  id="salary"
+                  type="number"
+                  value={salary}
+                  onChange={(e) => setSalary(e.target.value)}
+                  placeholder="Enter salary amount"
+                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                />
+              </div>
+              <div>
+                <Label htmlFor="salaryType" className="text-sm font-medium text-gray-700">Salary Type</Label>
+                <Select value={salaryType} onValueChange={setSalaryType}>
+                  <SelectTrigger className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30">
+                    <SelectValue placeholder="Select salary type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 rounded-xl">
+                    <SelectItem value="hourly">Hourly</SelectItem>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="annual">Annual</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

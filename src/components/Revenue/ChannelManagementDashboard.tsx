@@ -12,12 +12,15 @@ import ChannelManagementGuide from "./ChannelManagementGuide";
 import BookingConsolidation from "./BookingConsolidation";
 import AddChannelDialog from "./AddChannelDialog";
 import EditChannelDialog from "./EditChannelDialog";
+import PriceManagement from "./PriceManagement";
+import AdvancedIntegration from "./AdvancedIntegration";
 
 const ChannelManagementDashboard = () => {
-  const { bookingChannels, updateChannel, isLoadingChannels } = useChannelManagement();
+  const { bookingChannels, updateChannel, isLoadingChannels, syncChannels, bulkUpdatePrices } = useChannelManagement();
   const [selectedChannel, setSelectedChannel] = useState<any>(null);
   const [activeView, setActiveView] = useState("overview");
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const handleChannelToggle = (channelId: string, isActive: boolean) => {
     updateChannel.mutate({
@@ -26,11 +29,22 @@ const ChannelManagementDashboard = () => {
     });
   };
 
-  const handleSyncChannel = (channelId: string) => {
-    updateChannel.mutate({
-      channelId,
-      updates: { last_sync: new Date().toISOString() }
-    });
+  const handleSyncChannel = async (channelId: string) => {
+    setIsSyncing(true);
+    try {
+      await syncChannels.mutateAsync({ channelId, syncType: 'all' });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleSyncAllChannels = async () => {
+    setIsSyncing(true);
+    try {
+      await syncChannels.mutateAsync({ syncType: 'all' });
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleEditChannel = (channel: any) => {
@@ -71,19 +85,24 @@ const ChannelManagementDashboard = () => {
           <div className="flex items-center gap-2">
             <ChannelManagementGuide />
             <AddChannelDialog onChannelAdded={() => window.location.reload()} />
-            <Button className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white shadow-lg">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Sync All Channels
+            <Button 
+              className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white shadow-lg"
+              onClick={handleSyncAllChannels}
+              disabled={isSyncing}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Syncing...' : 'Sync All Channels'}
             </Button>
           </div>
         </div>
       </div>
 
       <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Channel Overview</TabsTrigger>
-          <TabsTrigger value="integration">Advanced Integration</TabsTrigger>
-          <TabsTrigger value="bookings">Booking Consolidation</TabsTrigger>
+          <TabsTrigger value="pricing">Price Management</TabsTrigger>
+          <TabsTrigger value="advanced">Advanced Integration</TabsTrigger>
+          <TabsTrigger value="consolidation">Booking Consolidation</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -136,10 +155,10 @@ const ChannelManagementDashboard = () => {
                     size="sm"
                     className="w-full hover:bg-primary hover:text-white border-primary/30 text-primary transition-all duration-200"
                     onClick={() => handleSyncChannel(channel.id)}
-                    disabled={!channel.is_active}
+                    disabled={!channel.is_active || isSyncing}
                   >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Sync Now
+                    <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                    {isSyncing ? 'Syncing...' : 'Sync Now'}
                   </Button>
                 </CardContent>
               </Card>
@@ -187,11 +206,15 @@ const ChannelManagementDashboard = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="integration">
-          <ChannelIntegrationManager />
+        <TabsContent value="pricing">
+          <PriceManagement channels={bookingChannels} />
         </TabsContent>
 
-        <TabsContent value="bookings">
+        <TabsContent value="advanced">
+          <AdvancedIntegration channels={bookingChannels} />
+        </TabsContent>
+
+        <TabsContent value="consolidation">
           <BookingConsolidation />
         </TabsContent>
       </Tabs>

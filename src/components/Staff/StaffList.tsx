@@ -8,10 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Search, Filter, ChevronDown, Users, UserPlus } from "lucide-react";
+import { Search, Filter, ChevronDown, Users, UserPlus, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { StaffMember } from "@/types/staff";
 
 interface StaffListProps {
@@ -30,7 +32,9 @@ const StaffList: React.FC<StaffListProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [staffToDelete, setStaffToDelete] = useState<StaffMember | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const {
     data: staff = [],
@@ -128,6 +132,43 @@ const StaffList: React.FC<StaffListProps> = ({
 
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
+  };
+
+  // Delete staff mutation
+  const deleteStaffMutation = useMutation({
+    mutationFn: async (staffId: string) => {
+      const { error } = await supabase
+        .from("staff")
+        .delete()
+        .eq("id", staffId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["enhanced-staff"] });
+      toast({
+        title: "Staff deleted",
+        description: "The staff member has been deleted successfully.",
+      });
+      setStaffToDelete(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to delete staff: ${(error as Error).message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteStaff = (staffMember: StaffMember) => {
+    setStaffToDelete(staffMember);
+  };
+
+  const confirmDeleteStaff = () => {
+    if (staffToDelete) {
+      deleteStaffMutation.mutate(staffToDelete.id);
+    }
   };
 
   if (isLoading) {
@@ -297,16 +338,29 @@ const StaffList: React.FC<StaffListProps> = ({
                     </TableCell>
                     <TableCell>{getStatusBadge(staffMember.status)}</TableCell>
                     <TableCell>
-                      <Button 
-                        size="sm" 
-                        className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-semibold px-4 py-2 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300"
-                        onClick={(e) => { 
-                          e.stopPropagation();
-                          onSelectStaff(staffMember);
-                        }}
-                      >
-                        View Details
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-semibold px-4 py-2 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300"
+                          onClick={(e) => { 
+                            e.stopPropagation();
+                            onSelectStaff(staffMember);
+                          }}
+                        >
+                          View Details
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="border-2 border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 hover:text-red-700 px-3 py-2 rounded-xl transition-all duration-300"
+                          onClick={(e) => { 
+                            e.stopPropagation();
+                            handleDeleteStaff(staffMember);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -315,6 +369,32 @@ const StaffList: React.FC<StaffListProps> = ({
           </Table>
         </div>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!staffToDelete} onOpenChange={() => setStaffToDelete(null)}>
+        <AlertDialogContent className="bg-white/95 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold text-gray-900">
+              Delete Staff Member
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-600">
+              Are you sure you want to delete {staffToDelete?.first_name} {staffToDelete?.last_name}? 
+              This action cannot be undone and will permanently remove all their data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/80 border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold px-6 py-3 rounded-xl transition-all duration-300">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteStaff}
+              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
+            >
+              Delete Staff
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -154,15 +154,20 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                   </Label>
                   <Input
                     id="customer-phone"
+                    type="tel"
                     value={reservation.customer_phone}
-                    onChange={(e) =>
-                      setReservation({
-                        ...reservation,
-                        customer_phone: e.target.value,
-                      })
-                    }
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '');
+                      if (value.length <= 10) {
+                        setReservation({
+                          ...reservation,
+                          customer_phone: value,
+                        });
+                      }
+                    }}
                     className="bg-white/80 backdrop-blur-sm border-2 border-gray-200 focus:border-blue-500 rounded-xl transition-all duration-200"
-                    placeholder="Phone number"
+                    placeholder="10-digit phone number"
+                    maxLength={10}
                   />
                   <p className="text-xs text-gray-500">Required for WhatsApp bill notifications and special occasion promotions</p>
                 </div>
@@ -343,8 +348,26 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
             Cancel
           </Button>
           <Button
-            onClick={handleCreateReservation}
-            disabled={!reservation.customer_name || !reservation.customer_phone}
+            onClick={() => {
+              // Validate phone and email before creating
+              const phoneRegex = /^\d{10}$/;
+              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+              
+              if (!reservation.customer_name.trim()) {
+                return;
+              }
+              
+              if (!reservation.customer_phone || !phoneRegex.test(reservation.customer_phone)) {
+                return;
+              }
+              
+              if (reservation.customer_email && !emailRegex.test(reservation.customer_email)) {
+                return;
+              }
+              
+              handleCreateReservation();
+            }}
+            disabled={!reservation.customer_name || !reservation.customer_phone || reservation.customer_phone.length !== 10 || (reservation.customer_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reservation.customer_email))}
             className="flex-1 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-semibold py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
             Create Reservation

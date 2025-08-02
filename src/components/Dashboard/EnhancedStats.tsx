@@ -5,6 +5,7 @@ import { KPIWidget } from "./KPIWidget";
 import { InteractiveChart } from "./InteractiveChart";
 import { TrendAnalysis } from "./TrendAnalysis";
 import { DollarSign, ShoppingBag, Users, TrendingUp, Calendar } from "lucide-react";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 
 export const EnhancedStats = () => {
   const { data: ordersData, isLoading } = useStatsData();
@@ -113,7 +114,7 @@ export const EnhancedStats = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPIWidget
           title="Total Revenue"
-          value={`₹${totalSales.toFixed(2)}`}
+          value={<CurrencyDisplay amount={totalSales} />}
           change={12.5}
           trend="up"
           icon={DollarSign}
@@ -141,7 +142,7 @@ export const EnhancedStats = () => {
         />
         <KPIWidget
           title="Today's Revenue"
-          value={`₹${todaysRevenue.toFixed(2)}`}
+          value={<CurrencyDisplay amount={todaysRevenue} />}
           change={15.2}
           trend="up"
           icon={TrendingUp}

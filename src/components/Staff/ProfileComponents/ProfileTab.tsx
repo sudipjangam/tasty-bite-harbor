@@ -2,7 +2,7 @@
 import React from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Mail, Phone, User, Calendar, Clock, MessageSquare } from "lucide-react";
+import { Mail, Phone, User, Calendar, Clock, MessageSquare, DollarSign } from "lucide-react";
 import type { StaffMember } from "@/types/staff";
 
 interface ProfileTabProps {
@@ -140,6 +140,17 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ staff, formatDate }) => 
                   </div>
                 </div>
               </div>
+              {staff.salary && (
+                <div className="flex items-center gap-3 p-3 bg-white/60 rounded-xl border border-white/30">
+                  <DollarSign className="h-5 w-5 text-indigo-600" />
+                  <div>
+                    <Label className="text-xs text-gray-500 font-medium">Salary</Label>
+                    <div className="text-sm font-semibold text-gray-800">
+                      ₹{staff.salary.toLocaleString()} ({staff.salary_type || 'monthly'})
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
