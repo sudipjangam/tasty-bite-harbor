@@ -6,9 +6,10 @@ import { StandardizedCard } from "@/components/ui/standardized-card";
 import { StandardizedButton } from "@/components/ui/standardized-button";
 import { useReservations } from "@/hooks/useReservations";
 import { useTables } from "@/hooks/useTables";
+import { useRooms } from "@/hooks/useRooms";
 import ReservationsList from "@/components/Tables/ReservationsList";
-import ReservationDialog from "@/components/Tables/ReservationDialog";
-import { Plus, Calendar, Users, Clock, CalendarCheck, Sparkles } from "lucide-react";
+import UnifiedReservationDialog from "@/components/UnifiedReservationDialog";
+import { Plus, Calendar, Users, Clock, CalendarCheck, Sparkles, Car, Building } from "lucide-react";
 import { useState } from "react";
 
 const Reservations = () => {
@@ -21,20 +22,30 @@ const Reservations = () => {
     deleteReservation 
   } = useReservations();
   const { tables } = useTables();
+  const { rooms } = useRooms();
   
   const [openReservationDialog, setOpenReservationDialog] = useState(false);
-  const [selectedTable, setSelectedTable] = useState(null);
+  const [reservationType, setReservationType] = useState<'table' | 'room'>('table');
 
   const handleCreateReservation = async (data) => {
-    if (!selectedTable) return;
-    
     try {
-      await createReservation.mutateAsync({
-        ...data,
-        table_id: selectedTable.id,
-      });
+      if (reservationType === 'table') {
+        await createReservation.mutateAsync({
+          customer_name: data.customer_name,
+          customer_phone: data.customer_phone,
+          customer_email: data.customer_email,
+          party_size: data.party_size,
+          reservation_date: data.reservation_date,
+          reservation_time: data.reservation_time,
+          duration_minutes: data.duration_minutes,
+          special_requests: data.special_requests,
+          table_id: data.table_id,
+        });
+      } else {
+        // Handle room reservation here if needed
+        console.log('Room reservation not implemented yet');
+      }
       setOpenReservationDialog(false);
-      setSelectedTable(null);
     } catch (error) {
       console.error('Error creating reservation:', error);
     }
@@ -136,15 +147,23 @@ const Reservations = () => {
       <div className="flex gap-4 mb-6">
         <StandardizedButton
           onClick={() => {
-            if (tables.length > 0) {
-              setSelectedTable(tables[0]);
-              setOpenReservationDialog(true);
-            }
+            setReservationType('table');
+            setOpenReservationDialog(true);
           }}
           className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2"
         >
-          <Plus className="h-4 w-4" />
-          New Reservation
+          <Car className="h-4 w-4" />
+          New Table Reservation
+        </StandardizedButton>
+        <StandardizedButton
+          onClick={() => {
+            setReservationType('room');
+            setOpenReservationDialog(true);
+          }}
+          className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2"
+        >
+          <Building className="h-4 w-4" />
+          New Room Reservation
         </StandardizedButton>
       </div>
 
@@ -160,15 +179,13 @@ const Reservations = () => {
         </div>
       </div>
 
-      {/* Reservation Dialog */}
-      {selectedTable && (
-        <ReservationDialog
-          isOpen={openReservationDialog}
-          onOpenChange={setOpenReservationDialog}
-          table={selectedTable}
-          onSubmit={handleCreateReservation}
-        />
-      )}
+      {/* Unified Reservation Dialog */}
+      <UnifiedReservationDialog
+        isOpen={openReservationDialog}
+        onOpenChange={setOpenReservationDialog}
+        type={reservationType}
+        onSubmit={handleCreateReservation}
+      />
     </div>
   );
 };
