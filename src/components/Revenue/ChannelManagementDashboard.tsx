@@ -14,6 +14,9 @@ import AddChannelDialog from "./AddChannelDialog";
 import EditChannelDialog from "./EditChannelDialog";
 import PriceManagement from "./PriceManagement";
 import AdvancedIntegration from "./AdvancedIntegration";
+import DynamicPricingEngine from "./DynamicPricingEngine";
+import InventoryAllocation from "./InventoryAllocation";
+import AdvancedChannelSync from "./AdvancedChannelSync";
 
 const ChannelManagementDashboard = () => {
   const { bookingChannels, updateChannel, isLoadingChannels, syncChannels, bulkUpdatePrices } = useChannelManagement();
@@ -98,11 +101,13 @@ const ChannelManagementDashboard = () => {
       </div>
 
       <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Channel Overview</TabsTrigger>
-          <TabsTrigger value="pricing">Price Management</TabsTrigger>
-          <TabsTrigger value="advanced">Advanced Integration</TabsTrigger>
-          <TabsTrigger value="consolidation">Booking Consolidation</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="pricing">Pricing</TabsTrigger>
+          <TabsTrigger value="inventory">Inventory</TabsTrigger>
+          <TabsTrigger value="sync">Advanced Sync</TabsTrigger>
+          <TabsTrigger value="dynamic">Dynamic Pricing</TabsTrigger>
+          <TabsTrigger value="consolidation">Bookings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -210,8 +215,16 @@ const ChannelManagementDashboard = () => {
           <PriceManagement channels={bookingChannels} />
         </TabsContent>
 
-        <TabsContent value="advanced">
-          <AdvancedIntegration channels={bookingChannels} />
+        <TabsContent value="inventory">
+          <InventoryAllocation />
+        </TabsContent>
+
+        <TabsContent value="sync">
+          <AdvancedChannelSync />
+        </TabsContent>
+
+        <TabsContent value="dynamic">
+          <DynamicPricingEngine />
         </TabsContent>
 
         <TabsContent value="consolidation">
