@@ -36,7 +36,7 @@ const MaintenanceRequestDialog: React.FC<MaintenanceRequestDialogProps> = ({
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const restaurantId = useRestaurantId();
+  const { restaurantId } = useRestaurantId();
 
   const { data: rooms } = useQuery({
     queryKey: ['rooms'],
