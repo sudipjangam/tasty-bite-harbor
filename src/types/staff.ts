@@ -89,3 +89,20 @@ export interface StaffTimeClockEntry {
   created_at: string;
   updated_at: string;
 }
+
+export interface StaffDocument {
+  id: string;
+  staff_id: string;
+  restaurant_id: string;
+  document_type: 'aadhar_card' | 'pan_card' | 'voter_id' | 'driving_license' | 'other';
+  document_number?: string;
+  document_name: string;
+  google_drive_file_id?: string;
+  google_drive_url?: string;
+  file_size?: number;
+  mime_type?: string;
+  is_verified?: boolean;
+  uploaded_by?: string;
+  created_at: string;
+  updated_at: string;
+}

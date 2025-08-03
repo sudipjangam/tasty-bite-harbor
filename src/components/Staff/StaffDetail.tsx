@@ -5,8 +5,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { UserCheck, Calendar, FileText, Clock, Settings } from "lucide-react";
+import { UserCheck, Calendar, FileText, Clock, Settings, Upload } from "lucide-react";
 import type { StaffMember, StaffShift, StaffLeaveBalance, StaffTimeClockEntry, StaffRole, StaffLeaveRequest } from "@/types/staff";
+import DocumentUpload from "./DocumentUpload";
 
 // Import the individual tab components
 import { ProfileTab } from "./ProfileComponents/ProfileTab";
@@ -39,6 +40,22 @@ const StaffDetail: React.FC<StaffDetailProps> = ({
   const [isLeaveRequestDialogOpen, setIsLeaveRequestDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Fetch staff documents
+  const { data: documents = [], refetch: refetchDocuments } = useQuery({
+    queryKey: ["staff-documents", staffId],
+    enabled: !!staffId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("staff_documents")
+        .select("*")
+        .eq("staff_id", staffId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+  });
   
   // Fetch staff details
   const {
@@ -311,6 +328,12 @@ const StaffDetail: React.FC<StaffDetailProps> = ({
               >
                 <Settings className="h-4 w-4" /> Permissions
               </TabsTrigger>
+              <TabsTrigger 
+                value="documents" 
+                className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-4 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
+              >
+                <Upload className="h-4 w-4" /> Documents
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -343,6 +366,15 @@ const StaffDetail: React.FC<StaffDetailProps> = ({
 
             <TabsContent value="permissions" className="mt-0">
               <PermissionsTab roles={roles} />
+            </TabsContent>
+
+            <TabsContent value="documents" className="mt-0">
+              <DocumentUpload 
+                staffId={staffId} 
+                restaurantId={restaurantId || ""}
+                documents={documents}
+                onDocumentUploaded={refetchDocuments}
+              />
             </TabsContent>
           </div>
         </Tabs>
