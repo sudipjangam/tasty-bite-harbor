@@ -3634,6 +3634,65 @@ export type Database = {
           },
         ]
       }
+      staff_documents: {
+        Row: {
+          created_at: string
+          document_name: string
+          document_number: string | null
+          document_type: string
+          file_size: number | null
+          google_drive_file_id: string | null
+          google_drive_url: string | null
+          id: string
+          is_verified: boolean | null
+          mime_type: string | null
+          restaurant_id: string
+          staff_id: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_name: string
+          document_number?: string | null
+          document_type: string
+          file_size?: number | null
+          google_drive_file_id?: string | null
+          google_drive_url?: string | null
+          id?: string
+          is_verified?: boolean | null
+          mime_type?: string | null
+          restaurant_id: string
+          staff_id: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_name?: string
+          document_number?: string | null
+          document_type?: string
+          file_size?: number | null
+          google_drive_file_id?: string | null
+          google_drive_url?: string | null
+          id?: string
+          is_verified?: boolean | null
+          mime_type?: string | null
+          restaurant_id?: string
+          staff_id?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_documents_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_leave_balances: {
         Row: {
           created_at: string
