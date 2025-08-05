@@ -29,6 +29,7 @@ import PaymentMethodSelector from './PaymentMethodSelector';
 import CheckoutSuccessDialog from './CheckoutSuccessDialog';
 import PrintBillButton from './PrintBillButton';
 import QRPaymentDialog from './QRPaymentDialog';
+import ServiceChargeSection from './ServiceChargeSection';
 
 interface RoomCheckoutPageProps {
   roomId: string;
@@ -73,6 +74,8 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
   const [additionalCharges, setAdditionalCharges] = useState<{name: string; amount: number}[]>([]);
   const [discountPercent, setDiscountPercent] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [serviceChargeEnabled, setServiceChargeEnabled] = useState(false);
+  const [serviceChargePercent, setServiceChargePercent] = useState(5);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
@@ -177,7 +180,9 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
     ? (roomTotal + foodOrdersTotal + additionalChargesTotal) * (discountPercent / 100)
     : discountAmount;
   
-  const serviceCharge = roomTotal * 0.05;
+  const serviceCharge = serviceChargeEnabled 
+    ? (roomTotal + foodOrdersTotal + additionalChargesTotal) * (serviceChargePercent / 100)
+    : 0;
   
   const grandTotal = roomTotal + foodOrdersTotal + additionalChargesTotal + serviceCharge - calculatedDiscount;
 
@@ -394,6 +399,19 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
             </CardContent>
           </Card>
           
+          {/* Service Charge Section */}
+          <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl transition-colors duration-300">
+            <CardContent className="pt-6">
+              <ServiceChargeSection 
+                subtotal={roomTotal + foodOrdersTotal + additionalChargesTotal}
+                serviceChargeEnabled={serviceChargeEnabled}
+                serviceChargePercent={serviceChargePercent}
+                onServiceChargeEnabledChange={setServiceChargeEnabled}
+                onServiceChargePercentChange={setServiceChargePercent}
+              />
+            </CardContent>
+          </Card>
+          
           {/* Payment Method */}
           <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl transition-colors duration-300">
             <CardContent className="pt-6">
@@ -436,10 +454,12 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
                   </div>
                 )}
                 
-                <div className="flex justify-between items-center p-3 bg-white/70 dark:bg-gray-800/70 rounded-xl transition-colors duration-300">
-                  <span className="text-gray-700 dark:text-gray-300">Service Charge (5%):</span>
-                  <span className="font-semibold text-gray-800 dark:text-gray-100">₹{serviceCharge.toFixed(2)}</span>
-                </div>
+                {serviceChargeEnabled && (
+                  <div className="flex justify-between items-center p-3 bg-white/70 dark:bg-gray-800/70 rounded-xl transition-colors duration-300">
+                    <span className="text-gray-700 dark:text-gray-300">Service Charge ({serviceChargePercent}%):</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-100">₹{serviceCharge.toFixed(2)}</span>
+                  </div>
+                )}
                 
                 {calculatedDiscount > 0 && (
                   <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-700 transition-colors duration-300">
