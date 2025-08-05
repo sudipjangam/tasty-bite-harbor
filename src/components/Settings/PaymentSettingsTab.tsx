@@ -21,7 +21,7 @@ const PaymentSettingsTab = () => {
     isActive: true,
   });
 
-  // Fetch payment settings
+  // Fetch payment settings - get the latest one for this restaurant
   const { data: paymentSettings, isLoading } = useQuery({
     queryKey: ['payment-settings', restaurantId],
     enabled: !!restaurantId,
@@ -30,23 +30,9 @@ const PaymentSettingsTab = () => {
         .from('payment_settings')
         .select('*')
         .eq('restaurant_id', restaurantId)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
-
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Fetch restaurant info for UPI ID
-  const { data: restaurant } = useQuery({
-    queryKey: ['restaurant', restaurantId],
-    enabled: !!restaurantId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('restaurants')
-        .select('upi_id, payment_gateway_enabled')
-        .eq('id', restaurantId)
-        .single();
 
       if (error) throw error;
       return data;
@@ -58,20 +44,22 @@ const PaymentSettingsTab = () => {
       setFormData({
         upiId: paymentSettings.upi_id || '',
         upiName: paymentSettings.upi_name || '',
-        isActive: paymentSettings.is_active,
+        isActive: paymentSettings.is_active ?? true,
       });
-    } else if (restaurant?.upi_id) {
-      setFormData(prev => ({
-        ...prev,
-        upiId: restaurant.upi_id,
-      }));
     }
-  }, [paymentSettings, restaurant]);
+  }, [paymentSettings]);
 
   const handleSave = async () => {
-    if (!restaurantId) return;
+    if (!restaurantId) {
+      toast({
+        title: "Error",
+        description: "Restaurant ID not found",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    if (!formData.upiId) {
+    if (!formData.upiId.trim()) {
       toast({
         title: "Error",
         description: "UPI ID is required",
@@ -82,63 +70,45 @@ const PaymentSettingsTab = () => {
 
     setLoading(true);
     try {
-      // Check if payment settings already exist for this restaurant
-      const { data: existingSettings } = await supabase
+      // Always insert a new record instead of trying to update
+      const { error: insertError } = await supabase
         .from('payment_settings')
-        .select('id')
-        .eq('restaurant_id', restaurantId)
-        .maybeSingle();
+        .insert({
+          restaurant_id: restaurantId,
+          upi_id: formData.upiId.trim(),
+          upi_name: formData.upiName.trim() || null,
+          is_active: formData.isActive,
+        });
 
-      if (existingSettings) {
-        // Update existing settings
-        const { error: paymentError } = await supabase
-          .from('payment_settings')
-          .update({
-            upi_id: formData.upiId,
-            upi_name: formData.upiName,
-            is_active: formData.isActive,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('restaurant_id', restaurantId);
-
-        if (paymentError) throw paymentError;
-      } else {
-        // Insert new settings
-        const { error: paymentError } = await supabase
-          .from('payment_settings')
-          .insert({
-            restaurant_id: restaurantId,
-            upi_id: formData.upiId,
-            upi_name: formData.upiName,
-            is_active: formData.isActive,
-          });
-
-        if (paymentError) throw paymentError;
+      if (insertError) {
+        throw insertError;
       }
 
       // Also update restaurant table for backward compatibility
       const { error: restaurantError } = await supabase
         .from('restaurants')
         .update({
-          upi_id: formData.upiId,
+          upi_id: formData.upiId.trim(),
           payment_gateway_enabled: formData.isActive,
         })
         .eq('id', restaurantId);
 
-      if (restaurantError) throw restaurantError;
+      if (restaurantError) {
+        console.warn('Restaurant table update failed:', restaurantError);
+      }
 
-      queryClient.invalidateQueries({ queryKey: ['payment-settings'] });
-      queryClient.invalidateQueries({ queryKey: ['restaurant'] });
+      // Refresh data
+      await queryClient.invalidateQueries({ queryKey: ['payment-settings'] });
 
       toast({
         title: "Success",
         description: "Payment settings saved successfully",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving payment settings:', error);
       toast({
         title: "Error",
-        description: "Failed to save payment settings",
+        description: error.message || "Failed to save payment settings",
         variant: "destructive",
       });
     } finally {
