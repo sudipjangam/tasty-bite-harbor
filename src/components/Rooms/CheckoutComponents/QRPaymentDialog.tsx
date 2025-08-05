@@ -71,7 +71,9 @@ const QRPaymentDialog: React.FC<QRPaymentDialogProps> = ({
     if (open && paymentSettings?.upi_id) {
       const upiId = paymentSettings.upi_id;
       const payeeName = paymentSettings.upi_name || restaurantName;
-      const paymentUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(`Room bill payment - ${invoiceNumber}`)}&mc=5411`;
+      // Format amount to 2 decimal places and ensure it's a valid number
+      const formattedAmount = parseFloat(amount.toFixed(2));
+      const paymentUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(`Room bill payment - ${invoiceNumber}`)}`;
       
       setQrData(paymentUrl);
       setPaymentStatus('pending');
