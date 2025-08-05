@@ -82,17 +82,39 @@ const PaymentSettingsTab = () => {
 
     setLoading(true);
     try {
-      // Update payment settings table
-      const { error: paymentError } = await supabase
+      // Check if payment settings already exist for this restaurant
+      const { data: existingSettings } = await supabase
         .from('payment_settings')
-        .upsert({
-          restaurant_id: restaurantId,
-          upi_id: formData.upiId,
-          upi_name: formData.upiName,
-          is_active: formData.isActive,
-        });
+        .select('id')
+        .eq('restaurant_id', restaurantId)
+        .single();
 
-      if (paymentError) throw paymentError;
+      if (existingSettings) {
+        // Update existing settings
+        const { error: paymentError } = await supabase
+          .from('payment_settings')
+          .update({
+            upi_id: formData.upiId,
+            upi_name: formData.upiName,
+            is_active: formData.isActive,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('restaurant_id', restaurantId);
+
+        if (paymentError) throw paymentError;
+      } else {
+        // Insert new settings
+        const { error: paymentError } = await supabase
+          .from('payment_settings')
+          .insert({
+            restaurant_id: restaurantId,
+            upi_id: formData.upiId,
+            upi_name: formData.upiName,
+            is_active: formData.isActive,
+          });
+
+        if (paymentError) throw paymentError;
+      }
 
       // Also update restaurant table for backward compatibility
       const { error: restaurantError } = await supabase
