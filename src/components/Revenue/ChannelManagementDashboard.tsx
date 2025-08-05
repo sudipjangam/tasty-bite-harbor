@@ -17,6 +17,10 @@ import AdvancedIntegration from "./AdvancedIntegration";
 import DynamicPricingEngine from "./DynamicPricingEngine";
 import InventoryAllocation from "./InventoryAllocation";
 import AdvancedChannelSync from "./AdvancedChannelSync";
+import MetaSearchIntegration from "./MetaSearchIntegration";
+import EnhancedRateManagement from "./EnhancedRateManagement";
+import PoolInventoryManagement from "./PoolInventoryManagement";
+import RoomSpecificRateManager from "./RoomSpecificRateManager";
 
 const ChannelManagementDashboard = () => {
   const { bookingChannels, updateChannel, isLoadingChannels, syncChannels, bulkUpdatePrices } = useChannelManagement();
@@ -101,12 +105,14 @@ const ChannelManagementDashboard = () => {
       </div>
 
       <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="pricing">Pricing</TabsTrigger>
-          <TabsTrigger value="inventory">Inventory</TabsTrigger>
-          <TabsTrigger value="sync">Advanced Sync</TabsTrigger>
+          <TabsTrigger value="metasearch">Meta Search</TabsTrigger>
+          <TabsTrigger value="rates">Rate Management</TabsTrigger>
+          <TabsTrigger value="room-rates">Room Pricing</TabsTrigger>
+          <TabsTrigger value="pool-inventory">Pool Inventory</TabsTrigger>
           <TabsTrigger value="dynamic">Dynamic Pricing</TabsTrigger>
+          <TabsTrigger value="sync">Advanced Sync</TabsTrigger>
           <TabsTrigger value="consolidation">Bookings</TabsTrigger>
         </TabsList>
 
@@ -211,20 +217,28 @@ const ChannelManagementDashboard = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="pricing">
-          <PriceManagement channels={bookingChannels} />
+        <TabsContent value="metasearch">
+          <MetaSearchIntegration />
         </TabsContent>
 
-        <TabsContent value="inventory">
-          <InventoryAllocation />
+        <TabsContent value="rates">
+          <EnhancedRateManagement />
         </TabsContent>
 
-        <TabsContent value="sync">
-          <AdvancedChannelSync />
+        <TabsContent value="room-rates">
+          <RoomSpecificRateManager />
+        </TabsContent>
+
+        <TabsContent value="pool-inventory">
+          <PoolInventoryManagement />
         </TabsContent>
 
         <TabsContent value="dynamic">
           <DynamicPricingEngine />
+        </TabsContent>
+
+        <TabsContent value="sync">
+          <AdvancedChannelSync />
         </TabsContent>
 
         <TabsContent value="consolidation">

@@ -41,21 +41,7 @@ const StaffDetail: React.FC<StaffDetailProps> = ({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Fetch staff documents
-  const { data: documents = [], refetch: refetchDocuments } = useQuery({
-    queryKey: ["staff-documents", staffId],
-    enabled: !!staffId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("staff_documents")
-        .select("*")
-        .eq("staff_id", staffId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return data;
-    },
-  });
+  // No need to fetch documents separately - they're part of staff data now
   
   // Fetch staff details
   const {
@@ -370,10 +356,16 @@ const StaffDetail: React.FC<StaffDetailProps> = ({
 
             <TabsContent value="documents" className="mt-0">
               <DocumentUpload 
-                staffId={staffId} 
-                restaurantId={restaurantId || ""}
-                documents={documents}
-                onDocumentUploaded={refetchDocuments}
+                staffId={staffId}
+                documents={staff.documents || []}
+                onDocumentsChange={(updatedDocuments) => {
+                  // Update staff data with new documents
+                  queryClient.setQueryData(["staff-detail", staffId], (oldData: any) => ({
+                    ...oldData,
+                    documents: updatedDocuments
+                  }));
+                  refetchStaff();
+                }}
               />
             </TabsContent>
           </div>

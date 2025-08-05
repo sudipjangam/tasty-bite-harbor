@@ -11,15 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
 import { Camera, User, UserPlus, Loader2, FileText } from "lucide-react";
-import type { StaffMember, StaffRole } from "@/types/staff";
-import DocumentUploadInline from "./DocumentUploadInline";
-
-interface PendingDocument {
-  file: File;
-  documentType: string;
-  documentNumber: string;
-  preview: string;
-}
+import type { StaffMember, StaffRole, Document } from "@/types/staff";
+import DocumentUpload from "./DocumentUpload";
 
 interface StaffDialogProps {
   isOpen: boolean;
@@ -59,7 +52,7 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
   const [salaryType, setSalaryType] = useState("monthly");
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [pendingDocuments, setPendingDocuments] = useState<PendingDocument[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
 
   // Set form values when editing an existing staff member
   useEffect(() => {
@@ -80,6 +73,7 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
       setSalary(staff.salary?.toString() || "");
       setSalaryType(staff.salary_type || "monthly");
       setPhotoPreview(staff.photo_url || null);
+      setDocuments(staff.documents || []);
     } else {
       // Reset form for new staff
       resetForm();
@@ -104,7 +98,7 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
     setSalaryType("monthly");
     setPhotoPreview(null);
     setFile(null);
-    setPendingDocuments([]);
+    setDocuments([]);
   };
 
   // Handle file selection
@@ -166,6 +160,7 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
         const staffWithPhoto = {
           ...staffData,
           photo_url: photoURL,
+          documents: documents,
         };
         
         let staffId = staff?.id;
@@ -189,11 +184,6 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
           
           if (error) throw error;
           staffId = newStaff.id;
-        }
-        
-        // Upload documents if any are pending
-        if (pendingDocuments.length > 0 && staffId) {
-          await uploadDocuments(staffId);
         }
         
         return { success: true };
@@ -222,64 +212,6 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
     },
   });
 
-  // Upload documents function
-  const uploadDocuments = async (staffId: string) => {
-    if (pendingDocuments.length === 0) return;
-
-    try {
-      for (const doc of pendingDocuments) {
-        // Convert file to base64
-        const base64Promise = new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            if (e.target?.result) {
-              const base64String = e.target.result.toString().split(',')[1];
-              resolve(base64String);
-            } else {
-              reject(new Error('Failed to convert file to base64'));
-            }
-          };
-          reader.onerror = () => reject(reader.error);
-          reader.readAsDataURL(doc.file);
-        });
-
-        const base64File = await base64Promise;
-
-        // Upload to Google Drive via edge function
-        const { data, error } = await supabase.functions.invoke('google-drive-upload', {
-          body: {
-            file: base64File,
-            fileName: doc.file.name,
-            mimeType: doc.file.type,
-            staffId,
-            documentType: doc.documentType,
-            documentNumber: doc.documentNumber,
-            restaurantId
-          }
-        });
-
-        if (error) {
-          throw new Error(`Failed to upload ${doc.documentType}: ${error.message}`);
-        }
-
-        if (!data.success) {
-          throw new Error(`Failed to upload ${doc.documentType}: ${data.error || 'Upload failed'}`);
-        }
-      }
-
-      toast({
-        title: "Documents uploaded",
-        description: `${pendingDocuments.length} document(s) uploaded successfully`,
-      });
-    } catch (error) {
-      console.error('Document upload error:', error);
-      toast({
-        title: "Document upload failed",
-        description: error instanceof Error ? error.message : "Failed to upload documents",
-        variant: "destructive"
-      });
-    }
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -335,6 +267,7 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
       role_ids: roleIds.length > 0 ? roleIds : null,
       salary: salary ? parseFloat(salary) : null,
       salary_type: salaryType,
+      documents: documents,
     };
     
     saveStaffMutation.mutate(staffData);
@@ -605,11 +538,9 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
               <FileText className="h-5 w-5 text-purple-600" />
               Staff Documents
             </h3>
-            <DocumentUploadInline
-              pendingDocuments={pendingDocuments}
-              onDocumentsChange={setPendingDocuments}
-              staffId={staff?.id}
-              restaurantId={restaurantId || ""}
+            <DocumentUpload
+              documents={documents}
+              onDocumentsChange={setDocuments}
             />
           </div>
 

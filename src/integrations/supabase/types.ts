@@ -3558,6 +3558,7 @@ export type Database = {
         Row: {
           availability_notes: string | null
           created_at: string
+          documents: Json | null
           email: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
@@ -3581,6 +3582,7 @@ export type Database = {
         Insert: {
           availability_notes?: string | null
           created_at?: string
+          documents?: Json | null
           email?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
@@ -3604,6 +3606,7 @@ export type Database = {
         Update: {
           availability_notes?: string | null
           created_at?: string
+          documents?: Json | null
           email?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null

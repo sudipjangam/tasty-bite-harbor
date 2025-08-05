@@ -1,68 +1,91 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, Trash2, Eye, CheckCircle, AlertCircle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { Progress } from "@/components/ui/progress";
+import { Upload, X, Eye, Trash2, Plus, Download } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/use-toast";
 
-interface StaffDocument {
-  id: string;
-  document_type: string;
-  document_number: string | null;
-  document_name: string;
-  google_drive_url: string | null;
-  is_verified: boolean | null;
-  created_at: string;
+interface Document {
+  type: string;
+  number: string;
+  file_url: string;
+  custom_name?: string;
 }
 
 interface DocumentUploadProps {
-  staffId: string;
-  restaurantId: string;
-  documents: StaffDocument[];
-  onDocumentUploaded: () => void;
+  documents: Document[];
+  onDocumentsChange: (documents: Document[]) => void;
+  staffId?: string; // Made optional for backward compatibility
 }
 
 const DOCUMENT_TYPES = [
-  { value: 'aadhar_card', label: 'Aadhar Card', required: true },
-  { value: 'pan_card', label: 'PAN Card', required: false },
-  { value: 'voter_id', label: 'Voter ID', required: false },
-  { value: 'driving_license', label: 'Driving License', required: false },
-  { value: 'other', label: 'Other', required: false },
+  { value: "aadhar_card", label: "Aadhar Card", required: true },
+  { value: "pan_card", label: "PAN Card", required: true },
+  { value: "voter_id", label: "Voter ID", required: false },
+  { value: "driving_license", label: "Driving License", required: false },
+  { value: "passport", label: "Passport", required: false },
+  { value: "bank_passbook", label: "Bank Passbook", required: false },
+  { value: "salary_certificate", label: "Salary Certificate", required: false },
+  { value: "experience_letter", label: "Experience Letter", required: false },
+  { value: "education_certificate", label: "Education Certificate", required: false },
+  { value: "other", label: "Other", required: false },
 ];
 
-export default function DocumentUpload({ staffId, restaurantId, documents, onDocumentUploaded }: DocumentUploadProps) {
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+const DocumentUpload: React.FC<DocumentUploadProps> = ({ documents, onDocumentsChange, staffId }) => {
+  const [selectedType, setSelectedType] = useState<string>("");
+  const [documentNumber, setDocumentNumber] = useState("");
+  const [customName, setCustomName] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [documentType, setDocumentType] = useState<string>('');
-  const [documentNumber, setDocumentNumber] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const { toast } = useToast();
+
+  // Mutation to update staff documents in database
+  const updateDocumentsMutation = useMutation({
+    mutationFn: async (updatedDocuments: Document[]) => {
+      if (!staffId) return; // Skip database update if no staffId provided
+      
+      const { error } = await supabase
+        .from("staff")
+        .update({ documents: updatedDocuments })
+        .eq("id", staffId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Documents updated",
+        description: "Staff documents have been updated successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to update documents: ${(error as Error).message}`,
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       // Validate file type
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
       if (!allowedTypes.includes(file.type)) {
-        toast({
-          title: "Invalid file type",
-          description: "Please upload JPG, PNG, or PDF files only",
-          variant: "destructive"
-        });
+        alert('Please select a valid file (JPG, PNG, or PDF)');
         return;
       }
 
       // Validate file size (5MB max)
       if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Please upload files smaller than 5MB",
-          variant: "destructive"
-        });
+        alert('File size should be less than 5MB');
         return;
       }
 
@@ -70,177 +93,145 @@ export default function DocumentUpload({ staffId, restaurantId, documents, onDoc
     }
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile || !documentType) {
-      toast({
-        title: "Missing information",
-        description: "Please select a file and document type",
-        variant: "destructive"
-      });
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleAddDocument = async () => {
+    if (!selectedType || !documentNumber || !selectedFile) {
+      alert('Please fill all required fields and select a file');
       return;
     }
 
-    // Check if Aadhar card already exists for required validation
-    const hasAadhar = documents.some(doc => doc.document_type === 'aadhar_card');
-    if (!hasAadhar && documentType !== 'aadhar_card') {
-      toast({
-        title: "Aadhar Card Required",
-        description: "Please upload Aadhar card first before other documents",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Check if document type already exists
-    const existingDoc = documents.find(doc => doc.document_type === documentType);
-    if (existingDoc) {
-      toast({
-        title: "Document exists",
-        description: "This document type has already been uploaded",
-        variant: "destructive"
-      });
-      return;
+    // Check if document type already exists (except for "other")
+    if (selectedType !== "other") {
+      const existingDoc = documents.find(doc => doc.type === selectedType);
+      if (existingDoc) {
+        alert('This document type already exists. Please remove the existing one first.');
+        return;
+      }
     }
 
     setUploading(true);
-    setUploadProgress(20);
-
     try {
-      // Convert file to base64
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          if (e.target?.result) {
-            const base64String = e.target.result.toString().split(',')[1];
-            resolve(base64String);
-          } else {
-            reject(new Error('Failed to convert file to base64'));
-          }
-        };
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(selectedFile);
-      });
+      const base64File = await convertFileToBase64(selectedFile);
+      
+      const newDocument: Document = {
+        type: selectedType,
+        number: documentNumber,
+        file_url: base64File,
+        custom_name: selectedType === "other" ? customName : undefined,
+      };
 
-      const base64File = await base64Promise;
-      setUploadProgress(40);
-
-      // Upload to Google Drive via edge function
-      const { data, error } = await supabase.functions.invoke('google-drive-upload', {
-        body: {
-          file: base64File,
-          fileName: selectedFile.name,
-          mimeType: selectedFile.type,
-          staffId,
-          documentType,
-          documentNumber: documentNumber || null,
-          restaurantId
-        }
-      });
-
-      setUploadProgress(80);
-
-      if (error) {
-        throw new Error(error.message);
+      const updatedDocuments = [...documents, newDocument];
+      onDocumentsChange(updatedDocuments);
+      
+      // Update database if staffId is provided
+      if (staffId) {
+        updateDocumentsMutation.mutate(updatedDocuments);
       }
-
-      if (!data.success) {
-        throw new Error(data.error || 'Upload failed');
-      }
-
-      setUploadProgress(100);
-
-      toast({
-        title: "Document uploaded successfully",
-        description: `${DOCUMENT_TYPES.find(t => t.value === documentType)?.label} has been uploaded and saved to Google Drive`,
-      });
 
       // Reset form
+      setSelectedType("");
+      setDocumentNumber("");
+      setCustomName("");
       setSelectedFile(null);
-      setDocumentType('');
-      setDocumentNumber('');
-      setUploadProgress(0);
       
-      // Trigger refresh
-      onDocumentUploaded();
-
+      // Reset file input
+      const fileInput = document.getElementById('document-file') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
     } catch (error) {
-      console.error('Upload error:', error);
-      toast({
-        title: "Upload failed",
-        description: error instanceof Error ? error.message : "Failed to upload document",
-        variant: "destructive"
-      });
+      console.error('Error uploading document:', error);
+      alert('Error uploading document');
     } finally {
       setUploading(false);
     }
   };
 
-  const handleDeleteDocument = async (documentId: string) => {
+  const handleRemoveDocument = (index: number) => {
+    const updatedDocuments = documents.filter((_, i) => i !== index);
+    onDocumentsChange(updatedDocuments);
+    
+    // Update database if staffId is provided
+    if (staffId) {
+      updateDocumentsMutation.mutate(updatedDocuments);
+    }
+  };
+
+  const handleDownloadDocument = (doc: Document) => {
     try {
-      const { error } = await supabase
-        .from('staff_documents')
-        .delete()
-        .eq('id', documentId);
-
-      if (error) throw error;
-
+      // Create a download link
+      const link = document.createElement('a');
+      link.href = doc.file_url;
+      
+      // Generate filename
+      const docLabel = getDocumentLabel(doc);
+      const extension = doc.file_url.includes('data:application/pdf') ? '.pdf' : '.jpg';
+      link.download = `${docLabel}_${doc.number}${extension}`;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
       toast({
-        title: "Document deleted",
-        description: "Document has been removed successfully",
+        title: "Download started",
+        description: `${docLabel} download has started.`,
       });
-
-      onDocumentUploaded();
     } catch (error) {
-      console.error('Delete error:', error);
       toast({
-        title: "Delete failed",
-        description: "Failed to delete document",
-        variant: "destructive"
+        title: "Download failed",
+        description: "Failed to download the document.",
+        variant: "destructive",
       });
     }
   };
 
-  const getDocumentStatus = (documentType: string) => {
-    const doc = documents.find(d => d.document_type === documentType);
-    const typeInfo = DOCUMENT_TYPES.find(t => t.value === documentType);
+  const getDocumentStatus = (docType: string) => {
+    const hasDoc = documents.find(doc => doc.type === docType);
+    const docInfo = DOCUMENT_TYPES.find(type => type.value === docType);
     
-    if (doc) {
-      return {
-        status: 'uploaded',
-        verified: doc.is_verified,
-        document: doc
-      };
+    if (hasDoc) return { status: "uploaded", variant: "default" as const };
+    if (docInfo?.required) return { status: "required", variant: "destructive" as const };
+    return { status: "optional", variant: "secondary" as const };
+  };
+
+  const getDocumentLabel = (doc: Document) => {
+    if (doc.type === "other" && doc.custom_name) {
+      return doc.custom_name;
     }
-    
-    if (typeInfo?.required) {
-      return { status: 'required', verified: false };
-    }
-    
-    return { status: 'optional', verified: false };
+    return DOCUMENT_TYPES.find(type => type.value === doc.type)?.label || doc.type;
   };
 
   return (
-    <div className="space-y-6">
-      {/* Upload Form */}
-      <Card className="bg-white/80 backdrop-blur-xl border border-white/20 shadow-xl">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-            <Upload className="h-5 w-5 text-purple-600" />
-            Upload Staff Documents
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Upload className="h-5 w-5" />
+          Document Upload
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Add Document Form */}
+        <div className="space-y-4 border rounded-lg p-4">
+          <h4 className="font-medium">Add New Document</h4>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="document-type">Document Type *</Label>
-              <Select value={documentType} onValueChange={setDocumentType}>
+              <Label htmlFor="document-type">Document Type</Label>
+              <Select value={selectedType} onValueChange={setSelectedType}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select document type" />
                 </SelectTrigger>
                 <SelectContent>
                   {DOCUMENT_TYPES.map((type) => (
                     <SelectItem key={type.value} value={type.value}>
-                      {type.label} {type.required && '*'}
+                      {type.label} {type.required && <span className="text-red-500">*</span>}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -258,107 +249,161 @@ export default function DocumentUpload({ staffId, restaurantId, documents, onDoc
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="file-upload">Select File *</Label>
-            <Input
-              id="file-upload"
-              type="file"
-              accept=".jpg,.jpeg,.png,.pdf"
-              onChange={handleFileSelect}
-              className="cursor-pointer"
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              Supported formats: JPG, PNG, PDF (Max 5MB)
-            </p>
-          </div>
-
-          {uploading && (
+          {selectedType === "other" && (
             <div>
-              <Progress value={uploadProgress} className="w-full" />
-              <p className="text-sm text-gray-600 mt-1">Uploading... {uploadProgress}%</p>
+              <Label htmlFor="custom-name">Document Name</Label>
+              <Input
+                id="custom-name"
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                placeholder="Enter document name"
+              />
             </div>
           )}
 
+          <div>
+            <Label htmlFor="document-file">Upload File</Label>
+            <Input
+              id="document-file"
+              type="file"
+              accept=".jpg,.jpeg,.png,.pdf"
+              onChange={handleFileSelect}
+            />
+            <p className="text-sm text-muted-foreground mt-1">
+              Accepted formats: JPG, PNG, PDF (Max 5MB)
+            </p>
+          </div>
+
           <Button 
-            onClick={handleUpload} 
-            disabled={!selectedFile || !documentType || uploading}
-            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+            onClick={handleAddDocument}
+            disabled={uploading || !selectedType || !documentNumber || !selectedFile}
+            className="w-full"
           >
-            {uploading ? 'Uploading...' : 'Upload Document'}
+            {uploading ? "Uploading..." : "Add Document"}
           </Button>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Document Status */}
-      <Card className="bg-white/80 backdrop-blur-xl border border-white/20 shadow-xl">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-            <FileText className="h-5 w-5 text-purple-600" />
-            Document Status
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {DOCUMENT_TYPES.map((type) => {
-              const status = getDocumentStatus(type.value);
-              return (
-                <div key={type.value} className="flex items-center justify-between p-3 rounded-lg border border-gray-200">
+        {/* Uploaded Documents */}
+        {documents.length > 0 && (
+          <div className="space-y-4">
+            <h4 className="font-medium">Uploaded Documents</h4>
+            <div className="space-y-2">
+              {documents.map((doc, index) => (
+                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      {status.status === 'uploaded' ? (
-                        <CheckCircle className="h-5 w-5 text-green-500" />
-                      ) : status.status === 'required' ? (
-                        <AlertCircle className="h-5 w-5 text-red-500" />
-                      ) : (
-                        <FileText className="h-5 w-5 text-gray-400" />
-                      )}
-                      <span className="font-medium">
-                        {type.label} {type.required && <span className="text-red-500">*</span>}
-                      </span>
-                    </div>
-                    {status.document && (
-                      <span className="text-sm text-gray-500">
-                        ({status.document.document_number || 'No number'})
-                      </span>
-                    )}
+                    <Badge variant="outline">
+                      {getDocumentLabel(doc)}
+                    </Badge>
+                    <span className="text-sm">{doc.number}</span>
                   </div>
-
-                  {status.status === 'uploaded' && status.document && (
-                    <div className="flex items-center gap-2">
-                      {status.verified ? (
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                          Verified
-                        </span>
-                      ) : (
-                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
-                          Pending
-                        </span>
-                      )}
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.open(status.document!.google_drive_url!, '_blank')}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteDocument(status.document!.id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPreviewDocument(doc)}
+                          title="View document"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl">
+                        <DialogHeader>
+                          <DialogTitle>{getDocumentLabel(doc)} - {doc.number}</DialogTitle>
+                        </DialogHeader>
+                        <div className="mt-4">
+                          {doc.file_url.includes('data:application/pdf') ? (
+                            <embed
+                              src={doc.file_url}
+                              type="application/pdf"
+                              width="100%"
+                              height="600px"
+                            />
+                          ) : (
+                            <img
+                              src={doc.file_url}
+                              alt={getDocumentLabel(doc)}
+                              className="max-w-full h-auto"
+                            />
+                          )}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownloadDocument(doc)}
+                      title="Download document"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRemoveDocument(index)}
+                      title="Delete document"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Document Status Overview */}
+        <div className="space-y-4">
+          <h4 className="font-medium">Document Status</h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {DOCUMENT_TYPES.filter(type => type.value !== "other").map((docType) => {
+              const status = getDocumentStatus(docType.value);
+              return (
+                <Badge
+                  key={docType.value}
+                  variant={status.variant}
+                  className="justify-center p-2"
+                >
+                  {docType.label}: {status.status}
+                </Badge>
               );
             })}
           </div>
-        </CardContent>
-      </Card>
-    </div>
+          
+          {/* Show "Other" documents */}
+          {documents.filter(doc => doc.type === "other").length > 0 && (
+            <div>
+              <p className="text-sm font-medium mb-2">Other Documents:</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {documents
+                  .filter(doc => doc.type === "other")
+                  .map((doc, index) => (
+                    <Badge key={index} variant="default" className="justify-center p-2">
+                      {doc.custom_name}: uploaded
+                    </Badge>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Requirements Note */}
+        <div className="text-sm text-muted-foreground p-4 bg-muted rounded-lg">
+          <p className="font-medium mb-2">Document Requirements:</p>
+          <ul className="space-y-1">
+            <li>• Aadhar Card and PAN Card are required documents</li>
+            <li>• All other documents are optional but recommended</li>
+            <li>• Accepted formats: JPG, PNG, PDF</li>
+            <li>• Maximum file size: 5MB per document</li>
+            <li>• For "Other" documents, specify the document name</li>
+          </ul>
+        </div>
+      </CardContent>
+    </Card>
   );
-}
+};
+
+export default DocumentUpload;
