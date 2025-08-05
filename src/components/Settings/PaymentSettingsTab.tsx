@@ -30,9 +30,9 @@ const PaymentSettingsTab = () => {
         .from('payment_settings')
         .select('*')
         .eq('restaurant_id', restaurantId)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error) throw error;
       return data;
     },
   });
@@ -87,7 +87,7 @@ const PaymentSettingsTab = () => {
         .from('payment_settings')
         .select('id')
         .eq('restaurant_id', restaurantId)
-        .single();
+        .maybeSingle();
 
       if (existingSettings) {
         // Update existing settings
