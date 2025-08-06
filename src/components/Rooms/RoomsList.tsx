@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import RoomCard from "@/components/Rooms/RoomCard";
 import RoomDialog from "@/components/Rooms/RoomDialog";
-
+import ReservationDialog from "@/components/Rooms/ReservationDialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Room } from "@/hooks/useRooms";
@@ -41,9 +41,8 @@ const RoomsList: React.FC<RoomsListProps> = ({
 }) => {
   const [openAddRoom, setOpenAddRoom] = useState(false);
   const [openEditRoom, setOpenEditRoom] = useState(false);
-  
+  const [openReservation, setOpenReservation] = useState(false);
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
-  const [currentCustomerName, setCurrentCustomerName] = useState<string>("");
   const [checkoutRoom, setCheckoutRoom] = useState<CheckoutRoomState | null>(null);
   const [openFoodOrder, setOpenFoodOrder] = useState(false);
   const { toast } = useToast();
@@ -67,6 +66,17 @@ const RoomsList: React.FC<RoomsListProps> = ({
     status: "available",
   });
   
+  const [reservation, setReservation] = useState({
+    customer_name: "",
+    customer_email: "",
+    customer_phone: "",
+    start_date: new Date(),
+    end_date: new Date(),
+    notes: "",
+    special_occasion: "",
+    special_occasion_date: null as Date | null,
+    marketing_consent: false
+  });
 
   // Filter rooms based on search query and status filter
   const filteredRooms = rooms.filter(room => {
@@ -106,9 +116,34 @@ const RoomsList: React.FC<RoomsListProps> = ({
     }
   };
 
-  const openReservationDialog = async (room: Room) => {
-    // Just call the parent's onCreateReservation callback
-    await onCreateReservation(room, {});
+  const openReservationDialog = (room: Room) => {
+    setCurrentRoom(room);
+    setReservation({
+      customer_name: "",
+      customer_email: "",
+      customer_phone: "",
+      start_date: new Date(),
+      end_date: new Date(),
+      notes: "",
+      special_occasion: "",
+      special_occasion_date: null,
+      marketing_consent: false
+    });
+    setOpenReservation(true);
+  };
+
+  const handleCreateReservation = async () => {
+    if (!currentRoom) return;
+    
+    const cleanReservation = {
+      ...reservation,
+      special_occasion: reservation.special_occasion === "none" ? "" : reservation.special_occasion
+    };
+    
+    const success = await onCreateReservation(currentRoom, cleanReservation);
+    if (success) {
+      setOpenReservation(false);
+    }
   };
 
   const handleCheckout = async (roomId: string) => {
@@ -176,7 +211,10 @@ const RoomsList: React.FC<RoomsListProps> = ({
       }
 
       setCurrentRoom(room);
-      setCurrentCustomerName(data.customer_name);
+      setReservation(prev => ({
+        ...prev,
+        customer_name: data.customer_name,
+      }));
       setOpenFoodOrder(true);
     } catch (error) {
       console.error("Error fetching reservation:", error);
@@ -219,7 +257,7 @@ const RoomsList: React.FC<RoomsListProps> = ({
             setOpenFoodOrder(false);
           }}
           restaurantId={currentRoom.restaurant_id}
-          customerName={currentCustomerName || "Guest"}
+          customerName={reservation.customer_name}
         />
       </React.Suspense>
     );
@@ -323,6 +361,16 @@ const RoomsList: React.FC<RoomsListProps> = ({
         mode="edit"
       />
 
+      {currentRoom && (
+        <ReservationDialog
+          open={openReservation}
+          onOpenChange={setOpenReservation}
+          room={currentRoom}
+          reservation={reservation}
+          setReservation={setReservation}
+          handleCreateReservation={handleCreateReservation}
+        />
+      )}
     </>
   );
 };
