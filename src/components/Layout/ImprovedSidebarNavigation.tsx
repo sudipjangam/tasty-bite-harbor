@@ -21,13 +21,16 @@ import {
   DollarSign,
   ChefHat,
   Globe,
-  Shield
+  Shield,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/hooks/useAuth";
 import { Permission } from "@/types/auth";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface NavigationItem {
   title: string;
@@ -199,6 +202,7 @@ export const ImprovedSidebarNavigation = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, hasAnyPermission } = useAuth();
+  const { toast } = useToast();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Dashboard', 'Operations']));
 
   const toggleGroup = (groupTitle: string) => {
@@ -218,6 +222,24 @@ export const ImprovedSidebarNavigation = () => {
     if (!user) return false;
     if (!item.requiredPermissions || item.requiredPermissions.length === 0) return true;
     return hasAnyPermission(item.requiredPermissions);
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate("/auth");
+      toast({
+        title: "Signed out",
+        description: "You have been successfully signed out.",
+      });
+    } catch (error) {
+      console.error("Sign out error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -336,8 +358,30 @@ export const ImprovedSidebarNavigation = () => {
         </nav>
       </ScrollArea>
       
-      {/* Footer with year */}
+      {/* Footer with user info and logout */}
       <div className="px-3 py-2 border-t border-white/10">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-sidebar-purple font-medium">
+            {user?.first_name ? user.first_name.charAt(0) : user?.email?.charAt(0) || "?"}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate text-white">
+              {user?.first_name ? `${user.first_name} ${user.last_name || ""}`.trim() : user?.email?.split("@")[0] || "User"}
+            </p>
+            <p className="text-xs text-white/70 truncate">
+              {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "Staff Member"}
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleSignOut}
+            title="Sign Out"
+            className="text-white hover:bg-white/10 w-8 h-8"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
         <div className="text-center">
           <span className="text-xs text-white/60">© 2025 Restaurant Pro</span>
         </div>
