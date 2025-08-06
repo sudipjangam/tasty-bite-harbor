@@ -5,14 +5,12 @@ import BillingHistory from "@/components/Rooms/BillingHistory";
 import SpecialOccasions from "@/components/Rooms/SpecialOccasions";
 import PromotionsManager from "@/components/Rooms/PromotionsManager";
 import RoomsList from "@/components/Rooms/RoomsList";
-import UnifiedReservationDialog from "@/components/UnifiedReservationDialog";
 import { useRooms } from "@/hooks/useRooms";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Hotel, Calendar, Gift, Percent, Sparkles } from "lucide-react";
 
 const Rooms = () => {
   const [activeTab, setActiveTab] = useState("rooms");
-  const [isReservationDialogOpen, setIsReservationDialogOpen] = useState(false);
   const isMobile = useIsMobile();
   const {
     rooms,
@@ -26,29 +24,6 @@ const Rooms = () => {
     refreshRooms
   } = useRooms();
 
-  const handleReservationSubmit = async (data: any) => {
-    try {
-      const selectedRoom = rooms.find(room => room.id === data.room_id);
-      if (!selectedRoom) {
-        throw new Error('Room not found');
-      }
-      
-      await createReservation(selectedRoom, {
-        customer_name: data.customer_name,
-        customer_phone: data.customer_phone,
-        customer_email: data.customer_email,
-        start_date: new Date(data.reservation_date),
-        end_date: new Date(data.end_date),
-        notes: data.special_requests || '',
-        special_occasion: '',
-        special_occasion_date: null,
-        marketing_consent: false,
-      });
-      setIsReservationDialogOpen(false);
-    } catch (error) {
-      console.error('Failed to create reservation:', error);
-    }
-  };
 
   if (loading) {
     return (
@@ -158,10 +133,7 @@ const Rooms = () => {
               getRoomFoodOrdersTotal={getRoomFoodOrdersTotal}
               onAddRoom={addRoom}
               onEditRoom={editRoom}
-              onCreateReservation={async () => { 
-                setIsReservationDialogOpen(true); 
-                return true; 
-              }}
+              onCreateReservation={createReservation}
               onCheckoutComplete={refreshRooms}
             />
           </div>
@@ -191,13 +163,6 @@ const Rooms = () => {
           </div>
         </TabsContent>
       </Tabs>
-      
-      <UnifiedReservationDialog
-        isOpen={isReservationDialogOpen}
-        onOpenChange={setIsReservationDialogOpen}
-        onSubmit={handleReservationSubmit}
-        type="room"
-      />
     </div>
   );
 };
