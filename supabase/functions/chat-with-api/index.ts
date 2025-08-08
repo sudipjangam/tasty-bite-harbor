@@ -132,19 +132,19 @@ serve(async (req) => {
         
 INVENTORY ITEMS (${restaurantData.inventoryItems?.length || 0} items):
 ${JSON.stringify(restaurantData.inventoryItems.slice(0, 10), null, 2)}
-
-REVENUE STATS (last 10 days):
+ 
+REVENUE STATS (latest 10 shown; total available: ${(restaurantData.revenueStats?.length || 0)} days):
 ${JSON.stringify(restaurantData.revenueStats.slice(0, 10), null, 2)}
-
+ 
 RECENT ORDERS (last 10):
 ${JSON.stringify(restaurantData.recentOrders.slice(0, 10), null, 2)}
-
+ 
 CUSTOMER INSIGHTS (top 10 by spending):
 ${JSON.stringify(restaurantData.customerInsights.slice(0, 10), null, 2)}
-
+ 
 MENU ITEMS (first 10):
 ${JSON.stringify(restaurantData.menuItems.slice(0, 10), null, 2)}
-
+ 
 ALWAYS base your answers on this specific data. When asked for a sales overview, calculate totals, trends, and metrics from the REVENUE STATS and ORDERS data. When asked about inventory, analyze the actual INVENTORY ITEMS data. Your answers should NEVER be generic - they should directly reflect the numbers and patterns in this data.`;
     }
 
