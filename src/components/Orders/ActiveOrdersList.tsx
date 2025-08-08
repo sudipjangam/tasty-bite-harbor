@@ -22,12 +22,16 @@ interface OrderItem {
 interface ActiveOrder {
   id: string;
   source: string;
-  status: "new" | "preparing" | "ready" | "completed";
+  status: "new" | "preparing" | "ready" | "completed" | "held";
   items: OrderItem[];
   created_at: string;
 }
 
-const ActiveOrdersList = () => {
+interface ActiveOrdersListProps {
+  onRecallOrder?: (items: OrderItem[]) => void;
+}
+
+const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<ActiveOrder | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -69,7 +73,7 @@ const ActiveOrdersList = () => {
         const formattedOrders: ActiveOrder[] = orders.map(order => ({
           id: order.id,
           source: order.source,
-          status: order.status as "new" | "preparing" | "ready" | "completed",
+          status: order.status as "new" | "preparing" | "ready" | "completed" | "held",
           items: parseOrderItems(order.items),
           created_at: order.created_at
         }));
@@ -132,7 +136,7 @@ const ActiveOrdersList = () => {
             const formattedOrder: ActiveOrder = {
               id: newOrder.id,
               source: newOrder.source,
-              status: newOrder.status as "new" | "preparing" | "ready" | "completed",
+              status: newOrder.status as "new" | "preparing" | "ready" | "completed" | "held",
               items: parseOrderItems(newOrder.items),
               created_at: newOrder.created_at
             };
@@ -146,7 +150,7 @@ const ActiveOrdersList = () => {
                 order.id === updatedOrder.id 
                   ? {
                       ...order,
-                      status: updatedOrder.status as "new" | "preparing" | "ready" | "completed",
+                      status: updatedOrder.status as "new" | "preparing" | "ready" | "completed" | "held",
                       items: parseOrderItems(updatedOrder.items)
                     } 
                   : order
@@ -243,6 +247,8 @@ const ActiveOrdersList = () => {
         return "bg-[#F2FCE2] border-l-4 border-green-400";
       case "completed":
         return "bg-[#e5f3ff] border-l-4 border-blue-400";
+      case "held":
+        return "bg-[#fef3c7] border-l-4 border-amber-400";
       default:
         return "bg-white border";
     }
@@ -258,6 +264,8 @@ const ActiveOrdersList = () => {
         return "bg-green-100 text-green-800";
       case "completed":
         return "bg-blue-100 text-blue-800";
+      case "held":
+        return "bg-amber-100 text-amber-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -287,6 +295,7 @@ const ActiveOrdersList = () => {
             <SelectItem value="preparing">Preparing</SelectItem>
             <SelectItem value="ready">Ready</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="held">Held Orders</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -337,17 +346,54 @@ const ActiveOrdersList = () => {
                   <div className="font-semibold text-sm">
                     Total: ₹{calculateOrderTotal(order.items).toFixed(2)}
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="text-xs"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedOrder(order);
-                    }}
-                  >
-                    View Details
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedOrder(order);
+                      }}
+                    >
+                      Details
+                    </Button>
+                    {order.status === 'held' && onRecallOrder && (
+                      <Button 
+                        variant="default" 
+                        size="sm"
+                        className="text-xs bg-amber-600 hover:bg-amber-700"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          
+                          // Convert order items to POS OrderItem format
+                          const recalledItems: any[] = order.items.map(item => ({
+                            id: crypto.randomUUID(),
+                            menuItemId: undefined,
+                            name: item.name,
+                            price: item.price || 0,
+                            quantity: item.quantity,
+                            modifiers: item.notes || []
+                          }));
+                          
+                          // Delete the held order from database
+                          await supabase
+                            .from('kitchen_orders')
+                            .delete()
+                            .eq('id', order.id);
+                          
+                          onRecallOrder(recalledItems);
+                          
+                          toast({
+                            title: "Order Recalled",
+                            description: "Held order has been recalled to POS",
+                          });
+                        }}
+                      >
+                        Recall
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </Card>

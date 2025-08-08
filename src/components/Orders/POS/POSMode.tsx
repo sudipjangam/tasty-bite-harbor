@@ -92,7 +92,7 @@ const POSMode = () => {
     setCurrentOrderItems(currentOrderItems.filter(item => item.id !== id));
   };
 
-  const handleHoldOrder = () => {
+  const handleHoldOrder = async () => {
     if (currentOrderItems.length === 0) {
       toast({
         variant: "destructive",
@@ -101,11 +101,55 @@ const POSMode = () => {
       });
       return;
     }
-    
-    toast({
-      title: "Order Held",
-      description: "The order has been put on hold",
-    });
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('restaurant_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.restaurant_id) throw new Error("Restaurant not found");
+
+      // Create held order in kitchen_orders table
+      const { error: kitchenError } = await supabase
+        .from('kitchen_orders')
+        .insert({
+          restaurant_id: profile.restaurant_id,
+          source: orderType === 'table' && tableNumber 
+            ? `Table ${tableNumber}` 
+            : 'POS',
+          status: 'held',
+          items: currentOrderItems.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            modifiers: item.modifiers || []
+          }))
+        });
+
+      if (kitchenError) throw kitchenError;
+
+      // Clear current order
+      setCurrentOrderItems([]);
+      
+      toast({
+        title: "Order Held",
+        description: "Order has been held successfully and can be recalled later",
+      });
+      
+    } catch (error) {
+      console.error('Error holding order:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to hold order. Please try again.",
+      });
+    }
   };
 
   const handleClearOrder = () => {
@@ -239,7 +283,13 @@ const POSMode = () => {
                   Active Orders
                 </h2>
                 <div className="max-h-[250px] overflow-auto">
-                  <ActiveOrdersList />
+                  <ActiveOrdersList onRecallOrder={(items: any[]) => {
+                    setCurrentOrderItems(items as OrderItem[]);
+                    toast({
+                      title: "Order Recalled",
+                      description: "Held order has been recalled successfully",
+                    });
+                  }} />
                 </div>
               </div>
             )}

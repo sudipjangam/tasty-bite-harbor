@@ -14,18 +14,11 @@ export const HighchartComponent: React.FC<HighchartProps> = ({
   className = "",
   containerProps
 }) => {
-  // Ensure charts render without accessibility module and with transparent bg by default
-  const mergedOptions: Highcharts.Options = {
-    accessibility: { enabled: false },
-    chart: { backgroundColor: 'transparent' },
-    ...options,
-  };
-
   return (
     <div className={className} {...containerProps}>
       <HighchartsReact
         highcharts={Highcharts}
-        options={mergedOptions}
+        options={options}
       />
     </div>
   );
