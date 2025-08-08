@@ -12,6 +12,7 @@ import HotelRevenueManager from "../Revenue/HotelRevenueManager";
 import { Calculator, TrendingUp, FileText, PieChart, Receipt, Target, Hotel, BarChart3, Sparkles } from "lucide-react";
 
 const FinancialDashboard = () => {
+  const [activeTab, setActiveTab] = useState("overview");
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
       {/* Modern Header */}
@@ -45,7 +46,7 @@ const FinancialDashboard = () => {
 
       {/* Enhanced Tabs Container */}
       <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-6 transform hover:scale-[1.01] transition-all duration-300">
-        <Tabs defaultValue="overview" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="mb-6">
             <TabsList className="grid w-full grid-cols-7 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-2 border border-gray-200/50 dark:border-gray-700/50">
               <TabsTrigger 
