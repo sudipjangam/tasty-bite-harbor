@@ -28,7 +28,7 @@ interface ActiveOrder {
 }
 
 interface ActiveOrdersListProps {
-  onRecallOrder?: (items: OrderItem[]) => void;
+  onRecallOrder?: (payload: { items: any[]; kitchenOrderId: string; source: string }) => void;
 }
 
 const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
@@ -376,13 +376,12 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
                             modifiers: item.notes || []
                           }));
                           
-                          // Delete the held order from database
-                          await supabase
-                            .from('kitchen_orders')
-                            .delete()
-                            .eq('id', order.id);
-                          
-                          onRecallOrder(recalledItems);
+                          // Do NOT delete the held order; send its ID back so POS can update it
+                          onRecallOrder({
+                            items: recalledItems,
+                            kitchenOrderId: order.id,
+                            source: order.source,
+                          });
                           
                           toast({
                             title: "Order Recalled",

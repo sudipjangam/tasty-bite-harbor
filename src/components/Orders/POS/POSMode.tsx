@@ -20,6 +20,8 @@ const POSMode = () => {
   const [currentOrderItems, setCurrentOrderItems] = useState<OrderItem[]>([]);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showActiveOrders, setShowActiveOrders] = useState(true);
+  const [recalledKitchenOrderId, setRecalledKitchenOrderId] = useState<string | null>(null);
+  const [recalledSource, setRecalledSource] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: tables } = useQuery({
@@ -114,33 +116,58 @@ const POSMode = () => {
 
       if (!profile?.restaurant_id) throw new Error("Restaurant not found");
 
-      // Create held order in kitchen_orders table
-      const { error: kitchenError } = await supabase
-        .from('kitchen_orders')
-        .insert({
-          restaurant_id: profile.restaurant_id,
-          source: orderType === 'table' && tableNumber 
-            ? `Table ${tableNumber}` 
-            : 'POS',
-          status: 'held',
-          items: currentOrderItems.map(item => ({
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            modifiers: item.modifiers || []
-          }))
+      const payloadItems = currentOrderItems.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        modifiers: item.modifiers || []
+      }));
+
+      if (recalledKitchenOrderId) {
+        // Update existing held order
+        const { error: updateError } = await supabase
+          .from('kitchen_orders')
+          .update({
+            items: payloadItems,
+            status: 'held',
+            source: recalledSource || 'POS',
+          })
+          .eq('id', recalledKitchenOrderId);
+
+        if (updateError) throw updateError;
+
+        setCurrentOrderItems([]);
+        setRecalledKitchenOrderId(null);
+        setRecalledSource(null);
+
+        toast({
+          title: "Order Held",
+          description: "Held order has been updated successfully",
         });
+      } else {
+        // Create new held order
+        const { error: kitchenError } = await supabase
+          .from('kitchen_orders')
+          .insert({
+            restaurant_id: profile.restaurant_id,
+            source: orderType === 'table' && tableNumber 
+              ? `Table ${tableNumber}` 
+              : 'POS',
+            status: 'held',
+            items: payloadItems,
+          });
 
-      if (kitchenError) throw kitchenError;
+        if (kitchenError) throw kitchenError;
 
-      // Clear current order
-      setCurrentOrderItems([]);
-      
-      toast({
-        title: "Order Held",
-        description: "Order has been held successfully and can be recalled later",
-      });
+        // Clear current order
+        setCurrentOrderItems([]);
+        
+        toast({
+          title: "Order Held",
+          description: "Order has been held successfully and can be recalled later",
+        });
+      }
       
     } catch (error) {
       console.error('Error holding order:', error);
@@ -156,6 +183,8 @@ const POSMode = () => {
     if (currentOrderItems.length > 0) {
       if (window.confirm("Are you sure you want to clear this order?")) {
         setCurrentOrderItems([]);
+        setRecalledKitchenOrderId(null);
+        setRecalledSource(null);
         toast({
           title: "Order Cleared",
           description: "All items have been cleared from the order",
@@ -185,40 +214,84 @@ const POSMode = () => {
         throw new Error("No restaurant found for user");
       }
 
-      const orderSource = customerDetails?.name 
+      const computedOrderSource = customerDetails?.name 
         ? `${customerDetails.name} ${customerDetails.phone ? '(' + customerDetails.phone + ')' : ''}`
         : `${orderType === "Dine-In" ? "Table " + tableNumber : orderType}`;
-        
-      const posOrderSource = `POS-${orderSource}`;
 
-      const { error: kitchenError, data: kitchenOrder } = await supabase
-        .from("kitchen_orders")
-        .insert({
-          restaurant_id: profile.restaurant_id,
-          source: posOrderSource,
-          items: currentOrderItems.map(item => ({
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price
-          })),
-          status: "new"
-        })
-        .select()
-        .single();
+      const orderSource = recalledSource || computedOrderSource;
 
-      if (kitchenError) throw kitchenError;
+      if (recalledKitchenOrderId) {
+        // Update existing kitchen order from held to active
+        const { error: updateError } = await supabase
+          .from("kitchen_orders")
+          .update({
+            source: orderSource,
+            items: currentOrderItems.map(item => ({
+              name: item.name,
+              quantity: item.quantity,
+              price: item.price
+            })),
+            status: "new"
+          })
+          .eq("id", recalledKitchenOrderId);
 
-      const { error: orderError } = await supabase
-        .from("orders")
-        .insert({
-          restaurant_id: profile.restaurant_id,
-          customer_name: orderSource,
-          items: currentOrderItems.map(item => `${item.quantity}x ${item.name}`),
-          total: currentOrderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-          status: "pending"
-        });
+        if (updateError) throw updateError;
 
-      if (orderError) throw orderError;
+        // Create corresponding order record
+        const { data: createdOrder, error: orderError } = await supabase
+          .from("orders")
+          .insert({
+            restaurant_id: profile.restaurant_id,
+            customer_name: orderSource,
+            items: currentOrderItems.map(item => `${item.quantity}x ${item.name}`),
+            total: currentOrderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+            status: "pending"
+          })
+          .select()
+          .single();
+
+        if (orderError) throw orderError;
+
+        // Link the kitchen order to the created order
+        if (createdOrder?.id) {
+          await supabase
+            .from("kitchen_orders")
+            .update({ order_id: createdOrder.id })
+            .eq("id", recalledKitchenOrderId);
+        }
+
+      } else {
+        const posOrderSource = `POS-${orderSource}`;
+
+        const { error: kitchenError, data: kitchenOrder } = await supabase
+          .from("kitchen_orders")
+          .insert({
+            restaurant_id: profile.restaurant_id,
+            source: posOrderSource,
+            items: currentOrderItems.map(item => ({
+              name: item.name,
+              quantity: item.quantity,
+              price: item.price
+            })),
+            status: "new"
+          })
+          .select()
+          .single();
+
+        if (kitchenError) throw kitchenError;
+
+        const { error: orderError, data: createdOrder } = await supabase
+          .from("orders")
+          .insert({
+            restaurant_id: profile.restaurant_id,
+            customer_name: orderSource,
+            items: currentOrderItems.map(item => `${item.quantity}x ${item.name}`),
+            total: currentOrderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+            status: "pending"
+          });
+
+        if (orderError) throw orderError;
+      }
       
       toast({
         title: "Order Sent",
@@ -226,6 +299,8 @@ const POSMode = () => {
       });
 
       setCurrentOrderItems([]);
+      setRecalledKitchenOrderId(null);
+      setRecalledSource(null);
     } catch (error) {
       console.error("Error sending order to kitchen:", error);
       toast({
@@ -283,8 +358,10 @@ const POSMode = () => {
                   Active Orders
                 </h2>
                 <div className="max-h-[250px] overflow-auto">
-                  <ActiveOrdersList onRecallOrder={(items: any[]) => {
+                  <ActiveOrdersList onRecallOrder={({ items, kitchenOrderId, source }) => {
                     setCurrentOrderItems(items as OrderItem[]);
+                    setRecalledKitchenOrderId(kitchenOrderId);
+                    setRecalledSource(source);
                     toast({
                       title: "Order Recalled",
                       description: "Held order has been recalled successfully",
