@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { TrendingUp, Users, ShoppingBag, DollarSign } from "lucide-react";
 import { useStatsData } from "@/hooks/useStatsData";
+import { formatIndianCurrency } from "@/utils/formatters";
 import StatCard from "./StatCard";
 import StatDetails from "./StatDetails";
 
@@ -23,7 +24,7 @@ const Stats = () => {
   const stats = [
     {
       title: "Total Sales",
-      value: `₹${totalSales.toFixed(2)}`,
+      value: formatIndianCurrency(totalSales).formatted,
       icon: DollarSign,
       trend: "+12.5%",
       color: "text-green-600 dark:text-green-400",
@@ -57,7 +58,7 @@ const Stats = () => {
     },
     {
       title: "Today's Revenue",
-      value: `₹${todaysRevenue.toFixed(2)}`,
+      value: formatIndianCurrency(todaysRevenue).formatted,
       icon: TrendingUp,
       trend: "+8.2%",
       color: "text-orange-600 dark:text-orange-400",
