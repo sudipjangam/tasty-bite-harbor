@@ -9,6 +9,7 @@ import RealtimeCustomers from "@/components/CRM/RealtimeCustomers";
 import { Customer } from "@/types/customer";
 import { User, Users, TrendingUp, Heart } from "lucide-react";
 import { useCustomerData } from "@/hooks/useCustomerData";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 
 const Customers = () => {
   const { toast } = useToast();
@@ -179,7 +180,9 @@ const Customers = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Total Revenue</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">₹{totalSpent.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <CurrencyDisplay amount={totalSpent} className="text-2xl font-bold text-gray-900 dark:text-white" />
+                </p>
               </div>
             </div>
           </div>
@@ -191,7 +194,9 @@ const Customers = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Avg Order Value</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">₹{averageOrderValue.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <CurrencyDisplay amount={averageOrderValue} className="text-2xl font-bold text-gray-900 dark:text-white" />
+                </p>
               </div>
             </div>
           </div>
