@@ -58,7 +58,7 @@ const AI = () => {
             </div>
             
             {/* Right Column - Chat Interface with Limited Height */}
-            <div className="lg:col-span-3 h-full">
+            <div className="lg:col-span-3 h-full overflow-auto">
               <div className="h-full bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-xl overflow-hidden">
                 <Chatbot 
                   initialOpen={true} 
