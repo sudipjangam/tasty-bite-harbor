@@ -8,6 +8,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, Plus, Filter, Users, TrendingUp, Calendar, Phone, Mail, Star } from "lucide-react";
 import { Customer } from "@/types/customer";
 import { cn } from "@/lib/utils";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
+import LoyaltyBadge from "@/components/Customers/LoyaltyBadge";
 
 interface CustomerListProps {
   customers: Customer[];
@@ -46,12 +48,7 @@ const CustomerList: React.FC<CustomerListProps> = ({
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-    }).format(amount);
-  };
+  // Remove old formatCurrency function since we're using CurrencyDisplay now
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Never";
@@ -159,10 +156,9 @@ const CustomerList: React.FC<CustomerListProps> = ({
                         )}
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Badge 
-                          className={cn("text-xs font-medium", getLoyaltyColor(customer.loyalty_tier))}
-                        >
-                          {customer.loyalty_tier}
+                        <LoyaltyBadge tier={customer.loyalty_tier} showIcon={true} />
+                        <Badge variant="outline" className="text-xs border-purple-200 text-purple-600 bg-purple-50">
+                          {customer.loyalty_points.toLocaleString()} pts
                         </Badge>
                         {customer.tags && customer.tags.length > 0 && (
                           <Badge variant="outline" className="text-xs border-purple-200 text-purple-600 bg-purple-50">
@@ -173,7 +169,7 @@ const CustomerList: React.FC<CustomerListProps> = ({
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-semibold text-gray-900 dark:text-white">
-                        {formatCurrency(customer.total_spent)}
+                        <CurrencyDisplay amount={customer.total_spent} />
                       </div>
                       <div className="text-xs text-gray-600 dark:text-gray-400">
                         {customer.visit_count} visits

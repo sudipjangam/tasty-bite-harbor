@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Customer } from "@/types/customer";
-import { User, Mail, Phone, MapPin, Calendar, FileText } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Customer, CustomerLoyaltyTier } from "@/types/customer";
+import { User, Mail, Phone, MapPin, Calendar, FileText, Star, Gift } from "lucide-react";
+import LoyaltyBadge from "@/components/Customers/LoyaltyBadge";
 
 interface CustomerDialogProps {
   open: boolean;
@@ -31,6 +33,8 @@ const CustomerDialog: React.FC<CustomerDialogProps> = ({
     birthday: "",
     preferences: "",
     tags: [],
+    loyalty_points: 0,
+    loyalty_tier: "None" as CustomerLoyaltyTier,
   });
 
   useEffect(() => {
@@ -44,6 +48,8 @@ const CustomerDialog: React.FC<CustomerDialogProps> = ({
         birthday: customer.birthday || "",
         preferences: customer.preferences || "",
         tags: customer.tags || [],
+        loyalty_points: customer.loyalty_points || 0,
+        loyalty_tier: customer.loyalty_tier || "None",
       });
     } else {
       setFormData({
@@ -54,6 +60,8 @@ const CustomerDialog: React.FC<CustomerDialogProps> = ({
         birthday: "",
         preferences: "",
         tags: [],
+        loyalty_points: 0,
+        loyalty_tier: "None" as CustomerLoyaltyTier,
       });
     }
   }, [customer, open]);
@@ -165,6 +173,48 @@ const CustomerDialog: React.FC<CustomerDialogProps> = ({
             />
           </div>
           
+          {/* Loyalty Section */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="loyalty_points" className="text-gray-700 font-medium flex items-center gap-2">
+                <Gift className="h-4 w-4 text-purple-500" />
+                Loyalty Points
+              </Label>
+              <Input
+                id="loyalty_points"
+                type="number"
+                value={formData.loyalty_points}
+                onChange={(e) => setFormData({ ...formData, loyalty_points: parseInt(e.target.value) || 0 })}
+                placeholder="0"
+                min="0"
+                className="bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-purple-300 transition-all duration-200"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="loyalty_tier" className="text-gray-700 font-medium flex items-center gap-2">
+                <Star className="h-4 w-4 text-purple-500" />
+                Loyalty Tier
+              </Label>
+              <Select 
+                value={formData.loyalty_tier} 
+                onValueChange={(value: CustomerLoyaltyTier) => setFormData({ ...formData, loyalty_tier: value })}
+              >
+                <SelectTrigger className="bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-purple-300 transition-all duration-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="None">None</SelectItem>
+                  <SelectItem value="Bronze">Bronze</SelectItem>
+                  <SelectItem value="Silver">Silver</SelectItem>
+                  <SelectItem value="Gold">Gold</SelectItem>
+                  <SelectItem value="Platinum">Platinum</SelectItem>
+                  <SelectItem value="Diamond">Diamond</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           {/* Preferences Field */}
           <div className="space-y-2">
             <Label htmlFor="preferences" className="text-gray-700 font-medium flex items-center gap-2">

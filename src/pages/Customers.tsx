@@ -134,6 +134,13 @@ const Customers = () => {
     }
   };
 
+  // Handle customer updates
+  const handleUpdateCustomer = (customer: Customer, updates: Partial<Customer>) => {
+    const updatedCustomer = { ...customer, ...updates };
+    setSelectedCustomer(updatedCustomer);
+    // The actual database update is handled by the LoyaltyManagement component
+  };
+
   const totalSpent = customers.reduce((sum, customer) => sum + customer.total_spent, 0);
   const averageOrderValue = customers.length > 0 ? totalSpent / customers.reduce((sum, customer) => sum + customer.visit_count, 0) || 0 : 0;
   const loyalCustomers = customers.filter(customer => customer.loyalty_tier === 'Diamond' || customer.loyalty_tier === 'Platinum').length;
@@ -265,6 +272,7 @@ const Customers = () => {
                   onAddNote={handleAddNote}
                   onAddTag={handleAddTag}
                   onRemoveTag={handleRemoveTag}
+                  onUpdateCustomer={handleUpdateCustomer}
                 />
               )}
             </div>

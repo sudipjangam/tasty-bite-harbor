@@ -23,10 +23,14 @@ import {
   Tag,
   TrendingUp,
   Star,
-  Clock
+  Clock,
+  Gift
 } from "lucide-react";
 import { Customer, CustomerOrder, CustomerNote, CustomerActivity } from "@/types/customer";
 import { cn } from "@/lib/utils";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
+import LoyaltyBadge from "@/components/Customers/LoyaltyBadge";
+import LoyaltyManagement from "./LoyaltyManagement";
 
 interface CustomerDetailProps {
   customer: Customer | null;
@@ -38,6 +42,7 @@ interface CustomerDetailProps {
   onAddNote: (customerId: string, content: string) => void;
   onAddTag: (customerId: string, tag: string) => void;
   onRemoveTag: (customerId: string, tag: string) => void;
+  onUpdateCustomer: (customer: Customer, updates: Partial<Customer>) => void;
 }
 
 const CustomerDetail: React.FC<CustomerDetailProps> = ({
@@ -50,6 +55,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
   onAddNote,
   onAddTag,
   onRemoveTag,
+  onUpdateCustomer,
 }) => {
   const [newNote, setNewNote] = useState("");
   const [newTag, setNewTag] = useState("");
@@ -69,12 +75,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
     );
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-    }).format(amount);
-  };
+  // Remove the old formatCurrency function since we're using CurrencyDisplay now
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-IN', {
@@ -134,9 +135,10 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
               <div className="flex-1">
                 <h1 className="text-2xl font-bold text-foreground">{customer.name}</h1>
                 <div className="flex items-center gap-2 mt-2">
-                  <Badge className={cn("text-sm", getLoyaltyColor(customer.loyalty_tier))}>
-                    <Star className="h-3 w-3 mr-1" />
-                    {customer.loyalty_tier}
+                  <LoyaltyBadge tier={customer.loyalty_tier} showIcon={true} />
+                  <Badge variant="outline" className="text-xs">
+                    <Gift className="h-3 w-3 mr-1" />
+                    {customer.loyalty_points.toLocaleString()} points
                   </Badge>
                   <span className="text-sm text-muted-foreground">
                     Customer since {formatDate(customer.created_at)}
@@ -165,7 +167,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
               <TrendingUp className="h-5 w-5 text-primary" />
               <div>
                 <p className="text-sm text-muted-foreground">Total Spent</p>
-                <p className="text-xl font-bold text-foreground">{formatCurrency(customer.total_spent)}</p>
+                <CurrencyDisplay amount={customer.total_spent} className="text-xl font-bold text-foreground" />
               </div>
             </div>
           </CardContent>
@@ -189,7 +191,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
               <TrendingUp className="h-5 w-5 text-primary" />
               <div>
                 <p className="text-sm text-muted-foreground">Avg Order</p>
-                <p className="text-xl font-bold text-foreground">{formatCurrency(customer.average_order_value)}</p>
+                <CurrencyDisplay amount={customer.average_order_value} className="text-xl font-bold text-foreground" />
               </div>
             </div>
           </CardContent>
@@ -216,6 +218,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
           <CardHeader className="border-b border-border">
             <TabsList className="bg-muted">
               <TabsTrigger value="overview" className="data-[state=active]:bg-background">Overview</TabsTrigger>
+              <TabsTrigger value="loyalty" className="data-[state=active]:bg-background">Loyalty</TabsTrigger>
               <TabsTrigger value="orders" className="data-[state=active]:bg-background">Orders ({orders.length})</TabsTrigger>
               <TabsTrigger value="notes" className="data-[state=active]:bg-background">Notes ({notes.length})</TabsTrigger>
               <TabsTrigger value="activity" className="data-[state=active]:bg-background">Activity</TabsTrigger>
@@ -326,6 +329,15 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
               </div>
             </TabsContent>
 
+            <TabsContent value="loyalty" className="h-full">
+              <ScrollArea className="h-full">
+                <LoyaltyManagement 
+                  customer={customer}
+                  onUpdateCustomer={(updates) => onUpdateCustomer(customer, updates)}
+                />
+              </ScrollArea>
+            </TabsContent>
+
             <TabsContent value="orders" className="h-full">
               <ScrollArea className="h-full">
                 {orders.length === 0 ? (
@@ -358,7 +370,9 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
                                order.source === 'table' ? 'Table Order' : 'Unknown'}
                             </Badge>
                           </TableCell>
-                          <TableCell className="font-medium text-foreground">{formatCurrency(order.amount)}</TableCell>
+                          <TableCell className="font-medium text-foreground">
+                            <CurrencyDisplay amount={order.amount} />
+                          </TableCell>
                           <TableCell>
                             <Badge variant={order.status === 'completed' ? 'default' : 'secondary'}>
                               {order.status}
