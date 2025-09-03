@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useProfitLoss } from "@/hooks/useProfitLoss";
 import { useFinancialData } from "@/hooks/useFinancialData";
+import { useFinancialTrends } from "@/hooks/useFinancialTrends";
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, FileText, Download } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 
 export const FinancialReports = () => {
   const { data: plData, isLoading: plLoading } = useProfitLoss();
   const { data: financialData, isLoading: financialLoading } = useFinancialData();
+  const { data: trendsData, isLoading: trendsLoading } = useFinancialTrends();
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -23,35 +25,35 @@ export const FinancialReports = () => {
     {
       title: "Monthly Revenue",
       value: plData?.revenue.totalRevenue || 0,
-      change: "+12.5%",
-      icon: TrendingUp,
-      color: "text-green-600",
+      change: `${trendsData?.revenueGrowth && trendsData.revenueGrowth >= 0 ? '+' : ''}${trendsData?.revenueGrowth?.toFixed(1) || '0'}%`,
+      icon: trendsData?.revenueGrowth && trendsData.revenueGrowth >= 0 ? TrendingUp : TrendingDown,
+      color: trendsData?.revenueGrowth && trendsData.revenueGrowth >= 0 ? "text-green-600" : "text-red-600",
     },
     {
       title: "Net Profit",
       value: plData?.netProfit || 0,
-      change: "+8.2%",
-      icon: DollarSign,
+      change: `${trendsData?.profitGrowth && trendsData.profitGrowth >= 0 ? '+' : ''}${trendsData?.profitGrowth?.toFixed(1) || '0'}%`,
+      icon: trendsData?.profitGrowth && trendsData.profitGrowth >= 0 ? TrendingUp : TrendingDown,
       color: plData?.netProfit && plData.netProfit > 0 ? "text-green-600" : "text-red-600",
     },
     {
       title: "Outstanding Invoices",
-      value: financialData?.invoices?.filter(i => i.status !== 'paid').length || 0,
-      change: "₹45,000 total",
+      value: trendsData?.outstandingInvoicesCount || 0,
+      change: `₹${trendsData?.outstandingInvoicesTotal?.toLocaleString() || '0'} total`,
       icon: FileText,
       color: "text-orange-600",
     },
     {
       title: "Profit Margin",
       value: plData?.profitMargin || 0,
-      change: "+2.1%",
-      icon: BarChart3,
-      color: "text-blue-600",
+      change: `${trendsData?.marginGrowth && trendsData.marginGrowth >= 0 ? '+' : ''}${trendsData?.marginGrowth?.toFixed(1) || '0'}%`,
+      icon: trendsData?.marginGrowth && trendsData.marginGrowth >= 0 ? TrendingUp : TrendingDown,
+      color: trendsData?.marginGrowth && trendsData.marginGrowth >= 0 ? "text-green-600" : "text-red-600",
       isPercentage: true,
     },
   ];
 
-  if (plLoading || financialLoading) {
+  if (plLoading || financialLoading || trendsLoading) {
     return <div>Loading financial overview...</div>;
   }
 
