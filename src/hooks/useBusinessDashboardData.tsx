@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, startOfWeek, addDays, isSameDay } from "date-fns";
 import { useExpenseData } from "./useExpenseData";
+import { useRealTimeBusinessData } from "./useRealTimeBusinessData";
 
 // Define proper types for inventory items
 interface InventoryItem {
@@ -73,6 +74,7 @@ interface Promotion {
 
 export const useBusinessDashboardData = () => {
   const { data: expenseDataFromHook } = useExpenseData();
+  const { data: realTimeData } = useRealTimeBusinessData();
 
   return useQuery({
     queryKey: ["business-dashboard-data"],
@@ -258,34 +260,36 @@ export const useBusinessDashboardData = () => {
             }
           ];
 
-      // Calculate peak hours data based on order timestamps
-      const hourCounts: Record<string, number> = {};
-      
-      // Initialize all hours with 0
-      for (let i = 9; i <= 22; i++) {
-        const hourLabel = i < 12 ? `${i} AM` : i === 12 ? `${i} PM` : `${i-12} PM`;
-        hourCounts[hourLabel] = 0;
-      }
-      
-      // Count orders by hour
-      if (typedOrderData) {
-        typedOrderData.forEach(order => {
-          const orderDate = new Date(order.created_at);
-          const hour = orderDate.getHours();
-          
-          // Only count business hours (9 AM to 10 PM)
-          if (hour >= 9 && hour <= 22) {
-            const hourLabel = hour < 12 ? `${hour} AM` : hour === 12 ? `${hour} PM` : `${hour-12} PM`;
-            hourCounts[hourLabel] = (hourCounts[hourLabel] || 0) + 1;
-          }
-        });
-      }
-      
-      // Convert to array format for chart
-      const peakHoursData = Object.entries(hourCounts).map(([hour, customers]) => ({
-        hour,
-        customers
-      }));
+      // Use real-time peak hours data if available, otherwise calculate from orders
+      const peakHoursData = realTimeData?.peakHoursData || (() => {
+        const hourCounts: Record<string, number> = {};
+        
+        // Initialize all hours with 0
+        for (let i = 9; i <= 22; i++) {
+          const hourLabel = i < 12 ? `${i} AM` : i === 12 ? `${i} PM` : `${i-12} PM`;
+          hourCounts[hourLabel] = 0;
+        }
+        
+        // Count orders by hour
+        if (typedOrderData) {
+          typedOrderData.forEach(order => {
+            const orderDate = new Date(order.created_at);
+            const hour = orderDate.getHours();
+            
+            // Only count business hours (9 AM to 10 PM)
+            if (hour >= 9 && hour <= 22) {
+              const hourLabel = hour < 12 ? `${hour} AM` : hour === 12 ? `${hour} PM` : `${hour-12} PM`;
+              hourCounts[hourLabel] = (hourCounts[hourLabel] || 0) + 1;
+            }
+          });
+        }
+        
+        // Convert to array format for chart
+        return Object.entries(hourCounts).map(([hour, customers]) => ({
+          hour,
+          customers
+        }));
+      })();
 
       // Convert database promotional campaigns to UI format
       const promotionalData: Promotion[] = (promotionCampaigns || []).map((campaign: PromotionCampaign, index: number) => ({
@@ -452,26 +456,25 @@ export const useBusinessDashboardData = () => {
         message: `${currentMonth} is approaching. Prepare special promotions to increase traffic based on previous year's data.`
       });
 
-      // Analyze orders by day of week
-      const dayOfWeekCounts: Record<string, number> = { 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0 };
-      const dayOfWeekRevenue: Record<string, number> = { 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0 };
-      
-      if (typedOrderData) {
-        typedOrderData.forEach(order => {
-          const orderDate = new Date(order.created_at);
-          const dayOfWeek = format(orderDate, 'EEE');
-          
-          // Update day of week counts and revenue
-          dayOfWeekCounts[dayOfWeek] = (dayOfWeekCounts[dayOfWeek] || 0) + 1;
-          dayOfWeekRevenue[dayOfWeek] = (dayOfWeekRevenue[dayOfWeek] || 0) + order.total;
-        });
-      }
+      // Use real-time weekday data if available, otherwise calculate from orders
+      const weekdayData = realTimeData?.weekdayComparison || (() => {
+        const dayOfWeekCounts: Record<string, number> = { 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0 };
+        
+        if (typedOrderData) {
+          typedOrderData.forEach(order => {
+            const orderDate = new Date(order.created_at);
+            const dayOfWeek = format(orderDate, 'EEE');
+            
+            // Update day of week counts
+            dayOfWeekCounts[dayOfWeek] = (dayOfWeekCounts[dayOfWeek] || 0) + 1;
+          });
+        }
 
-      // Prepare weekday distribution data for charts
-      const weekdayData = Object.entries(dayOfWeekCounts).map(([day, count]) => ({
-        day,
-        orders: count
-      }));
+        return Object.entries(dayOfWeekCounts).map(([day, count]) => ({
+          day,
+          orders: count
+        }));
+      })();
 
       // Prepare staffing distribution by role
       const staffByRole: Record<string, number> = {};

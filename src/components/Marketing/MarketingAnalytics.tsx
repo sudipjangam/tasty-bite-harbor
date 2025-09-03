@@ -4,6 +4,7 @@ import { StandardizedCard } from '@/components/ui/standardized-card';
 import { Badge } from '@/components/ui/badge';
 import { 
   TrendingUp, 
+  TrendingDown,
   MessageSquare, 
   DollarSign, 
   Users,
@@ -22,6 +23,12 @@ interface MarketingAnalyticsProps {
       sent: number;
       revenue: number;
     }>;
+    messageGrowth?: number;
+    revenueGrowth?: number;
+    avgOrderValue?: number;
+    repeatCustomerRate?: number;
+    customerLifetimeValue?: number;
+    churnRate?: number;
   };
 }
 
@@ -30,7 +37,13 @@ const MarketingAnalytics: React.FC<MarketingAnalyticsProps> = ({ analytics }) =>
     messagesSent = 0,
     revenueImpact = 0,
     specialOccasions = 0,
-    campaignPerformance = []
+    campaignPerformance = [],
+    messageGrowth = 0,
+    revenueGrowth = 0,
+    avgOrderValue = 0,
+    repeatCustomerRate = 0,
+    customerLifetimeValue = 0,
+    churnRate = 0
   } = analytics;
 
   return (
@@ -42,9 +55,13 @@ const MarketingAnalytics: React.FC<MarketingAnalyticsProps> = ({ analytics }) =>
             <div>
               <p className="text-sm text-muted-foreground">Messages Sent</p>
               <p className="text-2xl font-bold text-blue-600">{messagesSent}</p>
-              <p className="text-xs text-green-600 mt-1">
-                <TrendingUp className="inline h-3 w-3 mr-1" />
-                +12% from last month
+              <p className={`text-xs mt-1 ${messageGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {messageGrowth >= 0 ? (
+                  <TrendingUp className="inline h-3 w-3 mr-1" />
+                ) : (
+                  <TrendingDown className="inline h-3 w-3 mr-1" />
+                )}
+                {messageGrowth >= 0 ? '+' : ''}{messageGrowth.toFixed(1)}% from last month
               </p>
             </div>
             <MessageSquare className="h-8 w-8 text-blue-500" />
@@ -56,9 +73,13 @@ const MarketingAnalytics: React.FC<MarketingAnalyticsProps> = ({ analytics }) =>
             <div>
               <p className="text-sm text-muted-foreground">Revenue Impact</p>
               <p className="text-2xl font-bold text-green-600">₹{revenueImpact}</p>
-              <p className="text-xs text-green-600 mt-1">
-                <TrendingUp className="inline h-3 w-3 mr-1" />
-                +18% from last month
+              <p className={`text-xs mt-1 ${revenueGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {revenueGrowth >= 0 ? (
+                  <TrendingUp className="inline h-3 w-3 mr-1" />
+                ) : (
+                  <TrendingDown className="inline h-3 w-3 mr-1" />
+                )}
+                {revenueGrowth >= 0 ? '+' : ''}{revenueGrowth.toFixed(1)}% from last month
               </p>
             </div>
             <DollarSign className="h-8 w-8 text-green-500" />
@@ -161,19 +182,21 @@ const MarketingAnalytics: React.FC<MarketingAnalyticsProps> = ({ analytics }) =>
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Average Order Value</span>
-              <span className="font-semibold">₹2,450</span>
+              <span className="font-semibold">₹{avgOrderValue.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Repeat Customer Rate</span>
-              <span className="font-semibold">78%</span>
+              <span className="font-semibold">{repeatCustomerRate.toFixed(1)}%</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Customer Lifetime Value</span>
-              <span className="font-semibold">₹18,500</span>
+              <span className="font-semibold">₹{customerLifetimeValue.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Churn Rate</span>
-              <span className="font-semibold text-red-600">12%</span>
+              <span className={`font-semibold ${churnRate > 15 ? 'text-red-600' : 'text-yellow-600'}`}>
+                {churnRate.toFixed(1)}%
+              </span>
             </div>
           </div>
         </StandardizedCard>
