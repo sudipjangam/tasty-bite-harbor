@@ -18,6 +18,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import Stats from "@/components/Dashboard/Stats";
 import WeeklySalesChart from "@/components/Dashboard/WeeklySalesChart";
+import PerformanceMetrics from "@/components/Dashboard/PerformanceMetrics";
 
 const SimpleIndex = () => {
   const { user } = useAuth();
@@ -107,32 +108,7 @@ const SimpleIndex = () => {
           <WeeklySalesChart />
         </StandardizedCard>
         
-        <StandardizedCard>
-          <h2 className="text-lg font-semibold mb-4 flex items-center">
-            <BarChart3 className="h-5 w-5 mr-2 text-purple-600" />
-            Performance Metrics
-          </h2>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                Customer Satisfaction
-              </span>
-              <span className="text-lg font-bold text-green-600">96%</span>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                Table Turnover Rate
-              </span>
-              <span className="text-lg font-bold text-blue-600">2.3x</span>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-              <span className="text-sm font-medium text-purple-800 dark:text-purple-200">
-                Room Occupancy
-              </span>
-              <span className="text-lg font-bold text-purple-600">78%</span>
-            </div>
-          </div>
-        </StandardizedCard>
+        <PerformanceMetrics />
       </div>
     </div>
   );

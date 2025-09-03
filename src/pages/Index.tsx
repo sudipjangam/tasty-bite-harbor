@@ -21,6 +21,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import Stats from "@/components/Dashboard/Stats";
 import WeeklySalesChart from "@/components/Dashboard/WeeklySalesChart";
+import PerformanceMetrics from "@/components/Dashboard/PerformanceMetrics";
 
 const Index = () => {
   const { user, hasPermission } = useAuth();
@@ -232,74 +233,7 @@ const Index = () => {
           </div>
           
           {/* Performance Metrics */}
-          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl shadow-lg">
-                <BarChart3 className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  Performance Metrics
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400 text-sm">
-                  Key business indicators
-                </p>
-              </div>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="group relative overflow-hidden bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl p-4 border border-green-200/50 hover:shadow-lg transition-all duration-300">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-500 rounded-lg">
-                      <Users className="h-4 w-4 text-white" />
-                    </div>
-                    <span className="font-semibold text-green-800 dark:text-green-200">
-                      Customer Satisfaction
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-2xl font-bold text-green-600">96%</span>
-                    <div className="text-xs text-green-500">+2% this week</div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="group relative overflow-hidden bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl p-4 border border-blue-200/50 hover:shadow-lg transition-all duration-300">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-500 rounded-lg">
-                      <TrendingUp className="h-4 w-4 text-white" />
-                    </div>
-                    <span className="font-semibold text-blue-800 dark:text-blue-200">
-                      Table Turnover Rate
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-2xl font-bold text-blue-600">2.3x</span>
-                    <div className="text-xs text-blue-500">+0.2x this week</div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="group relative overflow-hidden bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-4 border border-purple-200/50 hover:shadow-lg transition-all duration-300">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-500 rounded-lg">
-                      <Bed className="h-4 w-4 text-white" />
-                    </div>
-                    <span className="font-semibold text-purple-800 dark:text-purple-200">
-                      Room Occupancy
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-2xl font-bold text-purple-600">78%</span>
-                    <div className="text-xs text-purple-500">+5% this week</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <PerformanceMetrics />
         </div>
       </div>
 
