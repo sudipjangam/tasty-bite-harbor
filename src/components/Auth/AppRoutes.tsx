@@ -4,6 +4,7 @@ import { ImprovedSidebarNavigation } from "@/components/Layout/ImprovedSidebarNa
 import Index from "@/pages/Index";
 import Orders from "@/pages/Orders";
 import POS from "@/pages/POS";
+import QSRPos from "@/pages/QSRPos";
 import Menu from "@/pages/Menu";
 import Staff from "@/pages/Staff";
 import Analytics from "@/pages/Analytics";
@@ -49,6 +50,11 @@ export const AppRoutes = () => {
           <Route path="/pos" element={
             <PermissionGuard permission="orders.view">
               <POS />
+            </PermissionGuard>
+          } />
+          <Route path="/qsr-pos" element={
+            <PermissionGuard permission="orders.view">
+              <QSRPos />
             </PermissionGuard>
           } />
           <Route path="/menu" element={
