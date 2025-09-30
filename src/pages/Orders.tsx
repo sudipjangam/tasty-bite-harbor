@@ -1,18 +1,14 @@
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import POSMode from "@/components/Orders/POS/POSMode";
 import OrdersView from "@/components/Orders/OrdersView/OrdersView";
-import { StandardizedLayout, StandardizedPageHeader } from "@/components/ui/standardized-layout";
+import { StandardizedLayout } from "@/components/ui/standardized-layout";
 import { QuickActionsToolbar, commonQuickActions } from "@/components/ui/quick-actions-toolbar";
 import { MobileNavigation } from "@/components/ui/mobile-navigation";
-import { Plus, Download, Search, Filter, ShoppingCart, Eye } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import AddOrderForm from "@/components/Orders/AddOrderForm";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const Orders = () => {
-  const [showPOS, setShowPOS] = useState(true);
   const [showAddOrderDialog, setShowAddOrderDialog] = useState(false);
   const [searchTrigger, setSearchTrigger] = useState(0);
   const [filterTrigger, setFilterTrigger] = useState(0);
@@ -59,65 +55,31 @@ const Orders = () => {
       <div className="bg-white/80 backdrop-blur-xl border-b border-white/20 shadow-xl sticky top-0 z-40">
         <StandardizedLayout padding="md">
           <div className="mb-6 bg-white/90 backdrop-blur-sm border border-white/30 rounded-3xl shadow-xl p-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
-                  Orders Management
-                </h1>
-                <p className="text-gray-600 text-lg">Manage your restaurant orders and point of sale system</p>
-              </div>
-              
-              {/* Modern Tab Switcher */}
-              <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm rounded-2xl p-2 border border-white/30 shadow-lg">
-                <button
-                  onClick={() => setShowPOS(true)}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    showPOS 
-                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg transform -translate-y-0.5' 
-                      : 'text-gray-600 hover:text-indigo-600 hover:bg-white/50'
-                  }`}
-                >
-                  <ShoppingCart className="h-4 w-4" />
-                  POS Mode
-                </button>
-                <button
-                  onClick={() => setShowPOS(false)}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    !showPOS 
-                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg transform -translate-y-0.5' 
-                      : 'text-gray-600 hover:text-indigo-600 hover:bg-white/50'
-                  }`}
-                >
-                  <Eye className="h-4 w-4" />
-                  Orders View
-                </button>
-              </div>
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
+                Orders Management
+              </h1>
+              <p className="text-gray-600 text-lg">View and manage all your restaurant orders</p>
             </div>
           </div>
           
-          {/* Quick Actions - Only show in Orders View mode */}
-          {!showPOS && (
-            <div className="bg-white/90 backdrop-blur-sm border border-white/30 rounded-2xl shadow-lg p-4 mb-4">
-              <QuickActionsToolbar 
-                actions={quickActions}
-              />
-            </div>
-          )}
+          {/* Quick Actions */}
+          <div className="bg-white/90 backdrop-blur-sm border border-white/30 rounded-2xl shadow-lg p-4 mb-4">
+            <QuickActionsToolbar 
+              actions={quickActions}
+            />
+          </div>
         </StandardizedLayout>
       </div>
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden">
-        {showPOS ? (
-          <POSMode />
-        ) : (
-          <OrdersView 
-            searchTrigger={searchTrigger}
-            filterTrigger={filterTrigger}
-            exportTrigger={exportTrigger}
-            refreshTrigger={refreshTrigger}
-          />
-        )}
+        <OrdersView 
+          searchTrigger={searchTrigger}
+          filterTrigger={filterTrigger}
+          exportTrigger={exportTrigger}
+          refreshTrigger={refreshTrigger}
+        />
       </div>
       
       {/* Add Order Dialog */}

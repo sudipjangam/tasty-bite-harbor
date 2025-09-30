@@ -62,10 +62,17 @@ const navigationGroups: NavigationGroup[] = [
     title: "Operations",
     items: [
       {
+        title: "POS",
+        icon: ShoppingCart,
+        href: "/pos",
+        description: "Point of Sale system",
+        requiredPermissions: ["orders.view"]
+      },
+      {
         title: "Orders",
         icon: ShoppingCart,
         href: "/orders",
-        description: "Manage customer orders",
+        description: "View & manage orders",
         requiredPermissions: ["orders.view"]
       },
       {

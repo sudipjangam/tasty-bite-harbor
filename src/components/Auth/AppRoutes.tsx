@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { ImprovedSidebarNavigation } from "@/components/Layout/ImprovedSidebarNavigation";
 import Index from "@/pages/Index";
 import Orders from "@/pages/Orders";
+import POS from "@/pages/POS";
 import Menu from "@/pages/Menu";
 import Staff from "@/pages/Staff";
 import Analytics from "@/pages/Analytics";
@@ -43,6 +44,11 @@ export const AppRoutes = () => {
           <Route path="/orders" element={
             <PermissionGuard permission="orders.view">
               <Orders />
+            </PermissionGuard>
+          } />
+          <Route path="/pos" element={
+            <PermissionGuard permission="orders.view">
+              <POS />
             </PermissionGuard>
           } />
           <Route path="/menu" element={
