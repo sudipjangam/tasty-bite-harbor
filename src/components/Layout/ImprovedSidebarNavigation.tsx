@@ -22,7 +22,8 @@ import {
   ChefHat,
   Globe,
   Shield,
-  LogOut
+  LogOut,
+  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,13 @@ const navigationGroups: NavigationGroup[] = [
         icon: ShoppingCart,
         href: "/orders",
         description: "View & manage orders",
+        requiredPermissions: ["orders.view"]
+      },
+      {
+        title: "QSR POS",
+        icon: Zap,
+        href: "/qsr-pos",
+        description: "Quick service restaurant POS",
         requiredPermissions: ["orders.view"]
       },
       {
