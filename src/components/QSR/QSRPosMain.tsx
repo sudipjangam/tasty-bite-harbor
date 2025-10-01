@@ -13,7 +13,7 @@ import { Zap } from 'lucide-react';
 type ViewMode = 'order' | 'history';
 type ToastType = { message: string; type: 'success' | 'error' | 'info' } | null;
 
-const TAX_RATE = 0.05;
+const TAX_RATE = 0;
 
 export const QSRPosMain = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('order');
