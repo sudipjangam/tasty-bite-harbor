@@ -112,6 +112,7 @@ export const QSRPosMain = () => {
         items: orderItems.map((item) => `${item.name} x${item.quantity}`),
         total: total,
         status: status === 'pending' ? 'held' : status,
+        source: 'qsr',
         created_at: new Date().toISOString(),
       };
 
@@ -133,6 +134,38 @@ export const QSRPosMain = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const retrieveOrder = (orderId: string, orderItems: string[], orderTotal: number) => {
+    if (orderItems.length > 0) {
+      showToast('Please clear current order before retrieving a held order', 'error');
+      return;
+    }
+
+    // Parse items back into order format
+    const parsedItems: QSROrderItem[] = orderItems.map((itemStr) => {
+      const match = itemStr.match(/^(.+?) x(\d+)$/);
+      if (match) {
+        const itemName = match[1];
+        const qty = parseInt(match[2]);
+        const menuItem = menuItems.find(m => m.name === itemName);
+        
+        if (menuItem) {
+          return {
+            menuItemId: menuItem.id,
+            name: menuItem.name,
+            price: menuItem.price,
+            quantity: qty,
+            category: menuItem.category,
+          };
+        }
+      }
+      return null;
+    }).filter(Boolean) as QSROrderItem[];
+
+    setOrderItems(parsedItems);
+    setViewMode('order');
+    showToast('Order retrieved successfully', 'success');
   };
 
   const handleKOT = () => saveOrder('held');
@@ -219,7 +252,10 @@ export const QSRPosMain = () => {
         </div>
       ) : (
         <div className="flex-1 overflow-hidden">
-          <OrderHistory />
+          <OrderHistory 
+            onRetrieveOrder={retrieveOrder}
+            currentOrderHasItems={orderItems.length > 0}
+          />
         </div>
       )}
 
