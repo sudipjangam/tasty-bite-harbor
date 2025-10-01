@@ -1,4 +1,4 @@
-import { QSRCategory } from '@/types/qsr';
+import { QSRCategory } from '@/hooks/useQSRMenuItems';
 
 interface CategoryListProps {
   categories: QSRCategory[];

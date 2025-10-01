@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useRestaurantId } from '@/hooks/useRestaurantId';
-import { QSR_CATEGORIES, QSR_MENU_ITEMS, QSRMenuItem, QSROrderItem } from '@/types/qsr';
+import { useQSRMenuItems, QSRMenuItem } from '@/hooks/useQSRMenuItems';
+import { QSROrderItem } from '@/types/qsr';
 import { CategoryList } from './CategoryList';
 import { MenuItemsGrid } from './MenuItemsGrid';
 import { OrderSummary } from './OrderSummary';
@@ -16,14 +17,23 @@ const TAX_RATE = 0.05;
 
 export const QSRPosMain = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('order');
-  const [selectedCategory, setSelectedCategory] = useState(QSR_CATEGORIES[0].id);
   const [orderItems, setOrderItems] = useState<QSROrderItem[]>([]);
   const [toast, setToast] = useState<ToastType>(null);
   const [loading, setLoading] = useState(false);
-  const restaurantId = useRestaurantId();
+  const { restaurantId } = useRestaurantId();
+  const { menuItems, categories, isLoading: menuLoading } = useQSRMenuItems();
+  
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
 
-  const filteredItems = QSR_MENU_ITEMS.filter(
-    (item) => item.category === selectedCategory
+  // Set first category as default when categories load
+  React.useEffect(() => {
+    if (categories.length > 0 && !selectedCategory) {
+      setSelectedCategory(categories[0].id);
+    }
+  }, [categories, selectedCategory]);
+
+  const filteredItems = menuItems.filter(
+    (item) => item.category.toLowerCase().replace(/\s+/g, '-') === selectedCategory
   );
 
   const subtotal = orderItems.reduce(
@@ -54,9 +64,11 @@ export const QSRPosMain = () => {
           name: menuItem.name,
           price: menuItem.price,
           quantity: 1,
+          category: menuItem.category,
         },
       ];
     });
+    showToast(`${menuItem.name} added to order`, 'success');
   };
 
   const incrementItem = (menuItemId: string) => {
@@ -168,16 +180,24 @@ export const QSRPosMain = () => {
         <div className="flex-1 grid grid-cols-1 md:grid-cols-12 overflow-hidden">
           {/* Categories - Left Column */}
           <div className="md:col-span-2 border-r border-border overflow-hidden">
-            <CategoryList
-              categories={QSR_CATEGORIES}
-              selectedCategory={selectedCategory}
-              onSelectCategory={setSelectedCategory}
-            />
+            {menuLoading ? (
+              <div className="p-4 text-center text-muted-foreground">Loading...</div>
+            ) : (
+              <CategoryList
+                categories={categories}
+                selectedCategory={selectedCategory}
+                onSelectCategory={setSelectedCategory}
+              />
+            )}
           </div>
 
           {/* Menu Items - Middle Column */}
           <div className="md:col-span-6 overflow-hidden">
-            <MenuItemsGrid items={filteredItems} onAddItem={addItem} />
+            {menuLoading ? (
+              <div className="p-8 text-center text-muted-foreground">Loading menu items...</div>
+            ) : (
+              <MenuItemsGrid items={filteredItems} onAddItem={addItem} />
+            )}
           </div>
 
           {/* Order Summary - Right Column */}
@@ -214,3 +234,6 @@ export const QSRPosMain = () => {
     </div>
   );
 };
+
+// Import React for useEffect
+import React from 'react';

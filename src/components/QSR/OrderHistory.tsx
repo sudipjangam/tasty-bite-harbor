@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useRestaurantId } from '@/hooks/useRestaurantId';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -15,14 +16,13 @@ interface HistoryOrder {
 }
 
 export const OrderHistory = () => {
-  const [orders, setOrders] = useState<HistoryOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const restaurantId = useRestaurantId();
+  const { restaurantId } = useRestaurantId();
 
-  useEffect(() => {
-    if (!restaurantId) return;
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ['qsr-orders', restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return [];
 
-    const fetchOrders = async () => {
       const { data, error } = await supabase
         .from('orders')
         .select('*')
@@ -30,35 +30,18 @@ export const OrderHistory = () => {
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (!error && data) {
-        setOrders(data as HistoryOrder[]);
-      }
-      setLoading(false);
-    };
+      if (error) throw error;
+      return data as HistoryOrder[];
+    },
+    enabled: !!restaurantId,
+  });
 
-    fetchOrders();
-
-    // Real-time subscription
-    const channel = supabase
-      .channel('qsr-order-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders',
-          filter: `restaurant_id=eq.${restaurantId}`,
-        },
-        () => {
-          fetchOrders();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [restaurantId]);
+  // Set up real-time subscription for orders
+  useRealtimeSubscription({
+    table: 'orders',
+    queryKey: ['qsr-orders', restaurantId],
+    filter: restaurantId ? { column: 'restaurant_id', value: restaurantId } : null,
+  });
 
   const getStatusBadge = (status: string) => {
     const statusMap = {
@@ -78,7 +61,7 @@ export const OrderHistory = () => {
     return items;
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-muted-foreground">Loading order history...</div>
