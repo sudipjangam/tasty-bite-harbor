@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -2052,6 +2052,7 @@ export type Database = {
           id: string
           items: string[]
           restaurant_id: string
+          source: string | null
           status: string
           total: number
           updated_at: string
@@ -2062,6 +2063,7 @@ export type Database = {
           id?: string
           items: string[]
           restaurant_id: string
+          source?: string | null
           status?: string
           total: number
           updated_at?: string
@@ -2072,6 +2074,7 @@ export type Database = {
           id?: string
           items?: string[]
           restaurant_id?: string
+          source?: string | null
           status?: string
           total?: number
           updated_at?: string
@@ -4315,10 +4318,10 @@ export type Database = {
     Functions: {
       add_customer_activity: {
         Args: {
-          customer_id_param: string
-          restaurant_id_param: string
           activity_type_param: string
+          customer_id_param: string
           description_param: string
+          restaurant_id_param: string
         }
         Returns: {
           activity_type: string
@@ -4331,10 +4334,10 @@ export type Database = {
       }
       add_customer_note: {
         Args: {
-          customer_id_param: string
-          restaurant_id_param: string
           content_param: string
           created_by_param: string
+          customer_id_param: string
+          restaurant_id_param: string
         }
         Returns: {
           content: string
@@ -4347,13 +4350,13 @@ export type Database = {
       }
       add_loyalty_transaction: {
         Args: {
-          customer_id_param: string
-          restaurant_id_param: string
-          transaction_type_param: string
-          points_param: number
-          source_param: string
-          notes_param: string
           created_by_param: string
+          customer_id_param: string
+          notes_param: string
+          points_param: number
+          restaurant_id_param: string
+          source_param: string
+          transaction_type_param: string
         }
         Returns: {
           created_at: string
@@ -4378,8 +4381,8 @@ export type Database = {
       }
       generate_time_slots_for_date: {
         Args: {
-          p_restaurant_id: string
           p_date: string
+          p_restaurant_id: string
           p_slot_duration_minutes?: number
         }
         Returns: {
@@ -4430,14 +4433,14 @@ export type Database = {
       suggest_purchase_orders: {
         Args: { restaurant_id_param: string }
         Returns: {
+          estimated_total: number
+          items_count: number
           supplier_id: string
           supplier_name: string
-          items_count: number
-          estimated_total: number
         }[]
       }
       user_has_role_or_permission: {
-        Args: { required_roles: string[]; required_permissions?: string[] }
+        Args: { required_permissions?: string[]; required_roles: string[] }
         Returns: boolean
       }
     }
