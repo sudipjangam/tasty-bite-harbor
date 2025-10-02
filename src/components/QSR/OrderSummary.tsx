@@ -95,10 +95,6 @@ export const OrderSummary = ({
             <span>Subtotal:</span>
             <span><CurrencyDisplay amount={subtotal} showTooltip={false} /></span>
           </div>
-          <div className="flex justify-between text-muted-foreground">
-            <span>Tax (5%):</span>
-            <span><CurrencyDisplay amount={tax} showTooltip={false} /></span>
-          </div>
           <div className="flex justify-between text-xl font-bold text-primary pt-2 border-t border-border">
             <span>TOTAL:</span>
             <span><CurrencyDisplay amount={total} showTooltip={false} /></span>

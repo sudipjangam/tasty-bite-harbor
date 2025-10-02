@@ -136,14 +136,14 @@ export const QSRPosMain = () => {
     }
   };
 
-  const retrieveOrder = (orderId: string, orderItems: string[], orderTotal: number) => {
+  const retrieveOrder = (orderId: string, items: string[], orderTotal: number) => {
     if (orderItems.length > 0) {
       showToast('Please clear current order before retrieving a held order', 'error');
       return;
     }
 
     // Parse items back into order format
-    const parsedItems: QSROrderItem[] = orderItems.map((itemStr) => {
+    const parsedItems: QSROrderItem[] = items.map((itemStr) => {
       const match = itemStr.match(/^(.+?) x(\d+)$/);
       if (match) {
         const itemName = match[1];
@@ -167,7 +167,6 @@ export const QSRPosMain = () => {
     setViewMode('order');
     showToast('Order retrieved successfully', 'success');
   };
-
   const handleKOT = () => saveOrder('held');
   const handleCancel = () => {
     clearOrder();
