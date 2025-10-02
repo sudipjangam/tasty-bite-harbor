@@ -20,6 +20,7 @@ export const QSRPosMain = () => {
   const [orderItems, setOrderItems] = useState<QSROrderItem[]>([]);
   const [toast, setToast] = useState<ToastType>(null);
   const [loading, setLoading] = useState(false);
+  const [retrievedOrderId, setRetrievedOrderId] = useState<string | null>(null);
   const { restaurantId } = useRestaurantId();
   const { menuItems, categories, isLoading: menuLoading } = useQSRMenuItems();
   
@@ -113,10 +114,24 @@ export const QSRPosMain = () => {
         total: total,
         status: status === 'pending' ? 'held' : status,
         source: 'qsr',
-        created_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase.from('orders').insert([orderData]);
+      let error;
+
+      // If we retrieved an existing order, update it instead of inserting
+      if (retrievedOrderId) {
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update(orderData)
+          .eq('id', retrievedOrderId);
+        error = updateError;
+      } else {
+        // Otherwise, insert a new order
+        const { error: insertError } = await supabase
+          .from('orders')
+          .insert([{ ...orderData, created_at: new Date().toISOString() }]);
+        error = insertError;
+      }
 
       if (error) throw error;
 
@@ -128,6 +143,7 @@ export const QSRPosMain = () => {
 
       showToast(statusMessages[status], 'success');
       clearOrder();
+      setRetrievedOrderId(null); // Clear retrieved order ID after saving
     } catch (error) {
       console.error('Error saving order:', error);
       showToast('Failed to save order. Please try again.', 'error');
@@ -164,12 +180,14 @@ export const QSRPosMain = () => {
     }).filter(Boolean) as QSROrderItem[];
 
     setOrderItems(parsedItems);
+    setRetrievedOrderId(orderId); // Store the retrieved order ID
     setViewMode('order');
     showToast('Order retrieved successfully', 'success');
   };
   const handleKOT = () => saveOrder('held');
   const handleCancel = () => {
     clearOrder();
+    setRetrievedOrderId(null); // Clear retrieved order ID on cancel
     showToast('Order cancelled', 'info');
   };
   const handlePayNow = () => saveOrder('paid');
