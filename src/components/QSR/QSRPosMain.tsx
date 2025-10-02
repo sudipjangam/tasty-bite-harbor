@@ -116,24 +116,34 @@ export const QSRPosMain = () => {
         source: 'qsr',
       };
 
-      let error;
-
-      // If we retrieved an existing order, update it instead of inserting
+      // Try to UPDATE existing retrieved order first
       if (retrievedOrderId) {
-        const { error: updateError } = await supabase
+        const { data: updatedRows, error: updateError } = await supabase
           .from('orders')
           .update(orderData)
-          .eq('id', retrievedOrderId);
-        error = updateError;
+          .eq('id', retrievedOrderId)
+          .select('id');
+
+        if (updateError) throw updateError;
+
+        // If no rows were updated (edge case), INSERT a new order and DELETE the old held one
+        if (!updatedRows || updatedRows.length === 0) {
+          const { data: insertedRows, error: insertError } = await supabase
+            .from('orders')
+            .insert([{ ...orderData, created_at: new Date().toISOString() }])
+            .select('id');
+          if (insertError) throw insertError;
+
+          // Remove old held order to avoid duplicates in history
+          await supabase.from('orders').delete().eq('id', retrievedOrderId);
+        }
       } else {
-        // Otherwise, insert a new order
+        // Otherwise, INSERT a brand new order
         const { error: insertError } = await supabase
           .from('orders')
           .insert([{ ...orderData, created_at: new Date().toISOString() }]);
-        error = insertError;
+        if (insertError) throw insertError;
       }
-
-      if (error) throw error;
 
       const statusMessages = {
         paid: 'Order completed and paid successfully!',
