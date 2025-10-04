@@ -135,7 +135,7 @@ const BrandingSection: React.FC = () => {
           <Button 
             variant="outline" 
             className="group border-brand-deep-blue/20 text-brand-deep-blue hover:bg-brand-deep-blue hover:text-white transition-all duration-200"
-            onClick={() => window.open("https://swadeshisolutions.teleporthq.app", "_blank")}
+            onClick={() => window.open("/website", "_blank")}
           >
             <span>Visit our website</span>
             <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">

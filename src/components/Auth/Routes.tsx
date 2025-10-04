@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppRoutes } from "./AppRoutes";
 import Auth from "@/pages/Auth";
 import NotFound from "@/pages/NotFound";
+import LandingWebsite from "@/pages/LandingWebsite";
 
 const Routes = () => {
   const { user, loading } = useAuth();
@@ -22,6 +23,7 @@ const Routes = () => {
     console.log("Routes: No user, showing auth");
     return (
       <RouterRoutes>
+        <Route path="/website" element={<LandingWebsite />} />
         <Route path="*" element={<Auth />} />
       </RouterRoutes>
     );
@@ -30,6 +32,7 @@ const Routes = () => {
   console.log("Routes: User authenticated, showing app routes");
   return (
     <RouterRoutes>
+      <Route path="/website" element={<LandingWebsite />} />
       <Route path="/*" element={<AppRoutes />} />
       <Route path="*" element={<NotFound />} />
     </RouterRoutes>
