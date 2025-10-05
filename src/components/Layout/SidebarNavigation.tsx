@@ -19,6 +19,7 @@ import {
   Globe,
   ChefHat,
   Zap,
+  Utensils,
 } from "lucide-react";
 
 interface SidebarNavigationProps {
@@ -36,6 +37,7 @@ const SidebarNavigation = ({ allowedComponents = [] }: SidebarNavigationProps) =
     { icon: Zap, label: "QSR POS", path: "/qsr-pos" },
     { icon: ChefHat, label: "Kitchen", path: "/kitchen" },
     { icon: BookOpen, label: "Menu", path: "/menu" },
+    { icon: Utensils, label: "Recipes & Costing", path: "/recipes" },
     { icon: Users, label: "Staff", path: "/staff" },
     { icon: Package, label: "Inventory", path: "/inventory" },
     { icon: Calendar, label: "Tables", path: "/tables" },

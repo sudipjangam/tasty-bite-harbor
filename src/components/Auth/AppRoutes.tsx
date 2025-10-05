@@ -24,6 +24,7 @@ import Kitchen from "@/pages/Kitchen";
 import Financial from "@/pages/Financial";
 import Security from "@/pages/Security";
 import UserManagement from "@/pages/UserManagement";
+import RecipeManagement from "@/pages/RecipeManagement";
 import { PermissionGuard } from "./PermissionGuard";
 
 /**
@@ -60,6 +61,11 @@ export const AppRoutes = () => {
           <Route path="/menu" element={
             <PermissionGuard permission="menu.view">
               <Menu />
+            </PermissionGuard>
+          } />
+          <Route path="/recipes" element={
+            <PermissionGuard permission="menu.view">
+              <RecipeManagement />
             </PermissionGuard>
           } />
           <Route path="/staff" element={
