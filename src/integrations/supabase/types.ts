@@ -125,6 +125,80 @@ export type Database = {
         }
         Relationships: []
       }
+      batch_productions: {
+        Row: {
+          batch_size: number
+          completed_at: string | null
+          cost_per_unit: number | null
+          created_at: string
+          id: string
+          notes: string | null
+          produced_by: string | null
+          production_date: string
+          recipe_id: string
+          restaurant_id: string
+          started_at: string | null
+          status: string | null
+          total_cost: number | null
+          updated_at: string
+          waste_amount: number | null
+          waste_reason: string | null
+          yield_actual: number | null
+          yield_expected: number | null
+          yield_percentage: number | null
+        }
+        Insert: {
+          batch_size: number
+          completed_at?: string | null
+          cost_per_unit?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          produced_by?: string | null
+          production_date?: string
+          recipe_id: string
+          restaurant_id: string
+          started_at?: string | null
+          status?: string | null
+          total_cost?: number | null
+          updated_at?: string
+          waste_amount?: number | null
+          waste_reason?: string | null
+          yield_actual?: number | null
+          yield_expected?: number | null
+          yield_percentage?: number | null
+        }
+        Update: {
+          batch_size?: number
+          completed_at?: string | null
+          cost_per_unit?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          produced_by?: string | null
+          production_date?: string
+          recipe_id?: string
+          restaurant_id?: string
+          started_at?: string | null
+          status?: string | null
+          total_cost?: number | null
+          updated_at?: string
+          waste_amount?: number | null
+          waste_reason?: string | null
+          yield_actual?: number | null
+          yield_expected?: number | null
+          yield_percentage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_productions_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       booking_channels: {
         Row: {
           api_endpoint: string | null
@@ -2586,6 +2660,182 @@ export type Database = {
         }
         Relationships: []
       }
+      recipe_ingredients: {
+        Row: {
+          cost_per_unit: number | null
+          created_at: string
+          id: string
+          inventory_item_id: string
+          notes: string | null
+          quantity: number
+          recipe_id: string
+          total_cost: number | null
+          unit: Database["public"]["Enums"]["unit_of_measure"]
+          updated_at: string
+        }
+        Insert: {
+          cost_per_unit?: number | null
+          created_at?: string
+          id?: string
+          inventory_item_id: string
+          notes?: string | null
+          quantity: number
+          recipe_id: string
+          total_cost?: number | null
+          unit: Database["public"]["Enums"]["unit_of_measure"]
+          updated_at?: string
+        }
+        Update: {
+          cost_per_unit?: number | null
+          created_at?: string
+          id?: string
+          inventory_item_id?: string
+          notes?: string | null
+          quantity?: number
+          recipe_id?: string
+          total_cost?: number | null
+          unit?: Database["public"]["Enums"]["unit_of_measure"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_ingredients_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_ingredients_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipe_nutrition: {
+        Row: {
+          allergens: string[] | null
+          calories: number | null
+          carbs_g: number | null
+          created_at: string
+          dietary_tags: string[] | null
+          fat_g: number | null
+          fiber_g: number | null
+          id: string
+          protein_g: number | null
+          recipe_id: string
+          sodium_mg: number | null
+          updated_at: string
+        }
+        Insert: {
+          allergens?: string[] | null
+          calories?: number | null
+          carbs_g?: number | null
+          created_at?: string
+          dietary_tags?: string[] | null
+          fat_g?: number | null
+          fiber_g?: number | null
+          id?: string
+          protein_g?: number | null
+          recipe_id: string
+          sodium_mg?: number | null
+          updated_at?: string
+        }
+        Update: {
+          allergens?: string[] | null
+          calories?: number | null
+          carbs_g?: number | null
+          created_at?: string
+          dietary_tags?: string[] | null
+          fat_g?: number | null
+          fiber_g?: number | null
+          id?: string
+          protein_g?: number | null
+          recipe_id?: string
+          sodium_mg?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_nutrition_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: true
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipes: {
+        Row: {
+          category: Database["public"]["Enums"]["recipe_category"]
+          cook_time_minutes: number | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          difficulty: string | null
+          food_cost_percentage: number | null
+          id: string
+          image_url: string | null
+          instructions: string | null
+          is_active: boolean | null
+          margin_percentage: number | null
+          name: string
+          prep_time_minutes: number | null
+          restaurant_id: string
+          selling_price: number | null
+          serving_size: number
+          serving_unit: string | null
+          total_cost: number | null
+          updated_at: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["recipe_category"]
+          cook_time_minutes?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty?: string | null
+          food_cost_percentage?: number | null
+          id?: string
+          image_url?: string | null
+          instructions?: string | null
+          is_active?: boolean | null
+          margin_percentage?: number | null
+          name: string
+          prep_time_minutes?: number | null
+          restaurant_id: string
+          selling_price?: number | null
+          serving_size?: number
+          serving_unit?: string | null
+          total_cost?: number | null
+          updated_at?: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["recipe_category"]
+          cook_time_minutes?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty?: string | null
+          food_cost_percentage?: number | null
+          id?: string
+          image_url?: string | null
+          instructions?: string | null
+          is_active?: boolean | null
+          margin_percentage?: number | null
+          name?: string
+          prep_time_minutes?: number | null
+          restaurant_id?: string
+          selling_price?: number | null
+          serving_size?: number
+          serving_unit?: string | null
+          total_cost?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       reservations: {
         Row: {
           created_at: string
@@ -4445,7 +4695,28 @@ export type Database = {
       }
     }
     Enums: {
+      recipe_category:
+        | "appetizer"
+        | "main_course"
+        | "dessert"
+        | "beverage"
+        | "side_dish"
+        | "salad"
+        | "soup"
+        | "breakfast"
+        | "snack"
       subscription_interval: "monthly" | "quarterly" | "half_yearly" | "yearly"
+      unit_of_measure:
+        | "kg"
+        | "g"
+        | "mg"
+        | "l"
+        | "ml"
+        | "piece"
+        | "dozen"
+        | "cup"
+        | "tbsp"
+        | "tsp"
       user_role:
         | "admin"
         | "manager"
@@ -4581,7 +4852,30 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      recipe_category: [
+        "appetizer",
+        "main_course",
+        "dessert",
+        "beverage",
+        "side_dish",
+        "salad",
+        "soup",
+        "breakfast",
+        "snack",
+      ],
       subscription_interval: ["monthly", "quarterly", "half_yearly", "yearly"],
+      unit_of_measure: [
+        "kg",
+        "g",
+        "mg",
+        "l",
+        "ml",
+        "piece",
+        "dozen",
+        "cup",
+        "tbsp",
+        "tsp",
+      ],
       user_role: [
         "admin",
         "manager",
