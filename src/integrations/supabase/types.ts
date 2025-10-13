@@ -4438,9 +4438,54 @@ export type Database = {
           },
         ]
       }
+      table_pacing: {
+        Row: {
+          actual_departure: string | null
+          created_at: string
+          expected_duration_minutes: number | null
+          id: string
+          notes: string | null
+          pacing_status: string | null
+          reservation_id: string | null
+          restaurant_id: string
+          seated_at: string
+          table_id: string
+          turn_time_minutes: number | null
+        }
+        Insert: {
+          actual_departure?: string | null
+          created_at?: string
+          expected_duration_minutes?: number | null
+          id?: string
+          notes?: string | null
+          pacing_status?: string | null
+          reservation_id?: string | null
+          restaurant_id: string
+          seated_at: string
+          table_id: string
+          turn_time_minutes?: number | null
+        }
+        Update: {
+          actual_departure?: string | null
+          created_at?: string
+          expected_duration_minutes?: number | null
+          id?: string
+          notes?: string | null
+          pacing_status?: string | null
+          reservation_id?: string | null
+          restaurant_id?: string
+          seated_at?: string
+          table_id?: string
+          turn_time_minutes?: number | null
+        }
+        Relationships: []
+      }
       table_reservations: {
         Row: {
           arrival_time: string | null
+          confirmation_method: string | null
+          confirmation_sent: boolean | null
+          confirmation_sent_at: string | null
           created_at: string
           customer_email: string | null
           customer_name: string
@@ -4450,6 +4495,8 @@ export type Database = {
           id: string
           notes: string | null
           party_size: number
+          reminder_sent: boolean | null
+          reminder_sent_at: string | null
           reservation_date: string
           reservation_time: string
           restaurant_id: string
@@ -4460,6 +4507,9 @@ export type Database = {
         }
         Insert: {
           arrival_time?: string | null
+          confirmation_method?: string | null
+          confirmation_sent?: boolean | null
+          confirmation_sent_at?: string | null
           created_at?: string
           customer_email?: string | null
           customer_name: string
@@ -4469,6 +4519,8 @@ export type Database = {
           id?: string
           notes?: string | null
           party_size: number
+          reminder_sent?: boolean | null
+          reminder_sent_at?: string | null
           reservation_date: string
           reservation_time: string
           restaurant_id: string
@@ -4479,6 +4531,9 @@ export type Database = {
         }
         Update: {
           arrival_time?: string | null
+          confirmation_method?: string | null
+          confirmation_sent?: boolean | null
+          confirmation_sent_at?: string | null
           created_at?: string
           customer_email?: string | null
           customer_name?: string
@@ -4488,6 +4543,8 @@ export type Database = {
           id?: string
           notes?: string | null
           party_size?: number
+          reminder_sent?: boolean | null
+          reminder_sent_at?: string | null
           reservation_date?: string
           reservation_time?: string
           restaurant_id?: string
@@ -4538,6 +4595,57 @@ export type Database = {
           tax_name?: string
           tax_rate?: number
           tax_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      waitlist: {
+        Row: {
+          check_in_time: string
+          created_at: string
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
+          estimated_wait_time: number | null
+          id: string
+          notes: string | null
+          party_size: number
+          priority: number | null
+          restaurant_id: string
+          seated_time: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          check_in_time?: string
+          created_at?: string
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          estimated_wait_time?: number | null
+          id?: string
+          notes?: string | null
+          party_size: number
+          priority?: number | null
+          restaurant_id: string
+          seated_time?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          check_in_time?: string
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          estimated_wait_time?: number | null
+          id?: string
+          notes?: string | null
+          party_size?: number
+          priority?: number | null
+          restaurant_id?: string
+          seated_time?: string | null
+          status?: string
           updated_at?: string
         }
         Relationships: []
