@@ -1,14 +1,16 @@
 
 import React from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { PageHeader } from "@/components/Layout/PageHeader";
-import { StandardizedCard } from "@/components/ui/standardized-card";
 import { StandardizedButton } from "@/components/ui/standardized-button";
 import { useReservations } from "@/hooks/useReservations";
 import { useTables } from "@/hooks/useTables";
 import { useRooms } from "@/hooks/useRooms";
 import ReservationsList from "@/components/Tables/ReservationsList";
 import UnifiedReservationDialog from "@/components/UnifiedReservationDialog";
+import { WaitlistManager } from "@/components/Reservations/WaitlistManager";
+import { TableAvailabilityHeatMap } from "@/components/Reservations/TableAvailabilityHeatMap";
+import { ReservationConfirmations } from "@/components/Reservations/ReservationConfirmations";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Calendar, Users, Clock, CalendarCheck, Sparkles, Car, Building } from "lucide-react";
 import { useState } from "react";
 
@@ -143,39 +145,62 @@ const Reservations = () => {
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex gap-4 mb-6">
-        <StandardizedButton
-          onClick={() => {
-            setReservationType('table');
-            setOpenReservationDialog(true);
-          }}
-          className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2"
-        >
-          <Car className="h-4 w-4" />
-          New Table Reservation
-        </StandardizedButton>
-        <StandardizedButton
-          onClick={() => {
-            setReservationType('room');
-            setOpenReservationDialog(true);
-          }}
-          className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2"
-        >
-          <Building className="h-4 w-4" />
-          New Room Reservation
-        </StandardizedButton>
-      </div>
-
-      {/* Reservations List with Glass Effect */}
+      {/* Tabbed Interface with Glass Effect */}
       <div className="bg-white/90 backdrop-blur-sm border border-white/30 rounded-3xl shadow-xl overflow-hidden">
         <div className="p-8">
-          <h2 className="text-2xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">All Reservations</h2>
-          <ReservationsList
-            reservations={reservations}
-            onUpdateStatus={handleUpdateStatus}
-            onDelete={handleDelete}
-          />
+          <Tabs defaultValue="reservations" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-4 bg-gradient-to-r from-blue-50 to-indigo-50 p-1 rounded-xl">
+              <TabsTrigger value="reservations" className="rounded-lg">Reservations</TabsTrigger>
+              <TabsTrigger value="waitlist" className="rounded-lg">Waitlist</TabsTrigger>
+              <TabsTrigger value="availability" className="rounded-lg">Availability</TabsTrigger>
+              <TabsTrigger value="communications" className="rounded-lg">Communications</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="reservations" className="space-y-4">
+              {/* Action Buttons */}
+              <div className="flex gap-4">
+                <StandardizedButton
+                  onClick={() => {
+                    setReservationType('table');
+                    setOpenReservationDialog(true);
+                  }}
+                  className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2"
+                >
+                  <Car className="h-4 w-4" />
+                  New Table Reservation
+                </StandardizedButton>
+                <StandardizedButton
+                  onClick={() => {
+                    setReservationType('room');
+                    setOpenReservationDialog(true);
+                  }}
+                  className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2"
+                >
+                  <Building className="h-4 w-4" />
+                  New Room Reservation
+                </StandardizedButton>
+              </div>
+
+              {/* Reservations List */}
+              <ReservationsList
+                reservations={reservations}
+                onUpdateStatus={handleUpdateStatus}
+                onDelete={handleDelete}
+              />
+            </TabsContent>
+
+            <TabsContent value="waitlist">
+              <WaitlistManager />
+            </TabsContent>
+
+            <TabsContent value="availability">
+              <TableAvailabilityHeatMap />
+            </TabsContent>
+
+            <TabsContent value="communications">
+              <ReservationConfirmations />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
 
