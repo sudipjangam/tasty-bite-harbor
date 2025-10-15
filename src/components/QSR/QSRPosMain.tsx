@@ -112,7 +112,7 @@ export const QSRPosMain = () => {
         customer_name: 'QSR Customer',
         items: orderItems.map((item) => `${item.name} x${item.quantity}`),
         total: total,
-        status: status === 'pending' ? 'held' : status,
+        status: status,
         source: 'qsr',
       };
 
@@ -133,16 +133,29 @@ export const QSRPosMain = () => {
 
         if (updateError) throw updateError;
 
-        // Update corresponding kitchen order if it's not held
-        if (status !== 'held') {
+        // Create or update corresponding kitchen order
+        const { data: koUpdated, error: koUpdateError } = await supabase
+          .from('kitchen_orders')
+          .update({
+            items: kitchenItems,
+            status: 'new',
+            source: 'QSR-POS',
+          })
+          .eq('order_id', retrievedOrderId)
+          .select('id');
+
+        if (koUpdateError) throw koUpdateError;
+
+        if (!koUpdated || koUpdated.length === 0) {
           await supabase
             .from('kitchen_orders')
-            .update({
-              items: kitchenItems,
-              status: 'new',
+            .insert({
+              restaurant_id: restaurantId,
+              order_id: retrievedOrderId,
               source: 'QSR-POS',
-            })
-            .eq('order_id', retrievedOrderId);
+              status: 'new',
+              items: kitchenItems,
+            });
         }
 
         // If no rows were updated (edge case), INSERT a new order and DELETE the old held one
@@ -153,8 +166,8 @@ export const QSRPosMain = () => {
             .select('id');
           if (insertError) throw insertError;
 
-          // Create kitchen order if not held
-          if (status !== 'held' && insertedRows && insertedRows[0]) {
+          // Create or update kitchen order for this new order
+          if (insertedRows && insertedRows[0]) {
             await supabase
               .from('kitchen_orders')
               .insert({
