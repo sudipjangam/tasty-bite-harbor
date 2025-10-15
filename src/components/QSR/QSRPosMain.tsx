@@ -116,6 +116,13 @@ export const QSRPosMain = () => {
         source: 'qsr',
       };
 
+      // Kitchen order items format
+      const kitchenItems = orderItems.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+      }));
+
       // Try to UPDATE existing retrieved order first
       if (retrievedOrderId) {
         const { data: updatedRows, error: updateError } = await supabase
@@ -126,6 +133,18 @@ export const QSRPosMain = () => {
 
         if (updateError) throw updateError;
 
+        // Update corresponding kitchen order if it's not held
+        if (status !== 'held') {
+          await supabase
+            .from('kitchen_orders')
+            .update({
+              items: kitchenItems,
+              status: 'new',
+              source: 'QSR-POS',
+            })
+            .eq('order_id', retrievedOrderId);
+        }
+
         // If no rows were updated (edge case), INSERT a new order and DELETE the old held one
         if (!updatedRows || updatedRows.length === 0) {
           const { data: insertedRows, error: insertError } = await supabase
@@ -134,19 +153,51 @@ export const QSRPosMain = () => {
             .select('id');
           if (insertError) throw insertError;
 
+          // Create kitchen order if not held
+          if (status !== 'held' && insertedRows && insertedRows[0]) {
+            await supabase
+              .from('kitchen_orders')
+              .insert({
+                restaurant_id: restaurantId,
+                order_id: insertedRows[0].id,
+                source: 'QSR-POS',
+                status: 'new',
+                items: kitchenItems,
+              });
+          }
+
           // Remove old held order to avoid duplicates in history
           await supabase.from('orders').delete().eq('id', retrievedOrderId);
         }
       } else {
         // Otherwise, INSERT a brand new order
-        const { error: insertError } = await supabase
+        const { data: insertedOrder, error: insertError } = await supabase
           .from('orders')
-          .insert([{ ...orderData, created_at: new Date().toISOString() }]);
+          .insert([{ ...orderData, created_at: new Date().toISOString() }])
+          .select('id');
         if (insertError) throw insertError;
+
+        // Create kitchen order if not held (only for paid orders)
+        if (status !== 'held' && insertedOrder && insertedOrder[0]) {
+          const { error: kitchenError } = await supabase
+            .from('kitchen_orders')
+            .insert({
+              restaurant_id: restaurantId,
+              order_id: insertedOrder[0].id,
+              source: 'QSR-POS',
+              status: 'new',
+              items: kitchenItems,
+            });
+          
+          if (kitchenError) {
+            console.error('Error creating kitchen order:', kitchenError);
+            // Don't throw - order was created successfully, kitchen order is secondary
+          }
+        }
       }
 
       const statusMessages = {
-        paid: 'Order completed and paid successfully!',
+        paid: 'Order completed and sent to kitchen!',
         pending: 'Order saved as KOT/Hold',
         held: 'Order saved as KOT/Hold',
       };

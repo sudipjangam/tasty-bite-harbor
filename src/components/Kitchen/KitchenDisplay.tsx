@@ -210,12 +210,35 @@ const KitchenDisplay = () => {
   }, [soundEnabled, toast, notification]);
 
   const handleStatusUpdate = async (orderId: string, newStatus: KitchenOrder["status"]) => {
-    const { error } = await supabase
-      .from("kitchen_orders")
-      .update({ status: newStatus })
-      .eq("id", orderId);
+    try {
+      // Update kitchen order status
+      const { data: kitchenOrder, error: kitchenError } = await supabase
+        .from("kitchen_orders")
+        .update({ status: newStatus })
+        .eq("id", orderId)
+        .select("order_id")
+        .single();
 
-    if (error) {
+      if (kitchenError) throw kitchenError;
+
+      // Also update the corresponding order status in orders table
+      if (kitchenOrder?.order_id) {
+        let orderStatus = 'pending';
+        if (newStatus === 'preparing') orderStatus = 'preparing';
+        if (newStatus === 'ready') orderStatus = 'ready';
+        
+        await supabase
+          .from("orders")
+          .update({ status: orderStatus })
+          .eq("id", kitchenOrder.order_id);
+      }
+
+      toast({
+        title: "Status Updated",
+        description: `Order marked as ${newStatus}`,
+      });
+    } catch (error) {
+      console.error("Error updating status:", error);
       toast({
         variant: "destructive",
         title: "Error",
