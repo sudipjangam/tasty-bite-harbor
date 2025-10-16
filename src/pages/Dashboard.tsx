@@ -20,6 +20,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import Stats from "@/components/Dashboard/Stats";
 import WeeklySalesChart from "@/components/Dashboard/WeeklySalesChart";
+import { LiveOrderStatus } from "@/components/Dashboard/LiveOrderStatus";
 
 const Dashboard = () => {
   const { user, hasPermission } = useAuth();
@@ -128,6 +129,11 @@ const Dashboard = () => {
               </div>
             )}
           </div>
+        </StandardizedCard>
+
+        {/* Live Order Status */}
+        <StandardizedCard className="space-y-4">
+          <LiveOrderStatus />
         </StandardizedCard>
 
         {/* Stats Overview */}
