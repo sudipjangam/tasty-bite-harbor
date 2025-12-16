@@ -9,9 +9,16 @@ import { useChatWithApi } from "@/hooks/useChatWithApi";
 interface ChatbotProps {
   initialOpen?: boolean;
   fixedPosition?: boolean;
+  pendingMessage?: string;
+  onClearPendingMessage?: () => void;
 }
 
-const Chatbot = ({ initialOpen = false, fixedPosition = true }: ChatbotProps) => {
+const Chatbot = ({ 
+  initialOpen = false, 
+  fixedPosition = true,
+  pendingMessage = "",
+  onClearPendingMessage
+}: ChatbotProps) => {
   const [isOpen, setIsOpen] = useState(initialOpen);
   const [isMaximized, setIsMaximized] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -23,6 +30,7 @@ const Chatbot = ({ initialOpen = false, fixedPosition = true }: ChatbotProps) =>
     handleSendMessage,
     handleFileUpload,
   } = useChatWithApi();
+
 
   const toggleMaximize = () => {
     setIsMaximized(!isMaximized);
@@ -43,6 +51,8 @@ const Chatbot = ({ initialOpen = false, fixedPosition = true }: ChatbotProps) =>
           onFileUpload={handleFileUpload}
           fileInputRef={fileInputRef}
           embedded={true}
+          pendingMessage={pendingMessage}
+          onClearPendingMessage={onClearPendingMessage}
         />
       </Card>
     );
@@ -73,6 +83,8 @@ const Chatbot = ({ initialOpen = false, fixedPosition = true }: ChatbotProps) =>
             onFileUpload={handleFileUpload}
             fileInputRef={fileInputRef}
             embedded={false}
+            pendingMessage={pendingMessage}
+            onClearPendingMessage={onClearPendingMessage}
           />
         </Card>
       )}
