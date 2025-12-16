@@ -27,7 +27,8 @@ import {
   Menu,
   BookOpen,
   Target,
-  FileText
+  FileText,
+  Receipt
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -224,6 +225,13 @@ const navigationGroups: NavigationGroup[] = [
         href: "/reports",
         description: "Business reports",
         requiredPermissions: ["analytics.view"]
+      },
+      {
+        title: "Expenses",
+        icon: Receipt,
+        href: "/expenses",
+        description: "Track business expenses",
+        requiredPermissions: ["financial.view"]
       }
     ]
   }

@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,15 +11,29 @@ import { supabase } from "@/integrations/supabase/client";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
+
+interface EditExpense {
+  id: string;
+  category: string;
+  subcategory: string | null;
+  amount: number;
+  description: string | null;
+  expense_date: string;
+  payment_method: string;
+  vendor_name: string | null;
+  is_recurring: boolean;
+  recurring_frequency: string | null;
+}
 
 interface ExpenseFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  editExpense?: EditExpense | null;
 }
 
-const ExpenseForm: React.FC<ExpenseFormProps> = ({ isOpen, onClose, onSuccess }) => {
+const ExpenseForm: React.FC<ExpenseFormProps> = ({ isOpen, onClose, onSuccess, editExpense }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [expenseDate, setExpenseDate] = useState<Date | undefined>(new Date());
@@ -34,6 +47,36 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ isOpen, onClose, onSuccess })
     is_recurring: false,
     recurring_frequency: "",
   });
+
+  // Pre-fill form when editing
+  useEffect(() => {
+    if (editExpense) {
+      setFormData({
+        category: editExpense.category || "",
+        subcategory: editExpense.subcategory || "",
+        amount: editExpense.amount?.toString() || "",
+        description: editExpense.description || "",
+        payment_method: editExpense.payment_method || "cash",
+        vendor_name: editExpense.vendor_name || "",
+        is_recurring: editExpense.is_recurring || false,
+        recurring_frequency: editExpense.recurring_frequency || "",
+      });
+      setExpenseDate(editExpense.expense_date ? parseISO(editExpense.expense_date) : new Date());
+    } else {
+      // Reset form for new expense
+      setFormData({
+        category: "",
+        subcategory: "",
+        amount: "",
+        description: "",
+        payment_method: "cash",
+        vendor_name: "",
+        is_recurring: false,
+        recurring_frequency: "",
+      });
+      setExpenseDate(new Date());
+    }
+  }, [editExpense, isOpen]);
 
   const categories = [
     { value: "groceries", label: "Groceries & Ingredients" },
@@ -88,28 +131,35 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ isOpen, onClose, onSuccess })
 
       if (!profile?.restaurant_id) throw new Error("No restaurant found");
 
-      const { error } = await supabase
-        .from("expenses")
-        .insert({
-          restaurant_id: profile.restaurant_id,
-          category: formData.category,
-          subcategory: formData.subcategory || null,
-          amount: parseFloat(formData.amount),
-          description: formData.description || null,
-          expense_date: format(expenseDate, 'yyyy-MM-dd'),
-          payment_method: formData.payment_method,
-          vendor_name: formData.vendor_name || null,
-          is_recurring: formData.is_recurring,
-          recurring_frequency: formData.is_recurring ? formData.recurring_frequency : null,
-          created_by: session.user.id,
-        });
+      const expenseData = {
+        restaurant_id: profile.restaurant_id,
+        category: formData.category,
+        subcategory: formData.subcategory || null,
+        amount: parseFloat(formData.amount),
+        description: formData.description || null,
+        expense_date: format(expenseDate, 'yyyy-MM-dd'),
+        payment_method: formData.payment_method,
+        vendor_name: formData.vendor_name || null,
+        is_recurring: formData.is_recurring,
+        recurring_frequency: formData.is_recurring ? formData.recurring_frequency : null,
+      };
 
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Expense recorded successfully",
-      });
+      if (editExpense) {
+        // Update existing expense
+        const { error } = await supabase
+          .from("expenses")
+          .update(expenseData)
+          .eq("id", editExpense.id);
+        if (error) throw error;
+        toast({ title: "Success", description: "Expense updated successfully" });
+      } else {
+        // Create new expense
+        const { error } = await supabase
+          .from("expenses")
+          .insert({ ...expenseData, created_by: session.user.id });
+        if (error) throw error;
+        toast({ title: "Success", description: "Expense recorded successfully" });
+      }
 
       // Reset form
       setFormData({
