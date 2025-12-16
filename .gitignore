@@ -35,3 +35,4 @@ dist-ssr
 
 # Developer-only documentation (local only, not for git)
 docs/ARCHITECTURE_DEV.md
+docs/Developer-guide.md
