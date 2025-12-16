@@ -17,6 +17,7 @@ export const useChatWithApi = () => {
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState("");
   const { toast } = useToast();
   
   // Fetch the restaurant ID for the current user
@@ -275,6 +276,8 @@ export const useChatWithApi = () => {
     messages,
     isLoading,
     isUploading,
+    pendingMessage,
+    setPendingMessage,
     handleSendMessage,
     handleFileUpload,
   };

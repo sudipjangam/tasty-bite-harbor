@@ -7,11 +7,30 @@ import { Input } from "@/components/ui/input";
 type ChatInputProps = {
   onSendMessage: (message: string) => void;
   isLoading: boolean;
+  pendingMessage?: string;
+  onClearPendingMessage?: () => void;
 };
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
+const ChatInput: React.FC<ChatInputProps> = ({ 
+  onSendMessage, 
+  isLoading,
+  pendingMessage = "",
+  onClearPendingMessage
+}) => {
   const [message, setMessage] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // When pendingMessage changes, update the input field and focus
+  useEffect(() => {
+    if (pendingMessage) {
+      setMessage(pendingMessage);
+      onClearPendingMessage?.();
+      // Focus the input after setting the message
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [pendingMessage, onClearPendingMessage]);
 
   // Trigger input change event to enable the send button when value is set programmatically
   useEffect(() => {
@@ -39,6 +58,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
       }
     }
   };
+
 
   return (
     <form

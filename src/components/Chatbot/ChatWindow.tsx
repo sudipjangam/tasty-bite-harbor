@@ -22,6 +22,8 @@ interface ChatWindowProps {
   onFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
   fileInputRef: React.RefObject<HTMLInputElement>;
   embedded?: boolean;
+  pendingMessage?: string;
+  onClearPendingMessage?: () => void;
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -35,6 +37,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   onFileUpload,
   fileInputRef,
   embedded = false,
+  pendingMessage = "",
+  onClearPendingMessage,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -142,7 +146,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
               isDisabled={isUploading || isLoading} 
             />
           </div>
-          <ChatInput onSendMessage={onSendMessage} isLoading={isLoading || isUploading} />
+          <ChatInput 
+            onSendMessage={onSendMessage} 
+            isLoading={isLoading || isUploading}
+            pendingMessage={pendingMessage}
+            onClearPendingMessage={onClearPendingMessage}
+          />
         </div>
       </div>
     );
@@ -234,7 +243,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             isDisabled={isUploading || isLoading} 
           />
         </div>
-        <ChatInput onSendMessage={onSendMessage} isLoading={isLoading || isUploading} />
+        <ChatInput 
+          onSendMessage={onSendMessage} 
+          isLoading={isLoading || isUploading}
+          pendingMessage={pendingMessage}
+          onClearPendingMessage={onClearPendingMessage}
+        />
       </div>
     </div>
   );
