@@ -71,11 +71,11 @@ const Reservations = () => {
     }
   };
 
-  const handleUpdateTableStatus = (id: string, status: string) => {
+  const handleUpdateTableStatus = (id: string, status: 'pending' | 'confirmed' | 'seated' | 'completed' | 'cancelled' | 'no_show') => {
     updateReservationStatus.mutateAsync({ id, status });
   };
 
-  const handleUpdateRoomStatus = (id: string, status: string, room_id: string) => {
+  const handleUpdateRoomStatus = (id: string, status: 'pending' | 'confirmed' | 'cancelled' | 'checked_in' | 'checked_out', room_id: string) => {
     updateRoomReservationStatus.mutateAsync({ id, status, room_id });
   };
 
