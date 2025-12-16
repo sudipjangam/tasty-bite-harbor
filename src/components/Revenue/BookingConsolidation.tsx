@@ -46,60 +46,36 @@ const BookingConsolidation = () => {
     status: "all"
   });
 
-  // Simulated data - in real implementation, this would come from your booking sources table
+  // Fetch consolidated bookings from reservations table
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ["consolidated-bookings", restaurantId, filters],
     queryFn: async () => {
-      // This would be a complex query joining booking_sources, reservations, and booking_channels
-      const mockBookings: ConsolidatedBooking[] = [
-        {
-          id: "1",
-          channel_name: "Booking.com",
-          channel_type: "ota",
-          guest_name: "John Smith",
-          check_in: "2025-06-15",
-          check_out: "2025-06-17",
-          room_type: "Deluxe Suite",
-          guests: 2,
-          total_amount: 6000,
-          status: "confirmed",
-          booking_reference: "BDC123456",
-          commission_amount: 900,
-          created_at: "2025-06-14T10:30:00Z"
-        },
-        {
-          id: "2",
-          channel_name: "Direct Website",
-          channel_type: "direct",
-          guest_name: "Sarah Johnson",
-          check_in: "2025-06-16",
-          check_out: "2025-06-18",
-          room_type: "Standard Room",
-          guests: 1,
-          total_amount: 4500,
-          status: "pending",
-          booking_reference: "DIR789012",
-          commission_amount: 0,
-          created_at: "2025-06-14T14:15:00Z"
-        },
-        {
-          id: "3",
-          channel_name: "Agoda",
-          channel_type: "ota",
-          guest_name: "Mike Chen",
-          check_in: "2025-06-17",
-          check_out: "2025-06-19",
-          room_type: "Premium Suite",
-          guests: 3,
-          total_amount: 8000,
-          status: "confirmed",
-          booking_reference: "AGO345678",
-          commission_amount: 1440,
-          created_at: "2025-06-14T16:45:00Z"
-        }
-      ];
+      if (!restaurantId) return [];
       
-      return mockBookings;
+      const { data, error } = await supabase
+        .from("reservations")
+        .select(`*, rooms(name, price)`)
+        .eq("restaurant_id", restaurantId)
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      
+      // Transform to ConsolidatedBooking format
+      return (data || []).map(reservation => ({
+        id: reservation.id,
+        channel_name: "Direct Website",
+        channel_type: "direct",
+        guest_name: reservation.customer_name,
+        check_in: reservation.start_time,
+        check_out: reservation.end_time,
+        room_type: reservation.rooms?.name || "Standard Room",
+        guests: 2,
+        total_amount: reservation.rooms?.price || 0,
+        status: reservation.status,
+        booking_reference: `RES-${reservation.id.slice(0, 8).toUpperCase()}`,
+        commission_amount: 0,
+        created_at: reservation.created_at
+      })) as ConsolidatedBooking[];
     },
     enabled: !!restaurantId
   });

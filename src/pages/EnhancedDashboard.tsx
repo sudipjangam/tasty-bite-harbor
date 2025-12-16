@@ -1,6 +1,6 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useBusinessDashboardData } from "@/hooks/useBusinessDashboardData";
 import { EnhancedStats } from "@/components/Dashboard/EnhancedStats";
 import { CustomizableDashboard } from "@/components/Dashboard/CustomizableDashboard";
 import { PageHeader } from "@/components/Layout/PageHeader";
@@ -19,43 +19,58 @@ interface DashboardWidget {
 
 const EnhancedDashboard = () => {
   const { user } = useAuth();
-  const [dashboardWidgets, setDashboardWidgets] = useState<DashboardWidget[]>([
-    {
-      id: 'revenue-kpi',
-      type: 'kpi' as const,
-      title: 'Revenue',
-      size: 'sm' as const,
-      position: { row: 0, col: 0 },
-      data: { value: '₹45,230' },
-      visible: true
-    },
-    {
-      id: 'orders-kpi',
-      type: 'kpi' as const,
-      title: 'Orders',
-      size: 'sm' as const,
-      position: { row: 0, col: 1 },
-      data: { value: '1,234' },
-      visible: true
-    },
-    {
-      id: 'revenue-chart',
-      type: 'chart' as const,
-      title: 'Revenue Chart',
-      size: 'lg' as const,
-      position: { row: 1, col: 0 },
-      visible: true
-    },
-    {
-      id: 'trend-analysis',
-      type: 'trend' as const,
-      title: 'Trend Analysis',
-      size: 'md' as const,
-      position: { row: 1, col: 2 },
-      visible: true
-    }
-  ]);
+  const { data: dashboardData } = useBusinessDashboardData();
+  
+  const [dashboardWidgets, setDashboardWidgets] = useState<DashboardWidget[]>([]);
   const [editMode, setEditMode] = useState(false);
+
+  // Update widgets when dashboard data loads
+  useEffect(() => {
+    const totalRevenue = dashboardData?.revenueTrendData?.reduce(
+      (sum: number, day: any) => sum + (day.revenue || 0), 0
+    ) || 0;
+    
+    const totalOrders = dashboardData?.revenueTrendData?.reduce(
+      (sum: number, day: any) => sum + (day.orders || 0), 0
+    ) || 0;
+
+    setDashboardWidgets([
+      {
+        id: 'revenue-kpi',
+        type: 'kpi' as const,
+        title: 'Revenue',
+        size: 'sm' as const,
+        position: { row: 0, col: 0 },
+        data: { value: `₹${totalRevenue.toLocaleString()}` },
+        visible: true
+      },
+      {
+        id: 'orders-kpi',
+        type: 'kpi' as const,
+        title: 'Orders',
+        size: 'sm' as const,
+        position: { row: 0, col: 1 },
+        data: { value: totalOrders.toLocaleString() },
+        visible: true
+      },
+      {
+        id: 'revenue-chart',
+        type: 'chart' as const,
+        title: 'Revenue Chart',
+        size: 'lg' as const,
+        position: { row: 1, col: 0 },
+        visible: true
+      },
+      {
+        id: 'trend-analysis',
+        type: 'trend' as const,
+        title: 'Trend Analysis',
+        size: 'md' as const,
+        position: { row: 1, col: 2 },
+        visible: true
+      }
+    ]);
+  }, [dashboardData]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

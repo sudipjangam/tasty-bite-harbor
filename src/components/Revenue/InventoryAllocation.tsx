@@ -46,28 +46,40 @@ const InventoryAllocation = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [allocationStrategy, setAllocationStrategy] = useState('balanced');
   
-  // Mock room inventory data - in real implementation, this would come from channel_inventory table
-  const [roomInventories, setRoomInventories] = useState<RoomInventory[]>(() =>
-    rooms.map(room => ({
-      roomId: room.id,
-      roomName: room.name,
-      totalInventory: 10, // Assuming 10 units per room type
-      utilization: Math.floor(Math.random() * 40) + 60, // 60-100% utilization
-      allocations: bookingChannels.map((channel, index) => ({
-        channelId: channel.id,
-        channelName: channel.channel_name,
-        channelType: channel.channel_type,
-        allocated: Math.floor(Math.random() * 3) + 1,
-        booked: Math.floor(Math.random() * 2),
-        available: Math.floor(Math.random() * 2) + 1,
-        percentage: 0, // Will be calculated
-        priority: index + 1
-      }))
-    }))
-  );
+  // Room inventory state - initialized from actual rooms and channels
+  const [roomInventories, setRoomInventories] = useState<RoomInventory[]>([]);
 
-  // Calculate allocation percentages
+  // Initialize room inventories from actual data when rooms and channels load
   React.useEffect(() => {
+    if (rooms.length > 0 && bookingChannels.length > 0) {
+      setRoomInventories(rooms.map(room => {
+        const isOccupied = room.status === 'occupied';
+        const allocationsPerChannel = Math.max(1, Math.floor(1 / bookingChannels.length));
+        
+        return {
+          roomId: room.id,
+          roomName: room.name,
+          totalInventory: 1, // Each room is 1 unit
+          utilization: isOccupied ? 100 : 0,
+          allocations: bookingChannels.map((channel, index) => ({
+            channelId: channel.id,
+            channelName: channel.channel_name,
+            channelType: channel.channel_type,
+            allocated: allocationsPerChannel,
+            booked: isOccupied && index === 0 ? 1 : 0, // First channel gets the booking if occupied
+            available: isOccupied ? 0 : allocationsPerChannel,
+            percentage: Math.round(100 / bookingChannels.length),
+            priority: index + 1
+          }))
+        };
+      }));
+    }
+  }, [rooms, bookingChannels]);
+
+  // Calculate allocation percentages when allocations change
+  React.useEffect(() => {
+    if (roomInventories.length === 0) return;
+    
     setRoomInventories(prev => prev.map(room => {
       const totalAllocated = room.allocations.reduce((sum, alloc) => sum + alloc.allocated, 0);
       return {
@@ -78,7 +90,7 @@ const InventoryAllocation = () => {
         }))
       };
     }));
-  }, []);
+  }, [roomInventories.length]);
 
   const strategies = [
     { value: 'balanced', label: 'Balanced Allocation', description: 'Equal distribution across all channels' },
