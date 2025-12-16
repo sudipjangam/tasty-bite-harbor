@@ -30,11 +30,24 @@ const Stats = () => {
   const allRevenueSources = statsData?.allRevenueSources || [];
   const orders = statsData?.orders || [];
 
-  // Calculate stats from ALL revenue sources - only count completed/paid for revenue
+  // Helper function to get actual revenue after discount
+  // For old orders: total contains subtotal, so we subtract discount_amount
+  // For new orders: total already has discount applied, discount_amount will match
+  const getActualRevenue = (item: any) => {
+    const total = Number(item.total) || 0;
+    const discountAmount = Number(item.discount_amount) || 0;
+    // If the total is greater than discountAmount, it means old order where total = subtotal
+    // We need to subtract discount. For new orders where total is already correct,
+    // discount_amount might be 0 or the difference would be minimal
+    return total - discountAmount;
+  };
+
+  // Calculate stats from ALL revenue sources - count completed, paid, AND ready orders for revenue
   const completedRevenue = allRevenueSources.filter(item => 
-    item.status === 'completed' || item.status === 'paid'
+    item.status === 'completed' || item.status === 'paid' || item.status === 'ready'
   );
-  const totalSales = completedRevenue.reduce((sum, item) => sum + (item.total || 0), 0);
+  const totalSales = completedRevenue.reduce((sum, item) => sum + getActualRevenue(item), 0);
+
   
   // Active orders - New (pending), Preparing, Ready, Held
   const activeOrders = orders.filter(order => 
@@ -45,11 +58,12 @@ const Stats = () => {
     ? new Set(orders.map(order => order.customer_name).filter(Boolean)).size 
     : 0;
   
-  // Today's revenue - completed orders + paid room billings from today
+  // Today's revenue - completed/ready orders + paid room billings from today
   const today = new Date().toDateString();
   const todaysRevenue = completedRevenue
     .filter(item => new Date(item.created_at).toDateString() === today)
-    .reduce((sum, item) => sum + (item.total || 0), 0);
+    .reduce((sum, item) => sum + getActualRevenue(item), 0);
+
 
   const stats = [
     {
@@ -61,7 +75,7 @@ const Stats = () => {
       type: "sales" as const,
       chart: completedRevenue.map(item => ({
         date: new Date(item.created_at).toLocaleDateString(),
-        amount: item.total
+        amount: getActualRevenue(item)
       }))
     },
     {
@@ -97,7 +111,7 @@ const Stats = () => {
         .filter(item => new Date(item.created_at).toDateString() === today)
         .map(item => ({
           time: new Date(item.created_at).toLocaleTimeString(),
-          amount: item.total
+          amount: getActualRevenue(item)
         }))
     },
   ];

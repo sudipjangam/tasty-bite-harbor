@@ -58,5 +58,12 @@ export const useStatsData = () => {
         allRevenueSources: [...(orders || []), ...roomBillingsAsOrders]
       };
     },
+    // Auto-refresh options for real-time data
+    staleTime: 0, // Always consider data stale - fetch fresh on every mount
+    refetchOnWindowFocus: true, // Refetch when browser tab gains focus
+    refetchOnMount: 'always', // Always refetch when component mounts (navigation)
+    refetchInterval: 30000, // Poll every 30 seconds for live updates
+    refetchIntervalInBackground: false, // Don't poll when tab is in background
   });
 };
+
