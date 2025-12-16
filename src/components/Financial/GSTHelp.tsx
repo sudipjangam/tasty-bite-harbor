@@ -1,195 +1,270 @@
-import React from "react";
+import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Calculator, Info, FileText, AlertCircle } from "lucide-react";
+import { 
+  HelpCircle, 
+  FileText, 
+  Calendar, 
+  AlertTriangle, 
+  CheckCircle2,
+  ExternalLink,
+  BookOpen
+} from "lucide-react";
 
-export const GSTHelp = () => {
+export const GSTHelp: React.FC = () => {
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">GST Help & Documentation</h2>
-        <p className="text-muted-foreground">Understanding GST calculations and compliance requirements</p>
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-3 bg-gradient-to-r from-gray-500 to-slate-500 rounded-xl">
+          <HelpCircle className="h-6 w-6 text-white" />
+        </div>
+        <div>
+          <h3 className="text-xl font-bold">GST Help & Reference</h3>
+          <p className="text-muted-foreground">Quick reference for GST compliance</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calculator className="h-5 w-5" />
-              GST Calculation
-            </CardTitle>
-            <CardDescription>
-              How GST is calculated on your invoices
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h4 className="font-semibold mb-2">Basic Formula:</h4>
-              <div className="bg-gray-50 p-3 rounded-lg font-mono text-sm">
-                GST Amount = (Taxable Amount × GST Rate) / 100
-              </div>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-2">Example:</h4>
-              <div className="space-y-1 text-sm">
-                <div>Service Amount: ₹1,000</div>
-                <div>GST @ 18%: ₹180</div>
-                <div className="font-semibold">Total: ₹1,180</div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-2">Common GST Rates:</h4>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span>Food Items</span>
-                  <Badge variant="outline">5%</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Restaurant Services</span>
-                  <Badge variant="outline">5%</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Room Service</span>
-                  <Badge variant="outline">12%</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Hotel Services</span>
-                  <Badge variant="outline">18%</Badge>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              GST Returns
-            </CardTitle>
-            <CardDescription>
-              Filing requirements and deadlines
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h4 className="font-semibold mb-2">Monthly Returns:</h4>
-              <div className="space-y-2 text-sm">
-                <div>GSTR-1: Sales details (Due: 11th of next month)</div>
-                <div>GSTR-3B: Summary return (Due: 20th of next month)</div>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div>
-              <h4 className="font-semibold mb-2">What's Included:</h4>
-              <ul className="space-y-1 text-sm list-disc list-inside">
-                <li>All taxable sales and purchases</li>
-                <li>Input tax credit claimed</li>
-                <li>Tax liability and payment details</li>
-                <li>HSN/SAC codes for goods/services</li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Info className="h-5 w-5" />
-              Data Sources
-            </CardTitle>
-            <CardDescription>
-              Where your GST data comes from in the system
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h4 className="font-semibold mb-2">Invoice Line Items:</h4>
-              <ul className="space-y-1 text-sm list-disc list-inside">
-                <li>Each line item has a tax rate (5%, 12%, 18%)</li>
-                <li>System calculates: Item Total × Tax Rate</li>
-                <li>Aggregated by tax rate for reporting</li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-2">Transaction Counting:</h4>
-              <ul className="space-y-1 text-sm list-disc list-inside">
-                <li>Each invoice line item = 1 transaction</li>
-                <li>Grouped by GST rate for summary</li>
-                <li>Excludes cancelled/draft invoices</li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5" />
-              Compliance Tips
-            </CardTitle>
-            <CardDescription>
-              Best practices for GST compliance
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h4 className="font-semibold mb-2">Record Keeping:</h4>
-              <ul className="space-y-1 text-sm list-disc list-inside">
-                <li>Maintain all invoice records for 6 years</li>
-                <li>Ensure proper HSN/SAC codes</li>
-                <li>Keep supporting documents</li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-2">Filing Deadlines:</h4>
-              <ul className="space-y-1 text-sm list-disc list-inside">
-                <li>Never miss monthly return deadlines</li>
-                <li>Pay tax liability on time</li>
-                <li>File nil returns if no transactions</li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-2">System Benefits:</h4>
-              <ul className="space-y-1 text-sm list-disc list-inside">
-                <li>Auto-calculation reduces errors</li>
-                <li>Real-time compliance tracking</li>
-                <li>Easy export for filing</li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
+      {/* Return Types */}
       <Card>
         <CardHeader>
-          <CardTitle>Important Notes</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            GST Return Types
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
-              <div className="space-y-2 text-sm">
-                <p className="font-semibold text-yellow-800">
-                  This system provides automated GST calculations based on your invoice data.
+          <div className="space-y-4">
+            <div className="p-4 border rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold text-lg">GSTR-1</h4>
+                <Badge>Monthly/Quarterly</Badge>
+              </div>
+              <p className="text-muted-foreground mb-3">
+                Details of outward supplies (sales) made during the period
+              </p>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Due Date:</span>
+                  <span className="ml-2 font-medium">11th of next month</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Late Fee:</span>
+                  <span className="ml-2 font-medium">₹50/day (₹20 for nil)</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold text-lg">GSTR-3B</h4>
+                <Badge>Monthly</Badge>
+              </div>
+              <p className="text-muted-foreground mb-3">
+                Summary return for payment of tax liability
+              </p>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Due Date:</span>
+                  <span className="ml-2 font-medium">20th of next month</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Interest:</span>
+                  <span className="ml-2 font-medium">18% p.a. on late payment</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold text-lg">GSTR-9</h4>
+                <Badge variant="secondary">Annual</Badge>
+              </div>
+              <p className="text-muted-foreground mb-3">
+                Annual return consolidating all monthly/quarterly returns
+              </p>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Due Date:</span>
+                  <span className="ml-2 font-medium">31st December of next FY</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Optional if:</span>
+                  <span className="ml-2 font-medium">Turnover ≤ ₹2 Crore</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* GST Rates */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5" />
+            GST Rates for Hospitality
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-900/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge className="bg-green-500">5% GST</Badge>
+              </div>
+              <ul className="space-y-1 text-sm">
+                <li>• Restaurant services (without ITC)</li>
+                <li>• Food delivery services</li>
+                <li>• Takeaway food</li>
+                <li>• Small hotels (room tariff ≤ ₹1000)</li>
+              </ul>
+            </div>
+
+            <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-900/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge className="bg-blue-500">12% GST</Badge>
+              </div>
+              <ul className="space-y-1 text-sm">
+                <li>• Hotel rooms (₹1001-₹7500/night)</li>
+                <li>• Restaurant services (with ITC)</li>
+                <li>• Outdoor catering (non-AC)</li>
+              </ul>
+            </div>
+
+            <div className="p-4 border rounded-lg bg-purple-50 dark:bg-purple-900/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge className="bg-purple-500">18% GST</Badge>
+              </div>
+              <ul className="space-y-1 text-sm">
+                <li>• Hotel rooms (₹7501 and above)</li>
+                <li>• Outdoor catering (AC)</li>
+                <li>• Banquet services</li>
+              </ul>
+            </div>
+
+            <div className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge variant="outline">0% (Exempt)</Badge>
+              </div>
+              <ul className="space-y-1 text-sm">
+                <li>• Fresh fruits & vegetables</li>
+                <li>• Milk and milk products (unbranded)</li>
+                <li>• Curd, lassi, buttermilk</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Common Issues */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            Common Compliance Issues
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+              <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-medium">Missing GSTIN on B2B Invoices</h4>
+                <p className="text-sm text-muted-foreground">
+                  Always capture customer GSTIN for business transactions to claim ITC
                 </p>
-                <p className="text-yellow-700">
-                  Always verify calculations with your chartered accountant before filing returns. 
-                  GST rates and rules may change - ensure you're using current rates for your business type.
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+              <AlertTriangle className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-medium">Incorrect HSN Codes</h4>
+                <p className="text-sm text-muted-foreground">
+                  Use correct 4-8 digit HSN/SAC codes. Wrong codes can lead to penalties.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-medium">Best Practice: File Early</h4>
+                <p className="text-sm text-muted-foreground">
+                  File returns 2-3 days before due date to avoid last-minute portal issues
                 </p>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Useful Links */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ExternalLink className="h-5 w-5" />
+            Useful Resources
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <a 
+              href="https://www.gst.gov.in" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-medium">GST Portal</span>
+                <ExternalLink className="h-4 w-4" />
+              </div>
+              <p className="text-sm text-muted-foreground">gst.gov.in</p>
+            </a>
+
+            <a 
+              href="https://cbic-gst.gov.in" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-medium">CBIC GST</span>
+                <ExternalLink className="h-4 w-4" />
+              </div>
+              <p className="text-sm text-muted-foreground">Official circulars & updates</p>
+            </a>
+
+            <a 
+              href="https://einvoice1.gst.gov.in" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-medium">E-Invoice Portal</span>
+                <ExternalLink className="h-4 w-4" />
+              </div>
+              <p className="text-sm text-muted-foreground">Generate IRN for B2B</p>
+            </a>
+
+            <a 
+              href="https://ewaybillgst.gov.in" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-medium">E-Way Bill</span>
+                <ExternalLink className="h-4 w-4" />
+              </div>
+              <p className="text-sm text-muted-foreground">For goods transport</p>
+            </a>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
+
+export default GSTHelp;

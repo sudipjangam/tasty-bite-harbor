@@ -20,11 +20,14 @@ interface InvoiceFormData {
   customer_email: string;
   customer_phone: string;
   customer_address: string;
+  customer_gstin: string;
+  place_of_supply: string;
   due_date: string;
   payment_terms: string;
   notes: string;
   line_items: Array<{
     description: string;
+    hsn_code: string;
     quantity: number;
     unit_price: number;
     tax_rate: number;
@@ -40,11 +43,13 @@ export const InvoiceManagement = () => {
     customer_email: "",
     customer_phone: "",
     customer_address: "",
+    customer_gstin: "",
+    place_of_supply: "27-Maharashtra",
     due_date: format(addDays(new Date(), 30), "yyyy-MM-dd"),
     payment_terms: "net_30",
     notes: "",
     line_items: [
-      { description: "", quantity: 1, unit_price: 0, tax_rate: 18 }
+      { description: "", hsn_code: "996331", quantity: 1, unit_price: 0, tax_rate: 5 }
     ],
   });
 
@@ -77,7 +82,12 @@ export const InvoiceManagement = () => {
     );
     const total = subtotal + taxAmount;
     
-    return { subtotal, taxAmount, total };
+    // Calculate CGST/SGST split (for intra-state, each is half of total tax)
+    const cgstAmount = taxAmount / 2;
+    const sgstAmount = taxAmount / 2;
+    const igstAmount = 0; // For inter-state - would need place_of_supply logic
+    
+    return { subtotal, taxAmount, total, cgstAmount, sgstAmount, igstAmount };
   };
 
   const addLineItem = () => {
@@ -85,7 +95,7 @@ export const InvoiceManagement = () => {
       ...prev,
       line_items: [
         ...prev.line_items,
-        { description: "", quantity: 1, unit_price: 0, tax_rate: 18 }
+        { description: "", hsn_code: "996331", quantity: 1, unit_price: 0, tax_rate: 5 }
       ]
     }));
   };
@@ -112,11 +122,13 @@ export const InvoiceManagement = () => {
       customer_email: "",
       customer_phone: "",
       customer_address: "",
+      customer_gstin: "",
+      place_of_supply: "27-Maharashtra",
       due_date: format(addDays(new Date(), 30), "yyyy-MM-dd"),
       payment_terms: "net_30",
       notes: "",
       line_items: [
-        { description: "", quantity: 1, unit_price: 0, tax_rate: 18 }
+        { description: "", hsn_code: "996331", quantity: 1, unit_price: 0, tax_rate: 5 }
       ],
     });
   };
@@ -220,10 +232,10 @@ export const InvoiceManagement = () => {
         return;
       }
 
-      const { subtotal, taxAmount, total } = calculateInvoiceTotals();
+      const { subtotal, taxAmount, total, cgstAmount, sgstAmount, igstAmount } = calculateInvoiceTotals();
       const invoiceNumber = generateInvoiceNumber();
 
-      // Create invoice
+      // Create invoice with GST fields
       const { data: invoice, error: invoiceError } = await supabase
         .from("invoices")
         .insert({
@@ -233,6 +245,8 @@ export const InvoiceManagement = () => {
           customer_email: formData.customer_email,
           customer_phone: formData.customer_phone,
           customer_address: formData.customer_address,
+          customer_gstin: formData.customer_gstin || null,
+          place_of_supply: formData.place_of_supply || null,
           invoice_date: format(new Date(), "yyyy-MM-dd"),
           due_date: formData.due_date,
           subtotal,
@@ -247,15 +261,26 @@ export const InvoiceManagement = () => {
 
       if (invoiceError) throw invoiceError;
 
-      // Create line items
-      const lineItemsData = formData.line_items.map(item => ({
-        invoice_id: invoice.id,
-        description: item.description,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total_price: item.quantity * item.unit_price,
-        tax_rate: item.tax_rate,
-      }));
+      // Create line items with HSN and tax components
+      const lineItemsData = formData.line_items.map(item => {
+        const itemSubtotal = item.quantity * item.unit_price;
+        const itemTax = itemSubtotal * (item.tax_rate / 100);
+        const itemCgst = itemTax / 2;
+        const itemSgst = itemTax / 2;
+        
+        return {
+          invoice_id: invoice.id,
+          description: item.description,
+          hsn_code: item.hsn_code || null,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: itemSubtotal,
+          tax_rate: item.tax_rate,
+          cgst_amount: itemCgst,
+          sgst_amount: itemSgst,
+          igst_amount: 0,
+        };
+      });
 
       const { error: lineItemsError } = await supabase
         .from("invoice_line_items")
@@ -274,11 +299,13 @@ export const InvoiceManagement = () => {
         customer_email: "",
         customer_phone: "",
         customer_address: "",
+        customer_gstin: "",
+        place_of_supply: "27-Maharashtra",
         due_date: format(addDays(new Date(), 30), "yyyy-MM-dd"),
         payment_terms: "net_30",
         notes: "",
         line_items: [
-          { description: "", quantity: 1, unit_price: 0, tax_rate: 18 }
+          { description: "", hsn_code: "996331", quantity: 1, unit_price: 0, tax_rate: 5 }
         ],
       });
 
@@ -363,6 +390,44 @@ export const InvoiceManagement = () => {
                     placeholder="Enter customer address"
                   />
                 </div>
+                
+                <div>
+                  <Label htmlFor="customer_gstin">
+                    Customer GSTIN
+                    <span className="text-xs text-muted-foreground ml-2">(for B2B invoices)</span>
+                  </Label>
+                  <Input
+                    id="customer_gstin"
+                    value={formData.customer_gstin}
+                    onChange={(e) => setFormData(prev => ({ ...prev, customer_gstin: e.target.value.toUpperCase() }))}
+                    placeholder="e.g., 27AAACR5055K1Z5"
+                    maxLength={15}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="place_of_supply">Place of Supply</Label>
+                  <Select
+                    value={formData.place_of_supply}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, place_of_supply: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="27-Maharashtra">27-Maharashtra</SelectItem>
+                      <SelectItem value="29-Karnataka">29-Karnataka</SelectItem>
+                      <SelectItem value="33-Tamil Nadu">33-Tamil Nadu</SelectItem>
+                      <SelectItem value="07-Delhi">07-Delhi</SelectItem>
+                      <SelectItem value="24-Gujarat">24-Gujarat</SelectItem>
+                      <SelectItem value="09-Uttar Pradesh">09-Uttar Pradesh</SelectItem>
+                      <SelectItem value="19-West Bengal">19-West Bengal</SelectItem>
+                      <SelectItem value="32-Kerala">32-Kerala</SelectItem>
+                      <SelectItem value="06-Haryana">06-Haryana</SelectItem>
+                      <SelectItem value="08-Rajasthan">08-Rajasthan</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
               <div className="space-y-4">
@@ -423,23 +488,32 @@ export const InvoiceManagement = () => {
               </div>
               
               {/* Header row */}
-              <div className="grid grid-cols-12 gap-2 items-center p-3 bg-gray-50 rounded-lg font-medium text-sm">
-                <div className="col-span-4">Description</div>
-                <div className="col-span-2">Quantity</div>
+              <div className="grid grid-cols-14 gap-2 items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg font-medium text-sm">
+                <div className="col-span-3">Description</div>
+                <div className="col-span-2">HSN/SAC</div>
+                <div className="col-span-2">Qty</div>
                 <div className="col-span-2">Unit Price</div>
-                <div className="col-span-2">Tax Rate (%)</div>
-                <div className="col-span-1 text-right">Total</div>
+                <div className="col-span-2">Tax %</div>
+                <div className="col-span-2 text-right">Total</div>
                 <div className="col-span-1">Action</div>
               </div>
 
               <div className="space-y-3">
                 {formData.line_items.map((item, index) => (
-                  <div key={index} className="grid grid-cols-12 gap-2 items-center p-3 border rounded-lg">
-                    <div className="col-span-4">
+                  <div key={index} className="grid grid-cols-14 gap-2 items-center p-3 border rounded-lg">
+                    <div className="col-span-3">
                       <Input
                         placeholder="Item description"
                         value={item.description}
                         onChange={(e) => updateLineItem(index, "description", e.target.value)}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Input
+                        placeholder="996331"
+                        value={item.hsn_code}
+                        onChange={(e) => updateLineItem(index, "hsn_code", e.target.value)}
+                        maxLength={8}
                       />
                     </div>
                     <div className="col-span-2">
@@ -462,16 +536,23 @@ export const InvoiceManagement = () => {
                       />
                     </div>
                     <div className="col-span-2">
-                      <Input
-                        type="number"
-                        placeholder="18"
-                        value={item.tax_rate}
-                        onChange={(e) => updateLineItem(index, "tax_rate", Number(e.target.value))}
-                        min="0"
-                        max="100"
-                      />
+                      <Select
+                        value={String(item.tax_rate)}
+                        onValueChange={(value) => updateLineItem(index, "tax_rate", Number(value))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">0%</SelectItem>
+                          <SelectItem value="5">5%</SelectItem>
+                          <SelectItem value="12">12%</SelectItem>
+                          <SelectItem value="18">18%</SelectItem>
+                          <SelectItem value="28">28%</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="col-span-1 text-right font-medium">
+                    <div className="col-span-2 text-right font-medium">
                       <CurrencyDisplay amount={calculateLineTotal(item)} />
                     </div>
                     <div className="col-span-1">
