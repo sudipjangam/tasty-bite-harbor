@@ -28,7 +28,9 @@ import LiveActivity from "@/components/Dashboard/LiveActivity";
 import StaffSelfServiceSection from "@/components/Dashboard/StaffSelfServiceSection";
 import TimeClockDialog from "@/components/Staff/TimeClockDialog";
 import LeaveRequestDialog from "@/components/Staff/LeaveRequestDialog";
+import { useRefetchOnNavigation } from "@/hooks/useRefetchOnNavigation";
 import type { StaffMember } from "@/types/staff";
+
 
 
 const Index = () => {
@@ -36,6 +38,9 @@ const Index = () => {
   const { restaurantId } = useRestaurantId();
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // Refetch dashboard data when navigating to this page
+  useRefetchOnNavigation(['dashboard-orders']);
   
   const [permissionDialog, setPermissionDialog] = useState<{
     open: boolean;

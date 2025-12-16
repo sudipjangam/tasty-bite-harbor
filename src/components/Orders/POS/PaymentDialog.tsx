@@ -1217,6 +1217,7 @@ const PaymentDialog = ({
               reservation_id: detectedReservation.reservation_id,
               payment_status: 'Pending - Room Charge',
               status: 'completed',
+              total: total, // Save final amount after discount
               discount_amount: totalDiscountAmount,
               discount_percentage: manualDiscountPercent > 0 ? manualDiscountPercent : (appliedPromotion?.discount_percentage || 0)
             })
@@ -1311,6 +1312,7 @@ const PaymentDialog = ({
             .update({
               payment_status: 'paid',
               status: 'completed',
+              total: total, // Save final amount after discount
               discount_amount: totalDiscountAmount,
               discount_percentage: manualDiscountPercent > 0 ? manualDiscountPercent : (appliedPromotion?.discount_percentage || 0)
             })
