@@ -120,13 +120,13 @@ const StaffList: React.FC<StaffListProps> = ({
   const getStatusBadge = (status: string | null) => {
     switch (status) {
       case 'active':
-        return <Badge className="bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 border-emerald-200">Active</Badge>;
+        return <Badge className="bg-gradient-to-r from-emerald-500 to-green-600 text-white border-0 shadow-sm shadow-emerald-500/30">Active</Badge>;
       case 'on_leave':
-        return <Badge className="bg-gradient-to-r from-amber-100 to-orange-100 text-amber-800 border-amber-200">On Leave</Badge>;
+        return <Badge className="bg-gradient-to-r from-amber-500 to-orange-600 text-white border-0 shadow-sm shadow-amber-500/30">On Leave</Badge>;
       case 'inactive':
-        return <Badge className="bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border-red-200">Inactive</Badge>;
+        return <Badge className="bg-gradient-to-r from-slate-500 to-gray-600 text-white border-0 shadow-sm shadow-slate-500/30">Inactive</Badge>;
       default:
-        return <Badge className="bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border-blue-200">Active</Badge>;
+        return <Badge className="bg-gradient-to-r from-emerald-500 to-green-600 text-white border-0 shadow-sm shadow-emerald-500/30">Active</Badge>;
     }
   };
 
@@ -175,8 +175,8 @@ const StaffList: React.FC<StaffListProps> = ({
     return (
       <div className="flex items-center justify-center h-48">
         <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600"></div>
-          <p className="text-gray-600 animate-pulse">Loading staff members...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-200 dark:border-purple-800 border-t-purple-600 dark:border-t-purple-400"></div>
+          <p className="text-gray-600 dark:text-gray-300 animate-pulse">Loading staff members...</p>
         </div>
       </div>
     );
@@ -187,19 +187,19 @@ const StaffList: React.FC<StaffListProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl">
-            <Users className="h-6 w-6 text-white" />
+          <div className="p-3 bg-gradient-to-br from-purple-500 via-indigo-500 to-pink-500 rounded-xl shadow-lg shadow-purple-500/30">
+            <Users className="h-6 w-6 text-white drop-shadow-sm" />
           </div>
           <div>
             <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
               Staff Members
             </h2>
-            <p className="text-gray-600">Manage your team members</p>
+            <p className="text-gray-600 dark:text-gray-400">Manage your team members</p>
           </div>
         </div>
         <Button 
           onClick={onAddStaff}
-          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
+          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transform hover:-translate-y-0.5 transition-all duration-300"
         >
           <UserPlus className="h-4 w-4 mr-2" />
           Add Staff
@@ -207,37 +207,37 @@ const StaffList: React.FC<StaffListProps> = ({
       </div>
 
       {/* Search and Filters */}
-      <Card className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-2xl shadow-lg p-6">
+      <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl shadow-lg dark:shadow-purple-500/10 p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 w-full max-w-md">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400 dark:text-gray-500" />
               <Input
                 type="search"
                 placeholder="Search staff members..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                className="pl-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
               />
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
                   variant="outline" 
-                  className="bg-white/80 backdrop-blur-sm border-2 border-gray-200 hover:border-purple-300 hover:bg-purple-50 text-gray-700 rounded-xl"
+                  className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-gray-200 dark:border-purple-500/30 hover:border-purple-300 dark:hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 text-gray-700 dark:text-gray-300 rounded-xl"
                 >
                   <Filter className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 bg-white/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-xl p-4">
+              <DropdownMenuContent align="end" className="w-56 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-purple-500/30 rounded-2xl shadow-xl p-4">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-700">Filter by Role</label>
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Filter by Role</label>
                     <Select value={roleFilter} onValueChange={setRoleFilter}>
-                      <SelectTrigger className="bg-white/80 border-2 border-gray-200 rounded-xl">
+                      <SelectTrigger className="bg-white/80 dark:bg-gray-800/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl text-gray-900 dark:text-gray-100">
                         <SelectValue placeholder="All roles" />
                       </SelectTrigger>
-                      <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 rounded-xl">
+                      <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-purple-500/30 rounded-xl">
                         <SelectItem value="all-roles">All roles</SelectItem>
                         {roles.map((role) => (
                           <SelectItem key={role.id} value={role.name}>
@@ -252,12 +252,12 @@ const StaffList: React.FC<StaffListProps> = ({
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-700">Filter by Status</label>
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Filter by Status</label>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="bg-white/80 border-2 border-gray-200 rounded-xl">
+                      <SelectTrigger className="bg-white/80 dark:bg-gray-800/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl text-gray-900 dark:text-gray-100">
                         <SelectValue placeholder="All statuses" />
                       </SelectTrigger>
-                      <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 rounded-xl">
+                      <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-purple-500/30 rounded-xl">
                         <SelectItem value="all-statuses">All statuses</SelectItem>
                         <SelectItem value="active">Active</SelectItem>
                         <SelectItem value="on_leave">On Leave</SelectItem>
@@ -272,16 +272,16 @@ const StaffList: React.FC<StaffListProps> = ({
         </div>
 
         {/* Staff Table */}
-        <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl shadow-inner overflow-hidden">
+        <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl shadow-inner overflow-hidden">
           <Table>
             <TableHeader>
-              <TableRow className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100">
-                <TableHead className="w-[50px] font-semibold text-purple-700"></TableHead>
-                <TableHead className="font-semibold text-purple-700">Name</TableHead>
-                <TableHead className="font-semibold text-purple-700">Position</TableHead>
-                <TableHead className="font-semibold text-purple-700">Contact</TableHead>
-                <TableHead className="font-semibold text-purple-700">Status</TableHead>
-                <TableHead className="font-semibold text-purple-700">Actions</TableHead>
+              <TableRow className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/40 dark:to-indigo-900/40 border-b border-purple-100 dark:border-purple-500/30">
+                <TableHead className="w-[50px] font-semibold text-purple-700 dark:text-purple-300"></TableHead>
+                <TableHead className="font-semibold text-purple-700 dark:text-purple-300">Name</TableHead>
+                <TableHead className="font-semibold text-purple-700 dark:text-purple-300">Position</TableHead>
+                <TableHead className="font-semibold text-purple-700 dark:text-purple-300">Contact</TableHead>
+                <TableHead className="font-semibold text-purple-700 dark:text-purple-300">Status</TableHead>
+                <TableHead className="font-semibold text-purple-700 dark:text-purple-300">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -289,9 +289,11 @@ const StaffList: React.FC<StaffListProps> = ({
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-12">
                     <div className="flex flex-col items-center space-y-3">
-                      <Users className="h-12 w-12 text-gray-300" />
-                      <p className="text-gray-500 text-lg">No staff members found</p>
-                      <p className="text-gray-400">Try adjusting your search or filters</p>
+                      <div className="p-4 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 rounded-2xl">
+                        <Users className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+                      </div>
+                      <p className="text-gray-500 dark:text-gray-400 text-lg font-medium">No staff members found</p>
+                      <p className="text-gray-400 dark:text-gray-500">Try adjusting your search or filters</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -300,26 +302,26 @@ const StaffList: React.FC<StaffListProps> = ({
                   <TableRow 
                     key={staffMember.id} 
                     onClick={() => onSelectStaff(staffMember)}
-                    className={`hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 cursor-pointer transition-all duration-200 ${selectedStaffId === staffMember.id ? 'bg-gradient-to-r from-purple-50 to-indigo-50 border-l-4 border-l-purple-500' : ''}`}
+                    className={`hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 dark:hover:from-purple-900/30 dark:hover:to-indigo-900/30 cursor-pointer transition-all duration-200 ${selectedStaffId === staffMember.id ? 'bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/40 dark:to-indigo-900/40 border-l-4 border-l-purple-500' : ''}`}
                   >
                     <TableCell>
-                      <Avatar className="h-10 w-10 border-2 border-purple-100">
+                      <Avatar className="h-10 w-10 border-2 border-purple-200 dark:border-purple-500/50 shadow-sm">
                         <AvatarImage src={staffMember.photo_url || ''} alt={`${staffMember.first_name} ${staffMember.last_name}`} />
-                        <AvatarFallback className="bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 font-semibold">
+                        <AvatarFallback className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-semibold">
                           {getInitials(staffMember.first_name, staffMember.last_name)}
                         </AvatarFallback>
                       </Avatar>
                     </TableCell>
-                    <TableCell className="font-semibold text-gray-800">
+                    <TableCell className="font-semibold text-gray-800 dark:text-gray-100">
                       {staffMember.first_name} {staffMember.last_name}
                     </TableCell>
-                    <TableCell className="text-gray-600">{staffMember.position || 'Not assigned'}</TableCell>
+                    <TableCell className="text-gray-600 dark:text-gray-400">{staffMember.position || 'Not assigned'}</TableCell>
                     <TableCell>
                       <div className="flex flex-col space-y-1">
                         {staffMember.email && (
                           <a
                             href={`mailto:${staffMember.email}`}
-                            className="text-purple-600 hover:text-purple-800 hover:underline transition-colors"
+                            className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 hover:underline transition-colors text-sm"
                             onClick={(e) => e.stopPropagation()}
                           >
                             {staffMember.email}
@@ -328,7 +330,7 @@ const StaffList: React.FC<StaffListProps> = ({
                         {staffMember.phone && (
                           <a
                             href={`tel:${staffMember.phone}`}
-                            className="text-purple-600 hover:text-purple-800 hover:underline transition-colors"
+                            className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 hover:underline transition-colors text-sm"
                             onClick={(e) => e.stopPropagation()}
                           >
                             {staffMember.phone}
@@ -341,7 +343,7 @@ const StaffList: React.FC<StaffListProps> = ({
                       <div className="flex gap-2">
                         <Button 
                           size="sm" 
-                          className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-semibold px-4 py-2 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300"
+                          className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-semibold px-4 py-2 rounded-xl shadow-md shadow-purple-500/20 hover:shadow-lg hover:shadow-purple-500/30 transform hover:-translate-y-0.5 transition-all duration-300"
                           onClick={(e) => { 
                             e.stopPropagation();
                             onSelectStaff(staffMember);
@@ -352,7 +354,7 @@ const StaffList: React.FC<StaffListProps> = ({
                         <Button 
                           size="sm" 
                           variant="outline"
-                          className="border-2 border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 hover:text-red-700 px-3 py-2 rounded-xl transition-all duration-300"
+                          className="border-2 border-red-200 dark:border-red-500/50 hover:border-red-300 dark:hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 px-3 py-2 rounded-xl transition-all duration-300"
                           onClick={(e) => { 
                             e.stopPropagation();
                             handleDeleteStaff(staffMember);
@@ -372,23 +374,23 @@ const StaffList: React.FC<StaffListProps> = ({
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!staffToDelete} onOpenChange={() => setStaffToDelete(null)}>
-        <AlertDialogContent className="bg-white/95 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl">
+        <AlertDialogContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-purple-500/30 rounded-3xl shadow-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-xl font-bold text-gray-900">
+            <AlertDialogTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">
               Delete Staff Member
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-600">
+            <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
               Are you sure you want to delete {staffToDelete?.first_name} {staffToDelete?.last_name}? 
               This action cannot be undone and will permanently remove all their data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-white/80 border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold px-6 py-3 rounded-xl transition-all duration-300">
+            <AlertDialogCancel className="bg-white/80 dark:bg-gray-800/80 border-2 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold px-6 py-3 rounded-xl transition-all duration-300">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction 
               onClick={confirmDeleteStaff}
-              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
+              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 transform hover:-translate-y-0.5 transition-all duration-300"
             >
               Delete Staff
             </AlertDialogAction>
@@ -400,3 +402,4 @@ const StaffList: React.FC<StaffListProps> = ({
 };
 
 export default StaffList;
+

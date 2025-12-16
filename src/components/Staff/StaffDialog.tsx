@@ -279,18 +279,18 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white/95 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl">
-        <DialogHeader className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 rounded-2xl p-6 mb-6">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-purple-500/30 rounded-3xl shadow-2xl dark:shadow-purple-500/10">
+        <DialogHeader className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 dark:from-purple-500/20 dark:to-indigo-500/20 rounded-2xl p-6 mb-6">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl">
-              {isEditMode ? <User className="h-6 w-6 text-white" /> : <UserPlus className="h-6 w-6 text-white" />}
+            <div className="p-3 bg-gradient-to-br from-purple-500 via-indigo-500 to-pink-500 rounded-2xl shadow-lg shadow-purple-500/30">
+              {isEditMode ? <User className="h-6 w-6 text-white drop-shadow-sm" /> : <UserPlus className="h-6 w-6 text-white drop-shadow-sm" />}
             </div>
 
             <div>
               <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
                 {isEditMode ? `Edit ${staff?.first_name} ${staff?.last_name}` : "Add New Staff Member"}
               </DialogTitle>
-              <DialogDescription className="text-gray-600 mt-1">
+              <DialogDescription className="text-gray-600 dark:text-gray-400 mt-1">
                 {isEditMode
                   ? "Update the staff member's information below."
                   : "Fill in the details below to add a new staff member."}
@@ -304,11 +304,11 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
           <div className="flex flex-col items-center space-y-4">
             <Label htmlFor="photo" className="cursor-pointer group">
               <div className="relative">
-                <Avatar className="h-32 w-32 border-4 border-gradient-to-r from-purple-200 to-indigo-200 shadow-lg group-hover:shadow-xl transition-all duration-300">
+                <Avatar className="h-32 w-32 border-4 border-purple-200 dark:border-purple-500/50 shadow-lg shadow-purple-500/20 group-hover:shadow-xl transition-all duration-300">
                   {photoPreview ? (
                     <AvatarImage src={photoPreview} className="object-cover" />
                   ) : (
-                    <AvatarFallback className="text-2xl bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700">
+                    <AvatarFallback className="text-2xl bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
                       {firstName && lastName ? getInitials(firstName, lastName) : <Camera className="h-8 w-8" />}
                     </AvatarFallback>
                   )}
@@ -318,7 +318,7 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
                 </div>
               </div>
               <div className="mt-3 text-center">
-                <span className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 rounded-xl font-medium hover:from-purple-200 hover:to-indigo-200 transition-all duration-300">
+                <span className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 shadow-md shadow-purple-500/30 transition-all duration-300">
                   <Camera className="h-4 w-4 mr-2" />
                   {photoPreview ? 'Change Photo' : 'Upload Photo'}
                 </span>
@@ -334,55 +334,57 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
           </div>
 
           {/* Personal Information */}
-          <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-              <User className="h-5 w-5 text-purple-600" />
+          <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+              <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg">
+                <User className="h-4 w-4 text-white" />
+              </div>
               Personal Information
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="firstName" className="text-sm font-medium text-gray-700">First Name *</Label>
+                <Label htmlFor="firstName" className="text-sm font-medium text-gray-700 dark:text-gray-300">First Name *</Label>
                 <Input
                   id="firstName"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   required
-                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                  className="mt-1 bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <div>
-                <Label htmlFor="lastName" className="text-sm font-medium text-gray-700">Last Name *</Label>
+                <Label htmlFor="lastName" className="text-sm font-medium text-gray-700 dark:text-gray-300">Last Name *</Label>
                 <Input
                   id="lastName"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   required
-                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                  className="mt-1 bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200 text-gray-900 dark:text-gray-100"
                 />
               </div>
             </div>
           </div>
 
           {/* Job Information */}
-          <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800">Job Information</h3>
+          <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Job Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="position" className="text-sm font-medium text-gray-700">Position</Label>
+                <Label htmlFor="position" className="text-sm font-medium text-gray-700 dark:text-gray-300">Position</Label>
                 <Input
                   id="position"
                   value={position}
                   onChange={(e) => setPosition(e.target.value)}
-                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                  className="mt-1 bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <div>
-                <Label htmlFor="status" className="text-sm font-medium text-gray-700">Status</Label>
+                <Label htmlFor="status" className="text-sm font-medium text-gray-700 dark:text-gray-300">Status</Label>
                 <Select value={status} onValueChange={setStatus}>
-                  <SelectTrigger className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30">
+                  <SelectTrigger className="mt-1 bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 text-gray-900 dark:text-gray-100">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
-                  <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 rounded-xl">
+                  <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-purple-500/30 rounded-xl">
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="on_leave">On Leave</SelectItem>
                     <SelectItem value="inactive">Inactive</SelectItem>
@@ -393,21 +395,21 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
           </div>
 
           {/* Contact Information */}
-          <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800">Contact Information</h3>
+          <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Contact Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email</Label>
+                <Label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                  className="mt-1 bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <div>
-                <Label htmlFor="phone" className="text-sm font-medium text-gray-700">Phone</Label>
+                <Label htmlFor="phone" className="text-sm font-medium text-gray-700 dark:text-gray-300">Phone</Label>
                 <Input
                   id="phone"
                   type="tel"
@@ -418,7 +420,7 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
                       setPhone(value);
                     }
                   }}
-                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                  className="mt-1 bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200 text-gray-900 dark:text-gray-100"
                   placeholder="10-digit phone number"
                   maxLength={10}
                 />
@@ -427,52 +429,52 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
           </div>
 
           {/* Emergency Contact */}
-          <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800">Emergency Contact</h3>
+          <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Emergency Contact</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="emergencyContactName" className="text-sm font-medium text-gray-700">Emergency Contact Name</Label>
+                <Label htmlFor="emergencyContactName" className="text-sm font-medium text-gray-700 dark:text-gray-300">Emergency Contact Name</Label>
                 <Input
                   id="emergencyContactName"
                   value={emergencyContactName}
                   onChange={(e) => setEmergencyContactName(e.target.value)}
-                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                  className="mt-1 bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <div>
-                <Label htmlFor="emergencyContactPhone" className="text-sm font-medium text-gray-700">Emergency Contact Phone</Label>
+                <Label htmlFor="emergencyContactPhone" className="text-sm font-medium text-gray-700 dark:text-gray-300">Emergency Contact Phone</Label>
                 <Input
                   id="emergencyContactPhone"
                   value={emergencyContactPhone}
                   onChange={(e) => setEmergencyContactPhone(e.target.value)}
-                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                  className="mt-1 bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200 text-gray-900 dark:text-gray-100"
                 />
               </div>
             </div>
           </div>
 
           {/* Salary Information */}
-          <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800">Salary Information</h3>
+          <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Salary Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="salary" className="text-sm font-medium text-gray-700">Salary Amount</Label>
+                <Label htmlFor="salary" className="text-sm font-medium text-gray-700 dark:text-gray-300">Salary Amount</Label>
                 <Input
                   id="salary"
                   type="number"
                   value={salary}
                   onChange={(e) => setSalary(e.target.value)}
                   placeholder="Enter salary amount"
-                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                  className="mt-1 bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <div>
-                <Label htmlFor="salaryType" className="text-sm font-medium text-gray-700">Salary Type</Label>
+                <Label htmlFor="salaryType" className="text-sm font-medium text-gray-700 dark:text-gray-300">Salary Type</Label>
                 <Select value={salaryType} onValueChange={setSalaryType}>
-                  <SelectTrigger className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30">
+                  <SelectTrigger className="mt-1 bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 text-gray-900 dark:text-gray-100">
                     <SelectValue placeholder="Select salary type" />
                   </SelectTrigger>
-                  <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 rounded-xl">
+                  <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-purple-500/30 rounded-xl">
                     <SelectItem value="hourly">Hourly</SelectItem>
                     <SelectItem value="daily">Daily</SelectItem>
                     <SelectItem value="weekly">Weekly</SelectItem>
@@ -485,27 +487,27 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
           </div>
 
           {/* Work Schedule */}
-          <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800">Work Schedule</h3>
+          <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Work Schedule</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="startDate" className="text-sm font-medium text-gray-700">Start Date</Label>
+                <Label htmlFor="startDate" className="text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</Label>
                 <Input
                   id="startDate"
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   max={format(new Date(), "yyyy-MM-dd")}
-                  className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200"
+                  className="mt-1 bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <div>
-                <Label htmlFor="shift" className="text-sm font-medium text-gray-700">Shift</Label>
+                <Label htmlFor="shift" className="text-sm font-medium text-gray-700 dark:text-gray-300">Shift</Label>
                 <Select value={shift} onValueChange={setShift}>
-                  <SelectTrigger className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30">
+                  <SelectTrigger className="mt-1 bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 text-gray-900 dark:text-gray-100">
                     <SelectValue placeholder="Select shift" />
                   </SelectTrigger>
-                  <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 rounded-xl">
+                  <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-purple-500/30 rounded-xl">
                     <SelectItem value="Morning">Morning</SelectItem>
                     <SelectItem value="Afternoon">Afternoon</SelectItem>
                     <SelectItem value="Evening">Evening</SelectItem>
@@ -517,25 +519,27 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
           </div>
 
           {/* Availability Notes */}
-          <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800">Additional Information</h3>
+          <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Additional Information</h3>
             <div>
-              <Label htmlFor="availabilityNotes" className="text-sm font-medium text-gray-700">Availability Notes</Label>
+              <Label htmlFor="availabilityNotes" className="text-sm font-medium text-gray-700 dark:text-gray-300">Availability Notes</Label>
               <Textarea
                 id="availabilityNotes"
                 value={availabilityNotes}
                 onChange={(e) => setAvailabilityNotes(e.target.value)}
                 placeholder="Enter availability preferences or other notes..."
                 rows={3}
-                className="mt-1 bg-white/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200 resize-none"
+                className="mt-1 bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200 resize-none text-gray-900 dark:text-gray-100"
               />
             </div>
           </div>
 
           {/* Document Upload Section */}
-          <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-              <FileText className="h-5 w-5 text-purple-600" />
+          <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+              <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg">
+                <FileText className="h-4 w-4 text-white" />
+              </div>
               Staff Documents
             </h3>
             <DocumentUpload
@@ -549,14 +553,14 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
               type="button" 
               variant="outline" 
               onClick={onClose}
-              className="bg-white/80 border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold px-6 py-3 rounded-xl transition-all duration-300"
+              className="bg-white/80 dark:bg-gray-800/80 border-2 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold px-6 py-3 rounded-xl transition-all duration-300"
             >
               Cancel
             </Button>
             <Button 
               type="submit" 
               disabled={saveStaffMutation.isPending}
-              className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:transform-none"
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:transform-none"
             >
               {saveStaffMutation.isPending ? (
                 <>
