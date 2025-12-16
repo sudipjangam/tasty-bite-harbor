@@ -24,7 +24,8 @@ import {
   Shield,
   DollarSign,
   FileText,
-  MessageSquare
+  MessageSquare,
+  Receipt
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -64,6 +65,7 @@ const mobileNavItems: MobileNavItem[] = [
   { id: 'analytics', label: 'Analytics', path: '/analytics', icon: BarChart3, requiredPermissions: ['analytics.view'], gradient: 'from-purple-500 to-indigo-600', shadowColor: 'shadow-purple-500/30', textColor: 'text-purple-600' },
   { id: 'financial', label: 'Financial', path: '/financial', icon: DollarSign, requiredPermissions: ['financial.view'], gradient: 'from-green-500 to-emerald-600', shadowColor: 'shadow-green-500/30', textColor: 'text-green-600' },
   { id: 'reports', label: 'Reports', path: '/reports', icon: FileText, requiredPermissions: ['analytics.view'], gradient: 'from-slate-500 to-gray-600', shadowColor: 'shadow-slate-500/30', textColor: 'text-slate-600' },
+  { id: 'expenses', label: 'Expenses', path: '/expenses', icon: Receipt, requiredPermissions: ['financial.view'], gradient: 'from-purple-600 to-indigo-700', shadowColor: 'shadow-purple-600/30', textColor: 'text-purple-700' },
   { id: 'user-management', label: 'Users', path: '/user-management', icon: UserPlus, requiredPermissions: ['users.manage'], gradient: 'from-violet-600 to-purple-700', shadowColor: 'shadow-violet-600/30', textColor: 'text-violet-600' },
   { id: 'role-management', label: 'Roles', path: '/role-management', icon: Shield, requiredPermissions: ['users.manage'], gradient: 'from-red-500 to-rose-600', shadowColor: 'shadow-red-500/30', textColor: 'text-red-600' },
   { id: 'ai', label: 'AI Assistant', path: '/ai', icon: MessageSquare, requiredPermissions: ['dashboard.view'], gradient: 'from-cyan-400 to-blue-500', shadowColor: 'shadow-cyan-400/30', textColor: 'text-cyan-600' },
