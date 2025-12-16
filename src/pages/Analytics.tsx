@@ -6,6 +6,8 @@ import TimeRangeSelector from "@/components/Analytics/TimeRangeSelector";
 import ChartCards from "@/components/Analytics/ChartCards";
 import ExpandedChartDialog from "@/components/Analytics/ExpandedChartDialog";
 import BusinessDashboard from "@/components/Analytics/BusinessDashboard";
+import { HotelMetricsCards } from "@/components/Analytics/HotelMetricsCards";
+import { ConsolidatedRevenueChart } from "@/components/Analytics/ConsolidatedRevenueChart";
 import { format, subDays, subMonths, subYears, startOfDay } from "date-fns";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
@@ -16,7 +18,7 @@ import Watermark from "@/components/Layout/Watermark";
 import { fetchAllowedComponents } from "@/utils/subscriptionUtils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, BarChart3, Sparkles } from "lucide-react";
+import { TrendingUp, BarChart3, Sparkles, Building2 } from "lucide-react";
 
 const Analytics = () => {
   const { toast } = useToast();
@@ -132,9 +134,12 @@ const Analytics = () => {
     );
   }
 
-  const totalRevenue = data.revenueStats.reduce((sum, stat) => sum + Number(stat.total_revenue), 0);
+  // Use consolidated revenue for accurate totals
+  const totalRevenue = data.consolidatedRevenue?.grandTotal || 0;
+  const restaurantRevenue = data.consolidatedRevenue?.totalRestaurantRevenue || 0;
+  const hotelRevenue = data.consolidatedRevenue?.totalHotelRevenue || 0;
   const totalOrders = data.revenueStats.reduce((sum, stat) => sum + stat.order_count, 0);
-  const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+  const averageOrderValue = totalOrders > 0 ? restaurantRevenue / totalOrders : 0;
   
   // Calculate orders today
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -390,10 +395,10 @@ const Analytics = () => {
               <BarChart3 className="h-8 w-8 text-white" />
             </div>
             <div className="flex-1">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 bg-clip-text text-transparent">
                 Analytics & Reports
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
+              <p className="text-gray-600 dark:text-gray-400 mt-2 text-base md:text-lg">
                 Comprehensive insights into your restaurant's performance
               </p>
             </div>
@@ -427,6 +432,29 @@ const Analytics = () => {
       <div className="px-4 md:px-6 pb-6 space-y-8">
         {analyticsView === "charts" ? (
           <>
+            {/* Hotel Metrics Section */}
+            {data.hotelMetrics && data.hotelMetrics.totalRooms > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-lg">
+                    <Building2 className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
+                      Hotel Performance
+                    </h2>
+                    <p className="text-sm text-muted-foreground">Key hospitality metrics</p>
+                  </div>
+                </div>
+                <HotelMetricsCards metrics={data.hotelMetrics} />
+              </div>
+            )}
+
+            {/* Consolidated Revenue Chart */}
+            {data.consolidatedRevenue && (
+              <ConsolidatedRevenueChart data={data.consolidatedRevenue} />
+            )}
+
             {/* Enhanced Stats Section */}
             <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
               <div className="flex items-center gap-3 mb-6">
@@ -445,8 +473,10 @@ const Analytics = () => {
               <StatCards 
                 totalRevenue={totalRevenue}
                 totalOrders={totalOrders}
-                averageOrderValue={averageOrderValue}
                 ordersToday={ordersToday}
+                averageOrderValue={averageOrderValue}
+                restaurantRevenue={restaurantRevenue}
+                hotelRevenue={hotelRevenue}
               />
             </div>
 

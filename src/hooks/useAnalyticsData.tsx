@@ -37,27 +37,55 @@ export const useAnalyticsData = () => {
         .order("total_spent", { ascending: false })
         .limit(100);
 
-      // Fetch recent orders from all sources
+      // Fetch recent orders from all sources - EXCLUDE cancelled orders
       const { data: regularOrders } = await supabase
         .from("orders")
         .select("*")
         .eq("restaurant_id", userProfile.restaurant_id)
+        .neq("status", "cancelled") // Exclude cancelled orders
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(100);
 
+      // Room service orders - EXCLUDE cancelled
       const { data: roomOrders } = await supabase
         .from("room_food_orders")
         .select("*")
         .eq("restaurant_id", userProfile.restaurant_id)
+        .neq("status", "cancelled") // Exclude cancelled orders
         .order("created_at", { ascending: false })
         .limit(50);
 
+      // Kitchen orders - EXCLUDE cancelled
       const { data: kitchenOrders } = await supabase
         .from("kitchen_orders")
         .select("*")
         .eq("restaurant_id", userProfile.restaurant_id)
+        .neq("status", "cancelled") // Exclude cancelled orders
         .order("created_at", { ascending: false })
         .limit(50);
+
+      // Fetch room billings for hotel revenue - ONLY paid billings
+      const { data: roomBillings } = await supabase
+        .from("room_billings")
+        .select("*")
+        .eq("restaurant_id", userProfile.restaurant_id)
+        .eq("payment_status", "paid")
+        .order("billing_date", { ascending: false })
+        .limit(100);
+
+      // Fetch rooms for occupancy calculation
+      const { data: rooms } = await supabase
+        .from("rooms")
+        .select("*")
+        .eq("restaurant_id", userProfile.restaurant_id);
+
+      // Fetch reservations for hotel metrics
+      const { data: reservations } = await supabase
+        .from("reservations")
+        .select("*")
+        .eq("restaurant_id", userProfile.restaurant_id)
+        .gte("check_in_date", subDays(new Date(), 30).toISOString())
+        .order("check_in_date", { ascending: false });
 
       // Fetch menu items to calculate top products
       const { data: menuItems } = await supabase
@@ -82,13 +110,25 @@ export const useAnalyticsData = () => {
       // Generate sales prediction based on historical data
       const salesPrediction = generateSalesPrediction(revenueStats || []);
 
+      // Calculate hotel metrics
+      const hotelMetrics = calculateHotelMetrics(rooms || [], reservations || [], roomBillings || []);
+
+      // Consolidate all revenue sources
+      const consolidatedRevenue = calculateConsolidatedRevenue(
+        revenueStats || [],
+        roomBillings || []
+      );
+
       return {
         revenueStats: revenueStats || [],
         customerInsights: customerInsights || [],
         recentOrders: [...(regularOrders || []), ...(roomOrders || []), ...(kitchenOrders || [])],
         topProducts,
         salesPrediction,
-        categoryData
+        categoryData,
+        roomBillings: roomBillings || [],
+        hotelMetrics,
+        consolidatedRevenue
       };
     },
     refetchInterval: 30000,
@@ -249,4 +289,77 @@ const generateSalesPrediction = (revenueStats: any[]) => {
       predicted: isHistory ? null : Math.floor(baseValue * weekendMultiplier * randomVariation)
     };
   });
+};
+
+// Helper function to calculate hotel metrics
+const calculateHotelMetrics = (rooms: any[], reservations: any[], roomBillings: any[]) => {
+  const totalRooms = rooms.length;
+  const occupiedRooms = rooms.filter(r => r.status === 'occupied').length;
+  const occupancyRate = totalRooms > 0 ? (occupiedRooms / totalRooms) * 100 : 0;
+
+  // Calculate ADR (Average Daily Rate) from paid billings
+  const totalRoomRevenue = roomBillings.reduce((sum, billing) => sum + Number(billing.total_amount || 0), 0);
+  const totalRoomNights = roomBillings.length;
+  const adr = totalRoomNights > 0 ? totalRoomRevenue / totalRoomNights : 0;
+
+  // Calculate RevPAR (Revenue Per Available Room)
+  const revPAR = totalRooms > 0 ? totalRoomRevenue / totalRooms : 0;
+
+  // Calculate average length of stay
+  const avgLengthOfStay = reservations.length > 0
+    ? reservations.reduce((sum, res) => {
+        const checkIn = new Date(res.check_in_date);
+        const checkOut = new Date(res.check_out_date);
+        const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+        return sum + nights;
+      }, 0) / reservations.length
+    : 0;
+
+  return {
+    totalRooms,
+    occupiedRooms,
+    occupancyRate,
+    adr,
+    revPAR,
+    totalRoomRevenue,
+    avgLengthOfStay,
+    totalReservations: reservations.length
+  };
+};
+
+// Helper function to consolidate revenue from all sources
+const calculateConsolidatedRevenue = (revenueStats: any[], roomBillings: any[]) => {
+  const last30Days = Array.from({ length: 30 }).map((_, i) => {
+    const date = format(subDays(new Date(), 29 - i), 'yyyy-MM-dd');
+    
+    // Get restaurant revenue for this date
+    const restaurantRevenue = revenueStats.find(stat => 
+      format(new Date(stat.date), 'yyyy-MM-dd') === date
+    )?.total_revenue || 0;
+
+    // Get hotel revenue for this date
+    const hotelRevenue = roomBillings
+      .filter(billing => format(new Date(billing.billing_date), 'yyyy-MM-dd') === date)
+      .reduce((sum, billing) => sum + Number(billing.total_amount || 0), 0);
+
+    return {
+      date,
+      restaurantRevenue: Number(restaurantRevenue),
+      hotelRevenue,
+      totalRevenue: Number(restaurantRevenue) + hotelRevenue
+    };
+  });
+
+  const totalRestaurantRevenue = last30Days.reduce((sum, day) => sum + day.restaurantRevenue, 0);
+  const totalHotelRevenue = last30Days.reduce((sum, day) => sum + day.hotelRevenue, 0);
+  const grandTotal = totalRestaurantRevenue + totalHotelRevenue;
+
+  return {
+    dailyRevenue: last30Days,
+    totalRestaurantRevenue,
+    totalHotelRevenue,
+    grandTotal,
+    restaurantPercentage: grandTotal > 0 ? (totalRestaurantRevenue / grandTotal) * 100 : 0,
+    hotelPercentage: grandTotal > 0 ? (totalHotelRevenue / grandTotal) * 100 : 0
+  };
 };

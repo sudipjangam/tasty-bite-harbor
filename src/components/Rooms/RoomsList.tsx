@@ -10,6 +10,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Room } from "@/hooks/useRooms";
 import { Search, Filter } from "lucide-react";
 
+// Lazy imports moved outside component to prevent remounting
+const RoomCheckout = React.lazy(() => import("@/components/Rooms/RoomCheckout"));
+const RoomOrdersDialog = React.lazy(() => import("@/components/Rooms/RoomOrdersDialog"));
+
 interface RoomsListProps {
   rooms: Room[];
   getRoomFoodOrdersTotal: (roomId: string) => number;
@@ -77,6 +81,7 @@ const RoomsList: React.FC<RoomsListProps> = ({
     special_occasion_date: null as Date | null,
     marketing_consent: false
   });
+  const [currentReservationId, setCurrentReservationId] = useState<string | null>(null);
 
   // Filter rooms based on search query and status filter
   const filteredRooms = rooms.filter(room => {
@@ -211,6 +216,7 @@ const RoomsList: React.FC<RoomsListProps> = ({
       }
 
       setCurrentRoom(room);
+      setCurrentReservationId(data.id);
       setReservation(prev => ({
         ...prev,
         customer_name: data.customer_name,
@@ -231,10 +237,8 @@ const RoomsList: React.FC<RoomsListProps> = ({
   };
 
   if (checkoutRoom) {
-    const RoomCheckout = React.lazy(() => import("@/components/Rooms/RoomCheckout"));
-    
     return (
-      <React.Suspense fallback={<div>Loading checkout...</div>}>
+      <React.Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div></div>}>
         <RoomCheckout 
           roomId={checkoutRoom.roomId}
           reservationId={checkoutRoom.reservationId}
@@ -244,17 +248,20 @@ const RoomsList: React.FC<RoomsListProps> = ({
     );
   }
 
-  if (openFoodOrder && currentRoom) {
-    const RoomOrderForm = React.lazy(() => import("@/components/Rooms/RoomOrderForm"));
-    
+  if (openFoodOrder && currentRoom && currentReservationId) {
     return (
-      <React.Suspense fallback={<div>Loading order form...</div>}>
-        <RoomOrderForm
+      <React.Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div></div>}>
+        <RoomOrdersDialog
           roomId={currentRoom.id}
+          roomName={currentRoom.name}
+          reservationId={currentReservationId}
           open={openFoodOrder}
-          onClose={() => setOpenFoodOrder(false)}
-          onSuccess={() => {
+          onClose={() => {
             setOpenFoodOrder(false);
+            setCurrentReservationId(null);
+          }}
+          onSuccess={() => {
+            // Refresh data but don't close
           }}
           restaurantId={currentRoom.restaurant_id}
           customerName={reservation.customer_name}

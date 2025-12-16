@@ -15,7 +15,7 @@ import SidebarNavigation from "./SidebarNavigation";
 import { SidebarFooter } from "./SidebarFooter";
 
 const Sidebar = () => {
-  const { openMobile, setOpenMobile } = useSidebar();
+  const { openMobile, setOpenMobile, open, setOpen, toggleSidebar } = useSidebar();
   const [staffName, setStaffName] = useState<string | null>(null);
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [restaurantName, setRestaurantName] = useState<string | null>(null);
@@ -107,7 +107,21 @@ const Sidebar = () => {
   return (
     <>
       {mobileToggle}
-      <SidebarComponent className="bg-sidebar-purple">
+      <SidebarComponent className="bg-sidebar-purple" collapsible="icon">
+        {/* Desktop Toggle Button at top */}
+        <div className="flex items-center justify-between p-2 border-b border-white/10">
+          <Button
+            onClick={toggleSidebar}
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/10 h-8 w-8"
+            title={open ? "Hide menu" : "Show menu"}
+            aria-label="Toggle sidebar"
+          >
+            <MenuIcon className="h-4 w-4" />
+          </Button>
+        </div>
+        
         <SidebarHeader restaurantName={restaurantName} />
         <SidebarNavigation allowedComponents={allowedComponents} />
         <SidebarFooter staffName={staffName} />

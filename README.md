@@ -58,6 +58,14 @@ Ensure you have **Node.js** and **npm** installed. You can install Node.js via [
 
    Your app will be running at `http://localhost:5173`
 
+6. **Run Tests:**
+
+   To ensure the application is working correctly, run the automated test suite:
+
+   ```sh
+   npm test
+   ```
+
 ## Editing the Code
 
 ### Using Your Preferred IDE

@@ -22,6 +22,8 @@ import Expenses from "@/pages/Expenses";
 import AI from "@/pages/AI";
 import ChannelManagement from "@/pages/ChannelManagement";
 import Kitchen from "@/pages/Kitchen";
+import Marketing from "@/pages/Marketing";
+import Reports from "@/pages/Reports";
 
 /**
  * Main application routes for authenticated users with simplified layout
@@ -47,12 +49,14 @@ export const SimpleAppRoutes = () => {
           <Route path="/housekeeping" element={<Housekeeping />} />
           <Route path="/reservations" element={<Reservations />} />
           <Route path="/customers" element={<Customers />} />
-          <Route path="/crm" element={<CRM />} />
+          {/* <Route path="/crm" element={<CRM />} /> */}
           <Route path="/suppliers" element={<Suppliers />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/ai" element={<AI />} />
           <Route path="/channel-management" element={<ChannelManagement />} />
           <Route path="/kitchen" element={<Kitchen />} />
+          <Route path="/marketing" element={<Marketing />} />
+          <Route path="/reports" element={<Reports />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

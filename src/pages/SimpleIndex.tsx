@@ -18,7 +18,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import Stats from "@/components/Dashboard/Stats";
 import WeeklySalesChart from "@/components/Dashboard/WeeklySalesChart";
-import PerformanceMetrics from "@/components/Dashboard/PerformanceMetrics";
+import RevenueBreakdown from "@/components/Dashboard/RevenueBreakdown";
+import LowInventoryAlert from "@/components/Dashboard/LowInventoryAlert";
 
 const SimpleIndex = () => {
   const { user } = useAuth();
@@ -98,6 +99,9 @@ const SimpleIndex = () => {
       {/* Stats Section */}
       <Stats />
 
+      {/* Low Inventory Alert */}
+      <LowInventoryAlert />
+
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <StandardizedCard>
@@ -108,7 +112,7 @@ const SimpleIndex = () => {
           <WeeklySalesChart />
         </StandardizedCard>
         
-        <PerformanceMetrics />
+        <RevenueBreakdown />
       </div>
     </div>
   );

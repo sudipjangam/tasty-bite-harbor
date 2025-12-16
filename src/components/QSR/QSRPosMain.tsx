@@ -114,6 +114,7 @@ export const QSRPosMain = () => {
         total: total,
         status: status,
         source: 'qsr',
+        order_type: 'takeaway', // QSR orders are typically takeaway
       };
 
       // Kitchen order items format

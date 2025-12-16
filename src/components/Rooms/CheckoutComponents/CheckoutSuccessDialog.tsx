@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Check, Loader2, Send, CheckCircle, Phone } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Check, Loader2, CheckCircle, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -31,12 +32,101 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
   restaurantId,
   restaurantPhone
 }) => {
-  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
-  const [whatsAppSent, setWhatsAppSent] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [customerEmail, setCustomerEmail] = useState('');
   const { toast } = useToast();
 
+  const handleSendEmail = async () => {
+    if (!customerEmail) {
+      toast({
+        variant: 'destructive',
+        title: 'Email Required',
+        description: 'Please enter an email address to send the bill'
+      });
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(customerEmail)) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid Email',
+        description: 'Please enter a valid email address'
+      });
+      return;
+    }
+    
+    setIsSendingEmail(true);
+    
+    try {
+      // Fetch restaurant details
+      const { data: restaurantData, error: restaurantError } = await supabase
+        .from('restaurants')
+        .select('name, address, phone')
+        .eq('id', restaurantId)
+        .single();
+      
+      if (restaurantError) {
+        console.error('Error fetching restaurant data:', restaurantError);
+      }
+      
+      const restaurantName = restaurantData?.name || 'Our Hotel';
+      
+      console.log('Sending Email bill:', {
+        billingId,
+        email: customerEmail,
+        restaurantName,
+        customerName,
+        total: totalAmount,
+        roomName,
+        checkoutDate
+      });
+      
+      // Call the Email edge function
+      const response = await supabase.functions.invoke('send-email-bill', {
+        body: {
+          orderId: billingId,
+          email: customerEmail,
+          customerName,
+          restaurantName,
+          restaurantAddress: restaurantData?.address || '',
+          restaurantPhone: restaurantData?.phone || '',
+          total: totalAmount,
+          items: [
+            { name: `Room: ${roomName}`, quantity: 1, price: totalAmount }
+          ],
+          tableNumber: roomName,
+          orderDate: checkoutDate
+        }
+      });
+
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      
+      console.log('Email bill response:', response.data);
+      
+      setEmailSent(true);
+      toast({
+        title: 'Bill Sent',
+        description: `Bill has been sent to ${customerEmail} via Email`
+      });
+    } catch (error) {
+      console.error('Error sending Email bill:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to send bill via Email. ' + (error instanceof Error ? error.message : 'Unknown error')
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  /* FROZEN: WhatsApp sending - Uncomment when Twilio credentials are available
   const handleSendWhatsApp = async () => {
-    // Use customer phone if available, otherwise use restaurant phone
     const phoneToUse = customerPhone || restaurantPhone;
     
     if (!phoneToUse) {
@@ -48,33 +138,15 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
       return;
     }
     
-    setIsSendingWhatsApp(true);
-    
     try {
-      // Fetch restaurant name
-      const { data: restaurantData, error: restaurantError } = await supabase
+      const { data: restaurantData } = await supabase
         .from('restaurants')
-        .select('name, address')
+        .select('name')
         .eq('id', restaurantId)
         .single();
       
-      if (restaurantError) {
-        console.error('Error fetching restaurant data:', restaurantError);
-      }
-      
       const restaurantName = restaurantData?.name || 'Our Restaurant';
       
-      console.log('Sending WhatsApp bill:', {
-        billingId,
-        phoneNumber: phoneToUse,
-        restaurantName,
-        customerName,
-        total: totalAmount,
-        roomName,
-        checkoutDate
-      });
-      
-      // Call the WhatsApp edge function
       const response = await supabase.functions.invoke('send-whatsapp-bill', {
         body: {
           billingId,
@@ -91,9 +163,6 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
         throw new Error(response.error);
       }
       
-      console.log('WhatsApp bill response:', response.data);
-      
-      setWhatsAppSent(true);
       toast({
         title: 'Bill Sent',
         description: `Bill has been sent to ${phoneToUse} via WhatsApp`
@@ -103,12 +172,11 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to send bill via WhatsApp. ' + (error instanceof Error ? error.message : 'Unknown error')
+        description: 'Failed to send bill via WhatsApp.'
       });
-    } finally {
-      setIsSendingWhatsApp(false);
     }
   };
+  */
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
@@ -155,33 +223,47 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
             </div>
           </div>
           
-          <div className="text-center">
-            {whatsAppSent ? (
+          <div className="space-y-3">
+            {emailSent ? (
               <div className="p-4 rounded-lg bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-800">
                 <p className="text-green-700 dark:text-green-300 flex items-center justify-center gap-2 font-medium">
                   <CheckCircle className="h-5 w-5" />
-                  Bill sent via WhatsApp successfully
+                  Bill sent via Email successfully
                 </p>
               </div>
             ) : (
-              <Button
-                variant="outline"
-                className="border-primary/30 text-primary hover:bg-primary hover:text-white transition-all duration-200"
-                onClick={handleSendWhatsApp}
-                disabled={isSendingWhatsApp}
-              >
-                {isSendingWhatsApp ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Phone className="h-4 w-4 mr-2" />
-                    Send Bill via WhatsApp
-                  </>
-                )}
-              </Button>
+              <>
+                <div>
+                  <label className="text-sm font-medium mb-1 block text-muted-foreground">
+                    Send bill to email:
+                  </label>
+                  <Input
+                    type="email"
+                    placeholder="Enter customer email"
+                    value={customerEmail}
+                    onChange={(e) => setCustomerEmail(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full border-primary/30 text-primary hover:bg-primary hover:text-white transition-all duration-200"
+                  onClick={handleSendEmail}
+                  disabled={isSendingEmail}
+                >
+                  {isSendingEmail ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="h-4 w-4 mr-2" />
+                      Send Bill via Email
+                    </>
+                  )}
+                </Button>
+              </>
             )}
           </div>
         </div>

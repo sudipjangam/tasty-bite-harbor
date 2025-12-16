@@ -65,14 +65,14 @@ const SimpleSidebar = () => {
 
         {/* Navigation */}
         <div className="flex-1 overflow-y-auto py-4">
-          <ImprovedSidebarNavigation />
+          {/* <ImprovedSidebarNavigation /> */}
         </div>
 
         {/* Footer */}
         <div className="p-4 border-t border-white/10">
           <div className="text-center">
             <p className="text-white/60 text-xs">
-              © 2024 Restaurant Pro
+              © {new Date().getFullYear()} Restaurant Pro
             </p>
             <p className="text-white/60 text-xs">
               Version 2.0

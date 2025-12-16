@@ -13,11 +13,11 @@ const Auth = () => {
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
   const { toast } = useToast();
 
-  console.log("Auth page: Rendering auth form");
+
 
   const handleClearAuth = async () => {
     try {
-      console.log("Auth page: Clearing all auth data");
+
       
       // Sign out from Supabase
       await supabase.auth.signOut();

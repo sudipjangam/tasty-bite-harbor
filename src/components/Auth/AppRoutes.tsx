@@ -1,7 +1,9 @@
-
+import React, { useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ImprovedSidebarNavigation } from "@/components/Layout/ImprovedSidebarNavigation";
+import SimpleSidebar from "../Layout/SimpleSidebar";
 import Index from "@/pages/Index";
+import StaffLandingPage from "@/components/Dashboard/StaffLandingPage";
 import Orders from "@/pages/Orders";
 import POS from "@/pages/POS";
 import QSRPos from "@/pages/QSRPos";
@@ -24,22 +26,56 @@ import Kitchen from "@/pages/Kitchen";
 import Financial from "@/pages/Financial";
 import Security from "@/pages/Security";
 import UserManagement from "@/pages/UserManagement";
+import AdminPanel from "@/pages/AdminPanel";
 import RecipeManagement from "@/pages/RecipeManagement";
+import RoleManagement from "@/pages/RoleManagement";
+import Marketing from "@/pages/Marketing";
+import Reports from "@/pages/Reports";
 import { PermissionGuard } from "./PermissionGuard";
+import { SidebarHeader } from "../Layout/SidebarHeader";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Menu as MenuIcon } from "lucide-react";
+import { BottomNav } from "../Layout/BottomNav";
+import { MobileNavigation } from "@/components/ui/mobile-navigation";
 
 /**
  * Main application routes for authenticated users
  */
 export const AppRoutes = () => {
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-100 dark:bg-gray-900">
-      <div className="w-64 bg-sidebar-purple">
-        <ImprovedSidebarNavigation />
+      {/* Sidebar - Hidden on mobile */}
+      <div className={cn(
+        "bg-sidebar-purple transition-all duration-300 ease-in-out relative hidden md:block",
+        isSidebarCollapsed ? "w-16" : "w-64"
+      )}>
+        {isSidebarCollapsed && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsSidebarCollapsed(false)}
+            className="absolute top-4 left-4 text-white hover:bg-white/10 w-8 h-8"
+          >
+            <MenuIcon className="h-5 w-5" />
+          </Button>
+        )}
+        <ImprovedSidebarNavigation 
+          isSidebarCollapsed={isSidebarCollapsed}
+          setIsSidebarCollapsed={setIsSidebarCollapsed}
+        />
       </div>
-      <div className="flex-1 overflow-y-auto">
+      
+      {/* Main Content - Add padding bottom for mobile navigation */}
+      <div className="flex-1 overflow-y-auto pb-16 md:pb-0">
         <Routes>
           <Route path="/" element={
-            <PermissionGuard permission="dashboard.view">
+            <PermissionGuard 
+              permission="dashboard.view"
+              fallback={<StaffLandingPage />}
+            >
               <Index />
             </PermissionGuard>
           } />
@@ -53,11 +89,12 @@ export const AppRoutes = () => {
               <POS />
             </PermissionGuard>
           } />
-          <Route path="/qsr-pos" element={
+          {/* <Route path="/qsr-pos" element={
             <PermissionGuard permission="orders.view">
               <QSRPos />
             </PermissionGuard>
-          } />
+          } /> */}
+           
           <Route path="/menu" element={
             <PermissionGuard permission="menu.view">
               <Menu />
@@ -118,11 +155,7 @@ export const AppRoutes = () => {
               <Customers />
             </PermissionGuard>
           } />
-          <Route path="/crm" element={
-            <PermissionGuard permission="customers.view">
-              <CRM />
-            </PermissionGuard>
-          } />
+          
           <Route path="/suppliers" element={
             <PermissionGuard permission="inventory.view">
               <Suppliers />
@@ -158,8 +191,31 @@ export const AppRoutes = () => {
               <UserManagement />
             </PermissionGuard>
           } />
+          <Route path="/admin" element={
+            <PermissionGuard permission="users.manage">
+              <AdminPanel />
+            </PermissionGuard>
+          } />
+          <Route path="/role-management" element={
+            <PermissionGuard permission="users.manage">
+              <RoleManagement />
+            </PermissionGuard>
+          } />
+          <Route path="/marketing" element={
+            <PermissionGuard permission="customers.view">
+              <Marketing />
+            </PermissionGuard>
+          } />
+          <Route path="/reports" element={
+            <PermissionGuard permission="analytics.view">
+              <Reports />
+            </PermissionGuard>
+          } />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        
+        {/* Global Mobile Navigation */}
+        <MobileNavigation className="md:hidden" />
       </div>
     </div>
   );

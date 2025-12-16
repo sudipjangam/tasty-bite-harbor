@@ -65,6 +65,35 @@ const OrderList: React.FC<OrderListProps> = ({
     setShowEditForm(true);
   };
 
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm("Are you sure you want to delete this order?")) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .delete()
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Order Deleted",
+        description: "Order has been successfully deleted.",
+      });
+
+      onOrdersChange();
+    } catch (error) {
+      console.error("Error deleting order:", error);
+      toast({
+        variant: "destructive",
+        title: "Delete Failed",
+        description: "Could not delete the order. Please try again.",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -102,6 +131,7 @@ const OrderList: React.FC<OrderListProps> = ({
               order={order} 
               onStatusChange={handleStatusChange}
               onEdit={() => handleEditOrder(order)}
+              onDelete={handleDeleteOrder}
             />
           ))}
         </div>

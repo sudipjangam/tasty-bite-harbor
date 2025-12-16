@@ -14,12 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_components: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
           created_at: string
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           new_values: Json | null
           old_values: Json | null
           record_id: string | null
@@ -32,7 +53,7 @@ export type Database = {
           action: string
           created_at?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           record_id?: string | null
@@ -45,7 +66,7 @@ export type Database = {
           action?: string
           created_at?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           record_id?: string | null
@@ -394,6 +415,27 @@ export type Database = {
         }
         Relationships: []
       }
+      categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       channel_inventory: {
         Row: {
           available_rooms: number
@@ -646,6 +688,35 @@ export type Database = {
           room_type?: string | null
         }
         Relationships: []
+      }
+      component_table_mapping: {
+        Row: {
+          component_id: string | null
+          created_at: string | null
+          id: string
+          table_name: string
+        }
+        Insert: {
+          component_id?: string | null
+          created_at?: string | null
+          id?: string
+          table_name: string
+        }
+        Update: {
+          component_id?: string | null
+          created_at?: string | null
+          id?: string
+          table_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "component_table_mapping_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "app_components"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       currencies: {
         Row: {
@@ -1655,32 +1726,41 @@ export type Database = {
       kitchen_orders: {
         Row: {
           created_at: string
+          customer_name: string | null
+          customer_phone: string | null
           id: string
           items: Json
           order_id: string | null
           restaurant_id: string | null
           source: string
           status: string
+          table_number: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          customer_name?: string | null
+          customer_phone?: string | null
           id?: string
           items: Json
           order_id?: string | null
           restaurant_id?: string | null
           source: string
           status?: string
+          table_number?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          customer_name?: string | null
+          customer_phone?: string | null
           id?: string
           items?: Json
           order_id?: string | null
           restaurant_id?: string | null
           source?: string
           status?: string
+          table_number?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2122,9 +2202,17 @@ export type Database = {
       orders: {
         Row: {
           created_at: string
+          Customer_MobileNumber: string | null
           customer_name: string
+          Customer_Name: string | null
+          customer_phone: string | null
+          discount_amount: number | null
+          discount_percentage: number | null
           id: string
           items: string[]
+          order_type: string | null
+          payment_status: string | null
+          reservation_id: string | null
           restaurant_id: string
           source: string | null
           status: string
@@ -2133,9 +2221,17 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          Customer_MobileNumber?: string | null
           customer_name: string
+          Customer_Name?: string | null
+          customer_phone?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
           id?: string
           items: string[]
+          order_type?: string | null
+          payment_status?: string | null
+          reservation_id?: string | null
           restaurant_id: string
           source?: string | null
           status?: string
@@ -2144,9 +2240,17 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          Customer_MobileNumber?: string | null
           customer_name?: string
+          Customer_Name?: string | null
+          customer_phone?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
           id?: string
           items?: string[]
+          order_type?: string | null
+          payment_status?: string | null
+          reservation_id?: string | null
           restaurant_id?: string
           source?: string | null
           status?: string
@@ -2154,6 +2258,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_restaurant_id_fkey"
             columns: ["restaurant_id"]
@@ -2406,6 +2517,8 @@ export type Database = {
           last_name: string | null
           restaurant_id: string | null
           role: Database["public"]["Enums"]["user_role"]
+          role_id: string | null
+          role_name_text: string | null
           updated_at: string
         }
         Insert: {
@@ -2415,6 +2528,8 @@ export type Database = {
           last_name?: string | null
           restaurant_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          role_id?: string | null
+          role_name_text?: string | null
           updated_at?: string
         }
         Update: {
@@ -2424,6 +2539,8 @@ export type Database = {
           last_name?: string | null
           restaurant_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          role_id?: string | null
+          role_name_text?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2432,6 +2549,13 @@ export type Database = {
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
             referencedColumns: ["id"]
           },
         ]
@@ -2781,6 +2905,7 @@ export type Database = {
           instructions: string | null
           is_active: boolean | null
           margin_percentage: number | null
+          menu_item_id: string | null
           name: string
           prep_time_minutes: number | null
           restaurant_id: string
@@ -2803,6 +2928,7 @@ export type Database = {
           instructions?: string | null
           is_active?: boolean | null
           margin_percentage?: number | null
+          menu_item_id?: string | null
           name: string
           prep_time_minutes?: number | null
           restaurant_id: string
@@ -2825,6 +2951,7 @@ export type Database = {
           instructions?: string | null
           is_active?: boolean | null
           margin_percentage?: number | null
+          menu_item_id?: string | null
           name?: string
           prep_time_minutes?: number | null
           restaurant_id?: string
@@ -2834,7 +2961,15 @@ export type Database = {
           total_cost?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "recipes_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reservations: {
         Row: {
@@ -3231,6 +3366,77 @@ export type Database = {
         }
         Relationships: []
       }
+      role_components: {
+        Row: {
+          component_id: string
+          created_at: string | null
+          role_id: string
+        }
+        Insert: {
+          component_id: string
+          created_at?: string | null
+          role_id: string
+        }
+        Update: {
+          component_id?: string
+          created_at?: string | null
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_components_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "app_components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_components_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roles: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_deletable: boolean | null
+          name: string
+          restaurant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_deletable?: boolean | null
+          name: string
+          restaurant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_deletable?: boolean | null
+          name?: string
+          restaurant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roles_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       room_amenities: {
         Row: {
           category: string
@@ -3542,6 +3748,7 @@ export type Database = {
           customer_name: string
           id: string
           items: Json
+          order_id: string | null
           restaurant_id: string
           room_id: string
           status: string
@@ -3553,6 +3760,7 @@ export type Database = {
           customer_name: string
           id?: string
           items?: Json
+          order_id?: string | null
           restaurant_id: string
           room_id: string
           status?: string
@@ -3564,6 +3772,7 @@ export type Database = {
           customer_name?: string
           id?: string
           items?: Json
+          order_id?: string | null
           restaurant_id?: string
           room_id?: string
           status?: string
@@ -3571,6 +3780,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "room_food_orders_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "room_food_orders_restaurant_id_fkey"
             columns: ["restaurant_id"]
@@ -4599,6 +4815,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          restaurant_id: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          restaurant_id: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          restaurant_id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       waitlist: {
         Row: {
           check_in_time: string
@@ -4672,6 +4915,31 @@ export type Database = {
           },
         ]
       }
+      profiles_with_role: {
+        Row: {
+          id: string | null
+          restaurant_id: string | null
+          role: Database["public"]["Enums"]["user_role"] | null
+          role_id: string | null
+          role_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       add_customer_activity: {
@@ -4689,6 +4957,12 @@ export type Database = {
           id: string
           restaurant_id: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "customer_activities"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       add_customer_note: {
         Args: {
@@ -4705,6 +4979,12 @@ export type Database = {
           id: string
           restaurant_id: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "customer_notes"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       add_loyalty_transaction: {
         Args: {
@@ -4728,10 +5008,20 @@ export type Database = {
           source_id: string | null
           transaction_type: string
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "loyalty_transactions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       calculate_customer_tier: {
         Args: { customer_points: number; restaurant_id_param: string }
         Returns: string
+      }
+      check_access: {
+        Args: { _restaurant_id: string; _table_name: string }
+        Returns: boolean
       }
       generate_purchase_order_number: {
         Args: { restaurant_id_param: string }
@@ -4747,6 +5037,14 @@ export type Database = {
           time_slot: string
         }[]
       }
+      get_analytics_data: {
+        Args: {
+          p_end_date: string
+          p_restaurant_id: string
+          p_start_date: string
+        }
+        Returns: Json
+      }
       get_customer_activities: {
         Args: { customer_id_param: string }
         Returns: {
@@ -4757,6 +5055,12 @@ export type Database = {
           id: string
           restaurant_id: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "customer_activities"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_customer_notes: {
         Args: { customer_id_param: string }
@@ -4768,6 +5072,12 @@ export type Database = {
           id: string
           restaurant_id: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "customer_notes"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_loyalty_transactions: {
         Args: { customer_id_param: string }
@@ -4783,9 +5093,39 @@ export type Database = {
           source_id: string | null
           transaction_type: string
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "loyalty_transactions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
+      get_user_components: {
+        Args: { user_id: string }
+        Returns: {
+          component_name: string
+        }[]
+      }
+      get_user_restaurant_id: { Args: { _user_id?: string }; Returns: string }
+      get_user_role_name: { Args: { user_id: string }; Returns: string }
       has_active_subscription: {
         Args: { restaurant_id: string }
+        Returns: boolean
+      }
+      has_any_role:
+        | { Args: { _roles: string[]; _user_id: string }; Returns: boolean }
+        | {
+            Args: {
+              _roles: Database["public"]["Enums"]["user_role"][]
+              _user_id: string
+            }
+            Returns: boolean
+          }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["user_role"]
+          _user_id: string
+        }
         Returns: boolean
       }
       suggest_purchase_orders: {
@@ -4801,6 +5141,11 @@ export type Database = {
         Args: { required_permissions?: string[]; required_roles: string[] }
         Returns: boolean
       }
+      user_has_table_access: {
+        Args: { _restaurant_id?: string; _table_name: string; _user_id: string }
+        Returns: boolean
+      }
+      user_is_admin_or_owner: { Args: { user_id?: string }; Returns: boolean }
     }
     Enums: {
       recipe_category:

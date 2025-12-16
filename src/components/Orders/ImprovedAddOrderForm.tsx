@@ -230,6 +230,8 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
         ),
         total: orderTotal,
         status: editingOrder ? editingOrder.status : "pending",
+        source: "manual",
+        order_type: values.orderType === "dineIn" ? "dine-in" : "takeaway",
       };
 
       if (editingOrder) {
@@ -273,20 +275,20 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
   const categories = Array.from(new Set(menuItems?.map(item => item.category) || []));
 
   return (
-    <div className="bg-white">
+    <div className="bg-gradient-to-br from-background via-background to-muted/20">
       {/* Header */}
-      <div className="border-b p-6">
+      <div className="border-b bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 p-6 backdrop-blur-sm">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-3xl font-extrabold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
               {editingOrder ? "Edit Order" : "Create New Order"}
             </h2>
-            <p className="text-sm text-gray-500 mt-1">
-              {editingOrder ? "Update order details" : "Add items and customer information"}
+            <p className="text-sm text-muted-foreground mt-2 font-medium">
+              {editingOrder ? "Update order details below" : "Add items and customer information"}
             </p>
           </div>
-          <Button variant="ghost" onClick={onCancel}>
-            <X className="h-5 w-5" />
+          <Button variant="ghost" size="icon" onClick={onCancel} className="hover:bg-destructive/10">
+            <X className="h-6 w-6" />
           </Button>
         </div>
       </div>
@@ -295,10 +297,12 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             {/* Order Type Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Utensils className="h-5 w-5" />
+            <Card className="border-2 shadow-lg hover:shadow-xl transition-shadow">
+              <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
+                <CardTitle className="flex items-center gap-3 text-xl font-bold">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Utensils className="h-6 w-6 text-primary" />
+                  </div>
                   Order Type
                 </CardTitle>
               </CardHeader>
@@ -312,18 +316,18 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
                         <RadioGroup
                           onValueChange={field.onChange}
                           defaultValue={field.value}
-                          className="flex gap-6"
+                          className="flex gap-4"
                         >
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-3 bg-muted/50 hover:bg-muted px-4 py-3 rounded-lg transition-colors cursor-pointer">
                             <RadioGroupItem value="dineIn" id="dineIn" />
-                            <label htmlFor="dineIn" className="font-medium cursor-pointer">
-                              Dine In
+                            <label htmlFor="dineIn" className="font-semibold cursor-pointer text-base">
+                              🍽️ Dine In
                             </label>
                           </div>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-3 bg-muted/50 hover:bg-muted px-4 py-3 rounded-lg transition-colors cursor-pointer">
                             <RadioGroupItem value="takeAway" id="takeAway" />
-                            <label htmlFor="takeAway" className="font-medium cursor-pointer">
-                              Take Away
+                            <label htmlFor="takeAway" className="font-semibold cursor-pointer text-base">
+                              🥡 Take Away
                             </label>
                           </div>
                         </RadioGroup>
@@ -338,16 +342,16 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
                     name="tableNumber"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Table Number</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormLabel className="font-semibold text-base">Table Number</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="h-11 font-medium">
                               <SelectValue placeholder="Select a table" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
                             {tables?.map((table) => (
-                              <SelectItem key={table.id} value={table.name}>
+                              <SelectItem key={table.id} value={table.name || String(table.id)}>
                                 Table {table.name} (Capacity: {table.capacity})
                               </SelectItem>
                             ))}
@@ -363,26 +367,26 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
                       control={form.control}
                       name="customerName"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Customer Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Enter customer name" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
+                      <FormItem>
+                        <FormLabel className="font-semibold text-base">Customer Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Enter customer name" className="h-11 font-medium" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                       )}
                     />
                     <FormField
                       control={form.control}
                       name="customerPhone"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone Number</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Enter phone number" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
+                      <FormItem>
+                        <FormLabel className="font-semibold text-base">Phone Number</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Enter phone number" className="h-11 font-medium" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                       )}
                     />
                   </div>
@@ -391,16 +395,18 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
             </Card>
 
             {/* Order Items Section */}
-            <Card>
-              <CardHeader>
+            <Card className="border-2 shadow-lg hover:shadow-xl transition-shadow">
+              <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Calculator className="h-5 w-5" />
+                  <CardTitle className="flex items-center gap-3 text-xl font-bold">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Calculator className="h-6 w-6 text-primary" />
+                    </div>
                     Order Items
                   </CardTitle>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="default"
                     size="sm"
                     onClick={() => append({
                       category: "",
@@ -409,6 +415,7 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
                       notes: "",
                       unitPrice: 0,
                     })}
+                    className="font-semibold shadow-md"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Add Item
@@ -417,7 +424,7 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
               </CardHeader>
               <CardContent className="space-y-4">
                 {fields.map((field, index) => (
-                  <Card key={field.id} className="border-l-4 border-l-purple-500">
+                  <Card key={field.id} className="border-l-4 border-l-primary shadow-md hover:shadow-lg transition-shadow bg-gradient-to-r from-background to-muted/20">
                     <CardContent className="pt-4">
                       <div className="grid grid-cols-12 gap-4 items-start">
                         <div className="col-span-3">
@@ -426,18 +433,18 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
                             name={`orderItems.${index}.category`}
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel className="text-xs">Category</FormLabel>
+                                <FormLabel className="text-xs font-bold">Category</FormLabel>
                                 <FormControl>
                                   <Select
                                     onValueChange={field.onChange}
-                                    defaultValue={field.value}
+                                    value={field.value}
                                   >
-                                    <SelectTrigger className="h-9">
+                                    <SelectTrigger className="h-10 font-medium">
                                       <SelectValue placeholder="Category" />
                                     </SelectTrigger>
                                     <SelectContent>
                                       {categories.map((category) => (
-                                        <SelectItem key={category} value={category}>
+                                        <SelectItem key={category} value={category || "other"}>
                                           {category}
                                         </SelectItem>
                                       ))}
@@ -455,7 +462,7 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
                             name={`orderItems.${index}.itemName`}
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel className="text-xs">Item</FormLabel>
+                                <FormLabel className="text-xs font-bold">Item</FormLabel>
                                 <FormControl>
                                   <Select
                                     onValueChange={(value) => {
@@ -465,19 +472,19 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
                                       }
                                       field.onChange(value);
                                     }}
-                                    defaultValue={field.value}
+                                    value={field.value}
                                   >
-                                    <SelectTrigger className="h-9">
+                                    <SelectTrigger className="h-10 font-medium">
                                       <SelectValue placeholder="Item" />
                                     </SelectTrigger>
                                     <SelectContent>
                                       {menuItems
                                         ?.filter(item => item.category === form.watch(`orderItems.${index}.category`))
                                         .map((item) => (
-                                          <SelectItem key={item.id} value={item.name}>
+                                          <SelectItem key={item.id} value={item.name || item.id}>
                                             <div className="flex justify-between items-center w-full">
-                                              <span>{item.name}</span>
-                                              <Badge variant="secondary" className="ml-2">
+                                              <span className="font-medium">{item.name}</span>
+                                              <Badge variant="secondary" className="ml-2 font-bold">
                                                 ₹{item.price}
                                               </Badge>
                                             </div>
@@ -497,13 +504,13 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
                             name={`orderItems.${index}.quantity`}
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel className="text-xs">Qty</FormLabel>
+                                <FormLabel className="text-xs font-bold">Qty</FormLabel>
                                 <FormControl>
                                   <Input
                                     {...field}
                                     type="number"
                                     min="1"
-                                    className="h-9"
+                                    className="h-10 font-semibold text-center"
                                     onChange={(e) => field.onChange(parseInt(e.target.value))}
                                   />
                                 </FormControl>
@@ -518,9 +525,9 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
                             name={`orderItems.${index}.unitPrice`}
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel className="text-xs">Price</FormLabel>
+                                <FormLabel className="text-xs font-bold">Price</FormLabel>
                                 <FormControl>
-                                  <Input {...field} type="number" step="0.01" readOnly className="h-9 bg-gray-50" />
+                                  <Input {...field} type="number" step="0.01" readOnly className="h-10 bg-muted/50 font-semibold" />
                                 </FormControl>
                               </FormItem>
                             )}
@@ -528,23 +535,23 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
                         </div>
 
                         <div className="col-span-1">
-                          <div className="text-xs text-gray-500 mb-1">Total</div>
-                          <div className="h-9 px-3 py-2 bg-purple-50 border rounded-md text-sm font-medium">
+                          <div className="text-xs font-bold mb-1">Total</div>
+                          <div className="h-10 px-3 py-2 bg-primary/10 border-2 border-primary/20 rounded-md text-sm font-bold text-primary flex items-center justify-center">
                             ₹{((form.watch(`orderItems.${index}.quantity`) || 0) * 
                                (form.watch(`orderItems.${index}.unitPrice`) || 0)).toFixed(2)}
                           </div>
                         </div>
 
                         <div className="col-span-1">
-                          <div className="text-xs text-gray-500 mb-1">&nbsp;</div>
+                          <div className="text-xs font-bold mb-1">&nbsp;</div>
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-9 w-9 p-0 hover:bg-red-50 hover:text-red-600"
+                            className="h-10 w-10 p-0 hover:bg-destructive/20 hover:text-destructive transition-colors"
                             onClick={() => remove(index)}
                           >
-                            <X className="w-4 h-4" />
+                            <X className="w-5 h-5" />
                           </Button>
                         </div>
 
@@ -558,7 +565,7 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
                                   <Textarea 
                                     {...field} 
                                     placeholder="Special instructions (e.g., no onions, extra spicy)" 
-                                    className="resize-none h-20"
+                                    className="resize-none h-20 font-medium"
                                   />
                                 </FormControl>
                               </FormItem>
@@ -572,11 +579,11 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
 
                 {/* Order Total */}
                 <div className="flex justify-end">
-                  <Card className="w-64">
-                    <CardContent className="pt-4">
+                  <Card className="w-72 border-2 border-primary/30 shadow-lg bg-gradient-to-br from-primary/5 to-primary/10">
+                    <CardContent className="pt-6 pb-6">
                       <div className="flex justify-between items-center">
-                        <span className="font-semibold text-gray-700">Order Total:</span>
-                        <span className="text-2xl font-bold text-purple-600">
+                        <span className="text-lg font-bold text-foreground">Order Total:</span>
+                        <span className="text-3xl font-extrabold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
                           ₹{orderTotal.toFixed(2)}
                         </span>
                       </div>
@@ -587,10 +594,12 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
             </Card>
 
             {/* Additional Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
+            <Card className="border-2 shadow-lg">
+              <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
+                <CardTitle className="flex items-center gap-3 text-xl font-bold">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Users className="h-6 w-6 text-primary" />
+                  </div>
                   Additional Information
                 </CardTitle>
               </CardHeader>
@@ -600,16 +609,16 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
                   name="attendant"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Attendant</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormLabel className="font-semibold text-base">Attendant</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-11 font-medium">
                             <SelectValue placeholder="Select attendant" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           {staffMembers?.map((staff) => (
-                            <SelectItem key={staff.id} value={staff.first_name}>
+                            <SelectItem key={staff.id} value={staff.first_name || staff.id}>
                               {staff.first_name} {staff.last_name}
                             </SelectItem>
                           ))}
@@ -625,12 +634,12 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
                   name="specialInstructions"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Special Instructions</FormLabel>
+                      <FormLabel className="font-semibold text-base">Special Instructions</FormLabel>
                       <FormControl>
                         <Textarea 
                           {...field} 
                           placeholder="Any special instructions for the kitchen or service..."
-                          className="resize-none"
+                          className="resize-none h-24 font-medium"
                         />
                       </FormControl>
                       <FormMessage />
@@ -641,21 +650,22 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
             </Card>
 
             {/* Action Buttons */}
-            <div className="flex justify-end gap-3 pt-6 border-t">
+            <div className="flex justify-end gap-4 pt-6 border-t-2 bg-gradient-to-r from-muted/20 to-background p-6 -m-6 mt-6 rounded-b-lg">
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={onCancel}
                 disabled={loading}
+                className="h-12 px-8 font-semibold text-base"
               >
                 Cancel
               </Button>
               <Button 
                 type="submit" 
                 disabled={loading || orderTotal === 0}
-                className="bg-purple-600 hover:bg-purple-700 text-white min-w-[120px]"
+                className="h-12 px-8 font-bold text-base shadow-lg hover:shadow-xl transition-shadow min-w-[160px]"
               >
-                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {loading && <Loader2 className="w-5 h-5 mr-2 animate-spin" />}
                 {editingOrder ? "Update Order" : "Create Order"}
               </Button>
             </div>

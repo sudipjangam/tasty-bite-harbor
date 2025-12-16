@@ -5,6 +5,7 @@ import HighchartsReact from 'highcharts-react-official';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, subDays, subMonths, subYears, startOfDay, startOfWeek, startOfMonth, startOfYear } from "date-fns";
 import { useTheme } from "@/hooks/useTheme";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { BarChart3, TrendingUp } from "lucide-react";
 import { Options, SeriesColumnOptions, SeriesLineOptions } from "highcharts";
 
@@ -22,6 +23,7 @@ type TimePeriod = '1d' | '7d' | '30d' | '90d' | '1y' | 'all';
 
 const RevenueHighchart = ({ data }: RevenueHighchartProps) => {
   const { theme } = useTheme();
+  const isMobile = useIsMobile();
   const isDarkMode = theme === 'dark';
   const chartComponentRef = useRef<HighchartsReact.RefObject>(null);
   const [chartType, setChartType] = useState<'line' | 'column'>('line');
@@ -64,19 +66,41 @@ const RevenueHighchart = ({ data }: RevenueHighchartProps) => {
   const orders = sortedData.map(item => item.order_count);
   const averages = sortedData.map(item => Number(item.average_order_value));
 
-  // Theme-aware colors
+  // Theme-aware colors with modern gradients
   const backgroundColor = isDarkMode ? '#1e293b' : '#ffffff';
   const textColor = isDarkMode ? '#e2e8f0' : '#334155';
   const gridColor = isDarkMode ? '#334155' : '#e2e8f0';
   
+  // Modern vibrant color palette
+  const colors = {
+    revenue: {
+      main: isDarkMode ? '#a78bfa' : '#8b5cf6',
+      gradient: isDarkMode 
+        ? [{ offset: 0, color: 'rgba(167, 139, 250, 0.4)' }, { offset: 1, color: 'rgba(167, 139, 250, 0.05)' }]
+        : [{ offset: 0, color: 'rgba(139, 92, 246, 0.4)' }, { offset: 1, color: 'rgba(139, 92, 246, 0.05)' }]
+    },
+    orders: {
+      main: isDarkMode ? '#34d399' : '#10b981',
+      gradient: isDarkMode
+        ? [{ offset: 0, color: 'rgba(52, 211, 153, 0.4)' }, { offset: 1, color: 'rgba(52, 211, 153, 0.05)' }]
+        : [{ offset: 0, color: 'rgba(16, 185, 129, 0.4)' }, { offset: 1, color: 'rgba(16, 185, 129, 0.05)' }]
+    },
+    average: {
+      main: isDarkMode ? '#fbbf24' : '#f59e0b',
+      gradient: isDarkMode
+        ? [{ offset: 0, color: 'rgba(251, 191, 36, 0.4)' }, { offset: 1, color: 'rgba(251, 191, 36, 0.05)' }]
+        : [{ offset: 0, color: 'rgba(245, 158, 11, 0.4)' }, { offset: 1, color: 'rgba(245, 158, 11, 0.05)' }]
+    }
+  };
+  
   const options: Options = {
     chart: {
-      type: chartType,
+      type: chartType === 'line' ? 'areaspline' : 'column',
       backgroundColor: backgroundColor,
       style: {
         fontFamily: 'Inter, sans-serif'
       },
-      height: 400
+      height: isMobile ? 280 : 400
     },
     title: {
       text: undefined
@@ -85,18 +109,21 @@ const RevenueHighchart = ({ data }: RevenueHighchartProps) => {
       categories: dates,
       labels: {
         style: {
-          color: textColor
+          color: textColor,
+          fontSize: '11px'
         }
       },
       gridLineColor: gridColor,
-      lineColor: gridColor
+      lineColor: gridColor,
+      tickColor: gridColor
     },
     yAxis: [
       {
         title: {
           text: 'Revenue',
           style: {
-            color: textColor
+            color: colors.revenue.main,
+            fontWeight: '600'
           }
         },
         labels: {
@@ -105,13 +132,15 @@ const RevenueHighchart = ({ data }: RevenueHighchartProps) => {
             color: textColor
           }
         },
-        gridLineColor: gridColor
+        gridLineColor: gridColor,
+        gridLineDashStyle: 'Dash'
       },
       {
         title: {
           text: 'Orders',
           style: {
-            color: textColor
+            color: colors.orders.main,
+            fontWeight: '600'
           }
         },
         labels: {
@@ -119,29 +148,55 @@ const RevenueHighchart = ({ data }: RevenueHighchartProps) => {
             color: textColor
           }
         },
-        opposite: true
+        opposite: true,
+        gridLineWidth: 0
       }
     ],
     tooltip: {
       shared: true,
       useHTML: true,
-      headerFormat: '<small>{point.key}</small><table>',
-      pointFormat: '<tr><td style="color: {series.color}">{series.name}: </td>' +
-                    '<td style="text-align: right"><b>{point.y}</b></td></tr>',
+      headerFormat: '<div style="font-size:12px;font-weight:600;margin-bottom:8px">{point.key}</div><table>',
+      pointFormat: '<tr><td style="color:{series.color};padding:4px"><b>{series.name}:</b></td>' +
+                    '<td style="text-align:right;padding:4px;font-weight:600">{point.y}</td></tr>',
       footerFormat: '</table>',
-      backgroundColor: isDarkMode ? '#334155' : '#ffffff',
-      borderColor: gridColor,
+      backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+      borderColor: isDarkMode ? '#475569' : '#e2e8f0',
+      borderRadius: 12,
+      shadow: true,
       style: {
         color: textColor
       }
     },
     legend: {
       itemStyle: {
-        color: textColor
+        color: textColor,
+        fontWeight: '500'
+      },
+      itemHoverStyle: {
+        color: colors.revenue.main
       }
     },
     credits: {
       enabled: false
+    },
+    responsive: {
+      rules: [{
+        condition: {
+          maxWidth: 500
+        },
+        chartOptions: {
+          legend: {
+            align: 'center',
+            verticalAlign: 'bottom',
+            layout: 'horizontal'
+          },
+          yAxis: [{
+            title: { text: null }
+          }, {
+            title: { text: null }
+          }]
+        }
+      }]
     },
     plotOptions: {
       series: {
@@ -149,34 +204,62 @@ const RevenueHighchart = ({ data }: RevenueHighchartProps) => {
           duration: 1000
         },
         marker: {
-          enabled: false
+          enabled: false,
+          symbol: 'circle',
+          radius: 4,
+          states: {
+            hover: {
+              enabled: true,
+              radiusPlus: 2
+            }
+          }
         }
+      },
+      areaspline: {
+        fillOpacity: 0.3,
+        lineWidth: 3
+      },
+      column: {
+        borderRadius: 6,
+        borderWidth: 0
       }
     },
     series: [
       {
         name: 'Revenue',
-        type: chartType,
+        type: chartType === 'line' ? 'areaspline' : 'column',
         yAxis: 0,
         data: revenues,
-        color: '#8b5cf6',
+        color: colors.revenue.main,
+        fillColor: chartType === 'line' ? {
+          linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+          stops: colors.revenue.gradient.map(g => [g.offset, g.color] as [number, string])
+        } : undefined,
         tooltip: {
           valuePrefix: '₹'
         }
       } as SeriesLineOptions | SeriesColumnOptions,
       {
         name: 'Orders',
-        type: chartType,
+        type: chartType === 'line' ? 'areaspline' : 'column',
         yAxis: 1,
         data: orders,
-        color: '#22c55e'
+        color: colors.orders.main,
+        fillColor: chartType === 'line' ? {
+          linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+          stops: colors.orders.gradient.map(g => [g.offset, g.color] as [number, string])
+        } : undefined
       } as SeriesLineOptions | SeriesColumnOptions,
       {
-        name: 'Avg Order Value',
-        type: chartType,
+        name: 'Avg Order',
+        type: chartType === 'line' ? 'areaspline' : 'column',
         yAxis: 0,
         data: averages,
-        color: '#f59e0b',
+        color: colors.average.main,
+        fillColor: chartType === 'line' ? {
+          linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+          stops: colors.average.gradient.map(g => [g.offset, g.color] as [number, string])
+        } : undefined,
         tooltip: {
           valuePrefix: '₹'
         }

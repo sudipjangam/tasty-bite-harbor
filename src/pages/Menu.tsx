@@ -11,7 +11,7 @@ const Menu = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-teal-100 dark:from-gray-900 dark:via-slate-900 dark:to-emerald-950 p-6">
       {/* Modern Header with Glass Effect */}
-      <div className="mb-8 bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-xl p-8">
+      <div className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl p-8">
         <div className="flex items-center gap-4 mb-4">
           <div className="p-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl shadow-lg">
             <ChefHat className="h-8 w-8 text-white" />
@@ -20,19 +20,19 @@ const Menu = () => {
             <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 bg-clip-text text-transparent">
               Restaurant Menu
             </h1>
-            <p className="text-gray-600 text-lg mt-2">Manage your restaurant's delicious offerings</p>
+            <p className="text-gray-600 dark:text-gray-400 text-lg mt-2">Manage your restaurant's delicious offerings</p>
           </div>
         </div>
         
         {/* Decorative Elements */}
-        <div className="flex items-center gap-2 text-emerald-600">
+        <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
           <Sparkles className="h-5 w-5" />
           <span className="text-sm font-medium">Craft exceptional dining experiences</span>
         </div>
       </div>
 
       {/* Menu Grid Container with Glass Effect */}
-      <div className="bg-white/90 backdrop-blur-sm border border-white/30 rounded-3xl shadow-xl overflow-hidden">
+      <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-xl overflow-hidden">
         <Suspense fallback={
           <div className="p-8 space-y-6">
             <div className="flex items-center justify-between">

@@ -26,13 +26,14 @@ const CurrentOrder = ({
   onClearOrder,
 }: CurrentOrderProps) => {
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const tax = subtotal * 0.10; // 10% tax
-  const total = subtotal + tax;
+  //const tax = subtotal * 0.10; // 10% tax
+  // const total = subtotal + tax; 
+  const total = subtotal;
 
   return (
-    <div className="h-full flex flex-col bg-white/90 backdrop-blur-xl border border-white/30 rounded-3xl shadow-xl overflow-hidden">
+    <div className="h-full flex flex-col bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-xl overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20 border-b border-white/20 p-6">
+      <div className="bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20 dark:from-indigo-900/30 dark:via-purple-900/30 dark:to-pink-900/30 border-b border-white/20 dark:border-gray-700/30 p-6">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg">
             <ShoppingCart className="h-6 w-6 text-white" />
@@ -42,7 +43,7 @@ const CurrentOrder = ({
               Current Order
             </h2>
             {tableNumber && (
-              <p className="text-sm text-gray-600 mt-1">Table {tableNumber}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Table {tableNumber}</p>
             )}
           </div>
         </div>
@@ -51,8 +52,8 @@ const CurrentOrder = ({
       {/* Order Items */}
       <div className="flex-1 overflow-auto p-4 space-y-3">
         {items.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8">
+          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700/50 dark:to-gray-800/50 rounded-2xl p-8">
               <ShoppingCart className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <div className="text-lg font-medium mb-2">No items in order</div>
               <div className="text-sm">Select menu items to add.</div>
@@ -60,16 +61,16 @@ const CurrentOrder = ({
           </div>
         ) : (
           items.map((item) => (
-            <div key={item.id} className="bg-gradient-to-r from-white/80 to-white/60 backdrop-blur-sm rounded-2xl border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 p-4">
+            <div key={item.id} className="bg-gradient-to-r from-white/80 to-white/60 dark:from-gray-700/80 dark:to-gray-700/60 backdrop-blur-sm rounded-2xl border border-white/30 dark:border-gray-600/30 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 p-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-800">{item.name}</h3>
+                  <h3 className="font-semibold text-gray-800 dark:text-white">{item.name}</h3>
                   {item.modifiers && item.modifiers.length > 0 && (
-                    <p className="text-sm text-gray-600 mt-1">{item.modifiers.join(', ')}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{item.modifiers.join(', ')}</p>
                   )}
                 </div>
                 
-                <div className="flex items-center gap-2 bg-white/80 rounded-xl p-1">
+                <div className="flex items-center gap-2 bg-white/80 dark:bg-gray-600/50 rounded-xl p-1">
                   <Button
                     variant="outline"
                     size="icon"
@@ -89,7 +90,7 @@ const CurrentOrder = ({
                   </Button>
                 </div>
                 
-                <div className="w-20 text-right font-bold text-indigo-600">
+                <div className="w-20 text-right font-bold text-indigo-600 dark:text-indigo-400">
                   ₹{(item.price * item.quantity).toFixed(2)}
                 </div>
 
@@ -108,19 +109,19 @@ const CurrentOrder = ({
       </div>
 
       {/* Order Summary & Actions */}
-      <div className="bg-gradient-to-br from-gray-50/80 to-white/80 backdrop-blur-sm border-t border-white/30 p-6 space-y-4">
+      <div className="bg-gradient-to-br from-gray-50/80 to-white/80 dark:from-gray-800/80 dark:to-gray-700/80 backdrop-blur-sm border-t border-white/30 dark:border-gray-700/30 p-6 space-y-4">
         {/* Totals */}
         <div className="space-y-3">
-          <div className="flex justify-between text-gray-600">
+          <div className="flex justify-between text-gray-600 dark:text-gray-400">
             <span>Subtotal:</span>
             <span className="font-semibold">₹{subtotal.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-gray-600">
+          {/* <div className="flex justify-between text-gray-600">
             <span>Tax (10%):</span>
             <span className="font-semibold">₹{tax.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-xl font-bold border-t pt-3">
-            <span>Total:</span>
+          </div> */}
+          <div className="flex justify-between text-xl font-bold border-t border-gray-200 dark:border-gray-600 pt-3">
+            <span className="text-gray-800 dark:text-white">Total:</span>
             <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">₹{total.toFixed(2)}</span>
           </div>
         </div>
@@ -154,7 +155,7 @@ const CurrentOrder = ({
           
           <Button
             variant="outline"
-            className="w-full border-gray-300 text-gray-600 hover:bg-gray-50 rounded-xl"
+            className="w-full border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl"
             onClick={onClearOrder}
             disabled={items.length === 0}
           >

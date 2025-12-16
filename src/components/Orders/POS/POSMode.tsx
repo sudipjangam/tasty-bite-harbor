@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +10,8 @@ import CurrentOrder from "../CurrentOrder";
 import PaymentDialog from "./PaymentDialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { POSPayment } from "../Payment/POSPayment";
+import { OrderPayment } from "../Payment/OrderPayment";
 import type { OrderItem, TableData } from "@/types/orders";
 
 const POSMode = () => {
@@ -18,10 +19,11 @@ const POSMode = () => {
   const [tableNumber, setTableNumber] = useState("");
   const [orderType, setOrderType] = useState("Dine-In");
   const [currentOrderItems, setCurrentOrderItems] = useState<OrderItem[]>([]);
-  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
   const [showActiveOrders, setShowActiveOrders] = useState(true);
   const [recalledKitchenOrderId, setRecalledKitchenOrderId] = useState<string | null>(null);
   const [recalledSource, setRecalledSource] = useState<string | null>(null);
+  const [currentOrder, setCurrentOrder] = useState<any>(null);
   const { toast } = useToast();
 
   const { data: tables } = useQuery({
@@ -245,7 +247,9 @@ const POSMode = () => {
             customer_name: orderSource,
             items: currentOrderItems.map(item => `${item.quantity}x ${item.name}`),
             total: currentOrderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-            status: "pending"
+            status: "pending",
+            source: "pos",
+            order_type: orderType.toLowerCase()
           })
           .select()
           .single();
@@ -287,10 +291,22 @@ const POSMode = () => {
             customer_name: orderSource,
             items: currentOrderItems.map(item => `${item.quantity}x ${item.name}`),
             total: currentOrderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-            status: "pending"
-          });
+            status: "pending",
+            source: "pos",
+            order_type: orderType.toLowerCase()
+          })
+          .select()
+          .single();
 
         if (orderError) throw orderError;
+
+        // Link the kitchen order to the created orders record so status sync works
+        if (createdOrder?.id && kitchenOrder?.id) {
+          await supabase
+            .from("kitchen_orders")
+            .update({ order_id: createdOrder.id })
+            .eq("id", kitchenOrder.id);
+        }
       }
       
       toast({
@@ -311,19 +327,40 @@ const POSMode = () => {
     }
   };
 
+  const handlePaymentClick = () => {
+    if (currentOrderItems.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Empty Order",
+        description: "Cannot process payment for an empty order",
+      });
+      return;
+    }
+    setShowPayment(true);
+  };
+
+  const handleEditOrder = () => {
+    setShowPayment(false);
+    // Order is already visible, just close the payment dialog
+  };
+
   const handlePaymentSuccess = () => {
     handleSendToKitchen();
-    setShowPaymentDialog(false);
+    setShowPayment(false);
     setCurrentOrderItems([]);
+    toast({
+      title: "Payment Successful",
+      description: "Order has been processed and sent to kitchen",
+    });
   };
 
   return (
     <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950">
-      <div className="grid grid-cols-1 lg:grid-cols-4 h-full gap-6 p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 h-full gap-4 md:gap-6 p-3 md:p-6 pb-24 lg:pb-6">
         {/* Left Section - Menu & Orders */}
         <div className="lg:col-span-3 flex flex-col space-y-6">
           {/* Header Section */}
-          <div className="bg-white/90 backdrop-blur-xl border border-white/30 rounded-3xl shadow-xl p-6">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-xl p-6">
             <div className="flex items-center justify-between mb-6">
               <POSHeader 
                 orderType={orderType}
@@ -335,7 +372,7 @@ const POSMode = () => {
               <Button 
                 variant="outline" 
                 onClick={() => setShowActiveOrders(!showActiveOrders)}
-                className="flex items-center gap-2 bg-white/80 backdrop-blur-sm border-2 border-indigo-200 hover:border-indigo-300 hover:bg-indigo-50 text-indigo-700 rounded-xl px-4 py-2 transition-all duration-300"
+                className="flex items-center gap-2 bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border-2 border-indigo-200 dark:border-indigo-700 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-xl px-4 py-2 transition-all duration-300"
               >
                 {showActiveOrders ? (
                   <>
@@ -352,12 +389,12 @@ const POSMode = () => {
             </div>
 
             {showActiveOrders && (
-              <div className="bg-gradient-to-r from-gray-50/80 to-white/80 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50">
-                <h2 className="text-lg font-semibold mb-3 text-gray-800 flex items-center gap-2">
+              <div className="bg-gradient-to-r from-gray-50/80 to-white/80 dark:from-gray-700/80 dark:to-gray-800/80 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-600/50">
+                <h2 className="text-lg font-semibold mb-3 text-gray-800 dark:text-white flex items-center gap-2">
                   <div className="w-3 h-3 bg-gradient-to-r from-orange-400 to-red-500 rounded-full animate-pulse"></div>
                   Active Orders
                 </h2>
-                <div className="max-h-[250px] overflow-auto">
+                <div className="max-h-[180px] md:max-h-[250px] overflow-auto mobile-scroll">
                   <ActiveOrdersList onRecallOrder={({ items, kitchenOrderId, source }) => {
                     setCurrentOrderItems(items as OrderItem[]);
                     setRecalledKitchenOrderId(kitchenOrderId);
@@ -373,8 +410,8 @@ const POSMode = () => {
           </div>
 
           {/* Menu Section */}
-          <div className="flex-1 bg-white/90 backdrop-blur-xl border border-white/30 rounded-3xl shadow-xl overflow-hidden">
-            <div className="p-6 border-b border-gray-100">
+          <div className="flex-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-xl overflow-hidden">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700">
               <h2 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 Menu Items
               </h2>
@@ -405,17 +442,20 @@ const POSMode = () => {
             onRemoveItem={handleRemoveItem}
             onHoldOrder={handleHoldOrder}
             onSendToKitchen={() => handleSendToKitchen()}
-            onProceedToPayment={() => setShowPaymentDialog(true)}
+            onProceedToPayment={handlePaymentClick}
             onClearOrder={handleClearOrder}
           />
         </div>
       </div>
 
-      <PaymentDialog 
-        isOpen={showPaymentDialog}
-        onClose={() => setShowPaymentDialog(false)}
+      {/* Payment Dialog */}
+      <PaymentDialog
+        isOpen={showPayment}
+        onClose={() => setShowPayment(false)}
         orderItems={currentOrderItems}
         onSuccess={handlePaymentSuccess}
+        tableNumber={tableNumber}
+        onEditOrder={handleEditOrder}
       />
     </div>
   );

@@ -83,7 +83,7 @@ const Reservations = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 p-6">
       {/* Modern Header with Glass Effect */}
-      <div className="mb-8 bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-xl p-8">
+      <div className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl p-8">
         <div className="flex items-center gap-4 mb-4">
           <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-lg">
             <CalendarCheck className="h-8 w-8 text-white" />
@@ -92,7 +92,7 @@ const Reservations = () => {
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
               Reservations Management
             </h1>
-            <p className="text-gray-600 text-lg mt-2 flex items-center gap-2">
+            <p className="text-gray-600 dark:text-gray-400 text-lg mt-2 flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-blue-500" />
               Manage table reservations and track customer bookings
             </p>
@@ -146,10 +146,10 @@ const Reservations = () => {
       </div>
 
       {/* Tabbed Interface with Glass Effect */}
-      <div className="bg-white/90 backdrop-blur-sm border border-white/30 rounded-3xl shadow-xl overflow-hidden">
+      <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-xl overflow-hidden">
         <div className="p-8">
           <Tabs defaultValue="reservations" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4 bg-gradient-to-r from-blue-50 to-indigo-50 p-1 rounded-xl">
+            <TabsList className="grid w-full grid-cols-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-1 rounded-xl">
               <TabsTrigger value="reservations" className="rounded-lg">Reservations</TabsTrigger>
               <TabsTrigger value="waitlist" className="rounded-lg">Waitlist</TabsTrigger>
               <TabsTrigger value="availability" className="rounded-lg">Availability</TabsTrigger>

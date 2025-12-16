@@ -108,8 +108,9 @@ serve(async (req) => {
 
       } catch (error) {
         console.error(`Sync failed for channel ${channel.channel_name}:`, error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         syncResult.status = 'error'
-        syncResult.errors.push(error.message)
+        syncResult.errors.push(errorMessage)
 
         // Update channel with error status
         await supabase
@@ -118,7 +119,7 @@ serve(async (req) => {
             channel_settings: {
               ...channel.channel_settings,
               lastSyncStatus: 'error',
-              lastSyncError: error.message,
+              lastSyncError: errorMessage,
               lastSyncType: syncType
             }
           })
@@ -144,10 +145,11 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Channel sync error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message
+        error: errorMessage
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

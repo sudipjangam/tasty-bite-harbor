@@ -33,6 +33,7 @@ export const RecipeDialog = ({ open, onOpenChange, recipe }: RecipeDialogProps) 
 
   // Form state
   const [formData, setFormData] = useState({
+    menu_item_id: "",
     name: "",
     description: "",
     category: "main_course",
@@ -63,10 +64,40 @@ export const RecipeDialog = ({ open, onOpenChange, recipe }: RecipeDialogProps) 
     enabled: !!restaurantId?.restaurantId && open,
   });
 
+  // Fetch menu items for linking recipes
+  const { data: menuItems = [] } = useQuery({
+    queryKey: ['menu-items', restaurantId],
+    queryFn: async () => {
+      if (!restaurantId?.restaurantId) return [];
+      const { data } = await supabase
+        .from('menu_items')
+        .select('id, name, category')
+        .eq('restaurant_id', restaurantId.restaurantId)
+        .order('name');
+      return data || [];
+    },
+    enabled: !!restaurantId?.restaurantId && open,
+  });
+
+  // Fetch recipe ingredients when editing
+  const { data: recipeIngredients = [] } = useQuery({
+    queryKey: ['recipe-ingredients', recipe?.id],
+    queryFn: async () => {
+      if (!recipe?.id) return [];
+      const { data } = await supabase
+        .from('recipe_ingredients')
+        .select('*')
+        .eq('recipe_id', recipe.id);
+      return data || [];
+    },
+    enabled: !!recipe?.id && open,
+  });
+
   // Load recipe data when editing
   useEffect(() => {
     if (recipe) {
       setFormData({
+        menu_item_id: (recipe as any).menu_item_id || "",
         name: recipe.name,
         description: recipe.description || "",
         category: recipe.category,
@@ -79,10 +110,20 @@ export const RecipeDialog = ({ open, onOpenChange, recipe }: RecipeDialogProps) 
         selling_price: recipe.selling_price.toString(),
         is_active: recipe.is_active,
       });
-      // Load ingredients would require additional query
+      
+      // Load ingredients from fetched data
+      if (recipeIngredients.length > 0) {
+        setIngredients(recipeIngredients.map(ing => ({
+          inventory_item_id: ing.inventory_item_id,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          notes: ing.notes || "",
+        })));
+      }
     } else {
       // Reset form
       setFormData({
+        menu_item_id: "",
         name: "",
         description: "",
         category: "main_course",
@@ -97,7 +138,7 @@ export const RecipeDialog = ({ open, onOpenChange, recipe }: RecipeDialogProps) 
       });
       setIngredients([]);
     }
-  }, [recipe, open]);
+  }, [recipe, recipeIngredients, open]);
 
   const handleSubmit = async () => {
     if (!restaurantId) return;
@@ -106,6 +147,7 @@ export const RecipeDialog = ({ open, onOpenChange, recipe }: RecipeDialogProps) 
     try {
       const recipeData = {
         restaurant_id: restaurantId.restaurantId,
+        menu_item_id: formData.menu_item_id || null,
         name: formData.name,
         description: formData.description || null,
         category: formData.category as any,
@@ -125,7 +167,26 @@ export const RecipeDialog = ({ open, onOpenChange, recipe }: RecipeDialogProps) 
       };
 
       if (recipe) {
+        // Update recipe
         await updateRecipe.mutateAsync({ id: recipe.id, ...recipeData });
+        
+        // Delete existing ingredients
+        await supabase
+          .from('recipe_ingredients')
+          .delete()
+          .eq('recipe_id', recipe.id);
+        
+        // Insert updated ingredients
+        if (ingredients.length > 0) {
+          await Promise.all(
+            ingredients.map(ing =>
+              supabase.from('recipe_ingredients').insert({
+                recipe_id: recipe.id,
+                ...ing,
+              })
+            )
+          );
+        }
       } else {
         const newRecipe = await createRecipe.mutateAsync(recipeData);
         
@@ -184,14 +245,49 @@ export const RecipeDialog = ({ open, onOpenChange, recipe }: RecipeDialogProps) 
 
           <TabsContent value="basic" className="space-y-4 mt-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="menu_item">Link to Menu Item *</Label>
+                <Select 
+                  value={formData.menu_item_id} 
+                  onValueChange={(value) => {
+                    const selectedItem = menuItems.find((item: any) => item.id === value);
+                    setFormData({ 
+                      ...formData, 
+                      menu_item_id: value,
+                      name: selectedItem?.name || formData.name
+                    });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select menu item to link recipe" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {menuItems.map((item: any) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name} - {item.category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Link this recipe to a menu item for automatic inventory deduction
+                </p>
+              </div>
+
+              <div className="space-y-2 col-span-2">
                 <Label htmlFor="name">Recipe Name *</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g., Butter Chicken"
+                  disabled={!!formData.menu_item_id}
                 />
+                {formData.menu_item_id && (
+                  <p className="text-xs text-muted-foreground">
+                    Name is auto-filled from selected menu item
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">

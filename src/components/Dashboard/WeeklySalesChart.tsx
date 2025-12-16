@@ -34,20 +34,43 @@ const WeeklySalesChart = () => {
     enabled: !!profile?.restaurant_id,
     queryFn: async () => {
       const startDate = startOfWeek(new Date());
+      const endDate = addDays(startDate, 6);
       const days = [...Array(7)].map((_, i) => format(addDays(startDate, i), 'EEE'));
       
-      const { data: dailyStats } = await supabase
-        .from("daily_revenue_stats")
-        .select("date, total_revenue")
+      // Fetch orders revenue
+      const { data: orders } = await supabase
+        .from("orders")
+        .select("created_at, total, status")
         .eq("restaurant_id", profile?.restaurant_id)
-        .gte("date", startDate.toISOString())
-        .lte("date", addDays(startDate, 6).toISOString());
+        .eq("status", "completed")
+        .gte("created_at", startDate.toISOString())
+        .lte("created_at", endDate.toISOString());
+
+      // Fetch room billings revenue
+      const { data: roomBillings } = await supabase
+        .from("room_billings")
+        .select("billing_date, total_amount, payment_status")
+        .eq("restaurant_id", profile?.restaurant_id)
+        .eq("payment_status", "paid")
+        .gte("billing_date", startDate.toISOString())
+        .lte("billing_date", endDate.toISOString());
+
+      // Calculate revenue per day
+      const dailyRevenue: { [key: string]: number } = {};
+      
+      orders?.forEach(order => {
+        const day = format(new Date(order.created_at), 'EEE');
+        dailyRevenue[day] = (dailyRevenue[day] || 0) + (order.total || 0);
+      });
+
+      roomBillings?.forEach(billing => {
+        const day = format(new Date(billing.billing_date), 'EEE');
+        dailyRevenue[day] = (dailyRevenue[day] || 0) + (billing.total_amount || 0);
+      });
 
       return days.map(day => ({
         day,
-        amount: dailyStats?.find(stat => 
-          format(new Date(stat.date), 'EEE') === day
-        )?.total_revenue || 0
+        amount: dailyRevenue[day] || 0
       }));
     },
   });

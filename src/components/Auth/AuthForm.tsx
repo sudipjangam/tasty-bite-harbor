@@ -27,7 +27,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
 
     try {
       if (authMode === "signin") {
-        console.log("AuthForm: Attempting sign in");
+
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -39,7 +39,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
         }
         
         if (data?.session) {
-          console.log("AuthForm: Sign in successful, session:", !!data.session);
+
           toast({
             title: "Welcome back!",
             description: "You have been successfully signed in.",
@@ -52,7 +52,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
           }, 100);
         }
       } else {
-        console.log("AuthForm: Attempting sign up");
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -74,7 +74,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
           });
           setAuthMode("signin");
         } else {
-          console.log("AuthForm: Sign up successful");
+
           toast({
             title: "Account created successfully!",
             description: "Please check your email to confirm your registration.",

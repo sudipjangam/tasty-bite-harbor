@@ -1,6 +1,6 @@
 
 import * as React from "react"
-import { addDays, format } from "date-fns"
+import { format, startOfWeek, endOfWeek } from "date-fns"
 import { Calendar as CalendarIcon } from "lucide-react"
 import { DateRange } from "react-day-picker"
 
@@ -16,16 +16,20 @@ import {
 interface DatePickerWithRangeProps {
   className?: string
   onDateRangeChange?: (range: DateRange | undefined) => void
+  initialDateRange?: DateRange
 }
 
 export function DatePickerWithRange({
   className,
   onDateRangeChange,
+  initialDateRange,
 }: DatePickerWithRangeProps) {
-  const [date, setDate] = React.useState<DateRange | undefined>({
-    from: new Date(2024, 0, 20),
-    to: addDays(new Date(2024, 0, 20), 20),
-  })
+  const [date, setDate] = React.useState<DateRange | undefined>(
+    initialDateRange || {
+      from: startOfWeek(new Date()),
+      to: endOfWeek(new Date()),
+    }
+  )
 
   React.useEffect(() => {
     onDateRangeChange?.(date)
@@ -58,7 +62,7 @@ export function DatePickerWithRange({
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent className="w-auto p-0 z-50" align="start">
           <Calendar
             initialFocus
             mode="range"

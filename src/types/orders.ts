@@ -8,6 +8,8 @@ export interface Order {
   created_at: string;
   restaurant_id: string;
   updated_at: string;
+  source?: string; // Order source: pos, table, manual, room_service, qsr
+  order_type?: string; // Order type: dine-in, takeaway, delivery
 }
 
 export interface OrderItem {

@@ -14,11 +14,11 @@ interface StatCardProps {
 const StatCard = ({ title, value, icon: Icon, trend, color, onClick }: StatCardProps) => {
   return (
     <Card 
-      className="hover:shadow-card-hover border border-border/40 bg-white dark:bg-brand-deep-blue/80 transition-all duration-200 cursor-pointer overflow-hidden"
+      className="hover:shadow-card-hover border border-border/40 bg-white dark:bg-brand-deep-blue/80 transition-all duration-200 cursor-pointer overflow-hidden active:scale-[0.98]"
       onClick={onClick}
     >
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+        <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
         <div className={`p-2 rounded-full ${color} animate-scale-in`}>
@@ -26,7 +26,7 @@ const StatCard = ({ title, value, icon: Icon, trend, color, onClick }: StatCardP
         </div>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className="text-xl md:text-2xl font-bold">{value}</div>
         <p className={`text-xs ${trend.includes('+') ? 'text-brand-success-green' : trend.includes('-') ? 'text-red-500' : 'text-brand-warm-orange'} mt-1 font-medium`}>
           {trend}
         </p>

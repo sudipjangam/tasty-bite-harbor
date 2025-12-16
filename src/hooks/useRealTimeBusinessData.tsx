@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
+import { useRealtimeSubscription } from "./useRealtimeSubscription";
 
 export interface PeakHourData {
   hour: string;
@@ -23,6 +24,13 @@ export interface RealTimeBusinessMetrics {
 }
 
 export const useRealTimeBusinessData = () => {
+  // Setup real-time subscription for orders table
+  useRealtimeSubscription({
+    table: 'orders',
+    queryKey: 'realtime-business-data',
+    schema: 'public',
+  });
+
   return useQuery({
     queryKey: ["realtime-business-data"],
     queryFn: async () => {
@@ -68,9 +76,12 @@ export const useRealTimeBusinessData = () => {
         hourCounts[hourLabel] = { customers: 0, revenue: 0 };
       }
       
-      // Process week orders for hour analysis
+      // Process week orders for hour analysis - ONLY COUNT COMPLETED ORDERS
       if (weekOrders) {
         weekOrders.forEach(order => {
+          // Only count completed orders for revenue
+          if (order.status !== 'completed') return;
+          
           const orderDate = new Date(order.created_at);
           const hour = orderDate.getHours();
           
@@ -115,7 +126,10 @@ export const useRealTimeBusinessData = () => {
           const dayOfWeek = format(new Date(order.created_at), 'EEE');
           if (dayOfWeekData[dayOfWeek]) {
             dayOfWeekData[dayOfWeek].orders += 1;
-            dayOfWeekData[dayOfWeek].revenue += order.total || 0;
+            // Only count revenue from completed orders
+            if (order.status === 'completed') {
+              dayOfWeekData[dayOfWeek].revenue += order.total || 0;
+            }
           }
         });
       }
@@ -126,9 +140,10 @@ export const useRealTimeBusinessData = () => {
         revenue: data.revenue
       }));
 
-      // Calculate today's metrics
+      // Calculate today's metrics - ONLY COUNT COMPLETED ORDERS FOR REVENUE
       const totalDailyOrders = todayOrders?.length || 0;
-      const todayRevenue = todayOrders?.reduce((sum, order) => sum + (order.total || 0), 0) || 0;
+      const completedTodayOrders = todayOrders?.filter(order => order.status === 'completed') || [];
+      const todayRevenue = completedTodayOrders.reduce((sum, order) => sum + (order.total || 0), 0);
 
       // Estimate average wait time based on order volume and hour
       const currentHour = new Date().getHours();

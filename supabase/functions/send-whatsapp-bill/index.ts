@@ -184,7 +184,7 @@ ${restaurantName || "Hotel"} Team`;
       console.log("✅ WhatsApp message sent successfully! SID:", sendResult.sid);
     } catch (error) {
       console.error("❌ Failed to send WhatsApp message:", error);
-      errorMessage = error.message;
+      errorMessage = error instanceof Error ? error.message : 'Unknown error';
       sendStatus = 'failed';
     }
 
@@ -235,12 +235,13 @@ ${restaurantName || "Hotel"} Team`;
 
   } catch (error) {
     console.error("❌ Unexpected error in send-whatsapp-bill function:", error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     
     return new Response(
       JSON.stringify({ 
         success: false,
         error: "Internal server error",
-        details: error.message 
+        details: errorMessage 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 

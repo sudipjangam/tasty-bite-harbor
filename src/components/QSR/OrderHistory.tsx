@@ -59,16 +59,20 @@ export const OrderHistory = ({ onRetrieveOrder, currentOrderHasItems }: OrderHis
   });
 
   const getStatusBadge = (status: string) => {
-    const statusMap = {
-      paid: { label: 'Paid', variant: 'default' as const },
-      completed: { label: 'Paid', variant: 'default' as const },
-      pending: { label: 'Pending KOT', variant: 'secondary' as const },
-      held: { label: 'Pending KOT', variant: 'secondary' as const },
-      cancelled: { label: 'Cancelled', variant: 'destructive' as const },
+    const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; className?: string }> = {
+      paid: { label: 'Paid', variant: 'default' },
+      completed: { label: 'Paid', variant: 'default' },
+      pending: { label: 'Pending', variant: 'secondary' },
+      held: { label: 'Held', variant: 'secondary', className: 'bg-amber-500 text-white' },
+      cancelled: { label: 'Cancelled', variant: 'destructive' },
     };
     
-    const statusInfo = statusMap[status as keyof typeof statusMap] || { label: status, variant: 'outline' as const };
-    return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>;
+    const statusInfo = statusMap[status] || { label: status, variant: 'outline' as const };
+    return (
+      <Badge variant={statusInfo.variant} className={statusInfo.className || ''}>
+        {statusInfo.label}
+      </Badge>
+    );
   };
 
   const parseItems = (items: string[]) => {
@@ -123,7 +127,11 @@ export const OrderHistory = ({ onRetrieveOrder, currentOrderHasItems }: OrderHis
           orders.map((order) => (
             <div
               key={order.id}
-              className="bg-card border border-border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow"
+              className={`border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow ${
+                order.status === 'held' 
+                  ? 'bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800' 
+                  : 'bg-card border-border'
+              }`}
             >
               <div className="flex justify-between items-start mb-4">
                 <div className="flex-1">
