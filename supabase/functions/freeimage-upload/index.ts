@@ -86,11 +86,12 @@ serve(async (req) => {
     
   } catch (error) {
     console.error('Upload error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Upload failed'
     
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || 'Upload failed' 
+        error: errorMessage 
       }),
       { 
         status: 500, 

@@ -67,9 +67,9 @@ export const StandardizedPageHeader: React.FC<PageHeaderProps> = ({
       className
     )}>
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">{title}</h1>
         {description && (
-          <p className="text-gray-600 mt-1">{description}</p>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">{description}</p>
         )}
       </div>
       {actions && (

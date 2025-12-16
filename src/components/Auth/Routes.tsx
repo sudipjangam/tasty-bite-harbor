@@ -9,7 +9,7 @@ import LandingWebsite from "@/pages/LandingWebsite";
 const Routes = () => {
   const { user, loading } = useAuth();
 
-  console.log("Routes: Loading:", loading, "User:", user ? "authenticated" : "not authenticated");
+
 
   if (loading) {
     return (
@@ -20,7 +20,7 @@ const Routes = () => {
   }
 
   if (!user) {
-    console.log("Routes: No user, showing auth");
+
     return (
       <RouterRoutes>
         <Route path="/website" element={<LandingWebsite />} />
@@ -29,7 +29,7 @@ const Routes = () => {
     );
   }
 
-  console.log("Routes: User authenticated, showing app routes");
+
   return (
     <RouterRoutes>
       <Route path="/website" element={<LandingWebsite />} />

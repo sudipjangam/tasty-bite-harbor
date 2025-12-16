@@ -20,22 +20,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { UserRole } from "@/types/auth";
+import { UserRole, UserWithMetadata } from "@/types/auth";
 
-interface User {
+interface Role {
   id: string;
-  first_name?: string;
-  last_name?: string;
-  role: string;
-  restaurant_id?: string;
-  is_active?: boolean;
-  created_at: string;
-  updated_at: string;
-  email?: string;
+  name: string;
+  description?: string;
 }
 
 interface EditUserDialogProps {
-  user: User;
+  user: UserWithMetadata;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUserUpdated: () => void;
@@ -45,55 +39,89 @@ export const EditUserDialog = ({ user, open, onOpenChange, onUserUpdated }: Edit
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
-    role: "staff" as UserRole,
+    roleId: "",
+    roleName: "",
     newPassword: "",
   });
   const [loading, setLoading] = useState(false);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [systemRoles] = useState<UserRole[]>(['staff', 'waiter', 'chef', 'manager', 'admin', 'owner']);
   const { user: currentUser } = useAuth();
 
   useEffect(() => {
-    if (user) {
+    const fetchRoles = async () => {
+      if (!currentUser?.restaurant_id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('roles')
+          .select('*')
+          .eq('restaurant_id', currentUser.restaurant_id)
+          .order('name');
+        
+        if (error) throw error;
+        setRoles(data || []);
+      } catch (error) {
+        console.error('Error fetching roles:', error);
+      }
+    };
+
+    fetchRoles();
+  }, [currentUser?.restaurant_id]);
+
+  useEffect(() => {
+    if (user && open) {
+      // Determine the correct roleId - use role_id if it exists (custom role), otherwise use system role
+      const roleId = user.role_id || user.role || "staff";
+      
       setFormData({
         firstName: user.first_name || "",
         lastName: user.last_name || "",
-        role: user.role as UserRole,
+        roleId: roleId,
+        roleName: user.role_name_text || user.role || "staff",
         newPassword: "",
       });
     }
-  }, [user]);
+  }, [user, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
+
     try {
-      // Update profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          role: formData.role,
-        })
-        .eq('id', user.id);
+      // Determine if it's a system role or custom role
+      const isSystemRole = systemRoles.includes(formData.roleId as UserRole);
+      const customRole = roles.find(r => r.id === formData.roleId);
 
-      if (profileError) throw profileError;
+      const payload: any = {
+        id: user.id,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+      };
 
-      // Update password if provided
-      if (formData.newPassword) {
-        const { error: passwordError } = await supabase.auth.admin.updateUserById(
-          user.id,
-          { password: formData.newPassword }
-        );
-
-        if (passwordError) throw passwordError;
+      if (isSystemRole) {
+        payload.role = formData.roleId as UserRole;
+      } else {
+        payload.role_id = formData.roleId;
+        payload.role_name_text = customRole?.name || formData.roleName;
       }
 
-      toast.success("User updated successfully");
+      if (formData.newPassword) {
+        payload.new_password = formData.newPassword;
+      }
+
+      const { data, error } = await supabase.functions.invoke('user-management', {
+        body: { action: 'update_user', userData: payload },
+      });
+
+      if (error) throw error as any;
+
+      toast.success('User updated successfully');
       onUserUpdated();
+      onOpenChange(false);
     } catch (error: any) {
       console.error('Error updating user:', error);
-      toast.error(error.message || "Failed to update user");
+      toast.error(error.message || 'Failed to update user');
     } finally {
       setLoading(false);
     }
@@ -139,23 +167,28 @@ export const EditUserDialog = ({ user, open, onOpenChange, onUserUpdated }: Edit
                 Role
               </Label>
               <Select
-                value={formData.role}
-                onValueChange={(value: UserRole) => setFormData({ ...formData, role: value })}
+                value={formData.roleId}
+                onValueChange={(value) => {
+                  const customRole = roles.find(r => r.id === value);
+                  setFormData({ 
+                    ...formData, 
+                    roleId: value,
+                    roleName: customRole?.name || value
+                  });
+                }}
               >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="staff">Staff</SelectItem>
-                  <SelectItem value="waiter">Waiter</SelectItem>
-                  <SelectItem value="chef">Chef</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  {(currentUser?.role === 'owner' || currentUser?.role === 'admin') && (
-                    <SelectItem value="admin">Admin</SelectItem>
-                  )}
-                  {currentUser?.role === 'owner' && (
+                  {(currentUser?.role === 'owner' || currentUser?.role_name_text?.toLowerCase() === 'owner') && (
                     <SelectItem value="owner">Owner</SelectItem>
                   )}
+                  {roles.length > 0 && roles.map((role) => (
+                    <SelectItem key={role.id} value={role.id}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

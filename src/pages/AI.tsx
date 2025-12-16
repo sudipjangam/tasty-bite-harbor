@@ -20,7 +20,7 @@ const AI = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950">
       {/* Compact Header */}
       <div className="p-3">
-        <div className="mb-3 bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-xl p-3">
+        <div className="mb-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-2xl shadow-xl p-3">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl shadow-lg">
               <Brain className="h-5 w-5 text-white" />
@@ -29,7 +29,7 @@ const AI = () => {
               <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 bg-clip-text text-transparent">
                 AI Restaurant Assistant
               </h1>
-              <p className="text-gray-600 text-xs flex items-center gap-2">
+              <p className="text-gray-600 dark:text-gray-400 text-xs flex items-center gap-2">
                 <Sparkles className="h-3 w-3 text-purple-500" />
                 Get comprehensive insights across all your restaurant data
               </p>
@@ -59,7 +59,7 @@ const AI = () => {
             
             {/* Right Column - Chat Interface with Limited Height */}
             <div className="lg:col-span-3 h-full overflow-auto">
-              <div className="h-full bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-xl overflow-hidden">
+              <div className="h-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-2xl shadow-xl overflow-hidden">
                 <Chatbot 
                   initialOpen={true} 
                   fixedPosition={false}

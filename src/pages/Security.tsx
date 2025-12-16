@@ -10,7 +10,7 @@ import { GDPRCompliance } from "@/components/Security/GDPRCompliance";
 import { BackupRecovery } from "@/components/Security/BackupRecovery";
 import { RoleBadge } from "@/components/ui/role-badge";
 import { useAuth } from "@/hooks/useAuth";
-import { Permission, rolePermissions } from "@/types/auth";
+import { Permission, UserRole, rolePermissions } from "@/types/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   Shield, 
@@ -386,7 +386,7 @@ const Security = () => {
                           {getCurrentRoleData()?.description}
                         </div>
                       </div>
-                      <RoleBadge role={user.role} />
+                      <RoleBadge role={(user.role_name_text || user.role) as UserRole} />
                     </div>
                     
                     <Dialog>

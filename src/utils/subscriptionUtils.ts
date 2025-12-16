@@ -56,9 +56,11 @@ export const fetchSubscriptionPlans = async () => {
 export const fetchAllowedComponents = async (restaurantId: string): Promise<string[]> => {
   try {
     if (!restaurantId) {
-      console.log("No restaurant ID provided");
+      console.log("fetchAllowedComponents: No restaurant ID provided");
       return [];
     }
+
+    console.log("fetchAllowedComponents: Fetching for restaurant:", restaurantId);
 
     // Get active subscription with plan details
     const { data: subscription, error } = await supabase
@@ -75,12 +77,14 @@ export const fetchAllowedComponents = async (restaurantId: string): Promise<stri
       .maybeSingle();
 
     if (error) {
-      console.error("Error fetching allowed components:", error);
+      console.error("fetchAllowedComponents: Error fetching subscription:", error);
       return [];
     }
 
+    console.log("fetchAllowedComponents: Raw subscription data:", JSON.stringify(subscription, null, 2));
+
     if (!subscription || !subscription.subscription_plans) {
-      console.log("No active subscription or plan found for restaurant:", restaurantId);
+      console.log("fetchAllowedComponents: No active subscription or plan found");
       return [];
     }
 
@@ -91,12 +95,15 @@ export const fetchAllowedComponents = async (restaurantId: string): Promise<stri
     if (Array.isArray(subscription.subscription_plans)) {
       // If it's an array, take the first item
       planComponents = subscription.subscription_plans[0];
+      console.log("fetchAllowedComponents: Plan components (from array):", planComponents);
     } else {
       // Otherwise use it as is
       planComponents = subscription.subscription_plans;
+      console.log("fetchAllowedComponents: Plan components (from object):", planComponents);
     }
     
     const componentsJson = planComponents?.components || [];
+    console.log("fetchAllowedComponents: Components JSON:", componentsJson);
     
     // Safely convert the JSON array to string array with type checking
     const componentsArray: string[] = [];
@@ -108,15 +115,11 @@ export const fetchAllowedComponents = async (restaurantId: string): Promise<stri
       });
     }
     
-    // Make sure business_dashboard is treated as a standalone component
-    // and not dependent on analytics
-    if (componentsArray.includes('business_dashboard') && !componentsArray.includes('analytics')) {
-      console.log("Using restaurant ID:", restaurantId);
-    }
+    console.log("fetchAllowedComponents: Final components array:", componentsArray);
     
     return componentsArray;
   } catch (error) {
-    console.error("Error in fetchAllowedComponents:", error);
+    console.error("fetchAllowedComponents: Exception:", error);
     return [];
   }
 };

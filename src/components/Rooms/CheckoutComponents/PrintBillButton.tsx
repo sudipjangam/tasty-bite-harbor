@@ -23,6 +23,7 @@ interface PrintBillButtonProps {
   additionalCharges: { name: string; amount: number; }[];
   serviceCharge: number;
   discount: number;
+  discountPercentage?: number;
   grandTotal: number;
   paymentMethod: string;
   billId: string;

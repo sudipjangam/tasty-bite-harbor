@@ -3,23 +3,53 @@ import { useState } from "react";
 import { TrendingUp, Users, ShoppingBag, DollarSign } from "lucide-react";
 import { useStatsData } from "@/hooks/useStatsData";
 import { formatIndianCurrency } from "@/utils/formatters";
+import { Skeleton } from "@/components/ui/skeleton";
 import StatCard from "./StatCard";
 import StatDetails from "./StatDetails";
 
 const Stats = () => {
   const [selectedStat, setSelectedStat] = useState<string | null>(null);
-  const { data: ordersData } = useStatsData();
+  const { data: statsData, isLoading } = useStatsData();
 
-  // Calculate stats from orders
-  const totalSales = ordersData?.reduce((sum, order) => sum + order.total, 0) || 0;
-  const activeOrders = ordersData?.filter(order => order.status === "pending").length || 0;
-  const uniqueCustomers = ordersData ? new Set(ordersData.map(order => order.customer_name)).size : 0;
-  const todaysOrders = ordersData?.filter(order => {
-    const orderDate = new Date(order.created_at).toDateString();
-    const today = new Date().toDateString();
-    return orderDate === today;
-  }) || [];
-  const todaysRevenue = todaysOrders.reduce((sum, order) => sum + order.total, 0);
+  // Show loading skeleton
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="p-6 bg-card rounded-lg border">
+            <Skeleton className="h-4 w-24 mb-2" />
+            <Skeleton className="h-8 w-32 mb-1" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Get all revenue sources
+  const allRevenueSources = statsData?.allRevenueSources || [];
+  const orders = statsData?.orders || [];
+
+  // Calculate stats from ALL revenue sources - only count completed/paid for revenue
+  const completedRevenue = allRevenueSources.filter(item => 
+    item.status === 'completed' || item.status === 'paid'
+  );
+  const totalSales = completedRevenue.reduce((sum, item) => sum + (item.total || 0), 0);
+  
+  // Active orders - New (pending), Preparing, Ready, Held
+  const activeOrders = orders.filter(order => 
+    ['pending', 'preparing', 'ready', 'held'].includes(order.status)
+  ).length || 0;
+  
+  const uniqueCustomers = orders.length > 0 
+    ? new Set(orders.map(order => order.customer_name).filter(Boolean)).size 
+    : 0;
+  
+  // Today's revenue - completed orders + paid room billings from today
+  const today = new Date().toDateString();
+  const todaysRevenue = completedRevenue
+    .filter(item => new Date(item.created_at).toDateString() === today)
+    .reduce((sum, item) => sum + (item.total || 0), 0);
 
   const stats = [
     {
@@ -29,10 +59,10 @@ const Stats = () => {
       trend: "+12.5%",
       color: "text-green-600 dark:text-green-400",
       type: "sales" as const,
-      chart: ordersData?.map(order => ({
-        date: new Date(order.created_at).toLocaleDateString(),
-        amount: order.total
-      })) || []
+      chart: completedRevenue.map(item => ({
+        date: new Date(item.created_at).toLocaleDateString(),
+        amount: item.total
+      }))
     },
     {
       title: "Active Orders",
@@ -41,7 +71,7 @@ const Stats = () => {
       trend: "+3",
       color: "text-blue-600 dark:text-blue-400",
       type: "orders" as const,
-      data: ordersData?.filter(order => order.status === "pending") || []
+      data: orders.filter(order => ['pending', 'preparing', 'ready', 'held'].includes(order.status))
     },
     {
       title: "Customers",
@@ -50,11 +80,11 @@ const Stats = () => {
       trend: "+5",
       color: "text-purple-600 dark:text-purple-400",
       type: "customers" as const,
-      data: ordersData?.map(order => ({
+      data: orders.map(order => ({
         name: order.customer_name,
         orders: 1,
         total: order.total
-      })) || []
+      }))
     },
     {
       title: "Today's Revenue",
@@ -63,10 +93,12 @@ const Stats = () => {
       trend: "+8.2%",
       color: "text-orange-600 dark:text-orange-400",
       type: "revenue" as const,
-      chart: todaysOrders.map(order => ({
-        time: new Date(order.created_at).toLocaleTimeString(),
-        amount: order.total
-      }))
+      chart: completedRevenue
+        .filter(item => new Date(item.created_at).toDateString() === today)
+        .map(item => ({
+          time: new Date(item.created_at).toLocaleTimeString(),
+          amount: item.total
+        }))
     },
   ];
 

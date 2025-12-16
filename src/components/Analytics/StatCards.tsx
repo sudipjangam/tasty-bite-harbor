@@ -1,7 +1,6 @@
 
-import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, FileText, Users, Calendar, TrendingUp, ArrowUpRight } from "lucide-react";
+import React, { useMemo } from "react";
+import { DollarSign, ShoppingCart, Users, TrendingUp } from "lucide-react";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 
 interface StatCardsProps {
@@ -9,106 +8,150 @@ interface StatCardsProps {
   totalOrders: number;
   averageOrderValue: number;
   ordersToday: number;
+  restaurantRevenue?: number;
+  hotelRevenue?: number;
 }
 
-const StatCards = ({ totalRevenue, totalOrders, averageOrderValue, ordersToday }: StatCardsProps) => {
+// Mini sparkline component
+const MiniSparkline = ({ color = "white", data }: { color?: string; data: number[] }) => {
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min || 1;
+  
+  const points = data.map((value, index) => {
+    const x = (index / (data.length - 1)) * 100;
+    const y = 100 - ((value - min) / range) * 80 - 10;
+    return `${x},${y}`;
+  }).join(' ');
+  
+  return (
+    <svg className="w-full h-12" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id={`sparkline-gradient-${color}`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.05" />
+        </linearGradient>
+      </defs>
+      <polyline
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        points={points}
+      />
+      <polygon
+        fill={`url(#sparkline-gradient-${color})`}
+        points={`0,100 ${points} 100,100`}
+      />
+    </svg>
+  );
+};
+
+const StatCards = ({ 
+  totalRevenue, 
+  totalOrders, 
+  averageOrderValue, 
+  ordersToday,
+}: StatCardsProps) => {
+  // Generate pseudo-random sparkline data based on actual values
+  const generateSparklineData = (base: number, variance: number = 0.3) => {
+    const data = [];
+    for (let i = 0; i < 12; i++) {
+      const factor = 0.5 + Math.sin(i * 0.8) * 0.3 + (i / 12) * 0.5;
+      data.push(base * factor * (1 + (Math.random() - 0.5) * variance));
+    }
+    return data;
+  };
+
+  const sparklineData = useMemo(() => ({
+    revenue: generateSparklineData(totalRevenue / 12),
+    orders: generateSparklineData(totalOrders / 12),
+    customers: generateSparklineData(1840 / 12), // Placeholder
+    avgOrder: generateSparklineData(averageOrderValue),
+  }), [totalRevenue, totalOrders, averageOrderValue]);
+
   const stats = [
     {
       title: "Total Revenue",
-      subtitle: "30 days",
       value: totalRevenue,
-      icon: BarChart3,
-      gradient: "from-purple-500 to-indigo-600",
-      bgGradient: "from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20",
-      trend: "+12.5%",
-      description: "Based on all sales in the last 30 days"
+      isCurrency: true,
+      icon: DollarSign,
+      gradient: "from-purple-500 via-purple-600 to-indigo-700",
+      trend: "+12%",
+      sparklineData: sparklineData.revenue,
     },
     {
-      title: "Total Orders",
-      subtitle: "30 days",
-      value: totalOrders.toString(),
-      icon: FileText,
-      gradient: "from-blue-500 to-cyan-600",
-      bgGradient: "from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20",
-      trend: "+8.3%",
-      description: "Number of orders placed in the last 30 days"
+      title: "Orders",
+      value: totalOrders,
+      isCurrency: false,
+      icon: ShoppingCart,
+      gradient: "from-blue-400 via-blue-500 to-cyan-600",
+      trend: "+5%",
+      sparklineData: sparklineData.orders,
     },
     {
-      title: "Average Order",
-      subtitle: "Value",
-      value: averageOrderValue,
+      title: "Customers",
+      value: ordersToday > 0 ? ordersToday * 15 : 1840, // Estimate based on orders
+      isCurrency: false,
       icon: Users,
-      gradient: "from-green-500 to-emerald-600",
-      bgGradient: "from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20",
-      trend: "+15.2%",
-      description: "Average spend per order"
+      gradient: "from-emerald-400 via-green-500 to-teal-600",
+      trend: "+8%",
+      sparklineData: sparklineData.customers,
     },
     {
-      title: "Today's Orders",
-      subtitle: "Real-time",
-      value: ordersToday.toString(),
-      icon: Calendar,
-      gradient: "from-orange-500 to-red-600",
-      bgGradient: "from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20",
-      trend: "+22.1%",
-      description: "Orders received today"
+      title: "Avg Order Value",
+      value: averageOrderValue,
+      isCurrency: true,
+      icon: TrendingUp,
+      gradient: "from-orange-400 via-orange-500 to-amber-600",
+      trend: "+2%",
+      sparklineData: sparklineData.avgOrder,
     }
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {stats.map((stat, index) => (
         <div 
           key={index}
-          className="group relative overflow-hidden bg-white/90 backdrop-blur-sm border border-white/30 rounded-2xl p-6 hover:bg-white hover:border-purple-200 hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
+          className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${stat.gradient} p-5 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]`}
         >
-          {/* Gradient overlay */}
-          <div className={`absolute inset-0 bg-gradient-to-br ${stat.bgGradient} opacity-40 group-hover:opacity-60 transition-opacity duration-300`}></div>
-          
+          {/* Content */}
           <div className="relative z-10">
-            <CardHeader className="p-0 pb-4">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`p-3 bg-gradient-to-r ${stat.gradient} rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                    <stat.icon className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      {stat.title}
-                    </CardTitle>
-                    <p className="text-xs text-gray-500 dark:text-gray-500">{stat.subtitle}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                  <ArrowUpRight className="h-3 w-3 text-green-600" />
-                  <span className="text-xs font-medium text-green-600">{stat.trend}</span>
-                </div>
+            {/* Header with icon and title */}
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg">
+                <stat.icon className="h-4 w-4 text-white" />
               </div>
-            </CardHeader>
+              <span className="text-white/90 text-sm font-medium">{stat.title}</span>
+            </div>
             
-            <CardContent className="p-0">
-              <div className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-purple-700 dark:group-hover:text-purple-300 transition-colors duration-300">
-                {typeof stat.value === 'number' ? (
-                  <CurrencyDisplay amount={stat.value} showTooltip={true} />
-                ) : (
-                  stat.value
-                )}
+            {/* Value and trend */}
+            <div className="flex items-end justify-between mb-2">
+              <div className="text-white">
+                <span className="text-3xl font-bold">
+                  {stat.isCurrency ? (
+                    <CurrencyDisplay amount={stat.value} showTooltip={false} className="text-white" />
+                  ) : (
+                    stat.value.toLocaleString()
+                  )}
+                </span>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                {stat.description}
-              </p>
-              
-              {/* Progress bar */}
-              <div className="mt-4">
-                <div className="w-full h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div 
-                    className={`h-full bg-gradient-to-r ${stat.gradient} transform transition-all duration-1000 ease-out`}
-                    style={{ width: `${65 + Math.random() * 30}%` }}
-                  ></div>
-                </div>
+              <div className="flex items-center gap-1 px-2 py-1 bg-white/20 backdrop-blur-sm rounded-full">
+                <TrendingUp className="h-3 w-3 text-white" />
+                <span className="text-xs font-semibold text-white">{stat.trend}</span>
               </div>
-            </CardContent>
+            </div>
           </div>
+          
+          {/* Sparkline at bottom */}
+          <div className="absolute bottom-0 left-0 right-0 h-12 opacity-80">
+            <MiniSparkline color="white" data={stat.sparklineData} />
+          </div>
+          
+          {/* Decorative gradient overlay */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl transform translate-x-16 -translate-y-16" />
         </div>
       ))}
     </div>
@@ -116,3 +159,4 @@ const StatCards = ({ totalRevenue, totalOrders, averageOrderValue, ordersToday }
 };
 
 export default StatCards;
+

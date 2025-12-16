@@ -1,6 +1,12 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.29.0";
+import { 
+  checkRateLimit, 
+  createRateLimitResponse, 
+  RATE_LIMITS,
+  getRequestIdentifier 
+} from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -65,6 +71,16 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Rate limiting check - 100 messages per hour
+  const authHeader = req.headers.get('authorization');
+  const identifier = getRequestIdentifier(req, authHeader);
+  const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.WHATSAPP);
+  
+  if (!rateLimitResult.allowed) {
+    console.log(`WhatsApp rate limit exceeded for ${identifier}`);
+    return createRateLimitResponse(rateLimitResult, corsHeaders);
+  }
+
   try {
     const { phone, message, billingId, promotionId, recipientId, recipientType, restaurantId } = await req.json() as SendWhatsAppRequest;
     
@@ -103,7 +119,7 @@ serve(async (req) => {
       sendStatus = 'sent';
     } catch (twilioError) {
       console.error("Twilio error:", twilioError);
-      errorDetails = twilioError.message;
+      errorDetails = twilioError instanceof Error ? twilioError.message : 'Unknown error';
       sendStatus = 'error';
     }
     
@@ -171,7 +187,7 @@ serve(async (req) => {
     } catch (dbError) {
       console.error("Database error:", dbError);
       if (!errorDetails) {
-        errorDetails = dbError.message;
+        errorDetails = dbError instanceof Error ? dbError.message : 'Unknown error';
         sendStatus = 'error';
       }
     }
@@ -193,9 +209,10 @@ serve(async (req) => {
     
   } catch (error) {
     console.error("Error processing request:", error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     
     return new Response(
-      JSON.stringify({ error: "Internal server error", details: error.message }),
+      JSON.stringify({ error: "Internal server error", details: errorMessage }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

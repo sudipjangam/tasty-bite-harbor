@@ -9,9 +9,7 @@ port = 54321
 # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
 # endpoints. public and storage are always included.
 schemas = ["public", "storage", "graphql_public"]
-# Extra schemas to expose in the API but not add to the docs. These schemas will not have schemas
-# created in the OpenAPI docs.
-extra_schemas = ["graphql_public"]
+
 # Extra schemas to add to the search_path of every request. public is always included.
 extra_search_path = ["public", "extensions"]
 
@@ -69,7 +67,7 @@ enable_signup = true
 # If enabled, users need to confirm their phone number before signing in.
 enable_confirmations = false
 
-[auth.oauth.google]
+[auth.external.google]
 # When enabled, users can sign up using Google OAuth.
 enabled = true
 client_id = "env(GOOGLE_CLIENT_ID)"
@@ -81,4 +79,12 @@ url = ""
 
 [functions]
 [functions.record-clock-entry]
+verify_jwt = true
+[functions.validate-promo-code]
+verify_jwt = false
+[functions.log-promotion-usage]
+verify_jwt = false
+[functions.deduct-inventory-on-prep]
+verify_jwt = true
+[functions.find-active-reservation]
 verify_jwt = true

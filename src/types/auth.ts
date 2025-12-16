@@ -165,8 +165,7 @@ export const rolePermissions: RolePermissions = {
     'gdpr.view'
   ],
   chef: [
-    // Access to orders, kitchen, inventory, menu management
-    'dashboard.view',
+    // Access to orders, kitchen, inventory, menu management - no dashboard access
     'orders.view', 'orders.create', 'orders.update', 'pos.access',
     'menu.view', 'menu.create', 'menu.update', 'menu.delete',
     'inventory.view', 'inventory.create', 'inventory.update', 'inventory.delete',
@@ -185,25 +184,23 @@ export const rolePermissions: RolePermissions = {
     'housekeeping.view'
   ],
   staff: [
-    // Same as waiter - access to operations and guest services
-    'dashboard.view',
-    'orders.view', 'orders.create', 'orders.update', 'pos.access',
-    'kitchen.view',
+    // Access to operations and guest services - no dashboard, AI, or settings access
+    'orders.view', 'orders.create', 'orders.update', 'orders.delete', 'pos.access',
     'menu.view',
+    'inventory.view', 'inventory.create', 'inventory.update', 'inventory.delete',
+    'kitchen.view',
     'tables.view', 'tables.update',
-    'inventory.view',
-    'rooms.view', 'rooms.checkout',
     'reservations.view', 'reservations.create', 'reservations.update',
     'housekeeping.view'
   ],
   viewer: [
     'dashboard.view',
-    'orders.view',
-    'menu.view',
-    'inventory.view',
-    'customers.view',
-    'rooms.view',
-    'reservations.view'
+    // 'orders.view',
+    // 'menu.view',
+    // 'inventory.view',
+    // 'customers.view',
+    // 'rooms.view',
+    // 'reservations.view'
   ]
 };
 
@@ -212,13 +209,21 @@ export interface UserProfile {
   email?: string;
   first_name?: string;
   last_name?: string;
-  role: UserRole;
+  role: UserRole | string; // Can be system role or custom role name
+  role_id?: string; // Foreign key to custom roles table
+  role_name_text?: string; // Text representation of custom role
   restaurant_id?: string;
   avatar_url?: string;
   phone?: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface UserWithMetadata extends UserProfile {
+  restaurants?: {
+    name: string;
+  };
 }
 
 export interface AuthContextType {
@@ -226,6 +231,24 @@ export interface AuthContextType {
   loading: boolean;
   hasPermission: (permission: Permission) => boolean;
   hasAnyPermission: (permissions: Permission[]) => boolean;
-  isRole: (role: UserRole) => boolean;
+  isRole: (role: UserRole | string) => boolean;
   signOut: () => Promise<void>;
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  components: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RestaurantSubscription {
+  id: string;
+  restaurant_id: string;
+  subscription_plan_id: string;
+  status: 'active' | 'inactive' | 'cancelled';
+  subscription_plans: SubscriptionPlan;
+  created_at: string;
+  updated_at: string;
 }

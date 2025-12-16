@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import OrderTicket from "./OrderTicket";
 import OrdersColumn from "./OrdersColumn";
 import DateFilter from "./DateFilter";
-import { filterOrdersByDateRange } from "@/components/Staff/utilities/staffUtils";
+import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth } from "date-fns";
 import { Json } from "@/integrations/supabase/types";
 
 export interface KitchenOrder {
@@ -23,7 +23,7 @@ export interface KitchenOrder {
 
 const KitchenDisplay = () => {
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<KitchenOrder[]>([]);
+  // filteredOrders state removed as we filter on server side now
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [dateFilter, setDateFilter] = useState("today");
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -73,13 +73,10 @@ const KitchenDisplay = () => {
     return 'data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU9vT18=';
   };
 
-  useEffect(() => {
-    // Apply date filter to orders
-    setFilteredOrders(filterOrdersByDateRange(orders, dateFilter));
-  }, [orders, dateFilter]);
 
+
+  // Fetch orders with server-side filtering
   useEffect(() => {
-    // Fetch initial orders
     const fetchOrders = async () => {
       const { data: profile } = await supabase
         .from("profiles")
@@ -89,19 +86,46 @@ const KitchenDisplay = () => {
 
       if (!profile?.restaurant_id) return;
 
-      const { data } = await supabase
+      let query = supabase
         .from("kitchen_orders")
         .select("*")
         .eq("restaurant_id", profile.restaurant_id)
         .order("created_at", { ascending: false });
 
+      const today = new Date();
+      
+      // Apply date filters on the server side
+      switch (dateFilter) {
+        case "today":
+          query = query
+            .gte('created_at', startOfDay(today).toISOString())
+            .lte('created_at', endOfDay(today).toISOString());
+          break;
+        case "yesterday":
+          const yesterday = subDays(today, 1);
+          query = query
+            .gte('created_at', startOfDay(yesterday).toISOString())
+            .lte('created_at', endOfDay(yesterday).toISOString());
+          break;
+        case "last7days":
+          query = query
+            .gte('created_at', startOfDay(subDays(today, 6)).toISOString())
+            .lte('created_at', endOfDay(today).toISOString());
+          break;
+        case "thisMonth":
+          query = query
+            .gte('created_at', startOfMonth(today).toISOString())
+            .lte('created_at', endOfMonth(today).toISOString());
+          break;
+        // 'all' case doesn't add filters, effectively fetching everything (which is still risky but better than always)
+      }
+
+      const { data } = await query;
+
       if (data) {
-        // Properly transform and cast the data from Supabase's Json type to our KitchenOrder type
         const typedOrders = data.map(order => {
-          // Safely cast the items to handle Json type
           const itemsArray = Array.isArray(order.items) ? order.items : [];
           
-          // Ensure items is an array and transform each item to match our expected structure
           const transformedItems = itemsArray.map((item: any) => ({
             name: typeof item.name === 'string' ? item.name : 'Unknown Item',
             quantity: typeof item.quantity === 'number' ? item.quantity : 1,
@@ -118,12 +142,39 @@ const KitchenDisplay = () => {
         });
         
         setOrders(typedOrders);
+        // We no longer need separate filteredOrders state, as orders itself is now filtered
+        // We no longer need separate filteredOrders state, as orders itself is now filtered 
       }
     };
 
     fetchOrders();
+    // Re-fetch when date filter changes
+  }, [dateFilter]);
 
-    // Subscribe to real-time updates
+  // Helper function to check if an order falls within the current date filter
+  const isWithinDateFilter = (orderCreatedAt: string): boolean => {
+    const orderDate = new Date(orderCreatedAt);
+    const today = new Date();
+
+    switch (dateFilter) {
+      case "today":
+        return orderDate >= startOfDay(today) && orderDate <= endOfDay(today);
+      case "yesterday":
+        const yesterday = subDays(today, 1);
+        return orderDate >= startOfDay(yesterday) && orderDate <= endOfDay(yesterday);
+      case "last7days":
+        return orderDate >= startOfDay(subDays(today, 6)) && orderDate <= endOfDay(today);
+      case "thisMonth":
+        return orderDate >= startOfMonth(today) && orderDate <= endOfMonth(today);
+      case "all":
+        return true;
+      default:
+        return true;
+    }
+  };
+
+  // Subscribe to real-time updates
+  useEffect(() => {
     const channel = supabase
       .channel("kitchen-orders")
       .on(
@@ -137,6 +188,13 @@ const KitchenDisplay = () => {
           if (payload.eventType === "INSERT") {
             // Transform the new order data to match KitchenOrder type
             const newOrderData = payload.new;
+            
+            // Check if the new order falls within current date filter
+            if (!isWithinDateFilter(newOrderData.created_at)) {
+              // Order is outside current filter, skip adding it
+              return;
+            }
+
             const itemsArray = Array.isArray(newOrderData.items) ? newOrderData.items : [];
             
             // Transform each item safely
@@ -207,10 +265,45 @@ const KitchenDisplay = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [soundEnabled, toast, notification]);
+  }, [soundEnabled, toast, notification, dateFilter]);
 
   const handleStatusUpdate = async (orderId: string, newStatus: KitchenOrder["status"]) => {
     try {
+      // If moving to "preparing", deduct inventory first
+      if (newStatus === "preparing") {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        const { data: deductResult, error: deductError } = await supabase.functions.invoke(
+          'deduct-inventory-on-prep',
+          {
+            body: { order_id: orderId },
+            headers: {
+              Authorization: `Bearer ${session?.access_token}`,
+            },
+          }
+        );
+
+        if (deductError) {
+          throw new Error(deductError.message);
+        }
+
+        if (!deductResult?.success) {
+          const errorMessage = deductResult?.errors 
+            ? deductResult.errors.join('\n') 
+            : deductResult?.error || 'Failed to deduct inventory';
+          
+          toast({
+            variant: "destructive",
+            title: "Insufficient Stock",
+            description: errorMessage,
+            duration: 8000,
+          });
+          return; // Don't update status if inventory deduction failed
+        }
+
+        console.log('Inventory deducted successfully:', deductResult);
+      }
+
       // Update kitchen order status
       const { data: kitchenOrder, error: kitchenError } = await supabase
         .from("kitchen_orders")
@@ -225,7 +318,7 @@ const KitchenDisplay = () => {
       if (kitchenOrder?.order_id) {
         let orderStatus = 'pending';
         if (newStatus === 'preparing') orderStatus = 'preparing';
-        if (newStatus === 'ready') orderStatus = 'ready';
+        if (newStatus === 'ready') orderStatus = 'completed'; // Auto-complete when ready
         
         await supabase
           .from("orders")
@@ -235,20 +328,20 @@ const KitchenDisplay = () => {
 
       toast({
         title: "Status Updated",
-        description: `Order marked as ${newStatus}`,
+        description: `Order marked as ${newStatus}${newStatus === 'preparing' ? ' - Inventory updated' : ''}`,
       });
     } catch (error) {
       console.error("Error updating status:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to update order status",
+        description: error instanceof Error ? error.message : "Failed to update order status",
       });
     }
   };
 
   const filterOrdersByStatus = (status: KitchenOrder["status"]) => {
-    return filteredOrders.filter((order) => order.status === status);
+    return orders.filter((order) => order.status === status);
   };
 
   const toggleFullscreen = () => {
@@ -261,7 +354,7 @@ const KitchenDisplay = () => {
     }
   };
 
-  const totalOrders = filteredOrders.length;
+  const totalOrders = orders.length;
   const newOrders = filterOrdersByStatus("new").length;
   const preparingOrders = filterOrdersByStatus("preparing").length;
   const readyOrders = filterOrdersByStatus("ready").length;

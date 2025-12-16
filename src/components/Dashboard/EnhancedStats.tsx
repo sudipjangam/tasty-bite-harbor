@@ -11,20 +11,29 @@ export const EnhancedStats = () => {
   const { data: ordersData, isLoading } = useStatsData();
   const [timeRange, setTimeRange] = useState('30d');
 
-  // Calculate stats from orders
-  const totalSales = ordersData?.reduce((sum, order) => sum + order.total, 0) || 0;
-  const activeOrders = ordersData?.filter(order => order.status === "pending").length || 0;
-  const uniqueCustomers = ordersData ? new Set(ordersData.map(order => order.customer_name)).size : 0;
-  const todaysOrders = ordersData?.filter(order => {
+  // Extract data from new structure
+  const allRevenueSources = ordersData?.allRevenueSources || [];
+  const orders = ordersData?.orders || [];
+
+  // Calculate stats from ALL revenue sources - only count completed/paid for revenue
+  const completedRevenue = allRevenueSources.filter(item => 
+    item.status === 'completed' || item.status === 'paid'
+  );
+  const totalSales = completedRevenue.reduce((sum, item) => sum + (item.total || 0), 0);
+  const activeOrders = orders.filter(order => order.status === "pending").length || 0;
+  const uniqueCustomers = orders.length > 0 
+    ? new Set(orders.map(order => order.customer_name).filter(Boolean)).size 
+    : 0;
+  const todaysOrders = allRevenueSources.filter(order => {
     const orderDate = new Date(order.created_at).toDateString();
     const today = new Date().toDateString();
-    return orderDate === today;
-  }) || [];
-  const todaysRevenue = todaysOrders.reduce((sum, order) => sum + order.total, 0);
+    return orderDate === today && (order.status === 'completed' || order.status === 'paid');
+  });
+  const todaysRevenue = todaysOrders.reduce((sum, order) => sum + (order.total || 0), 0);
 
   // Prepare chart data
   const revenueChartData = React.useMemo(() => {
-    if (!ordersData) return [];
+    if (!allRevenueSources || allRevenueSources.length === 0) return [];
     
     const last30Days = Array.from({ length: 30 }, (_, i) => {
       const date = new Date();
@@ -33,10 +42,11 @@ export const EnhancedStats = () => {
     });
 
     const dailyRevenue = last30Days.map(date => {
-      const dayOrders = ordersData.filter(order => 
-        order.created_at.split('T')[0] === date
-      );
-      return dayOrders.reduce((sum, order) => sum + order.total, 0);
+      const dayOrders = allRevenueSources.filter(order => {
+        const orderDate = order.created_at.split('T')[0];
+        return orderDate === date && (order.status === 'completed' || order.status === 'paid');
+      });
+      return dayOrders.reduce((sum, order) => sum + (order.total || 0), 0);
     });
 
     return [{
@@ -44,11 +54,11 @@ export const EnhancedStats = () => {
       data: dailyRevenue,
       categories: last30Days.map(date => new Date(date).toLocaleDateString())
     }];
-  }, [ordersData]);
+  }, [allRevenueSources]);
 
   // Prepare trend data with simple forecasting
   const trendData = React.useMemo(() => {
-    if (!ordersData) return { historical: [], forecast: [], categories: [] };
+    if (!allRevenueSources || allRevenueSources.length === 0) return { historical: [], forecast: [], categories: [] };
     
     const last14Days = Array.from({ length: 14 }, (_, i) => {
       const date = new Date();
@@ -57,10 +67,11 @@ export const EnhancedStats = () => {
     });
 
     const historical = last14Days.map(date => {
-      const dayOrders = ordersData.filter(order => 
-        order.created_at.split('T')[0] === date
-      );
-      return dayOrders.reduce((sum, order) => sum + order.total, 0);
+      const dayOrders = allRevenueSources.filter(order => {
+        const orderDate = order.created_at.split('T')[0];
+        return orderDate === date && (order.status === 'completed' || order.status === 'paid');
+      });
+      return dayOrders.reduce((sum, order) => sum + (order.total || 0), 0);
     });
 
     // Simple linear forecast for next 7 days
@@ -82,7 +93,7 @@ export const EnhancedStats = () => {
       forecast,
       categories: [...last14Days.map(date => new Date(date).toLocaleDateString()), ...next7Days]
     };
-  }, [ordersData]);
+  }, [allRevenueSources]);
 
   const insights = [
     {

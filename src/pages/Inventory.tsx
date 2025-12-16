@@ -211,7 +211,7 @@ const Inventory = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-emerald-100 dark:from-gray-900 dark:via-slate-900 dark:to-emerald-950 p-6">
       {/* Modern Header with Glass Effect */}
-      <div className="mb-8 bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-xl p-8">
+      <div className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl p-8">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-gradient-to-r from-emerald-500 to-green-600 rounded-2xl shadow-lg">
@@ -221,7 +221,7 @@ const Inventory = () => {
               <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 bg-clip-text text-transparent">
                 Enhanced Inventory Management
               </h1>
-              <p className="text-gray-600 text-lg mt-2 flex items-center gap-2">
+              <p className="text-gray-600 dark:text-gray-400 text-lg mt-2 flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-emerald-500" />
                 Complete inventory control with automated alerts and purchase orders
               </p>
@@ -231,10 +231,10 @@ const Inventory = () => {
       </div>
 
       {/* Modern Tabs with Glass Effect */}
-      <div className="bg-white/90 backdrop-blur-sm border border-white/30 rounded-3xl shadow-xl overflow-hidden">
+      <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-xl overflow-hidden">
         <Tabs defaultValue="overview" className="w-full">
-          <div className="bg-gradient-to-r from-emerald-500/10 to-green-500/10 p-2">
-            <TabsList className="grid w-full grid-cols-5 bg-white/50 backdrop-blur-sm rounded-2xl">
+          <div className="bg-gradient-to-r from-emerald-500/10 to-green-500/10 dark:from-emerald-900/20 dark:to-green-900/20 p-2">
+            <TabsList className="grid w-full grid-cols-5 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm rounded-2xl">
               <TabsTrigger value="overview" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white rounded-xl font-medium">
                 <Package className="h-4 w-4" />
                 Overview
@@ -270,7 +270,7 @@ const Inventory = () => {
                     Add Item
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px] bg-white/95 backdrop-blur-xl border border-white/30 rounded-3xl shadow-2xl">
+                <DialogContent className="sm:max-w-[425px] bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-2xl">
                   <DialogHeader>
                     <DialogTitle className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
                       {editingItem ? "Edit Inventory Item" : "Add New Inventory Item"}
@@ -278,20 +278,20 @@ const Inventory = () => {
                   </DialogHeader>
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                      <Label htmlFor="name" className="text-sm font-medium text-gray-700">Item Name</Label>
+                      <Label htmlFor="name" className="text-sm font-medium text-gray-700 dark:text-gray-300">Item Name</Label>
                       <Input
                         id="name"
                         name="name"
                         defaultValue={editingItem?.name}
                         required
                         placeholder="Enter item name"
-                        className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl"
+                        className="bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border border-white/30 dark:border-gray-600/30 rounded-xl text-gray-900 dark:text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="category" className="text-sm font-medium text-gray-700">Category</Label>
+                      <Label htmlFor="category" className="text-sm font-medium text-gray-700 dark:text-gray-300">Category</Label>
                       <Select name="category" defaultValue={editingItem?.category || "Other"}>
-                        <SelectTrigger className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl">
+                        <SelectTrigger className="bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border border-white/30 dark:border-gray-600/30 rounded-xl text-gray-900 dark:text-white">
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                         <SelectContent>
@@ -304,7 +304,7 @@ const Inventory = () => {
                       </Select>
                     </div>
                     <div>
-                      <Label htmlFor="quantity" className="text-sm font-medium text-gray-700">Quantity</Label>
+                      <Label htmlFor="quantity" className="text-sm font-medium text-gray-700 dark:text-gray-300">Quantity</Label>
                       <Input
                         id="quantity"
                         name="quantity"
@@ -313,13 +313,13 @@ const Inventory = () => {
                         defaultValue={editingItem?.quantity}
                         required
                         placeholder="Enter quantity"
-                        className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl"
+                        className="bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border border-white/30 dark:border-gray-600/30 rounded-xl text-gray-900 dark:text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="unit" className="text-sm font-medium text-gray-700">Unit</Label>
+                      <Label htmlFor="unit" className="text-sm font-medium text-gray-700 dark:text-gray-300">Unit</Label>
                       <Select name="unit" defaultValue={editingItem?.unit || commonUnits[0]}>
-                        <SelectTrigger className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl">
+                        <SelectTrigger className="bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border border-white/30 dark:border-gray-600/30 rounded-xl text-gray-900 dark:text-white">
                           <SelectValue placeholder="Select unit" />
                         </SelectTrigger>
                         <SelectContent>
@@ -332,7 +332,7 @@ const Inventory = () => {
                       </Select>
                     </div>
                     <div>
-                      <Label htmlFor="reorderLevel" className="text-sm font-medium text-gray-700">Reorder Level</Label>
+                      <Label htmlFor="reorderLevel" className="text-sm font-medium text-gray-700 dark:text-gray-300">Reorder Level</Label>
                       <Input
                         id="reorderLevel"
                         name="reorderLevel"
@@ -340,11 +340,11 @@ const Inventory = () => {
                         step="0.01"
                         defaultValue={editingItem?.reorder_level || ""}
                         placeholder="Enter reorder level"
-                        className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl"
+                        className="bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border border-white/30 dark:border-gray-600/30 rounded-xl text-gray-900 dark:text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="costPerUnit" className="text-sm font-medium text-gray-700">Cost per Unit (₹)</Label>
+                      <Label htmlFor="costPerUnit" className="text-sm font-medium text-gray-700 dark:text-gray-300">Cost per Unit (₹)</Label>
                       <Input
                         id="costPerUnit"
                         name="costPerUnit"
@@ -352,7 +352,7 @@ const Inventory = () => {
                         step="0.01"
                         defaultValue={editingItem?.cost_per_unit || ""}
                         placeholder="Enter cost per unit"
-                        className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl"
+                        className="bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border border-white/30 dark:border-gray-600/30 rounded-xl text-gray-900 dark:text-white"
                       />
                     </div>
                     <Button type="submit" className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold py-3 rounded-xl shadow-lg">
@@ -366,7 +366,7 @@ const Inventory = () => {
             <div className="flex flex-col sm:flex-row justify-between gap-4">
               <div className="flex flex-wrap gap-4">
                 <Select value={filterCategory} onValueChange={setFilterCategory}>
-                  <SelectTrigger className="w-[150px] bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl">
+                  <SelectTrigger className="w-[150px] bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border border-white/30 dark:border-gray-600/30 rounded-xl text-gray-900 dark:text-white">
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -384,7 +384,7 @@ const Inventory = () => {
                   onClick={() => setShowLowStockOnly(!showLowStockOnly)}
                   className={showLowStockOnly 
                     ? "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl" 
-                    : "bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl hover:bg-red-50"
+                    : "bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border border-white/30 dark:border-gray-600/30 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-900 dark:text-white"
                   }
                 >
                   <AlertTriangle className="mr-2 h-4 w-4" />
@@ -410,15 +410,15 @@ const Inventory = () => {
                   key={category} 
                   className={`flex items-center gap-3 p-4 border-none shadow-lg cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${
                     filterCategory === category 
-                      ? "bg-gradient-to-br from-emerald-100 via-green-50 to-emerald-100 border-emerald-300" 
-                      : "bg-white/80 backdrop-blur-sm border border-white/30"
+                      ? "bg-gradient-to-br from-emerald-100 via-green-50 to-emerald-100 dark:from-emerald-900/40 dark:via-green-900/40 dark:to-emerald-900/40 border-emerald-300 dark:border-emerald-700" 
+                      : "bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border border-white/30 dark:border-gray-600/30"
                   }`}
                   onClick={() => setFilterCategory(category === filterCategory ? "all" : category)}
                 >
                   {getCategoryIcon(category)}
                   <div>
-                    <h3 className="font-semibold text-gray-800">{category}</h3>
-                    <p className="text-sm text-gray-600">
+                    <h3 className="font-semibold text-gray-800 dark:text-white">{category}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                       {categoryItems.length} items
                     </p>
                   </div>
@@ -433,7 +433,7 @@ const Inventory = () => {
                   className={`p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-none ${
                     item.reorder_level && item.quantity <= item.reorder_level
                       ? "bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border-red-200"
-                      : "bg-white/90 backdrop-blur-sm border border-white/30"
+                      : "bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/30 dark:border-gray-700/30"
                   }`}
                 >
                   <div className="flex justify-between items-start">
@@ -447,7 +447,7 @@ const Inventory = () => {
                       </div>
                       <div className="flex-1">
                         <h3 className="font-bold text-gray-800 dark:text-gray-200 text-lg">{item.name}</h3>
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                           {item.quantity} {item.unit}
                         </p>
                         {item.reorder_level && item.quantity <= item.reorder_level && (
@@ -465,12 +465,12 @@ const Inventory = () => {
                           </div>
                         )}
                         {item.cost_per_unit && (
-                          <p className="text-sm text-gray-600 mt-2 font-medium">
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 font-medium">
                             Cost: ₹{item.cost_per_unit}/{item.unit}
                           </p>
                         )}
                         {item.reorder_level && (
-                          <p className="text-sm text-gray-500 mt-1">
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                             Reorder at: {item.reorder_level} {item.unit}
                           </p>
                         )}

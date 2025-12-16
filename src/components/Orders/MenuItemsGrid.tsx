@@ -102,7 +102,7 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
       </div>
       
       {!selectedCategory ? (
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
           Please select a category to view menu items
         </div>
       ) : filteredItems?.length === 0 ? (
@@ -116,7 +116,7 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
           {filteredItems?.map((item) => (
             <Card
               key={item.id}
-              className="p-4 cursor-pointer hover:shadow-md transition-shadow"
+              className="p-4 cursor-pointer hover:shadow-md transition-shadow bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
               onClick={() => onSelectItem(item)}
             >
               <div className="h-20 w-20 bg-gray-100 dark:bg-gray-800 rounded-md mb-3 flex items-center justify-center overflow-hidden mx-auto">
@@ -132,14 +132,14 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
                   </div>
                 )}
               </div>
-              <h3 className="font-medium text-lg mb-2 line-clamp-1">{item.name}</h3>
+              <h3 className="font-medium text-lg mb-2 line-clamp-1 text-gray-900 dark:text-white">{item.name}</h3>
               {item.description && (
-                <p className="text-sm text-gray-500 mb-2 line-clamp-2">{item.description}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2 line-clamp-2">{item.description}</p>
               )}
               <div className="flex justify-between items-center">
-                <p className="text-lg font-bold text-indigo-600">₹{item.price.toFixed(2)}</p>
+                <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">₹{item.price.toFixed(2)}</p>
                 {item.is_veg !== undefined && (
-                  <span className={`px-2 py-1 text-xs rounded-full ${item.is_veg ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  <span className={`px-2 py-1 text-xs rounded-full ${item.is_veg ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300'}`}>
                     {item.is_veg ? 'Veg' : 'Non-Veg'}
                   </span>
                 )}

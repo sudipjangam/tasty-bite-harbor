@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { 
@@ -23,7 +22,12 @@ import {
   Globe,
   Shield,
   LogOut,
-  Zap
+  Zap,
+  ChevronLeft,
+  Menu,
+  BookOpen,
+  Target,
+  FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,7 +35,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/hooks/useAuth";
 import { Permission } from "@/types/auth";
 import { useToast } from "@/hooks/use-toast";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { supabase } from "@/integrations/supabase/client";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface NavigationItem {
   title: string;
@@ -76,19 +82,26 @@ const navigationGroups: NavigationGroup[] = [
         description: "View & manage orders",
         requiredPermissions: ["orders.view"]
       },
-      {
-        title: "QSR POS",
-        icon: Zap,
-        href: "/qsr-pos",
-        description: "Quick service restaurant POS",
-        requiredPermissions: ["orders.view"]
-      },
+      // {
+      //   title: "QSR POS",
+      //   icon: Zap,
+      //   href: "/qsr-pos",
+      //   description: "Quick service restaurant POS",
+      //   requiredPermissions: ["orders.view"]
+      // },
       {
         title: "Kitchen",
         icon: ChefHat,
         href: "/kitchen",
         description: "Kitchen display system",
         requiredPermissions: ["kitchen.view"]
+      },
+      {
+        title: "Recipes",
+        icon: BookOpen,
+        href: "/recipes",
+        description: "Recipe & costing management",
+        requiredPermissions: ["menu.view"]
       },
       {
         title: "Menu",
@@ -156,11 +169,32 @@ const navigationGroups: NavigationGroup[] = [
         description: "Customer database",
         requiredPermissions: ["customers.view"]
       },
+      // {
+      //   title: "CRM",
+      //   icon: MessageSquare,
+      //   href: "/crm",
+      //   description: "Customer relationship",
+      //   requiredPermissions: ["customers.view"]
+      // },
+      {
+        title: "Marketing",
+        icon: Target,
+        href: "/marketing",
+        description: "Campaigns & promotions",
+        requiredPermissions: ["customers.view"]
+      },
       {
         title: "User Management",
         icon: UserPlus,
         href: "/user-management",
         description: "Manage user accounts & roles",
+        requiredPermissions: ["users.manage"]
+      },
+      {
+        title: "Role Management",
+        icon: Shield,
+        href: "/role-management",
+        description: "Configure roles & permissions",
         requiredPermissions: ["users.manage"]
       },
       {
@@ -183,6 +217,13 @@ const navigationGroups: NavigationGroup[] = [
         href: "/financial",
         description: "Financial reports",
         requiredPermissions: ["financial.view"]
+      },
+      {
+        title: "Reports",
+        icon: FileText,
+        href: "/reports",
+        description: "Business reports",
+        requiredPermissions: ["analytics.view"]
       }
     ]
   }
@@ -195,7 +236,7 @@ const standaloneItems: NavigationItem[] = [
     icon: MessageSquare,
     href: "/ai",
     description: "AI-powered help",
-    requiredPermissions: ["dashboard.view"] // Basic access
+    requiredPermissions: ["dashboard.view"] // Requires dashboard access
   },
   {
     title: "Security",
@@ -208,17 +249,29 @@ const standaloneItems: NavigationItem[] = [
     title: "Settings",
     icon: Settings,
     href: "/settings",
-    description: "System configuration"
-    // No permissions required - everyone needs access to logout
+    description: "System configuration",
+    requiredPermissions: ["settings.view"] // Requires settings permission
   }
 ];
 
-export const ImprovedSidebarNavigation = () => {
+interface ImprovedSidebarNavigationProps {
+  isSidebarCollapsed: boolean;
+  setIsSidebarCollapsed: (collapsed: boolean) => void;
+}
+
+export const ImprovedSidebarNavigation = ({ 
+  isSidebarCollapsed, 
+  setIsSidebarCollapsed 
+}: ImprovedSidebarNavigationProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, hasAnyPermission } = useAuth();
   const { toast } = useToast();
+  const { restaurantName } = useRestaurantId();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Dashboard', 'Operations']));
+
+  // Dynamic sidebar title - use restaurant name if available
+  const sidebarTitle = restaurantName || "Swadeshi Solutions RMS";
 
   const toggleGroup = (groupTitle: string) => {
     const newExpanded = new Set(expandedGroups);
@@ -258,7 +311,33 @@ export const ImprovedSidebarNavigation = () => {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className={cn(
+      "flex flex-col h-full transition-all duration-300",
+      isSidebarCollapsed ? "opacity-0 invisible w-0" : "opacity-100 visible w-64"
+    )}>
+      {/* Header Section */}
+      <div className="p-4 border-b border-white/10">
+        <div className="flex items-center justify-between">
+          <div 
+            className="flex items-center space-x-3 truncate cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => navigate("/")}
+          >
+            <span className="font-bold text-white text-lg truncate" title={sidebarTitle}>{sidebarTitle}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle variant="mini" />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="text-white hover:bg-white/10 w-8 h-8 rounded-lg shrink-0"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
       <ScrollArea className="flex-1 px-3">
         <nav className="space-y-2 py-2">
           {navigationGroups.map((group) => {
@@ -273,16 +352,16 @@ export const ImprovedSidebarNavigation = () => {
                 {group.title !== "Dashboard" && (
                   <Button
                     variant="ghost"
-                    className="w-full justify-between px-2 py-1 h-8 text-white/80 hover:text-white hover:bg-white/10"
+                    className="w-full justify-between px-2 py-1 h-8 text-white/80 hover:text-white hover:bg-white/10 truncate"
                     onClick={() => toggleGroup(group.title)}
                   >
-                    <span className="text-xs font-medium uppercase tracking-wide">
+                    <span className="text-xs font-medium uppercase tracking-wide truncate">
                       {group.title}
                     </span>
                     {isExpanded ? (
-                      <ChevronDown className="h-3 w-3" />
+                      <ChevronDown className="h-3 w-3 shrink-0 ml-2" />
                     ) : (
-                      <ChevronRight className="h-3 w-3" />
+                      <ChevronRight className="h-3 w-3 shrink-0 ml-2" />
                     )}
                   </Button>
                 )}
@@ -384,7 +463,7 @@ export const ImprovedSidebarNavigation = () => {
               {user?.first_name ? `${user.first_name} ${user.last_name || ""}`.trim() : user?.email?.split("@")[0] || "User"}
             </p>
             <p className="text-xs text-white/70 truncate">
-              {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "Staff Member"}
+              {user?.role_name_text || (user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "Staff Member")}
             </p>
           </div>
           <Button
@@ -398,7 +477,7 @@ export const ImprovedSidebarNavigation = () => {
           </Button>
         </div>
         <div className="text-center">
-          <span className="text-xs text-white/60">© 2025 Restaurant Pro</span>
+          <span className="text-xs text-white/60">© {new Date().getFullYear()} Restaurant Pro</span>
         </div>
       </div>
     </div>

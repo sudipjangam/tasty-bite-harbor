@@ -117,7 +117,7 @@ const ChartCards = ({
             </Button>
           </CardHeader>
           
-          <CardContent id={`${chart.id}-chart`} className="px-8 pb-8">
+          <CardContent id={`${chart.id}-chart`} className="px-4 pb-4 md:px-8 md:pb-8">
             <div className="bg-gradient-to-br from-gray-50/50 to-white/50 dark:from-gray-800/50 dark:to-gray-900/50 rounded-2xl p-4">
               {chart.component}
             </div>

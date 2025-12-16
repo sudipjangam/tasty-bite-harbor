@@ -5,7 +5,7 @@ import { UserRole } from "@/types/auth";
 import { cn } from "@/lib/utils";
 
 interface RoleBadgeProps {
-  role: UserRole;
+  role: UserRole | string;
   className?: string;
 }
 
@@ -13,8 +13,11 @@ interface RoleBadgeProps {
  * Component to display user role as a styled badge
  */
 export const RoleBadge: React.FC<RoleBadgeProps> = ({ role, className }) => {
-  const getRoleConfig = (role: UserRole) => {
-    switch (role) {
+  const getRoleConfig = (role: UserRole | string) => {
+    // Normalize the role string for comparison
+    const normalizedRole = role.toLowerCase() as UserRole;
+    
+    switch (normalizedRole) {
       case 'owner':
         return {
           label: 'Owner',
@@ -58,10 +61,11 @@ export const RoleBadge: React.FC<RoleBadgeProps> = ({ role, className }) => {
           className: 'bg-gray-100 text-gray-800 hover:bg-gray-100'
         };
       default:
+        // For custom roles, capitalize the first letter
         return {
-          label: role,
+          label: role.charAt(0).toUpperCase() + role.slice(1),
           variant: 'outline' as const,
-          className: 'bg-gray-100 text-gray-800 hover:bg-gray-100'
+          className: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-100'
         };
     }
   };

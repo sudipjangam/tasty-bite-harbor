@@ -21,7 +21,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import Stats from "@/components/Dashboard/Stats";
 import WeeklySalesChart from "@/components/Dashboard/WeeklySalesChart";
-import PerformanceMetrics from "@/components/Dashboard/PerformanceMetrics";
+import LiveActivity from "@/components/Dashboard/LiveActivity";
 
 const Index = () => {
   const { user, hasPermission } = useAuth();
@@ -100,16 +100,16 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950">
       {/* Modern Header */}
       <div className="p-4 md:p-6">
-        <div className="mb-8 bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
+        <div className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
           <div className="flex items-center gap-4 mb-4">
             <div className="p-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 rounded-2xl shadow-xl">
               <Sparkles className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 bg-clip-text text-transparent">
                 Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ''}!
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
+              <p className="text-gray-600 dark:text-gray-400 mt-2 text-base md:text-lg">
                 Here's an overview of your restaurant and hotel operations
               </p>
             </div>
@@ -131,7 +131,7 @@ const Index = () => {
 
       <div className="px-4 md:px-6 pb-6 space-y-8">
         {/* Enhanced Quick Actions */}
-        <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg">
               <Settings className="h-6 w-6 text-white" />
@@ -151,7 +151,7 @@ const Index = () => {
               filteredQuickActions.map((action, index) => (
                 <div 
                   key={index} 
-                  className="group relative overflow-hidden bg-white/90 backdrop-blur-sm border border-white/30 rounded-2xl p-6 hover:bg-white hover:border-purple-200 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 cursor-pointer"
+                  className="group relative overflow-hidden bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-2xl p-6 hover:bg-white dark:hover:bg-gray-800 hover:border-purple-200 dark:hover:border-purple-800 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 cursor-pointer"
                   onClick={action.onClick}
                 >
                   {/* Gradient overlay */}
@@ -162,10 +162,10 @@ const Index = () => {
                       <div className={`p-3 bg-gradient-to-r ${action.gradient} rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300`}>
                         {action.icon}
                       </div>
-                      <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all duration-300" />
+                      <ArrowRight className="h-5 w-5 text-gray-400 dark:text-gray-500 group-hover:text-purple-600 dark:group-hover:text-purple-400 group-hover:translate-x-1 transition-all duration-300" />
                     </div>
                     
-                    <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2 text-lg group-hover:text-purple-700 transition-colors duration-300">
+                    <h3 className="font-bold text-gray-900 dark:text-white mb-2 text-lg group-hover:text-purple-700 dark:group-hover:text-purple-400 transition-colors duration-300">
                       {action.title}
                     </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -193,7 +193,7 @@ const Index = () => {
         </div>
 
         {/* Enhanced Stats Section */}
-        <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl shadow-lg">
               <TrendingUp className="h-6 w-6 text-white" />
@@ -213,7 +213,7 @@ const Index = () => {
         {/* Enhanced Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Sales Overview Chart */}
-          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg">
                 <TrendingUp className="h-6 w-6 text-white" />
@@ -232,8 +232,8 @@ const Index = () => {
             </div>
           </div>
           
-          {/* Performance Metrics */}
-          <PerformanceMetrics />
+          {/* Live Activity */}
+          <LiveActivity />
         </div>
       </div>
 

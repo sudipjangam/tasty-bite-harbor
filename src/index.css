@@ -3,6 +3,56 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile-specific utilities */
+@layer utilities {
+  /* Safe area insets for mobile devices */
+  .safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-area-inset-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* Mobile touch target improvements */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Mobile-friendly scrolling */
+  .mobile-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Prevent text selection on tap */
+  .no-tap-highlight {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide table columns on mobile */
+  .hide-on-mobile {
+    @apply hidden md:table-cell;
+  }
+
+  /* Responsive skeleton heights */
+  .skeleton-responsive {
+    @apply h-32 md:h-48 lg:h-64;
+  }
+}
+
 @layer base {
   :root {
     --background: 220 33% 98%;  /* #F7FAFC - light background */
@@ -194,7 +244,7 @@
 @layer components {
   /* Enhanced standardized component classes with dark mode support */
   .standardized-page {
-    @apply p-6 space-y-8 bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 min-h-screen transition-colors duration-300;
+    @apply p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 md:space-y-8 bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 min-h-screen transition-colors duration-300 overflow-x-hidden;
   }
   
   .standardized-header {
@@ -342,15 +392,3 @@
     @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 shadow-lg;
   }
 }
-
-/* Enhanced font loading */
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 300 800;
-  font-display: swap;
-  src: url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-}
-
-/* Add Playfair Display for headings */
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap');

@@ -33,7 +33,8 @@ export const useRestaurantId = () => {
         
         return {
           restaurantId: restaurant.id,
-          restaurantName: restaurant.name
+          restaurantName: restaurant.name,
+          id : restaurant.id
         };
       }
       
@@ -43,7 +44,7 @@ export const useRestaurantId = () => {
   });
 
   return { 
-    restaurantId: data?.restaurantId || null, 
+    restaurantId: data?.restaurantId ||data?.id || null, 
     restaurantName: data?.restaurantName || null,
     isLoading, 
     error 

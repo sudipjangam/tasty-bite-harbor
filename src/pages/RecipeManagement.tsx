@@ -34,88 +34,88 @@ const RecipeManagement = () => {
   const totalCost = recipes.reduce((sum, r) => sum + (r.total_cost || 0), 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-amber-100 dark:from-gray-900 dark:via-slate-900 dark:to-orange-950 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-amber-100 dark:from-gray-900 dark:via-slate-900 dark:to-orange-950 p-3 md:p-6">
       {/* Header */}
-      <div className="mb-8 bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-xl p-8">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-r from-orange-500 to-amber-600 rounded-2xl shadow-lg">
-              <ChefHat className="h-8 w-8 text-white" />
+      <div className="mb-4 md:mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-2xl md:rounded-3xl shadow-xl p-4 md:p-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+          <div className="flex items-start md:items-center gap-3 md:gap-4">
+            <div className="p-2 md:p-3 bg-gradient-to-r from-orange-500 to-amber-600 rounded-xl md:rounded-2xl shadow-lg flex-shrink-0">
+              <ChefHat className="h-6 w-6 md:h-8 md:w-8 text-white" />
             </div>
-            <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 bg-clip-text text-transparent">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 bg-clip-text text-transparent break-words">
                 Recipe & Costing Management
               </h1>
-              <p className="text-muted-foreground text-lg mt-2">
+              <p className="text-muted-foreground text-sm md:text-lg mt-1 md:mt-2">
                 Manage recipes, calculate costs, and track batch production
               </p>
             </div>
           </div>
-          <Button onClick={() => setShowRecipeDialog(true)} size="lg">
+          <Button onClick={() => setShowRecipeDialog(true)} size="lg" className="w-full md:w-auto flex-shrink-0">
             <Plus className="mr-2 h-5 w-5" />
             New Recipe
           </Button>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mt-4 md:mt-6">
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <ChefHat className="h-4 w-4" />
+            <CardHeader className="pb-2 md:pb-3">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground flex items-center gap-1 md:gap-2">
+                <ChefHat className="h-3 w-3 md:h-4 md:w-4" />
                 Total Recipes
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalRecipes}</div>
-              <p className="text-xs text-muted-foreground mt-1">
+              <div className="text-xl md:text-2xl font-bold">{totalRecipes}</div>
+              <p className="text-[10px] md:text-xs text-muted-foreground mt-1">
                 {activeRecipes} active
               </p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
+            <CardHeader className="pb-2 md:pb-3">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground flex items-center gap-1 md:gap-2">
+                <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
                 Avg Food Cost %
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{avgCostPercentage.toFixed(1)}%</div>
-              <p className="text-xs text-muted-foreground mt-1">
+              <div className="text-xl md:text-2xl font-bold">{avgCostPercentage.toFixed(1)}%</div>
+              <p className="text-[10px] md:text-xs text-muted-foreground mt-1">
                 Target: &lt;30%
               </p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Calculator className="h-4 w-4" />
+            <CardHeader className="pb-2 md:pb-3">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground flex items-center gap-1 md:gap-2">
+                <Calculator className="h-3 w-3 md:h-4 md:w-4" />
                 Total Cost
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₹{totalCost.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground mt-1">
+              <div className="text-xl md:text-2xl font-bold">₹{totalCost.toFixed(2)}</div>
+              <p className="text-[10px] md:text-xs text-muted-foreground mt-1">
                 All recipes combined
               </p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Package className="h-4 w-4" />
+            <CardHeader className="pb-2 md:pb-3">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground flex items-center gap-1 md:gap-2">
+                <Package className="h-3 w-3 md:h-4 md:w-4" />
                 Categories
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-xl md:text-2xl font-bold">
                 {new Set(recipes.map(r => r.category)).size}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-[10px] md:text-xs text-muted-foreground mt-1">
                 Different types
               </p>
             </CardContent>
@@ -124,15 +124,15 @@ const RecipeManagement = () => {
       </div>
 
       {/* Main Content */}
-      <div className="bg-white/90 backdrop-blur-sm border border-white/30 rounded-3xl shadow-xl overflow-hidden">
-        <Tabs defaultValue="recipes" className="p-6">
+      <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-2xl md:rounded-3xl shadow-xl overflow-hidden">
+        <Tabs defaultValue="recipes" className="p-3 md:p-6">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="recipes">Recipes</TabsTrigger>
-            <TabsTrigger value="costing">Costing Analysis</TabsTrigger>
-            <TabsTrigger value="batch">Batch Production</TabsTrigger>
+            <TabsTrigger value="recipes" className="text-xs md:text-sm">Recipes</TabsTrigger>
+            <TabsTrigger value="costing" className="text-xs md:text-sm">Costing</TabsTrigger>
+            <TabsTrigger value="batch" className="text-xs md:text-sm">Batch</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="recipes" className="mt-6">
+          <TabsContent value="recipes" className="mt-4 md:mt-6">
             <RecipeList 
               recipes={recipes} 
               isLoading={isLoading}
@@ -140,11 +140,11 @@ const RecipeManagement = () => {
             />
           </TabsContent>
 
-          <TabsContent value="costing" className="mt-6">
+          <TabsContent value="costing" className="mt-4 md:mt-6">
             <RecipeCostingCard recipes={recipes} />
           </TabsContent>
 
-          <TabsContent value="batch" className="mt-6">
+          <TabsContent value="batch" className="mt-4 md:mt-6">
             <BatchProductionManager />
           </TabsContent>
         </Tabs>

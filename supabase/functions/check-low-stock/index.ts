@@ -140,10 +140,12 @@ serve(async (req) => {
 
   } catch (err) {
     console.error('Error in check-low-stock:', err);
+    const errorMessage = err instanceof Error ? err.message : 'Internal server error'
+    const errorStack = err instanceof Error ? err.stack : undefined
     return new Response(
       JSON.stringify({ 
-        error: err.message || 'Internal server error',
-        details: err.stack
+        error: errorMessage,
+        details: errorStack
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

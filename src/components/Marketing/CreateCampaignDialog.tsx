@@ -56,9 +56,16 @@ const CreateCampaignDialog: React.FC<CreateCampaignDialogProps> = ({
       const { error } = await supabase
         .from('promotion_campaigns')
         .insert([{
-          ...formData,
+          name: formData.name,
+          description: formData.description,
+          discount_percentage: formData.discount_percentage,
+          discount_amount: formData.discount_amount,
+          start_date: formData.start_date,
+          end_date: formData.end_date,
+          promotion_code: formData.promotion_code || null,
           restaurant_id: restaurantId,
-          status: 'scheduled',
+          status: 'active',
+          is_active: true,
         }]);
 
       if (error) throw error;

@@ -37,9 +37,10 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!apiKey) {
-      console.error("API_KEY environment variable is not set");
+      const errorId = crypto.randomUUID();
+      console.error(`[Error ID: ${errorId}] API_KEY environment variable is not set`);
       return new Response(
-        JSON.stringify({ error: 'API key is not configured' }),
+        JSON.stringify({ error: 'Service configuration error', errorId }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
@@ -183,8 +184,9 @@ ALWAYS base your answers on this specific data. When asked for a sales overview,
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`API error: Status ${response.status}`, errorText);
-      throw new Error(`API returned error: ${response.status} ${errorText}`);
+      const errorId = crypto.randomUUID();
+      console.error(`[Error ID: ${errorId}] API error: Status ${response.status}`, errorText);
+      throw new Error(`API request failed (Error ID: ${errorId})`);
     }
 
     const data = await response.json();
@@ -195,12 +197,23 @@ ALWAYS base your answers on this specific data. When asked for a sales overview,
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error in chat function:', error);
+    // Generate a unique error ID for tracking
+    const errorId = crypto.randomUUID();
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorStack = error instanceof Error ? error.stack : undefined
     
+    // Log detailed error server-side only
+    console.error(`[Error ID: ${errorId}] Error in chat function:`, {
+      message: errorMessage,
+      stack: errorStack,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Return generic error to client
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'An error occurred during chat request',
-        details: error.stack,
+        error: 'An error occurred processing your request',
+        errorId: errorId,
         choices: [
           {
             message: {

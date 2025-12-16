@@ -7,6 +7,7 @@ import { Plus, Edit2, Trash2, CakeSlice, Coffee, Pizza, Beef, Soup, Search, Filt
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import AddMenuItemForm from "./AddMenuItemForm";
 
 interface MenuItem {
@@ -34,7 +35,7 @@ const MenuItemCard = memo(({
   onDelete: (id: string) => void, 
   getCategoryIcon: (category: string) => JSX.Element 
 }) => (
-  <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] bg-white/90 backdrop-blur-sm border border-white/20">
+  <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/20 dark:border-gray-700/30">
     <div className="relative h-32">
       <img
         src={item.image_url || "/placeholder.svg"}
@@ -43,7 +44,7 @@ const MenuItemCard = memo(({
         loading="lazy"
       />
       <div className="absolute top-2 right-2">
-        <div className="p-1.5 bg-white/95 backdrop-blur-sm rounded-lg shadow-md">
+        <div className="p-1.5 bg-white/95 dark:bg-gray-700/95 backdrop-blur-sm rounded-lg shadow-md">
           {getCategoryIcon(item.category)}
         </div>
       </div>
@@ -67,13 +68,13 @@ const MenuItemCard = memo(({
     <div className="p-4">
       <div className="flex justify-between items-start mb-2">
         <div className="flex-1">
-          <h3 className="font-bold text-gray-800 text-lg leading-tight">{item.name}</h3>
-          <p className="text-sm text-emerald-600 font-medium">{item.category}</p>
+          <h3 className="font-bold text-gray-800 dark:text-white text-lg leading-tight">{item.name}</h3>
+          <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">{item.category}</p>
         </div>
-        <p className="font-bold text-purple-600 text-lg">₹{item.price}</p>
+        <p className="font-bold text-purple-600 dark:text-purple-400 text-lg">₹{item.price}</p>
       </div>
       {item.description && (
-        <p className="text-sm text-gray-600 mb-3 line-clamp-2">{item.description}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">{item.description}</p>
       )}
       <div className="flex gap-2">
         <Button 
@@ -102,19 +103,23 @@ const MenuItemCard = memo(({
 const MenuGrid = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { restaurantId } = useRestaurantId();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
 
-  // Fetch menu items
+  // Fetch menu items - filter by restaurant_id for RLS compliance
   const { data: menuItems, isLoading } = useQuery({
-    queryKey: ['menuItems'],
+    queryKey: ['menuItems', restaurantId],
     queryFn: async () => {
-      console.log('Fetching menu items...');
+      if (!restaurantId) return [];
+      
+      console.log('Fetching menu items for restaurant:', restaurantId);
       const { data, error } = await supabase
         .from('menu_items')
         .select('*')
+        .eq('restaurant_id', restaurantId)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -125,6 +130,7 @@ const MenuGrid = () => {
       console.log('Fetched menu items:', data);
       return data as MenuItem[];
     },
+    enabled: !!restaurantId,
     staleTime: 60000, // 1 minute cache
     refetchOnWindowFocus: false, // Prevent refetch on window focus to avoid loading flashes
   });
@@ -238,7 +244,7 @@ const MenuGrid = () => {
           <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
             Menu Items
           </h2>
-          <p className="text-gray-600 text-sm mt-1">Manage your restaurant's menu offerings</p>
+          <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">Manage your restaurant's menu offerings</p>
         </div>
         <Button 
           className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
@@ -253,12 +259,12 @@ const MenuGrid = () => {
       </div>
 
       {/* Enhanced Search and Filter Section */}
-      <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-xl p-6">
+      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-2xl shadow-xl p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl shadow-lg">
             <Search className="h-5 w-5 text-white" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-800">Search & Filter</h3>
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Search & Filter</h3>
         </div>
         
         {/* Search Input */}
@@ -266,7 +272,7 @@ const MenuGrid = () => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             placeholder="Search menu items by name, description, or category..."
-            className="pl-10 bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-emerald-300 transition-all duration-200"
+            className="pl-10 bg-white/50 dark:bg-gray-700/50 border-white/30 dark:border-gray-600/30 rounded-xl focus:bg-white dark:focus:bg-gray-700 focus:border-emerald-300 transition-all duration-200"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -274,7 +280,7 @@ const MenuGrid = () => {
 
         {/* Category Filter Tabs */}
         <Tabs defaultValue="all" value={activeCategory} onValueChange={setActiveCategory}>
-          <TabsList className="bg-gray-100/50 rounded-xl p-1 flex-wrap h-auto">
+          <TabsList className="bg-gray-100/50 dark:bg-gray-700/50 rounded-xl p-1 flex-wrap h-auto">
             <TabsTrigger value="all" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md">
               All Items
             </TabsTrigger>
@@ -300,12 +306,12 @@ const MenuGrid = () => {
       {activeCategory === "all" && (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {Object.entries(groupedItemsData).map(([category, items]) => (
-            <Card key={category} className="p-4 bg-gradient-to-br from-white to-gray-50/50 border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+            <Card key={category} className="p-4 bg-gradient-to-br from-white to-gray-50/50 dark:from-gray-800 dark:to-gray-700/50 border border-white/30 dark:border-gray-700/30 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
               <div className="flex flex-col items-center text-center gap-2">
                 {getCategoryIcon(category)}
                 <div>
-                  <h3 className="font-medium text-gray-700 text-sm">{category}</h3>
-                  <p className="text-xs text-gray-500">
+                  <h3 className="font-medium text-gray-700 dark:text-gray-300 text-sm">{category}</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     {items.length} items
                   </p>
                 </div>

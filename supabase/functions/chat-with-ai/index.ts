@@ -63,10 +63,11 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('Error in chat-with-ai function:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     
     // Return a more detailed error message
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: errorMessage,
       message: "Failed to process your request. Please check the Edge Function logs."
     }), {
       status: 500,

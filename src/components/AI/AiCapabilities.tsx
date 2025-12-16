@@ -43,7 +43,7 @@ const AiCapabilities = () => {
   ];
 
   return (
-    <div className="h-full bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-xl p-3 flex flex-col">
+    <div className="h-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-2xl shadow-xl p-3 flex flex-col">
       <div className="flex items-center gap-2 mb-3 flex-shrink-0">
         <div className="p-1.5 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl shadow-lg">
           <Database className="h-4 w-4 text-white" />
@@ -52,7 +52,7 @@ const AiCapabilities = () => {
           <h2 className="text-base font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
             AI Capabilities
           </h2>
-          <p className="text-xs text-gray-500 flex items-center gap-1">
+          <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
             <Sparkles className="h-2 w-2" />
             Powered by advanced AI
           </p>
@@ -67,7 +67,7 @@ const AiCapabilities = () => {
               className={`p-2 bg-gradient-to-br ${capability.bgColor} backdrop-blur-sm border rounded-xl hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group`}
             >
               <div className="flex items-start gap-2">
-                <div className={`${capability.color} p-1.5 bg-white/80 backdrop-blur-sm rounded-lg shadow-md group-hover:shadow-lg transition-all duration-300`}>
+                <div className={`${capability.color} p-1.5 bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm rounded-lg shadow-md group-hover:shadow-lg transition-all duration-300`}>
                   {capability.icon}
                 </div>
                 <div className="flex-1">

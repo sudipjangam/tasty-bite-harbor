@@ -1,12 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { Resend } from "npm:resend@2.0.0"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const resend = new Resend(Deno.env.get('RESEND_API_KEY'))
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -49,44 +48,53 @@ Please confirm receipt and expected delivery date.
 Best regards,
 ${restaurantName}`
 
-    // Send email using Resend
-    const emailResponse = await resend.emails.send({
-      from: 'Purchase Orders <orders@resend.dev>',
-      to: [supplierEmail],
-      subject: `New Purchase Order - ${orderNumber}`,
-      text: emailContent,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">New Purchase Order</h2>
-          <p>Dear ${supplierName},</p>
-          <p>You have received a new purchase order from <strong>${restaurantName}</strong>.</p>
-          
-          <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="margin-top: 0;">Order Details</h3>
-            <p><strong>Order Number:</strong> ${orderNumber}</p>
-            <p><strong>Total Amount:</strong> ₹${totalAmount}</p>
+    // Send email using Resend API
+    const emailResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Purchase Orders <orders@resend.dev>',
+        to: [supplierEmail],
+        subject: `New Purchase Order - ${orderNumber}`,
+        text: emailContent,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">New Purchase Order</h2>
+            <p>Dear ${supplierName},</p>
+            <p>You have received a new purchase order from <strong>${restaurantName}</strong>.</p>
+            
+            <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="margin-top: 0;">Order Details</h3>
+              <p><strong>Order Number:</strong> ${orderNumber}</p>
+              <p><strong>Total Amount:</strong> ₹${totalAmount}</p>
+            </div>
+            
+            <h3>Items:</h3>
+            <ul>
+              ${items.map((item: any) => `<li>${item.itemName} (${item.quantity} ${item.unit}) - ₹${item.totalPrice}</li>`).join('')}
+            </ul>
+            
+            <p>Please confirm receipt and expected delivery date.</p>
+            
+            <p>Best regards,<br>
+            <strong>${restaurantName}</strong></p>
           </div>
-          
-          <h3>Items:</h3>
-          <ul>
-            ${items.map((item: any) => `<li>${item.itemName} (${item.quantity} ${item.unit}) - ₹${item.totalPrice}</li>`).join('')}
-          </ul>
-          
-          <p>Please confirm receipt and expected delivery date.</p>
-          
-          <p>Best regards,<br>
-          <strong>${restaurantName}</strong></p>
-        </div>
-      `
+        `
+      }),
     })
+    
+    const emailData = await emailResponse.json()
 
-    console.log('Email sent successfully:', emailResponse)
+    console.log('Email sent successfully:', emailData)
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: 'Purchase order notification sent successfully',
-        emailId: emailResponse.data?.id
+        emailId: emailData?.id
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -96,10 +104,11 @@ ${restaurantName}`
 
   } catch (error) {
     console.error('Error sending purchase order notification:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: errorMessage 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

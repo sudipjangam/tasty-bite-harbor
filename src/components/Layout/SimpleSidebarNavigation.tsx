@@ -1,6 +1,7 @@
 
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useAccessControl } from "@/hooks/useAccessControl";
 import { 
   LayoutDashboard, 
   Users, 
@@ -96,10 +97,40 @@ const navigationItems = [
 export const SimpleSidebarNavigation = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { hasAccess, loading } = useAccessControl();
+
+  // Map routes to component names
+  const routeToComponentMap: Record<string, string> = {
+    '/': 'dashboard',
+    '/orders': 'orders',
+    '/menu': 'menu',
+    '/staff': 'staff',
+    '/customers': 'customers',
+    '/rooms': 'rooms',
+    '/housekeeping': 'housekeeping',
+    '/tables': 'tables',
+    '/reservations': 'reservations',
+    '/inventory': 'inventory',
+    '/analytics': 'analytics',
+    '/financial': 'financial',
+    '/ai': 'ai',
+    '/settings': 'settings',
+    '/pos': 'pos',
+    // '/qsr-pos': 'qsr-pos',
+    '/kitchen': 'kitchen',
+    '/recipes': 'recipes',
+  };
+
+  if (loading) {
+    return <div className="text-white text-sm">Loading...</div>;
+  }
 
   return (
     <nav className="space-y-2">
-      {navigationItems.map((item) => {
+      {navigationItems.filter(item => {
+        const componentName = routeToComponentMap[item.href];
+        return componentName ? hasAccess(componentName) : true;
+      }).map((item) => {
         const Icon = item.icon;
         const isActive = location.pathname === item.href;
         
