@@ -1,6 +1,9 @@
 
 import React, { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useCurrentStaff } from "@/hooks/useCurrentStaff";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/Layout/PageHeader";
 import { StandardizedCard } from "@/components/ui/standardized-card";
 import { StandardizedButton } from "@/components/ui/standardized-button";
@@ -22,10 +25,18 @@ import { useNavigate } from "react-router-dom";
 import Stats from "@/components/Dashboard/Stats";
 import WeeklySalesChart from "@/components/Dashboard/WeeklySalesChart";
 import LiveActivity from "@/components/Dashboard/LiveActivity";
+import StaffSelfServiceSection from "@/components/Dashboard/StaffSelfServiceSection";
+import TimeClockDialog from "@/components/Staff/TimeClockDialog";
+import LeaveRequestDialog from "@/components/Staff/LeaveRequestDialog";
+import type { StaffMember } from "@/types/staff";
+
 
 const Index = () => {
   const { user, hasPermission } = useAuth();
+  const { restaurantId } = useRestaurantId();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  
   const [permissionDialog, setPermissionDialog] = useState<{
     open: boolean;
     featureName: string;
@@ -35,6 +46,46 @@ const Index = () => {
     featureName: '',
     requiredPermission: ''
   });
+
+  // Self-service dialog states
+  const [isTimeClockDialogOpen, setIsTimeClockDialogOpen] = useState(false);
+  const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false);
+
+  // Get current staff data using the custom hook
+  const {
+    staff,
+    isLoading: isLoadingStaff,
+    isStaff,
+    activeClockEntry,
+    recentTimeEntries,
+    leaveBalances,
+    upcomingLeave,
+    refetchTimeEntries,
+    refetchLeaveData,
+  } = useCurrentStaff();
+
+  // Handle clock in/out success
+  const handleClockSuccess = () => {
+    toast({
+      title: activeClockEntry ? "Clocked Out" : "Clocked In",
+      description: activeClockEntry 
+        ? "You have successfully clocked out. Have a great rest of the day!"
+        : "You have successfully clocked in. Have a productive shift!",
+    });
+    refetchTimeEntries();
+    setIsTimeClockDialogOpen(false);
+  };
+
+  // Handle leave request success
+  const handleLeaveRequestSuccess = () => {
+    toast({
+      title: "Leave Request Submitted",
+      description: "Your leave request has been submitted for approval.",
+    });
+    refetchLeaveData();
+    setIsLeaveDialogOpen(false);
+  };
+
 
   const handleNavigationWithPermission = (
     path: string, 
@@ -130,6 +181,38 @@ const Index = () => {
       </div>
 
       <div className="px-4 md:px-6 pb-6 space-y-8">
+        {/* Self-Service Section - Show for linked staff, or info message for non-linked users */}
+        {isStaff && staff ? (
+          <StaffSelfServiceSection
+            staffName={`${staff.first_name || ""} ${staff.last_name || ""}`.trim()}
+            isClockedIn={!!activeClockEntry}
+            activeClockEntry={activeClockEntry}
+            recentTimeEntries={recentTimeEntries}
+            leaveBalances={leaveBalances}
+            upcomingLeave={upcomingLeave}
+            onClockInOut={() => setIsTimeClockDialogOpen(true)}
+            onRequestLeave={() => setIsLeaveDialogOpen(true)}
+            isLoading={isLoadingStaff}
+          />
+        ) : !isLoadingStaff && (
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-2xl p-6 md:p-8">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl shadow-lg">
+                <Users className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Staff Self-Service
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                  Your account is not linked to a staff profile yet. Contact your administrator to link your email 
+                  <span className="font-medium text-purple-600 dark:text-purple-400"> ({user?.email})</span> to your staff record to access clock in/out and leave features.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Enhanced Quick Actions */}
         <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
           <div className="flex items-center gap-3 mb-6">
@@ -245,6 +328,29 @@ const Index = () => {
         requiredPermission={permissionDialog.requiredPermission}
         onNavigateToHome={() => navigate('/')}
       />
+
+      {/* Time Clock Dialog */}
+      {staff && restaurantId && (
+        <TimeClockDialog
+          isOpen={isTimeClockDialogOpen}
+          onClose={() => setIsTimeClockDialogOpen(false)}
+          staffId={staff.id}
+          restaurantId={restaurantId}
+          onSuccess={handleClockSuccess}
+        />
+      )}
+
+      {/* Leave Request Dialog */}
+      {staff && restaurantId && (
+        <LeaveRequestDialog
+          isOpen={isLeaveDialogOpen}
+          onClose={() => setIsLeaveDialogOpen(false)}
+          restaurantId={restaurantId}
+          staff_id={staff.id}
+          staffOptions={[staff as StaffMember]}
+          onSuccess={handleLeaveRequestSuccess}
+        />
+      )}
     </div>
   );
 };
