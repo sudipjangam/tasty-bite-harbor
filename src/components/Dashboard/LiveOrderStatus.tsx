@@ -38,6 +38,7 @@ export const LiveOrderStatus = () => {
         .select('*')
         .eq('restaurant_id', restaurantId)
         .in('status', ['preparing', 'ready'])
+        .is('bumped_at', null) // Exclude bumped orders
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -73,7 +74,14 @@ export const LiveOrderStatus = () => {
           console.log('Kitchen order change detected:', payload);
           
           if (payload.eventType === 'UPDATE') {
-            const updatedOrder = payload.new as KitchenOrder;
+            const updatedOrder = payload.new as KitchenOrder & { bumped_at?: string };
+            
+            // If order was bumped, remove from both lists
+            if (updatedOrder.bumped_at) {
+              setPreparingOrders(prev => prev.filter(o => o.id !== updatedOrder.id));
+              setReadyOrders(prev => prev.filter(o => o.id !== updatedOrder.id));
+              return;
+            }
             
             // Order marked as ready
             if (updatedOrder.status === 'ready') {
