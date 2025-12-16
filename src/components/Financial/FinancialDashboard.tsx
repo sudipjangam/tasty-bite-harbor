@@ -9,9 +9,88 @@ import { BudgetManagement } from "./BudgetManagement";
 import { TaxReporting } from "./TaxReporting";
 import { FinancialReports } from "./FinancialReports";
 import HotelRevenueManager from "../Revenue/HotelRevenueManager";
-import { Calculator, TrendingUp, FileText, PieChart, Receipt, Target, Hotel, BarChart3, Sparkles } from "lucide-react";
+import { Calculator, TrendingUp, FileText, PieChart, Receipt, Target, Hotel, BarChart3, Lock, Crown, Sparkles } from "lucide-react";
+import { useFinancialTabAccess, TAB_REQUIRED_PLAN } from "@/hooks/useFinancialTabAccess";
+import { UpgradeDialog } from "@/components/Shared/UpgradeDialog";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const FinancialDashboard = () => {
+  const { hasTabAccess, getRequiredPlan, getTabInfo, currentPlanDisplay, isLoading } = useFinancialTabAccess();
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
+  const [selectedRestrictedTab, setSelectedRestrictedTab] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("overview");
+
+  // Handle tab click - check access before switching
+  const handleTabClick = (tabId: string) => {
+    if (hasTabAccess(tabId)) {
+      setActiveTab(tabId);
+    } else {
+      setSelectedRestrictedTab(tabId);
+      setUpgradeDialogOpen(true);
+    }
+  };
+
+  // Get badge for restricted tabs
+  const getRestrictionBadge = (tabId: string) => {
+    if (hasTabAccess(tabId)) return null;
+    
+    const requiredPlan = getRequiredPlan(tabId);
+    const isGrowth = requiredPlan === 'Growth';
+    
+    return (
+      <Badge 
+        variant="secondary" 
+        className={cn(
+          "ml-1 text-[10px] px-1.5 py-0 font-medium",
+          isGrowth 
+            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" 
+            : "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
+        )}
+      >
+        {isGrowth ? <Sparkles className="w-2.5 h-2.5 mr-0.5" /> : <Crown className="w-2.5 h-2.5 mr-0.5" />}
+        {requiredPlan}
+      </Badge>
+    );
+  };
+
+  // Tab trigger with access control
+  const RestrictedTabTrigger = ({ 
+    value, 
+    icon: Icon, 
+    label, 
+    borderColor 
+  }: { 
+    value: string; 
+    icon: React.ElementType; 
+    label: string; 
+    borderColor: string;
+  }) => {
+    const hasAccess = hasTabAccess(value);
+    
+    return (
+      <TabsTrigger 
+        value={value}
+        onClick={(e) => {
+          if (!hasAccess) {
+            e.preventDefault();
+            handleTabClick(value);
+          }
+        }}
+        className={cn(
+          "flex items-center gap-2 rounded-xl transition-all duration-300",
+          `data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:border ${borderColor}`,
+          !hasAccess && "opacity-70 hover:opacity-90"
+        )}
+      >
+        {!hasAccess && <Lock className="h-3 w-3 text-muted-foreground" />}
+        <Icon className="h-4 w-4" />
+        <span className="hidden sm:inline">{label}</span>
+        {getRestrictionBadge(value)}
+      </TabsTrigger>
+    );
+  };
+
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
       {/* Modern Header */}
@@ -37,7 +116,7 @@ const FinancialDashboard = () => {
             </div>
             <div className="flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
               <BarChart3 className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Live Data</span>
+              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{currentPlanDisplay} Plan</span>
             </div>
           </div>
         </div>
@@ -45,58 +124,51 @@ const FinancialDashboard = () => {
 
       {/* Enhanced Tabs Container */}
       <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-6 transform hover:scale-[1.01] transition-all duration-300">
-        <Tabs defaultValue="overview" className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabClick} className="w-full">
           <div className="mb-6">
             <TabsList className="grid w-full grid-cols-7 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-2 border border-gray-200/50 dark:border-gray-700/50">
-              <TabsTrigger 
+              <RestrictedTabTrigger 
                 value="overview" 
-                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:border data-[state=active]:border-blue-200 rounded-xl transition-all duration-300"
-              >
-                <TrendingUp className="h-4 w-4" />
-                <span className="hidden sm:inline">Overview</span>
-              </TabsTrigger>
-              <TabsTrigger 
+                icon={TrendingUp} 
+                label="Overview" 
+                borderColor="data-[state=active]:border-blue-200"
+              />
+              <RestrictedTabTrigger 
                 value="revenue" 
-                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:border data-[state=active]:border-purple-200 rounded-xl transition-all duration-300"
-              >
-                <Hotel className="h-4 w-4" />
-                <span className="hidden sm:inline">Revenue</span>
-              </TabsTrigger>
-              <TabsTrigger 
+                icon={Hotel} 
+                label="Revenue" 
+                borderColor="data-[state=active]:border-purple-200"
+              />
+              <RestrictedTabTrigger 
                 value="profit-loss" 
-                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:border data-[state=active]:border-emerald-200 rounded-xl transition-all duration-300"
-              >
-                <Calculator className="h-4 w-4" />
-                <span className="hidden sm:inline">P&L</span>
-              </TabsTrigger>
-              <TabsTrigger 
+                icon={Calculator} 
+                label="P&L" 
+                borderColor="data-[state=active]:border-emerald-200"
+              />
+              <RestrictedTabTrigger 
                 value="cash-flow" 
-                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:border data-[state=active]:border-cyan-200 rounded-xl transition-all duration-300"
-              >
-                <PieChart className="h-4 w-4" />
-                <span className="hidden sm:inline">Cash Flow</span>
-              </TabsTrigger>
-              <TabsTrigger 
+                icon={PieChart} 
+                label="Cash Flow" 
+                borderColor="data-[state=active]:border-cyan-200"
+              />
+              <RestrictedTabTrigger 
                 value="invoices" 
-                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:border data-[state=active]:border-orange-200 rounded-xl transition-all duration-300"
-              >
-                <Receipt className="h-4 w-4" />
-                <span className="hidden sm:inline">Invoices</span>
-              </TabsTrigger>
-              <TabsTrigger 
+                icon={Receipt} 
+                label="Invoices" 
+                borderColor="data-[state=active]:border-orange-200"
+              />
+              <RestrictedTabTrigger 
                 value="budgets" 
-                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:border data-[state=active]:border-pink-200 rounded-xl transition-all duration-300"
-              >
-                <Target className="h-4 w-4" />
-                <span className="hidden sm:inline">Budgets</span>
-              </TabsTrigger>
-              <TabsTrigger 
+                icon={Target} 
+                label="Budgets" 
+                borderColor="data-[state=active]:border-pink-200"
+              />
+              <RestrictedTabTrigger 
                 value="reports" 
-                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:border data-[state=active]:border-indigo-200 rounded-xl transition-all duration-300"
-              >
-                <FileText className="h-4 w-4" />
-                <span className="hidden sm:inline">Reports</span>
-              </TabsTrigger>
+                icon={FileText} 
+                label="Reports" 
+                borderColor="data-[state=active]:border-indigo-200"
+              />
             </TabsList>
           </div>
 
@@ -143,6 +215,21 @@ const FinancialDashboard = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Upgrade Dialog */}
+      {selectedRestrictedTab && (
+        <UpgradeDialog
+          isOpen={upgradeDialogOpen}
+          onClose={() => {
+            setUpgradeDialogOpen(false);
+            setSelectedRestrictedTab(null);
+          }}
+          featureName={getTabInfo(selectedRestrictedTab).name}
+          featureDescription={getTabInfo(selectedRestrictedTab).description}
+          requiredPlan={getRequiredPlan(selectedRestrictedTab)}
+          currentPlan={currentPlanDisplay}
+        />
+      )}
     </div>
   );
 };
