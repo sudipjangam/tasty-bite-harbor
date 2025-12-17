@@ -2,6 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, AlertCircle, ShoppingCart, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 interface ProductData {
   name: string;
@@ -24,6 +25,7 @@ const RANK_GRADIENTS = [
 ];
 
 const TopProducts = ({ data }: TopProductsProps) => {
+  const { symbol: currencySymbol } = useCurrencyContext();
   const maxRevenue = Math.max(...data.map(d => d.revenue));
   
   const getTrendIcon = (trend: 'up' | 'down' | 'stable') => {
@@ -100,7 +102,7 @@ const TopProducts = ({ data }: TopProductsProps) => {
                 </div>
               </div>
               <div className="text-right">
-                <p className="font-bold text-lg text-gray-900 dark:text-gray-100">₹{item.revenue.toLocaleString()}</p>
+                <p className="font-bold text-lg text-gray-900 dark:text-gray-100">{currencySymbol}{item.revenue.toLocaleString()}</p>
                 <div className="flex items-center justify-end gap-1">
                   {getTrendIcon(item.trend)}
                   {getTrendBadge(item.trend)}

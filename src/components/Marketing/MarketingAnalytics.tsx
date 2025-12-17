@@ -2,6 +2,7 @@
 import React from 'react';
 import { StandardizedCard } from '@/components/ui/standardized-card';
 import { Badge } from '@/components/ui/badge';
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 import { 
   TrendingUp, 
   TrendingDown,
@@ -45,6 +46,7 @@ const MarketingAnalytics: React.FC<MarketingAnalyticsProps> = ({ analytics }) =>
     customerLifetimeValue = 0,
     churnRate = 0
   } = analytics;
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   return (
     <div className="space-y-6">
@@ -72,7 +74,7 @@ const MarketingAnalytics: React.FC<MarketingAnalyticsProps> = ({ analytics }) =>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Revenue Impact</p>
-              <p className="text-2xl font-bold text-green-600">₹{revenueImpact}</p>
+              <p className="text-2xl font-bold text-green-600">{currencySymbol}{revenueImpact}</p>
               <p className={`text-xs mt-1 ${revenueGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {revenueGrowth >= 0 ? (
                   <TrendingUp className="inline h-3 w-3 mr-1" />
@@ -132,7 +134,7 @@ const MarketingAnalytics: React.FC<MarketingAnalyticsProps> = ({ analytics }) =>
                     </div>
                     <div className="flex items-center gap-1">
                       <DollarSign className="h-4 w-4 text-green-500" />
-                      <span className="text-sm text-gray-600">₹{campaign.revenue} revenue</span>
+                      <span className="text-sm text-gray-600">{currencySymbol}{campaign.revenue} revenue</span>
                     </div>
                   </div>
                 </div>
@@ -182,7 +184,7 @@ const MarketingAnalytics: React.FC<MarketingAnalyticsProps> = ({ analytics }) =>
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Average Order Value</span>
-              <span className="font-semibold">₹{avgOrderValue.toLocaleString()}</span>
+              <span className="font-semibold">{currencySymbol}{avgOrderValue.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Repeat Customer Rate</span>
@@ -190,7 +192,7 @@ const MarketingAnalytics: React.FC<MarketingAnalyticsProps> = ({ analytics }) =>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Customer Lifetime Value</span>
-              <span className="font-semibold">₹{customerLifetimeValue.toLocaleString()}</span>
+              <span className="font-semibold">{currencySymbol}{customerLifetimeValue.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Churn Rate</span>

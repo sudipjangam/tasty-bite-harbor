@@ -25,6 +25,7 @@ import {
   Send
 } from "lucide-react";
 import { format } from "date-fns";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 interface CustomerProfile360Props {
   customer: Customer;
@@ -51,6 +52,7 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
   const [newTag, setNewTag] = useState("");
   const [preferences, setPreferences] = useState(customer.preferences || "");
   const [isEditingPreferences, setIsEditingPreferences] = useState(false);
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   const handleAddNote = () => {
     if (newNote.trim()) {
@@ -144,7 +146,7 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Spent</p>
-                <p className="text-2xl font-bold text-green-600">₹{customer.total_spent.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-green-600">{currencySymbol}{customer.total_spent.toLocaleString()}</p>
               </div>
               <DollarSign className="w-8 h-8 text-green-600" />
             </div>
@@ -166,7 +168,7 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Avg Order Value</p>
-                <p className="text-2xl font-bold text-purple-600">₹{averageOrderValue.toFixed(0)}</p>
+                <p className="text-2xl font-bold text-purple-600">{currencySymbol}{averageOrderValue.toFixed(0)}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-purple-600" />
             </div>
@@ -304,7 +306,7 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
                         <p className="text-sm text-gray-500">{order.items.length} items</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold">₹{order.amount}</p>
+                        <p className="font-bold">{currencySymbol}{order.amount}</p>
                         <Badge variant={order.status === 'completed' ? 'default' : 'secondary'}>
                           {order.status}
                         </Badge>

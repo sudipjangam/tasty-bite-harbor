@@ -27,6 +27,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import BusinessReportExport from './BusinessReportExport';
 import FileAnalysisUploader from './FileAnalysisUploader';
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 // Colors for charts
 const COLORS = ['#4299E1', '#48BB78', '#F6AD55', '#F56565', '#805AD5', '#38B2AC', '#ED8936'];
@@ -36,6 +37,7 @@ const BusinessDashboard = () => {
   const [documents, setDocuments] = useState<{name: string, type: string, date: string, insights: string}[]>([]);
   const { data, isLoading, error } = useBusinessDashboardData();
   const { toast } = useToast();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   useEffect(() => {
     if (data?.documents && data.documents.length > 0) {
@@ -196,7 +198,7 @@ const BusinessDashboard = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">₹{totalOperationalCost.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">{currencySymbol}{totalOperationalCost.toLocaleString()}</div>
             <div className="text-xs text-muted-foreground">
               <span className={revenueTrend < 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
                 {revenueTrend < 0 ? "↓" : "↑"} {Math.abs(revenueTrend).toFixed(1)}%
@@ -216,7 +218,7 @@ const BusinessDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-700 dark:text-green-300">
-              ₹{revenueTrendData.reduce((sum, day) => sum + (day.revenue || 0), 0).toLocaleString()}
+              {currencySymbol}{revenueTrendData.reduce((sum, day) => sum + (day.revenue || 0), 0).toLocaleString()}
             </div>
             <div className="text-xs text-muted-foreground">
               Last 30 days total
