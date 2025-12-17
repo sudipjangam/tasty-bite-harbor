@@ -1,5 +1,6 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Permission, UserProfile, UserRole, rolePermissions, AuthContextType } from "@/types/auth";
 
@@ -10,6 +11,7 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [userComponents, setUserComponents] = useState<string[]>([]);
@@ -52,17 +54,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           roles:role_id (
             id,
             name,
-            description
+            description,
+            is_system,
+            has_full_access
           )
         `)
         .eq('id', userId)
         .single();
 
       if (profile) {
-        // Prioritize role_name_text, then custom role from roles table, then fallback to enum
-        const userRole = profile.role_name_text || 
-                        (profile.roles?.name) || 
-                        profile.role;
+        // Use role name from roles table
+        const userRole = profile.roles?.name || profile.role_name_text || profile.role;
 
         setUser({
           id: profile.id,
@@ -72,6 +74,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           role: userRole as UserRole,
           role_id: profile.role_id,
           role_name_text: profile.role_name_text,
+          role_is_system: profile.roles?.is_system ?? false,
+          role_has_full_access: profile.roles?.has_full_access ?? false,
           restaurant_id: profile.restaurant_id,
           avatar_url: profile.avatar_url,
           phone: profile.phone,
@@ -153,9 +157,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const hasPermission = (permission: Permission): boolean => {
     if (!user) return false;
     
-    // Owner and Admin always have full access
-    const roleKey = (user.role_name_text?.toLowerCase() || user.role?.toLowerCase());
-    if (roleKey === 'owner' || roleKey === 'admin') {
+    // Admin (has_full_access=true) always has full access to everything
+    if (user.role_has_full_access) {
       return true;
     }
 
@@ -167,7 +170,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     }
 
-    // Fallback to hardcoded rolePermissions for system roles without component access
+    // Fallback to hardcoded rolePermissions for backward compatibility
+    const roleKey = (user.role?.toString().toLowerCase() || '');
     const userPermissions = rolePermissions[roleKey as UserRole] || [];
     return userPermissions.includes(permission);
   };
@@ -184,8 +188,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const signOut = async (): Promise<void> => {
+    // Sign out from Supabase
     await supabase.auth.signOut();
+    
+    // Clear all React Query cache to prevent stale data from previous session
+    queryClient.clear();
+    
+    // Clear local state
     setUser(null);
+    setUserComponents([]);
+    
+    // Clear any localStorage session data (but keep theme preference)
+    const theme = localStorage.getItem('restaurant-pro-theme');
+    sessionStorage.clear();
+    if (theme) localStorage.setItem('restaurant-pro-theme', theme);
+    
+    console.log('Signed out: cleared auth, cache, and session data');
   };
 
   const value: AuthContextType = {

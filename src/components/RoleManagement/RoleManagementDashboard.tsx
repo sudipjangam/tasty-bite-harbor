@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Plus, Pencil, Trash2, Shield, Lock, ShieldCheck } from 'lucide-react';
+import { Plus, Pencil, Trash2, Shield, Lock, ShieldCheck, Crown, Users, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CreateRoleDialog } from './CreateRoleDialog';
@@ -16,6 +16,8 @@ interface Role {
   name: string;
   description: string | null;
   is_deletable: boolean;
+  is_system: boolean;
+  has_full_access: boolean;
   created_at: string;
 }
 
@@ -36,6 +38,8 @@ export const RoleManagementDashboard = () => {
         .from('roles')
         .select('*')
         .eq('restaurant_id', user.restaurant_id)
+        .order('is_system', { ascending: false })
+        .order('has_full_access', { ascending: false })
         .order('name');
 
       if (error) throw error;
@@ -46,50 +50,52 @@ export const RoleManagementDashboard = () => {
 
   const handleRoleCreated = () => {
     refetch();
-    toast({
-      title: 'Role Created',
-      description: 'The role has been created successfully.',
-    });
+    toast({ title: 'Role Created', description: 'The role has been created successfully.' });
   };
 
   const handleRoleUpdated = () => {
     refetch();
     setEditingRole(null);
-    toast({
-      title: 'Role Updated',
-      description: 'The role has been updated successfully.',
-    });
   };
 
   const handleRoleDeleted = () => {
     refetch();
     setDeletingRole(null);
-    toast({
-      title: 'Role Deleted',
-      description: 'The role has been deleted successfully.',
-    });
+    toast({ title: 'Role Deleted', description: 'The role has been deleted successfully.' });
   };
 
-  const getRoleIcon = (name: string) => {
-    const n = name.toLowerCase();
-    if (n.includes('admin') || n.includes('owner')) return <ShieldCheck className="h-5 w-5 text-white" />;
+  const getRoleIcon = (role: Role) => {
+    const n = role.name.toLowerCase();
+    if (role.has_full_access || n.includes('admin')) return <Crown className="h-5 w-5 text-white" />;
+    if (n.includes('owner')) return <ShieldCheck className="h-5 w-5 text-white" />;
     if (n.includes('manager')) return <Shield className="h-5 w-5 text-white" />;
+    if (n.includes('staff') || n.includes('user')) return <Users className="h-5 w-5 text-white" />;
     return <Lock className="h-5 w-5 text-white" />;
   };
 
-  const getGradient = (name: string) => {
-    const n = name.toLowerCase();
-    if (n.includes('owner')) return "from-purple-500 to-violet-600 shadow-purple-500/20";
-    if (n.includes('admin')) return "from-blue-500 to-indigo-600 shadow-blue-500/20";
-    if (n.includes('manager')) return "from-emerald-500 to-green-600 shadow-emerald-500/20";
-    if (n.includes('chef')) return "from-orange-500 to-red-600 shadow-orange-500/20";
-    return "from-slate-500 to-gray-600 shadow-gray-500/20";
+  const getGradient = (role: Role) => {
+    if (role.has_full_access) return "from-amber-500 to-orange-600 shadow-amber-500/30";
+    const n = role.name.toLowerCase();
+    if (n.includes('owner')) return "from-purple-500 to-violet-600 shadow-purple-500/30";
+    if (n.includes('admin')) return "from-blue-500 to-indigo-600 shadow-blue-500/30";
+    if (n.includes('manager')) return "from-emerald-500 to-green-600 shadow-emerald-500/30";
+    if (n.includes('chef')) return "from-orange-500 to-red-600 shadow-orange-500/30";
+    if (n.includes('staff')) return "from-slate-500 to-gray-600 shadow-slate-500/30";
+    return "from-teal-500 to-cyan-600 shadow-teal-500/30";
+  };
+
+  const getCardBackground = (role: Role) => {
+    if (role.has_full_access) return "bg-gradient-to-br from-amber-50 to-orange-50/50 dark:from-amber-950/20 dark:to-orange-950/10";
+    const n = role.name.toLowerCase();
+    if (n.includes('owner')) return "bg-gradient-to-br from-purple-50 to-violet-50/50 dark:from-purple-950/20 dark:to-violet-950/10";
+    if (n.includes('admin')) return "bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/10";
+    return "bg-white dark:bg-gray-800";
   };
 
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="mt-4 text-muted-foreground">Loading roles...</p>
       </div>
     );
@@ -98,17 +104,18 @@ export const RoleManagementDashboard = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Vibrant Header */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-purple-500/10 to-pink-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
         
         <div className="flex items-center gap-4 relative z-10">
-          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white">
-            <Shield className="h-6 w-6" />
+          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/25 text-white">
+            <Shield className="h-7 w-7" />
           </div>
           <div>
             <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Role Management</h2>
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <ShieldCheck className="h-3 w-3 text-indigo-500" />
+            <div className="flex items-center gap-2 text-muted-foreground text-sm mt-1">
+              <ShieldCheck className="h-3.5 w-3.5 text-indigo-500" />
               <span>Create and manage custom roles with specific component access</span>
             </div>
           </div>
@@ -125,23 +132,34 @@ export const RoleManagementDashboard = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {roles?.map((role) => (
-          <Card key={role.id} className="border-0 shadow-lg group hover:shadow-xl transition-all duration-300 overflow-hidden relative">
-            <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${getGradient(role.name)}`} />
+          <Card 
+            key={role.id} 
+            className={`border shadow-lg group hover:shadow-xl transition-all duration-300 overflow-hidden relative hover:-translate-y-1 ${getCardBackground(role)}`}
+          >
+            <div className={`absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r ${getGradient(role)}`} />
             
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${getGradient(role.name)} flex items-center justify-center shadow-lg`}>
-                    {getRoleIcon(role.name)}
+                  <div className={`h-11 w-11 rounded-xl bg-gradient-to-br ${getGradient(role)} flex items-center justify-center shadow-lg`}>
+                    {getRoleIcon(role)}
                   </div>
                   <div>
                     <CardTitle className="text-lg font-bold flex items-center gap-2">
-                       {/* Capitalize first letter */}
                       {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
                     </CardTitle>
-                    {!role.is_deletable && (
-                       <Badge variant="secondary" className="mt-1 text-xs font-normal">System Role</Badge>
-                    )}
+                    <div className="flex items-center gap-2 mt-1">
+                      {role.is_system && (
+                        <Badge className="text-xs font-normal bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-0">
+                          System Role
+                        </Badge>
+                      )}
+                      {role.has_full_access && (
+                        <Badge className="text-xs font-normal bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-0">
+                          Full Access
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -162,7 +180,7 @@ export const RoleManagementDashboard = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => setEditingRole(role)}
-                  className="flex-1 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-blue-600 border-gray-200 dark:border-gray-700 transition-colors"
+                  className="flex-1 hover:bg-primary/5 hover:text-primary border-gray-200 dark:border-gray-700 transition-colors"
                 >
                   <Pencil className="h-3.5 w-3.5 mr-2" />
                   Edit
@@ -172,7 +190,7 @@ export const RoleManagementDashboard = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => setDeletingRole(role)}
-                    className="flex-1 hover:bg-red-50 dark:hover:bg-red-900/10 hover:text-red-600 border-gray-200 dark:border-gray-700 transition-colors"
+                    className="flex-1 hover:bg-red-50 dark:hover:bg-red-900/10 hover:text-red-600 hover:border-red-200 dark:hover:border-red-800 border-gray-200 dark:border-gray-700 transition-colors"
                   >
                     <Trash2 className="h-3.5 w-3.5 mr-2" />
                     Delete

@@ -16,26 +16,22 @@ export const UserManagementDashboard = () => {
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ["users", "admin-dashboard", currentUser?.restaurant_id],
     queryFn: async () => {
-      // 1. Fetch profiles with restaurant info
-      const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select(`
-          *,
-          restaurants (
-            name
-          )
-        `)
-        .order("created_at", { ascending: false });
+      // Use edge function to fetch users with real emails
+      const { data, error } = await supabase.functions.invoke('user-management', {
+        body: { action: 'list_users' }
+      });
 
-      if (profilesError) throw profilesError;
-
-      // 2. Map to UserWithMetadata and add placeholder emails
-      // Note: In a real admin scenario, we might use an Edge Function to fetch real emails if needed,
-      // but for now we follow the existing pattern.
-      return profiles.map(profile => ({
-        ...profile,
-        email: 'Email hidden (Admin only)'
-      })) as UserWithMetadata[];
+      if (error) throw error;
+      
+      if (data?.users) {
+        return data.users.map((profile: any) => ({
+          ...profile,
+          // Use role name from roles table if available
+          role: profile.roles?.name || profile.role_name_text || profile.role || 'staff'
+        })) as UserWithMetadata[];
+      }
+      
+      return [] as UserWithMetadata[];
     },
     enabled: !!currentUser?.restaurant_id,
   });

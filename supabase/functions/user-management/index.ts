@@ -32,7 +32,7 @@ const updateUserSchema = z.object({
   new_password: z.string().min(8, 'Password must be at least 8 characters').max(100, 'Password too long').optional()
 })
 
-const actionSchema = z.enum(['create_user', 'update_user', 'delete_user', 'reset_password'], {
+const actionSchema = z.enum(['create_user', 'update_user', 'delete_user', 'reset_password', 'list_users'], {
   errorMap: () => ({ message: 'Invalid action' })
 })
 
@@ -246,6 +246,41 @@ serve(async (req) => {
 
         return new Response(
           JSON.stringify({ success: true, message: 'Password reset email sent' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      case 'list_users': {
+        // Fetch profiles for the restaurant
+        const { data: profiles, error: profileError } = await supabaseClient
+          .from('profiles')
+          .select(`
+            *,
+            restaurants (name),
+            roles:role_id (id, name, is_system, has_full_access)
+          `)
+          .eq('restaurant_id', profile.restaurant_id)
+          .order('created_at', { ascending: false });
+
+        if (profileError) throw profileError;
+
+        // Fetch emails from auth.users for each profile
+        const usersWithEmails = await Promise.all(
+          (profiles || []).map(async (p: any) => {
+            try {
+              const { data: authData } = await supabaseClient.auth.admin.getUserById(p.id);
+              return {
+                ...p,
+                email: authData?.user?.email || null
+              };
+            } catch {
+              return { ...p, email: null };
+            }
+          })
+        );
+
+        return new Response(
+          JSON.stringify({ success: true, users: usersWithEmails }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
