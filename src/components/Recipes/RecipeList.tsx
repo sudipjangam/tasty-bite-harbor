@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Edit, Trash2, Clock, DollarSign, TrendingUp, MoreVertical, ChefHat, Flame, Users } from "lucide-react";
 import { Recipe, useRecipes } from "@/hooks/useRecipes";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +32,7 @@ interface RecipeListProps {
 export const RecipeList = ({ recipes, isLoading, onEdit }: RecipeListProps) => {
   const { deleteRecipe } = useRecipes();
   const [recipeToDelete, setRecipeToDelete] = useState<string | null>(null);
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
@@ -194,13 +196,13 @@ export const RecipeList = ({ recipes, isLoading, onEdit }: RecipeListProps) => {
                     <DollarSign className="h-3.5 w-3.5 text-emerald-500" /> Cost
                   </p>
                   <p className="font-bold text-gray-800 dark:text-gray-100 text-lg">
-                    ₹{recipe.total_cost.toFixed(2)}
+                    {currencySymbol}{recipe.total_cost.toFixed(2)}
                   </p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs text-gray-500 dark:text-gray-400">Selling Price</p>
                   <p className="font-bold text-xl bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-                    ₹{recipe.selling_price.toFixed(0)}
+                    {currencySymbol}{recipe.selling_price.toFixed(0)}
                   </p>
                 </div>
                 <div className="space-y-1">

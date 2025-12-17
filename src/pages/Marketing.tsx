@@ -9,6 +9,7 @@ import CampaignsList from "@/components/Marketing/CampaignsList";
 import CreateCampaignDialog from "@/components/Marketing/CreateCampaignDialog";
 import CustomerSegments from "@/components/Marketing/CustomerSegments";
 import MarketingAnalytics from "@/components/Marketing/MarketingAnalytics";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { 
   Plus, 
   Users, 
@@ -25,6 +26,7 @@ const Marketing = () => {
   const { campaigns, customers, analytics, isLoading } = useMarketingData();
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
   const [activeTab, setActiveTab] = useState('campaigns');
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   const tabs = [
     { id: 'campaigns', label: 'Campaigns', icon: Target },
@@ -87,7 +89,7 @@ const Marketing = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Revenue Impact</p>
-              <p className="text-2xl font-bold text-orange-600">₹{analytics.revenueImpact}</p>
+              <p className="text-2xl font-bold text-orange-600">{currencySymbol}{analytics.revenueImpact}</p>
             </div>
             <DollarSign className="h-8 w-8 text-orange-500" />
           </div>

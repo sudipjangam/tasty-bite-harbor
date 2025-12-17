@@ -3,12 +3,14 @@ import { Recipe } from "@/hooks/useRecipes";
 import { TrendingUp, TrendingDown, DollarSign, Percent, PieChart, Target, AlertTriangle, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 interface RecipeCostingCardProps {
   recipes: Recipe[];
 }
 
 export const RecipeCostingCard = ({ recipes }: RecipeCostingCardProps) => {
+  const { symbol: currencySymbol } = useCurrencyContext();
   // Calculate metrics
   const totalRecipes = recipes.length;
   const avgFoodCost = recipes.length > 0
@@ -180,8 +182,8 @@ export const RecipeCostingCard = ({ recipes }: RecipeCostingCardProps) => {
                       <div>
                         <p className="font-semibold text-gray-900 dark:text-gray-100">{recipe.name}</p>
                         <div className="flex gap-4 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                          <span>Cost: ₹{recipe.total_cost.toFixed(0)}</span>
-                          <span>Price: ₹{recipe.selling_price.toFixed(0)}</span>
+                          <span>Cost: {currencySymbol}{recipe.total_cost.toFixed(0)}</span>
+                          <span>Price: {currencySymbol}{recipe.selling_price.toFixed(0)}</span>
                         </div>
                       </div>
                     </div>

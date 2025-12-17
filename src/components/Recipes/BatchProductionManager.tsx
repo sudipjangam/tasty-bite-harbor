@@ -14,6 +14,7 @@ import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 interface BatchProductionManagerProps {
   batchProductions: BatchProduction[];
@@ -26,6 +27,7 @@ export const BatchProductionManager = ({ batchProductions }: BatchProductionMana
   const { recipes } = useRecipes();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   const [batchFormData, setBatchFormData] = useState({
     recipe_id: "",
@@ -196,7 +198,7 @@ export const BatchProductionManager = ({ batchProductions }: BatchProductionMana
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-red-600">
-              ₹{monthWaste.toFixed(0)}
+              {currencySymbol}{monthWaste.toFixed(0)}
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Recorded waste cost

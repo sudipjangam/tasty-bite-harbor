@@ -13,6 +13,7 @@ import { Loader2, Plus, Trash2, ChefHat, Utensils, ClipboardList, Sparkles, Cloc
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 interface RecipeDialogProps {
   open: boolean;
@@ -57,6 +58,7 @@ export const RecipeDialog = ({ open, onOpenChange, recipe }: RecipeDialogProps) 
   const restaurantId = useRestaurantId();
   const { createRecipe, updateRecipe } = useRecipes();
   const { toast } = useToast();
+  const { symbol: currencySymbol } = useCurrencyContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isInitialized = useRef(false);
   const prevRecipeId = useRef<string | null>(null);
@@ -535,7 +537,7 @@ export const RecipeDialog = ({ open, onOpenChange, recipe }: RecipeDialogProps) 
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="selling_price" className="text-gray-600 dark:text-gray-400 text-sm">Selling Price (₹) *</Label>
+                    <Label htmlFor="selling_price" className="text-gray-600 dark:text-gray-400 text-sm">Selling Price ({currencySymbol}) *</Label>
                     <Input
                       id="selling_price"
                       type="number"
@@ -598,7 +600,7 @@ export const RecipeDialog = ({ open, onOpenChange, recipe }: RecipeDialogProps) 
                 <div className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-500/30">
                   <div className="flex items-center justify-between">
                     <span className="text-emerald-700 dark:text-emerald-300 font-semibold">Total Ingredient Cost:</span>
-                    <span className="text-2xl font-bold text-emerald-600">₹{totalIngredientCost.toFixed(2)}</span>
+                    <span className="text-2xl font-bold text-emerald-600">{currencySymbol}{totalIngredientCost.toFixed(2)}</span>
                   </div>
                 </div>
               )}
@@ -625,7 +627,7 @@ export const RecipeDialog = ({ open, onOpenChange, recipe }: RecipeDialogProps) 
                           <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-xl">
                             {inventoryItems.map((item: any) => (
                               <SelectItem key={item.id} value={item.id} className="rounded-lg">
-                                {item.name} (₹{item.cost_per_unit || 0}/{item.unit})
+                                {item.name} ({currencySymbol}{item.cost_per_unit || 0}/{item.unit})
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -667,7 +669,7 @@ export const RecipeDialog = ({ open, onOpenChange, recipe }: RecipeDialogProps) 
 
                       <div className="w-24 text-right space-y-2">
                         <Label className="text-gray-600 dark:text-gray-400 text-sm">Cost</Label>
-                        <p className="font-bold text-emerald-600 py-2">₹{ingredientCost.toFixed(2)}</p>
+                        <p className="font-bold text-emerald-600 py-2">{currencySymbol}{ingredientCost.toFixed(2)}</p>
                       </div>
 
                       <Button
