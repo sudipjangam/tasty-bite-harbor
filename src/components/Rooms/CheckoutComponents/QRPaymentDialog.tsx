@@ -59,9 +59,9 @@ const QRPaymentDialog: React.FC<QRPaymentDialogProps> = ({
         .select('*')
         .eq('restaurant_id', restaurantId)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error) throw error;
       return data;
     },
   });
