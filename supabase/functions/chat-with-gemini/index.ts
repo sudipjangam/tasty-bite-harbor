@@ -132,7 +132,8 @@ serve(async (req) => {
           { data: notificationPreferences },
           { data: subscriptionPlans },
           { data: restaurantDetails },
-          { data: restaurantSubscriptions }
+          { data: restaurantSubscriptions },
+          { data: posTransactions }
         ] = await Promise.all([
           supabase.from("daily_revenue_stats").select("*")
             .eq("restaurant_id", verifiedRestaurantId)
@@ -206,7 +207,11 @@ serve(async (req) => {
             .eq("id", verifiedRestaurantId)
             .single(),
           supabase.from("restaurant_subscriptions").select("*")
+            .eq("restaurant_id", verifiedRestaurantId),
+          supabase.from("pos_transactions").select("*")
             .eq("restaurant_id", verifiedRestaurantId)
+            .order("created_at", { ascending: false })
+            .limit(50)
         ]);
         
         restaurantData = {
@@ -238,10 +243,11 @@ serve(async (req) => {
           subscriptionPlans: subscriptionPlans || [],
           
           restaurantDetails: restaurantDetails || {},
-          restaurantSubscriptions: restaurantSubscriptions || []
+          restaurantSubscriptions: restaurantSubscriptions || [],
+          posTransactions: posTransactions || []
         };
         
-        console.log(`Successfully fetched restaurant data from all tables. Found ${revenueStats?.length || 0} revenue records, ${recentOrders?.length || 0} orders, ${qsrOrders?.length || 0} QSR orders, ${inventoryItems?.length || 0} inventory items, ${rooms?.length || 0} rooms, ${staff?.length || 0} staff members, etc.`);
+        console.log(`Successfully fetched restaurant data from all tables. Found ${revenueStats?.length || 0} revenue records, ${recentOrders?.length || 0} orders, ${qsrOrders?.length || 0} QSR orders, ${inventoryItems?.length || 0} inventory items, ${rooms?.length || 0} rooms, ${staff?.length || 0} staff members, ${posTransactions?.length || 0} POS transactions, etc.`);
       } catch (error) {
         console.error("Error fetching restaurant data:", error);
       }
@@ -401,7 +407,10 @@ ${JSON.stringify(restaurantData.restaurantDetails, null, 2)}
 RESTAURANT SUBSCRIPTION:
 ${JSON.stringify(restaurantData.restaurantSubscriptions?.slice(0, 1), null, 2)}
 
-ALWAYS base your answers on this specific data. When asked for MTD, QTD, or YTD, use the KEY METRICS SUMMARY above. When asked for a sales overview, calculate totals, trends, and metrics from the full REVENUE STATS history. Your answers should NEVER be generic - they should directly reflect the numbers and patterns in this data.`;
+POS TRANSACTIONS (last 10):
+${JSON.stringify((restaurantData as any).posTransactions?.slice(0, 10), null, 2)}
+
+ALWAYS base your answers on this specific data. When asked for MTD, QTD, or YTD, use the KEY METRICS SUMMARY above. When asked for a sales overview, calculate totals, trends, and metrics from the full REVENUE STATS history. For payment analytics, use the POS TRANSACTIONS data. Your answers should NEVER be generic - they should directly reflect the numbers and patterns in this data.`;
       } catch (e) {
         console.error('Error computing metrics summary:', e);
       }
@@ -427,15 +436,41 @@ ALWAYS base your answers on this specific data. When asked for MTD, QTD, or YTD,
 
     console.log("Sending request to Gemini API via SDK");
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: contents,
-      config: {
-        systemInstruction: {
-          parts: [{ text: systemInstructionContent }]
+    // Retry logic for Gemini API
+    let response;
+    let lastError;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: contents,
+          config: {
+            systemInstruction: {
+              parts: [{ text: systemInstructionContent }]
+            }
+          }
+        });
+        break; // Success, exit retry loop
+      } catch (e: any) {
+        lastError = e;
+        console.error(`Gemini API attempt ${attempt + 1} failed:`, e.message || e);
+        
+        // Check if it's a 503 error (model overloaded)
+        if (e.message?.includes('503') || e.message?.includes('overloaded') || e.status === 503) {
+          if (attempt < 2) {
+            const delay = Math.pow(2, attempt) * 1000; // 1s, 2s
+            console.log(`Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
         }
+        throw e; // Rethrow if not retryable or max retries reached
       }
-    });
+    }
+
+    if (!response) {
+      throw lastError || new Error('Failed to get response from Gemini API');
+    }
 
     console.log("Received successful Gemini API SDK response");
     

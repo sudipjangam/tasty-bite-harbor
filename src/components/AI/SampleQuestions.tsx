@@ -15,7 +15,7 @@ const SampleQuestions = ({ onQuestionClick }: SampleQuestionsProps) => {
       category: "Sales"
     },
     {
-      question: "Which menu items have the highest profit margin?",
+      question: "Which menu items are most popular?",
       icon: "🍽️",
       category: "Menu"
     },
@@ -38,6 +38,11 @@ const SampleQuestions = ({ onQuestionClick }: SampleQuestionsProps) => {
       question: "What's the status of our current inventory?",
       icon: "📋",
       category: "Status"
+    },
+    {
+      question: "Show me today's payment transactions",
+      icon: "💳",
+      category: "Payments"
     }
   ];
 
