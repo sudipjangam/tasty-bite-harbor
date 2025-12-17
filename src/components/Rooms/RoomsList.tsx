@@ -242,7 +242,11 @@ const RoomsList: React.FC<RoomsListProps> = ({
         <RoomCheckout 
           roomId={checkoutRoom.roomId}
           reservationId={checkoutRoom.reservationId}
-          onComplete={onCheckoutComplete}
+          onComplete={async () => {
+            await onCheckoutComplete();
+            setCheckoutRoom(null);
+          }}
+          onCancel={() => setCheckoutRoom(null)}
         />
       </React.Suspense>
     );

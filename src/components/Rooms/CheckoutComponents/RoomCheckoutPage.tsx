@@ -36,6 +36,8 @@ interface RoomCheckoutPageProps {
   roomId: string;
   reservationId: string;
   onComplete: () => Promise<void>;
+  onCancel?: () => void;
+  isInSheet?: boolean;
 }
 
 interface FoodOrder {
@@ -68,7 +70,9 @@ interface ReservationDetails {
 const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({ 
   roomId, 
   reservationId, 
-  onComplete 
+  onComplete,
+  onCancel,
+  isInSheet = false
 }) => {
   const [room, setRoom] = useState<RoomDetails | null>(null);
   const [reservation, setReservation] = useState<ReservationDetails | null>(null);
@@ -386,12 +390,20 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
   };
 
   const handleCancel = () => {
-    navigate('/rooms');
+    if (onCancel) {
+      onCancel();
+    } else {
+      navigate('/rooms');
+    }
   };
 
   const handleCloseSuccessDialog = () => {
     setShowSuccessDialog(false);
-    navigate('/rooms');
+    if (onCancel) {
+      onCancel();
+    } else {
+      navigate('/rooms');
+    }
   };
 
   const handleQRPayment = () => {
@@ -404,39 +416,46 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
     handleCheckout();
   };
 
+  // Container styles based on mode
+  const containerClasses = isInSheet
+    ? "transition-colors duration-300"
+    : "min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 p-6 transition-colors duration-300";
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 p-6 transition-colors duration-300">
-      {/* Modern Header */}
-      <div className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/20 rounded-3xl shadow-2xl p-8 transition-colors duration-300">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl">
-              <Receipt className="h-8 w-8 text-white" />
+    <div className={containerClasses}>
+      {/* Modern Header - only show when NOT in Sheet */}
+      {!isInSheet && (
+        <div className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/20 rounded-3xl shadow-2xl p-8 transition-colors duration-300">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl">
+                <Receipt className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  Room Checkout
+                </h1>
+                <p className="text-gray-600 dark:text-gray-300 text-lg mt-2 flex items-center gap-2 transition-colors duration-300">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  Complete guest checkout and billing
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                Room Checkout
-              </h1>
-              <p className="text-gray-600 dark:text-gray-300 text-lg mt-2 flex items-center gap-2 transition-colors duration-300">
-                <CheckCircle className="h-5 w-5 text-green-500" />
-                Complete guest checkout and billing
-              </p>
-            </div>
+            <Button 
+              variant="outline" 
+              onClick={handleCancel}
+              className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-400 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-indigo-900/20 dark:hover:to-purple-900/20 text-gray-700 dark:text-gray-200 hover:text-indigo-700 dark:hover:text-indigo-300 font-semibold px-6 py-3 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Return to Rooms
+            </Button>
           </div>
-          <Button 
-            variant="outline" 
-            onClick={handleCancel}
-            className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-400 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-indigo-900/20 dark:hover:to-purple-900/20 text-gray-700 dark:text-gray-200 hover:text-indigo-700 dark:hover:text-indigo-300 font-semibold px-6 py-3 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Return to Rooms
-          </Button>
         </div>
-      </div>
+      )}
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column - Guest & Room Details */}
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
+        {/* Left Column - Guest & Room Details - 3/5 width */}
+        <div className="lg:col-span-3 space-y-4">
           {/* Guest Information Card */}
           <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300">
             <CardHeader className="pb-4">
@@ -520,11 +539,11 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           </Card>
         </div>
         
-        {/* Right Column - Payment & Summary */}
-        <div className="space-y-6">
+        {/* Right Column - Payment & Summary - 2/5 width */}
+        <div className="lg:col-span-2 space-y-4">
           {/* Promo Code Section */}
-          <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl transition-colors duration-300">
-            <CardContent className="pt-6">
+          <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-lg transition-colors duration-300">
+            <CardContent className="p-4">
               <PromoCodeSection 
                 promotionCode={promotionCode}
                 onPromotionCodeChange={setPromotionCode}
@@ -538,8 +557,8 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           </Card>
 
           {/* Discount Section */}
-          <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl transition-colors duration-300">
-            <CardContent className="pt-6">
+          <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-lg transition-colors duration-300">
+            <CardContent className="p-4">
               <DiscountSection 
                 subtotal={roomTotal + foodOrdersTotal + additionalChargesTotal}
                 discountPercent={discountPercent}
@@ -551,8 +570,8 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           </Card>
           
           {/* Service Charge Section */}
-          <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl transition-colors duration-300">
-            <CardContent className="pt-6">
+          <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-lg transition-colors duration-300">
+            <CardContent className="p-4">
               <ServiceChargeSection 
                 subtotal={roomTotal + foodOrdersTotal + additionalChargesTotal}
                 serviceChargeEnabled={serviceChargeEnabled}
@@ -564,8 +583,8 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           </Card>
           
           {/* Payment Method */}
-          <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl transition-colors duration-300">
-            <CardContent className="pt-6">
+          <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-lg transition-colors duration-300">
+            <CardContent className="p-4">
               <PaymentMethodSelector 
                 selectedMethod={paymentMethod} 
                 onMethodChange={setPaymentMethod}
@@ -575,7 +594,7 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           </Card>
           
           {/* Bill Summary */}
-          <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-2 border-indigo-200/50 dark:border-indigo-700/50 rounded-2xl shadow-xl transition-colors duration-300">
+          <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-2 border-indigo-200/50 dark:border-indigo-700/50 rounded-xl shadow-lg transition-colors duration-300">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-3 text-xl font-bold text-gray-800 dark:text-gray-100 transition-colors duration-300">
                 <div className="p-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl">
