@@ -58,11 +58,6 @@ Alternative chat endpoint for API-based integrations.
 
 ---
 
-### `chat-with-ai`
-Lightweight AI assistant without full restaurant data context.
-
----
-
 ## WhatsApp Integration
 
 ### `send-whatsapp`
