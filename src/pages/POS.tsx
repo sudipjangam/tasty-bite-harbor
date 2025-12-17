@@ -25,7 +25,7 @@ const POS = () => {
         <POSMode />
       </div>
       
-      {/* <MobileNavigation /> */}
+      <MobileNavigation />
     </div>
   );
 };
