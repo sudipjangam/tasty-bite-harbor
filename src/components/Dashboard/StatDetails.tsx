@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useTheme } from "@/hooks/useTheme";
 import { HighchartComponent } from "@/components/ui/highcharts";
 import { Options } from "highcharts";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 interface StatDetailsProps {
   title: string | null;
@@ -15,8 +16,9 @@ interface StatDetailsProps {
 const StatDetails = ({ title, data, type, onClose }: StatDetailsProps) => {
   const { theme } = useTheme();
   const isDarkMode = theme === 'dark';
+  const { symbol, formatCurrency: formatCurrencyFromContext } = useCurrencyContext();
   
-  const formatCurrency = (value: number) => `₹${value.toFixed(2)}`;
+  const formatCurrency = (value: number) => formatCurrencyFromContext(value);
 
   // Theme-aware colors
   const backgroundColor = 'transparent';
@@ -58,7 +60,7 @@ const StatDetails = ({ title, data, type, onClose }: StatDetailsProps) => {
           },
           yAxis: {
             title: {
-              text: 'Amount (₹)',
+              text: `Amount (${symbol})`,
               style: {
                 color: textColor
               }
@@ -68,7 +70,7 @@ const StatDetails = ({ title, data, type, onClose }: StatDetailsProps) => {
                 color: textColor
               },
               formatter: function() {
-                return '₹' + this.value;
+                return symbol + this.value;
               }
             },
             gridLineColor: gridColor
@@ -82,7 +84,7 @@ const StatDetails = ({ title, data, type, onClose }: StatDetailsProps) => {
           tooltip: {
             headerFormat: '<span style="font-size:10px">{point.key}</span><table>',
             pointFormat: '<tr><td style="color:{series.color};padding:0">{series.name}: </td>' +
-              '<td style="padding:0"><b>₹{point.y:.2f}</b></td></tr>',
+              `<td style="padding:0"><b>${symbol}{point.y:.2f}</b></td></tr>`,
             footerFormat: '</table>',
             shared: true,
             useHTML: true,

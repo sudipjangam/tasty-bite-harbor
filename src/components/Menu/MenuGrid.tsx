@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import AddMenuItemForm from "./AddMenuItemForm";
 
 interface MenuItem {
@@ -28,12 +29,14 @@ const MenuItemCard = memo(({
   item, 
   onEdit, 
   onDelete, 
-  getCategoryIcon 
+  getCategoryIcon,
+  currencySymbol
 }: { 
   item: MenuItem, 
   onEdit: (item: MenuItem) => void, 
   onDelete: (id: string) => void, 
-  getCategoryIcon: (category: string) => JSX.Element 
+  getCategoryIcon: (category: string) => JSX.Element,
+  currencySymbol: string
 }) => (
   <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/20 dark:border-gray-700/30">
     <div className="relative h-32">
@@ -71,7 +74,7 @@ const MenuItemCard = memo(({
           <h3 className="font-bold text-gray-800 dark:text-white text-lg leading-tight">{item.name}</h3>
           <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">{item.category}</p>
         </div>
-        <p className="font-bold text-purple-600 dark:text-purple-400 text-lg">₹{item.price}</p>
+        <p className="font-bold text-purple-600 dark:text-purple-400 text-lg">{currencySymbol}{item.price}</p>
       </div>
       {item.description && (
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">{item.description}</p>
@@ -104,6 +107,7 @@ const MenuGrid = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { restaurantId } = useRestaurantId();
+  const { symbol: currencySymbol } = useCurrencyContext();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -339,6 +343,7 @@ const MenuGrid = () => {
               onEdit={handleEdit}
               onDelete={handleDelete}
               getCategoryIcon={getCategoryIcon}
+              currencySymbol={currencySymbol}
             />
           ))
         )}

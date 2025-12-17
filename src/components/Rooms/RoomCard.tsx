@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from "@/comp
 import { Button } from "@/components/ui/button";
 import { CalendarCheck, ShoppingBag, Users, Tag, Edit3, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 interface RoomCardProps {
   room: {
@@ -30,6 +31,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
   onCheckout,
   getStatusClass
 }) => {
+  const { symbol: currencySymbol } = useCurrencyContext();
   // Get status gradient for card
   const getStatusGradient = (status: string) => {
     switch (status.toLowerCase()) {
@@ -146,7 +148,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
             </div>
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400">Price</p>
-              <p className="font-semibold text-gray-800 dark:text-gray-100">₹{room.price} / night</p>
+              <p className="font-semibold text-gray-800 dark:text-gray-100">{currencySymbol}{room.price} / night</p>
             </div>
           </div>
           
@@ -157,7 +159,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
               </div>
               <div>
                 <p className="text-xs text-purple-600 dark:text-purple-400">Food Orders</p>
-                <p className="font-bold text-purple-700 dark:text-purple-300">₹{foodOrdersTotal.toFixed(2)}</p>
+                <p className="font-bold text-purple-700 dark:text-purple-300">{currencySymbol}{foodOrdersTotal.toFixed(2)}</p>
               </div>
             </div>
           )}

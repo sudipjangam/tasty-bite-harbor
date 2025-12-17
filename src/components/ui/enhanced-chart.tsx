@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TrendingUp, TrendingDown, MoreHorizontal, Download, Maximize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface ChartMetric {
   label: string;
@@ -25,12 +26,12 @@ interface EnhancedChartProps {
   variant?: 'default' | 'minimal' | 'highlighted';
 }
 
-const formatValue = (value: string | number, format?: string) => {
+const formatValue = (value: string | number, format?: string, symbol: string = '₹') => {
   if (typeof value === 'string') return value;
   
   switch (format) {
     case 'currency':
-      return `₹${value.toLocaleString()}`;
+      return `${symbol}${value.toLocaleString()}`;
     case 'percentage':
       return `${value}%`;
     default:
@@ -70,6 +71,8 @@ export const EnhancedChart: React.FC<EnhancedChartProps> = ({
   size = 'md',
   variant = 'default'
 }) => {
+  const { symbol } = useCurrencyContext();
+  
   const sizeClasses = {
     sm: 'p-4',
     md: 'p-6',
@@ -117,7 +120,7 @@ export const EnhancedChart: React.FC<EnhancedChartProps> = ({
                 </p>
                 <div className="flex items-center space-x-2">
                   <span className="text-2xl font-bold text-gray-900">
-                    {formatValue(metric.value, metric.format)}
+                    {formatValue(metric.value, metric.format, symbol)}
                   </span>
                   {metric.change !== undefined && (
                     <div className={cn(

@@ -9,6 +9,7 @@ import { ErrorBoundary } from "./components/ui/error-boundary";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AccessProvider } from "@/contexts/AccessContext";
+import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { useRealtimeAnalytics } from "@/hooks/useRealtimeAnalytics";
 import Routes from "./components/Auth/Routes";
 
@@ -44,11 +45,13 @@ function App() {
         <TooltipProvider>
           <AuthProvider>
             <AccessProvider>
-              <ErrorBoundary>
-                <Router>
-                  <AppWithRealtime />
-                </Router>
-              </ErrorBoundary>
+              <CurrencyProvider>
+                <ErrorBoundary>
+                  <Router>
+                    <AppWithRealtime />
+                  </Router>
+                </ErrorBoundary>
+              </CurrencyProvider>
             </AccessProvider>
           </AuthProvider>
         </TooltipProvider>

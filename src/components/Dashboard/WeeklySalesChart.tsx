@@ -7,10 +7,12 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HighchartComponent } from "@/components/ui/highcharts";
 import { Options } from "highcharts";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 const WeeklySalesChart = () => {
   const { theme } = useTheme();
   const isDarkMode = theme === 'dark';
+  const { symbol } = useCurrencyContext();
   
   const { data: profile } = useQuery({
     queryKey: ["profile"],
@@ -110,7 +112,7 @@ const WeeklySalesChart = () => {
     },
     yAxis: {
       title: {
-        text: 'Revenue (₹)',
+        text: `Revenue (${symbol})`,
         style: {
           color: textColor
         }
@@ -120,7 +122,7 @@ const WeeklySalesChart = () => {
           color: textColor
         },
         formatter: function() {
-          return '₹' + this.value;
+          return symbol + this.value;
         }
       },
       gridLineColor: gridColor
@@ -134,7 +136,7 @@ const WeeklySalesChart = () => {
     tooltip: {
       headerFormat: '<span style="font-size:10px">{point.key}</span><table>',
       pointFormat: '<tr><td style="color:{series.color};padding:0">Revenue: </td>' +
-        '<td style="padding:0"><b>₹{point.y:.0f}</b></td></tr>',
+        `<td style="padding:0"><b>${symbol}{point.y:.0f}</b></td></tr>`,
       footerFormat: '</table>',
       shared: true,
       useHTML: true,

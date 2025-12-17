@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Label } from "@/components/ui/label";
 import { Mail, Phone, User, Calendar, Clock, MessageSquare, DollarSign } from "lucide-react";
 import type { StaffMember } from "@/types/staff";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 interface ProfileTabProps {
   staff: StaffMember;
@@ -11,6 +12,7 @@ interface ProfileTabProps {
 }
 
 export const ProfileTab: React.FC<ProfileTabProps> = ({ staff, formatDate }) => {
+  const { symbol: currencySymbol } = useCurrencyContext();
   return (
     <div className="space-y-6">
       <Card className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl shadow-lg">
@@ -146,7 +148,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ staff, formatDate }) => 
                   <div>
                     <Label className="text-xs text-gray-500 font-medium">Salary</Label>
                     <div className="text-sm font-semibold text-gray-800">
-                      ₹{staff.salary.toLocaleString()} ({staff.salary_type || 'monthly'})
+                      {currencySymbol}{staff.salary.toLocaleString()} ({staff.salary_type || 'monthly'})
                     </div>
                   </div>
                 </div>
