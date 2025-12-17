@@ -212,6 +212,8 @@ export interface UserProfile {
   role: UserRole | string; // Can be system role or custom role name
   role_id?: string; // Foreign key to custom roles table
   role_name_text?: string; // Text representation of custom role
+  role_is_system?: boolean; // True if this is a system role (Admin/Owner)
+  role_has_full_access?: boolean; // True if user has full access (Admin)
   restaurant_id?: string;
   avatar_url?: string;
   phone?: string;

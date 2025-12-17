@@ -98,26 +98,67 @@ export const PermissionManager = ({
     enabled: open && !!userId,
   });
 
+  // Fetch component IDs from role_components if user has a role_id
+  const { data: roleComponentIds, isLoading: isLoadingRoleComponents } = useQuery({
+    queryKey: ["role-components", userId],
+    queryFn: async () => {
+      // Get user's profile to get role_id
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role_id")
+        .eq("id", userId)
+        .single();
+
+      if (profileError || !profile?.role_id) {
+        console.log("No role_id found for user, returning empty array");
+        return [];
+      }
+
+      // Get component IDs from role_components
+      const { data: roleComps, error: rpcError } = await supabase
+        .from("role_components")
+        .select("component_id")
+        .eq("role_id", profile.role_id);
+
+      if (rpcError) {
+        console.error("Error fetching role_components:", rpcError);
+        return [];
+      }
+
+      console.log("Fetched role_components:", roleComps);
+      return (roleComps || []).map(rc => rc.component_id);
+    },
+    enabled: open && !!userId,
+  });
+
   // Initialize selected components when data loads
   useEffect(() => {
     if (userData && components && !initComplete) {
       setUserProfile(userData.profile);
       
-      // Map component names to IDs
-      const initialIds = components
-        .filter(c => userData.componentNames.includes(c.name))
-        .map(c => c.id);
-      
-      console.log("Initializing permissions:", {
-        componentNames: userData.componentNames,
-        mappedIds: initialIds,
-        allComponents: components.map(c => c.name)
-      });
-      
-      setSelectedComponents(initialIds);
+      // If we have role_component IDs directly, use those
+      if (roleComponentIds && roleComponentIds.length > 0) {
+        console.log("Using role_component IDs directly:", roleComponentIds);
+        setSelectedComponents(roleComponentIds);
+      } else {
+        // Fallback: Map component names to IDs (case-insensitive)
+        const initialIds = components
+          .filter(c => userData.componentNames.some(
+            name => name.toLowerCase() === c.name.toLowerCase()
+          ))
+          .map(c => c.id);
+        
+        console.log("Mapped from component names:", {
+          componentNames: userData.componentNames,
+          mappedIds: initialIds,
+          allComponents: components.map(c => c.name)
+        });
+        
+        setSelectedComponents(initialIds);
+      }
       setInitComplete(true);
     }
-  }, [userData, components, initComplete]);
+  }, [userData, components, roleComponentIds, initComplete]);
 
   // Reset init state when dialog closes
   useEffect(() => {
@@ -226,7 +267,7 @@ export const PermissionManager = ({
     }
   };
 
-  const isLoading = isLoadingUser || isLoadingComponents;
+  const isLoading = isLoadingUser || isLoadingComponents || isLoadingRoleComponents;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

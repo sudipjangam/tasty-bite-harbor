@@ -130,11 +130,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if user has admin/owner role
-    // First check enum role, then check custom role from roles table
+    // Check if user has admin access (has_full_access=true on their role)
     const { data: roleProfile, error: roleProfileError } = await supabaseClient
       .from('profiles')
-      .select('role, role_id')
+      .select(`
+        role,
+        role_id,
+        roles:role_id (
+          name,
+          is_system,
+          has_full_access
+        )
+      `)
       .eq('id', user.id)
       .single();
 
@@ -146,51 +153,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    let systemRole: string | null = null;
-    let customRoleName: string | null = null;
-
-    // Get system role (enum)
-    if (roleProfile?.role) {
-      systemRole = roleProfile.role;
-      console.log('User has system role:', { systemRole });
-    }
-
-    // Get custom role name (from roles table) if role_id exists
-    if (roleProfile?.role_id) {
-      const { data: roleRow, error: roleRowError } = await supabaseClient
-        .from('roles')
-        .select('name')
-        .eq('id', roleProfile.role_id)
-        .single();
-      if (!roleRowError && roleRow?.name) {
-        customRoleName = roleRow.name;
-        console.log('User has custom role:', { customRoleName, customRoleId: roleProfile.role_id });
-      }
-    }
-
-    // PRIORITY: System role takes precedence!
-    // User is allowed if EITHER:
-    // 1. System role is admin/owner, OR
-    // 2. Custom role name is admin/owner (for backward compatibility)
-    const systemRoleIsAdmin = ['admin', 'owner'].includes((systemRole ?? '').toLowerCase());
-    const customRoleIsAdmin = ['admin', 'owner'].includes((customRoleName ?? '').toLowerCase());
-    const hasRole = systemRoleIsAdmin || customRoleIsAdmin;
+    // Check has_full_access flag (cleaner approach)
+    const hasFullAccess = (roleProfile as any)?.roles?.has_full_access === true;
+    const isSystemAdmin = roleProfile?.role === 'admin'; // Fallback for backward compat
     
     console.log('Role check result:', { 
-      systemRole, 
-      customRoleName, 
-      systemRoleIsAdmin, 
-      customRoleIsAdmin,
-      hasRole, 
+      roleName: (roleProfile as any)?.roles?.name,
+      hasFullAccess,
+      isSystemAdmin,
       userId: user.id 
     });
 
-    if (!hasRole) {
-      console.error('User does not have required role');
+    if (!hasFullAccess && !isSystemAdmin) {
+      console.error('User does not have admin access');
       return new Response(
         JSON.stringify({ 
-          error: 'Insufficient permissions - admin or owner role required',
-          debug: { systemRole, customRoleName }
+          error: 'Insufficient permissions - admin role required',
+          debug: { roleName: (roleProfile as any)?.roles?.name, hasFullAccess }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
       );

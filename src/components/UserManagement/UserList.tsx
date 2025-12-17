@@ -71,20 +71,20 @@ export const UserList = ({ users, isLoading, onUserUpdated }: UserListProps) => 
     const roleLower = role.toLowerCase();
     switch (roleLower) {
       case 'owner':
-        return 'bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-200';
+        return 'bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-sm shadow-purple-500/30 border-0';
       case 'admin':
-        return 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200';
+        return 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm shadow-blue-500/30 border-0';
       case 'manager':
-        return 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-200';
+        return 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-sm shadow-emerald-500/30 border-0';
       case 'chef':
-        return 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200';
+        return 'bg-gradient-to-r from-orange-500 to-amber-600 text-white shadow-sm shadow-orange-500/30 border-0';
       case 'waiter':
-        return 'bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200';
+        return 'bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-sm shadow-amber-500/30 border-0';
       case 'staff':
-        return 'bg-slate-100 text-slate-800 hover:bg-slate-200 border-slate-200';
+        return 'bg-gradient-to-r from-slate-500 to-gray-600 text-white shadow-sm shadow-slate-500/30 border-0';
       default:
-        // Custom roles get a generic color
-        return 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200';
+        // Custom roles get a teal gradient
+        return 'bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-sm shadow-teal-500/30 border-0';
     }
   };
 
