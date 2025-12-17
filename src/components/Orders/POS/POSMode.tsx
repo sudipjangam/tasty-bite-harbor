@@ -13,6 +13,16 @@ import { useToast } from "@/hooks/use-toast";
 import { POSPayment } from "../Payment/POSPayment";
 import { OrderPayment } from "../Payment/OrderPayment";
 import type { OrderItem, TableData } from "@/types/orders";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const POSMode = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -24,6 +34,7 @@ const POSMode = () => {
   const [recalledKitchenOrderId, setRecalledKitchenOrderId] = useState<string | null>(null);
   const [recalledSource, setRecalledSource] = useState<string | null>(null);
   const [currentOrder, setCurrentOrder] = useState<any>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const { toast } = useToast();
 
   const { data: tables } = useQuery({
@@ -183,16 +194,19 @@ const POSMode = () => {
 
   const handleClearOrder = () => {
     if (currentOrderItems.length > 0) {
-      if (window.confirm("Are you sure you want to clear this order?")) {
-        setCurrentOrderItems([]);
-        setRecalledKitchenOrderId(null);
-        setRecalledSource(null);
-        toast({
-          title: "Order Cleared",
-          description: "All items have been cleared from the order",
-        });
-      }
+      setShowClearConfirm(true);
     }
+  };
+
+  const confirmClearOrder = () => {
+    setCurrentOrderItems([]);
+    setRecalledKitchenOrderId(null);
+    setRecalledSource(null);
+    setShowClearConfirm(false);
+    toast({
+      title: "Order Cleared",
+      description: "All items have been cleared from the order",
+    });
   };
 
   const handleSendToKitchen = async (customerDetails?: { name: string, phone: string }) => {
@@ -457,6 +471,24 @@ const POSMode = () => {
         tableNumber={tableNumber}
         onEditOrder={handleEditOrder}
       />
+
+      {/* Clear Order Confirmation Dialog */}
+      <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to clear this order? All items will be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmClearOrder} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Clear Order
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

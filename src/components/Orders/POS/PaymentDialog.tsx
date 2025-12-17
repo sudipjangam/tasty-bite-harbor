@@ -9,13 +9,23 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Receipt, CreditCard, Wallet, QrCode, Check, Printer, Trash2, Plus, X, Search } from 'lucide-react';
+import { ArrowLeft, Receipt, CreditCard, Wallet, QrCode, Check, Printer, Trash2, Plus, X, Search, Loader2 } from 'lucide-react';
 import QRCode from 'qrcode';
 import jsPDF from 'jspdf';
 import type { OrderItem } from "@/types/orders";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type PaymentStep = 'confirm' | 'method' | 'qr' | 'success' | 'edit';
 
@@ -57,6 +67,8 @@ const PaymentDialog = ({
     roomName: string;
     customerName: string;
   } | null>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -272,9 +284,8 @@ const PaymentDialog = ({
   };
 
   const handleDeleteOrder = async () => {
-    if (!window.confirm('Are you sure you want to delete this order permanently? This action cannot be undone.')) {
-      return;
-    }
+    // This is now triggered after confirming from the AlertDialog
+    setShowDeleteConfirm(false);
 
     try {
       if (orderId) {
@@ -606,44 +617,25 @@ const PaymentDialog = ({
 
       if (targetOrderId) {
 
+        // Use snake_case column names (standardized)
         const { data: updateData, error: updateError } = await supabase
           .from('orders')
           .update({
-            Customer_Name: customerName.trim(),
-            Customer_MobileNumber: String(customerMobile).trim()
+            customer_name: customerName.trim(),
+            customer_phone: String(customerMobile).trim()
           })
           .eq('id', targetOrderId)
           .select();
 
         if (updateError) {
-          console.warn('⚠️ Update with PascalCase columns failed, trying snake_case...', updateError);
-          // Try again with snake_case column names (older schema)
-          const { data: updateData2, error: updateError2 } = await supabase
-            .from('orders')
-            .update({
-              customer_name: customerName.trim(),
-              customer_phone: String(customerMobile).trim()
-            })
-            .eq('id', targetOrderId)
-            .select();
-
-          if (updateError2) {
-            console.error('❌ Update error (both attempts failed):', updateError2);
-            throw updateError2;
-          }
-
-
-          toast({
-            title: "Details Saved",
-            description: "Customer details saved successfully."
-          });
-        } else {
-
-          toast({
-            title: "Details Saved",
-            description: "Customer details saved successfully."
-          });
+          console.error('❌ Update error:', updateError);
+          throw updateError;
         }
+
+        toast({
+          title: "Details Saved",
+          description: "Customer details saved successfully."
+        });
       } else {
         console.warn('⚠️ No linked order found. Saving name on kitchen order and proceeding.');
         // Fallback: store the customer name on the kitchen order so it is visible to staff
@@ -1273,6 +1265,7 @@ const PaymentDialog = ({
   };
 
   const handleMarkAsPaid = async (paymentMethod: string = 'upi') => {
+    setIsProcessingPayment(true);
     try {
       // Here you would integrate with your payment verification system
       // For now, we'll simulate a successful payment
@@ -1280,6 +1273,9 @@ const PaymentDialog = ({
       await new Promise(resolve => setTimeout(resolve, 500));
       
       const restaurantIdToUse = restaurantInfo?.restaurantId || restaurantInfo?.id;
+      
+      // Get current user for staff_id
+      const { data: { user } } = await supabase.auth.getUser();
       
       // Update order status to completed in database if orderId is provided
       if (orderId) {
@@ -1342,6 +1338,26 @@ const PaymentDialog = ({
             // Don't fail the payment if logging fails
           }
         }
+
+        // Log transaction to pos_transactions table
+        try {
+          await supabase.from('pos_transactions').insert({
+            restaurant_id: restaurantIdToUse,
+            order_id: kitchenOrder?.order_id || null,
+            kitchen_order_id: orderId,
+            amount: total,
+            payment_method: paymentMethod,
+            status: 'completed',
+            customer_name: customerName || null,
+            customer_phone: customerMobile || null,
+            staff_id: user?.id || null,
+            discount_amount: totalDiscountAmount,
+            promotion_id: appliedPromotion?.id || null
+          });
+        } catch (transactionError) {
+          console.error('Error logging transaction:', transactionError);
+          // Don't fail the payment if transaction logging fails
+        }
       }
       
       setCurrentStep('success');
@@ -1362,6 +1378,8 @@ const PaymentDialog = ({
         description: "There was an error processing the payment.",
         variant: "destructive"
       });
+    } finally {
+      setIsProcessingPayment(false);
     }
   };
 
@@ -1574,12 +1592,30 @@ const PaymentDialog = ({
 
       <Button 
         variant="destructive" 
-        onClick={handleDeleteOrder}
+        onClick={() => setShowDeleteConfirm(true)}
         className="w-full"
       >
         <Trash2 className="w-4 h-4 mr-2" />
         Delete Order
       </Button>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this order permanently? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteOrder} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Send Bill via Email Checkbox and Inputs */}
       <Card className="p-4 bg-muted/30 border-2 border-primary/20">
@@ -1789,8 +1825,16 @@ const PaymentDialog = ({
         onClick={() => handleMarkAsPaid('upi')}
         className="w-full bg-green-600 hover:bg-green-700 text-white"
         size="lg"
+        disabled={isProcessingPayment}
       >
-        Mark as Paid
+        {isProcessingPayment ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Processing Payment...
+          </>
+        ) : (
+          'Mark as Paid'
+        )}
       </Button>
     </div>
   );
