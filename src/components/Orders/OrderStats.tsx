@@ -2,6 +2,7 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShoppingCart, Clock, CheckCircle, IndianRupee, TrendingUp } from "lucide-react";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 interface OrderStatsProps {
   totalOrders: number;
@@ -16,6 +17,7 @@ const OrderStats: React.FC<OrderStatsProps> = ({
   completedOrders,
   totalRevenue = 0
 }) => {
+  const { symbol: currencySymbol } = useCurrencyContext();
   const completionRate = totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0;
 
   const stats = [
@@ -45,11 +47,11 @@ const OrderStats: React.FC<OrderStatsProps> = ({
     },
     {
       title: "Total Revenue",
-      value: `₹${totalRevenue.toFixed(2)}`,
+      value: `${currencySymbol}${totalRevenue.toFixed(2)}`,
       icon: IndianRupee,
       color: "text-purple-600",
       bgColor: "bg-purple-50",
-      change: totalOrders > 0 ? `₹${(totalRevenue / totalOrders).toFixed(2)} avg per order` : null
+      change: totalOrders > 0 ? `${currencySymbol}${(totalRevenue / totalOrders).toFixed(2)} avg per order` : null
     }
   ];
 

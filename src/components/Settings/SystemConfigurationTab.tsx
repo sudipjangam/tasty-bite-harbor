@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useRestaurantId } from '@/hooks/useRestaurantId';
-import { Settings, Download, Upload, Database, Shield, Clock, Trash2, Plus, Edit } from 'lucide-react';
+import { 
+  Settings, Download, Upload, Database, Shield, 
+  Loader2, Check, AlertTriangle, DollarSign, RefreshCw,
+  HardDrive, FileJson, Calendar
+} from 'lucide-react';
+import { format } from 'date-fns';
 
 interface Currency {
   id: string;
@@ -20,61 +24,29 @@ interface Currency {
   commonly_used_in: string;
 }
 
-interface ShiftType {
-  id: string;
-  name: string;
-  start_time: string;
-  end_time: string;
-}
-
-interface PaymentMethod {
-  id: string;
-  name: string;
-  type: string;
-  processing_fee_percentage: number;
-}
-
 export function SystemConfigurationTab() {
   const { toast } = useToast();
   const { restaurantId } = useRestaurantId();
   const [currencies, setCurrencies] = useState<Currency[]>([]);
-  const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedCurrency, setSelectedCurrency] = useState<string>('');
   const [isBackupLoading, setIsBackupLoading] = useState(false);
   const [isRestoreLoading, setIsRestoreLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [lastBackup, setLastBackup] = useState<any>(null);
 
   // Load data
   useEffect(() => {
-    loadCurrencies();
-    loadShiftTypes();
-    loadPaymentMethods();
-    loadRestaurantSettings();
+    if (restaurantId) {
+      loadCurrencies();
+      loadRestaurantSettings();
+      loadLastBackup();
+    }
   }, [restaurantId]);
 
   const loadCurrencies = async () => {
     const { data, error } = await supabase.from('currencies').select('*').eq('is_active', true);
     if (!error && data) setCurrencies(data);
-  };
-
-  const loadShiftTypes = async () => {
-    if (!restaurantId) return;
-    const { data, error } = await supabase
-      .from('shift_types')
-      .select('*')
-      .eq('restaurant_id', restaurantId)
-      .eq('is_active', true);
-    if (!error && data) setShiftTypes(data);
-  };
-
-  const loadPaymentMethods = async () => {
-    if (!restaurantId) return;
-    const { data, error } = await supabase
-      .from('payment_methods')
-      .select('*')
-      .eq('restaurant_id', restaurantId)
-      .eq('is_active', true);
-    if (!error && data) setPaymentMethods(data);
+    setLoading(false);
   };
 
   const loadRestaurantSettings = async () => {
@@ -83,8 +55,21 @@ export function SystemConfigurationTab() {
       .from('restaurant_settings')
       .select('currency_id')
       .eq('restaurant_id', restaurantId)
-      .single();
+      .maybeSingle();
     if (!error && data) setSelectedCurrency(data.currency_id || '');
+  };
+
+  const loadLastBackup = async () => {
+    if (!restaurantId) return;
+    const { data, error } = await supabase
+      .from('backups')
+      .select('*')
+      .eq('restaurant_id', restaurantId)
+      .eq('status', 'completed')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!error && data) setLastBackup(data);
   };
 
   const handleCurrencyChange = async (currencyId: string) => {
@@ -95,7 +80,7 @@ export function SystemConfigurationTab() {
       .upsert({
         restaurant_id: restaurantId,
         currency_id: currencyId
-      });
+      }, { onConflict: 'restaurant_id' });
 
     if (error) {
       toast({ title: "Error", description: "Failed to update currency", variant: "destructive" });
@@ -120,13 +105,21 @@ export function SystemConfigurationTab() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `restaurant-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `restaurant-backup-${format(new Date(), 'yyyy-MM-dd-HHmmss')}.json`;
       a.click();
       URL.revokeObjectURL(url);
 
+      // Refresh last backup
+      loadLastBackup();
+
       toast({ title: "Success", description: "Backup created and downloaded successfully" });
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to create backup", variant: "destructive" });
+    } catch (error: any) {
+      console.error('Backup error:', error);
+      toast({ 
+        title: "Backup Failed", 
+        description: error.message || "Failed to create backup", 
+        variant: "destructive" 
+      });
     } finally {
       setIsBackupLoading(false);
     }
@@ -137,377 +130,229 @@ export function SystemConfigurationTab() {
     try {
       const backupData = JSON.parse(await file.text());
       
+      // Validate backup data
+      if (!backupData.restaurant_id || !backupData.timestamp) {
+        throw new Error('Invalid backup file format');
+      }
+
       const { error } = await supabase.functions.invoke('backup-restore', {
         body: { action: 'restore', restaurant_id: restaurantId, backup_data: backupData }
       });
 
       if (error) throw error;
 
-      toast({ title: "Success", description: "Backup restored successfully" });
+      toast({ title: "Success", description: "Backup restored successfully. Refreshing page..." });
       // Reload the page to show restored data
-      window.location.reload();
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to restore backup", variant: "destructive" });
+      setTimeout(() => window.location.reload(), 2000);
+    } catch (error: any) {
+      console.error('Restore error:', error);
+      toast({ 
+        title: "Restore Failed", 
+        description: error.message || "Failed to restore backup", 
+        variant: "destructive" 
+      });
     } finally {
       setIsRestoreLoading(false);
     }
   };
 
-  const addShiftType = async (name: string, startTime: string, endTime: string) => {
-    if (!restaurantId) return;
-    
-    const { error } = await supabase.from('shift_types').insert({
-      restaurant_id: restaurantId,
-      name,
-      start_time: startTime,
-      end_time: endTime
-    });
+  const selectedCurrencyData = currencies.find(c => c.id === selectedCurrency);
 
-    if (error) {
-      toast({ title: "Error", description: "Failed to add shift type", variant: "destructive" });
-    } else {
-      toast({ title: "Success", description: "Shift type added successfully" });
-      loadShiftTypes();
-    }
-  };
-
-  const addPaymentMethod = async (name: string, type: string, fee: number) => {
-    if (!restaurantId) return;
-    
-    const { error } = await supabase.from('payment_methods').insert({
-      restaurant_id: restaurantId,
-      name,
-      type,
-      processing_fee_percentage: fee
-    });
-
-    if (error) {
-      toast({ title: "Error", description: "Failed to add payment method", variant: "destructive" });
-    } else {
-      toast({ title: "Success", description: "Payment method added successfully" });
-      loadPaymentMethods();
-    }
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="currency" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="currency">Currency</TabsTrigger>
-          <TabsTrigger value="shifts">Shift Types</TabsTrigger>
-          <TabsTrigger value="payments">Payment Methods</TabsTrigger>
-          <TabsTrigger value="backup">Backup & Restore</TabsTrigger>
-        </TabsList>
+      {/* Currency Configuration */}
+      <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-2xl">
+        <CardHeader className="pb-4 border-b border-gray-100 dark:border-gray-700">
+          <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+            <div className="p-3 bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl shadow-lg">
+              <DollarSign className="h-6 w-6 text-white" />
+            </div>
+            Currency Configuration
+          </CardTitle>
+          <CardDescription className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
+            Set the default currency for your restaurant. This will be used throughout the system.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="currency" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2 mb-3">
+                  <Settings className="h-4 w-4" />
+                  Default Currency
+                </Label>
+                <Select value={selectedCurrency} onValueChange={handleCurrencyChange}>
+                  <SelectTrigger className="h-12 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 rounded-xl">
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currencies.map((currency) => (
+                      <SelectItem key={currency.id} value={currency.id}>
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-lg bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                            {currency.symbol}
+                          </span>
+                          <span>{currency.name} ({currency.code})</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
-        <TabsContent value="currency">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                Currency Configuration
-              </CardTitle>
-              <CardDescription>
-                Set the default currency for your restaurant. This will be used throughout the system.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="currency">Default Currency</Label>
-                  <Select value={selectedCurrency} onValueChange={handleCurrencyChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select currency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {currencies.map((currency) => (
-                        <SelectItem key={currency.id} value={currency.id}>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-lg">{currency.symbol}</span>
-                            <span>{currency.name} ({currency.code})</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            {selectedCurrencyData && (
+              <div className="p-6 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 rounded-2xl border border-amber-100 dark:border-amber-800">
+                <div className="flex items-center gap-2 mb-4">
+                  <Check className="h-5 w-5 text-amber-600" />
+                  <span className="text-lg font-semibold text-amber-700 dark:text-amber-300">Selected Currency</span>
                 </div>
-                {selectedCurrency && (
-                  <div className="p-4 bg-muted rounded-lg">
-                    <h4 className="font-medium mb-2">Selected Currency Details</h4>
-                    {currencies.find(c => c.id === selectedCurrency) && (
-                      <div className="text-sm text-muted-foreground">
-                        <p><strong>Symbol:</strong> {currencies.find(c => c.id === selectedCurrency)?.symbol}</p>
-                        <p><strong>Code:</strong> {currencies.find(c => c.id === selectedCurrency)?.code}</p>
-                        <p><strong>Used in:</strong> {currencies.find(c => c.id === selectedCurrency)?.commonly_used_in}</p>
-                      </div>
-                    )}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 rounded-xl">
+                    <span className="text-gray-600 dark:text-gray-400">Symbol</span>
+                    <span className="font-bold text-2xl text-gray-900 dark:text-white">{selectedCurrencyData.symbol}</span>
                   </div>
-                )}
+                  <div className="flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 rounded-xl">
+                    <span className="text-gray-600 dark:text-gray-400">Code</span>
+                    <Badge className="bg-amber-500 text-white">{selectedCurrencyData.code}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 rounded-xl">
+                    <span className="text-gray-600 dark:text-gray-400">Used in</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{selectedCurrencyData.commonly_used_in}</span>
+                  </div>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="shifts">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Shift Types
-              </CardTitle>
-              <CardDescription>
-                Manage shift types for staff scheduling.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <ShiftTypeForm onAdd={addShiftType} />
-                <div className="grid gap-2">
-                  {shiftTypes.map((shift) => (
-                    <div key={shift.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <span className="font-medium">{shift.name}</span>
-                        <span className="text-sm text-muted-foreground ml-2">
-                          {shift.start_time} - {shift.end_time}
-                        </span>
-                      </div>
-                      <Badge variant="secondary">{shift.name}</Badge>
-                    </div>
-                  ))}
+      {/* Backup & Restore */}
+      <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-2xl">
+        <CardHeader className="pb-4 border-b border-gray-100 dark:border-gray-700">
+          <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+            <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg">
+              <HardDrive className="h-6 w-6 text-white" />
+            </div>
+            Backup & Restore
+          </CardTitle>
+          <CardDescription className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
+            Create backups of your restaurant data and restore from previous backups.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Backup Section */}
+            <div className="space-y-6">
+              <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-2xl border border-blue-100 dark:border-blue-800">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-blue-500 rounded-lg">
+                    <Download className="h-5 w-5 text-white" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-blue-700 dark:text-blue-300">Create Backup</h3>
                 </div>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  Download a complete backup of all your restaurant data including menu, orders, inventory, and settings.
+                </p>
+                <Button 
+                  onClick={handleBackup} 
+                  disabled={isBackupLoading}
+                  className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold py-3 rounded-xl shadow-lg"
+                >
+                  {isBackupLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating Backup...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4 mr-2" />
+                      Create & Download Backup
+                    </>
+                  )}
+                </Button>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
-        <TabsContent value="payments">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Payment Methods
-              </CardTitle>
-              <CardDescription>
-                Configure available payment methods and their processing fees.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <PaymentMethodForm onAdd={addPaymentMethod} />
-                <div className="grid gap-2">
-                  {paymentMethods.map((method) => (
-                    <div key={method.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <span className="font-medium">{method.name}</span>
-                        <Badge variant="outline" className="ml-2">{method.type}</Badge>
-                      </div>
-                      <span className="text-sm text-muted-foreground">
-                        {method.processing_fee_percentage}% fee
-                      </span>
-                    </div>
-                  ))}
+              {lastBackup && (
+                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calendar className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Last Backup</span>
+                  </div>
+                  <p className="font-semibold text-gray-900 dark:text-white">
+                    {format(new Date(lastBackup.created_at), 'PPpp')}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Size: {(lastBackup.file_size / 1024).toFixed(2)} KB
+                  </p>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              )}
+            </div>
 
-        <TabsContent value="backup">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                Backup & Restore
-              </CardTitle>
-              <CardDescription>
-                Create backups of your restaurant data and restore from previous backups.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex gap-4">
-                  <Button 
-                    onClick={handleBackup} 
-                    disabled={isBackupLoading}
-                    className="flex items-center gap-2"
-                  >
-                    <Download className="h-4 w-4" />
-                    {isBackupLoading ? 'Creating Backup...' : 'Create Backup'}
-                  </Button>
-                  
-                  <RestoreDialog onRestore={handleRestore} isLoading={isRestoreLoading} />
+            {/* Restore Section */}
+            <div className="space-y-6">
+              <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-2xl border border-purple-100 dark:border-purple-800">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-purple-500 rounded-lg">
+                    <Upload className="h-5 w-5 text-white" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-purple-700 dark:text-purple-300">Restore Backup</h3>
                 </div>
-                
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <h4 className="font-medium text-yellow-800 mb-2">Important Notes:</h4>
-                  <ul className="text-sm text-yellow-700 space-y-1">
-                    <li>• Backups include all restaurant data (orders, staff, inventory, etc.)</li>
-                    <li>• Restoring will replace all current data with backup data</li>
-                    <li>• Always test restores in a safe environment first</li>
-                    <li>• Keep multiple backup copies in secure locations</li>
-                  </ul>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  Restore your restaurant data from a previously created backup file.
+                </p>
+                <RestoreDialog onRestore={handleRestore} isLoading={isRestoreLoading} />
+              </div>
+
+              {/* Warning */}
+              <div className="p-4 bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">Important Notes</h4>
+                    <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
+                      <li>• Backups include all restaurant data</li>
+                      <li>• Restoring will replace all current data</li>
+                      <li>• Keep multiple backup copies</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
-  );
-}
-
-function ShiftTypeForm({ onAdd }: { onAdd: (name: string, start: string, end: string) => void }) {
-  const [name, setName] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
-  const [isOpen, setIsOpen] = useState(false);
-
-  const handleSubmit = () => {
-    if (name && startTime && endTime) {
-      onAdd(name, startTime, endTime);
-      setName('');
-      setStartTime('');
-      setEndTime('');
-      setIsOpen(false);
-    }
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Add Shift Type
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add New Shift Type</DialogTitle>
-          <DialogDescription>Create a new shift type for staff scheduling.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="shift-name">Shift Name</Label>
-            <Input
-              id="shift-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Morning Shift"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="start-time">Start Time</Label>
-              <Input
-                id="start-time"
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="end-time">End Time</Label>
-              <Input
-                id="end-time"
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
-          <Button onClick={handleSubmit}>Add Shift Type</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function PaymentMethodForm({ onAdd }: { onAdd: (name: string, type: string, fee: number) => void }) {
-  const [name, setName] = useState('');
-  const [type, setType] = useState('');
-  const [fee, setFee] = useState(0);
-  const [isOpen, setIsOpen] = useState(false);
-
-  const handleSubmit = () => {
-    if (name && type) {
-      onAdd(name, type, fee);
-      setName('');
-      setType('');
-      setFee(0);
-      setIsOpen(false);
-    }
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Add Payment Method
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add New Payment Method</DialogTitle>
-          <DialogDescription>Configure a new payment method for your restaurant.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="payment-name">Method Name</Label>
-            <Input
-              id="payment-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Credit Card"
-            />
-          </div>
-          <div>
-            <Label htmlFor="payment-type">Type</Label>
-            <Select value={type} onValueChange={setType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="card">Card</SelectItem>
-                <SelectItem value="digital">Digital Wallet</SelectItem>
-                <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="processing-fee">Processing Fee (%)</Label>
-            <Input
-              id="processing-fee"
-              type="number"
-              min="0"
-              step="0.1"
-              value={fee}
-              onChange={(e) => setFee(parseFloat(e.target.value) || 0)}
-              placeholder="0.0"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
-          <Button onClick={handleSubmit}>Add Payment Method</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 
 function RestoreDialog({ onRestore, isLoading }: { onRestore: (file: File) => void; isLoading: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileInfo, setFileInfo] = useState<any>(null);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.type === 'application/json') {
       setSelectedFile(file);
+      try {
+        const content = await file.text();
+        const data = JSON.parse(content);
+        setFileInfo({
+          timestamp: data.timestamp,
+          tables: Object.keys(data).filter(k => !['restaurant_id', 'timestamp'].includes(k)).length
+        });
+      } catch {
+        setFileInfo(null);
+      }
     }
   };
 
@@ -516,46 +361,71 @@ function RestoreDialog({ onRestore, isLoading }: { onRestore: (file: File) => vo
       onRestore(selectedFile);
       setIsOpen(false);
       setSelectedFile(null);
+      setFileInfo(null);
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2">
-          <Upload className="h-4 w-4" />
-          Restore Backup
+        <Button 
+          variant="outline" 
+          className="w-full bg-white dark:bg-gray-700 border-purple-200 dark:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-semibold py-3 rounded-xl"
+        >
+          <Upload className="h-4 w-4 mr-2" />
+          Select Backup File
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="bg-white dark:bg-gray-800 rounded-2xl">
         <DialogHeader>
-          <DialogTitle>Restore from Backup</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-xl font-bold flex items-center gap-2">
+            <RefreshCw className="h-5 w-5 text-purple-600" />
+            Restore from Backup
+          </DialogTitle>
+          <DialogDescription className="text-gray-600 dark:text-gray-400">
             Select a backup file to restore. This will replace all current data.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <div className="space-y-4 py-4">
           <div>
-            <Label htmlFor="backup-file">Backup File</Label>
+            <Label htmlFor="backup-file" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              Backup File (.json)
+            </Label>
             <Input
               id="backup-file"
               type="file"
               accept=".json"
               onChange={handleFileSelect}
+              className="mt-2"
             />
           </div>
-          {selectedFile && (
-            <div className="p-3 bg-muted rounded-lg">
-              <p className="text-sm"><strong>File:</strong> {selectedFile.name}</p>
-              <p className="text-sm"><strong>Size:</strong> {(selectedFile.size / 1024).toFixed(2)} KB</p>
+          
+          {selectedFile && fileInfo && (
+            <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-xl border border-blue-200 dark:border-blue-700">
+              <div className="flex items-center gap-2 mb-2">
+                <FileJson className="h-4 w-4 text-blue-600" />
+                <span className="font-medium text-gray-900 dark:text-white">{selectedFile.name}</span>
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                <p>Size: {(selectedFile.size / 1024).toFixed(2)} KB</p>
+                {fileInfo.timestamp && (
+                  <p>Created: {format(new Date(fileInfo.timestamp), 'PPpp')}</p>
+                )}
+                <p>Tables: {fileInfo.tables} data sets</p>
+              </div>
             </div>
           )}
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-800 font-medium">⚠️ Warning</p>
-            <p className="text-sm text-red-700">
-              This action will permanently replace all current data with the backup data. 
-              Make sure you have a current backup before proceeding.
-            </p>
+          
+          <div className="p-4 bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 rounded-xl border border-red-200 dark:border-red-800">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-red-800 dark:text-red-200">Warning</p>
+                <p className="text-sm text-red-700 dark:text-red-300">
+                  This action will permanently replace all current data with the backup data.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
         <DialogFooter>
@@ -563,9 +433,19 @@ function RestoreDialog({ onRestore, isLoading }: { onRestore: (file: File) => vo
           <Button 
             onClick={handleRestore} 
             disabled={!selectedFile || isLoading}
-            variant="destructive"
+            className="bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white"
           >
-            {isLoading ? 'Restoring...' : 'Restore Data'}
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Restoring...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Restore Data
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

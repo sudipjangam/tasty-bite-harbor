@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import ReportExport from "@/components/Inventory/ReportExport";
 import InventoryAlerts from "@/components/Inventory/InventoryAlerts";
 import PurchaseOrders from "@/components/Inventory/PurchaseOrders";
@@ -48,6 +49,7 @@ const Inventory = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
   const { toast } = useToast();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   const { data: items = [], refetch, isLoading } = useQuery({
     queryKey: ["inventory"],
@@ -344,7 +346,7 @@ const Inventory = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="costPerUnit" className="text-sm font-medium text-gray-700 dark:text-gray-300">Cost/Unit (₹)</Label>
+                    <Label htmlFor="costPerUnit" className="text-sm font-medium text-gray-700 dark:text-gray-300">Cost/Unit ({currencySymbol})</Label>
                     <Input
                       id="costPerUnit"
                       name="costPerUnit"
@@ -410,7 +412,7 @@ const Inventory = () => {
             </div>
             <div>
               <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Total Value</p>
-              <h3 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">₹{totalValue.toLocaleString()}</h3>
+              <h3 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">{currencySymbol}{totalValue.toLocaleString()}</h3>
             </div>
           </div>
         </Card>
@@ -570,7 +572,7 @@ const Inventory = () => {
                             )}
                             {item.cost_per_unit && (
                               <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                                ₹{item.cost_per_unit}/{item.unit}
+                                {currencySymbol}{item.cost_per_unit}/{item.unit}
                               </p>
                             )}
                             {item.reorder_level && (

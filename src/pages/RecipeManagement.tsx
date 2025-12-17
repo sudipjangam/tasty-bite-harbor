@@ -9,11 +9,13 @@ import { BatchProductionManager } from "@/components/Recipes/BatchProductionMana
 import { RecipeCostingCard } from "@/components/Recipes/RecipeCostingCard";
 import { useRecipes } from "@/hooks/useRecipes";
 import { MobileNavigation } from "@/components/ui/mobile-navigation";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 const RecipeManagement = () => {
   const [showRecipeDialog, setShowRecipeDialog] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
   const { recipes, batchProductions, isLoading } = useRecipes();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   const handleEditRecipe = (recipe: any) => {
     setSelectedRecipe(recipe);
@@ -118,7 +120,7 @@ const RecipeManagement = () => {
             </CardHeader>
             <CardContent className="pt-0">
               <div className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                ₹{totalCost.toFixed(2)}
+                {currencySymbol}{totalCost.toFixed(2)}
               </div>
               <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-1">
                 All recipes combined

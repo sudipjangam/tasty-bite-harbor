@@ -18,7 +18,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { action, restaurant_id } = await req.json()
+    const { action, restaurant_id, backup_data } = await req.json()
     
     console.log('Action:', action, 'Restaurant ID:', restaurant_id)
 
@@ -80,9 +80,14 @@ serve(async (req) => {
     }
 
     if (action === 'restore') {
-      const { backup_data } = await req.json()
-      
       console.log(`Restoring backup for restaurant: ${restaurant_id}`)
+      
+      if (!backup_data) {
+        return new Response(
+          JSON.stringify({ error: 'No backup data provided' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
 
       // Restore data for each table
       for (const [tableName, tableData] of Object.entries(backup_data)) {
