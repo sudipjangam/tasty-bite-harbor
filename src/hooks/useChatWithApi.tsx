@@ -43,7 +43,7 @@ export const useChatWithApi = () => {
     },
   });
 
-  const handleSendMessage = async (message: string) => {
+  const handleSendMessage = async (message: string, retryCount = 0) => {
     if (!message.trim()) return;
     
     const userMessage: Message = {
@@ -51,7 +51,10 @@ export const useChatWithApi = () => {
       content: message,
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    // Only add user message on first attempt
+    if (retryCount === 0) {
+      setMessages((prev) => [...prev, userMessage]);
+    }
     setIsLoading(true);
 
     try {
@@ -85,34 +88,123 @@ export const useChatWithApi = () => {
 
       console.log("Response data from AI:", data);
       
+      // Check if the response contains a 503 error (model overloaded)
+      if (data.error && typeof data.error === 'string') {
+        // Try to parse error JSON if it's a string
+        try {
+          const errorObj = JSON.parse(data.error.replace('Error: ', ''));
+          if (errorObj.code === 503 || errorObj.status === 'UNAVAILABLE') {
+            // Retry up to 2 times with exponential backoff
+            if (retryCount < 2) {
+              const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s
+              console.log(`Model overloaded, retrying in ${delay}ms (attempt ${retryCount + 1})...`);
+              toast({
+                title: "AI is busy",
+                description: `Retrying in ${delay / 1000} seconds...`,
+              });
+              await new Promise(resolve => setTimeout(resolve, delay));
+              return handleSendMessage(message, retryCount + 1);
+            }
+            throw new Error("The AI service is currently busy. Please try again in a few moments.");
+          }
+        } catch (parseError) {
+          // If it's not parseable JSON, handle as regular error
+        }
+        throw new Error(data.error);
+      }
+      
       // Extract the assistant message from the response
       const assistantMessage = data.choices?.[0]?.message;
       
       if (assistantMessage && assistantMessage.content) {
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: assistantMessage.content },
-        ]);
+        // Check if the content is an error message in JSON format
+        if (assistantMessage.content.startsWith('Error: {')) {
+          // Parse and provide a friendly error message
+          try {
+            const errorStr = assistantMessage.content.replace('Error: ', '');
+            const errorObj = JSON.parse(errorStr);
+            if (errorObj.code === 503) {
+              // Retry for 503 errors
+              if (retryCount < 2) {
+                const delay = Math.pow(2, retryCount) * 1000;
+                console.log(`Model overloaded, retrying in ${delay}ms...`);
+                toast({
+                  title: "AI is busy",
+                  description: `Retrying in ${delay / 1000} seconds...`,
+                });
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return handleSendMessage(message, retryCount + 1);
+              }
+              setMessages((prev) => [
+                ...prev,
+                { role: "assistant", content: "I'm currently experiencing high demand. Please try again in a few moments." },
+              ]);
+            } else {
+              setMessages((prev) => [
+                ...prev,
+                { role: "assistant", content: `I encountered an issue: ${errorObj.message || 'Please try again.'}` },
+              ]);
+            }
+          } catch {
+            setMessages((prev) => [
+              ...prev,
+              { role: "assistant", content: assistantMessage.content },
+            ]);
+          }
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", content: assistantMessage.content },
+          ]);
+        }
       } else if (data.error) {
-        throw new Error(`API error: ${data.error}`);
+        throw new Error(`API error: ${typeof data.error === 'object' ? JSON.stringify(data.error) : data.error}`);
       } else {
         throw new Error("Invalid response format from API");
       }
     } catch (error) {
       console.error("Error calling API:", error);
       
+      const errorMsg = error instanceof Error ? error.message : "Failed to get response from API";
+      
+      // Check if this is a 503/overload error and we haven't exhausted retries
+      if ((errorMsg.includes('503') || errorMsg.includes('overloaded') || errorMsg.includes('UNAVAILABLE')) && retryCount < 2) {
+        const delay = Math.pow(2, retryCount) * 1000;
+        console.log(`Retrying due to overload in ${delay}ms...`);
+        toast({
+          title: "AI is busy",
+          description: `Retrying in ${delay / 1000} seconds...`,
+        });
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return handleSendMessage(message, retryCount + 1);
+      }
+      
+      // Provide user-friendly error messages
+      let friendlyMessage = "I'm sorry, I encountered an error. ";
+      if (errorMsg.includes('503') || errorMsg.includes('overloaded') || errorMsg.includes('UNAVAILABLE')) {
+        friendlyMessage += "The AI service is currently busy. Please try again in a few moments.";
+      } else if (errorMsg.includes('401') || errorMsg.includes('Unauthorized')) {
+        friendlyMessage += "Please log in again to continue using the AI assistant.";
+      } else if (errorMsg.includes('API key')) {
+        friendlyMessage += "There's a configuration issue. Please contact support.";
+      } else if (errorMsg.includes('timeout') || errorMsg.includes('network')) {
+        friendlyMessage += "Network connection issue. Please check your internet and try again.";
+      } else {
+        friendlyMessage += "Please try again or rephrase your question.";
+      }
+      
       // Show error message to user
       setMessages((prev) => [
         ...prev,
         { 
           role: "assistant", 
-          content: "I'm sorry, I encountered an error. Please check that the Gemini API key is configured correctly in the Supabase Edge Function secrets." 
+          content: friendlyMessage
         },
       ]);
       
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to get response from API. Please try again.",
+        description: errorMsg.length > 100 ? errorMsg.substring(0, 100) + "..." : errorMsg,
         variant: "destructive",
       });
     } finally {
