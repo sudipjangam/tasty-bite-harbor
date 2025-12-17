@@ -46,7 +46,7 @@ serve(async (req) => {
 
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
 
     if (!apiKey) {
       console.error("GEMINI_API_KEY environment variable is not set");
@@ -56,13 +56,59 @@ serve(async (req) => {
       );
     }
 
-    let restaurantData = null;
+    // SECURITY FIX: Extract user's token from Authorization header
+    const token = authHeader?.replace('Bearer ', '');
     
-    if (restaurantId && supabaseUrl && supabaseServiceKey) {
+    if (!token) {
+      console.error("No authorization token provided");
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - valid authentication required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+
+    let restaurantData = null;
+    let verifiedRestaurantId: string | null = null;
+    
+    // SECURITY FIX: Create Supabase client with user's token (NOT service_role key)
+    // This ensures RLS policies automatically enforce access control
+    if (supabaseUrl && supabaseAnonKey) {
       try {
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+          global: { headers: { Authorization: `Bearer ${token}` } }
+        });
+
+        // Validate the user's token and get user info
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
         
-        console.log(`Fetching data for restaurant ID: ${restaurantId}`);
+        if (userError || !user) {
+          console.error("Invalid or expired token:", userError?.message);
+          return new Response(
+            JSON.stringify({ error: 'Invalid or expired authentication token' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+          );
+        }
+
+        // Get user's restaurant_id from their profile (RLS ensures they only see their own)
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('restaurant_id')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError || !profile?.restaurant_id) {
+          console.error("User profile not found or no restaurant assigned:", profileError?.message);
+          return new Response(
+            JSON.stringify({ error: 'User profile not found or no restaurant assigned' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+          );
+        }
+
+        // Use verified restaurant_id from profile - IGNORE any restaurantId from request body
+        verifiedRestaurantId = profile.restaurant_id;
+        console.log(`Verified user ${user.id} belongs to restaurant: ${verifiedRestaurantId}`);
+        
+        console.log(`Fetching data for verified restaurant ID: ${verifiedRestaurantId}`);
         
         const [
           { data: revenueStats },
@@ -89,78 +135,78 @@ serve(async (req) => {
           { data: restaurantSubscriptions }
         ] = await Promise.all([
           supabase.from("daily_revenue_stats").select("*")
-            .eq("restaurant_id", restaurantId)
+            .eq("restaurant_id", verifiedRestaurantId)
             .order("date", { ascending: false })
             .limit(400),
           supabase.from("customer_insights").select("*")
-            .eq("restaurant_id", restaurantId)
+            .eq("restaurant_id", verifiedRestaurantId)
             .order("total_spent", { ascending: false })
             .limit(50),
           supabase.from("orders").select("*")
-            .eq("restaurant_id", restaurantId)
+            .eq("restaurant_id", verifiedRestaurantId)
             .order("created_at", { ascending: false })
             .limit(50),
           supabase.from("orders").select("*")
-            .eq("restaurant_id", restaurantId)
+            .eq("restaurant_id", verifiedRestaurantId)
             .eq("source", "qsr")
             .order("created_at", { ascending: false })
             .limit(100),
           supabase.from("menu_items").select("*")
-            .eq("restaurant_id", restaurantId),
+            .eq("restaurant_id", verifiedRestaurantId),
           supabase.from("inventory_items").select("*")
-            .eq("restaurant_id", restaurantId),
+            .eq("restaurant_id", verifiedRestaurantId),
             
           supabase.from("rooms").select("*")
-            .eq("restaurant_id", restaurantId),
+            .eq("restaurant_id", verifiedRestaurantId),
           supabase.from("reservations").select("*")
-            .eq("restaurant_id", restaurantId)
+            .eq("restaurant_id", verifiedRestaurantId)
             .order("start_time", { ascending: false })
             .limit(30),
             
           supabase.from("staff").select("*")
-            .eq("restaurant_id", restaurantId),
+            .eq("restaurant_id", verifiedRestaurantId),
           supabase.from("restaurant_tables").select("*")
-            .eq("restaurant_id", restaurantId),
+            .eq("restaurant_id", verifiedRestaurantId),
             
           supabase.from("suppliers").select("*")
-            .eq("restaurant_id", restaurantId),
+            .eq("restaurant_id", verifiedRestaurantId),
           supabase.from("supplier_orders").select("*")
-            .eq("restaurant_id", restaurantId)
+            .eq("restaurant_id", verifiedRestaurantId)
             .order("order_date", { ascending: false })
             .limit(20),
           supabase.from("supplier_order_items").select("*")
             .limit(50),
             
           supabase.from("room_food_orders").select("*")
-            .eq("restaurant_id", restaurantId)
+            .eq("restaurant_id", verifiedRestaurantId)
             .order("created_at", { ascending: false })
             .limit(30),
           supabase.from("room_billings").select("*")
-            .eq("restaurant_id", restaurantId)
+            .eq("restaurant_id", verifiedRestaurantId)
             .order("checkout_date", { ascending: false })
             .limit(30),
             
           supabase.from("promotion_campaigns").select("*")
-            .eq("restaurant_id", restaurantId),
+            .eq("restaurant_id", verifiedRestaurantId),
           supabase.from("sent_promotions").select("*")
-            .eq("restaurant_id", restaurantId)
+            .eq("restaurant_id", verifiedRestaurantId)
             .order("sent_date", { ascending: false })
             .limit(30),
             
           supabase.from("staff_leaves").select("*")
-            .eq("restaurant_id", restaurantId)
+            .eq("restaurant_id", verifiedRestaurantId)
             .order("start_date", { ascending: false })
             .limit(20),
           supabase.from("notification_preferences").select("*")
-            .eq("restaurant_id", restaurantId)
+            .eq("restaurant_id", verifiedRestaurantId)
             .single(),
           supabase.from("subscription_plans").select("*"),
             
           supabase.from("restaurants").select("*")
-            .eq("id", restaurantId)
+            .eq("id", verifiedRestaurantId)
             .single(),
           supabase.from("restaurant_subscriptions").select("*")
-            .eq("restaurant_id", restaurantId)
+            .eq("restaurant_id", verifiedRestaurantId)
         ]);
         
         restaurantData = {

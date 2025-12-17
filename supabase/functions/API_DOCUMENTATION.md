@@ -53,11 +53,6 @@ AI-powered chat assistant with restaurant data context.
 
 ---
 
-### `chat-with-api`
-Alternative chat endpoint for API-based integrations.
-
----
-
 ## WhatsApp Integration
 
 ### `send-whatsapp`
