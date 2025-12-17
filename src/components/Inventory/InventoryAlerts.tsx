@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, Check, X, Bell } from "lucide-react";
+import { AlertTriangle, Check, Bell, CheckCheck, Package } from "lucide-react";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 interface InventoryAlert {
@@ -23,10 +23,22 @@ interface InventoryAlert {
   };
 }
 
-const alertTypeColors = {
-  low_stock: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  out_of_stock: "bg-red-100 text-red-800 border-red-200",
-  reorder_suggested: "bg-blue-100 text-blue-800 border-blue-200",
+const alertTypeColors: Record<string, { bg: string; icon: string; badge: string }> = {
+  low_stock: { 
+    bg: "bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border-l-4 border-yellow-500",
+    icon: "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-600",
+    badge: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300"
+  },
+  out_of_stock: { 
+    bg: "bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border-l-4 border-red-500",
+    icon: "bg-red-100 dark:bg-red-900/50 text-red-600",
+    badge: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300"
+  },
+  reorder_suggested: { 
+    bg: "bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border-l-4 border-blue-500",
+    icon: "bg-blue-100 dark:bg-blue-900/50 text-blue-600",
+    badge: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300"
+  },
 };
 
 const InventoryAlerts = () => {
@@ -73,11 +85,11 @@ const InventoryAlerts = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-alerts"] });
-      toast({ title: "Alert marked as read" });
+      toast({ title: "Alert dismissed" });
     },
     onError: (error) => {
       toast({
-        title: "Error marking alert as read",
+        title: "Error dismissing alert",
         description: error.message,
         variant: "destructive",
       });
@@ -103,11 +115,11 @@ const InventoryAlerts = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-alerts"] });
-      toast({ title: "All alerts marked as read" });
+      toast({ title: "All alerts dismissed" });
     },
     onError: (error) => {
       toast({
-        title: "Error marking alerts as read",
+        title: "Error dismissing alerts",
         description: error.message,
         variant: "destructive",
       });
@@ -115,72 +127,111 @@ const InventoryAlerts = () => {
   });
 
   if (isLoading) {
-    return <div>Loading alerts...</div>;
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+      </div>
+    );
   }
 
   if (alerts.length === 0) {
     return (
-      <Card className="p-6 text-center">
-        <Bell className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-        <h3 className="text-lg font-medium text-gray-900 mb-1">No Active Alerts</h3>
-        <p className="text-gray-500">All your inventory items are properly stocked.</p>
+      <Card className="p-8 text-center bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl border-none">
+        <div className="p-4 bg-green-100 dark:bg-green-900/50 rounded-full w-fit mx-auto mb-4">
+          <Check className="h-8 w-8 text-green-600" />
+        </div>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">All Clear!</h3>
+        <p className="text-gray-600 dark:text-gray-400">No inventory alerts at this time. All items are properly stocked.</p>
       </Card>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold flex items-center gap-2">
-          <AlertTriangle className="h-5 w-5 text-orange-500" />
-          Inventory Alerts ({alerts.length})
-        </h2>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl shadow-md">
+            <AlertTriangle className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              Inventory Alerts
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {alerts.length} item{alerts.length !== 1 ? "s" : ""} need attention
+            </p>
+          </div>
+        </div>
         {alerts.length > 0 && (
           <Button 
             variant="outline" 
-            size="sm"
             onClick={() => markAllAsReadMutation.mutate()}
+            disabled={markAllAsReadMutation.isPending}
+            className="bg-white/80 dark:bg-gray-700/80 border-gray-200 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600"
           >
-            Mark All as Read
+            <CheckCheck className="mr-2 h-4 w-4" />
+            Dismiss All
           </Button>
         )}
       </div>
 
-      <div className="space-y-3">
-        {alerts.map((alert) => (
-          <Card 
-            key={alert.id} 
-            className={`p-4 border-l-4 ${alertTypeColors[alert.alert_type as keyof typeof alertTypeColors]}`}
-          >
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="h-4 w-4" />
-                  <Badge variant="outline" className="text-xs">
-                    {alert.alert_type.replace('_', ' ').toUpperCase()}
-                  </Badge>
-                  <span className="text-xs text-gray-500">
-                    {new Date(alert.created_at).toLocaleString()}
-                  </span>
+      {/* Alerts Grid */}
+      <div className="grid gap-4">
+        {alerts.map((alert) => {
+          const colors = alertTypeColors[alert.alert_type] || alertTypeColors.low_stock;
+          return (
+            <Card 
+              key={alert.id} 
+              className={`p-5 rounded-xl ${colors.bg} border-none shadow-md hover:shadow-lg transition-all`}
+            >
+              <div className="flex justify-between items-start gap-4">
+                <div className="flex items-start gap-4 flex-1">
+                  <div className={`p-3 rounded-xl ${colors.icon}`}>
+                    <AlertTriangle className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <h3 className="font-bold text-gray-900 dark:text-white">
+                        {alert.inventory_item?.name || "Unknown Item"}
+                      </h3>
+                      <Badge className={colors.badge}>
+                        {alert.alert_type.replace(/_/g, ' ').toUpperCase()}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">{alert.message}</p>
+                    <div className="flex flex-wrap gap-4 text-sm">
+                      <div className="bg-white/50 dark:bg-gray-700/50 px-3 py-1 rounded-lg">
+                        <span className="text-gray-500 dark:text-gray-400">Current: </span>
+                        <span className="font-semibold text-gray-900 dark:text-white">
+                          {alert.inventory_item?.quantity} {alert.inventory_item?.unit}
+                        </span>
+                      </div>
+                      <div className="bg-white/50 dark:bg-gray-700/50 px-3 py-1 rounded-lg">
+                        <span className="text-gray-500 dark:text-gray-400">Reorder at: </span>
+                        <span className="font-semibold text-gray-900 dark:text-white">
+                          {alert.inventory_item?.reorder_level} {alert.inventory_item?.unit}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                      {new Date(alert.created_at).toLocaleString()}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-sm font-medium mb-1">{alert.inventory_item.name}</p>
-                <p className="text-sm text-gray-600">{alert.message}</p>
-                <div className="mt-2 text-xs text-gray-500">
-                  Current: {alert.inventory_item.quantity} {alert.inventory_item.unit} | 
-                  Reorder Level: {alert.inventory_item.reorder_level} {alert.inventory_item.unit}
-                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => markAsReadMutation.mutate(alert.id)}
+                  disabled={markAsReadMutation.isPending}
+                  className="hover:bg-green-100 dark:hover:bg-green-900/30 rounded-xl"
+                >
+                  <Check className="h-4 w-4 text-green-600" />
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => markAsReadMutation.mutate(alert.id)}
-                className="hover:bg-green-100"
-              >
-                <Check className="h-4 w-4" />
-              </Button>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

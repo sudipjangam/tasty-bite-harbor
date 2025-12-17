@@ -168,7 +168,7 @@ The system includes 25+ Supabase Edge Functions for serverless operations:
 
 | Category         | Functions                                                                               |
 | ---------------- | --------------------------------------------------------------------------------------- |
-| **AI & Chat**    | `chat-with-gemini`, `chat-with-ai`, `chat-with-api`                                     |
+| **AI & Chat**    | `chat-with-gemini`, `chat-with-api`                                                     |
 | **WhatsApp**     | `send-whatsapp`, `send-whatsapp-bill`                                                   |
 | **Reservations** | `send-reservation-confirmation`, `send-reservation-reminder`, `find-active-reservation` |
 | **Inventory**    | `check-low-stock`, `deduct-inventory-on-prep`                                           |

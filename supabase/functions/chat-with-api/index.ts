@@ -30,17 +30,16 @@ serve(async (req) => {
     }
 
     // Get API key and base URL from environment variables
-    const apiKey = Deno.env.get("API_KEY") || "ddc-beta-y0crha35uy-4Z2OWYr9TX14ua2VyTnuNnJypOjemZhLeJi";
-    // const baseUrl = Deno.env.get('BASE_URL') || 'https://api.sree.shop/v1';
-    const baseUrl = Deno.env.get("BASE_URL") || "https://beta.sree.shop/v1";
+    const apiKey = Deno.env.get("API_KEY");
+    const baseUrl = Deno.env.get("BASE_URL");
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!apiKey) {
+    if (!apiKey || !baseUrl) {
       const errorId = crypto.randomUUID();
-      console.error(`[Error ID: ${errorId}] API_KEY environment variable is not set`);
+      console.error(`[Error ID: ${errorId}] API_KEY or BASE_URL environment variable is not set`);
       return new Response(
-        JSON.stringify({ error: 'Service configuration error', errorId }),
+        JSON.stringify({ error: 'Service configuration error. Please ensure API_KEY and BASE_URL are set.', errorId }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
