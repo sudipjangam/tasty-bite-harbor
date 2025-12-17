@@ -78,16 +78,16 @@ const DocumentRepository = () => {
         description: "Now analyzing the document...",
       });
 
-      // Use the chat-with-api function to analyze the uploaded document
-      const { data: analysisData, error: analysisError } = await supabase.functions.invoke('chat-with-api', {
+      // Use the chat-with-gemini function to analyze the uploaded document
+      const { data: analysisData, error: analysisError } = await supabase.functions.invoke('chat-with-gemini', {
         body: { 
           messages: [
             { 
               role: "user", 
               content: `Please analyze this uploaded document: ${selectedFile.name}. The file is available at ${uploadData.image.url}. Provide detailed business insights based on this document and suggest specific actions.`
             }
-          ],
-          restaurantId: restaurantId
+          ]
+          // Note: restaurantId is no longer needed - the edge function gets it from user's auth token
         },
       });
 
