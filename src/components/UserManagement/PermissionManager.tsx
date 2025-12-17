@@ -3,7 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -13,7 +12,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle, Shield, Check } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface PermissionManagerProps {
   userId: string;
@@ -39,9 +39,10 @@ export const PermissionManager = ({
   const [selectedComponents, setSelectedComponents] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [initComplete, setInitComplete] = useState(false);
 
   // Fetch all available components
-  const { data: components } = useQuery({
+  const { data: components, isLoading: isLoadingComponents } = useQuery({
     queryKey: ["app-components"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -56,11 +57,11 @@ export const PermissionManager = ({
   });
 
   // Fetch user profile and their current components
-  const { data: userData, isLoading: isLoadingUser } = useQuery({
+  const { data: userData, isLoading: isLoadingUser, error: userDataError } = useQuery({
     queryKey: ["user-permissions", userId],
     queryFn: async () => {
       // Get profile for role info
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select(`
           *,
@@ -73,26 +74,33 @@ export const PermissionManager = ({
         .eq("id", userId)
         .single();
 
+      if (profileError) {
+        console.error("Profile fetch error:", profileError);
+        throw profileError;
+      }
+
       // Get component names accessible to user
       const { data: componentNames, error: rpcError } = await supabase.rpc(
         "get_user_components",
         { user_id: userId }
       );
 
-      if (rpcError) throw rpcError;
+      if (rpcError) {
+        console.error("RPC error:", rpcError);
+        throw rpcError;
+      }
 
-      // We need component IDs corresponding to these names
-      // We'll map them using the components list in the render or effect, 
-      // but for initial state we need to wait for components list.
-      // So checking components list inside here might be better or do it in useEffect.
-      
-      return { profile, componentNames: (componentNames as any[])?.map(row => row.component_name) || [] };
+      return { 
+        profile, 
+        componentNames: (componentNames as any[])?.map(row => row.component_name) || [] 
+      };
     },
     enabled: open && !!userId,
   });
 
+  // Initialize selected components when data loads
   useEffect(() => {
-    if (userData && components) {
+    if (userData && components && !initComplete) {
       setUserProfile(userData.profile);
       
       // Map component names to IDs
@@ -100,9 +108,25 @@ export const PermissionManager = ({
         .filter(c => userData.componentNames.includes(c.name))
         .map(c => c.id);
       
+      console.log("Initializing permissions:", {
+        componentNames: userData.componentNames,
+        mappedIds: initialIds,
+        allComponents: components.map(c => c.name)
+      });
+      
       setSelectedComponents(initialIds);
+      setInitComplete(true);
     }
-  }, [userData, components]);
+  }, [userData, components, initComplete]);
+
+  // Reset init state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setInitComplete(false);
+      setSelectedComponents([]);
+      setUserProfile(null);
+    }
+  }, [open]);
 
   const handleToggleComponent = (componentId: string) => {
     setSelectedComponents((prev) =>
@@ -115,18 +139,15 @@ export const PermissionManager = ({
   const handleSave = async () => {
     setIsSubmitting(true);
     try {
-      if (!userProfile) return;
+      if (!userProfile) {
+        throw new Error("User profile not loaded");
+      }
 
       const currentRoleId = userProfile.role_id;
       const currentRoleName = userProfile.roles?.name;
       const isCustomIndividualRole = currentRoleName?.startsWith("Custom Access for " + userName);
 
-      // Strategy:
-      // 1. If user has a custom individual role already, update it.
-      // 2. Else, create a new custom role and assign it.
-      
       let targetRoleId = currentRoleId;
-      let action = 'create'; // default to create new role
 
       if (isCustomIndividualRole && currentRoleId) {
         // Update existing individual role
@@ -138,13 +159,18 @@ export const PermissionManager = ({
           }),
         });
 
-        if (error) throw error;
-        if (!data.success) throw new Error(data.error || 'Failed to update role permissions');
+        if (error) {
+          console.error("Role update error:", error);
+          throw new Error(error.message || "Failed to update permissions");
+        }
+        if (!data?.success) {
+          throw new Error(data?.error || 'Failed to update role permissions');
+        }
         
         toast.success("Permissions updated successfully");
       } else {
         // Create new individual role
-        const newRoleName = `Custom Access for ${userName} (${new Date().getTime().toString().slice(-4)})`; // Ensure uniqueness
+        const newRoleName = `Custom Access for ${userName} (${new Date().getTime().toString().slice(-4)})`;
         
         // 1. Create Role
         const { data: roleData, error: roleError } = await supabase.functions.invoke('role-management', {
@@ -156,27 +182,36 @@ export const PermissionManager = ({
           }),
         });
 
-        if (roleError) throw roleError;
-        if (!roleData.success) throw new Error(roleData.error || 'Failed to create custom role');
+        if (roleError) {
+          console.error("Role create error:", roleError);
+          throw new Error(roleError.message || "Failed to create custom role");
+        }
+        if (!roleData?.success) {
+          throw new Error(roleData?.error || 'Failed to create custom role');
+        }
 
         const newRoleId = roleData.role.id;
 
         // 2. Assign Role to User
-        // We use user-management function to update profile role_id
         const { data: assignData, error: assignError } = await supabase.functions.invoke('user-management', {
           body: JSON.stringify({
             action: 'update_user',
             userData: {
               id: userId,
               role_id: newRoleId,
-              role_name_text: roleData.role.name, // Ensure UI shows the custom role name
+              role_name_text: roleData.role.name,
               role: 'staff' 
             }
           }),
         });
 
-        if (assignError) throw assignError;
-        if (!assignData.success) throw new Error(assignData.error || 'Failed to assign new role');
+        if (assignError) {
+          console.error("Role assign error:", assignError);
+          throw new Error(assignError.message || "Failed to assign new role");
+        }
+        if (!assignData?.success) {
+          throw new Error(assignData?.error || 'Failed to assign new role');
+        }
         
         toast.success("Created custom role and updated permissions");
       }
@@ -185,77 +220,122 @@ export const PermissionManager = ({
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error saving permissions:', error);
-      toast.error(error.message || "Failed to save permissions");
+      toast.error(error.message || "Failed to save permissions. Make sure you have admin privileges.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const isLoading = isLoadingUser || isLoadingComponents;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh]">
+      <DialogContent className="max-w-lg max-h-[90vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl">
         <DialogHeader>
-          <DialogTitle>Manage Permissions</DialogTitle>
-          <DialogDescription>
-            Configure individual access rights for {userName}.
-            {userProfile?.roles?.name && !userProfile.roles.name.startsWith("Custom Access for") && (
-              <div className="mt-2 text-amber-600 bg-amber-50 p-2 rounded text-xs">
-                Note: Saving will switch this user from "{userProfile.roles.name}" role to a custom individual role.
-              </div>
-            )}
-            {!userProfile?.roles?.name && userProfile?.role && (
-               <div className="mt-2 text-amber-600 bg-amber-50 p-2 rounded text-xs">
-               Note: Saving will switch this user from "{userProfile.role}" system role to a custom individual role.
-             </div>
-            )}
-          </DialogDescription>
+          <DialogTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-indigo-600" />
+            Manage Permissions
+          </DialogTitle>
+          {/* Fixed: Using span instead of div inside DialogDescription area */}
+          <p className="text-sm text-muted-foreground mt-1">
+            Configure individual access rights for <strong>{userName}</strong>
+          </p>
         </DialogHeader>
 
-        {isLoadingUser ? (
-          <div className="flex justify-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        {/* Warnings - moved outside DialogDescription */}
+        {userProfile?.roles?.name && !userProfile.roles.name.startsWith("Custom Access for") && (
+          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800 dark:text-amber-200 text-xs">
+              Saving will switch this user from "{userProfile.roles.name}" role to a custom individual role.
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {!userProfile?.roles?.name && userProfile?.role && (
+          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800 dark:text-amber-200 text-xs">
+              Saving will switch this user from "{userProfile.role}" system role to a custom individual role.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {userDataError && (
+          <Alert className="border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800">
+            <AlertTriangle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-800 dark:text-red-200 text-xs">
+              Error loading permissions: {(userDataError as Error).message}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-indigo-500 mb-2" />
+            <p className="text-sm text-muted-foreground">Loading permissions...</p>
           </div>
         ) : (
-          <ScrollArea className="h-[400px] border rounded-md p-4 mt-4">
-            <div className="space-y-4">
-              {components?.map((component) => (
-                <div key={component.id} className="flex items-start space-x-3">
-                  <Checkbox
-                    id={`perm-${component.id}`}
-                    checked={selectedComponents.includes(component.id)}
-                    onCheckedChange={() => handleToggleComponent(component.id)}
-                  />
-                  <div className="grid gap-1.5 leading-none">
-                    <label
-                      htmlFor={`perm-${component.id}`}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                    >
-                      {component.name}
-                    </label>
-                    {component.description && (
-                      <p className="text-sm text-muted-foreground">
-                        {component.description}
-                      </p>
-                    )}
+          <ScrollArea className="h-[400px] border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gray-50/50 dark:bg-gray-800/50">
+            <div className="space-y-3">
+              {components?.map((component) => {
+                const isChecked = selectedComponents.includes(component.id);
+                return (
+                  <div 
+                    key={component.id} 
+                    className={`flex items-start space-x-3 p-3 rounded-lg border transition-all cursor-pointer ${
+                      isChecked 
+                        ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800' 
+                        : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                    onClick={() => handleToggleComponent(component.id)}
+                  >
+                    <Checkbox
+                      id={`perm-${component.id}`}
+                      checked={isChecked}
+                      onCheckedChange={() => handleToggleComponent(component.id)}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <label
+                        htmlFor={`perm-${component.id}`}
+                        className="text-sm font-medium cursor-pointer flex items-center gap-2"
+                      >
+                        {component.name}
+                        {isChecked && <Check className="h-3 w-3 text-indigo-600" />}
+                      </label>
+                      {component.description && (
+                        <span className="text-xs text-muted-foreground block mt-0.5">
+                          {component.description}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </ScrollArea>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSubmitting || isLoadingUser}>
+          <Button 
+            onClick={handleSave} 
+            disabled={isSubmitting || isLoading}
+            className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
+          >
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Saving...
               </>
             ) : (
-              "Save Changes"
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Save Changes
+              </>
             )}
           </Button>
         </DialogFooter>

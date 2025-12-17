@@ -27,7 +27,9 @@ import {
   Settings,
   BarChart3,
   UserCheck,
-  Key
+  Key,
+  Activity,
+  TrendingUp
 } from "lucide-react";
 
 const Security = () => {
@@ -35,32 +37,36 @@ const Security = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [securityMetrics, setSecurityMetrics] = useState([
     {
-      title: "Active Users",
+      title: "Active Staff",
       value: "0",
       status: "normal",
       icon: Users,
-      description: "Currently active user sessions"
+      description: "Currently active staff members",
+      gradient: "from-blue-500 to-cyan-500"
     },
     {
       title: "Failed Logins",
       value: "0",
       status: "normal",
       icon: AlertTriangle,
-      description: "Failed login attempts today"
+      description: "Failed login attempts today",
+      gradient: "from-amber-500 to-orange-500"
     },
     {
       title: "Last Backup",
       value: "Never",
       status: "warning",
       icon: Database,
-      description: "Most recent successful backup"
+      description: "Most recent successful backup",
+      gradient: "from-emerald-500 to-teal-500"
     },
     {
       title: "GDPR Requests",
       value: "0",
       status: "normal",
       icon: FileText,
-      description: "Pending data subject requests"
+      description: "Pending data subject requests",
+      gradient: "from-purple-500 to-violet-500"
     }
   ]);
 
@@ -85,48 +91,58 @@ const Security = () => {
           .order('completed_at', { ascending: false })
           .limit(1);
 
-        // Fetch audit logs for failed logins (placeholder - would need auth logs)
-        const { data: auditData } = await supabase
+        // FIXED: Fetch actual GDPR pending requests count
+        const { data: gdprData, count: gdprCount } = await supabase
+          .from('gdpr_requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending');
+
+        // Fetch audit logs for failed logins (if available)
+        const { data: auditData, count: failedLoginCount } = await supabase
           .from('audit_logs')
-          .select('id')
-          .eq('restaurant_id', user.restaurant_id)
+          .select('*', { count: 'exact', head: true })
+          .eq('action', 'login_failed')
           .gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString());
 
         const activeUsers = staffData?.length || 0;
         const lastBackup = backupData?.[0] 
           ? new Date(backupData[0].completed_at).toLocaleString()
           : "Never";
-        const failedLogins = 0; // Would be calculated from auth logs
-        const auditCount = auditData?.length || 0;
+        const failedLogins = failedLoginCount || 0;
+        const pendingGdpr = gdprCount || 0;
 
         setSecurityMetrics([
           {
-            title: "Active Users",
+            title: "Active Staff",
             value: activeUsers.toString(),
             status: activeUsers > 0 ? "good" : "warning",
             icon: Users,
-            description: "Currently active user sessions"
+            description: "Currently active staff members",
+            gradient: "from-blue-500 to-cyan-500"
           },
           {
             title: "Failed Logins",
             value: failedLogins.toString(),
             status: failedLogins > 5 ? "error" : failedLogins > 0 ? "warning" : "good",
             icon: AlertTriangle,
-            description: "Failed login attempts today"
+            description: "Failed login attempts today",
+            gradient: "from-amber-500 to-orange-500"
           },
           {
             title: "Last Backup",
             value: lastBackup === "Never" ? "Never" : "Recently",
             status: lastBackup === "Never" ? "error" : "good",
             icon: Database,
-            description: lastBackup === "Never" ? "No backups found" : `Last backup: ${lastBackup}`
+            description: lastBackup === "Never" ? "No backups found" : `Last: ${lastBackup}`,
+            gradient: "from-emerald-500 to-teal-500"
           },
           {
             title: "GDPR Requests",
-            value: "0",
-            status: "good",
+            value: pendingGdpr.toString(),
+            status: pendingGdpr > 0 ? "warning" : "good",
             icon: FileText,
-            description: "Pending data subject requests"
+            description: pendingGdpr > 0 ? `${pendingGdpr} pending requests` : "No pending requests",
+            gradient: "from-purple-500 to-violet-500"
           }
         ]);
       } catch (error) {
@@ -295,10 +311,10 @@ const Security = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'good': return 'text-green-600 bg-green-50 border-green-200';
-      case 'warning': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'error': return 'text-red-600 bg-red-50 border-red-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+      case 'good': return 'from-emerald-500/20 to-green-500/20 border-emerald-300 dark:border-emerald-700';
+      case 'warning': return 'from-amber-500/20 to-yellow-500/20 border-amber-300 dark:border-amber-700';
+      case 'error': return 'from-red-500/20 to-rose-500/20 border-red-300 dark:border-red-700';
+      default: return 'from-gray-500/20 to-slate-500/20 border-gray-300 dark:border-gray-700';
     }
   };
 
@@ -311,8 +327,17 @@ const Security = () => {
     }
   };
 
+  const getStatusIconColor = (status: string) => {
+    switch (status) {
+      case 'good': return 'text-emerald-600';
+      case 'warning': return 'text-amber-600';
+      case 'error': return 'text-red-600';
+      default: return 'text-gray-400';
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950">
       <PageHeader 
         title="Security & Compliance"
         description="Manage security settings, audit trails, and compliance requirements"
@@ -320,20 +345,32 @@ const Security = () => {
       
       <div className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-4 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 p-1 rounded-xl shadow-lg">
+            <TabsTrigger 
+              value="overview" 
+              className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg transition-all"
+            >
               <Shield className="h-4 w-4" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="audit" className="flex items-center gap-2">
+            <TabsTrigger 
+              value="audit" 
+              className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white rounded-lg transition-all"
+            >
               <FileText className="h-4 w-4" />
               Audit Trail
             </TabsTrigger>
-            <TabsTrigger value="gdpr" className="flex items-center gap-2">
+            <TabsTrigger 
+              value="gdpr" 
+              className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-600 data-[state=active]:text-white rounded-lg transition-all"
+            >
               <Users className="h-4 w-4" />
               GDPR
             </TabsTrigger>
-            <TabsTrigger value="backup" className="flex items-center gap-2">
+            <TabsTrigger 
+              value="backup" 
+              className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white rounded-lg transition-all"
+            >
               <Database className="h-4 w-4" />
               Backup
             </TabsTrigger>
@@ -345,20 +382,22 @@ const Security = () => {
               {securityMetrics.map((metric, index) => {
                 const StatusIcon = getStatusIcon(metric.status);
                 return (
-                  <Card key={index} className={`border-2 ${getStatusColor(metric.status)}`}>
+                  <Card 
+                    key={index} 
+                    className={`bg-gradient-to-br ${getStatusColor(metric.status)} backdrop-blur-xl border shadow-xl hover:shadow-2xl transition-all duration-300`}
+                  >
                     <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2">
                           <p className="text-sm font-medium text-muted-foreground">{metric.title}</p>
-                          <p className="text-2xl font-bold">{metric.value}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{metric.description}</p>
+                          <p className="text-3xl font-bold">{metric.value}</p>
+                          <p className="text-xs text-muted-foreground">{metric.description}</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <metric.icon className="h-5 w-5 text-muted-foreground" />
-                          <StatusIcon className={`h-4 w-4 ${
-                            metric.status === 'good' ? 'text-green-600' :
-                            metric.status === 'warning' ? 'text-yellow-600' : 'text-red-600'
-                          }`} />
+                        <div className="flex flex-col items-center gap-2">
+                          <div className={`p-2.5 bg-gradient-to-br ${metric.gradient} rounded-xl shadow-lg`}>
+                            <metric.icon className="h-5 w-5 text-white" />
+                          </div>
+                          <StatusIcon className={`h-4 w-4 ${getStatusIconColor(metric.status)}`} />
                         </div>
                       </div>
                     </CardContent>
@@ -368,18 +407,23 @@ const Security = () => {
             </div>
 
             {/* Your Current Role & Permissions */}
-            <Card>
+            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl">
               <CardHeader>
-                <CardTitle>Your Current Role & Permissions</CardTitle>
-                <CardDescription>
-                  Your access level and available permissions
-                </CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg">
+                    <Key className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle>Your Current Role & Permissions</CardTitle>
+                    <CardDescription>Your access level and available permissions</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {getCurrentRoleData() ? (
                   <div className="space-y-4">
-                    <div className="flex items-center gap-3 p-4 border rounded-lg bg-blue-50 dark:bg-blue-950">
-                      <Shield className="h-5 w-5 text-blue-600" />
+                    <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-200/50 dark:border-indigo-800/50">
+                      <Shield className="h-5 w-5 text-indigo-600" />
                       <div className="flex-1">
                         <div className="font-medium">{getCurrentRoleData()?.role}</div>
                         <div className="text-sm text-muted-foreground">
@@ -391,19 +435,24 @@ const Security = () => {
                     
                     <Dialog>
                       <DialogTrigger asChild>
-                        <button className="w-full p-3 text-left border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <button className="w-full p-4 text-left rounded-xl border border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-900/50 hover:shadow-md transition-all duration-200">
                           <div className="flex items-center justify-between">
                             <span className="font-medium">View All Your Permissions</span>
-                            <Eye className="h-4 w-4" />
+                            <Eye className="h-4 w-4 text-muted-foreground" />
                           </div>
                           <div className="text-sm text-muted-foreground mt-1">
                             Click to see detailed list of what you can access
                           </div>
                         </button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700/50">
                         <DialogHeader>
-                          <DialogTitle>Your Permissions ({getCurrentRoleData()?.role})</DialogTitle>
+                          <DialogTitle className="flex items-center gap-3">
+                            <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg">
+                              <Key className="h-5 w-5 text-white" />
+                            </div>
+                            Your Permissions ({getCurrentRoleData()?.role})
+                          </DialogTitle>
                           <DialogDescription>
                             Detailed list of all permissions available to your role
                           </DialogDescription>
@@ -412,17 +461,19 @@ const Security = () => {
                           {getCurrentRoleData()?.permissionsList.map((permission, index) => {
                             const IconComponent = getPermissionIcon(permission);
                             return (
-                              <div key={index} className="flex items-start gap-3 p-3 border rounded-lg">
-                                <IconComponent className="h-5 w-5 text-green-600 mt-0.5" />
+                              <div key={index} className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-900/50">
+                                <div className="p-1.5 bg-gradient-to-br from-emerald-500 to-green-500 rounded-lg">
+                                  <IconComponent className="h-4 w-4 text-white" />
+                                </div>
                                 <div className="flex-1">
-                                  <div className="font-medium capitalize">
+                                  <div className="font-medium capitalize text-sm">
                                     {permission.replace(/[._]/g, ' ')}
                                   </div>
-                                  <div className="text-sm text-muted-foreground">
+                                  <div className="text-xs text-muted-foreground">
                                     {getPermissionDescription(permission)}
                                   </div>
                                 </div>
-                                <Badge variant="outline" className="text-green-600 border-green-600">
+                                <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white border-0 text-xs">
                                   Granted
                                 </Badge>
                               </div>
@@ -441,31 +492,45 @@ const Security = () => {
             </Card>
 
             {/* Compliance Status */}
-            <Card>
+            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl">
               <CardHeader>
-                <CardTitle>Compliance Status</CardTitle>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg">
+                    <Activity className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle>Compliance Status</CardTitle>
+                    <CardDescription>Current compliance checks</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="flex items-center gap-3 p-3 border rounded-lg">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-emerald-500/10 to-green-500/10 border border-emerald-200/50 dark:border-emerald-800/50">
+                    <div className="p-2 bg-gradient-to-br from-emerald-500 to-green-500 rounded-lg">
+                      <CheckCircle className="h-5 w-5 text-white" />
+                    </div>
                     <div>
                       <p className="font-medium">GDPR Compliant</p>
-                      <p className="text-xs text-muted-foreground">Data protection measures active</p>
+                      <p className="text-xs text-muted-foreground">Data protection active</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3 border rounded-lg">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-emerald-500/10 to-green-500/10 border border-emerald-200/50 dark:border-emerald-800/50">
+                    <div className="p-2 bg-gradient-to-br from-emerald-500 to-green-500 rounded-lg">
+                      <CheckCircle className="h-5 w-5 text-white" />
+                    </div>
                     <div>
                       <p className="font-medium">Audit Trail Active</p>
-                      <p className="text-xs text-muted-foreground">All actions are being logged</p>
+                      <p className="text-xs text-muted-foreground">All actions logged</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3 border rounded-lg">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-emerald-500/10 to-green-500/10 border border-emerald-200/50 dark:border-emerald-800/50">
+                    <div className="p-2 bg-gradient-to-br from-emerald-500 to-green-500 rounded-lg">
+                      <CheckCircle className="h-5 w-5 text-white" />
+                    </div>
                     <div>
                       <p className="font-medium">Regular Backups</p>
-                      <p className="text-xs text-muted-foreground">Automated backup system running</p>
+                      <p className="text-xs text-muted-foreground">Automated system</p>
                     </div>
                   </div>
                 </div>

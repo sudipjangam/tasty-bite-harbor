@@ -47,6 +47,26 @@ Deno.serve(async (req) => {
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', // Use service role for internal queries
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+
+    // Verify user is authenticated using the Bearer token
+    const token = (authHeader || '').replace(/bearer\s+/i, '').trim();
+    console.log('Token extracted:', { 
+      hasToken: !!token, 
+      tokenLength: token?.length,
+      tokenStart: token?.substring(0, 20) + '...'
+    });
+    
+    // Create an auth client just for user verification
+    const authClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
         global: {
@@ -58,16 +78,8 @@ Deno.serve(async (req) => {
         },
       }
     );
-
-    // Verify user is authenticated and has admin/owner role using the Bearer token explicitly
-    const token = (authHeader || '').replace(/bearer\s+/i, '').trim();
-    console.log('Token extracted:', { 
-      hasToken: !!token, 
-      tokenLength: token?.length,
-      tokenStart: token?.substring(0, 20) + '...'
-    });
     
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
+    const { data: { user }, error: userError } = await authClient.auth.getUser(token);
     console.log('User fetch result:', { 
       userId: user?.id, 
       hasError: !!userError,
@@ -134,39 +146,52 @@ Deno.serve(async (req) => {
       );
     }
 
-    let roleName: string | null = null;
-    let isSystemRole = false;
+    let systemRole: string | null = null;
+    let customRoleName: string | null = null;
 
-    // Check system role (enum) first
+    // Get system role (enum)
     if (roleProfile?.role) {
-      roleName = roleProfile.role;
-      isSystemRole = true;
-      console.log('User has system role:', { roleName, isSystemRole });
+      systemRole = roleProfile.role;
+      console.log('User has system role:', { systemRole });
     }
 
-    // Check custom role (from roles table) if role_id exists
+    // Get custom role name (from roles table) if role_id exists
     if (roleProfile?.role_id) {
       const { data: roleRow, error: roleRowError } = await supabaseClient
         .from('roles')
         .select('name')
         .eq('id', roleProfile.role_id)
         .single();
-      if (roleRowError) {
-        console.error('Custom role lookup error:', roleRowError);
-      } else if (roleRow?.name) {
-        roleName = roleRow.name;
-        isSystemRole = false;
-        console.log('User has custom role:', { roleName, customRoleId: roleProfile.role_id });
+      if (!roleRowError && roleRow?.name) {
+        customRoleName = roleRow.name;
+        console.log('User has custom role:', { customRoleName, customRoleId: roleProfile.role_id });
       }
     }
 
-    const hasRole = ['admin', 'owner'].includes((roleName ?? '').toLowerCase());
-    console.log('Role check result:', { roleName, isSystemRole, hasRole, userId: user.id });
+    // PRIORITY: System role takes precedence!
+    // User is allowed if EITHER:
+    // 1. System role is admin/owner, OR
+    // 2. Custom role name is admin/owner (for backward compatibility)
+    const systemRoleIsAdmin = ['admin', 'owner'].includes((systemRole ?? '').toLowerCase());
+    const customRoleIsAdmin = ['admin', 'owner'].includes((customRoleName ?? '').toLowerCase());
+    const hasRole = systemRoleIsAdmin || customRoleIsAdmin;
+    
+    console.log('Role check result:', { 
+      systemRole, 
+      customRoleName, 
+      systemRoleIsAdmin, 
+      customRoleIsAdmin,
+      hasRole, 
+      userId: user.id 
+    });
 
     if (!hasRole) {
       console.error('User does not have required role');
       return new Response(
-        JSON.stringify({ error: 'Insufficient permissions - admin or owner role required' }),
+        JSON.stringify({ 
+          error: 'Insufficient permissions - admin or owner role required',
+          debug: { systemRole, customRoleName }
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
       );
     }
