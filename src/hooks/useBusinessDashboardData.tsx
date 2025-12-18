@@ -291,6 +291,75 @@ export const useBusinessDashboardData = () => {
         }));
       })();
 
+      // Calculate peak period revenue from orders (for Peak Hours Performance card)
+      const peakPeriodRevenue = {
+        lunch: 0,      // 11 AM - 3 PM
+        dinner: 0,     // 6 PM - 10 PM
+        weekend: 0,    // Saturday + Sunday
+        weekday: 0     // Monday - Friday
+      };
+
+      if (typedOrderData) {
+        typedOrderData.forEach(order => {
+          const orderDate = new Date(order.created_at);
+          const hour = orderDate.getHours();
+          const dayOfWeek = orderDate.getDay(); // 0 = Sunday, 6 = Saturday
+          
+          const amount = order.total || 0;
+          
+          // Lunch: 11 AM - 3 PM (hours 11-14)
+          if (hour >= 11 && hour < 15) {
+            peakPeriodRevenue.lunch += amount;
+          }
+          
+          // Dinner: 6 PM - 10 PM (hours 18-21)
+          if (hour >= 18 && hour < 22) {
+            peakPeriodRevenue.dinner += amount;
+          }
+          
+          // Weekend vs Weekday
+          if (dayOfWeek === 0 || dayOfWeek === 6) {
+            peakPeriodRevenue.weekend += amount;
+          } else {
+            peakPeriodRevenue.weekday += amount;
+          }
+        });
+      }
+
+      // Calculate staff expense breakdown by position category
+      const staffExpenseBreakdown = {
+        chefs: 0,
+        waitStaff: 0,
+        cleaning: 0,
+        management: 0,
+        total: 0
+      };
+
+      if (typedStaffData) {
+        typedStaffData.forEach(staff => {
+          const position = (staff.position || '').toLowerCase();
+          let salary = 12000; // Default monthly salary
+          
+          if (position.includes('chef') || position.includes('cook')) {
+            salary = 18000;
+            staffExpenseBreakdown.chefs += salary;
+          } else if (position.includes('waiter') || position.includes('server')) {
+            salary = 10000;
+            staffExpenseBreakdown.waitStaff += salary;
+          } else if (position.includes('clean') || position.includes('janitor') || position.includes('housekeep')) {
+            salary = 8000;
+            staffExpenseBreakdown.cleaning += salary;
+          } else if (position.includes('manager') || position.includes('admin')) {
+            salary = 25000;
+            staffExpenseBreakdown.management += salary;
+          } else {
+            // Other positions - add to a general category
+            staffExpenseBreakdown.waitStaff += salary;
+          }
+          staffExpenseBreakdown.total += salary;
+        });
+      }
+
       // Convert database promotional campaigns to UI format
       const promotionalData: Promotion[] = (promotionCampaigns || []).map((campaign: PromotionCampaign, index: number) => ({
         id: index + 1,
@@ -558,6 +627,8 @@ export const useBusinessDashboardData = () => {
       return {
         expenseData,
         peakHoursData,
+        peakPeriodRevenue,
+        staffExpenseBreakdown,
         promotionalData,
         documents,
         insights,

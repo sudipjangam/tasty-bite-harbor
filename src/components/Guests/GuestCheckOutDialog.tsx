@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { LogOut, Receipt, CreditCard, Trash2, Plus } from "lucide-react";
 import { format } from "date-fns";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 interface GuestCheckOutDialogProps {
   open: boolean;
@@ -28,6 +29,7 @@ const GuestCheckOutDialog: React.FC<GuestCheckOutDialogProps> = ({
     amount: number;
     type: string;
   }>>([]);
+  const { symbol: currencySymbol } = useCurrencyContext();
   
   const [newCharge, setNewCharge] = useState({
     description: "",
@@ -160,7 +162,7 @@ const GuestCheckOutDialog: React.FC<GuestCheckOutDialogProps> = ({
                     <p className="text-sm text-muted-foreground">{charge.type}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">₹{charge.amount}</span>
+                    <span className="font-medium">{currencySymbol}{charge.amount}</span>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -188,14 +190,14 @@ const GuestCheckOutDialog: React.FC<GuestCheckOutDialogProps> = ({
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between">
-                <span>Room Charges ({billSummary.nightsStayed} nights × ₹{checkIn.room_rate})</span>
-                <span>₹{billSummary.roomCharges}</span>
+                <span>Room Charges ({billSummary.nightsStayed} nights × {currencySymbol}{checkIn.room_rate})</span>
+                <span>{currencySymbol}{billSummary.roomCharges}</span>
               </div>
               
               {additionalCharges.map((charge, index) => (
                 <div key={index} className="flex justify-between text-sm">
                   <span>{charge.description}</span>
-                  <span>₹{charge.amount}</span>
+                  <span>{currencySymbol}{charge.amount}</span>
                 </div>
               ))}
               
@@ -203,13 +205,13 @@ const GuestCheckOutDialog: React.FC<GuestCheckOutDialogProps> = ({
               
               <div className="flex justify-between font-medium">
                 <span>Subtotal</span>
-                <span>₹{billSummary.totalBill}</span>
+                <span>{currencySymbol}{billSummary.totalBill}</span>
               </div>
               
               {billSummary.securityDeposit > 0 && (
                 <div className="flex justify-between text-green-600">
                   <span>Security Deposit (Refundable)</span>
-                  <span>-₹{billSummary.securityDeposit}</span>
+                  <span>-{currencySymbol}{billSummary.securityDeposit}</span>
                 </div>
               )}
               
@@ -217,7 +219,7 @@ const GuestCheckOutDialog: React.FC<GuestCheckOutDialogProps> = ({
               
               <div className="flex justify-between text-lg font-bold">
                 <span>Final Amount</span>
-                <span>₹{billSummary.finalAmount}</span>
+                <span>{currencySymbol}{billSummary.finalAmount}</span>
               </div>
             </CardContent>
           </Card>

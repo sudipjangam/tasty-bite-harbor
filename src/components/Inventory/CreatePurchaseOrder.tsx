@@ -9,6 +9,7 @@ import { StandardizedButton } from "@/components/ui/standardized-button";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2 } from "lucide-react";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface CreatePurchaseOrderProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ const CreatePurchaseOrder = ({ isOpen, onClose }: CreatePurchaseOrderProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { restaurantId } = useRestaurantId();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers", restaurantId],
@@ -236,7 +238,7 @@ const CreatePurchaseOrder = ({ isOpen, onClose }: CreatePurchaseOrderProps) => {
                     />
                   </div>
                   <div>
-                    <Label>Unit Cost (₹)</Label>
+                    <Label>Unit Cost ({currencySymbol})</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -248,7 +250,7 @@ const CreatePurchaseOrder = ({ isOpen, onClose }: CreatePurchaseOrderProps) => {
                   <div>
                     <Label>Total</Label>
                     <Input
-                      value={`₹${(item.quantity * item.unit_cost).toFixed(2)}`}
+                      value={`${currencySymbol}${(item.quantity * item.unit_cost).toFixed(2)}`}
                       disabled
                     />
                   </div>
@@ -266,7 +268,7 @@ const CreatePurchaseOrder = ({ isOpen, onClose }: CreatePurchaseOrderProps) => {
 
             {orderItems.length > 0 && (
               <div className="mt-4 text-right">
-                <strong>Total Amount: ₹{calculateTotal().toFixed(2)}</strong>
+                <strong>Total Amount: {currencySymbol}{calculateTotal().toFixed(2)}</strong>
               </div>
             )}
           </div>

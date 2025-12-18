@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import PaymentDialog from "./POS/PaymentDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface OrderItem {
   name: string;
@@ -40,6 +41,7 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("today");
   const { toast } = useToast();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   useEffect(() => {
     const fetchActiveOrders = async () => {
@@ -371,7 +373,7 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
                     {order.items.map((item, index) => (
                       <li key={index} className="flex justify-between">
                         <span className="truncate flex-1">{item.quantity}x {item.name}</span>
-                        <span className="pl-1">₹{item.price ? (item.price * item.quantity).toFixed(2) : '0.00'}</span>
+                        <span className="pl-1">{currencySymbol}{item.price ? (item.price * item.quantity).toFixed(2) : '0.00'}</span>
                       </li>
                     ))}
                   </ul>
@@ -379,7 +381,7 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
 
                 <div className="mt-2 pt-2 border-t flex justify-between items-center">
                   <div className="font-semibold text-sm">
-                    Total: ₹{calculateFinalTotal(order.items, order.discount_amount).toFixed(2)}
+                    Total: {currencySymbol}{calculateFinalTotal(order.items, order.discount_amount).toFixed(2)}
                   </div>
                   <div className="flex gap-1">
                     <Button 

@@ -21,6 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface InventoryFormData {
   name: string;
@@ -59,6 +60,7 @@ export const EnhancedInventoryForm: React.FC<EnhancedInventoryFormProps> = ({
       costPerUnit: editingItem?.cost_per_unit || undefined,
     }
   });
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   const handleSubmit = (data: InventoryFormData) => {
     onSubmit(data);
@@ -209,7 +211,7 @@ export const EnhancedInventoryForm: React.FC<EnhancedInventoryFormProps> = ({
                 name="costPerUnit"
                 render={({ field }) => (
                   <EnhancedFormItem>
-                    <EnhancedFormLabel>Cost per Unit (₹)</EnhancedFormLabel>
+                    <EnhancedFormLabel>Cost per Unit ({currencySymbol})</EnhancedFormLabel>
                     <EnhancedFormControl>
                       <Input 
                         type="number" 

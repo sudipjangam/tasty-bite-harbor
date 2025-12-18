@@ -35,6 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface Expense {
   id: string;
@@ -60,6 +61,7 @@ const ExpensesList = () => {
   const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   const { data: expenses = [], isLoading, refetch } = useQuery({
     queryKey: ["expenses"],
@@ -176,7 +178,7 @@ const ExpensesList = () => {
       <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
         <div className="flex items-center gap-3">
           <Badge className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-lg px-4 py-2 rounded-xl shadow-lg shadow-purple-500/30">
-            ₹{totalAmount.toLocaleString()}
+            {currencySymbol}{totalAmount.toLocaleString()}
           </Badge>
           <span className="text-sm text-gray-600 dark:text-gray-400">{filteredExpenses.length} expenses</span>
         </div>
@@ -277,7 +279,7 @@ const ExpensesList = () => {
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <div className="text-xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                      ₹{expense.amount.toLocaleString()}
+                      {currencySymbol}{expense.amount.toLocaleString()}
                     </div>
                   </div>
                   <DropdownMenu>

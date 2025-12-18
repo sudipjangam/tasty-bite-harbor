@@ -22,6 +22,7 @@ import {
 import { format } from "date-fns";
 import { useGuestManagement } from "@/hooks/useGuestManagement";
 import { useReservations } from "@/hooks/useReservations";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import GuestCheckInDialog from "./GuestCheckInDialog";
 import GuestCheckOutDialog from "./GuestCheckOutDialog";
 
@@ -37,6 +38,7 @@ const GuestManagementDashboard = () => {
   } = useGuestManagement();
 
   const { roomReservations, isLoading: isLoadingReservations } = useReservations();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGuest, setSelectedGuest] = useState(null);
@@ -211,7 +213,7 @@ const GuestManagementDashboard = () => {
                           {checkIn.total_guests} guest{checkIn.total_guests > 1 ? 's' : ''}
                         </Badge>
                         <Badge variant="outline">
-                          ₹{checkIn.room_rate}/night
+                          {currencySymbol}{checkIn.room_rate}/night
                         </Badge>
                         <Button 
                           size="sm" 
@@ -269,7 +271,7 @@ const GuestManagementDashboard = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline">
-                          ₹{reservation.room.price}/night
+                          {currencySymbol}{reservation.room.price}/night
                         </Badge>
                         <Button 
                           size="sm"
@@ -347,7 +349,7 @@ const GuestManagementDashboard = () => {
                         
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Total Spent:</span>
-                          <span className="font-medium">₹{guest.total_spent}</span>
+                          <span className="font-medium">{currencySymbol}{guest.total_spent}</span>
                         </div>
                         
                         {guest.last_stay && (

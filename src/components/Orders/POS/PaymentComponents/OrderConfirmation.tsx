@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Receipt, Printer, Trash2, X, Check } from 'lucide-react';
 import type { OrderConfirmationProps } from './types';
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
   orderItems,
@@ -41,6 +42,7 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
   onCustomerEmailChange,
   onCheckReservation,
 }) => {
+  const { symbol: currencySymbol } = useCurrencyContext();
   return (
     <div className="space-y-6 p-2">
       <div className="text-center">
@@ -56,7 +58,7 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
           {orderItems.map((item, idx) => (
             <div key={idx} className="flex justify-between text-sm">
               <span>{item.quantity}x {item.name}</span>
-              <span className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</span>
+              <span className="font-medium">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
             </div>
           ))}
           
@@ -64,27 +66,27 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
           
           <div className="flex justify-between text-sm">
             <span>Subtotal</span>
-            <span>₹{subtotal.toFixed(2)}</span>
+            <span>{currencySymbol}{subtotal.toFixed(2)}</span>
           </div>
           
           {appliedPromotion && promotionDiscountAmount > 0 && (
             <div className="flex justify-between text-sm text-green-600">
               <span>Promo Discount ({appliedPromotion.name})</span>
-              <span>-₹{promotionDiscountAmount.toFixed(2)}</span>
+              <span>-{currencySymbol}{promotionDiscountAmount.toFixed(2)}</span>
             </div>
           )}
           
           {manualDiscountPercent > 0 && (
             <div className="flex justify-between text-sm text-green-600">
               <span>Discount ({manualDiscountPercent}%)</span>
-              <span>-₹{manualDiscountAmount.toFixed(2)}</span>
+              <span>-{currencySymbol}{manualDiscountAmount.toFixed(2)}</span>
             </div>
           )}
           
           {totalDiscountAmount > 0 && (
             <div className="flex justify-between text-sm font-semibold text-green-600">
               <span>Total Discount</span>
-              <span>-₹{totalDiscountAmount.toFixed(2)}</span>
+              <span>-{currencySymbol}{totalDiscountAmount.toFixed(2)}</span>
             </div>
           )}
           
@@ -92,7 +94,7 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
           
           <div className="flex justify-between text-lg font-bold">
             <span>Total Due</span>
-            <span>₹{total.toFixed(2)}</span>
+            <span>{currencySymbol}{total.toFixed(2)}</span>
           </div>
         </div>
       </Card>
@@ -130,7 +132,7 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
                               </div>
                             </div>
                             <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200 text-xs whitespace-nowrap">
-                              {promo.discount_percentage ? `${promo.discount_percentage}% off` : `₹${promo.discount_amount} off`}
+                              {promo.discount_percentage ? `${promo.discount_percentage}% off` : `${currencySymbol}${promo.discount_amount} off`}
                             </Badge>
                           </div>
                         </SelectItem>
@@ -176,7 +178,7 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-green-600 dark:text-green-400">
-                    Discount: ₹{promotionDiscountAmount.toFixed(2)}
+                    Discount: {currencySymbol}{promotionDiscountAmount.toFixed(2)}
                   </p>
                 </div>
                 <Button
@@ -225,7 +227,7 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
           </div>
           {manualDiscountPercent > 0 && (
             <div className="text-sm text-green-600 dark:text-green-400 font-medium">
-              ✓ {manualDiscountPercent}% discount applied - Save ₹{manualDiscountAmount.toFixed(2)}
+              ✓ {manualDiscountPercent}% discount applied - Save {currencySymbol}{manualDiscountAmount.toFixed(2)}
             </div>
           )}
         </div>

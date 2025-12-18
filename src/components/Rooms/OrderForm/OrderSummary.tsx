@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Plus, Minus, Trash2, Package } from 'lucide-react';
 import { OrderItem } from "@/integrations/supabase/client";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface OrderSummaryProps {
   orderItems: OrderItem[];
@@ -16,6 +17,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   onUpdateQuantity, 
   onRemoveItem 
 }) => {
+  const { symbol: currencySymbol } = useCurrencyContext();
   if (orderItems.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -36,7 +38,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
             <div className="flex justify-between items-start">
               <div className="flex-1">
                 <h4 className="font-medium text-sm line-clamp-1">{item.name}</h4>
-                <p className="text-xs text-muted-foreground">₹{item.price.toFixed(2)} each</p>
+                <p className="text-xs text-muted-foreground">{currencySymbol}{item.price.toFixed(2)} each</p>
               </div>
               <Button 
                 size="icon" 
@@ -70,7 +72,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
               </div>
               
               <div className="text-right">
-                <p className="font-bold text-primary">₹{(item.price * item.quantity).toFixed(2)}</p>
+                <p className="font-bold text-primary">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</p>
               </div>
             </div>
           </div>

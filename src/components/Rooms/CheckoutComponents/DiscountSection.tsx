@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface DiscountSectionProps {
   subtotal: number;
@@ -28,6 +29,7 @@ const DiscountSection: React.FC<DiscountSectionProps> = ({
   const [discountType, setDiscountType] = React.useState<'percentage' | 'fixed' | 'none'>(
     discountPercent > 0 ? 'percentage' : discountAmount > 0 ? 'fixed' : 'none'
   );
+  const { symbol: currencySymbol } = useCurrencyContext();
   
   const calculateDiscountAmount = () => {
     if (discountType === 'none') return 0;
@@ -65,7 +67,7 @@ const DiscountSection: React.FC<DiscountSectionProps> = ({
             <SelectContent>
               <SelectItem value="none">No Discount</SelectItem>
               <SelectItem value="percentage">Percentage (%)</SelectItem>
-              <SelectItem value="fixed">Fixed Amount (₹)</SelectItem>
+              <SelectItem value="fixed">Fixed Amount ({currencySymbol})</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -87,7 +89,7 @@ const DiscountSection: React.FC<DiscountSectionProps> = ({
         
         {discountType === 'fixed' && (
           <div className="space-y-2">
-            <Label htmlFor="discountAmount">Amount (₹)</Label>
+            <Label htmlFor="discountAmount">Amount ({currencySymbol})</Label>
             <Input
               id="discountAmount"
               type="number"
@@ -102,7 +104,7 @@ const DiscountSection: React.FC<DiscountSectionProps> = ({
       
       {discountType !== 'none' && calculatedDiscount > 0 && (
         <div className="text-green-700 font-medium mt-2">
-          Discount Applied: ₹{calculatedDiscount.toFixed(2)}
+          Discount Applied: {currencySymbol}{calculatedDiscount.toFixed(2)}
         </div>
       )}
     </div>

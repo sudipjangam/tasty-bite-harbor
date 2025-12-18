@@ -15,6 +15,7 @@ import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
 import { usePagination } from "@/hooks/usePagination";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface PurchaseOrder {
   id: string;
@@ -108,6 +109,7 @@ const PurchaseOrders = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { restaurantId } = useRestaurantId();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   const { data: purchaseOrders = [], isLoading } = useQuery({
     queryKey: ["purchase-orders", restaurantId],
@@ -459,7 +461,7 @@ const PurchaseOrders = () => {
                       {order.expected_delivery_date && (
                         <p><strong>Expected Delivery:</strong> {new Date(order.expected_delivery_date).toLocaleDateString()}</p>
                       )}
-                      <p><strong>Total Amount:</strong> ₹{order.total_amount?.toFixed(2) || "0.00"}</p>
+                      <p><strong>Total Amount:</strong> {currencySymbol}{order.total_amount?.toFixed(2) || "0.00"}</p>
                       <p><strong>Items:</strong> {order.purchase_order_items?.length || 0}</p>
                     </div>
                   </div>
@@ -622,7 +624,7 @@ const PurchaseOrders = () => {
                           />
                         </div>
                         <div className="col-span-4 md:col-span-2">
-                          <Label className="text-xs">Unit Cost (₹)</Label>
+                          <Label className="text-xs">Unit Cost ({currencySymbol})</Label>
                           <Input
                             type="number"
                             min="0"
@@ -636,7 +638,7 @@ const PurchaseOrders = () => {
                           <div className="flex-1 text-right">
                             <Label className="text-xs">Total</Label>
                             <p className="font-semibold text-gray-900 dark:text-white">
-                              ₹{(item.quantity * item.unit_cost).toFixed(2)}
+                              {currencySymbol}{(item.quantity * item.unit_cost).toFixed(2)}
                             </p>
                           </div>
                           <Button
@@ -657,7 +659,7 @@ const PurchaseOrders = () => {
                   <div className="flex justify-end pt-2 border-t">
                     <div className="text-right">
                       <p className="text-sm text-gray-600 dark:text-gray-400">Order Total</p>
-                      <p className="text-2xl font-bold text-purple-600">₹{totalOrderAmount.toFixed(2)}</p>
+                      <p className="text-2xl font-bold text-purple-600">{currencySymbol}{totalOrderAmount.toFixed(2)}</p>
                     </div>
                   </div>
                 </div>
@@ -790,7 +792,7 @@ const PurchaseOrders = () => {
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Supplier Information</h4>
                   <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
                     <p><strong>Supplier:</strong> {selectedOrder.supplier?.name || "Unknown"}</p>
-                    <p><strong>Total Amount:</strong> ₹{selectedOrder.total_amount?.toFixed(2) || "0.00"}</p>
+                    <p><strong>Total Amount:</strong> {currencySymbol}{selectedOrder.total_amount?.toFixed(2) || "0.00"}</p>
                     <p><strong>Total Items:</strong> {selectedOrder.purchase_order_items?.length || 0}</p>
                   </div>
                 </div>
@@ -812,11 +814,11 @@ const PurchaseOrders = () => {
                             </div>
                             <div>
                               <span className="font-medium">Unit Cost:</span>
-                              <p>₹{item.unit_cost?.toFixed(2) || "0.00"}</p>
+                              <p>{currencySymbol}{item.unit_cost?.toFixed(2) || "0.00"}</p>
                             </div>
                             <div>
                               <span className="font-medium">Total Cost:</span>
-                              <p>₹{((item.quantity || 0) * (item.unit_cost || 0)).toFixed(2)}</p>
+                              <p>{currencySymbol}{((item.quantity || 0) * (item.unit_cost || 0)).toFixed(2)}</p>
                             </div>
                             <div>
                               <span className="font-medium">Received:</span>

@@ -31,6 +31,7 @@ import PrintBillButton from './PrintBillButton';
 import QRPaymentDialog from './QRPaymentDialog';
 import ServiceChargeSection from './ServiceChargeSection';
 import PromoCodeSection from './PromoCodeSection';
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface RoomCheckoutPageProps {
   roomId: string;
@@ -98,6 +99,7 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
   const [promotionDiscountAmount, setPromotionDiscountAmount] = useState(0);
   const [activePromotions, setActivePromotions] = useState<any[]>([]);
   const { toast } = useToast();
+  const { symbol: currencySymbol } = useCurrencyContext();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -607,34 +609,34 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
               <div className="space-y-3">
                 <div className="flex justify-between items-center p-3 bg-white/70 dark:bg-gray-800/70 rounded-xl transition-colors duration-300">
                   <span className="text-gray-700 dark:text-gray-300">Room Charges:</span>
-                  <span className="font-semibold text-gray-800 dark:text-gray-100">₹{roomTotal.toFixed(2)}</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-100">{currencySymbol}{roomTotal.toFixed(2)}</span>
                 </div>
                 
                 {foodOrdersTotal > 0 && (
                   <div className="flex justify-between items-center p-3 bg-white/70 dark:bg-gray-800/70 rounded-xl transition-colors duration-300">
                     <span className="text-gray-700 dark:text-gray-300">Food Orders:</span>
-                    <span className="font-semibold text-gray-800 dark:text-gray-100">₹{foodOrdersTotal.toFixed(2)}</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-100">{currencySymbol}{foodOrdersTotal.toFixed(2)}</span>
                   </div>
                 )}
                 
                 {additionalChargesTotal > 0 && (
                   <div className="flex justify-between items-center p-3 bg-white/70 dark:bg-gray-800/70 rounded-xl transition-colors duration-300">
                     <span className="text-gray-700 dark:text-gray-300">Additional Charges:</span>
-                    <span className="font-semibold text-gray-800 dark:text-gray-100">₹{additionalChargesTotal.toFixed(2)}</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-100">{currencySymbol}{additionalChargesTotal.toFixed(2)}</span>
                   </div>
                 )}
                 
                 {serviceChargeEnabled && (
                   <div className="flex justify-between items-center p-3 bg-white/70 dark:bg-gray-800/70 rounded-xl transition-colors duration-300">
                     <span className="text-gray-700 dark:text-gray-300">Service Charge ({serviceChargePercent}%):</span>
-                    <span className="font-semibold text-gray-800 dark:text-gray-100">₹{serviceCharge.toFixed(2)}</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-100">{currencySymbol}{serviceCharge.toFixed(2)}</span>
                   </div>
                 )}
                 
                 {totalDiscount > 0 && (
                   <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-700 transition-colors duration-300">
                     <span className="text-green-700 dark:text-green-300">Discount:</span>
-                    <span className="font-semibold text-green-700 dark:text-green-300">-₹{totalDiscount.toFixed(2)}</span>
+                    <span className="font-semibold text-green-700 dark:text-green-300">-{currencySymbol}{totalDiscount.toFixed(2)}</span>
                   </div>
                 )}
               </div>
@@ -643,7 +645,7 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
               
               <div className="flex justify-between items-center p-4 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl text-white">
                 <span className="text-lg font-bold">Total Amount:</span>
-                <span className="text-2xl font-bold">₹{grandTotal.toFixed(2)}</span>
+                <span className="text-2xl font-bold">{currencySymbol}{grandTotal.toFixed(2)}</span>
               </div>
               
               <div className="grid grid-cols-1 gap-3 mt-6">

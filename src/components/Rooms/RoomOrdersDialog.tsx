@@ -32,6 +32,7 @@ import {
   Package,
   ArrowLeft
 } from 'lucide-react';
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface RoomOrdersDialogProps {
   roomId: string;
@@ -60,6 +61,7 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'history' | 'newOrder'>('history');
   const { toast } = useToast();
+  const { symbol: currencySymbol } = useCurrencyContext();
   const queryClient = useQueryClient();
 
   // Fetch existing orders for this reservation
@@ -404,7 +406,7 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
                 </div>
                 <div className="mt-2 text-right">
                   <p className="text-xs text-gray-500 dark:text-gray-400">Pending Total</p>
-                  <p className="text-xl font-bold text-gray-800 dark:text-white">₹{pendingTotal.toFixed(2)}</p>
+                  <p className="text-xl font-bold text-gray-800 dark:text-white">{currencySymbol}{pendingTotal.toFixed(2)}</p>
                 </div>
               </div>
 
@@ -437,7 +439,7 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
                           {Array.isArray(order.items) ? order.items.join(', ') : String(order.items)}
                         </p>
                         <div className="flex items-center justify-between">
-                          <span className="text-2xl font-bold text-gray-800 dark:text-white">₹{(order.total || 0).toFixed(2)}</span>
+                          <span className="text-2xl font-bold text-gray-800 dark:text-white">{currencySymbol}{(order.total || 0).toFixed(2)}</span>
                           {order.status !== 'completed' && order.status !== 'cancelled' && (
                             <button 
                               onClick={() => handleCancelOrder(order.id)}
@@ -504,7 +506,7 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
                       >
                         <div className="flex justify-between items-start mb-2">
                           <h3 className="font-semibold text-gray-800 dark:text-white truncate flex-1">{item.name}</h3>
-                          <span className="font-bold text-purple-600 dark:text-purple-400 ml-2">₹{item.price.toFixed(2)}</span>
+                          <span className="font-bold text-purple-600 dark:text-purple-400 ml-2">{currencySymbol}{item.price.toFixed(2)}</span>
                         </div>
                         {item.description && (
                           <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 line-clamp-1">{item.description}</p>
@@ -589,7 +591,7 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
                             </Button>
                           </div>
                           <span className="font-bold text-purple-600 dark:text-purple-400">
-                            ₹{(item.price * item.quantity).toFixed(2)}
+                            {currencySymbol}{(item.price * item.quantity).toFixed(2)}
                           </span>
                         </div>
                       </Card>
@@ -603,7 +605,7 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-lg font-semibold text-gray-800 dark:text-white">Total:</span>
                   <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                    ₹{calculateTotal.toFixed(2)}
+                    {currencySymbol}{calculateTotal.toFixed(2)}
                   </span>
                 </div>
                 <Button 
