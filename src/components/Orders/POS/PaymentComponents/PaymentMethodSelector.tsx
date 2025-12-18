@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Receipt, CreditCard, Wallet, QrCode, Check } from 'lucide-react';
 import type { PaymentMethodSelectorProps } from './types';
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
   total,
@@ -11,6 +12,7 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
   onMethodSelect,
   onBack,
 }) => {
+  const { symbol: currencySymbol } = useCurrencyContext();
   return (
     <div className="space-y-6 p-2">
       <Button
@@ -26,7 +28,7 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
       <div className="text-center">
         <h2 className="text-2xl font-bold text-foreground mb-2">Select Payment Method</h2>
         <p className="text-lg text-blue-600 dark:text-blue-400 font-semibold">
-          Total Amount: ₹{total.toFixed(2)}
+          Total Amount: {currencySymbol}{total.toFixed(2)}
         </p>
       </div>
 

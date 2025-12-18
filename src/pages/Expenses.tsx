@@ -13,11 +13,13 @@ import {
   Sparkles 
 } from "lucide-react";
 import { useExpenseData } from "@/hooks/useExpenseData";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 const Expenses = () => {
   const { user, loading } = useAuthState();
   const { data: expenseData } = useExpenseData();
   const [activeTab, setActiveTab] = useState("overview");
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   if (loading) {
     return <AuthLoader />;
@@ -58,7 +60,7 @@ const Expenses = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-purple-100 text-sm font-medium">Last 30 Days</p>
-                <p className="text-3xl font-bold mt-1">₹{totalExpenses.toLocaleString()}</p>
+                <p className="text-3xl font-bold mt-1">{currencySymbol}{totalExpenses.toLocaleString()}</p>
               </div>
               <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
                 <DollarSign className="h-6 w-6" />
@@ -70,7 +72,7 @@ const Expenses = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-cyan-100 text-sm font-medium">This Month</p>
-                <p className="text-3xl font-bold mt-1">₹{monthlyExpenses.toLocaleString()}</p>
+                <p className="text-3xl font-bold mt-1">{currencySymbol}{monthlyExpenses.toLocaleString()}</p>
               </div>
               <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
                 <BarChart3 className="h-6 w-6" />

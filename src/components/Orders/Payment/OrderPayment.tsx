@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import PaymentMethodSelector from "@/components/Shared/PaymentMethodSelector";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface OrderPaymentProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export const OrderPayment: React.FC<OrderPaymentProps> = ({
 }) => {
   const [selectedMethod, setSelectedMethod] = useState<string>('');
   const { toast } = useToast();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   const handlePayment = async () => {
     if (!selectedMethod) {
@@ -65,7 +67,7 @@ export const OrderPayment: React.FC<OrderPaymentProps> = ({
           <div className="bg-muted/50 p-4 rounded-lg">
             <div className="flex justify-between mb-2">
               <span>Order Total:</span>
-              <span className="font-semibold">₹{orderAmount.toFixed(2)}</span>
+              <span className="font-semibold">{currencySymbol}{orderAmount.toFixed(2)}</span>
             </div>
             <div className="text-xs text-muted-foreground">
               Order ID: {orderId}

@@ -2,6 +2,7 @@
 import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from 'date-fns';
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface FoodOrdersListProps {
   foodOrders: {
@@ -14,6 +15,7 @@ interface FoodOrdersListProps {
 }
 
 const FoodOrdersList: React.FC<FoodOrdersListProps> = ({ foodOrders }) => {
+  const { symbol: currencySymbol } = useCurrencyContext();
   return (
     <div>
       <h3 className="text-lg font-medium mb-2">Food Orders</h3>
@@ -22,7 +24,7 @@ const FoodOrdersList: React.FC<FoodOrdersListProps> = ({ foodOrders }) => {
           <TableRow>
             <TableHead>Date</TableHead>
             <TableHead>Items</TableHead>
-            <TableHead className="text-right">Amount (₹)</TableHead>
+            <TableHead className="text-right">Amount ({currencySymbol})</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -35,7 +37,7 @@ const FoodOrdersList: React.FC<FoodOrdersListProps> = ({ foodOrders }) => {
                     <ul className="list-disc list-inside">
                       {order.items.map((item: any, index: number) => (
                         <li key={index}>
-                          {item.name} x {item.quantity} (₹{item.price.toFixed(2)})
+                          {item.name} x {item.quantity} ({currencySymbol}{item.price.toFixed(2)})
                         </li>
                       ))}
                     </ul>
@@ -45,7 +47,7 @@ const FoodOrdersList: React.FC<FoodOrdersListProps> = ({ foodOrders }) => {
                 </div>
               </TableCell>
               <TableCell className="text-right font-medium">
-                ₹{order.total.toFixed(2)}
+                {currencySymbol}{order.total.toFixed(2)}
               </TableCell>
             </TableRow>
           ))}
@@ -54,7 +56,7 @@ const FoodOrdersList: React.FC<FoodOrdersListProps> = ({ foodOrders }) => {
               Total:
             </TableCell>
             <TableCell className="text-right font-bold">
-              ₹{foodOrders.reduce((sum, order) => sum + order.total, 0).toFixed(2)}
+              {currencySymbol}{foodOrders.reduce((sum, order) => sum + order.total, 0).toFixed(2)}
             </TableCell>
           </TableRow>
         </TableBody>

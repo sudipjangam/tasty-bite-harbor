@@ -28,6 +28,7 @@ import { useQuery } from "@tanstack/react-query";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import type { Order } from "@/types/orders";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface ImprovedAddOrderFormProps {
   onSuccess: () => void;
@@ -54,6 +55,7 @@ interface OrderFormValues {
 const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAddOrderFormProps) => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   // Fetch menu items for dropdown
   const { data: menuItems } = useQuery({
@@ -485,7 +487,7 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
                                             <div className="flex justify-between items-center w-full">
                                               <span className="font-medium">{item.name}</span>
                                               <Badge variant="secondary" className="ml-2 font-bold">
-                                                ₹{item.price}
+                                                {currencySymbol}{item.price}
                                               </Badge>
                                             </div>
                                           </SelectItem>
@@ -537,7 +539,7 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
                         <div className="col-span-1">
                           <div className="text-xs font-bold mb-1">Total</div>
                           <div className="h-10 px-3 py-2 bg-primary/10 border-2 border-primary/20 rounded-md text-sm font-bold text-primary flex items-center justify-center">
-                            ₹{((form.watch(`orderItems.${index}.quantity`) || 0) * 
+                            {currencySymbol}{((form.watch(`orderItems.${index}.quantity`) || 0) * 
                                (form.watch(`orderItems.${index}.unitPrice`) || 0)).toFixed(2)}
                           </div>
                         </div>
@@ -584,7 +586,7 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-bold text-foreground">Order Total:</span>
                         <span className="text-3xl font-extrabold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                          ₹{orderTotal.toFixed(2)}
+                          {currencySymbol}{orderTotal.toFixed(2)}
                         </span>
                       </div>
                     </CardContent>

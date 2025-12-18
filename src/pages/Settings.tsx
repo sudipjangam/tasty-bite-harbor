@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import PaymentSettingsTab from "@/components/Settings/PaymentSettingsTab";
 import { SystemConfigurationTab } from "@/components/Settings/SystemConfigurationTab";
 import { AuditLogTab } from "@/components/Settings/AuditLogTab";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 const Settings = () => {
   const { toast } = useToast();
@@ -21,6 +22,7 @@ const Settings = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   // Fetch user and profile data
   const { data: profile, isLoading: profileLoading } = useQuery({
@@ -486,7 +488,7 @@ const Settings = () => {
                         <div className="text-right">
                           <p className="text-white/80 text-lg font-medium mb-2">Monthly Price</p>
                           <p className="text-4xl font-bold">
-                            ₹{subscription.subscription_plans?.price || 'N/A'}
+                            {currencySymbol}{subscription.subscription_plans?.price || 'N/A'}
                           </p>
                         </div>
                       </div>

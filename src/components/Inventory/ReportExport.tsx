@@ -8,6 +8,7 @@ import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import { useToast } from "@/components/ui/use-toast";
 import Watermark from "@/components/Layout/Watermark";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 type InventoryItem = {
   id: string;
@@ -27,6 +28,7 @@ interface ReportExportProps {
 
 const ReportExport: React.FC<ReportExportProps> = ({ items, title = "Inventory Report" }) => {
   const { toast } = useToast();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   const exportToExcel = () => {
     try {
@@ -37,8 +39,8 @@ const ReportExport: React.FC<ReportExportProps> = ({ items, title = "Inventory R
           "Quantity": item.quantity,
           "Unit": item.unit,
           "Reorder Level": item.reorder_level || "N/A",
-          "Cost Per Unit": item.cost_per_unit ? `₹${item.cost_per_unit}` : "N/A",
-          "Total Value": item.cost_per_unit ? `₹${(item.quantity * item.cost_per_unit).toFixed(2)}` : "N/A",
+          "Cost Per Unit": item.cost_per_unit ? `${currencySymbol}${item.cost_per_unit}` : "N/A",
+          "Total Value": item.cost_per_unit ? `${currencySymbol}${(item.quantity * item.cost_per_unit).toFixed(2)}` : "N/A",
           "Status": item.reorder_level && item.quantity <= item.reorder_level ? "Low Stock" : "In Stock"
         }))
       );
@@ -113,7 +115,7 @@ const ReportExport: React.FC<ReportExportProps> = ({ items, title = "Inventory R
         item.reorder_level && item.quantity <= item.reorder_level).length;
       
       doc.text(`Total Items: ${totalItems}`, 18, 60);
-      doc.text(`Total Value: ₹${totalValue.toFixed(2)}`, 70, 60);
+      doc.text(`Total Value: ${currencySymbol}${totalValue.toFixed(2)}`, 70, 60);
       doc.text(`Low Stock Items: ${lowStockItems}`, 140, 60);
       
       // Add categories breakdown
@@ -143,8 +145,8 @@ const ReportExport: React.FC<ReportExportProps> = ({ items, title = "Inventory R
         item.quantity.toString(),
         item.unit,
         item.reorder_level ? item.reorder_level.toString() : "N/A",
-        item.cost_per_unit ? `₹${item.cost_per_unit}` : "N/A",
-        item.cost_per_unit ? `₹${(item.quantity * item.cost_per_unit).toFixed(2)}` : "N/A",
+        item.cost_per_unit ? `${currencySymbol}${item.cost_per_unit}` : "N/A",
+        item.cost_per_unit ? `${currencySymbol}${(item.quantity * item.cost_per_unit).toFixed(2)}` : "N/A",
         item.reorder_level && item.quantity <= item.reorder_level ? "Low Stock" : "In Stock"
       ]);
       

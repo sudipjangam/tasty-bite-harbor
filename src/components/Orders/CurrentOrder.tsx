@@ -3,6 +3,7 @@ import { Plus, Minus, Trash2, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { OrderItem } from "@/types/orders";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface CurrentOrderProps {
   items: OrderItem[];
@@ -25,6 +26,7 @@ const CurrentOrder = ({
   onProceedToPayment,
   onClearOrder,
 }: CurrentOrderProps) => {
+  const { symbol: currencySymbol } = useCurrencyContext();
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   //const tax = subtotal * 0.10; // 10% tax
   // const total = subtotal + tax; 
@@ -91,7 +93,7 @@ const CurrentOrder = ({
                 </div>
                 
                 <div className="w-20 text-right font-bold text-indigo-600 dark:text-indigo-400">
-                  ₹{(item.price * item.quantity).toFixed(2)}
+                  {currencySymbol}{(item.price * item.quantity).toFixed(2)}
                 </div>
 
                 <Button
@@ -114,7 +116,7 @@ const CurrentOrder = ({
         <div className="space-y-3">
           <div className="flex justify-between text-gray-600 dark:text-gray-400">
             <span>Subtotal:</span>
-            <span className="font-semibold">₹{subtotal.toFixed(2)}</span>
+            <span className="font-semibold">{currencySymbol}{subtotal.toFixed(2)}</span>
           </div>
           {/* <div className="flex justify-between text-gray-600">
             <span>Tax (10%):</span>
@@ -122,7 +124,7 @@ const CurrentOrder = ({
           </div> */}
           <div className="flex justify-between text-xl font-bold border-t border-gray-200 dark:border-gray-600 pt-3">
             <span className="text-gray-800 dark:text-white">Total:</span>
-            <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">₹{total.toFixed(2)}</span>
+            <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{currencySymbol}{total.toFixed(2)}</span>
           </div>
         </div>
 

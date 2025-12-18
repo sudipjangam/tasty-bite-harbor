@@ -15,9 +15,11 @@ import {
   LineChart,
   Line
 } from "recharts";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 const ExpenseAnalytics = () => {
   const { data: expenseData, isLoading } = useExpenseData();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   if (isLoading) {
     return (
@@ -76,13 +78,13 @@ const ExpenseAnalytics = () => {
                   className="text-xs"
                 />
                 <YAxis 
-                  tickFormatter={(value) => `₹${value >= 1000 ? `${(value/1000).toFixed(0)}k` : value}`}
+                  tickFormatter={(value) => `${currencySymbol}${value >= 1000 ? `${(value/1000).toFixed(0)}k` : value}`}
                   tick={{ fill: '#6b7280' }}
                   className="text-xs"
                 />
                 <Tooltip 
                   formatter={(value: number, name: string) => [
-                    `₹${value.toLocaleString()}`, 
+                    `${currencySymbol}${value.toLocaleString()}`, 
                     name === 'amount' ? 'Actual' : 'Budget'
                   ]}
                   contentStyle={{
@@ -134,7 +136,7 @@ const ExpenseAnalytics = () => {
                   <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
                   <XAxis 
                     type="number" 
-                    tickFormatter={(value) => `₹${value >= 1000 ? `${(value/1000).toFixed(0)}k` : value}`}
+                    tickFormatter={(value) => `${currencySymbol}${value >= 1000 ? `${(value/1000).toFixed(0)}k` : value}`}
                     tick={{ fill: '#6b7280' }}
                   />
                   <YAxis 
@@ -144,7 +146,7 @@ const ExpenseAnalytics = () => {
                     width={60}
                   />
                   <Tooltip 
-                    formatter={(value: number) => [`₹${value.toLocaleString()}`, ""]}
+                    formatter={(value: number) => [`${currencySymbol}${value.toLocaleString()}`, ""]}
                     contentStyle={{
                       backgroundColor: 'rgba(255, 255, 255, 0.95)',
                       borderRadius: '12px',
@@ -185,7 +187,7 @@ const ExpenseAnalytics = () => {
                     )?.date ? format(new Date(expenseData.expenseTrendData.reduce(
                       (max, curr) => curr.amount > max.amount ? curr : max,
                       { date: new Date().toISOString(), amount: 0 }
-                    ).date), "MMM dd") : "No data"} - ₹{expenseData?.expenseTrendData?.reduce(
+                    ).date), "MMM dd") : "No data"} - {currencySymbol}{expenseData?.expenseTrendData?.reduce(
                       (max, curr) => curr.amount > max.amount ? curr : max,
                       { amount: 0 }
                     )?.amount.toLocaleString() || 0}
@@ -216,7 +218,7 @@ const ExpenseAnalytics = () => {
                 <div>
                   <p className="font-semibold text-gray-800 dark:text-white">Staff Expenses</p>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    ₹{expenseData?.staffExpenses?.toLocaleString() || 0} this period
+                    {currencySymbol}{expenseData?.staffExpenses?.toLocaleString() || 0} this period
                   </p>
                 </div>
               </div>

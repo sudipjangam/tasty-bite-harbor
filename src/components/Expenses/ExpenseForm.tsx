@@ -12,6 +12,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface EditExpense {
   id: string;
@@ -35,6 +36,7 @@ interface ExpenseFormProps {
 
 const ExpenseForm: React.FC<ExpenseFormProps> = ({ isOpen, onClose, onSuccess, editExpense }) => {
   const { toast } = useToast();
+  const { symbol: currencySymbol } = useCurrencyContext();
   const [loading, setLoading] = useState(false);
   const [expenseDate, setExpenseDate] = useState<Date | undefined>(new Date());
   const [formData, setFormData] = useState({
@@ -215,7 +217,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ isOpen, onClose, onSuccess, e
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount (₹) *</Label>
+              <Label htmlFor="amount">Amount ({currencySymbol}) *</Label>
               <Input
                 id="amount"
                 type="number"

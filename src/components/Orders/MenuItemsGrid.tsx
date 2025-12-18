@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface MenuItem {
   id: string;
@@ -25,6 +26,7 @@ interface MenuItemsGridProps {
 
 const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) => {
   const [searchQuery, setSearchQuery] = useState("");
+  const { symbol: currencySymbol } = useCurrencyContext();
   
   const { data: items, isLoading } = useQuery({
     queryKey: ['menu-items', selectedCategory],
@@ -137,7 +139,7 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-2 line-clamp-2">{item.description}</p>
               )}
               <div className="flex justify-between items-center">
-                <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">₹{item.price.toFixed(2)}</p>
+                <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{currencySymbol}{item.price.toFixed(2)}</p>
                 {item.is_veg !== undefined && (
                   <span className={`px-2 py-1 text-xs rounded-full ${item.is_veg ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300'}`}>
                     {item.is_veg ? 'Veg' : 'Non-Veg'}

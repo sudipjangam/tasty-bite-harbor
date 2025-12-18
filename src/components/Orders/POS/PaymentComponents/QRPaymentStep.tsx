@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from 'lucide-react';
 import type { QRPaymentStepProps } from './types';
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 const QRPaymentStep: React.FC<QRPaymentStepProps> = ({
   total,
@@ -10,6 +11,7 @@ const QRPaymentStep: React.FC<QRPaymentStepProps> = ({
   onMarkAsPaid,
   onBack,
 }) => {
+  const { symbol: currencySymbol } = useCurrencyContext();
   return (
     <div className="space-y-6 p-2">
       <Button
@@ -46,7 +48,7 @@ const QRPaymentStep: React.FC<QRPaymentStepProps> = ({
 
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">Amount to be Paid:</p>
-          <p className="text-4xl font-bold text-blue-600">₹{total.toFixed(2)}</p>
+          <p className="text-4xl font-bold text-blue-600">{currencySymbol}{total.toFixed(2)}</p>
         </div>
       </div>
 

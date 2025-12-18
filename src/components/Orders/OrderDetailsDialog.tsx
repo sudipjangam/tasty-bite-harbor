@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Form, FormField, FormItem, FormLabel, FormControl } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import PaymentMethodSelector from "../Shared/PaymentMethodSelector";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface OrderItem {
   name: string;
@@ -42,6 +43,7 @@ interface OrderDetailsDialogProps {
 
 const OrderDetailsDialog = ({ isOpen, onClose, order, onPrintBill, onEditOrder }: OrderDetailsDialogProps) => {
   const { toast } = useToast();
+  const { symbol: currencySymbol } = useCurrencyContext();
   const [showEditForm, setShowEditForm] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [promotionCode, setPromotionCode] = useState("");
@@ -262,7 +264,7 @@ const OrderDetailsDialog = ({ isOpen, onClose, order, onPrintBill, onEditOrder }
             customer_id_param: existingCustomers.id,
             restaurant_id_param: profile.restaurant_id,
             activity_type_param: "order_placed",
-            description_param: `Placed order #${order.id} for ₹${orderTotal.toFixed(2)}`
+            description_param: `Placed order #${order.id} for ${currencySymbol}${orderTotal.toFixed(2)}`
           });
         } else if (customerPhone) {
           // Only create a new customer record if phone is provided
@@ -289,7 +291,7 @@ const OrderDetailsDialog = ({ isOpen, onClose, order, onPrintBill, onEditOrder }
               customer_id_param: newCustomer.id,
               restaurant_id_param: profile.restaurant_id,
               activity_type_param: "order_placed",
-              description_param: `Placed first order #${order.id} for ₹${orderTotal.toFixed(2)}`
+              description_param: `Placed first order #${order.id} for ${currencySymbol}${orderTotal.toFixed(2)}`
             });
           }
         }
@@ -388,14 +390,14 @@ const OrderDetailsDialog = ({ isOpen, onClose, order, onPrintBill, onEditOrder }
                 {order.items.map((item, index) => (
                   <div key={index} className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-300">{item.quantity}x {item.name}</span>
-                    <span className="font-medium">₹{item.price ? (item.price * item.quantity).toFixed(2) : '0.00'}</span>
+                    <span className="font-medium">{currencySymbol}{item.price ? (item.price * item.quantity).toFixed(2) : '0.00'}</span>
                   </div>
                 ))}
                 
                 <div className="border-t pt-3 mt-3 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Subtotal</span>
-                    <span>₹{subtotal.toFixed(2)}</span>
+                    <span>{currencySymbol}{subtotal.toFixed(2)}</span>
                   </div>
                   
                   {effectiveDiscountPercent > 0 && selectedPromotion && (
@@ -426,7 +428,7 @@ const OrderDetailsDialog = ({ isOpen, onClose, order, onPrintBill, onEditOrder }
                   
                   <div className="flex justify-between font-bold text-lg border-t pt-2">
                     <span>Total Due</span>
-                    <span className="text-purple-600">₹{grandTotal.toFixed(2)}</span>
+                    <span className="text-purple-600">{currencySymbol}{grandTotal.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -577,7 +579,7 @@ const OrderDetailsDialog = ({ isOpen, onClose, order, onPrintBill, onEditOrder }
                   {order.items.map((item, index) => (
                     <li key={index} className="flex justify-between text-sm bg-gray-50 dark:bg-gray-700 p-2 rounded">
                       <span className="flex-1">{item.quantity}x {item.name}</span>
-                      <span className="font-medium text-purple-600">₹{item.price ? (item.quantity * item.price).toFixed(2) : '0.00'}</span>
+                      <span className="font-medium text-purple-600">{currencySymbol}{item.price ? (item.quantity * item.price).toFixed(2) : '0.00'}</span>
                     </li>
                   ))}
                 </ul>
@@ -585,7 +587,7 @@ const OrderDetailsDialog = ({ isOpen, onClose, order, onPrintBill, onEditOrder }
               <div className="mt-4 pt-3 border-t">
                 <div className="flex justify-between font-bold text-lg">
                   <span>Total</span>
-                  <span className="text-purple-600">₹{subtotal.toFixed(2)}</span>
+                  <span className="text-purple-600">{currencySymbol}{subtotal.toFixed(2)}</span>
                 </div>
               </div>
             </Card>

@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Coffee, Plus, Package, DollarSign } from "lucide-react";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 interface RoomAmenity {
   id: string;
@@ -38,6 +39,7 @@ const RoomAmenities = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { restaurantId } = useRestaurantId();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   const { data: amenities = [], isLoading } = useQuery({
     queryKey: ["room-amenities", restaurantId],
@@ -177,7 +179,7 @@ const RoomAmenities = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="cost_per_unit">Cost per Unit (₹)</Label>
+                <Label htmlFor="cost_per_unit">Cost per Unit ({currencySymbol})</Label>
                 <Input
                   id="cost_per_unit"
                   name="cost_per_unit"
@@ -236,7 +238,7 @@ const RoomAmenities = () => {
                       ) : (
                         <div className="flex items-center gap-1">
                           <DollarSign className="h-3 w-3" />
-                          <span>₹{amenity.cost_per_unit}</span>
+                          <span>{currencySymbol}{amenity.cost_per_unit}</span>
                         </div>
                       )}
                     </div>

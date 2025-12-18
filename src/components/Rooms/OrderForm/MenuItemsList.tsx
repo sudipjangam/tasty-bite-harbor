@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Loader2, Leaf } from 'lucide-react';
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 export interface MenuItem {
   id: string;
@@ -27,6 +28,7 @@ const MenuItemsList: React.FC<MenuItemsListProps> = ({
   error,
   onAddToOrder 
 }) => {
+  const { symbol: currencySymbol } = useCurrencyContext();
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12 space-y-3">
@@ -84,7 +86,7 @@ const MenuItemsList: React.FC<MenuItemsListProps> = ({
             
             <div className="flex items-center justify-between mt-3 pt-3 border-t">
               <span className="text-lg font-bold text-primary">
-                ₹{item.price.toFixed(2)}
+                {currencySymbol}{item.price.toFixed(2)}
               </span>
               <Button 
                 size="sm"

@@ -26,6 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 type PaymentStep = 'confirm' | 'method' | 'qr' | 'success' | 'edit';
 
@@ -71,6 +72,7 @@ const PaymentDialog = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   // Fetch restaurant info
   const { data: restaurantInfo } = useQuery({
@@ -984,7 +986,7 @@ const PaymentDialog = ({
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(14); // Increased from 12
       doc.text('Net Amount:', margin, yPos);
-      doc.text(`₹${total.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+      doc.text(`${currencySymbol}${total.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
       yPos += 6;
       
       // Add QR code if UPI is configured and we're in QR step
@@ -1084,7 +1086,7 @@ const PaymentDialog = ({
         setAppliedPromotion(data.promotion);
         toast({
           title: "Promotion Applied!",
-          description: `${data.promotion.name} - ${data.promotion.discount_percentage ? `${data.promotion.discount_percentage}% off` : `₹${data.promotion.discount_amount} off`}`,
+          description: `${data.promotion.name} - ${data.promotion.discount_percentage ? `${data.promotion.discount_percentage}% off` : `${currencySymbol}${data.promotion.discount_amount} off`}`,
         });
       } else {
         toast({
@@ -1405,27 +1407,27 @@ const PaymentDialog = ({
           
           <div className="flex justify-between text-sm">
             <span>Subtotal</span>
-            <span>₹{subtotal.toFixed(2)}</span>
+            <span>{currencySymbol}{subtotal.toFixed(2)}</span>
           </div>
           
           {appliedPromotion && promotionDiscountAmount > 0 && (
             <div className="flex justify-between text-sm text-green-600">
               <span>Promo Discount ({appliedPromotion.name})</span>
-              <span>-₹{promotionDiscountAmount.toFixed(2)}</span>
+              <span>-{currencySymbol}{promotionDiscountAmount.toFixed(2)}</span>
             </div>
           )}
           
           {manualDiscountPercent > 0 && (
             <div className="flex justify-between text-sm text-green-600">
               <span>Discount ({manualDiscountPercent}%)</span>
-              <span>-₹{manualDiscountAmount.toFixed(2)}</span>
+              <span>-{currencySymbol}{manualDiscountAmount.toFixed(2)}</span>
             </div>
           )}
           
           {totalDiscountAmount > 0 && (
             <div className="flex justify-between text-sm font-semibold text-green-600">
               <span>Total Discount</span>
-              <span>-₹{totalDiscountAmount.toFixed(2)}</span>
+              <span>-{currencySymbol}{totalDiscountAmount.toFixed(2)}</span>
             </div>
           )}
           
@@ -1433,7 +1435,7 @@ const PaymentDialog = ({
           
           <div className="flex justify-between text-lg font-bold">
             <span>Total Due</span>
-            <span>₹{total.toFixed(2)}</span>
+            <span>{currencySymbol}{total.toFixed(2)}</span>
           </div>
         </div>
       </Card>
@@ -1519,7 +1521,7 @@ const PaymentDialog = ({
                     </span>
                   </div>
                   <p className="text-xs text-green-600 dark:text-green-400 dark:text-green-400">
-                    Discount: ₹{promotionDiscountAmount.toFixed(2)}
+                    Discount: {currencySymbol}{promotionDiscountAmount.toFixed(2)}
                   </p>
                 </div>
                 <Button
@@ -1568,7 +1570,7 @@ const PaymentDialog = ({
           </div>
           {manualDiscountPercent > 0 && (
             <div className="text-sm text-green-600 dark:text-green-400 font-medium">
-              ✓ {manualDiscountPercent}% discount applied - Save ₹{manualDiscountAmount.toFixed(2)}
+              ✓ {manualDiscountPercent}% discount applied - Save {currencySymbol}{manualDiscountAmount.toFixed(2)}
             </div>
           )}
         </div>
@@ -1723,7 +1725,7 @@ const PaymentDialog = ({
       <div className="text-center">
         <h2 className="text-2xl font-bold text-foreground mb-2">Select Payment Method</h2>
         <p className="text-lg text-blue-600 dark:text-blue-400 font-semibold">
-          Total Amount: ₹{total.toFixed(2)}
+          Total Amount: {currencySymbol}{total.toFixed(2)}
         </p>
       </div>
 
@@ -1817,7 +1819,7 @@ const PaymentDialog = ({
 
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">Amount to be Paid:</p>
-          <p className="text-4xl font-bold text-blue-600">₹{total.toFixed(2)}</p>
+          <p className="text-4xl font-bold text-blue-600">{currencySymbol}{total.toFixed(2)}</p>
         </div>
       </div>
 
@@ -1936,7 +1938,7 @@ const PaymentDialog = ({
                     +
                   </Button>
                   <span className="text-sm font-medium w-16 text-right">
-                    ₹{(item.price * item.quantity).toFixed(2)}
+                    {currencySymbol}{(item.price * item.quantity).toFixed(2)}
                   </span>
                   <Button
                     size="sm"
@@ -1986,7 +1988,7 @@ const PaymentDialog = ({
                     )}
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="font-semibold text-sm">₹{item.price.toFixed(2)}</span>
+                    <span className="font-semibold text-sm">{currencySymbol}{item.price.toFixed(2)}</span>
                     <Plus className="w-4 h-4 text-green-600" />
                   </div>
                 </button>

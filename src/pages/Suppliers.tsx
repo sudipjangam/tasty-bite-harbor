@@ -24,6 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface Supplier {
   id: string;
@@ -84,6 +85,7 @@ const Suppliers = () => {
   const [viewingOrder, setViewingOrder] = useState<SupplierOrder | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   const { data: restaurantId } = useQuery({
     queryKey: ["restaurant-id"],
@@ -713,7 +715,7 @@ const Suppliers = () => {
                               />
                             </div>
                             <div className="w-20 text-right font-medium text-sm pt-2">
-                              ₹{(item.quantity * item.unit_price).toFixed(2)}
+                              {currencySymbol}{(item.quantity * item.unit_price).toFixed(2)}
                             </div>
                             <Button
                               type="button"
@@ -737,14 +739,14 @@ const Suppliers = () => {
                     {orderLineItems.length > 0 && (
                       <div className="flex justify-end items-center gap-2 pt-2 border-t">
                         <span className="font-medium">Total:</span>
-                        <span className="text-xl font-bold text-emerald-600">₹{calculateOrderTotal().toFixed(2)}</span>
+                        <span className="text-xl font-bold text-emerald-600">{currencySymbol}{calculateOrderTotal().toFixed(2)}</span>
                       </div>
                     )}
                   </div>
 
                   {orderLineItems.length === 0 && (
                     <div>
-                      <Label htmlFor="totalAmount" className="text-sm font-medium text-gray-700 dark:text-gray-300">Total Amount (₹)</Label>
+                      <Label htmlFor="totalAmount" className="text-sm font-medium text-gray-700 dark:text-gray-300">Total Amount ({currencySymbol})</Label>
                       <Input
                         id="totalAmount"
                         name="totalAmount"
@@ -824,7 +826,7 @@ const Suppliers = () => {
             </div>
             <div>
               <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Total Value</p>
-              <h3 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">₹{totalOrderValue.toLocaleString()}</h3>
+              <h3 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">{currencySymbol}{totalOrderValue.toLocaleString()}</h3>
             </div>
           </div>
         </Card>

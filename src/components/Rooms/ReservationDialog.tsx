@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { User, Phone, Mail, Calendar as CalendarIcon, Gift, MessageSquare, Sparkles, Heart } from 'lucide-react';
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface ReservationDialogProps {
   open: boolean;
@@ -66,6 +67,7 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
   handleCreateReservation
 }) => {
   if (!room) return null;
+  const { symbol: currencySymbol } = useCurrencyContext();
   
   const calculateDuration = () => {
     const startDate = new Date(reservation.start_date);
@@ -333,7 +335,7 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                 <strong className="text-indigo-600">{format(reservation.end_date, "PPP")}</strong>
               </p>
               <p className="text-lg font-semibold">
-                Total cost: <span className="text-2xl bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">₹{(room.price || 0) * calculateDuration()}</span>
+                Total cost: <span className="text-2xl bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{currencySymbol}{(room.price || 0) * calculateDuration()}</span>
               </p>
             </div>
           </div>

@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon, User, Phone, Mail, CreditCard, Key } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 interface GuestCheckInDialogProps {
   open: boolean;
@@ -29,6 +30,7 @@ const GuestCheckInDialog: React.FC<GuestCheckInDialogProps> = ({
   room,
   onCheckIn,
 }) => {
+  const { symbol: currencySymbol } = useCurrencyContext();
   const [guestData, setGuestData] = useState({
     guest_name: reservation?.customer_name || "",
     guest_email: reservation?.customer_email || "",
@@ -405,7 +407,7 @@ const GuestCheckInDialog: React.FC<GuestCheckInDialogProps> = ({
                     />
                   </div>
                   <div>
-                    <Label htmlFor="security_deposit">Security Deposit (₹)</Label>
+                    <Label htmlFor="security_deposit">Security Deposit ({currencySymbol})</Label>
                     <Input
                       id="security_deposit"
                       type="number"
@@ -420,7 +422,7 @@ const GuestCheckInDialog: React.FC<GuestCheckInDialogProps> = ({
                 </div>
 
                 <div>
-                  <Label htmlFor="room_rate">Room Rate per Night (₹)</Label>
+                  <Label htmlFor="room_rate">Room Rate per Night ({currencySymbol})</Label>
                   <Input
                     id="room_rate"
                     type="number"

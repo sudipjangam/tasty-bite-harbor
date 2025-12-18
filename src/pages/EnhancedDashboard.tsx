@@ -6,6 +6,7 @@ import { CustomizableDashboard } from "@/components/Dashboard/CustomizableDashbo
 import { PageHeader } from "@/components/Layout/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LayoutDashboard, BarChart3, Settings } from "lucide-react";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface DashboardWidget {
   id: string;
@@ -20,6 +21,7 @@ interface DashboardWidget {
 const EnhancedDashboard = () => {
   const { user } = useAuth();
   const { data: dashboardData } = useBusinessDashboardData();
+  const { symbol: currencySymbol } = useCurrencyContext();
   
   const [dashboardWidgets, setDashboardWidgets] = useState<DashboardWidget[]>([]);
   const [editMode, setEditMode] = useState(false);
@@ -41,7 +43,7 @@ const EnhancedDashboard = () => {
         title: 'Revenue',
         size: 'sm' as const,
         position: { row: 0, col: 0 },
-        data: { value: `₹${totalRevenue.toLocaleString()}` },
+        data: { value: `${currencySymbol}${totalRevenue.toLocaleString()}` },
         visible: true
       },
       {

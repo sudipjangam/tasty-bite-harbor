@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Receipt, Plus, X, Search, Check } from 'lucide-react';
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 import type { OrderEditorProps } from './types';
 
 const OrderEditor: React.FC<OrderEditorProps> = ({
@@ -19,6 +20,7 @@ const OrderEditor: React.FC<OrderEditorProps> = ({
   onSave,
   onCancel,
 }) => {
+  const { symbol: currencySymbol } = useCurrencyContext();
   return (
     <div className="space-y-4 p-2">
       <Button
@@ -47,7 +49,7 @@ const OrderEditor: React.FC<OrderEditorProps> = ({
           {orderItems.map((item, idx) => (
             <div key={idx} className="flex items-center justify-between gap-2 text-sm">
               <span className="flex-1">{item.quantity}x {item.name}</span>
-              <span className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</span>
+              <span className="font-medium">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
               <Button
                 size="sm"
                 variant="ghost"
@@ -91,7 +93,7 @@ const OrderEditor: React.FC<OrderEditorProps> = ({
                     +
                   </Button>
                   <span className="text-sm font-medium w-16 text-right">
-                    ₹{(item.price * item.quantity).toFixed(2)}
+                    {currencySymbol}{(item.price * item.quantity).toFixed(2)}
                   </span>
                   <Button
                     size="sm"
@@ -141,7 +143,7 @@ const OrderEditor: React.FC<OrderEditorProps> = ({
                     )}
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="font-semibold text-sm">₹{item.price.toFixed(2)}</span>
+                    <span className="font-semibold text-sm">{currencySymbol}{item.price.toFixed(2)}</span>
                     <Plus className="w-4 h-4 text-green-600" />
                   </div>
                 </button>

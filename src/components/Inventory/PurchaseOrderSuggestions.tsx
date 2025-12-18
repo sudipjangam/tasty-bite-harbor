@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ShoppingCart, Package, TrendingUp, AlertTriangle, Eye, X } from "lucide-react";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface PurchaseOrderSuggestion {
   supplier_id: string;
@@ -40,6 +41,7 @@ const PurchaseOrderSuggestions = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { restaurantId } = useRestaurantId();
+  const { symbol: currencySymbol } = useCurrencyContext();
   const [selectedSupplier, setSelectedSupplier] = useState<PurchaseOrderSuggestion | null>(null);
   const [showItemsDialog, setShowItemsDialog] = useState(false);
 
@@ -211,7 +213,7 @@ const PurchaseOrderSuggestions = () => {
                     Current: {item.quantity} {item.unit} | Reorder Level: {item.reorder_level} {item.unit}
                   </p>
                   {item.cost_per_unit && (
-                    <p className="text-sm text-gray-500">Cost: ₹{item.cost_per_unit}/{item.unit}</p>
+                    <p className="text-sm text-gray-500">Cost: {currencySymbol}{item.cost_per_unit}/{item.unit}</p>
                   )}
                 </div>
                 <Badge variant="destructive" className="ml-3">
@@ -250,7 +252,7 @@ const PurchaseOrderSuggestions = () => {
                 </p>
               </div>
               <Badge className="bg-blue-100 text-blue-800">
-                ₹{suggestion.estimated_total.toFixed(2)}
+                {currencySymbol}{suggestion.estimated_total.toFixed(2)}
               </Badge>
             </div>
             
@@ -308,7 +310,7 @@ const PurchaseOrderSuggestions = () => {
                       <p>Reorder Level: {item.reorder_level} {item.unit}</p>
                       <p>Suggested Quantity: <span className="text-green-600 font-medium">{item.suggested_quantity} {item.unit}</span></p>
                       {item.cost_per_unit && (
-                        <p>Unit Cost: ₹{item.cost_per_unit}</p>
+                        <p>Unit Cost: {currencySymbol}{item.cost_per_unit}</p>
                       )}
                     </div>
                   </div>
@@ -318,7 +320,7 @@ const PurchaseOrderSuggestions = () => {
                     </Badge>
                     {item.cost_per_unit && (
                       <p className="text-sm font-medium text-green-600">
-                        Est. Cost: ₹{(item.suggested_quantity * item.cost_per_unit).toFixed(2)}
+                        Est. Cost: {currencySymbol}{(item.suggested_quantity * item.cost_per_unit).toFixed(2)}
                       </p>
                     )}
                   </div>
@@ -329,7 +331,7 @@ const PurchaseOrderSuggestions = () => {
           
           <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
             <p className="text-sm text-blue-700">
-              <strong>Total Estimated Cost:</strong> ₹{selectedSupplier?.estimated_total.toFixed(2)}
+              <strong>Total Estimated Cost:</strong> {currencySymbol}{selectedSupplier?.estimated_total.toFixed(2)}
             </p>
           </div>
         </DialogContent>

@@ -25,6 +25,7 @@ import {
   Tooltip,
   Legend
 } from "recharts";
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 const COLORS = [
   "#8b5cf6", // purple
@@ -39,6 +40,7 @@ const COLORS = [
 
 const ExpensesOverview = () => {
   const { data: expenseData, isLoading } = useExpenseData();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   if (isLoading) {
     return (
@@ -73,7 +75,7 @@ const ExpensesOverview = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-purple-100 text-sm font-medium">Last 30 Days</p>
-              <p className="text-3xl font-bold mt-1">₹{totalExpenses.toLocaleString()}</p>
+              <p className="text-3xl font-bold mt-1">{currencySymbol}{totalExpenses.toLocaleString()}</p>
               <div className="flex items-center gap-1 mt-2">
                 {isPositiveTrend ? (
                   <ArrowUpRight className="h-4 w-4 text-red-300" />
@@ -96,7 +98,7 @@ const ExpensesOverview = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-cyan-100 text-sm font-medium">This Month</p>
-              <p className="text-3xl font-bold mt-1">₹{monthlyExpenses.toLocaleString()}</p>
+              <p className="text-3xl font-bold mt-1">{currencySymbol}{monthlyExpenses.toLocaleString()}</p>
               <p className="text-cyan-200 text-sm mt-2">Current billing period</p>
             </div>
             <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-sm">
@@ -110,7 +112,7 @@ const ExpensesOverview = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-amber-100 text-sm font-medium">Daily Average</p>
-              <p className="text-3xl font-bold mt-1">₹{Math.round(avgDaily).toLocaleString()}</p>
+              <p className="text-3xl font-bold mt-1">{currencySymbol}{Math.round(avgDaily).toLocaleString()}</p>
               <p className="text-amber-200 text-sm mt-2">Per day spending</p>
             </div>
             <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-sm">
@@ -125,7 +127,7 @@ const ExpensesOverview = () => {
             <div>
               <p className="text-emerald-100 text-sm font-medium">Top Category</p>
               <p className="text-2xl font-bold mt-1 truncate max-w-[150px]">{topCategory?.name || "None"}</p>
-              <p className="text-emerald-200 text-sm mt-2">₹{topCategory?.value?.toLocaleString() || 0}</p>
+              <p className="text-emerald-200 text-sm mt-2">{currencySymbol}{topCategory?.value?.toLocaleString() || 0}</p>
             </div>
             <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-sm">
               <Wallet className="h-8 w-8" />
@@ -165,12 +167,12 @@ const ExpensesOverview = () => {
                     tick={{ fill: '#6b7280' }}
                   />
                   <YAxis 
-                    tickFormatter={(value) => `₹${value >= 1000 ? `${(value/1000).toFixed(0)}k` : value}`}
+                    tickFormatter={(value) => `${currencySymbol}${value >= 1000 ? `${(value/1000).toFixed(0)}k` : value}`}
                     className="text-xs"
                     tick={{ fill: '#6b7280' }}
                   />
                   <Tooltip 
-                    formatter={(value: number) => [`₹${value.toLocaleString()}`, "Amount"]}
+                    formatter={(value: number) => [`${currencySymbol}${value.toLocaleString()}`, "Amount"]}
                     labelFormatter={(label) => format(new Date(label), "MMM dd, yyyy")}
                     contentStyle={{
                       backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -223,7 +225,7 @@ const ExpensesOverview = () => {
                       ))}
                     </Pie>
                     <Tooltip 
-                      formatter={(value: number) => [`₹${value.toLocaleString()}`, ""]}
+                      formatter={(value: number) => [`${currencySymbol}${value.toLocaleString()}`, ""]}
                       contentStyle={{
                         backgroundColor: 'rgba(255, 255, 255, 0.95)',
                         borderRadius: '12px',

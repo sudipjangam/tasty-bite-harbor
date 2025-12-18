@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2 } from 'lucide-react';
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
 interface AdditionalChargesSectionProps {
   charges: { name: string; amount: number; }[];
@@ -18,6 +19,7 @@ const AdditionalChargesSection: React.FC<AdditionalChargesSectionProps> = ({
     name: '',
     amount: 0
   });
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   const handleAddCharge = () => {
     if (newCharge.name.trim() === '' || newCharge.amount <= 0) return;
@@ -66,7 +68,7 @@ const AdditionalChargesSection: React.FC<AdditionalChargesSectionProps> = ({
           <TableHeader>
             <TableRow>
               <TableHead>Description</TableHead>
-              <TableHead className="text-right">Amount (₹)</TableHead>
+              <TableHead className="text-right">Amount ({currencySymbol})</TableHead>
               <TableHead className="w-16"></TableHead>
             </TableRow>
           </TableHeader>
@@ -74,7 +76,7 @@ const AdditionalChargesSection: React.FC<AdditionalChargesSectionProps> = ({
             {charges.map((charge, index) => (
               <TableRow key={index}>
                 <TableCell>{charge.name}</TableCell>
-                <TableCell className="text-right">₹{charge.amount.toFixed(2)}</TableCell>
+                <TableCell className="text-right">{currencySymbol}{charge.amount.toFixed(2)}</TableCell>
                 <TableCell>
                   <Button 
                     variant="ghost" 
