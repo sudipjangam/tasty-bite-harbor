@@ -121,12 +121,19 @@ const AmenityManagement = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header with gradient button */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Amenity Management</h2>
-        <Button onClick={() => {
-          setSelectedAmenity(null);
-          setOpenDialog(true);
-        }}>
+        <div>
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">☕ Amenity Management</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage room amenities and inventory</p>
+        </div>
+        <Button 
+          onClick={() => {
+            setSelectedAmenity(null);
+            setOpenDialog(true);
+          }}
+          className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white shadow-lg shadow-cyan-500/30"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Add Amenity
         </Button>

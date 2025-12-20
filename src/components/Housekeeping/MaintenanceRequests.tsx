@@ -101,12 +101,19 @@ const MaintenanceRequests = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header with gradient button */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Maintenance Requests</h2>
-        <Button onClick={() => {
-          setSelectedRequest(null);
-          setOpenDialog(true);
-        }}>
+        <div>
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">🔧 Maintenance Requests</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track and manage maintenance issues</p>
+        </div>
+        <Button 
+          onClick={() => {
+            setSelectedRequest(null);
+            setOpenDialog(true);
+          }}
+          className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg shadow-orange-500/30"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Add Request
         </Button>
@@ -114,99 +121,130 @@ const MaintenanceRequests = () => {
 
       <div className="grid gap-4">
         {requests?.length === 0 ? (
-          <Card>
-            <CardContent className="p-6 text-center text-muted-foreground">
-              No maintenance requests found. Create your first request to get started.
-            </CardContent>
-          </Card>
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+              <AlertTriangle className="h-8 w-8 text-orange-500" />
+            </div>
+            <p className="text-gray-600 dark:text-gray-400 font-medium">No maintenance requests found</p>
+            <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">Create your first request to get started</p>
+          </div>
         ) : (
-          requests?.map((request) => (
-            <Card key={request.id}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <h3 className="font-semibold">{request.title}</h3>
-                      <Badge variant={getPriorityColor(request.priority)}>
-                        {request.priority}
-                      </Badge>
-                      <Badge variant={getStatusColor(request.status)}>
-                        {request.status}
-                      </Badge>
-                    </div>
-                    
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Room: {request.rooms?.name}
-                    </p>
-                    
-                    <p className="text-sm mb-4">{request.description}</p>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
-                      <div>
-                        <p>Reported by: {request.reported_by?.first_name} {request.reported_by?.last_name}</p>
-                        <p>Date: {new Date(request.created_at).toLocaleDateString()}</p>
+          requests?.map((request) => {
+            const priorityConfig: Record<string, { border: string; bg: string; icon: string }> = {
+              high: { border: 'border-l-4 border-l-red-500', bg: 'bg-gradient-to-r from-red-500 to-rose-500', icon: '🔴' },
+              medium: { border: 'border-l-4 border-l-amber-500', bg: 'bg-gradient-to-r from-amber-500 to-yellow-500', icon: '🟡' },
+              low: { border: 'border-l-4 border-l-green-500', bg: 'bg-gradient-to-r from-green-500 to-emerald-500', icon: '🟢' },
+            };
+            const statusConfig: Record<string, { bg: string; text: string }> = {
+              open: { bg: 'bg-gradient-to-r from-red-500 to-rose-500', text: 'text-white' },
+              in_progress: { bg: 'bg-gradient-to-r from-blue-500 to-cyan-500', text: 'text-white' },
+              completed: { bg: 'bg-gradient-to-r from-emerald-500 to-green-500', text: 'text-white' },
+              closed: { bg: 'bg-gradient-to-r from-gray-500 to-slate-500', text: 'text-white' },
+            };
+            const pConfig = priorityConfig[request.priority] || priorityConfig.low;
+            const sConfig = statusConfig[request.status] || statusConfig.open;
+            
+            return (
+              <div key={request.id} className={`group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg transition-all duration-300 ${pConfig.border}`}>
+                <div className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="text-lg">{pConfig.icon}</span>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">{request.title}</h3>
+                        <Badge className={`${pConfig.bg} text-white border-0 text-xs`}>
+                          {request.priority}
+                        </Badge>
+                        <Badge className={`${sConfig.bg} ${sConfig.text} border-0 text-xs`}>
+                          {request.status}
+                        </Badge>
                       </div>
                       
-                      {request.assigned_to && (
-                        <div>
-                          <p>Assigned to: {request.assigned_to.first_name} {request.assigned_to.last_name}</p>
-                          {request.scheduled_date && (
-                            <p>Scheduled: {new Date(request.scheduled_date).toLocaleDateString()}</p>
-                          )}
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                        🏠 Room: {request.rooms?.name}
+                      </p>
+                      
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{request.description}</p>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                          <span>👤</span>
+                          <div>
+                            <p>Reported by: {request.reported_by?.first_name} {request.reported_by?.last_name}</p>
+                            <p className="text-xs">📅 {new Date(request.created_at).toLocaleDateString()}</p>
+                          </div>
                         </div>
+                        
+                        {request.assigned_to && (
+                          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                            <span>🛠️</span>
+                            <div>
+                              <p>Assigned: {request.assigned_to.first_name} {request.assigned_to.last_name}</p>
+                              {request.scheduled_date && (
+                                <p className="text-xs">📅 {new Date(request.scheduled_date).toLocaleDateString()}</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {(request.estimated_cost || request.actual_cost) && (
+                          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                            <span>💰</span>
+                            <div>
+                              {request.estimated_cost && <p>Est: ${request.estimated_cost}</p>}
+                              {request.actual_cost && <p className="text-emerald-600 font-medium">Actual: ${request.actual_cost}</p>}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col space-y-2 ml-4">
+                      {request.status === 'open' && (
+                        <Button
+                          size="sm"
+                          onClick={() => updateStatusMutation.mutate({ id: request.id, status: 'in_progress' })}
+                          disabled={updateStatusMutation.isPending}
+                          className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
+                        >
+                          Start Work
+                        </Button>
                       )}
                       
-                      {(request.estimated_cost || request.actual_cost) && (
-                        <div>
-                          {request.estimated_cost && <p>Est. Cost: ${request.estimated_cost}</p>}
-                          {request.actual_cost && <p>Actual Cost: ${request.actual_cost}</p>}
-                        </div>
+                      {request.status === 'in_progress' && (
+                        <Button
+                          size="sm"
+                          onClick={() => updateStatusMutation.mutate({ id: request.id, status: 'completed' })}
+                          disabled={updateStatusMutation.isPending}
+                          className="bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white"
+                        >
+                          Complete
+                        </Button>
                       )}
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedRequest(request);
+                          setOpenDialog(true);
+                        }}
+                        className="border-gray-200 dark:border-gray-700"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                   
-                  <div className="flex flex-col space-y-2">
-                    {request.status === 'open' && (
-                      <Button
-                        size="sm"
-                        onClick={() => updateStatusMutation.mutate({ id: request.id, status: 'in_progress' })}
-                        disabled={updateStatusMutation.isPending}
-                      >
-                        Start Work
-                      </Button>
-                    )}
-                    
-                    {request.status === 'in_progress' && (
-                      <Button
-                        size="sm"
-                        onClick={() => updateStatusMutation.mutate({ id: request.id, status: 'completed' })}
-                        disabled={updateStatusMutation.isPending}
-                      >
-                        Complete
-                      </Button>
-                    )}
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedRequest(request);
-                        setOpenDialog(true);
-                      }}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  {request.notes && (
+                    <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-700">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">📝 {request.notes}</p>
+                    </div>
+                  )}
                 </div>
-                
-                {request.notes && (
-                  <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded">
-                    <p className="text-sm">{request.notes}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))
+              </div>
+            );
+          })
         )}
       </div>
 

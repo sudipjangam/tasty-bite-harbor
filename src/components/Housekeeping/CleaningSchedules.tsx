@@ -119,12 +119,19 @@ const CleaningSchedules = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header with gradient button */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Cleaning Schedules</h2>
-        <Button onClick={() => {
-          setSelectedSchedule(null);
-          setOpenDialog(true);
-        }}>
+        <div>
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">🧹 Cleaning Schedules</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage room cleaning tasks and assignments</p>
+        </div>
+        <Button 
+          onClick={() => {
+            setSelectedSchedule(null);
+            setOpenDialog(true);
+          }}
+          className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg shadow-purple-500/30"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Add Schedule
         </Button>
@@ -132,35 +139,49 @@ const CleaningSchedules = () => {
 
       <div className="grid gap-4">
         {schedules?.length === 0 ? (
-          <Card>
-            <CardContent className="p-6 text-center text-muted-foreground">
-              No cleaning schedules found. Create your first schedule to get started.
-            </CardContent>
-          </Card>
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+              <Calendar className="h-8 w-8 text-purple-500" />
+            </div>
+            <p className="text-gray-600 dark:text-gray-400 font-medium">No cleaning schedules found</p>
+            <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">Create your first schedule to get started</p>
+          </div>
         ) : (
-          schedules?.map((schedule) => (
-            <Card key={schedule.id}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
+          schedules?.map((schedule) => {
+            const statusConfig: Record<string, { bg: string; text: string; icon: string }> = {
+              pending: { bg: 'bg-gradient-to-r from-orange-500 to-amber-500', text: 'text-white', icon: '⏳' },
+              in_progress: { bg: 'bg-gradient-to-r from-blue-500 to-cyan-500', text: 'text-white', icon: '🔄' },
+              completed: { bg: 'bg-gradient-to-r from-emerald-500 to-green-500', text: 'text-white', icon: '✅' },
+              cancelled: { bg: 'bg-gradient-to-r from-red-500 to-rose-500', text: 'text-white', icon: '❌' },
+            };
+            const config = statusConfig[schedule.status] || statusConfig.pending;
+            
+            return (
+              <div key={schedule.id} className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg transition-all duration-300">
+                <div className="flex items-center justify-between p-4">
                   <div className="flex items-center space-x-4">
+                    <div className={`h-12 w-12 rounded-xl ${config.bg} flex items-center justify-center shadow-lg`}>
+                      <span className="text-xl">{config.icon}</span>
+                    </div>
                     <div>
-                      <h3 className="font-semibold">{schedule.rooms?.name}</h3>
-                      <p className="text-sm text-muted-foreground">
+                      <h3 className="font-semibold text-gray-900 dark:text-white">{schedule.rooms?.name}</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                        <Clock className="h-3 w-3" />
                         {new Date(schedule.scheduled_date).toLocaleDateString()} at {formatTime(schedule.scheduled_time)}
                       </p>
                       {schedule.staff && (
-                        <p className="text-sm text-muted-foreground">
-                          Assigned to: {schedule.staff.first_name} {schedule.staff.last_name}
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          👤 {schedule.staff.first_name} {schedule.staff.last_name}
                         </p>
                       )}
-                      <p className="text-sm text-muted-foreground capitalize">
+                      <p className="text-xs text-gray-400 dark:text-gray-500 capitalize mt-1">
                         Type: {schedule.cleaning_type}
                       </p>
                     </div>
                   </div>
                   
                   <div className="flex items-center space-x-2">
-                    <Badge variant={getStatusColor(schedule.status)}>
+                    <Badge className={`${config.bg} ${config.text} border-0`}>
                       {schedule.status}
                     </Badge>
                     
@@ -169,6 +190,7 @@ const CleaningSchedules = () => {
                         size="sm"
                         onClick={() => handleStartCleaning(schedule.id)}
                         disabled={updateStatusMutation.isPending}
+                        className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
                       >
                         <Clock className="h-4 w-4 mr-1" />
                         Start
@@ -180,6 +202,7 @@ const CleaningSchedules = () => {
                         size="sm"
                         onClick={() => handleCompleteCleaning(schedule.id)}
                         disabled={updateStatusMutation.isPending}
+                        className="bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white"
                       >
                         <Check className="h-4 w-4 mr-1" />
                         Complete
@@ -193,6 +216,7 @@ const CleaningSchedules = () => {
                         setSelectedSchedule(schedule);
                         setOpenDialog(true);
                       }}
+                      className="border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -200,13 +224,15 @@ const CleaningSchedules = () => {
                 </div>
                 
                 {schedule.notes && (
-                  <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded">
-                    <p className="text-sm">{schedule.notes}</p>
+                  <div className="px-4 pb-4">
+                    <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-700">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">📝 {schedule.notes}</p>
+                    </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          ))
+              </div>
+            );
+          })
         )}
       </div>
 

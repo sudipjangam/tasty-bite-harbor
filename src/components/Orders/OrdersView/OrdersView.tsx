@@ -306,27 +306,71 @@ const OrdersView = ({
               </div>
             </div>
 
-            {/* Stats Overview */}
+            {/* Colorful Stats Overview */}
              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
-                <div>
-                  <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Active</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">{orderStats.pendingOrders}</p>
-                </div>
-                <div className="h-8 w-8 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center group-hover:bg-orange-100 transition-colors">
-                  <RefreshCw className="h-4 w-4" />
-                </div>
-              </div>
-              <div className="bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
-                <div>
-                  <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Completed</p>
-                  <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{orderStats.completedOrders}</p>
-                </div>
-                <div className="h-8 w-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
-                  <Download className="h-4 w-4" />
+              {/* Active Orders */}
+              <div className="group relative overflow-hidden bg-gradient-to-br from-orange-500 to-amber-500 p-4 rounded-xl shadow-lg shadow-orange-500/20 hover:shadow-xl hover:shadow-orange-500/30 transition-all duration-300 hover:-translate-y-0.5">
+                <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2"></div>
+                <div className="relative">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-white/80 font-medium uppercase tracking-wider">🔥 Active</p>
+                      <p className="text-2xl font-bold text-white mt-1">{orderStats.pendingOrders}</p>
+                    </div>
+                    <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center">
+                      <RefreshCw className="h-5 w-5 text-white" />
+                    </div>
+                  </div>
                 </div>
               </div>
-              {/* Add more mini-stats as needed */}
+              
+              {/* Completed Orders */}
+              <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-500 p-4 rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:shadow-emerald-500/30 transition-all duration-300 hover:-translate-y-0.5">
+                <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2"></div>
+                <div className="relative">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-white/80 font-medium uppercase tracking-wider">✅ Completed</p>
+                      <p className="text-2xl font-bold text-white mt-1">{orderStats.completedOrders}</p>
+                    </div>
+                    <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center">
+                      <Download className="h-5 w-5 text-white" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Total Orders */}
+              <div className="group relative overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-500 p-4 rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 hover:-translate-y-0.5">
+                <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2"></div>
+                <div className="relative">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-white/80 font-medium uppercase tracking-wider">📊 Total</p>
+                      <p className="text-2xl font-bold text-white mt-1">{orderStats.totalOrders}</p>
+                    </div>
+                    <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center">
+                      <Filter className="h-5 w-5 text-white" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Revenue */}
+              <div className="group relative overflow-hidden bg-gradient-to-br from-pink-500 to-rose-500 p-4 rounded-xl shadow-lg shadow-pink-500/20 hover:shadow-xl hover:shadow-pink-500/30 transition-all duration-300 hover:-translate-y-0.5">
+                <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2"></div>
+                <div className="relative">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-white/80 font-medium uppercase tracking-wider">💰 Revenue</p>
+                      <p className="text-2xl font-bold text-white mt-1">₹{orderStats.totalRevenue.toFixed(0)}</p>
+                    </div>
+                    <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center">
+                      <Download className="h-5 w-5 text-white" />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Modern Filter Bar */}
@@ -374,32 +418,62 @@ const OrdersView = ({
                </div>
             </div>
 
-            {/* Status Tabs (Pills) */}
+            {/* Colorful Status Tabs (Pills) */}
             <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
-              {statusTabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setStatusFilter(tab.id)}
-                  className={`
-                    whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2 border
-                    ${statusFilter === tab.id 
-                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200 dark:shadow-none' 
-                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-indigo-300 hover:bg-gray-50'
-                    }
-                  `}
-                >
-                  {tab.label}
-                  <span className={`
-                    text-xs py-0.5 px-2 rounded-full 
-                    ${statusFilter === tab.id 
-                      ? 'bg-white/20 text-white' 
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                    }
-                  `}>
-                    {tab.count}
-                  </span>
-                </button>
-              ))}
+              {statusTabs.map((tab) => {
+                const gradients: Record<string, string> = {
+                  all: 'from-indigo-500 to-purple-500 shadow-indigo-500/30',
+                  pending: 'from-orange-500 to-amber-500 shadow-orange-500/30',
+                  preparing: 'from-blue-500 to-cyan-500 shadow-blue-500/30',
+                  ready: 'from-emerald-500 to-teal-500 shadow-emerald-500/30',
+                  completed: 'from-gray-500 to-slate-500 shadow-gray-500/30',
+                  held: 'from-purple-500 to-pink-500 shadow-purple-500/30',
+                  cancelled: 'from-red-500 to-rose-500 shadow-red-500/30',
+                };
+                const colors: Record<string, string> = {
+                  all: 'text-indigo-600 border-indigo-200 hover:bg-indigo-50',
+                  pending: 'text-orange-600 border-orange-200 hover:bg-orange-50',
+                  preparing: 'text-blue-600 border-blue-200 hover:bg-blue-50',
+                  ready: 'text-emerald-600 border-emerald-200 hover:bg-emerald-50',
+                  completed: 'text-gray-600 border-gray-200 hover:bg-gray-50',
+                  held: 'text-purple-600 border-purple-200 hover:bg-purple-50',
+                  cancelled: 'text-red-600 border-red-200 hover:bg-red-50',
+                };
+                const emojis: Record<string, string> = {
+                  all: '📋',
+                  pending: '🆕',
+                  preparing: '👨‍🍳',
+                  ready: '✅',
+                  completed: '🎉',
+                  held: '⏸️',
+                  cancelled: '❌',
+                };
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setStatusFilter(tab.id)}
+                    className={`
+                      whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2 border
+                      ${statusFilter === tab.id 
+                        ? `bg-gradient-to-r ${gradients[tab.id]} text-white border-transparent shadow-lg` 
+                        : `bg-white dark:bg-gray-800 ${colors[tab.id]} dark:text-gray-300 dark:border-gray-700`
+                      }
+                    `}
+                  >
+                    <span>{emojis[tab.id]}</span>
+                    {tab.label}
+                    <span className={`
+                      text-xs py-0.5 px-2 rounded-full 
+                      ${statusFilter === tab.id 
+                        ? 'bg-white/20 text-white' 
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                      }
+                    `}>
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </StandardizedLayout>
