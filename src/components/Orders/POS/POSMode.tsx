@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { POSPayment } from "../Payment/POSPayment";
 import { OrderPayment } from "../Payment/OrderPayment";
 import type { OrderItem, TableData } from "@/types/orders";
+import { WeightQuantityDialog } from "../WeightQuantityDialog";
+import { CustomExtrasPanel } from "../CustomExtrasPanel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +37,8 @@ const POSMode = () => {
   const [recalledSource, setRecalledSource] = useState<string | null>(null);
   const [currentOrder, setCurrentOrder] = useState<any>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showWeightDialog, setShowWeightDialog] = useState(false);
+  const [pendingWeightItem, setPendingWeightItem] = useState<any>(null);
   const { toast } = useToast();
 
   const { data: tables } = useQuery({
@@ -61,14 +65,23 @@ const POSMode = () => {
   });
 
   const handleAddItem = (item: any) => {
+    // Check if item has weight/volume-based pricing
+    if (item.pricing_type && item.pricing_type !== 'fixed') {
+      // Show weight/quantity dialog for this item
+      setPendingWeightItem(item);
+      setShowWeightDialog(true);
+      return;
+    }
+
+    // Standard fixed-price item handling
     const existingItem = currentOrderItems.find(
-      orderItem => orderItem.menuItemId === item.id
+      orderItem => orderItem.menuItemId === item.id && !orderItem.isCustomExtra
     );
 
     if (existingItem) {
       setCurrentOrderItems(
         currentOrderItems.map(orderItem =>
-          orderItem.menuItemId === item.id
+          orderItem.menuItemId === item.id && !orderItem.isCustomExtra
             ? { ...orderItem, quantity: orderItem.quantity + 1 }
             : orderItem
         )
@@ -81,7 +94,8 @@ const POSMode = () => {
           menuItemId: item.id,
           name: item.name,
           price: item.price,
-          quantity: 1
+          quantity: 1,
+          pricingType: 'fixed',
         }
       ]);
     }
@@ -90,6 +104,46 @@ const POSMode = () => {
       title: "Item Added",
       description: `${item.name} added to order`,
     });
+  };
+
+  // Handle weight-based item confirmation from dialog
+  const handleWeightItemConfirm = (actualQuantity: number, unit: string, calculatedPrice: number) => {
+    if (!pendingWeightItem) return;
+
+    const newItem: OrderItem = {
+      id: crypto.randomUUID(),
+      menuItemId: pendingWeightItem.id,
+      name: pendingWeightItem.name,
+      price: pendingWeightItem.price,
+      quantity: 1,
+      actualQuantity: actualQuantity,
+      unit: unit,
+      pricingType: pendingWeightItem.pricing_type,
+      baseUnitQuantity: pendingWeightItem.base_unit_quantity || 1,
+      calculatedPrice: calculatedPrice,
+    };
+
+    setCurrentOrderItems([...currentOrderItems, newItem]);
+    setPendingWeightItem(null);
+
+    toast({
+      title: "Item Added",
+      description: `${pendingWeightItem.name} (${actualQuantity} ${unit}) added to order`,
+    });
+  };
+
+  // Handle adding custom extras
+  const handleAddCustomExtra = (item: OrderItem) => {
+    setCurrentOrderItems([...currentOrderItems, item]);
+    toast({
+      title: "Custom Item Added",
+      description: `${item.name} added to order`,
+    });
+  };
+
+  // Handle removing custom extras
+  const handleRemoveCustomExtra = (id: string) => {
+    setCurrentOrderItems(currentOrderItems.filter(item => item.id !== id));
   };
 
   const handleUpdateQuantity = (id: string, newQuantity: number) => {
@@ -447,8 +501,8 @@ const POSMode = () => {
           </div>
         </div>
 
-        {/* Right Section - Current Order */}
-        <div className="lg:col-span-1">
+        {/* Right Section - Current Order & Custom Extras */}
+        <div className="lg:col-span-1 flex flex-col gap-4">
           <CurrentOrder
             items={currentOrderItems}
             tableNumber={tableNumber}
@@ -458,6 +512,13 @@ const POSMode = () => {
             onSendToKitchen={() => handleSendToKitchen()}
             onProceedToPayment={handlePaymentClick}
             onClearOrder={handleClearOrder}
+          />
+          
+          {/* Custom Extras Panel for ad-hoc items */}
+          <CustomExtrasPanel
+            onAddCustomItem={handleAddCustomExtra}
+            customItems={currentOrderItems.filter(item => item.isCustomExtra)}
+            onRemoveCustomItem={handleRemoveCustomExtra}
           />
         </div>
       </div>
@@ -489,6 +550,25 @@ const POSMode = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Weight/Quantity Dialog for weight-based items */}
+      {pendingWeightItem && (
+        <WeightQuantityDialog
+          open={showWeightDialog}
+          onClose={() => {
+            setShowWeightDialog(false);
+            setPendingWeightItem(null);
+          }}
+          onConfirm={handleWeightItemConfirm}
+          item={{
+            name: pendingWeightItem.name,
+            price: pendingWeightItem.price,
+            pricingType: pendingWeightItem.pricing_type as 'weight' | 'volume' | 'unit',
+            pricingUnit: pendingWeightItem.pricing_unit || 'kg',
+            baseUnitQuantity: pendingWeightItem.base_unit_quantity || 1,
+          }}
+        />
+      )}
     </div>
   );
 };

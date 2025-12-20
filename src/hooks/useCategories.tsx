@@ -6,6 +6,7 @@ import { useToast } from "./use-toast";
 export interface Category {
   id: string;
   name: string;
+  restaurant_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -26,7 +27,7 @@ export const useCategories = () => {
   const queryClient = useQueryClient();
 
   // Fetch custom categories from database
-  const { data: customCategories = [], isLoading } = useQuery({
+  const { data: customCategories = [], isLoading: isLoadingCustom } = useQuery({
     queryKey: ['categories', restaurantId],
     queryFn: async () => {
       if (!restaurantId) return [];
@@ -43,11 +44,36 @@ export const useCategories = () => {
     enabled: !!restaurantId,
   });
 
-  // Combine default and custom categories
-  const allCategories = [
+  // Also fetch unique categories from existing menu items
+  const { data: menuItemCategories = [], isLoading: isLoadingMenuItems } = useQuery({
+    queryKey: ['menu-item-categories', restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return [];
+      
+      const { data, error } = await supabase
+        .from('menu_items')
+        .select('category')
+        .eq('restaurant_id', restaurantId)
+        .not('category', 'is', null);
+
+      if (error) throw error;
+      
+      // Extract unique category names
+      const uniqueCategories = [...new Set(data.map(item => item.category).filter(Boolean))];
+      return uniqueCategories as string[];
+    },
+    enabled: !!restaurantId,
+  });
+
+  // Combine default, custom, and menu item categories (removing duplicates)
+  const allCategoriesSet = new Set([
     ...DEFAULT_CATEGORIES,
-    ...customCategories.map(c => c.name)
-  ];
+    ...customCategories.map(c => c.name),
+    ...menuItemCategories
+  ]);
+  const allCategories = Array.from(allCategoriesSet).sort((a, b) => a.localeCompare(b));
+
+  const isLoading = isLoadingCustom || isLoadingMenuItems;
 
   // Add new category
   const addCategoryMutation = useMutation({

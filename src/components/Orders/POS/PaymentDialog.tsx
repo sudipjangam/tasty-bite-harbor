@@ -180,7 +180,13 @@ const PaymentDialog = ({
   });
 
   // Calculate totals with promotion discount and manual discount
-  const subtotal = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  // Handle weight-based pricing by using calculatedPrice when available
+  const subtotal = orderItems.reduce((sum, item) => {
+    if (item.calculatedPrice !== undefined) {
+      return sum + item.calculatedPrice;
+    }
+    return sum + (item.price * item.quantity);
+  }, 0);
   
   // Calculate promotion discount amount if promotion is applied
   const promotionDiscountAmount = appliedPromotion 
@@ -1396,12 +1402,24 @@ const PaymentDialog = ({
 
       <Card className="p-4 bg-muted/50">
         <div className="space-y-3">
-          {orderItems.map((item, idx) => (
-            <div key={idx} className="flex justify-between text-sm">
-              <span>{item.quantity}x {item.name}</span>
-              <span className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</span>
-            </div>
-          ))}
+          {orderItems.map((item, idx) => {
+            const isWeightBased = item.pricingType && item.pricingType !== 'fixed';
+            const itemTotal = item.calculatedPrice ?? (item.price * item.quantity);
+            
+            return (
+              <div key={idx} className="flex justify-between text-sm">
+                <span>
+                  {isWeightBased && item.actualQuantity ? (
+                    <>{item.actualQuantity} {item.unit} {item.name}</>
+                  ) : (
+                    <>{item.quantity}x {item.name}</>
+                  )}
+                  {item.isCustomExtra && <span className="text-purple-600 ml-1">[Custom]</span>}
+                </span>
+                <span className="font-medium">{currencySymbol}{itemTotal.toFixed(2)}</span>
+              </div>
+            );
+          })}
           
           <Separator className="my-3" />
           

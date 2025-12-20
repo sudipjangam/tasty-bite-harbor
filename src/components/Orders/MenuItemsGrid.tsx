@@ -17,6 +17,9 @@ interface MenuItem {
   image_url?: string;
   is_available?: boolean;
   is_veg?: boolean;
+  pricing_type?: 'fixed' | 'weight' | 'volume' | 'unit';
+  pricing_unit?: string;
+  base_unit_quantity?: number;
 }
 
 interface MenuItemsGridProps {
@@ -118,10 +121,14 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
           {filteredItems?.map((item) => (
             <Card
               key={item.id}
-              className="p-4 cursor-pointer hover:shadow-md transition-shadow bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+              className={`p-4 cursor-pointer hover:shadow-md transition-shadow bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 ${
+                item.pricing_type && item.pricing_type !== 'fixed' 
+                  ? 'ring-2 ring-blue-200 dark:ring-blue-800' 
+                  : ''
+              }`}
               onClick={() => onSelectItem(item)}
             >
-              <div className="h-20 w-20 bg-gray-100 dark:bg-gray-800 rounded-md mb-3 flex items-center justify-center overflow-hidden mx-auto">
+              <div className="h-20 w-20 bg-gray-100 dark:bg-gray-800 rounded-md mb-3 flex items-center justify-center overflow-hidden mx-auto relative">
                 {item.image_url ? (
                   <img 
                     src={item.image_url} 
@@ -133,18 +140,40 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
                     <span className="text-lg">{item.is_veg ? "🥦" : "🍖"}</span>
                   </div>
                 )}
+                {/* Pricing type indicator badge */}
+                {item.pricing_type && item.pricing_type !== 'fixed' && (
+                  <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full font-medium">
+                    ⚖️
+                  </div>
+                )}
               </div>
               <h3 className="font-medium text-lg mb-2 line-clamp-1 text-gray-900 dark:text-white">{item.name}</h3>
               {item.description && (
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-2 line-clamp-2">{item.description}</p>
               )}
               <div className="flex justify-between items-center">
-                <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{currencySymbol}{item.price.toFixed(2)}</p>
-                {item.is_veg !== undefined && (
-                  <span className={`px-2 py-1 text-xs rounded-full ${item.is_veg ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300'}`}>
-                    {item.is_veg ? 'Veg' : 'Non-Veg'}
-                  </span>
-                )}
+                <div>
+                  <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
+                    {currencySymbol}{item.price.toFixed(2)}
+                    {item.pricing_type && item.pricing_type !== 'fixed' && item.pricing_unit && (
+                      <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
+                        /{item.pricing_unit}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <div className="flex gap-1">
+                  {item.pricing_type && item.pricing_type !== 'fixed' && (
+                    <span className="px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300">
+                      {item.pricing_type === 'weight' ? 'By Wt' : item.pricing_type === 'volume' ? 'By Vol' : 'Per Unit'}
+                    </span>
+                  )}
+                  {item.is_veg !== undefined && (
+                    <span className={`px-2 py-1 text-xs rounded-full ${item.is_veg ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300'}`}>
+                      {item.is_veg ? 'Veg' : 'Non-Veg'}
+                    </span>
+                  )}
+                </div>
               </div>
             </Card>
           ))}
