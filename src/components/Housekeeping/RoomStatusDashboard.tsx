@@ -123,52 +123,63 @@ const RoomStatusDashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Room Status Overview */}
+      {/* Colorful Room Status Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <div>
-                <p className="text-sm text-muted-foreground">Available</p>
-                <p className="text-2xl font-bold">{roomStats.available || 0}</p>
-              </div>
+        {/* Available Rooms */}
+        <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-500 to-green-500 p-4 rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:shadow-emerald-500/30 transition-all duration-300 hover:-translate-y-0.5">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2"></div>
+          <div className="relative flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center">
+              <span className="text-lg">✅</span>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-              <div>
-                <p className="text-sm text-muted-foreground">Occupied</p>
-                <p className="text-2xl font-bold">{roomStats.occupied || 0}</p>
-              </div>
+            <div>
+              <p className="text-xs text-white/80 font-medium uppercase tracking-wider">Available</p>
+              <p className="text-2xl font-bold text-white">{roomStats.available || 0}</p>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-              <div>
-                <p className="text-sm text-muted-foreground">Cleaning</p>
-                <p className="text-2xl font-bold">{roomStats.cleaning || 0}</p>
-              </div>
+          </div>
+        </div>
+        
+        {/* Occupied Rooms */}
+        <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-500 p-4 rounded-xl shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2"></div>
+          <div className="relative flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center">
+              <span className="text-lg">🛏️</span>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-              <div>
-                <p className="text-sm text-muted-foreground">Maintenance</p>
-                <p className="text-2xl font-bold">{roomStats.maintenance || 0}</p>
-              </div>
+            <div>
+              <p className="text-xs text-white/80 font-medium uppercase tracking-wider">Occupied</p>
+              <p className="text-2xl font-bold text-white">{roomStats.occupied || 0}</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+        
+        {/* Cleaning Rooms */}
+        <div className="group relative overflow-hidden bg-gradient-to-br from-amber-500 to-yellow-500 p-4 rounded-xl shadow-lg shadow-amber-500/20 hover:shadow-xl hover:shadow-amber-500/30 transition-all duration-300 hover:-translate-y-0.5">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2"></div>
+          <div className="relative flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center">
+              <span className="text-lg">🧹</span>
+            </div>
+            <div>
+              <p className="text-xs text-white/80 font-medium uppercase tracking-wider">Cleaning</p>
+              <p className="text-2xl font-bold text-white">{roomStats.cleaning || 0}</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Maintenance Rooms */}
+        <div className="group relative overflow-hidden bg-gradient-to-br from-red-500 to-rose-500 p-4 rounded-xl shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 transition-all duration-300 hover:-translate-y-0.5">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2"></div>
+          <div className="relative flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center">
+              <span className="text-lg">🔧</span>
+            </div>
+            <div>
+              <p className="text-xs text-white/80 font-medium uppercase tracking-wider">Maintenance</p>
+              <p className="text-2xl font-bold text-white">{roomStats.maintenance || 0}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

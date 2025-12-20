@@ -362,18 +362,46 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
         }
       }
       
+      // Set room status to 'cleaning' instead of 'available'
       const { error: roomError } = await supabase
         .from('rooms')
-        .update({ status: 'available' })
+        .update({ status: 'cleaning' })
         .eq('id', room.id);
       
       if (roomError) throw roomError;
+      
+      // Create housekeeping cleaning task for the room
+      const now = new Date();
+      const scheduledTime = now.toTimeString().slice(0, 8);
+      const scheduledDate = now.toISOString().split('T')[0];
+      
+      const { error: cleaningError } = await supabase
+        .from('room_cleaning_schedules')
+        .insert([{
+          restaurant_id: room.restaurant_id,
+          room_id: room.id,
+          scheduled_date: scheduledDate,
+          scheduled_time: scheduledTime,
+          cleaning_type: 'post_checkout',
+          status: 'pending',
+          priority: 'urgent',
+          trigger_source: 'checkout',
+          reservation_id: reservationId,
+          estimated_duration: 45,
+          notes: `Post-checkout cleaning for ${reservation.customer_name}. Previous guest stayed ${daysStayed} day(s).`,
+          checklist_completed: []
+        }]);
+      
+      if (cleaningError) {
+        console.error('Error creating cleaning task:', cleaningError);
+        // Don't fail checkout if cleaning task creation fails
+      }
       
       setBillingId(billingData?.id || null);
       
       toast({
         title: 'Checkout Successful',
-        description: `${reservation.customer_name} has been checked out successfully.`
+        description: `${reservation.customer_name} has been checked out. Room marked for cleaning.`
       });
       
       setShowSuccessDialog(true);

@@ -53,9 +53,9 @@ const Menu = () => {
         </div>
       </div>
 
-      {/* Menu Grid Container */}
-      <div className="p-4 md:p-6">
-        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-2xl shadow-xl overflow-hidden">
+      {/* Menu Grid Container with Scroll */}
+      <div className="p-4 md:p-6" style={{ height: 'calc(100vh - 120px)' }}>
+        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-2xl shadow-xl overflow-hidden h-full flex flex-col">
           <Suspense fallback={
             <div className="p-6 space-y-6">
               <div className="flex items-center justify-between">
@@ -74,7 +74,7 @@ const Menu = () => {
               </div>
             </div>
           }>
-            <div className="p-4 md:p-6">
+            <div className="p-4 md:p-6 overflow-auto flex-1">
               <MenuGrid />
             </div>
           </Suspense>

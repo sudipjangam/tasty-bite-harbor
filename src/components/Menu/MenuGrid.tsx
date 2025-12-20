@@ -267,141 +267,105 @@ const MenuGrid = () => {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Modern Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-            Menu Items
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">Manage your restaurant's menu offerings</p>
-        </div>
-        <Button 
-          className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-          onClick={() => {
-            setEditingItem(null);
-            setShowAddForm(true);
-          }}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Item
-        </Button>
-      </div>
-
-      {/* Enhanced Search and Filter Section */}
-      <div className="bg-gradient-to-br from-white/90 to-emerald-50/50 dark:from-gray-800/90 dark:to-emerald-900/20 backdrop-blur-xl border border-emerald-100/50 dark:border-emerald-800/30 rounded-2xl shadow-xl p-5">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl shadow-lg">
+    <div className="space-y-4 animate-fade-in">
+      {/* Compact Header with Search */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-gradient-to-r from-white/90 to-emerald-50/30 dark:from-gray-800/90 dark:to-emerald-900/20 p-4 rounded-xl border border-emerald-100/50 dark:border-emerald-800/30 shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl shadow-lg">
             <Search className="h-5 w-5 text-white" />
           </div>
-          <h3 className="text-lg font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Search & Filter</h3>
+          <div>
+            <h2 className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+              Menu Items
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 text-xs">
+              {filteredMenuItems?.length || 0} items • {Object.keys(groupedItemsData).length} categories
+            </p>
+          </div>
         </div>
         
-        {/* Search Input */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-emerald-400 h-4 w-4" />
-          <Input
-            placeholder="Search menu items by name, description, or category..."
-            className="pl-10 bg-white/80 dark:bg-gray-700/80 border-emerald-200/50 dark:border-emerald-700/30 rounded-xl focus:bg-white dark:focus:bg-gray-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200 transition-all duration-200"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        {/* Search Input - Inline */}
+        <div className="flex items-center gap-3 flex-1 max-w-md">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search items..."
+              className="pl-9 h-9 bg-white/80 dark:bg-gray-700/80 border-gray-200 dark:border-gray-600 rounded-lg text-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <Button 
+            size="sm"
+            className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md h-9"
+            onClick={() => {
+              setEditingItem(null);
+              setShowAddForm(true);
+            }}
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Add
+          </Button>
         </div>
+      </div>
 
-        {/* Category Filter Tabs - Colorful Pills */}
-        <div className="flex flex-wrap gap-2">
+      {/* Compact Category Filter Pills */}
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          onClick={() => setActiveCategory("all")}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+            activeCategory === "all"
+              ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md"
+              : "bg-white/80 dark:bg-gray-700/80 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600"
+          }`}
+        >
+          ✨ All ({menuItems?.length || 0})
+        </button>
+        <button
+          onClick={() => setActiveCategory("veg")}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+            activeCategory === "veg"
+              ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-md"
+              : "bg-white/80 dark:bg-gray-700/80 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 border border-green-200 dark:border-green-700"
+          }`}
+        >
+          🥬 Veg
+        </button>
+        <button
+          onClick={() => setActiveCategory("non-veg")}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+            activeCategory === "non-veg"
+              ? "bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-md"
+              : "bg-white/80 dark:bg-gray-700/80 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 border border-red-200 dark:border-red-700"
+          }`}
+        >
+          🍖 Non-Veg
+        </button>
+        <button
+          onClick={() => setActiveCategory("special")}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+            activeCategory === "special"
+              ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
+              : "bg-white/80 dark:bg-gray-700/80 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 border border-purple-200 dark:border-purple-700"
+          }`}
+        >
+          ⭐ Specials
+        </button>
+        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1 self-center"></div>
+        {Object.entries(groupedItemsData).map(([category, items]) => (
           <button
-            onClick={() => setActiveCategory("all")}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-              activeCategory === "all"
-                ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/30"
+            key={category}
+            onClick={() => setActiveCategory(category)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+              activeCategory === category
+                ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-md"
                 : "bg-white/80 dark:bg-gray-700/80 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600"
             }`}
           >
-            ✨ All Items
+            {category} ({items.length})
           </button>
-          <button
-            onClick={() => setActiveCategory("veg")}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-              activeCategory === "veg"
-                ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/30"
-                : "bg-white/80 dark:bg-gray-700/80 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 border border-green-200 dark:border-green-700"
-            }`}
-          >
-            🥬 Vegetarian
-          </button>
-          <button
-            onClick={() => setActiveCategory("non-veg")}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-              activeCategory === "non-veg"
-                ? "bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-lg shadow-red-500/30"
-                : "bg-white/80 dark:bg-gray-700/80 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 border border-red-200 dark:border-red-700"
-            }`}
-          >
-            🍖 Non-Veg
-          </button>
-          <button
-            onClick={() => setActiveCategory("special")}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-              activeCategory === "special"
-                ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/30"
-                : "bg-white/80 dark:bg-gray-700/80 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 border border-purple-200 dark:border-purple-700"
-            }`}
-          >
-            ⭐ Specials
-          </button>
-          {Object.keys(groupedItemsData).map((category) => (
-            <button
-              key={category}
-              onClick={() => setActiveCategory(category)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                activeCategory === category
-                  ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/30"
-                  : "bg-white/80 dark:bg-gray-700/80 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600"
-              }`}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
+        ))}
       </div>
-
-      {/* Category Overview Cards - Only show on "all" tab */}
-      {activeCategory === "all" && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {Object.entries(groupedItemsData).map(([category, items], index) => {
-            const colors = [
-              'from-pink-500 to-rose-500',
-              'from-orange-500 to-amber-500',
-              'from-emerald-500 to-teal-500',
-              'from-blue-500 to-indigo-500',
-              'from-purple-500 to-pink-500',
-              'from-cyan-500 to-blue-500',
-            ];
-            const colorClass = colors[index % colors.length];
-            
-            return (
-              <button
-                key={category}
-                onClick={() => setActiveCategory(category)}
-                className="group p-4 bg-gradient-to-br from-white to-gray-50/50 dark:from-gray-800 dark:to-gray-700/50 border border-white/30 dark:border-gray-700/30 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 rounded-xl"
-              >
-                <div className="flex flex-col items-center text-center gap-2">
-                  <div className={`p-2.5 bg-gradient-to-r ${colorClass} rounded-xl shadow-lg group-hover:scale-110 transition-transform`}>
-                    <span className="text-white text-lg">{getCategoryIcon(category)}</span>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-700 dark:text-gray-200 text-sm group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{category}</h3>
-                    <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                      {items.length} items
-                    </p>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
 
       {/* Menu items grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
