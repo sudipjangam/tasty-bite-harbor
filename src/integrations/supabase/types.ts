@@ -420,21 +420,32 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          restaurant_id: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          restaurant_id?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          restaurant_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categories_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       channel_inventory: {
         Row: {
@@ -2037,6 +2048,7 @@ export type Database = {
       }
       menu_items: {
         Row: {
+          base_unit_quantity: number | null
           category: string
           created_at: string
           description: string | null
@@ -2047,10 +2059,13 @@ export type Database = {
           is_veg: boolean | null
           name: string
           price: number
+          pricing_type: string | null
+          pricing_unit: string | null
           restaurant_id: string
           updated_at: string
         }
         Insert: {
+          base_unit_quantity?: number | null
           category: string
           created_at?: string
           description?: string | null
@@ -2061,10 +2076,13 @@ export type Database = {
           is_veg?: boolean | null
           name: string
           price: number
+          pricing_type?: string | null
+          pricing_unit?: string | null
           restaurant_id: string
           updated_at?: string
         }
         Update: {
+          base_unit_quantity?: number | null
           category?: string
           created_at?: string
           description?: string | null
@@ -2075,6 +2093,8 @@ export type Database = {
           is_veg?: boolean | null
           name?: string
           price?: number
+          pricing_type?: string | null
+          pricing_unit?: string | null
           restaurant_id?: string
           updated_at?: string
         }

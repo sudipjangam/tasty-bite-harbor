@@ -27,9 +27,16 @@ const CurrentOrder = ({
   onClearOrder,
 }: CurrentOrderProps) => {
   const { symbol: currencySymbol } = useCurrencyContext();
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  //const tax = subtotal * 0.10; // 10% tax
-  // const total = subtotal + tax; 
+  
+  // Calculate subtotal considering weight-based pricing
+  const subtotal = items.reduce((sum, item) => {
+    // Use calculatedPrice for weight-based items, otherwise price * quantity
+    if (item.calculatedPrice !== undefined) {
+      return sum + item.calculatedPrice;
+    }
+    return sum + item.price * item.quantity;
+  }, 0);
+  
   const total = subtotal;
 
   return (
@@ -62,38 +69,57 @@ const CurrentOrder = ({
             </div>
           </div>
         ) : (
-          items.map((item) => (
+          items.map((item) => {
+            // Determine if this is a weight-based item
+            const isWeightBased = item.pricingType && item.pricingType !== 'fixed';
+            const itemTotal = item.calculatedPrice ?? (item.price * item.quantity);
+            
+            return (
             <div key={item.id} className="bg-gradient-to-r from-white/80 to-white/60 dark:from-gray-700/80 dark:to-gray-700/60 backdrop-blur-sm rounded-2xl border border-white/30 dark:border-gray-600/30 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 p-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-800 dark:text-white">{item.name}</h3>
+                  <h3 className="font-semibold text-gray-800 dark:text-white">
+                    {item.name}
+                    {item.isCustomExtra && (
+                      <span className="ml-2 text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 px-2 py-0.5 rounded-full">Custom</span>
+                    )}
+                  </h3>
+                  {/* Show weight/quantity info for weight-based items */}
+                  {isWeightBased && item.actualQuantity && item.unit && (
+                    <p className="text-sm text-blue-600 dark:text-blue-400 mt-1 font-medium">
+                      ⚖️ {item.actualQuantity} {item.unit} @ {currencySymbol}{item.price}/{item.unit}
+                    </p>
+                  )}
                   {item.modifiers && item.modifiers.length > 0 && (
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{item.modifiers.join(', ')}</p>
                   )}
                 </div>
                 
-                <div className="flex items-center gap-2 bg-white/80 dark:bg-gray-600/50 rounded-xl p-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                    className="h-8 w-8 rounded-lg border-gray-200 hover:bg-red-50 hover:border-red-200 hover:text-red-600"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <span className="w-8 text-center font-semibold text-indigo-600">{item.quantity}</span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                    className="h-8 w-8 rounded-lg border-gray-200 hover:bg-green-50 hover:border-green-200 hover:text-green-600"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
+                {/* Only show quantity controls for fixed-price items */}
+                {!isWeightBased && (
+                  <div className="flex items-center gap-2 bg-white/80 dark:bg-gray-600/50 rounded-xl p-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+                      className="h-8 w-8 rounded-lg border-gray-200 hover:bg-red-50 hover:border-red-200 hover:text-red-600"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <span className="w-8 text-center font-semibold text-indigo-600">{item.quantity}</span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                      className="h-8 w-8 rounded-lg border-gray-200 hover:bg-green-50 hover:border-green-200 hover:text-green-600"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
                 
                 <div className="w-20 text-right font-bold text-indigo-600 dark:text-indigo-400">
-                  {currencySymbol}{(item.price * item.quantity).toFixed(2)}
+                  {currencySymbol}{itemTotal.toFixed(2)}
                 </div>
 
                 <Button
@@ -106,7 +132,7 @@ const CurrentOrder = ({
                 </Button>
               </div>
             </div>
-          ))
+          )})
         )}
       </div>
 

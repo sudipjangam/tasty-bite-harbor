@@ -15,7 +15,7 @@ import {
   FormDescription,
 } from "@/components/ui/form";
 import { supabase } from "@/integrations/supabase/client";
-import { X, Upload, Loader2, Image as ImageIcon, Sparkles, ChefHat, Plus } from "lucide-react";
+import { X, Upload, Loader2, Image as ImageIcon, Sparkles, ChefHat, Plus, Scale } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCategories } from "@/hooks/useCategories";
@@ -31,6 +31,9 @@ interface MenuItem {
   is_available: boolean;
   is_veg?: boolean;
   is_special?: boolean;
+  pricing_type?: string;
+  pricing_unit?: string;
+  base_unit_quantity?: number;
 }
 
 interface AddMenuItemFormProps {
@@ -47,6 +50,9 @@ type FormData = {
   image_url: string;
   is_veg: boolean;
   is_special: boolean;
+  pricing_type: string;
+  pricing_unit: string;
+  base_unit_quantity: string;
 };
 
 const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormProps) => {
@@ -92,6 +98,9 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
       image_url: editingItem?.image_url || "",
       is_veg: editingItem ? (editingItem.is_veg ?? true) : true, // Default to veg for new items
       is_special: editingItem?.is_special ?? false,
+      pricing_type: editingItem?.pricing_type || "fixed",
+      pricing_unit: editingItem?.pricing_unit || "piece",
+      base_unit_quantity: editingItem?.base_unit_quantity ? String(editingItem.base_unit_quantity) : "1",
     },
   });
 
@@ -107,6 +116,9 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
         image_url: editingItem.image_url || "",
         is_veg: editingItem.is_veg ?? true,
         is_special: editingItem.is_special ?? false,
+        pricing_type: editingItem.pricing_type || "fixed",
+        pricing_unit: editingItem.pricing_unit || "piece",
+        base_unit_quantity: editingItem.base_unit_quantity ? String(editingItem.base_unit_quantity) : "1",
       });
       setUploadedImageUrl(editingItem.image_url || "");
     } else {
@@ -119,6 +131,9 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
         image_url: "",
         is_veg: true, // Default to vegetarian
         is_special: false,
+        pricing_type: "fixed",
+        pricing_unit: "piece",
+        base_unit_quantity: "1",
       });
       setUploadedImageUrl("");
     }
@@ -229,6 +244,9 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
         is_available: true,
         is_veg: Boolean(data.is_veg), // Explicit Boolean conversion
         is_special: Boolean(data.is_special), // Explicit Boolean conversion
+        pricing_type: data.pricing_type || "fixed",
+        pricing_unit: data.pricing_type !== "fixed" ? data.pricing_unit : null,
+        base_unit_quantity: data.pricing_type !== "fixed" ? parseFloat(data.base_unit_quantity) || 1 : null,
         updated_at: new Date().toISOString(), // Track update time
       };
 
@@ -522,6 +540,123 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                     )}
                   />
                 </div>
+              </div>
+
+              {/* Pricing Configuration */}
+              <div className="bg-gradient-to-r from-blue-50/80 to-cyan-50/80 dark:from-blue-900/20 dark:to-cyan-900/20 backdrop-blur-sm rounded-2xl p-4 border border-blue-200/50 dark:border-blue-600/50">
+                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+                  <Scale className="h-5 w-5 text-blue-500" />
+                  Pricing Configuration
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  Configure how this item is priced - fixed price or by weight/volume
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="pricing_type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-700 dark:text-gray-300 font-semibold">Pricing Type</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:border-blue-400 transition-all duration-200 text-gray-900 dark:text-white">
+                              <SelectValue placeholder="Select pricing type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 rounded-xl shadow-xl">
+                            <SelectItem value="fixed" className="rounded-lg">📦 Fixed Price</SelectItem>
+                            <SelectItem value="weight" className="rounded-lg">⚖️ By Weight (kg/g)</SelectItem>
+                            <SelectItem value="volume" className="rounded-lg">🧴 By Volume (L/ml)</SelectItem>
+                            <SelectItem value="unit" className="rounded-lg">🔢 By Unit/Piece</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {form.watch("pricing_type") !== "fixed" && (
+                    <>
+                      <FormField
+                        control={form.control}
+                        name="pricing_unit"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-gray-700 dark:text-gray-300 font-semibold">Unit</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger className="bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:border-blue-400 transition-all duration-200 text-gray-900 dark:text-white">
+                                  <SelectValue placeholder="Select unit" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 rounded-xl shadow-xl">
+                                {form.watch("pricing_type") === "weight" && (
+                                  <>
+                                    <SelectItem value="kg" className="rounded-lg">Kilogram (kg)</SelectItem>
+                                    <SelectItem value="g" className="rounded-lg">Gram (g)</SelectItem>
+                                  </>
+                                )}
+                                {form.watch("pricing_type") === "volume" && (
+                                  <>
+                                    <SelectItem value="L" className="rounded-lg">Litre (L)</SelectItem>
+                                    <SelectItem value="ml" className="rounded-lg">Millilitre (ml)</SelectItem>
+                                  </>
+                                )}
+                                {form.watch("pricing_type") === "unit" && (
+                                  <>
+                                    <SelectItem value="piece" className="rounded-lg">Piece</SelectItem>
+                                    <SelectItem value="plate" className="rounded-lg">Plate</SelectItem>
+                                    <SelectItem value="unit" className="rounded-lg">Unit</SelectItem>
+                                  </>
+                                )}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="base_unit_quantity"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-gray-700 dark:text-gray-300 font-semibold">Base Quantity</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                placeholder="1"
+                                className="bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormDescription className="text-xs text-gray-500">
+                              e.g., 1 for "per kg"
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
+                  )}
+                </div>
+
+                {/* Price Preview */}
+                {form.watch("price") && (
+                  <div className="mt-4 bg-white/60 dark:bg-gray-800/60 rounded-xl p-3 border border-blue-200 dark:border-blue-700">
+                    <p className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                      💰 Price Preview: ₹{form.watch("price")}
+                      {form.watch("pricing_type") !== "fixed" && form.watch("pricing_unit") && (
+                        <> per {form.watch("base_unit_quantity") || 1} {form.watch("pricing_unit")}</>
+                      )}
+                      {form.watch("pricing_type") === "fixed" && " (fixed price)"}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Special Options */}
