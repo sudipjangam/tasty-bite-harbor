@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ToggleLeft, ToggleRight } from "lucide-react";
+import { ToggleLeft, ToggleRight, ChevronUp, ChevronDown } from "lucide-react";
 import POSHeader from "./POSHeader";
 import ActiveOrdersList from "../ActiveOrdersList";
 import MenuCategories from "../MenuCategories";
@@ -39,6 +39,10 @@ const POSMode = () => {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showWeightDialog, setShowWeightDialog] = useState(false);
   const [pendingWeightItem, setPendingWeightItem] = useState<any>(null);
+  
+  // Active Orders panel expand state
+  const [activeOrdersExpanded, setActiveOrdersExpanded] = useState(false);
+  
   const { toast } = useToast();
 
   const { data: tables } = useQuery({
@@ -424,12 +428,12 @@ const POSMode = () => {
 
   return (
     <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950">
-      <div className="grid grid-cols-1 lg:grid-cols-4 h-full gap-4 md:gap-6 p-3 md:p-6 pb-24 lg:pb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 h-full gap-3 md:gap-4 p-3 md:p-4 pb-24 lg:pb-4">
         {/* Left Section - Menu & Orders */}
-        <div className="lg:col-span-3 flex flex-col space-y-6">
-          {/* Header Section */}
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-xl p-6">
-            <div className="flex items-center justify-between mb-6">
+        <div className="lg:col-span-3 flex flex-col gap-3">
+          {/* Compact Header Section */}
+          <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 rounded-2xl shadow-lg p-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
               <POSHeader 
                 orderType={orderType}
                 setOrderType={setOrderType}
@@ -440,29 +444,67 @@ const POSMode = () => {
               <Button 
                 variant="outline" 
                 onClick={() => setShowActiveOrders(!showActiveOrders)}
-                className="flex items-center gap-2 bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border-2 border-indigo-200 dark:border-indigo-700 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-xl px-4 py-2 transition-all duration-300"
+                size="sm"
+                className={`flex items-center gap-2 rounded-xl px-3 py-2 transition-all duration-300 ${
+                  showActiveOrders 
+                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-0 shadow-lg shadow-indigo-500/30' 
+                    : 'bg-white/80 dark:bg-gray-700/80 border-2 border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300'
+                }`}
               >
                 {showActiveOrders ? (
                   <>
-                    <ToggleRight className="h-5 w-5" />
-                    <span>Hide Orders</span>
+                    <ToggleRight className="h-4 w-4" />
+                    <span className="hidden sm:inline">Hide</span>
                   </>
                 ) : (
                   <>
-                    <ToggleLeft className="h-5 w-5" />
-                    <span>Show Orders</span>
+                    <ToggleLeft className="h-4 w-4" />
+                    <span className="hidden sm:inline">Orders</span>
                   </>
                 )}
               </Button>
             </div>
 
+            {/* Active Orders Panel */}
             {showActiveOrders && (
-              <div className="bg-gradient-to-r from-gray-50/80 to-white/80 dark:from-gray-700/80 dark:to-gray-800/80 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-600/50">
-                <h2 className="text-lg font-semibold mb-3 text-gray-800 dark:text-white flex items-center gap-2">
-                  <div className="w-3 h-3 bg-gradient-to-r from-orange-400 to-red-500 rounded-full animate-pulse"></div>
-                  Active Orders
-                </h2>
-                <div className="max-h-[180px] md:max-h-[250px] overflow-auto mobile-scroll">
+              <div 
+                className="mt-3 bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 dark:from-orange-900/30 dark:via-amber-900/30 dark:to-yellow-900/30 backdrop-blur-sm rounded-xl border-2 border-orange-200/60 dark:border-orange-700/60 shadow-lg shadow-orange-100/50 dark:shadow-orange-900/30 overflow-hidden transition-all duration-300 flex flex-col"
+                style={{ 
+                  height: activeOrdersExpanded ? '350px' : '150px',
+                }}
+              >
+                <div className="flex-shrink-0 flex items-center justify-between p-3 bg-gradient-to-r from-orange-400/20 to-amber-400/20 dark:from-orange-600/30 dark:to-amber-600/30 border-b border-orange-200/50 dark:border-orange-700/50">
+                  <h2 className="text-sm font-bold text-orange-800 dark:text-orange-300 flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 bg-gradient-to-r from-orange-500 to-red-500 rounded-full animate-pulse shadow-lg shadow-orange-500/50"></div>
+                    📋 Active Orders
+                  </h2>
+                  
+                  {/* Expand/Collapse Toggle */}
+                  <button
+                    onClick={() => setActiveOrdersExpanded(!activeOrdersExpanded)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all duration-300 text-sm font-medium ${
+                      activeOrdersExpanded 
+                        ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30' 
+                        : 'bg-white/60 dark:bg-gray-700/60 hover:bg-orange-100 dark:hover:bg-orange-800/40 text-orange-700 dark:text-orange-400 border border-orange-200/50 dark:border-orange-700/50'
+                    }`}
+                    title={activeOrdersExpanded ? "Collapse" : "Expand"}
+                  >
+                    {activeOrdersExpanded ? (
+                      <>
+                        <ChevronUp className="w-4 h-4" />
+                        <span className="hidden sm:inline">Collapse</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-4 h-4" />
+                        <span className="hidden sm:inline">Expand</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                
+                {/* Scrollable Content - takes remaining space */}
+                <div className="flex-1 overflow-auto p-3 min-h-0">
                   <ActiveOrdersList onRecallOrder={({ items, kitchenOrderId, source }) => {
                     setCurrentOrderItems(items as OrderItem[]);
                     setRecalledKitchenOrderId(kitchenOrderId);
@@ -477,22 +519,25 @@ const POSMode = () => {
             )}
           </div>
 
-          {/* Menu Section */}
-          <div className="flex-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-xl overflow-hidden">
-            <div className="p-6 border-b border-gray-100 dark:border-gray-700">
-              <h2 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                Menu Items
-              </h2>
+          {/* Menu Section - with fixed max-height and scroll */}
+          <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 rounded-2xl shadow-lg overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 320px)', minHeight: '400px' }}>
+            {/* Compact Category Bar */}
+            <div className="flex-shrink-0 px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 dark:from-indigo-900/20 dark:to-purple-900/20">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
+                  <span className="text-xl">🍽️</span> Menu
+                </h2>
+              </div>
+              <div className="mt-2">
+                <MenuCategories
+                  selectedCategory={selectedCategory}
+                  onSelectCategory={setSelectedCategory}
+                />
+              </div>
             </div>
             
-            <div className="p-4">
-              <MenuCategories
-                selectedCategory={selectedCategory}
-                onSelectCategory={setSelectedCategory}
-              />
-            </div>
-            
-            <div className="flex-1 overflow-auto p-4">
+            {/* Scrollable menu items area with fixed height */}
+            <div className="flex-1 overflow-auto p-3 min-h-0">
               <MenuItemsGrid
                 selectedCategory={selectedCategory}
                 onSelectItem={handleAddItem}
@@ -501,8 +546,8 @@ const POSMode = () => {
           </div>
         </div>
 
-        {/* Right Section - Current Order & Custom Extras */}
-        <div className="lg:col-span-1 flex flex-col gap-4">
+        {/* Right Section - Current Order & Custom Extras (Sticky on desktop) */}
+        <div className="lg:col-span-1 lg:sticky lg:top-6 lg:h-[calc(100vh-48px)] flex flex-col gap-4 overflow-hidden">
           <CurrentOrder
             items={currentOrderItems}
             tableNumber={tableNumber}
@@ -514,12 +559,14 @@ const POSMode = () => {
             onClearOrder={handleClearOrder}
           />
           
-          {/* Custom Extras Panel for ad-hoc items */}
-          <CustomExtrasPanel
-            onAddCustomItem={handleAddCustomExtra}
-            customItems={currentOrderItems.filter(item => item.isCustomExtra)}
-            onRemoveCustomItem={handleRemoveCustomExtra}
-          />
+          {/* Custom Extras Panel for ad-hoc items - collapsible on desktop */}
+          <div className="flex-shrink-0 max-h-[200px] overflow-auto">
+            <CustomExtrasPanel
+              onAddCustomItem={handleAddCustomExtra}
+              customItems={currentOrderItems.filter(item => item.isCustomExtra)}
+              onRemoveCustomItem={handleRemoveCustomExtra}
+            />
+          </div>
         </div>
       </div>
 
