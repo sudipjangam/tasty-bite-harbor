@@ -31,6 +31,7 @@ import RecipeManagement from "@/pages/RecipeManagement";
 import RoleManagement from "@/pages/RoleManagement";
 import Marketing from "@/pages/Marketing";
 import Reports from "@/pages/Reports";
+import ShiftManagement from "@/pages/ShiftManagement";
 import { PermissionGuard } from "./PermissionGuard";
 import { SidebarHeader } from "../Layout/SidebarHeader";
 import { cn } from "@/lib/utils";
@@ -108,6 +109,11 @@ export const AppRoutes = () => {
           <Route path="/staff" element={
             <PermissionGuard permission="staff.view">
               <Staff />
+            </PermissionGuard>
+          } />
+          <Route path="/shift-management" element={
+            <PermissionGuard permission="staff.update">
+              <ShiftManagement />
             </PermissionGuard>
           } />
           <Route path="/analytics" element={

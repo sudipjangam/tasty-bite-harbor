@@ -40,14 +40,40 @@ export interface StaffRole {
 
 export interface StaffShift {
   id: string;
-  staff_id: string;
   restaurant_id: string;
+  name: string;
   start_time: string;
   end_time: string;
-  location?: string;
+  color?: string;
+  grace_period_minutes?: number;
+  auto_clock_out_minutes?: number;
+  is_active?: boolean;
   created_at: string;
   updated_at: string;
 }
+
+export interface StaffShiftAssignment {
+  id: string;
+  staff_id: string;
+  shift_id: string;
+  restaurant_id: string;
+  day_of_week: number; // 0-6 (Sunday-Saturday)
+  effective_from?: string;
+  effective_until?: string;
+  is_active?: boolean;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  shifts?: StaffShift;
+  staff?: {
+    first_name: string;
+    last_name: string;
+  };
+}
+
+export type ClockInStatus = 'early' | 'on_time' | 'late' | 'no_shift';
+
 
 export interface StaffLeaveBalance {
   id: string;
@@ -94,8 +120,17 @@ export interface StaffTimeClockEntry {
   clock_in: string;
   clock_out?: string;
   notes?: string;
+  shift_id?: string;
+  clock_in_status?: ClockInStatus;
+  minutes_variance?: number;
+  auto_clocked_out?: boolean;
+  manager_override?: boolean;
+  override_by?: string;
+  override_reason?: string;
   created_at: string;
   updated_at: string;
+  // Joined data
+  shifts?: StaffShift;
 }
 
 export interface StaffDocument {

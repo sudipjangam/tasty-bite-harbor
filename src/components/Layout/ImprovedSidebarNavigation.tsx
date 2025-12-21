@@ -28,7 +28,8 @@ import {
   BookOpen,
   Target,
   FileText,
-  Receipt
+  Receipt,
+  CalendarClock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -162,6 +163,13 @@ const navigationGroups: NavigationGroup[] = [
         href: "/staff",
         description: "Employee management",
         requiredPermissions: ["staff.view"]
+      },
+      {
+        title: "Shift Management",
+        icon: CalendarClock,
+        href: "/shift-management",
+        description: "Shifts & scheduling",
+        requiredPermissions: ["staff.update"]
       },
       {
         title: "Customers",

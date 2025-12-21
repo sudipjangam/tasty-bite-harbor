@@ -1,15 +1,16 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { format, differenceInMinutes, parse } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock } from "lucide-react";
+import { Clock, AlertTriangle, CheckCircle2, Timer, Sunrise, Sunset, Moon } from "lucide-react";
 import type { StaffMember, StaffTimeClockEntry } from "@/types/staff";
 
 interface TimeClockDialogProps {
@@ -18,6 +19,17 @@ interface TimeClockDialogProps {
   staffId?: string;
   restaurantId: string | null;
   onSuccess: () => void;
+}
+
+type ClockInStatus = 'early' | 'on_time' | 'late' | 'no_shift';
+
+interface ShiftInfo {
+  id: string;
+  name: string;
+  start_time: string;
+  end_time: string;
+  color: string;
+  grace_period_minutes: number;
 }
 
 const TimeClockDialog: React.FC<TimeClockDialogProps> = ({
@@ -60,6 +72,93 @@ const TimeClockDialog: React.FC<TimeClockDialogProps> = ({
       return data as StaffMember[];
     },
   });
+
+  // Fetch today's shift assignment for the staff member
+  const effectiveStaffId = selectedStaffId || staffId;
+  const dayOfWeek = currentTime.getDay(); // 0 = Sunday, 6 = Saturday
+
+  const { data: todayShift } = useQuery<ShiftInfo | null>({
+    queryKey: ["staff-today-shift", effectiveStaffId, dayOfWeek],
+    enabled: !!effectiveStaffId && !!restaurantId && isOpen,
+    queryFn: async () => {
+      const today = format(currentTime, 'yyyy-MM-dd');
+      
+      const { data, error } = await supabase
+        .from('staff_shift_assignments')
+        .select(`
+          shift_id,
+          shifts!inner(
+            id,
+            name,
+            start_time,
+            end_time,
+            color,
+            grace_period_minutes
+          )
+        `)
+        .eq('staff_id', effectiveStaffId)
+        .eq('restaurant_id', restaurantId)
+        .eq('day_of_week', dayOfWeek)
+        .eq('is_active', true)
+        .lte('effective_from', today)
+        .or(`effective_until.is.null,effective_until.gte.${today}`)
+        .limit(1)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') return null; // No shift assigned
+        console.error('Error fetching shift:', error);
+        return null;
+      }
+
+      return data?.shifts as ShiftInfo || null;
+    },
+  });
+
+  // Calculate clock-in status based on shift
+  const clockInValidation = useMemo(() => {
+    if (!todayShift) {
+      return {
+        status: 'no_shift' as ClockInStatus,
+        message: 'No shift assigned for today',
+        minutesVariance: 0,
+        color: 'gray'
+      };
+    }
+
+    const now = currentTime;
+    const todayDate = format(now, 'yyyy-MM-dd');
+    const shiftStartTime = parse(`${todayDate} ${todayShift.start_time}`, 'yyyy-MM-dd HH:mm:ss', new Date());
+    const gracePeriod = todayShift.grace_period_minutes || 15;
+    
+    const minutesFromShiftStart = differenceInMinutes(now, shiftStartTime);
+    
+    if (minutesFromShiftStart < -gracePeriod) {
+      // Too early (more than grace period before shift)
+      return {
+        status: 'early' as ClockInStatus,
+        message: `${Math.abs(minutesFromShiftStart)} min early`,
+        minutesVariance: minutesFromShiftStart,
+        color: 'blue'
+      };
+    } else if (minutesFromShiftStart <= gracePeriod) {
+      // On time (within grace period)
+      return {
+        status: 'on_time' as ClockInStatus,
+        message: 'On time',
+        minutesVariance: minutesFromShiftStart,
+        color: 'green'
+      };
+    } else {
+      // Late (after grace period)
+      return {
+        status: 'late' as ClockInStatus,
+        message: `${minutesFromShiftStart} min late`,
+        minutesVariance: minutesFromShiftStart,
+        color: 'red'
+      };
+    }
+  }, [todayShift, currentTime]);
 
   // Get current time clock status for the staff member
   const { data: activeSession, refetch: refetchActiveSession } = useQuery<StaffTimeClockEntry | null>({
@@ -106,6 +205,15 @@ const TimeClockDialog: React.FC<TimeClockDialogProps> = ({
     }
   }, [isOpen]);
 
+  // Get shift icon based on time
+  const getShiftIcon = (shiftName: string) => {
+    const name = shiftName.toLowerCase();
+    if (name.includes('morning')) return <Sunrise className="h-4 w-4" />;
+    if (name.includes('evening')) return <Sunset className="h-4 w-4" />;
+    if (name.includes('night')) return <Moon className="h-4 w-4" />;
+    return <Clock className="h-4 w-4" />;
+  };
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,7 +241,6 @@ const TimeClockDialog: React.FC<TimeClockDialogProps> = ({
     setIsSubmitting(true);
 
     try {
-      // Direct interaction with Supabase instead of the Edge function that's causing issues
       if (action === "in") {
         // Check if there's already an active session
         const { data: activeSessions } = await supabase
@@ -147,15 +254,24 @@ const TimeClockDialog: React.FC<TimeClockDialogProps> = ({
           throw new Error("You already have an active clock-in session");
         }
 
-        // Create clock-in record
+        // Create clock-in record with shift validation data
+        const clockInData: any = {
+          staff_id: staffToUse,
+          restaurant_id: restaurantId,
+          clock_in: new Date().toISOString(),
+          notes,
+          clock_in_status: clockInValidation.status,
+          minutes_variance: clockInValidation.minutesVariance,
+        };
+
+        // Add shift_id if a shift is assigned
+        if (todayShift?.id) {
+          clockInData.shift_id = todayShift.id;
+        }
+
         const { error } = await supabase
           .from("staff_time_clock")
-          .insert([{
-            staff_id: staffToUse,
-            restaurant_id: restaurantId,
-            clock_in: new Date().toISOString(),
-            notes
-          }]);
+          .insert([clockInData]);
 
         if (error) {
           throw new Error(`Error clocking in: ${error.message}`);
@@ -166,6 +282,20 @@ const TimeClockDialog: React.FC<TimeClockDialogProps> = ({
           .from("staff")
           .update({ status: "working" })
           .eq("id", staffToUse);
+
+        // Show appropriate toast based on clock-in status
+        const statusMessages: Record<ClockInStatus, string> = {
+          early: "You're early! Great job!",
+          on_time: "Right on time! Have a great shift!",
+          late: `You're ${clockInValidation.minutesVariance} minutes late. Please try to be on time.`,
+          no_shift: "Clocked in successfully (no shift assigned for today)."
+        };
+
+        toast({
+          title: `Clock in successful`,
+          description: statusMessages[clockInValidation.status],
+          variant: clockInValidation.status === 'late' ? 'destructive' : 'default',
+        });
 
       } else if (action === "out") {
         // Find the active session to clock out
@@ -201,12 +331,12 @@ const TimeClockDialog: React.FC<TimeClockDialogProps> = ({
           .from("staff")
           .update({ status: "active" })
           .eq("id", staffToUse);
-      }
 
-      toast({
-        title: `Clock ${action} successful`,
-        description: `Staff member has been clocked ${action} successfully.`,
-      });
+        toast({
+          title: `Clock out successful`,
+          description: `Staff member has been clocked out successfully.`,
+        });
+      }
 
       setNotes('');
       onSuccess();
@@ -226,15 +356,15 @@ const TimeClockDialog: React.FC<TimeClockDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
             Clock {action.charAt(0).toUpperCase() + action.slice(1)}
           </DialogTitle>
           <DialogDescription>
             {action === "in" 
-              ? "Record the start of a work shift."
-              : "Record the end of a work shift."}
+              ? "Record the start of your work shift."
+              : "Record the end of your work shift."}
           </DialogDescription>
         </DialogHeader>
 
@@ -263,6 +393,56 @@ const TimeClockDialog: React.FC<TimeClockDialogProps> = ({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {/* Today's Shift Info */}
+          {action === "in" && effectiveStaffId && (
+            <div className={`p-3 rounded-lg border ${
+              clockInValidation.status === 'late' ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800' :
+              clockInValidation.status === 'early' ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' :
+              clockInValidation.status === 'on_time' ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' :
+              'bg-gray-50 border-gray-200 dark:bg-gray-800/50 dark:border-gray-700'
+            }`}>
+              {todayShift ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {getShiftIcon(todayShift.name)}
+                      <span className="font-medium">{todayShift.name} Shift</span>
+                    </div>
+                    <Badge 
+                      className="text-xs text-white"
+                      style={{ backgroundColor: todayShift.color || '#3B82F6' }}
+                    >
+                      {todayShift.start_time.slice(0, 5)} - {todayShift.end_time.slice(0, 5)}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {clockInValidation.status === 'on_time' && (
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    )}
+                    {clockInValidation.status === 'late' && (
+                      <AlertTriangle className="h-4 w-4 text-red-600" />
+                    )}
+                    {clockInValidation.status === 'early' && (
+                      <Timer className="h-4 w-4 text-blue-600" />
+                    )}
+                    <span className={`text-sm font-medium ${
+                      clockInValidation.status === 'on_time' ? 'text-green-700 dark:text-green-400' :
+                      clockInValidation.status === 'late' ? 'text-red-700 dark:text-red-400' :
+                      'text-blue-700 dark:text-blue-400'
+                    }`}>
+                      {clockInValidation.message}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                  <Timer className="h-4 w-4" />
+                  <span className="text-sm">No shift assigned for today</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -332,7 +512,15 @@ const TimeClockDialog: React.FC<TimeClockDialogProps> = ({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting}
+              className={
+                action === 'in' && clockInValidation.status === 'late' 
+                  ? 'bg-red-600 hover:bg-red-700' 
+                  : ''
+              }
+            >
               {isSubmitting ? (
                 <>
                   <span className="animate-spin mr-1">●</span> 
