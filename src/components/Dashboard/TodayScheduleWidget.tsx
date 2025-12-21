@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useRestaurantId } from "@/hooks/useRestaurantId";
-import { Calendar, Clock, Users, Sunrise, Sunset, Moon, ChevronLeft, ChevronRight } from "lucide-react";
-import { format, addDays, subDays } from "date-fns";
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useRestaurantId } from '@/hooks/useRestaurantId';
+import { Card, CardContent } from "@/components/ui/card";
+import { format, addDays, subDays } from 'date-fns';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Users, Sunrise, Sunset, Moon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface ShiftData {
   id: string;
@@ -18,16 +17,13 @@ interface ShiftData {
 
 interface AssignmentData {
   id: string;
-  staff_id: string;
   shift_id: string;
-  day_of_week: number;
   staff: {
     id: string;
     first_name: string;
     last_name: string;
     position: string;
   };
-  shifts: ShiftData;
 }
 
 const TodayScheduleWidget: React.FC = () => {
@@ -122,120 +118,147 @@ const TodayScheduleWidget: React.FC = () => {
 
   const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
 
+  const renderHeader = () => (
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="flex items-center gap-3">
+        <div className="p-2.5 bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl shadow-lg shadow-orange-500/20">
+          <Calendar className="h-6 w-6 text-white" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            Staff Schedule
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
+            Daily shift assignments
+          </p>
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-2 bg-white/50 dark:bg-gray-800/50 p-1 rounded-xl border border-gray-200 dark:border-gray-700">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 rounded-lg hover:bg-white dark:hover:bg-gray-700"
+          onClick={() => navigateDate('prev')}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <div className="text-sm font-semibold min-w-[120px] text-center text-gray-700 dark:text-gray-200">
+          {isToday ? 'Today' : format(selectedDate, 'EEE, MMM d')}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 rounded-lg hover:bg-white dark:hover:bg-gray-700"
+          onClick={() => navigateDate('next')}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+
   if (isLoading) {
     return (
-      <Card className="bg-white/90 dark:bg-gray-800/90 border-gray-200 dark:border-gray-700 animate-pulse">
-        <CardContent className="p-6">
-          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
-          <div className="space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-            ))}
-          </div>
-        </CardContent>
+      <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl p-6">
+        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4 animate-pulse"></div>
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+          ))}
+        </div>
       </Card>
     );
   }
 
   return (
-    <Card className="bg-white/90 dark:bg-gray-800/90 border-gray-200 dark:border-gray-700">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-purple-500" />
-            Staff Schedule
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={() => navigateDate('prev')}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className="text-sm font-medium min-w-[120px] text-center">
-              {isToday ? 'Today' : format(selectedDate, 'EEE, MMM d')}
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={() => navigateDate('next')}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
+    <Card className="group relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+      <CardContent className="p-6">
+        {renderHeader()}
+        
         {shifts && shifts.length > 0 ? (
           <div className="space-y-3">
             {shifts.map(shift => {
-              const shiftAssignments = assignmentsByShift[shift.id] || [];
-              
+              const shiftAssignments = assignmentsByShift[shift.id];
               return (
                 <div 
-                  key={shift.id}
-                  className="border rounded-lg p-3 bg-gray-50 dark:bg-gray-800/50"
-                  style={{ borderLeftColor: shift.color, borderLeftWidth: '4px' }}
+                  key={shift.id} 
+                  className="group relative overflow-hidden bg-white/50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 transition-all duration-200 hover:bg-white dark:hover:bg-gray-900 shadow-sm hover:shadow-md"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      {getShiftIcon(shift.name)}
-                      <span className="font-medium">{shift.name}</span>
-                      <Badge 
-                        className="text-xs text-white"
-                        style={{ backgroundColor: shift.color }}
-                      >
-                        {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
-                      </Badge>
+                  <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+                    shift.name.toLowerCase().includes('morning') ? 'bg-amber-400' :
+                    shift.name.toLowerCase().includes('evening') ? 'bg-indigo-400' :
+                    'bg-purple-400'
+                  }`}></div>
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pl-3">
+                    <div className="flex items-center gap-3 min-w-[150px]">
+                      <div className={`p-2 rounded-lg ${
+                         shift.name.toLowerCase().includes('morning') ? 'bg-amber-100/50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400' :
+                         shift.name.toLowerCase().includes('evening') ? 'bg-indigo-100/50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' :
+                         'bg-purple-100/50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400'
+                      }`}>
+                        {getShiftIcon(shift.name)}
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
+                          {shift.name}
+                        </h3>
+                        <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                          <span className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                            {formatTime(shift.start_time)}
+                          </span>
+                          <span>-</span>
+                          <span className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                            {formatTime(shift.end_time)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 text-sm text-gray-500">
+
+                    <div className="flex-1">
+                      {shiftAssignments && shiftAssignments.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {shiftAssignments.map(assignment => (
+                            <div 
+                              key={assignment.id} 
+                              className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm"
+                            >
+                              <div className="h-6 w-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300">
+                                {assignment.staff.first_name[0]}{assignment.staff.last_name[0]}
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                  {assignment.staff.first_name} {assignment.staff.last_name}
+                                </span>
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400 leading-none">
+                                  {assignment.staff.position}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-gray-400 italic flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          No staff assigned
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="text-xs font-medium text-gray-400 shrink-0 flex items-center gap-1">
                       <Users className="h-3 w-3" />
-                      <span>{shiftAssignments.length}</span>
+                      {shiftAssignments?.length || 0}
                     </div>
                   </div>
-                  
-                  {shiftAssignments.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {shiftAssignments.map(assignment => (
-                        <Badge 
-                          key={assignment.id}
-                          variant="secondary"
-                          className="bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                        >
-                          {assignment.staff.first_name} {assignment.staff.last_name}
-                          {assignment.staff.position && (
-                            <span className="text-gray-500 ml-1">({assignment.staff.position})</span>
-                          )}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-gray-400 italic">No staff assigned</div>
-                  )}
                 </div>
               );
             })}
           </div>
         ) : (
-          <div className="text-center py-8 text-gray-500">
-            <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>No shifts configured</p>
-            <p className="text-sm">Add shifts in settings to see the schedule</p>
-          </div>
-        )}
-
-        {/* Summary */}
-        {assignments && assignments.length > 0 && (
-          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Total staff scheduled:</span>
-              <Badge variant="outline" className="font-bold">
-                {assignments.length} staff
-              </Badge>
-            </div>
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-900/20 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
+            <Calendar className="h-8 w-8 mx-auto mb-2 opacity-20" />
+            <p className="text-sm">No shifts configured for this day</p>
           </div>
         )}
       </CardContent>

@@ -74,9 +74,10 @@ const StatDetails = ({ title, data, type, onClose }: StatDetailsProps) => {
     switch (type) {
       case "sales":
       case "revenue": {
+        const isSales = type === 'sales';
         const chartOptions: Options = {
           chart: {
-            type: 'areaspline' as const,
+            type: isSales ? 'column' : 'areaspline',
             backgroundColor: backgroundColor,
             style: {
               fontFamily: 'Inter, system-ui, sans-serif'
@@ -93,7 +94,8 @@ const StatDetails = ({ title, data, type, onClose }: StatDetailsProps) => {
             labels: {
               style: {
                 color: textColor,
-                fontSize: '11px'
+                fontSize: '11px',
+                fontWeight: '600'
               },
               rotation: -45
             },
@@ -186,10 +188,29 @@ const StatDetails = ({ title, data, type, onClose }: StatDetailsProps) => {
                 duration: 1500,
                 easing: 'easeOutBounce'
               }
+            },
+            column: {
+              borderRadius: isSales ? 8 : 0,
+              pointWidth: 40,
+              color: {
+                linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+                stops: [
+                  [0, colors.line],
+                  [1, colors.gradient[0]] // darker/lighter shade for gradient bar
+                ]
+              },
+              states: {
+                hover: {
+                  brightness: 0.1
+                }
+              },
+              animation: {
+                duration: 1000
+              }
             }
           },
           series: [{
-            type: 'areaspline' as const,
+            type: isSales ? 'column' : 'areaspline',
             name: 'Amount',
             data: data.chart.map((item: any) => item.amount),
           }]
