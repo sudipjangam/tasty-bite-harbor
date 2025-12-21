@@ -30,40 +30,61 @@ const Stats = () => {
   const allRevenueSources = statsData?.allRevenueSources || [];
   const orders = statsData?.orders || [];
 
-  // Helper function to get actual revenue after discount
-  // For old orders: total contains subtotal, so we subtract discount_amount
-  // For new orders: total already has discount applied, discount_amount will match
   const getActualRevenue = (item: any) => {
     const total = Number(item.total) || 0;
     const discountAmount = Number(item.discount_amount) || 0;
-    // If the total is greater than discountAmount, it means old order where total = subtotal
-    // We need to subtract discount. For new orders where total is already correct,
-    // discount_amount might be 0 or the difference would be minimal
     return total - discountAmount;
   };
 
-  // Calculate stats from ALL revenue sources - count completed, paid, AND ready orders for revenue
   const completedRevenue = allRevenueSources.filter(item => 
     item.status === 'completed' || item.status === 'paid' || item.status === 'ready'
   );
   const totalSales = completedRevenue.reduce((sum, item) => sum + getActualRevenue(item), 0);
 
+  // Define today first so it can be used for filtering
+  const today = new Date().toDateString();
+
+  const activeOrdersList = orders.filter(order => {
+    const isToday = new Date(order.created_at).toDateString() === today;
+    const isActive = ['pending', 'preparing', 'ready', 'held'].includes(order.status);
+    return isToday && isActive;
+  });
   
-  // Active orders - New (pending), Preparing, Ready, Held
-  const activeOrders = orders.filter(order => 
-    ['pending', 'preparing', 'ready', 'held'].includes(order.status)
-  ).length || 0;
+  const activeOrdersCount = activeOrdersList.length || 0;
   
   const uniqueCustomers = orders.length > 0 
     ? new Set(orders.map(order => order.customer_name).filter(Boolean)).size 
     : 0;
   
-  // Today's revenue - completed/ready orders + paid room billings from today
-  const today = new Date().toDateString();
   const todaysRevenue = completedRevenue
     .filter(item => new Date(item.created_at).toDateString() === today)
     .reduce((sum, item) => sum + getActualRevenue(item), 0);
 
+  // Helper to group revenue by month
+  const getMonthlyRevenue = (data: any[]) => {
+    const grouped = data.reduce((acc: any, item) => {
+      const date = new Date(item.created_at);
+      // Use full month name + year for uniqueness and clarity, or just month if preferred.
+      // User asked for "jan, feb, march etc". Let's use short month name.
+      // To ensure correct sorting, we store timestamp.
+      const monthKey = date.toLocaleString('default', { month: 'short' }); 
+      const year = date.getFullYear();
+      const key = `${monthKey} ${year}`;
+      
+      if (!acc[key]) {
+        acc[key] = {
+           date: key,
+           amount: 0,
+           // Use the first day of the month for sorting purposes
+           timestamp: new Date(year, date.getMonth(), 1).getTime()
+        };
+      }
+      acc[key].amount += getActualRevenue(item);
+      return acc;
+    }, {});
+    
+    return Object.values(grouped).sort((a: any, b: any) => a.timestamp - b.timestamp);
+  };
 
   const stats = [
     {
@@ -71,21 +92,23 @@ const Stats = () => {
       value: formatIndianCurrency(totalSales).formatted,
       icon: DollarSign,
       trend: "+12.5%",
-      color: "text-green-600 dark:text-green-400",
+      color: "text-emerald-600 dark:text-emerald-400",
+      gradient: "from-emerald-500 via-teal-500 to-emerald-600",
+      shadow: "shadow-emerald-500/20",
       type: "sales" as const,
-      chart: completedRevenue.map(item => ({
-        date: new Date(item.created_at).toLocaleDateString(),
-        amount: getActualRevenue(item)
-      }))
+      // Use monthly aggregation for Sales chart
+      chart: getMonthlyRevenue(completedRevenue)
     },
     {
       title: "Active Orders",
-      value: activeOrders.toString(),
+      value: activeOrdersCount.toString(),
       icon: ShoppingBag,
       trend: "+3",
       color: "text-blue-600 dark:text-blue-400",
+      gradient: "from-blue-500 via-indigo-500 to-blue-600",
+      shadow: "shadow-blue-500/20",
       type: "orders" as const,
-      data: orders.filter(order => ['pending', 'preparing', 'ready', 'held'].includes(order.status))
+      data: activeOrdersList
     },
     {
       title: "Customers",
@@ -93,6 +116,8 @@ const Stats = () => {
       icon: Users,
       trend: "+5",
       color: "text-purple-600 dark:text-purple-400",
+      gradient: "from-violet-500 via-purple-500 to-fuchsia-600",
+      shadow: "shadow-purple-500/20",
       type: "customers" as const,
       data: orders.map(order => ({
         name: order.customer_name,
@@ -106,6 +131,8 @@ const Stats = () => {
       icon: TrendingUp,
       trend: "+8.2%",
       color: "text-orange-600 dark:text-orange-400",
+      gradient: "from-orange-500 via-amber-500 to-orange-600",
+      shadow: "shadow-orange-500/20",
       type: "revenue" as const,
       chart: completedRevenue
         .filter(item => new Date(item.created_at).toDateString() === today)
@@ -116,7 +143,6 @@ const Stats = () => {
     },
   ];
 
-  // Find the selected stat data
   const selectedStatData = selectedStat ? stats.find(stat => stat.title === selectedStat) : null;
 
   return (
@@ -130,6 +156,8 @@ const Stats = () => {
             icon={stat.icon}
             trend={stat.trend}
             color={stat.color}
+            gradient={stat.gradient}
+            shadow={stat.shadow}
             onClick={() => setSelectedStat(stat.title)}
           />
         ))}
