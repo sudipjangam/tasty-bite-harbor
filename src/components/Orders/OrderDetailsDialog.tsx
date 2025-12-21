@@ -230,10 +230,11 @@ const OrderDetailsDialog = ({ isOpen, onClose, order, onPrintBill, onEditOrder }
   const prepareOrderForEdit = (): Order | null => {
     try {
       // Create a synthetic order object matching the Order interface
+      // Include price in items format: "2x ItemName @price" so it can be parsed
       return {
         id: order.id,
         customer_name: order.source,
-        items: order.items.map(item => `${item.quantity}x ${item.name}`),
+        items: order.items.map(item => `${item.quantity}x ${item.name} @${item.price}`),
         total: subtotal,
         status: order.status as 'completed' | 'pending' | 'preparing' | 'ready' | 'cancelled',
         created_at: order.created_at,
@@ -349,7 +350,7 @@ const OrderDetailsDialog = ({ isOpen, onClose, order, onPrintBill, onEditOrder }
         setShowEditForm(false);
         onClose();
       }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl p-0 border-0 bg-transparent shadow-2xl overflow-hidden [&>button]:hidden">
           <AddOrderForm 
             onSuccess={() => {
               setShowEditForm(false);

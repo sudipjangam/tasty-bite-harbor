@@ -546,8 +546,18 @@ const POSMode = () => {
           </div>
         </div>
 
-        {/* Right Section - Current Order & Custom Extras (Sticky on desktop) */}
+        {/* Right Section - Custom Extras & Current Order (Sticky on desktop) */}
         <div className="lg:col-span-1 lg:sticky lg:top-6 lg:h-[calc(100vh-48px)] flex flex-col gap-4 overflow-hidden">
+          
+          {/* Custom Extras Panel - Now at top for better visibility */}
+          <div className="flex-shrink-0">
+            <CustomExtrasPanel
+              onAddCustomItem={handleAddCustomExtra}
+              customItems={currentOrderItems.filter(item => item.isCustomExtra)}
+              onRemoveCustomItem={handleRemoveCustomExtra}
+            />
+          </div>
+          
           <CurrentOrder
             items={currentOrderItems}
             tableNumber={tableNumber}
@@ -558,15 +568,6 @@ const POSMode = () => {
             onProceedToPayment={handlePaymentClick}
             onClearOrder={handleClearOrder}
           />
-          
-          {/* Custom Extras Panel for ad-hoc items - collapsible on desktop */}
-          <div className="flex-shrink-0 max-h-[200px] overflow-auto">
-            <CustomExtrasPanel
-              onAddCustomItem={handleAddCustomExtra}
-              customItems={currentOrderItems.filter(item => item.isCustomExtra)}
-              onRemoveCustomItem={handleRemoveCustomExtra}
-            />
-          </div>
         </div>
       </div>
 
