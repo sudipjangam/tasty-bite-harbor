@@ -26,6 +26,10 @@ import Stats from "@/components/Dashboard/Stats";
 import WeeklySalesChart from "@/components/Dashboard/WeeklySalesChart";
 import LiveActivity from "@/components/Dashboard/LiveActivity";
 import StaffSelfServiceSection from "@/components/Dashboard/StaffSelfServiceSection";
+import StaffAttendanceWidget from "@/components/Dashboard/StaffAttendanceWidget";
+import TodayScheduleWidget from "@/components/Dashboard/TodayScheduleWidget";
+import AttendanceReportsWidget from "@/components/Dashboard/AttendanceReportsWidget";
+import LaborCostWidget from "@/components/Dashboard/LaborCostWidget";
 import TimeClockDialog from "@/components/Staff/TimeClockDialog";
 import LeaveRequestDialog from "@/components/Staff/LeaveRequestDialog";
 import { useRefetchOnNavigation } from "@/hooks/useRefetchOnNavigation";
@@ -234,35 +238,37 @@ const Index = () => {
             </div>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {filteredQuickActions.length > 0 ? (
               filteredQuickActions.map((action, index) => (
-                <div 
+                <button 
                   key={index} 
-                  className="group relative overflow-hidden bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-2xl p-6 hover:bg-white dark:hover:bg-gray-800 hover:border-purple-200 dark:hover:border-purple-800 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 cursor-pointer"
+                  className={`group relative overflow-hidden bg-gradient-to-br ${action.gradient} rounded-2xl p-5 text-white hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 active:scale-95`}
                   onClick={action.onClick}
                 >
-                  {/* Gradient overlay */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${action.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
+                  {/* Shine overlay */}
+                  <div className="absolute inset-0 bg-white/0 group-hover:bg-white/20 transition-all duration-300"></div>
                   
-                  <div className="relative z-10">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className={`p-3 bg-gradient-to-r ${action.gradient} rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                        {action.icon}
-                      </div>
-                      <ArrowRight className="h-5 w-5 text-gray-400 dark:text-gray-500 group-hover:text-purple-600 dark:group-hover:text-purple-400 group-hover:translate-x-1 transition-all duration-300" />
+                  <div className="relative z-10 flex flex-col items-center text-center gap-3">
+                    <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl group-hover:bg-white/30 group-hover:scale-110 transition-all duration-300">
+                      {React.cloneElement(action.icon as React.ReactElement, { className: "h-6 w-6 text-white" })}
                     </div>
                     
-                    <h3 className="font-bold text-gray-900 dark:text-white mb-2 text-lg group-hover:text-purple-700 dark:group-hover:text-purple-400 transition-colors duration-300">
-                      {action.title}
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                      {action.description}
-                    </p>
+                    <div>
+                      <h3 className="font-bold text-white text-base sm:text-lg">
+                        {action.title}
+                      </h3>
+                      <p className="text-white/80 text-xs sm:text-sm mt-1 hidden sm:block">
+                        {action.description}
+                      </p>
+                    </div>
                     
-                    <div className={`w-full h-0.5 bg-gradient-to-r ${action.gradient} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left`}></div>
+                    <div className="flex items-center gap-1 text-white/70 text-xs group-hover:text-white transition-colors">
+                      <span>Go</span>
+                      <ArrowRight className="h-3 w-3 group-hover:translate-x-1 transition-transform" />
+                    </div>
                   </div>
-                </div>
+                </button>
               ))
             ) : (
               <div className="col-span-full text-center py-12">
@@ -279,6 +285,30 @@ const Index = () => {
             )}
           </div>
         </div>
+
+        {/* Staff Attendance Widget - Only show if user has staff.view permission */}
+        {hasPermission('staff.view') && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-2xl p-6 transform hover:scale-[1.01] transition-all duration-300">
+              <StaffAttendanceWidget />
+            </div>
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-2xl p-6 transform hover:scale-[1.01] transition-all duration-300">
+              <TodayScheduleWidget />
+            </div>
+          </div>
+        )}
+
+        {/* Advanced Manager Widgets - Attendance Reports & Labor Costs */}
+        {hasPermission('staff.view') && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-2xl p-6 transform hover:scale-[1.01] transition-all duration-300">
+              <AttendanceReportsWidget />
+            </div>
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-2xl p-6 transform hover:scale-[1.01] transition-all duration-300">
+              <LaborCostWidget />
+            </div>
+          </div>
+        )}
 
         {/* Enhanced Stats Section */}
         <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">

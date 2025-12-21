@@ -86,6 +86,7 @@ export type Permission =
   | 'housekeeping.create'
   | 'housekeeping.update'
   | 'housekeeping.delete'
+  | 'housekeeping.assign'
   
   // Audit permissions
   | 'audit.view'
@@ -121,7 +122,7 @@ export const rolePermissions: RolePermissions = {
     'settings.view', 'settings.update', 'settings.manage_users', 'users.manage',
     'kitchen.view', 'kitchen.update',
     'tables.view', 'tables.create', 'tables.update', 'tables.delete',
-    'housekeeping.view', 'housekeeping.create', 'housekeeping.update', 'housekeeping.delete',
+    'housekeeping.view', 'housekeeping.create', 'housekeeping.update', 'housekeeping.delete', 'housekeeping.assign',
     'audit.view', 'audit.export',
     'backup.create', 'backup.restore', 'backup.view',
     'gdpr.view', 'gdpr.export', 'gdpr.delete'
@@ -141,7 +142,7 @@ export const rolePermissions: RolePermissions = {
     'settings.view', 'settings.update', 'settings.manage_users', 'users.manage',
     'kitchen.view', 'kitchen.update',
     'tables.view', 'tables.create', 'tables.update', 'tables.delete',
-    'housekeeping.view', 'housekeeping.create', 'housekeeping.update', 'housekeeping.delete',
+    'housekeeping.view', 'housekeeping.create', 'housekeeping.update', 'housekeeping.delete', 'housekeeping.assign',
     'audit.view', 'audit.export',
     'backup.create', 'backup.restore', 'backup.view',
     'gdpr.view', 'gdpr.export', 'gdpr.delete'
@@ -160,7 +161,7 @@ export const rolePermissions: RolePermissions = {
     'settings.view', 'settings.update',
     'kitchen.view', 'kitchen.update',
     'tables.view', 'tables.create', 'tables.update', 'tables.delete',
-    'housekeeping.view', 'housekeeping.create', 'housekeeping.update', 'housekeeping.delete',
+    'housekeeping.view', 'housekeeping.create', 'housekeeping.update', 'housekeeping.delete', 'housekeeping.assign',
     'audit.view',
     'gdpr.view'
   ],
