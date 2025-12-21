@@ -1,20 +1,22 @@
 
-import React from "react";
-import { format, parseISO, differenceInMinutes } from "date-fns";
+
+import React, { useEffect, useState } from "react";
+import { format, parseISO, differenceInSeconds } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Clock,
-  ClockIcon,
   Calendar,
   CalendarPlus,
   Timer,
-  ArrowRight,
   CheckCircle2,
   XCircle,
-  AlertCircle,
+  AlertTriangle,
   Briefcase,
   Coffee,
+  Sparkles,
+  ArrowRight
 } from "lucide-react";
 import type { StaffTimeClockEntry, StaffLeaveBalance, StaffLeaveRequest } from "@/types/staff";
 
@@ -32,7 +34,7 @@ interface StaffSelfServiceSectionProps {
 
 /**
  * Staff Self-Service Section
- * Displays clock status, leave balances, and quick actions for staff members
+ * Premium UI with real-time tracking and glassmorphism effects
  */
 const StaffSelfServiceSection: React.FC<StaffSelfServiceSectionProps> = ({
   staffName,
@@ -45,223 +47,271 @@ const StaffSelfServiceSection: React.FC<StaffSelfServiceSectionProps> = ({
   onRequestLeave,
   isLoading = false,
 }) => {
-  // Calculate time elapsed since clock-in
-  const getElapsedTime = () => {
-    if (!activeClockEntry) return null;
-    const clockInTime = new Date(activeClockEntry.clock_in);
-    const now = new Date();
-    const minutes = differenceInMinutes(now, clockInTime);
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${hours}h ${mins}m`;
-  };
+  const [elapsedTime, setElapsedTime] = useState<string>("");
+  const [isStale, setIsStale] = useState(false);
 
-  // Get total remaining leave days
+  // Real-time timer effect
+  useEffect(() => {
+    if (!activeClockEntry) {
+      setElapsedTime("");
+      setIsStale(false);
+      return;
+    }
+
+    const updateTimer = () => {
+      const now = new Date();
+      const start = new Date(activeClockEntry.clock_in);
+      const outputSeconds = differenceInSeconds(now, start);
+      
+      const hours = Math.floor(outputSeconds / 3600);
+      const minutes = Math.floor((outputSeconds % 3600) / 60);
+      const seconds = outputSeconds % 60;
+
+      // Check for stale shift (e.g., > 12 hours)
+      if (hours >= 12) setIsStale(true);
+      else setIsStale(false);
+
+      setElapsedTime(
+        `${hours}h ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`
+      );
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [activeClockEntry]);
+
+  // Get total leave stats
   const getTotalRemainingLeave = () => {
     return leaveBalances.reduce((total, balance) => {
       return total + (balance.total_days - balance.used_days);
     }, 0);
   };
 
-  // Get pending leave requests count
   const getPendingLeaveCount = () => {
     return upcomingLeave.filter(leave => leave.status === "pending").length;
   };
 
   const statusColors = {
-    pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300",
-    approved: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300",
-    denied: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300",
+    pending: "bg-amber-100 text-amber-900 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700/50",
+    approved: "bg-emerald-100 text-emerald-900 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700/50",
+    denied: "bg-red-100 text-red-900 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700/50",
   };
 
   return (
-    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-2xl p-6 md:p-8 mb-8">
-      {/* Section Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl shadow-lg">
-          <Briefcase className="h-6 w-6 text-white" />
+    <div className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-[32px] shadow-2xl p-6 md:p-8 mb-10 transition-all duration-500 hover:shadow-3xl group">
+      
+      {/* Dynamic Background Glow */}
+      <div className={`absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-br ${
+        isClockedIn ? 'from-emerald-400/10 to-teal-400/10' : 'from-blue-400/10 to-indigo-400/10'
+      } rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 opacity-60 pointer-events-none`} />
+
+      {/* Header */}
+      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+        <div className="flex items-center gap-4">
+          <div className={`p-3 rounded-2xl shadow-lg transition-all duration-500 ${
+            isClockedIn 
+              ? 'bg-gradient-to-br from-emerald-400 to-teal-600 shadow-emerald-500/30' 
+              : 'bg-gradient-to-br from-violet-500 to-indigo-600 shadow-indigo-500/30'
+          }`}>
+            <Briefcase className="h-7 w-7 text-white" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+              {staffName}'s Workspace
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 font-medium">
+              Manage your shifts and time off
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-            My Workspace
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 text-sm">
-            Manage your attendance and leave
-          </p>
-        </div>
+        
+        {isStale && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-full animate-pulse">
+            <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            <span className="text-sm font-semibold text-red-700 dark:text-red-300">
+              High Duration Shift ({elapsedTime.split(' ')[0]})
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Clock Status Card */}
-        <div className={`relative overflow-hidden rounded-2xl p-6 ${
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
+        
+        {/* Primary Action Card - Clock In/Out */}
+        <div className={`relative overflow-hidden rounded-3xl p-1 transition-all duration-500 ${
           isClockedIn 
-            ? "bg-gradient-to-br from-emerald-500 to-green-600" 
-            : "bg-gradient-to-br from-slate-500 to-gray-600"
-        } text-white shadow-xl`}>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-          
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-4">
-              {isClockedIn ? (
-                <CheckCircle2 className="h-8 w-8" />
-              ) : (
-                <XCircle className="h-8 w-8 opacity-80" />
-              )}
-              <div>
-                <p className="text-sm font-medium opacity-90">Current Status</p>
-                <h3 className="text-xl font-bold">
-                  {isClockedIn ? "Clocked In" : "Clocked Out"}
-                </h3>
+            ? 'bg-gradient-to-br from-emerald-400 to-teal-600 shadow-xl shadow-emerald-500/20' 
+            : 'bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 shadow-lg'
+        }`}>
+          <div className="absolute inset-0 bg-white/10 backdrop-blur-sm" />
+          <div className="relative h-full bg-white/90 dark:bg-gray-900/90 rounded-[22px] p-6 flex flex-col justify-between overflow-hidden">
+            
+            {/* Ambient Background Pulse */}
+            {isClockedIn && (
+              <div className="absolute -right-10 -top-10 w-40 h-40 bg-emerald-500/20 rounded-full blur-3xl animate-pulse" />
+            )}
+
+            <div>
+              <div className="flex justify-between items-start mb-6">
+                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${
+                  isClockedIn 
+                    ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
+                    : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                }`}>
+                  {isClockedIn ? 'Active Shift' : 'Off Duty'}
+                </span>
+                {isClockedIn ? <Sparkles className="h-5 w-5 text-emerald-500 animate-spin-slow" /> : <Coffee className="h-5 w-5 text-slate-400" />}
+              </div>
+
+              <div className="text-center mb-8">
+                <div className={`text-5xl font-black mb-2 tracking-tight tabular-nums ${
+                  isClockedIn 
+                    ? 'bg-gradient-to-b from-emerald-500 to-teal-700 bg-clip-text text-transparent'
+                    : 'text-slate-400 dark:text-slate-600'
+                }`}>
+                  {isClockedIn ? elapsedTime : "00:00:00"}
+                </div>
+                <p className="text-gray-500 dark:text-gray-400 font-medium">
+                  {isClockedIn ? 'Elapsed Time' : 'Ready to start?'}
+                </p>
               </div>
             </div>
-
-            {isClockedIn && activeClockEntry && (
-              <div className="mb-4 bg-white/20 rounded-xl p-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <Timer className="h-4 w-4" />
-                  <span>Started at {format(parseISO(activeClockEntry.clock_in), "h:mm a")}</span>
-                </div>
-                <div className="text-2xl font-bold mt-1">
-                  {getElapsedTime()} worked
-                </div>
-              </div>
-            )}
 
             <Button
               onClick={onClockInOut}
               disabled={isLoading}
-              className={`w-full font-semibold py-3 rounded-xl shadow-lg transition-all duration-300 ${
+              className={`w-full h-14 text-lg font-bold rounded-xl shadow-lg transition-all duration-300 hover:scale-[1.02] active:scale-95 ${
                 isClockedIn
-                  ? "bg-white text-emerald-700 hover:bg-white/90"
-                  : "bg-white text-gray-700 hover:bg-white/90"
+                  ? "bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-red-500/25"
+                  : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-emerald-500/25"
               }`}
             >
-              <ClockIcon className="h-5 w-5 mr-2" />
-              {isClockedIn ? "Clock Out" : "Clock In"}
+              <div className="flex items-center gap-3">
+                {isClockedIn ? <XCircle className="h-6 w-6" /> : <CheckCircle2 className="h-6 w-6" />}
+                {isClockedIn ? "End Shift" : "Start Shift"}
+              </div>
             </Button>
           </div>
         </div>
 
-        {/* Leave Balance Card */}
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-2xl p-6 border border-blue-100 dark:border-blue-800/50">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg shadow">
-              <Calendar className="h-5 w-5 text-white" />
+        {/* Stats & Leaves Card */}
+        <div className="bg-white/50 dark:bg-gray-800/50 rounded-3xl p-6 border border-white/40 dark:border-gray-700/40 backdrop-blur-md shadow-lg flex flex-col">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
+              <Calendar className="h-5 w-5" />
             </div>
             <div>
               <h3 className="font-bold text-gray-900 dark:text-white">Leave Balance</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {getTotalRemainingLeave()} days available
+              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-semibold">
+                {getTotalRemainingLeave()} Days Available
               </p>
             </div>
+            <Button variant="ghost" size="icon" className="ml-auto rounded-full hover:bg-white/50 dark:hover:bg-gray-700/50" onClick={onRequestLeave}>
+              <CalendarPlus className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </Button>
           </div>
 
-          {leaveBalances.length > 0 ? (
-            <div className="space-y-2 mb-4">
-              {leaveBalances.slice(0, 3).map((balance) => (
-                <div 
-                  key={balance.id}
-                  className="flex justify-between items-center bg-white/60 dark:bg-gray-800/60 rounded-lg px-3 py-2"
-                >
-                  <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">
-                    {balance.leave_type}
-                  </span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    {balance.total_days - balance.used_days}/{balance.total_days}
-                  </span>
+          <div className="space-y-5 flex-1 overflow-y-auto pr-1 custom-scrollbar">
+            {leaveBalances.length > 0 ? (
+              leaveBalances.map((balance) => {
+                const percent = (balance.total_days > 0) 
+                  ? ((balance.total_days - balance.used_days) / balance.total_days) * 100 
+                  : 0;
+                
+                return (
+                  <div key={balance.id} className="group">
+                    <div className="flex justify-between text-sm font-medium mb-1.5">
+                      <span className="text-gray-700 dark:text-gray-200 capitalize group-hover:text-blue-600 transition-colors">
+                        {balance.leave_type}
+                      </span>
+                      <span className="text-gray-500 dark:text-gray-400">
+                        {balance.total_days - balance.used_days} / {balance.total_days}
+                      </span>
+                    </div>
+                    <Progress value={percent} className="h-2 bg-gray-100 dark:bg-gray-700">
+                      <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full" style={{ width: `${percent}%` }} />
+                    </Progress>
+                  </div>
+                );
+              })
+            ) : (
+                <div className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
+                  No leave balances configured
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-sm text-gray-500 dark:text-gray-400 mb-4 py-3 text-center">
-              No leave balances configured
-            </div>
-          )}
-
-          <Button
+            )}
+          </div>
+          
+          <Button 
+            variant="outline" 
+            className="w-full mt-4 border-dashed border-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-800 transition-colors"
             onClick={onRequestLeave}
-            className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-md"
           >
-            <CalendarPlus className="h-4 w-4 mr-2" />
-            Request Leave
+            <span className="text-blue-600 dark:text-blue-400 font-semibold">Manage Requests</span>
           </Button>
         </div>
 
-        {/* Recent Activity & Upcoming Leave Card */}
-        <div className="space-y-4">
-          {/* Upcoming Leave */}
-          {upcomingLeave.length > 0 && (
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 rounded-2xl p-4 border border-amber-100 dark:border-amber-800/50">
-              <div className="flex items-center gap-2 mb-3">
-                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                <h4 className="font-semibold text-gray-900 dark:text-white">
-                  Upcoming Leave
-                </h4>
-                {getPendingLeaveCount() > 0 && (
-                  <Badge className="bg-amber-500 text-white text-xs">
-                    {getPendingLeaveCount()} pending
-                  </Badge>
-                )}
-              </div>
-              <div className="space-y-2">
-                {upcomingLeave.slice(0, 2).map((leave) => (
-                  <div 
-                    key={leave.id}
-                    className="bg-white/60 dark:bg-gray-800/60 rounded-lg px-3 py-2"
-                  >
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200 capitalize">
-                        {leave.leave_type}
-                      </span>
-                      <Badge className={statusColors[leave.status as keyof typeof statusColors]}>
-                        {leave.status}
+        {/* Activity Timeline Card */}
+        <div className="bg-white/50 dark:bg-gray-800/50 rounded-3xl p-6 border border-white/40 dark:border-gray-700/40 backdrop-blur-md shadow-lg flex flex-col">
+           <div className="flex items-center gap-3 mb-6">
+            <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-xl text-amber-600 dark:text-amber-400">
+              <Timer className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 dark:text-white">Recent Activity</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-semibold">
+                Last 10 Shifts
+              </p>
+            </div>
+            {getPendingLeaveCount() > 0 && (
+              <Badge className="ml-auto bg-amber-500 hover:bg-amber-600">
+                {getPendingLeaveCount()} Pending
+              </Badge>
+            )}
+          </div>
+
+          <div className="space-y-0 relative flex-1 overflow-y-auto pr-2 custom-scrollbar max-h-[250px] lg:max-h-none">
+            {/* Connector Line */}
+            <div className="absolute left-[19px] top-2 bottom-2 w-[2px] bg-gray-100 dark:bg-gray-700" />
+
+            {recentTimeEntries.slice(0, 5).map((entry, index) => (
+              <div key={entry.id} className="relative pl-10 py-3 first:pt-0 last:pb-0 group">
+                {/* Visual Node */}
+                <div className={`absolute left-3 top-4 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 shadow-sm z-10 transition-colors ${
+                  !entry.clock_out ? 'bg-emerald-500 scale-125' : 'bg-gray-300 dark:bg-gray-600 group-hover:bg-blue-400'
+                }`} />
+
+                <div className="flex justify-between items-start bg-white/40 dark:bg-gray-800/40 p-3 rounded-xl hover:bg-white/80 dark:hover:bg-gray-700/80 transition-all border border-transparent hover:border-gray-100 dark:hover:border-gray-700">
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                      {format(parseISO(entry.clock_in), "EEEE, MMM d")}
+                    </h4>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="outline" className={`text-[10px] h-5 px-1.5 ${
+                         !entry.clock_out 
+                          ? 'text-emerald-600 bg-emerald-50 border-emerald-200' 
+                          : 'text-gray-500 border-gray-200'
+                      }`}>
+                        {format(parseISO(entry.clock_in), "h:mm a")}
+                        {entry.clock_out && ` - ${format(parseISO(entry.clock_out), "h:mm a")}`}
                       </Badge>
                     </div>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {format(parseISO(leave.start_date), "MMM d")} - {format(parseISO(leave.end_date), "MMM d, yyyy")}
-                    </p>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Recent Time Entries */}
-          <div className="bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-800/50 dark:to-slate-800/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-700/50">
-            <div className="flex items-center gap-2 mb-3">
-              <Clock className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-              <h4 className="font-semibold text-gray-900 dark:text-white">Recent Attendance</h4>
-            </div>
-            {recentTimeEntries.length > 0 ? (
-              <div className="space-y-2">
-                {recentTimeEntries.slice(0, 3).map((entry) => (
-                  <div 
-                    key={entry.id}
-                    className="flex justify-between items-center bg-white/60 dark:bg-gray-800/60 rounded-lg px-3 py-2"
-                  >
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {format(parseISO(entry.clock_in), "MMM d")}
+                  
+                  {entry.total_minutes && (
+                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/50 px-2 py-1 rounded-lg">
+                      {Math.floor(entry.total_minutes / 60)}h {entry.total_minutes % 60}m
                     </span>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {format(parseISO(entry.clock_in), "h:mm a")}
-                      {entry.clock_out && (
-                        <> - {format(parseISO(entry.clock_out), "h:mm a")}</>
-                      )}
-                      {!entry.clock_out && (
-                        <Badge variant="outline" className="ml-2 text-xs text-amber-600 border-amber-300">
-                          Active
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  )}
+                </div>
               </div>
-            ) : (
-              <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-3">
-                <Coffee className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                No recent entries
-              </div>
+            ))}
+            
+            {recentTimeEntries.length === 0 && (
+               <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+                 <Clock className="h-10 w-10 mb-2 opacity-20" />
+                 <p className="text-sm">No recent activity</p>
+               </div>
             )}
           </div>
         </div>
@@ -271,3 +321,4 @@ const StaffSelfServiceSection: React.FC<StaffSelfServiceSectionProps> = ({
 };
 
 export default StaffSelfServiceSection;
+
