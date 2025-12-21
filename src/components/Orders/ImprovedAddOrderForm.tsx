@@ -4,8 +4,6 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Form,
@@ -13,7 +11,6 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from "@/components/ui/form";
 import {
   Select,
@@ -23,10 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, X, Users, Utensils, Clock, Calculator } from "lucide-react";
+import { Loader2, Plus, X, Utensils, ShoppingBag, Trash2, ChefHat, Receipt, User } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Separator } from "@/components/ui/separator";
 import type { Order } from "@/types/orders";
 import { useCurrencyContext } from '@/contexts/CurrencyContext';
 
@@ -131,15 +126,30 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
   });
 
   // Parse editing order items if available
+  // Format: "2x ItemName @price" or "2x ItemName (notes)" or just "2x ItemName"
   const parseEditingOrderItems = () => {
-    if (!editingOrder || !menuItems) return [];
+    if (!editingOrder) return [];
+    
+    console.log('Parsing order items:', editingOrder.items);
     
     return editingOrder.items.map(itemString => {
+      // Extract quantity (e.g., "2x" -> 2)
       const quantityMatch = itemString.match(/^(\d+)x /);
       const quantity = quantityMatch ? parseInt(quantityMatch[1]) : 1;
       
       let remainingString = itemString.replace(/^\d+x /, "");
       
+      // Extract price if present (e.g., "@250" -> 250), handle @undefined or @null
+      let unitPrice = 0;
+      const priceMatch = remainingString.match(/@(\d+(?:\.\d+)?)$/);
+      if (priceMatch) {
+        unitPrice = parseFloat(priceMatch[1]) || 0;
+        remainingString = remainingString.replace(/\s*@\d+(?:\.\d+)?$/, "");
+      }
+      // Also clean up @undefined or @null
+      remainingString = remainingString.replace(/\s*@(undefined|null)$/i, "");
+      
+      // Extract notes in parentheses (e.g., "(no cheese)" -> "no cheese")
       let notes = "";
       const notesMatch = remainingString.match(/\((.*?)\)$/);
       if (notesMatch) {
@@ -148,14 +158,26 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
       }
       
       const itemName = remainingString.trim();
-      const menuItem = menuItems.find(item => item.name === itemName);
+      
+      // Try to find the menu item to get category and price
+      const menuItem = menuItems?.find(item => 
+        item.name === itemName || 
+        item.name.toLowerCase() === itemName.toLowerCase() ||
+        item.name.toLowerCase().includes(itemName.toLowerCase()) ||
+        itemName.toLowerCase().includes(item.name.toLowerCase())
+      );
+      
+      // Priority: parsed price > menu item price > 0
+      const finalPrice = unitPrice > 0 ? unitPrice : (menuItem?.price || 0);
+      
+      console.log(`Parsed item: "${itemName}" qty=${quantity} price=${finalPrice} (from string: ${unitPrice}, from menu: ${menuItem?.price})`);
       
       return {
         category: menuItem?.category || "",
         itemName: itemName,
         quantity: quantity,
         notes: notes,
-        unitPrice: menuItem?.price || 0
+        unitPrice: finalPrice
       };
     });
   };
@@ -184,7 +206,7 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
       tableNumber: tableNumber,
       customerName: editingOrder && !editingOrder.customer_name.startsWith("Table") ? editingOrder.customer_name : "",
       customerPhone: "",
-      orderItems: editingOrder ? parseEditingOrderItems() : [
+      orderItems: editingOrder && menuItems ? parseEditingOrderItems() : [
         {
           category: "",
           itemName: "",
@@ -197,6 +219,35 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
       specialInstructions: "",
     },
   });
+
+  // Update form values when editing order is available AND when menuItems load
+  useEffect(() => {
+    if (editingOrder) {
+      const parsedItems = parseEditingOrderItems();
+      const { orderType, tableNumber } = determineOrderTypeAndTable();
+      
+      // Only reset if items have been parsed successfully (at least some with prices)
+      const hasPrices = parsedItems.some(item => item.unitPrice > 0);
+      
+      form.reset({
+        orderType,
+        tableNumber,
+        customerName: !editingOrder.customer_name.startsWith("Table") ? editingOrder.customer_name : "",
+        customerPhone: "",
+        orderItems: parsedItems.length > 0 ? parsedItems : [{
+          category: "",
+          itemName: "",
+          quantity: 1,
+          notes: "",
+          unitPrice: 0,
+        }],
+        attendant: "",
+        specialInstructions: "",
+      });
+      
+      console.log('Form reset with parsed items:', parsedItems, 'Has prices:', hasPrices);
+    }
+  }, [editingOrder, menuItems]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -275,400 +326,378 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
   };
 
   const categories = Array.from(new Set(menuItems?.map(item => item.category) || []));
+  const watchedOrderType = form.watch("orderType");
 
   return (
-    <div className="bg-gradient-to-br from-background via-background to-muted/20">
-      {/* Header */}
-      <div className="border-b bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 p-6 backdrop-blur-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-extrabold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-              {editingOrder ? "Edit Order" : "Create New Order"}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-2 font-medium">
-              {editingOrder ? "Update order details below" : "Add items and customer information"}
-            </p>
-          </div>
-          <Button variant="ghost" size="icon" onClick={onCancel} className="hover:bg-destructive/10">
-            <X className="h-6 w-6" />
-          </Button>
+    <div className="max-w-2xl mx-auto overflow-hidden rounded-2xl shadow-2xl border-0">
+      {/* Gradient Header - Like TimeClockDialog */}
+      <div className={`relative px-5 pt-8 pb-6 text-center ${
+        editingOrder 
+          ? "bg-gradient-to-br from-amber-500 via-orange-500 to-red-500" 
+          : "bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500"
+      }`}>
+        {/* Decorative circles */}
+        <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+        
+        {/* Close button */}
+        <button 
+          onClick={onCancel}
+          className="absolute top-3 right-3 p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+        >
+          <X className="h-4 w-4 text-white" />
+        </button>
+        
+        {/* Icon */}
+        <div className="relative z-10 inline-flex items-center justify-center w-14 h-14 mb-3 bg-white/20 backdrop-blur-sm rounded-2xl border border-white/30 shadow-lg">
+          {editingOrder ? (
+            <Receipt className="w-7 h-7 text-white" />
+          ) : (
+            <ChefHat className="w-7 h-7 text-white" />
+          )}
         </div>
+        
+        <h2 className="relative z-10 text-xl font-bold text-white">
+          {editingOrder ? "Edit Order" : "New Order"}
+        </h2>
+        <p className="relative z-10 text-white/80 text-sm mt-0.5">
+          {editingOrder ? "Update order details" : "Add items to the order"}
+        </p>
       </div>
 
-      <div className="p-6 max-h-[80vh] overflow-y-auto">
+      {/* Form Content */}
+      <div className="bg-white dark:bg-gray-900 p-5 space-y-4 max-h-[60vh] overflow-y-auto">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            {/* Order Type Section */}
-            <Card className="border-2 shadow-lg hover:shadow-xl transition-shadow">
-              <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
-                <CardTitle className="flex items-center gap-3 text-xl font-bold">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Utensils className="h-6 w-6 text-primary" />
-                  </div>
-                  Order Type
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            
+            {/* Order Type Toggle */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => form.setValue("orderType", "dineIn")}
+                className={`flex items-center justify-center gap-2 h-11 rounded-xl font-semibold text-sm transition-all border-2 ${
+                  watchedOrderType === "dineIn"
+                    ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/30"
+                    : "bg-white dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:border-emerald-300"
+                }`}
+              >
+                <Utensils className="w-4 h-4" />
+                Dine In
+              </button>
+              <button
+                type="button"
+                onClick={() => form.setValue("orderType", "takeAway")}
+                className={`flex items-center justify-center gap-2 h-11 rounded-xl font-semibold text-sm transition-all border-2 ${
+                  watchedOrderType === "takeAway"
+                    ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/30"
+                    : "bg-white dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:border-amber-300"
+                }`}
+              >
+                <ShoppingBag className="w-4 h-4" />
+                Take Away
+              </button>
+            </div>
+
+            {/* Conditional: Table or Customer */}
+            {watchedOrderType === "dineIn" ? (
+              <FormField
+                control={form.control}
+                name="tableNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs font-semibold text-gray-600 dark:text-gray-400">Table</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="h-11 rounded-xl border-gray-200 dark:border-gray-700">
+                          <SelectValue placeholder="Select table..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {tables?.map((table) => (
+                          <SelectItem key={table.id} value={table.name || String(table.id)}>
+                            🪑 Table {table.name} ({table.capacity} seats)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
                 <FormField
                   control={form.control}
-                  name="orderType"
+                  name="customerName"
                   render={({ field }) => (
                     <FormItem>
+                      <FormLabel className="text-xs font-semibold text-gray-600 dark:text-gray-400">Name</FormLabel>
                       <FormControl>
-                        <RadioGroup
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                          className="flex gap-4"
-                        >
-                          <div className="flex items-center space-x-3 bg-muted/50 hover:bg-muted px-4 py-3 rounded-lg transition-colors cursor-pointer">
-                            <RadioGroupItem value="dineIn" id="dineIn" />
-                            <label htmlFor="dineIn" className="font-semibold cursor-pointer text-base">
-                              🍽️ Dine In
-                            </label>
-                          </div>
-                          <div className="flex items-center space-x-3 bg-muted/50 hover:bg-muted px-4 py-3 rounded-lg transition-colors cursor-pointer">
-                            <RadioGroupItem value="takeAway" id="takeAway" />
-                            <label htmlFor="takeAway" className="font-semibold cursor-pointer text-base">
-                              🥡 Take Away
-                            </label>
-                          </div>
-                        </RadioGroup>
+                        <Input {...field} placeholder="Customer name" className="h-11 rounded-xl border-gray-200 dark:border-gray-700" />
                       </FormControl>
                     </FormItem>
                   )}
                 />
-
-                {form.watch("orderType") === "dineIn" ? (
-                  <FormField
-                    control={form.control}
-                    name="tableNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="font-semibold text-base">Table Number</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="h-11 font-medium">
-                              <SelectValue placeholder="Select a table" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {tables?.map((table) => (
-                              <SelectItem key={table.id} value={table.name || String(table.id)}>
-                                Table {table.name} (Capacity: {table.capacity})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                ) : (
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="customerName"
-                      render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="font-semibold text-base">Customer Name</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Enter customer name" className="h-11 font-medium" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="customerPhone"
-                      render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="font-semibold text-base">Phone Number</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Enter phone number" className="h-11 font-medium" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                <FormField
+                  control={form.control}
+                  name="customerPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold text-gray-600 dark:text-gray-400">Phone</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Phone" className="h-11 rounded-xl border-gray-200 dark:border-gray-700" />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
 
             {/* Order Items Section */}
-            <Card className="border-2 shadow-lg hover:shadow-xl transition-shadow">
-              <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-3 text-xl font-bold">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Calculator className="h-6 w-6 text-primary" />
-                    </div>
-                    Order Items
-                  </CardTitle>
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    onClick={() => append({
-                      category: "",
-                      itemName: "",
-                      quantity: 1,
-                      notes: "",
-                      unitPrice: 0,
-                    })}
-                    className="font-semibold shadow-md"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Item
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {fields.map((field, index) => (
-                  <Card key={field.id} className="border-l-4 border-l-primary shadow-md hover:shadow-lg transition-shadow bg-gradient-to-r from-background to-muted/20">
-                    <CardContent className="pt-4">
-                      <div className="grid grid-cols-12 gap-4 items-start">
-                        <div className="col-span-3">
-                          <FormField
-                            control={form.control}
-                            name={`orderItems.${index}.category`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-xs font-bold">Category</FormLabel>
-                                <FormControl>
-                                  <Select
-                                    onValueChange={field.onChange}
-                                    value={field.value}
-                                  >
-                                    <SelectTrigger className="h-10 font-medium">
-                                      <SelectValue placeholder="Category" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {categories.map((category) => (
-                                        <SelectItem key={category} value={category || "other"}>
-                                          {category}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                        </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                  Items ({fields.length})
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => append({
+                    category: "",
+                    itemName: "",
+                    quantity: 1,
+                    notes: "",
+                    unitPrice: 0,
+                  })}
+                  className="h-7 px-3 text-xs bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 rounded-lg shadow-md"
+                >
+                  <Plus className="w-3 h-3 mr-1" />
+                  Add
+                </Button>
+              </div>
 
-                        <div className="col-span-3">
-                          <FormField
-                            control={form.control}
-                            name={`orderItems.${index}.itemName`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-xs font-bold">Item</FormLabel>
-                                <FormControl>
+              {/* Items List - Compact */}
+              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                {fields.length === 0 && (
+                  <div className="text-center py-6 text-gray-400 dark:text-gray-500">
+                    <ShoppingBag className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-xs">No items yet</p>
+                  </div>
+                )}
+                
+                {fields.map((field, index) => (
+                  <div 
+                    key={field.id} 
+                    className="relative p-3 rounded-xl bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-800/50 border border-gray-100 dark:border-gray-700"
+                  >
+                    {/* Item number badge */}
+                    <div className="absolute -top-1 -left-1 w-5 h-5 bg-gradient-to-br from-violet-500 to-purple-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow">
+                      {index + 1}
+                    </div>
+
+                    <div className="grid grid-cols-12 gap-2 items-end">
+                      {/* Item Name - Show as text if has value, Select if empty */}
+                      <div className="col-span-6">
+                        <FormField
+                          control={form.control}
+                          name={`orderItems.${index}.itemName`}
+                          render={({ field }) => (
+                            <FormItem className="space-y-1">
+                              <FormLabel className="text-[10px] font-semibold text-gray-500 uppercase">Item</FormLabel>
+                              {field.value && field.value.trim() !== "" ? (
+                                // Show item name as text for existing items
+                                <div className="h-9 px-3 flex items-center rounded-lg bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-700">
+                                  <span className="text-sm font-medium text-violet-700 dark:text-violet-300 truncate">
+                                    {field.value}
+                                  </span>
+                                  <Badge className="ml-auto bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
+                                    {currencySymbol}{form.watch(`orderItems.${index}.unitPrice`) || 0}
+                                  </Badge>
+                                </div>
+                              ) : (
+                                // Show Select for new items
+                                <>
+                                  <FormField
+                                    control={form.control}
+                                    name={`orderItems.${index}.category`}
+                                    render={({ categoryField }) => (
+                                      <Select 
+                                        onValueChange={(catValue) => {
+                                          form.setValue(`orderItems.${index}.category`, catValue);
+                                        }}
+                                        value={form.watch(`orderItems.${index}.category`)}
+                                      >
+                                        <SelectTrigger className="h-9 text-xs rounded-lg border-gray-200 dark:border-gray-600 mb-1">
+                                          <SelectValue placeholder="Category..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {categories.map((category) => (
+                                            <SelectItem key={category} value={category || "other"} className="text-sm">
+                                              {category}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    )}
+                                  />
                                   <Select
                                     onValueChange={(value) => {
                                       const menuItem = menuItems?.find(item => item.name === value);
                                       if (menuItem) {
                                         form.setValue(`orderItems.${index}.unitPrice`, menuItem.price);
+                                        form.setValue(`orderItems.${index}.category`, menuItem.category);
                                       }
                                       field.onChange(value);
                                     }}
                                     value={field.value}
                                   >
-                                    <SelectTrigger className="h-10 font-medium">
-                                      <SelectValue placeholder="Item" />
+                                    <SelectTrigger className="h-9 text-xs rounded-lg border-gray-200 dark:border-gray-600">
+                                      <SelectValue placeholder="Select item..." />
                                     </SelectTrigger>
                                     <SelectContent>
                                       {menuItems
-                                        ?.filter(item => item.category === form.watch(`orderItems.${index}.category`))
+                                        ?.filter(item => !form.watch(`orderItems.${index}.category`) || item.category === form.watch(`orderItems.${index}.category`))
                                         .map((item) => (
-                                          <SelectItem key={item.id} value={item.name || item.id}>
-                                            <div className="flex justify-between items-center w-full">
-                                              <span className="font-medium">{item.name}</span>
-                                              <Badge variant="secondary" className="ml-2 font-bold">
-                                                {currencySymbol}{item.price}
-                                              </Badge>
-                                            </div>
+                                          <SelectItem key={item.id} value={item.name || item.id} className="text-sm">
+                                            {item.name} - {currencySymbol}{item.price}
                                           </SelectItem>
                                         ))}
                                     </SelectContent>
                                   </Select>
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-
-                        <div className="col-span-2">
-                          <FormField
-                            control={form.control}
-                            name={`orderItems.${index}.quantity`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-xs font-bold">Qty</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    {...field}
-                                    type="number"
-                                    min="1"
-                                    className="h-10 font-semibold text-center"
-                                    onChange={(e) => field.onChange(parseInt(e.target.value))}
-                                  />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-
-                        <div className="col-span-2">
-                          <FormField
-                            control={form.control}
-                            name={`orderItems.${index}.unitPrice`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-xs font-bold">Price</FormLabel>
-                                <FormControl>
-                                  <Input {...field} type="number" step="0.01" readOnly className="h-10 bg-muted/50 font-semibold" />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-
-                        <div className="col-span-1">
-                          <div className="text-xs font-bold mb-1">Total</div>
-                          <div className="h-10 px-3 py-2 bg-primary/10 border-2 border-primary/20 rounded-md text-sm font-bold text-primary flex items-center justify-center">
-                            {currencySymbol}{((form.watch(`orderItems.${index}.quantity`) || 0) * 
-                               (form.watch(`orderItems.${index}.unitPrice`) || 0)).toFixed(2)}
-                          </div>
-                        </div>
-
-                        <div className="col-span-1">
-                          <div className="text-xs font-bold mb-1">&nbsp;</div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-10 w-10 p-0 hover:bg-destructive/20 hover:text-destructive transition-colors"
-                            onClick={() => remove(index)}
-                          >
-                            <X className="w-5 h-5" />
-                          </Button>
-                        </div>
-
-                        <div className="col-span-12 mt-2">
-                          <FormField
-                            control={form.control}
-                            name={`orderItems.${index}.notes`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormControl>
-                                  <Textarea 
-                                    {...field} 
-                                    placeholder="Special instructions (e.g., no onions, extra spicy)" 
-                                    className="resize-none h-20 font-medium"
-                                  />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-
-                {/* Order Total */}
-                <div className="flex justify-end">
-                  <Card className="w-72 border-2 border-primary/30 shadow-lg bg-gradient-to-br from-primary/5 to-primary/10">
-                    <CardContent className="pt-6 pb-6">
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-bold text-foreground">Order Total:</span>
-                        <span className="text-3xl font-extrabold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                          {currencySymbol}{orderTotal.toFixed(2)}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Additional Information */}
-            <Card className="border-2 shadow-lg">
-              <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
-                <CardTitle className="flex items-center gap-3 text-xl font-bold">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Users className="h-6 w-6 text-primary" />
-                  </div>
-                  Additional Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="attendant"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="font-semibold text-base">Attendant</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="h-11 font-medium">
-                            <SelectValue placeholder="Select attendant" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {staffMembers?.map((staff) => (
-                            <SelectItem key={staff.id} value={staff.first_name || staff.id}>
-                              {staff.first_name} {staff.last_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="specialInstructions"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="font-semibold text-base">Special Instructions</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          {...field} 
-                          placeholder="Any special instructions for the kitchen or service..."
-                          className="resize-none h-24 font-medium"
+                                </>
+                              )}
+                            </FormItem>
+                          )}
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
+                      </div>
+
+                      {/* Quantity */}
+                      <div className="col-span-4">
+                        <FormField
+                          control={form.control}
+                          name={`orderItems.${index}.quantity`}
+                          render={({ field }) => (
+                            <FormItem className="space-y-1">
+                              <FormLabel className="text-[10px] font-semibold text-gray-500 uppercase">Qty</FormLabel>
+                              <div className="flex h-9">
+                                <button
+                                  type="button"
+                                  onClick={() => field.onChange(Math.max(1, (field.value || 1) - 1))}
+                                  className="w-9 bg-gray-100 dark:bg-gray-700 rounded-l-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 font-bold"
+                                >
+                                  -
+                                </button>
+                                <input
+                                  type="number"
+                                  value={field.value}
+                                  onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                                  className="w-10 text-center text-sm font-bold border-y border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => field.onChange((field.value || 1) + 1)}
+                                  className="w-9 bg-gray-100 dark:bg-gray-700 rounded-r-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 font-bold"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {/* Delete */}
+                      <div className="col-span-2 flex justify-end">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          onClick={() => remove(index)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Item Total */}
+                    <div className="mt-2 flex justify-between items-center">
+                      <span className="text-[10px] text-gray-400">
+                        {form.watch(`orderItems.${index}.quantity`)} × {currencySymbol}{form.watch(`orderItems.${index}.unitPrice`) || 0}
+                      </span>
+                      <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-bold text-sm">
+                        {currencySymbol}{((form.watch(`orderItems.${index}.quantity`) || 0) * (form.watch(`orderItems.${index}.unitPrice`) || 0)).toFixed(0)}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Order Total */}
+            <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 dark:from-emerald-900/20 dark:via-teal-900/20 dark:to-cyan-900/20 border-2 border-emerald-200 dark:border-emerald-800">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Order Total</span>
+                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                  {currencySymbol}{orderTotal.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Attendant */}
+            <FormField
+              control={form.control}
+              name="attendant"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                    <User className="w-3 h-3" /> Attendant
+                  </FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="h-11 rounded-xl border-gray-200 dark:border-gray-700">
+                        <SelectValue placeholder="Select attendant..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {staffMembers?.map((staff) => (
+                        <SelectItem key={staff.id} value={staff.first_name || staff.id}>
+                          {staff.first_name} {staff.last_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
+            />
 
             {/* Action Buttons */}
-            <div className="flex justify-end gap-4 pt-6 border-t-2 bg-gradient-to-r from-muted/20 to-background p-6 -m-6 mt-6 rounded-b-lg">
+            <div className="flex gap-3 pt-2">
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={onCancel}
                 disabled={loading}
-                className="h-12 px-8 font-semibold text-base"
+                className="flex-1 h-12 rounded-xl border-2 font-semibold"
               >
                 Cancel
               </Button>
               <Button 
                 type="submit" 
                 disabled={loading || orderTotal === 0}
-                className="h-12 px-8 font-bold text-base shadow-lg hover:shadow-xl transition-shadow min-w-[160px]"
+                className={`flex-[2] h-12 rounded-xl font-bold text-base shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] ${
+                  editingOrder 
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-amber-500/30'
+                    : 'bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 shadow-violet-500/30'
+                }`}
               >
-                {loading && <Loader2 className="w-5 h-5 mr-2 animate-spin" />}
-                {editingOrder ? "Update Order" : "Create Order"}
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Processing...
+                  </span>
+                ) : (
+                  editingOrder ? "Update Order" : "Create Order"
+                )}
               </Button>
             </div>
           </form>
