@@ -245,11 +245,20 @@ const PaymentDialog = ({
                 setSendBillToEmail(true);
               }
               
-              // Load existing discount percentage if available
+              // Load existing discount percentage from DB, or reset to 0 if no discount
               const discountPercent = parseFloat((order as any).discount_percentage) || 0;
-              if (discountPercent > 0) {
-                setManualDiscountPercent(discountPercent);
+              setManualDiscountPercent(discountPercent);
+              
+              // Reset promotion state since we're loading fresh order data
+              if (discountPercent === 0) {
+                setAppliedPromotion(null);
+                setPromotionCode('');
               }
+            } else {
+              // No order found - reset discount state
+              setManualDiscountPercent(0);
+              setAppliedPromotion(null);
+              setPromotionCode('');
             }
           } else {
             // Fall back to details stored on the kitchen order
@@ -260,10 +269,23 @@ const PaymentDialog = ({
             } else {
               setSendBillToEmail(false);
             }
+            // No linked order - reset discount state
+            setManualDiscountPercent(0);
+            setAppliedPromotion(null);
+            setPromotionCode('');
           }
         } catch (error) {
           console.error('Error fetching customer details:', error);
+          // Reset discount state on error
+          setManualDiscountPercent(0);
+          setAppliedPromotion(null);
+          setPromotionCode('');
         }
+      } else if (isOpen && !orderId) {
+        // New order (no orderId) - reset discount state
+        setManualDiscountPercent(0);
+        setAppliedPromotion(null);
+        setPromotionCode('');
       }
     };
 
@@ -276,12 +298,17 @@ const PaymentDialog = ({
       setCurrentStep('confirm');
       setCustomerName('');
       setCustomerMobile('');
+      setCustomerEmail('');
       setSendBillToEmail(false);
       setQrCodeUrl('');
       setMenuSearchQuery('');
       setNewItemsBuffer([]);
       setIsSaving(false);
       setDetectedReservation(null);
+      // Reset discount state to prevent stale values persisting between orders
+      setManualDiscountPercent(0);
+      setAppliedPromotion(null);
+      setPromotionCode('');
     }
   }, [isOpen]);
 

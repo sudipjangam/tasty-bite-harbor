@@ -83,6 +83,32 @@ const OrderDetailsDialog = ({ isOpen, onClose, order, onPrintBill, onEditOrder }
     },
     enabled: isOpen
   });
+
+  // Reset discount state when order changes or dialog closes to prevent stale values
+  React.useEffect(() => {
+    if (!isOpen) {
+      // Reset all state when dialog closes
+      setPromotionCode("");
+      setDiscountPercent(0);
+      setSelectedPromotion("");
+      setCustomerName("");
+      setCustomerPhone("");
+      setShowEditForm(false);
+      setShowPaymentDialog(false);
+      setPaymentMethod('cash');
+      setShowQRPayment(false);
+    }
+  }, [isOpen]);
+
+  // Reset discount state when order changes
+  React.useEffect(() => {
+    if (order?.id) {
+      // Reset manual discount-related state when viewing a different order
+      setPromotionCode("");
+      setDiscountPercent(0);
+      setSelectedPromotion("");
+    }
+  }, [order?.id]);
   
   if (!order) return null;
 
