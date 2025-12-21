@@ -4,11 +4,9 @@ import OrderItem from "./OrderItem";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { Order } from "@/types/orders";
-import { useIsMobile } from "@/hooks/use-mobile";
 import AddOrderForm from "./AddOrderForm";
 import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
 import { AlertCircle } from "lucide-react";
-import { StandardizedModal } from "@/components/ui/standardized-modal";
 import { StandardizedCard } from "@/components/ui/standardized-card";
 
 interface OrderListProps {
@@ -28,7 +26,6 @@ const OrderList: React.FC<OrderListProps> = ({
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showEditForm, setShowEditForm] = useState(false);
   const { toast } = useToast();
-  const isMobile = useIsMobile();
 
   const filteredOrders = orders.filter(order => {
     if (statusFilter === "all") return true;
@@ -137,27 +134,33 @@ const OrderList: React.FC<OrderListProps> = ({
         </div>
       )}
 
-      <StandardizedModal
-        open={showEditForm}
-        onOpenChange={setShowEditForm}
-        title="Edit Order"
-        description="Update the order details below"
-        size={isMobile ? 'full' : 'xl'}
-        showFooter={false}
-      >
-        <AddOrderForm
-          onSuccess={() => {
-            setShowEditForm(false);
-            setSelectedOrder(null);
-            onOrdersChange();
+      {/* Edit Order Dialog - Uses transparent wrapper, form is styled */}
+      {showEditForm && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowEditForm(false);
+              setSelectedOrder(null);
+            }
           }}
-          onCancel={() => {
-            setShowEditForm(false);
-            setSelectedOrder(null);
-          }}
-          editingOrder={selectedOrder}
-        />
-      </StandardizedModal>
+        >
+          <div className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <AddOrderForm
+              onSuccess={() => {
+                setShowEditForm(false);
+                setSelectedOrder(null);
+                onOrdersChange();
+              }}
+              onCancel={() => {
+                setShowEditForm(false);
+                setSelectedOrder(null);
+              }}
+              editingOrder={selectedOrder}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
