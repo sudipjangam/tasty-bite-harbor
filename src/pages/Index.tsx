@@ -23,7 +23,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import Stats from "@/components/Dashboard/Stats";
 import WeeklySalesChart from "@/components/Dashboard/WeeklySalesChart";
-import LiveActivity from "@/components/Dashboard/LiveActivity";
+import TrendingItems from "@/components/Dashboard/TrendingItems";
 import StaffSelfServiceSection from "@/components/Dashboard/StaffSelfServiceSection";
 import StaffAttendanceWidget from "@/components/Dashboard/StaffAttendanceWidget";
 import TodayScheduleWidget from "@/components/Dashboard/TodayScheduleWidget";
@@ -226,7 +226,46 @@ const Index = () => {
           </div>
         )}
 
-        {/* Quick Actions */}
+        {/* Business Statistics - Top Priority */}
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl p-6 sm:p-8">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl shadow-lg shadow-emerald-500/20">
+              <TrendingUp className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Business Overview
+              </h2>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
+                Key performance metrics for today
+              </p>
+            </div>
+          </div>
+          <Stats />
+        </div>
+
+        {/* Charts & Activity - High Priority */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-blue-500/10 to-indigo-500/10 dark:from-blue-500/20 dark:to-indigo-500/20 border-b border-gray-100 dark:border-gray-700/50">
+              <CardTitle className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/20">
+                  <BarChart3 className="h-5 w-5 text-white" />
+                </div>
+                <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  Sales Trend
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <WeeklySalesChart />
+            </CardContent>
+          </Card>
+          
+          <TrendingItems />
+        </div>
+
+        {/* Quick Actions - Medium Priority */}
         <div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <Settings className="h-5 w-5 text-indigo-500" />
@@ -259,14 +298,14 @@ const Index = () => {
             ) : (
               <div className="col-span-full">
                 <div className="bg-white/50 rounded-2xl p-8 text-center border-dashed border-2 border-gray-300">
-                   <p>No actions available</p>
+                    <p>No actions available</p>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Main Dashboard Grid */}
+        {/* Main Dashboard Grid Legacy Wrapper - Now just for Staff/Reports */}
         <div className="space-y-8">
           
           {/* Staff Management Section */}
@@ -284,45 +323,6 @@ const Index = () => {
               <LaborCostWidget />
             </div>
           )}
-
-          {/* Business Statistics */}
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl p-6 sm:p-8">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl shadow-lg shadow-emerald-500/20">
-                <TrendingUp className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  Business Overview
-                </h2>
-                <p className="text-gray-500 dark:text-gray-400 text-sm">
-                  Key performance metrics for today
-                </p>
-              </div>
-            </div>
-            <Stats />
-          </div>
-
-          {/* Charts & Activity */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl overflow-hidden">
-               <CardHeader className="bg-gradient-to-r from-blue-500/10 to-indigo-500/10 dark:from-blue-500/20 dark:to-indigo-500/20 border-b border-gray-100 dark:border-gray-700/50">
-                <CardTitle className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/20">
-                    <BarChart3 className="h-5 w-5 text-white" />
-                  </div>
-                  <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                    Sales Trend
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <WeeklySalesChart />
-              </CardContent>
-            </Card>
-            
-            <LiveActivity />
-          </div>
         </div>
       </div>
 
