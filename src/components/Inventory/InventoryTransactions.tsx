@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ArrowUpDown, Package, ShoppingCart, Settings, Trash2, RefreshCw, Plus, TrendingUp, TrendingDown, Search } from "lucide-react";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useToast } from "@/hooks/use-toast";
+import { usePagination } from "@/hooks/usePagination";
+import { DataTablePagination } from "@/components/ui/data-table-pagination";
 
 interface InventoryTransaction {
   id: string;
@@ -59,6 +61,7 @@ const InventoryTransactions = () => {
   const [transactionType, setTransactionType] = useState<string>("adjustment");
   const [quantityChange, setQuantityChange] = useState<number>(0);
   const [notes, setNotes] = useState("");
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const { restaurantId } = useRestaurantId();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -81,8 +84,7 @@ const InventoryTransactions = () => {
       }
 
       const { data, error } = await query
-        .order("created_at", { ascending: false })
-        .limit(100);
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data as InventoryTransaction[];
@@ -192,6 +194,20 @@ const InventoryTransactions = () => {
     t.inventory_item?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.notes?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const {
+    currentPage,
+    totalPages,
+    paginatedData: paginatedTransactions,
+    goToPage,
+    startIndex,
+    endIndex,
+    totalItems
+  } = usePagination({
+    data: filteredTransactions,
+    itemsPerPage,
+    initialPage: 1
+  });
 
   if (isLoading) {
     return (
@@ -379,7 +395,7 @@ const InventoryTransactions = () => {
             </p>
           </Card>
         ) : (
-          filteredTransactions.map((transaction) => (
+          paginatedTransactions.map((transaction) => (
             <Card key={transaction.id} className="p-4 bg-white/90 dark:bg-gray-800/90 rounded-xl hover:shadow-md transition-all">
               <div className="flex justify-between items-start">
                 <div className="flex items-start gap-3">
@@ -411,6 +427,20 @@ const InventoryTransactions = () => {
           ))
         )}
       </div>
+
+      {totalPages > 1 && (
+        <DataTablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          startIndex={startIndex}
+          endIndex={endIndex}
+          onPageChange={goToPage}
+          onItemsPerPageChange={setItemsPerPage}
+          showItemsPerPage={true}
+        />
+      )}
     </div>
   );
 };

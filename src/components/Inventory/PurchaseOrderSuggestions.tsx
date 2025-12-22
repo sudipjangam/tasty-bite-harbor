@@ -6,10 +6,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ShoppingCart, Package, TrendingUp, AlertTriangle, Eye, X } from "lucide-react";
+import { ShoppingCart, Package, TrendingUp, AlertTriangle, Eye } from "lucide-react";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useCurrencyContext } from '@/contexts/CurrencyContext';
+import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
 
 interface PurchaseOrderSuggestion {
   supplier_id: string;
@@ -181,7 +182,11 @@ const PurchaseOrderSuggestions = () => {
   };
 
   if (isLoading) {
-    return <div>Loading suggestions...</div>;
+    return (
+      <div className="space-y-4">
+        <EnhancedSkeleton type="card" count={2} showHeader={true} />
+      </div>
+    );
   }
 
   if (lowStockItems.length === 0) {
@@ -283,20 +288,11 @@ const PurchaseOrderSuggestions = () => {
 
       {/* Items Dialog */}
       <Dialog open={showItemsDialog} onOpenChange={setShowItemsDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-2xl">
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle>
-                Items for {selectedSupplier?.supplier_name}
-              </DialogTitle>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setShowItemsDialog(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+            <DialogTitle className="text-xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
+              Items for {selectedSupplier?.supplier_name}
+            </DialogTitle>
           </DialogHeader>
           
           <div className="space-y-3">
