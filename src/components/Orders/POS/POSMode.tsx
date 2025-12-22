@@ -250,6 +250,12 @@ const POSMode = () => {
     }
   };
 
+  const handleUpdateNotes = (id: string, notes: string) => {
+    setCurrentOrderItems(currentOrderItems.map(item => 
+      item.id === id ? { ...item, notes } : item
+    ));
+  };
+
   const handleClearOrder = () => {
     if (currentOrderItems.length > 0) {
       setShowClearConfirm(true);
@@ -317,7 +323,14 @@ const POSMode = () => {
           .insert({
             restaurant_id: profile.restaurant_id,
             customer_name: orderSource,
-            items: currentOrderItems.map(item => `${item.quantity}x ${item.name}`),
+            items: currentOrderItems.map(item => {
+              const notes = [
+                ...(item.modifiers || []),
+                item.notes
+              ].filter(Boolean).join(', ');
+              const meta = notes ? ` (${notes})` : '';
+              return `${item.quantity}x ${item.name}${meta} @${item.price}`;
+            }),
             total: currentOrderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
             status: "pending",
             source: "pos",
@@ -361,7 +374,14 @@ const POSMode = () => {
           .insert({
             restaurant_id: profile.restaurant_id,
             customer_name: orderSource,
-            items: currentOrderItems.map(item => `${item.quantity}x ${item.name}`),
+            items: currentOrderItems.map(item => {
+              const notes = [
+                ...(item.modifiers || []),
+                item.notes
+              ].filter(Boolean).join(', ');
+              const meta = notes ? ` (${notes})` : '';
+              return `${item.quantity}x ${item.name}${meta} @${item.price}`;
+            }),
             total: currentOrderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
             status: "pending",
             source: "pos",
@@ -567,6 +587,7 @@ const POSMode = () => {
             onSendToKitchen={() => handleSendToKitchen()}
             onProceedToPayment={handlePaymentClick}
             onClearOrder={handleClearOrder}
+            onUpdateNotes={handleUpdateNotes}
           />
         </div>
       </div>

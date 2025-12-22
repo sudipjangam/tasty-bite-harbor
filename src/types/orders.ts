@@ -10,6 +10,10 @@ export interface Order {
   updated_at: string;
   source?: string; // Order source: pos, table, manual, room_service, qsr
   order_type?: string; // Order type: dine-in, takeaway, delivery
+  discount_amount?: number;
+  discount_percentage?: number;
+  payment_status?: string;
+  payment_method?: string;
 }
 
 export interface OrderItem {
@@ -25,6 +29,7 @@ export interface OrderItem {
   calculatedPrice?: number;  // Final calculated price
   isCustomExtra?: boolean;   // True for ad-hoc items added manually
   modifiers?: string[];
+  notes?: string;
 }
 
 export interface TableData {
