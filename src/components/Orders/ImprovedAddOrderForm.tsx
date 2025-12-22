@@ -45,6 +45,8 @@ interface OrderFormValues {
   }[];
   attendant: string;
   specialInstructions?: string;
+  discountType: "percentage" | "amount";
+  discountValue: number;
 }
 
 const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAddOrderFormProps) => {
@@ -217,6 +219,8 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
       ],
       attendant: "",
       specialInstructions: "",
+      discountType: editingOrder?.discount_percentage ? "percentage" : "amount",
+      discountValue: editingOrder?.discount_percentage || editingOrder?.discount_amount || 0,
     },
   });
 
@@ -243,6 +247,8 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
         }],
         attendant: "",
         specialInstructions: "",
+        discountType: editingOrder?.discount_percentage ? "percentage" : "amount",
+        discountValue: editingOrder?.discount_percentage || editingOrder?.discount_amount || 0,
       });
       
       console.log('Form reset with parsed items:', parsedItems, 'Has prices:', hasPrices);
@@ -255,9 +261,18 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
   });
 
   const watchedItems = form.watch("orderItems");
-  const orderTotal = watchedItems.reduce((sum, item) => 
-    sum + (item.quantity * item.unitPrice), 0
+  const subtotal = watchedItems.reduce((sum, item) => 
+    sum + ((item.quantity || 0) * (item.unitPrice || 0)), 0
   );
+  
+  const discountType = form.watch("discountType");
+  const discountValue = form.watch("discountValue");
+  
+  const discountAmount = discountType === 'percentage' 
+    ? (subtotal * (discountValue || 0)) / 100 
+    : (discountValue || 0);
+    
+  const orderTotal = Math.max(0, subtotal - discountAmount);
 
   const onSubmit = async (values: OrderFormValues) => {
     try {
@@ -278,10 +293,13 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
         customer_name: values.orderType === "dineIn" 
           ? `Table ${values.tableNumber}` 
           : values.customerName || "Take Away",
-        items: values.orderItems.map(item => 
-          `${item.quantity}x ${item.itemName} ${item.notes ? `(${item.notes})` : ''}`
-        ),
+        items: values.orderItems.map(item => {
+          const notesText = item.notes ? `(${item.notes})` : '';
+          return `${item.quantity}x ${item.itemName} ${notesText} @${item.unitPrice}`;
+        }),
         total: orderTotal,
+        discount_amount: discountAmount || 0,
+        discount_percentage: values.discountType === 'percentage' ? values.discountValue : 0,
         status: editingOrder ? editingOrder.status : "pending",
         source: "manual",
         order_type: values.orderType === "dineIn" ? "dine-in" : "takeaway",
@@ -631,6 +649,49 @@ const ImprovedAddOrderForm = ({ onSuccess, onCancel, editingOrder }: ImprovedAdd
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Discount Section */}
+            <div className="flex gap-2 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
+               <FormField
+                  control={form.control}
+                  name="discountType"
+                  render={({ field }) => (
+                    <FormItem className="w-1/3">
+                      <FormLabel className="text-xs font-semibold text-gray-500">Discount Type</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="h-9 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-xs">
+                            <SelectValue placeholder="Type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="amount">Amount ({currencySymbol})</SelectItem>
+                          <SelectItem value="percentage">Percentage (%)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="discountValue"
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormLabel className="text-xs font-semibold text-gray-500">Discount Value</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="0" 
+                          {...field} 
+                          onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                          className="h-9 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700" 
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
             </div>
 
             {/* Order Total */}
