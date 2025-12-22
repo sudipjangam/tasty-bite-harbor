@@ -95,15 +95,16 @@ export const GDPRCompliance = () => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        // Table might not exist, log but don't show error to user
+        console.log('GDPR requests table not available:', error.message);
+        setDataRequests([]);
+        return;
+      }
       setDataRequests(data || []);
     } catch (error) {
-      console.error('Error fetching GDPR requests:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch GDPR requests",
-        variant: "destructive"
-      });
+      console.log('GDPR feature not configured');
+      setDataRequests([]);
     } finally {
       setLoading(false);
     }

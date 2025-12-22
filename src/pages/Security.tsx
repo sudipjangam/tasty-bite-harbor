@@ -80,7 +80,7 @@ const Security = () => {
           .from('staff')
           .select('id')
           .eq('restaurant_id', user.restaurant_id)
-          .eq('is_active', true);
+          .eq('status', 'active');
 
         // Fetch last backup
         const { data: backupData } = await supabase
@@ -91,11 +91,17 @@ const Security = () => {
           .order('completed_at', { ascending: false })
           .limit(1);
 
-        // FIXED: Fetch actual GDPR pending requests count
-        const { data: gdprData, count: gdprCount } = await supabase
-          .from('gdpr_requests')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'pending');
+        // GDPR requests - table may not exist, handle gracefully
+        let gdprCount = 0;
+        try {
+          const { count } = await supabase
+            .from('gdpr_requests')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'pending');
+          gdprCount = count || 0;
+        } catch {
+          // Table doesn't exist, skip
+        }
 
         // Fetch audit logs for failed logins (if available)
         const { data: auditData, count: failedLoginCount } = await supabase

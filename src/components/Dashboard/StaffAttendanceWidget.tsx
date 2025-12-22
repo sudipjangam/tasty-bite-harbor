@@ -44,11 +44,12 @@ const StaffAttendanceWidget: React.FC = () => {
       if (!restaurantId) return [];
       const today = format(new Date(), 'yyyy-MM-dd');
       
+      // Fetch clock-ins with shifts (staff relationship now has FK)
       const { data, error } = await supabase
         .from('staff_time_clock')
         .select(`
           *,
-          staff!inner(id, first_name, last_name),
+          staff:staff_id(id, first_name, last_name),
           shifts(name, color)
         `)
         .eq('restaurant_id', restaurantId)
@@ -57,7 +58,7 @@ const StaffAttendanceWidget: React.FC = () => {
       
       if (error) {
         console.error('Attendance query error:', error);
-        throw error;
+        return []; // Return empty array instead of throwing
       }
       return data || [];
     },

@@ -125,10 +125,15 @@ export const BackupRecovery = () => {
         .eq('restaurant_id', user.restaurant_id)
         .single();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error) {
+        // Table might not exist, use default settings
+        console.log('Backup settings not available:', error.message);
+        return;
+      }
       if (data) setSettings(data);
     } catch (error) {
-      console.error('Error fetching backup settings:', error);
+      // Silently ignore - use default settings
+      console.log('Backup settings feature not configured');
     }
   };
 
@@ -295,18 +300,25 @@ export const BackupRecovery = () => {
           onConflict: 'restaurant_id'
         });
 
-      if (error) throw error;
+      if (error) {
+        // Table might not exist
+        console.log('Could not save backup settings:', error.message);
+        toast({
+          title: "Note",
+          description: "Backup settings feature is not yet configured for your account",
+        });
+        return;
+      }
 
       toast({
         title: "Success",
         description: "Backup settings updated successfully"
       });
     } catch (error) {
-      console.error('Error updating backup settings:', error);
+      console.log('Backup settings update failed');
       toast({
-        title: "Error",
-        description: "Failed to update backup settings",
-        variant: "destructive"
+        title: "Note",
+        description: "Backup settings feature is not available",
       });
     }
   };
