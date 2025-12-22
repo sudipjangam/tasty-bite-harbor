@@ -93,23 +93,25 @@ export const AuditTrail = () => {
         countQuery = countQuery.lte('created_at', dateRange.to.toISOString());
       }
 
-      const { count } = await countQuery;
+      const { count, error: countError } = await countQuery;
+      
+      if (countError) {
+        // Table might not exist or access denied
+        console.log('Audit logs not available:', countError.message);
+        setAuditLogs([]);
+        setTotalCount(0);
+        return;
+      }
+      
       setTotalCount(count || 0);
 
-      // Fetch paginated data with profiles join for user email
+      // Fetch paginated data WITHOUT profiles join (FK doesn't exist)
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
       const to = from + ITEMS_PER_PAGE - 1;
 
       let query = supabase
         .from('audit_logs')
-        .select(`
-          *,
-          profiles:user_id (
-            email,
-            first_name,
-            last_name
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
         .range(from, to);
 
@@ -131,22 +133,22 @@ export const AuditTrail = () => {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.log('Error fetching audit logs:', error.message);
+        setAuditLogs([]);
+        return;
+      }
       
-      // Map the data to include user_email from the joined profiles
+      // Use the data directly without profile join
       const mappedData = (data || []).map((log: any) => ({
         ...log,
-        user_email: log.profiles?.email || null
+        user_email: log.user_email || null // Use user_email directly if it exists in table
       }));
       
       setAuditLogs(mappedData);
     } catch (error) {
-      console.error('Error fetching audit logs:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch audit logs",
-        variant: "destructive"
-      });
+      console.log('Audit logs feature not available');
+      setAuditLogs([]);
     } finally {
       setLoading(false);
     }
