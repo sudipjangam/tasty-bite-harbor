@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Search, Filter, Download, RefreshCw } from "lucide-react";
+import { Plus, Search, Filter, Download, RefreshCw, Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,10 @@ import OrderStats from "../OrderStats";
 import AddOrderForm from "../AddOrderForm";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { startOfToday, subDays, subMonths, startOfDay, endOfDay } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { startOfToday, subDays, subMonths, startOfDay, endOfDay, format } from "date-fns";
+import type { DateRange } from "react-day-picker";
 import type { Order } from "@/types/orders";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
@@ -38,6 +41,8 @@ const OrdersView = ({
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [dateFilter, setDateFilter] = useState<string>("today");
+  const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>(undefined);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
@@ -91,6 +96,14 @@ const OrdersView = ({
           start: startOfDay(subMonths(now, 1)), 
           end: endOfDay(subDays(now, 1)) 
         };
+      case "custom":
+        if (customDateRange?.from && customDateRange?.to) {
+          return { 
+            start: startOfDay(customDateRange.from), 
+            end: endOfDay(customDateRange.to) 
+          };
+        }
+        return { start: startOfToday(), end: endOfDay(now) };
       default:
         return { start: startOfToday(), end: endOfDay(now) };
     }
@@ -98,7 +111,7 @@ const OrdersView = ({
 
   // Fetch all orders from all sources (POS, table, takeaway, dine-in, delivery, etc.)
   const { data: orders, refetch: refetchOrders, isLoading } = useQuery({
-    queryKey: ['all-orders', dateFilter],
+    queryKey: ['all-orders', dateFilter, customDateRange?.from?.toISOString(), customDateRange?.to?.toISOString()],
     queryFn: async () => {
       const { data: profile } = await supabase
         .from("profiles")
@@ -130,7 +143,7 @@ const OrdersView = ({
   // Real-time subscription for orders table to update UI immediately
   useRealtimeSubscription({
     table: 'orders',
-    queryKey: ['all-orders', dateFilter],
+    queryKey: ['all-orders', dateFilter, customDateRange?.from?.toISOString(), customDateRange?.to?.toISOString()],
     schema: 'public',
   });
 
@@ -159,16 +172,46 @@ const OrdersView = ({
     }
 
     try {
+      // Calculate totals
+      const totalEarned = filteredOrders.reduce((sum, order) => sum + (order.total - (order.discount_amount || 0)), 0);
+      const totalDiscount = filteredOrders.reduce((sum, order) => sum + (order.discount_amount || 0), 0);
+      const totalOrders = filteredOrders.length;
+
       // Prepare data for export
       const exportData = filteredOrders.map(order => ({
         'Order ID': order.id,
         'Customer Name': order.customer_name,
         'Items': order.items.join(', '),
-        'Total Amount': `₹${order.total.toFixed(2)}`,
-        'Status': order.status,
+        'Total Amount': `₹${(order.total - (order.discount_amount || 0)).toFixed(2)}`,
+        'Discount': order.discount_amount ? `₹${order.discount_amount.toFixed(2)} (${order.discount_percentage}%)` : '-',
+        'Status': order.status as string,
         'Created Date': new Date(order.created_at).toLocaleDateString(),
         'Created Time': new Date(order.created_at).toLocaleTimeString()
       }));
+
+      // Add empty row as separator
+      exportData.push({
+        'Order ID': '',
+        'Customer Name': '',
+        'Items': '',
+        'Total Amount': '',
+        'Discount': '',
+        'Status': '',
+        'Created Date': '',
+        'Created Time': ''
+      });
+
+      // Add summary row
+      exportData.push({
+        'Order ID': 'SUMMARY',
+        'Customer Name': `Total Orders: ${totalOrders}`,
+        'Items': '',
+        'Total Amount': `₹${totalEarned.toFixed(2)}`,
+        'Discount': `₹${totalDiscount.toFixed(2)}`,
+        'Status': '',
+        'Created Date': getDateFilterLabel(),
+        'Created Time': ''
+      });
 
       // Create workbook and worksheet
       const ws = XLSX.utils.json_to_sheet(exportData);
@@ -225,7 +268,7 @@ const OrdersView = ({
     totalOrders: filteredOrders.length || 0,
     pendingOrders: filteredOrders.filter(order => ['pending', 'preparing', 'ready', 'held'].includes(order.status)).length || 0,
     completedOrders: filteredOrders.filter(order => order.status === 'completed').length || 0,
-    totalRevenue: filteredOrders.filter(order => order.status === 'completed').reduce((sum, order) => sum + order.total, 0) || 0,
+    totalRevenue: filteredOrders.filter(order => order.status === 'completed').reduce((sum, order) => sum + (order.total - (order.discount_amount || 0)), 0) || 0,
   };
 
   const getDateFilterLabel = () => {
@@ -235,6 +278,11 @@ const OrdersView = ({
       case "last7days": return "Last 7 Days";
       case "last30days": return "Last 30 Days";
       case "lastMonth": return "Last Month";
+      case "custom":
+        if (customDateRange?.from && customDateRange?.to) {
+          return `${format(customDateRange.from, 'MMM d')} - ${format(customDateRange.to, 'MMM d')}`;
+        }
+        return "Custom Range";
       default: return "Today";
     }
   };
@@ -283,7 +331,89 @@ const OrdersView = ({
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                 {/* Date Filter in Header */}
+                 <Select value={dateFilter} onValueChange={(value) => {
+                   setDateFilter(value);
+                   if (value !== 'custom') {
+                     setCustomDateRange(undefined);
+                   }
+                 }}>
+                   <SelectTrigger className="w-[140px] bg-white/80 dark:bg-gray-800/80 border-gray-200 dark:border-gray-700 rounded-xl shadow-sm">
+                     <SelectValue placeholder="Date Range" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="today">Today</SelectItem>
+                     <SelectItem value="yesterday">Yesterday</SelectItem>
+                     <SelectItem value="last7days">Last 7 Days</SelectItem>
+                     <SelectItem value="last30days">Last 30 Days</SelectItem>
+                     <SelectItem value="lastMonth">Last Month</SelectItem>
+                     <SelectItem value="custom">Custom Range</SelectItem>
+                   </SelectContent>
+                 </Select>
+
+                 {/* Custom Date Range Picker in Header */}
+                 {dateFilter === 'custom' && (
+                   <Popover open={showCalendar} onOpenChange={setShowCalendar}>
+                     <PopoverTrigger asChild>
+                       <Button 
+                         variant="outline" 
+                         className="bg-white/80 dark:bg-gray-800/80 border-gray-200 dark:border-gray-700 rounded-xl shadow-sm min-w-[180px] justify-start text-left font-normal text-sm"
+                       >
+                         <CalendarIcon className="mr-2 h-4 w-4 text-indigo-500" />
+                         {customDateRange?.from && customDateRange?.to ? (
+                           <span>{format(customDateRange.from, 'MMM dd')} - {format(customDateRange.to, 'MMM dd')}</span>
+                         ) : customDateRange?.from ? (
+                           <span>{format(customDateRange.from, 'MMM dd')} - ...</span>
+                         ) : (
+                           <span className="text-muted-foreground">Pick dates</span>
+                         )}
+                       </Button>
+                     </PopoverTrigger>
+                     <PopoverContent className="w-auto p-0" align="end">
+                       <div className="p-3 border-b text-xs text-gray-500 dark:text-gray-400">
+                         💡 Click same date twice for single day
+                       </div>
+                       <Calendar
+                         initialFocus
+                         mode="range"
+                         defaultMonth={customDateRange?.from || new Date()}
+                         selected={customDateRange}
+                         onSelect={(range) => {
+                           // If clicking the same date twice, set both from and to to that date
+                           if (range?.from && !range?.to) {
+                             // First click - wait for second click
+                             setCustomDateRange(range);
+                           } else if (range?.from && range?.to) {
+                             setCustomDateRange(range);
+                             setShowCalendar(false);
+                           }
+                         }}
+                         numberOfMonths={2}
+                         className="rounded-xl"
+                       />
+                       {/* Quick single-day button */}
+                       {customDateRange?.from && !customDateRange?.to && (
+                         <div className="p-2 border-t">
+                           <Button 
+                             size="sm" 
+                             variant="outline"
+                             className="w-full text-xs"
+                             onClick={() => {
+                               if (customDateRange.from) {
+                                 setCustomDateRange({ from: customDateRange.from, to: customDateRange.from });
+                                 setShowCalendar(false);
+                               }
+                             }}
+                           >
+                             Select {format(customDateRange.from, 'MMM dd')} only
+                           </Button>
+                         </div>
+                       )}
+                     </PopoverContent>
+                   </Popover>
+                 )}
+
                  <Button 
                   variant="outline" 
                   onClick={handleRefresh}
@@ -387,21 +517,8 @@ const OrdersView = ({
                 />
               </div>
 
-               {/* Date Filter */}
+               {/* Source Filter */}
                <div className="flex items-center gap-2 overflow-x-auto pb-1 hide-scrollbar">
-                <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger className="w-[160px] bg-white/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 rounded-xl">
-                    <SelectValue placeholder="Date Range" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="yesterday">Yesterday</SelectItem>
-                    <SelectItem value="last7days">Last 7 Days</SelectItem>
-                    <SelectItem value="last30days">Last 30 Days</SelectItem>
-                    <SelectItem value="lastMonth">Last Month</SelectItem>
-                  </SelectContent>
-                 </Select>
-                 
                  <Select value={sourceFilter} onValueChange={setSourceFilter}>
                   <SelectTrigger className="w-[150px] bg-white/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 rounded-xl">
                     <SelectValue placeholder="Source" />

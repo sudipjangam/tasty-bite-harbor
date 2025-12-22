@@ -1,14 +1,17 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Filter, Calendar } from "lucide-react";
+import { Search, Filter, Calendar as CalendarIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { formatDistanceToNow, subDays, startOfDay, isWithinInterval } from "date-fns";
+import { formatDistanceToNow, subDays, startOfDay, endOfDay, isWithinInterval, format } from "date-fns";
+import type { DateRange } from "react-day-picker";
 import type { Json } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import PaymentDialog from "./POS/PaymentDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCurrencyContext } from '@/contexts/CurrencyContext';
@@ -40,6 +43,8 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("today");
+  const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>(undefined);
+  const [showCalendar, setShowCalendar] = useState(false);
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
 
@@ -238,6 +243,16 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
           return orderDate.getMonth() === today.getMonth() && 
                  orderDate.getFullYear() === today.getFullYear();
         });
+      case "custom":
+        if (customDateRange?.from && customDateRange?.to) {
+          return orders.filter(order => 
+            isWithinInterval(new Date(order.created_at), {
+              start: startOfDay(customDateRange.from!),
+              end: endOfDay(customDateRange.to!)
+            })
+          );
+        }
+        return orders;
       default:
         return orders;
     }
@@ -337,15 +352,80 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
         </Select>
       </div>
       
-      <div className="mb-4">
-        <Tabs defaultValue="today" value={dateFilter} onValueChange={setDateFilter}>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Tabs defaultValue="today" value={dateFilter} onValueChange={(value) => {
+          setDateFilter(value);
+          if (value !== 'custom') {
+            setCustomDateRange(undefined);
+          }
+        }}>
           <TabsList>
             <TabsTrigger value="today">Today</TabsTrigger>
             <TabsTrigger value="yesterday">Yesterday</TabsTrigger>
             <TabsTrigger value="last7days">Last 7 Days</TabsTrigger>
             <TabsTrigger value="thisMonth">This Month</TabsTrigger>
+            <TabsTrigger value="custom">Custom</TabsTrigger>
           </TabsList>
         </Tabs>
+        
+        {/* Custom Date Range Picker */}
+        {dateFilter === 'custom' && (
+          <Popover open={showCalendar} onOpenChange={setShowCalendar}>
+            <PopoverTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg min-w-[160px] justify-start text-left font-normal text-sm"
+              >
+                <CalendarIcon className="mr-2 h-4 w-4 text-indigo-500" />
+                {customDateRange?.from && customDateRange?.to ? (
+                  <span>{format(customDateRange.from, 'MMM dd')} - {format(customDateRange.to, 'MMM dd')}</span>
+                ) : customDateRange?.from ? (
+                  <span>{format(customDateRange.from, 'MMM dd')} - ...</span>
+                ) : (
+                  <span className="text-muted-foreground">Pick dates</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <div className="p-3 border-b text-xs text-gray-500 dark:text-gray-400">
+                💡 Click same date twice for single day
+              </div>
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={customDateRange?.from || new Date()}
+                selected={customDateRange}
+                onSelect={(range) => {
+                  if (range?.from && !range?.to) {
+                    setCustomDateRange(range);
+                  } else if (range?.from && range?.to) {
+                    setCustomDateRange(range);
+                    setShowCalendar(false);
+                  }
+                }}
+                numberOfMonths={2}
+                className="rounded-xl"
+              />
+              {customDateRange?.from && !customDateRange?.to && (
+                <div className="p-2 border-t">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="w-full text-xs"
+                    onClick={() => {
+                      if (customDateRange.from) {
+                        setCustomDateRange({ from: customDateRange.from, to: customDateRange.from });
+                        setShowCalendar(false);
+                      }
+                    }}
+                  >
+                    Select {format(customDateRange.from, 'MMM dd')} only
+                  </Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
       
       <div className="h-[calc(70vh-180px)] overflow-auto">

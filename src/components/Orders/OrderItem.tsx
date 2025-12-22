@@ -131,9 +131,14 @@ const OrderItem: React.FC<OrderItemProps> = ({ order, onStatusChange, onEdit, on
               <div className="text-left sm:text-right lg:text-right">
                 <p className="text-sm text-muted-foreground mb-1">Total Amount</p>
                 <CurrencyDisplay 
-                  amount={order.total} 
+                  amount={order.total - (order.discount_amount || 0)} 
                   className="text-2xl font-bold text-emerald-600 dark:text-emerald-400" 
                 />
+                {(order.discount_amount && order.discount_amount > 0 && order.discount_percentage && order.discount_percentage > 0) ? (
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
+                    {order.discount_percentage}% discount applied
+                  </p>
+                ) : null}
               </div>
 
               <OrderActions 
