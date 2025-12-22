@@ -73,18 +73,18 @@ export const useMarketingData = () => {
     queryFn: async () => {
       if (!restaurantId) return [];
       
+      // Fetch customers without FK joins (no direct FK to loyalty_tiers/orders)
       const { data, error } = await supabase
         .from('customers')
-        .select(`
-          *,
-          loyalty_tiers(name, points_required),
-          orders(id, total, created_at)
-        `)
+        .select('*')
         .eq('restaurant_id', restaurantId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return data;
+      if (error) {
+        console.log('Customers query error:', error.message);
+        return [];
+      }
+      return data || [];
     },
     enabled: !!restaurantId,
   });

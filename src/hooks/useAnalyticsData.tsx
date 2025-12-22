@@ -70,7 +70,7 @@ export const useAnalyticsData = () => {
         .select("*")
         .eq("restaurant_id", userProfile.restaurant_id)
         .eq("payment_status", "paid")
-        .order("billing_date", { ascending: false })
+        .order("checkout_date", { ascending: false })
         .limit(100);
 
       // Fetch rooms for occupancy calculation
@@ -339,7 +339,7 @@ const calculateConsolidatedRevenue = (revenueStats: any[], roomBillings: any[]) 
 
     // Get hotel revenue for this date
     const hotelRevenue = roomBillings
-      .filter(billing => format(new Date(billing.billing_date), 'yyyy-MM-dd') === date)
+      .filter(billing => format(new Date(billing.checkout_date), 'yyyy-MM-dd') === date)
       .reduce((sum, billing) => sum + Number(billing.total_amount || 0), 0);
 
     return {
