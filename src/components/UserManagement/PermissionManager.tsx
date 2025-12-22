@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { fetchAllowedComponents } from "@/utils/subscriptionUtils";
 import {
   Dialog,
   DialogContent,
@@ -36,24 +38,36 @@ export const PermissionManager = ({
   onOpenChange,
   onSuccess,
 }: PermissionManagerProps) => {
+  const { user } = useAuth();
   const [selectedComponents, setSelectedComponents] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [initComplete, setInitComplete] = useState(false);
 
-  // Fetch all available components
+  // Fetch components filtered by restaurant subscription
   const { data: components, isLoading: isLoadingComponents } = useQuery({
-    queryKey: ["app-components"],
+    queryKey: ["app-components-filtered", user?.restaurant_id],
     queryFn: async () => {
+      if (!user?.restaurant_id) return [];
+      
+      // Get subscription plan components
+      const subscriptionComponents = await fetchAllowedComponents(user.restaurant_id);
+      
       const { data, error } = await supabase
         .from("app_components")
         .select("*")
         .order("name");
 
       if (error) throw error;
-      return data as AppComponent[];
+      
+      // Filter to only show components the restaurant has access to
+      return (data as AppComponent[]).filter(c => 
+        subscriptionComponents.some(sc => 
+          sc.toLowerCase() === c.name.toLowerCase()
+        )
+      );
     },
-    enabled: open,
+    enabled: open && !!user?.restaurant_id,
   });
 
   // Fetch user profile and their current components
