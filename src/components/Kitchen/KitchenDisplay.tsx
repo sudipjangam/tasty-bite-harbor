@@ -67,17 +67,17 @@ const KitchenDisplay = () => {
     const audio = new Audio();
     try {
       audio.src = "/notification.mp3";
-      audio.addEventListener('error', (e) => {
-        console.error("Error loading notification sound:", e);
+      audio.addEventListener('error', () => {
+        // Suppress - notification.mp3 may not exist, fallback handled silently
         try {
           const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
           audio.src = createBeepSound(audioContext);
-        } catch (audioApiError) {
-          console.error("Could not create fallback sound:", audioApiError);
+        } catch {
+          // Could not create fallback sound - continue without audio
         }
       });
-    } catch (e) {
-      console.error("Could not initialize audio:", e);
+    } catch {
+      // Could not initialize audio - continue without notifications
     }
     return audio;
   });

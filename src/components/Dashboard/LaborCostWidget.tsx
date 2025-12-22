@@ -32,17 +32,20 @@ const LaborCostWidget: React.FC = () => {
   const prevWeekStart = subWeeks(weekStart, 1);
   const prevWeekEnd = subWeeks(weekEnd, 1);
 
-  // Fetch staff with hourly rates
+  // Fetch staff with salary (hourly_rate calculated from salary)
   const { data: staffList = [] } = useQuery({
     queryKey: ['staff-with-rates', restaurantId],
     queryFn: async () => {
       if (!restaurantId) return [];
       const { data, error } = await supabase
         .from('staff')
-        .select('id, first_name, last_name, position, hourly_rate')
+        .select('id, first_name, last_name, position, salary, salary_type')
         .eq('restaurant_id', restaurantId)
         .eq('status', 'active');
-      if (error) throw error;
+      if (error) {
+        console.log('Error fetching staff:', error.message);
+        return [];
+      }
       return data || [];
     },
     enabled: !!restaurantId,
@@ -107,7 +110,7 @@ const LaborCostWidget: React.FC = () => {
     // Calculate costs with overtime
     Object.entries(staffHours).forEach(([staffId, hours]) => {
       const staff = staffData.find(s => s.id === staffId);
-      const hourlyRate = staff?.hourly_rate || DEFAULT_HOURLY_RATE;
+      const hourlyRate = staff?.salary ? (staff.salary_type === 'hourly' ? staff.salary : staff.salary / 160) : DEFAULT_HOURLY_RATE;
       
       if (hours > STANDARD_HOURS_PER_WEEK) {
         const overHours = hours - STANDARD_HOURS_PER_WEEK;

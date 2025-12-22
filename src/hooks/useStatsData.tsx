@@ -48,7 +48,7 @@ export const useStatsData = () => {
         total: billing.total_amount,
         status: billing.payment_status === 'paid' ? 'completed' : 'pending',
         customer_name: `Room ${billing.room_id}`,
-        created_at: billing.billing_date,
+        created_at: billing.checkout_date,
         source: 'room_billing'
       }));
 

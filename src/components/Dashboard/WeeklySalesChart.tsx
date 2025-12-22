@@ -48,14 +48,18 @@ const WeeklySalesChart = () => {
         .gte("created_at", startDate.toISOString())
         .lte("created_at", endDate.toISOString());
 
-      // Fetch room billings revenue
-      const { data: roomBillings } = await supabase
+      // Fetch room billings revenue (use checkout_date instead of billing_date)
+      const { data: roomBillings, error: roomBillingsError } = await supabase
         .from("room_billings")
-        .select("billing_date, total_amount, payment_status")
+        .select("checkout_date, total_amount, payment_status")
         .eq("restaurant_id", profile?.restaurant_id)
         .eq("payment_status", "paid")
-        .gte("billing_date", startDate.toISOString())
-        .lte("billing_date", endDate.toISOString());
+        .gte("checkout_date", startDate.toISOString())
+        .lte("checkout_date", endDate.toISOString());
+
+      if (roomBillingsError) {
+        console.log('Room billings query error:', roomBillingsError.message);
+      }
 
       // Calculate revenue per day
       const dailyRevenue: { [key: string]: number } = {};
@@ -66,7 +70,7 @@ const WeeklySalesChart = () => {
       });
 
       roomBillings?.forEach(billing => {
-        const day = format(new Date(billing.billing_date), 'EEE');
+        const day = format(new Date(billing.checkout_date), 'EEE');
         dailyRevenue[day] = (dailyRevenue[day] || 0) + (billing.total_amount || 0);
       });
 
