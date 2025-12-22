@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { fetchAllowedComponents } from '@/utils/subscriptionUtils';
 import {
   Dialog,
   DialogContent,
@@ -62,23 +64,37 @@ const getComponentCategory = (name: string): string => {
 
 export const EditRoleDialog = ({ role, open, onOpenChange, onSuccess }: EditRoleDialogProps) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [name, setName] = useState(role.name);
   const [description, setDescription] = useState(role.description || '');
   const [selectedComponents, setSelectedComponents] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch all available components
+  // Fetch components filtered by restaurant subscription
   const { data: components, isLoading: componentsLoading } = useQuery({
-    queryKey: ['app-components'],
+    queryKey: ['app-components-filtered', user?.restaurant_id],
     queryFn: async () => {
+      if (!user?.restaurant_id) return [];
+      
+      // Get subscription plan components
+      const subscriptionComponents = await fetchAllowedComponents(user.restaurant_id);
+      
+      // Fetch all app_components
       const { data, error } = await supabase
         .from('app_components')
         .select('*')
         .order('name');
 
       if (error) throw error;
-      return data as AppComponent[];
+      
+      // Filter to only show components the restaurant has access to
+      return (data as AppComponent[]).filter(c => 
+        subscriptionComponents.some(sc => 
+          sc.toLowerCase() === c.name.toLowerCase()
+        )
+      );
     },
+    enabled: open && !!user?.restaurant_id,
   });
 
   // Fetch current role components
