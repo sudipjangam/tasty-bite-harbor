@@ -33,6 +33,7 @@ interface PurchaseOrder {
     unit_cost: number;
     total_cost: number;
     received_quantity: number;
+    inventory_item_id: string;
     inventory_item: {
       name: string;
       unit: string;
@@ -127,6 +128,7 @@ const PurchaseOrders = () => {
             unit_cost,
             total_cost,
             received_quantity,
+            inventory_item_id,
             inventory_item:inventory_items(name, unit)
           )
         `)
@@ -278,21 +280,63 @@ const PurchaseOrders = () => {
   });
 
   const receiveItemsMutation = useMutation({
-    mutationFn: async (items: Array<{ id: string; receivedQuantity: number }>) => {
+    mutationFn: async (items: Array<{ id: string; receivedQuantity: number; inventory_item_id: string; previousReceivedQuantity: number }>) => {
       for (const item of items) {
-        const { error } = await supabase
+        // Update the received_quantity in purchase_order_items
+        const { error: poError } = await supabase
           .from("purchase_order_items")
           .update({ received_quantity: item.receivedQuantity })
           .eq("id", item.id);
         
-        if (error) throw error;
+        if (poError) throw poError;
+
+        // Calculate the difference in received quantity (only add the new quantity received)
+        const quantityToAdd = item.receivedQuantity - item.previousReceivedQuantity;
+        
+        if (quantityToAdd > 0) {
+          // Get current inventory item quantity
+          const { data: inventoryItem, error: fetchError } = await supabase
+            .from("inventory_items")
+            .select("quantity")
+            .eq("id", item.inventory_item_id)
+            .single();
+
+          if (fetchError) throw fetchError;
+
+          // Update the inventory item quantity
+          const newQuantity = (inventoryItem?.quantity || 0) + quantityToAdd;
+          const { error: updateError } = await supabase
+            .from("inventory_items")
+            .update({ quantity: newQuantity })
+            .eq("id", item.inventory_item_id);
+
+          if (updateError) throw updateError;
+
+          // Create a transaction record for the received items
+          const { error: transactionError } = await supabase
+            .from("inventory_transactions")
+            .insert([{
+              restaurant_id: restaurantId,
+              inventory_item_id: item.inventory_item_id,
+              transaction_type: "purchase",
+              quantity_change: quantityToAdd,
+              notes: `Received from PO: ${selectedOrder?.order_number}`,
+            }]);
+
+          if (transactionError) {
+            console.error("Error creating transaction:", transactionError);
+            // Continue anyway - transaction record is not critical
+          }
+        }
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-transactions"] });
       setIsReceivingDialogOpen(false);
-      toast({ title: "Items received successfully" });
+      toast({ title: "Items received successfully and inventory updated" });
     },
     onError: (error) => {
       toast({
@@ -353,6 +397,8 @@ const PurchaseOrders = () => {
     const items = selectedOrder.purchase_order_items.map(item => ({
       id: item.id,
       receivedQuantity: parseFloat(formData.get(`received_${item.id}`) as string) || 0,
+      inventory_item_id: item.inventory_item_id,
+      previousReceivedQuantity: item.received_quantity || 0,
     }));
 
     receiveItemsMutation.mutate(items);

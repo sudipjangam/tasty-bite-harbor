@@ -38,7 +38,6 @@ interface InventoryItem {
   restaurant_id: string;
   category: string;
   notification_sent?: boolean;
-  expiry_date?: string | null;
 }
 
 const Inventory = () => {
@@ -139,10 +138,10 @@ const Inventory = () => {
     const formData = new FormData(e.currentTarget);
     const itemData = {
       name: formData.get("name") as string,
-      quantity: parseFloat(formData.get("quantity") as string),
+      quantity: Math.max(0, parseFloat(formData.get("quantity") as string) || 0),
       unit: formData.get("unit") as string,
-      reorder_level: formData.get("reorderLevel") ? parseFloat(formData.get("reorderLevel") as string) : null,
-      cost_per_unit: formData.get("costPerUnit") ? parseFloat(formData.get("costPerUnit") as string) : null,
+      reorder_level: formData.get("reorderLevel") ? Math.max(0, parseFloat(formData.get("reorderLevel") as string)) : null,
+      cost_per_unit: formData.get("costPerUnit") ? Math.max(0, parseFloat(formData.get("costPerUnit") as string)) : null,
       category: formData.get("category") as string || "Other",
     };
 
@@ -194,6 +193,38 @@ const Inventory = () => {
     if (!itemToDelete) return;
     
     try {
+      // Delete all related records to avoid foreign key constraint violations
+      // 1. Delete related inventory_alerts
+      await supabase
+        .from("inventory_alerts")
+        .delete()
+        .eq("inventory_item_id", itemToDelete.id);
+      
+      // 2. Delete related inventory_transactions
+      await supabase
+        .from("inventory_transactions")
+        .delete()
+        .eq("inventory_item_id", itemToDelete.id);
+      
+      // 3. Delete related purchase_order_items
+      await supabase
+        .from("purchase_order_items")
+        .delete()
+        .eq("inventory_item_id", itemToDelete.id);
+      
+      // 4. Delete related recipe_ingredients
+      await supabase
+        .from("recipe_ingredients")
+        .delete()
+        .eq("inventory_item_id", itemToDelete.id);
+      
+      // 5. Delete related supplier_order_items
+      await supabase
+        .from("supplier_order_items")
+        .delete()
+        .eq("inventory_item_id", itemToDelete.id);
+
+      // Now delete the inventory item
       const { error } = await supabase.from("inventory_items").delete().eq("id", itemToDelete.id);
       if (error) throw error;
       toast({ title: "Inventory item deleted successfully" });
@@ -203,7 +234,7 @@ const Inventory = () => {
       console.error("Error:", error);
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: "Failed to delete inventory item. It may be linked to other records.",
         variant: "destructive",
       });
       setItemToDelete(null);
@@ -275,7 +306,7 @@ const Inventory = () => {
                   {editingItem ? "Edit Inventory Item" : "Add New Inventory Item"}
                 </DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form key={editingItem?.id || 'new'} onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <Label htmlFor="name" className="text-sm font-medium text-gray-700 dark:text-gray-300">Item Name *</Label>
                   <Input
@@ -310,6 +341,7 @@ const Inventory = () => {
                       name="quantity"
                       type="number"
                       step="0.01"
+                      min="0"
                       defaultValue={editingItem?.quantity}
                       required
                       placeholder="0"
@@ -340,6 +372,7 @@ const Inventory = () => {
                       name="reorderLevel"
                       type="number"
                       step="0.01"
+                      min="0"
                       defaultValue={editingItem?.reorder_level || ""}
                       placeholder="Low stock alert"
                       className="bg-white/80 dark:bg-gray-700/80 border-gray-200 dark:border-gray-600 rounded-xl"
@@ -352,6 +385,7 @@ const Inventory = () => {
                       name="costPerUnit"
                       type="number"
                       step="0.01"
+                      min="0"
                       defaultValue={editingItem?.cost_per_unit || ""}
                       placeholder="0.00"
                       className="bg-white/80 dark:bg-gray-700/80 border-gray-200 dark:border-gray-600 rounded-xl"
