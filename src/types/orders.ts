@@ -14,6 +14,7 @@ export interface Order {
   discount_percentage?: number;
   payment_status?: string;
   payment_method?: string;
+  attendant?: string | null; // Name of staff who took the order
 }
 
 export interface OrderItem {
