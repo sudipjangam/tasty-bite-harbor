@@ -5,7 +5,13 @@ import { formatDistanceToNow } from "date-fns";
 import OrderActions from "./OrderActions";
 import type { Order } from "@/types/orders";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
-import { ShoppingBag, Clock, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import {
+  ShoppingBag,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+} from "lucide-react";
 
 interface OrderItemProps {
   order: Order;
@@ -14,71 +20,82 @@ interface OrderItemProps {
   onDelete?: (orderId: string) => void;
 }
 
-const OrderItem: React.FC<OrderItemProps> = ({ order, onStatusChange, onEdit, onDelete }) => {
+const OrderItem: React.FC<OrderItemProps> = ({
+  order,
+  onStatusChange,
+  onEdit,
+  onDelete,
+}) => {
   const formattedDate = formatDistanceToNow(new Date(order.created_at), {
     addSuffix: true,
   });
 
   const getStatusConfig = (status: string) => {
     switch (status) {
-      case 'completed':
+      case "completed":
         return {
           icon: CheckCircle2,
-          label: 'Completed',
-          variant: 'default' as const,
-          className: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400'
+          label: "Completed",
+          variant: "default" as const,
+          className:
+            "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400",
         };
-      case 'pending':
+      case "pending":
         return {
           icon: Clock,
-          label: 'Pending',
-          variant: 'secondary' as const,
-          className: 'bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400'
+          label: "Pending",
+          variant: "secondary" as const,
+          className:
+            "bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400",
         };
-      case 'preparing':
+      case "preparing":
         return {
           icon: Loader2,
-          label: 'Preparing',
-          variant: 'secondary' as const,
-          className: 'bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400'
+          label: "Preparing",
+          variant: "secondary" as const,
+          className:
+            "bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400",
         };
-      case 'cancelled':
+      case "cancelled":
         return {
           icon: XCircle,
-          label: 'Cancelled',
-          variant: 'destructive' as const,
-          className: 'bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400'
+          label: "Cancelled",
+          variant: "destructive" as const,
+          className:
+            "bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400",
         };
       default:
         return {
           icon: ShoppingBag,
           label: status,
-          variant: 'outline' as const,
-          className: ''
+          variant: "outline" as const,
+          className: "",
         };
     }
   };
 
   const getSourceLabel = (source?: string, orderType?: string) => {
     if (!source) return null;
-    
+
     const sourceLabels: Record<string, string> = {
-      'pos': 'POS',
-      'table': 'Table Order',
-      'manual': 'Manual',
-      'room_service': 'Room Service',
-      'qsr': 'QSR'
+      pos: "POS",
+      table: "Table Order",
+      manual: "Manual",
+      room_service: "Room Service",
+      qsr: "QSR",
     };
 
     const orderTypeLabels: Record<string, string> = {
-      'dine-in': 'Dine-In',
-      'takeaway': 'Takeaway',
-      'delivery': 'Delivery'
+      "dine-in": "Dine-In",
+      takeaway: "Takeaway",
+      delivery: "Delivery",
     };
 
     const sourceText = sourceLabels[source] || source;
-    const typeText = orderType ? ` - ${orderTypeLabels[orderType] || orderType}` : '';
-    
+    const typeText = orderType
+      ? ` - ${orderTypeLabels[orderType] || orderType}`
+      : "";
+
     return `${sourceText}${typeText}`;
   };
 
@@ -94,22 +111,35 @@ const OrderItem: React.FC<OrderItemProps> = ({ order, onStatusChange, onEdit, on
             {/* Left Section - Order Info */}
             <div className="flex-1 space-y-3">
               <div className="flex items-center gap-3 flex-wrap">
-                <h3 className="text-lg font-semibold text-foreground">{order.customer_name}</h3>
+                <h3 className="text-lg font-semibold text-foreground">
+                  {order.customer_name}
+                </h3>
                 <Badge className={statusConfig.className}>
                   <StatusIcon className="w-3 h-3 mr-1.5" />
                   {statusConfig.label}
                 </Badge>
                 {sourceLabel && (
-                  <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300">
+                  <Badge
+                    variant="outline"
+                    className="bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300"
+                  >
                     {sourceLabel}
                   </Badge>
                 )}
               </div>
-              
+
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="w-4 h-4" />
                 <span>Ordered {formattedDate}</span>
               </div>
+
+              {order.attendant && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="text-xs bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-full">
+                    Attendant: {order.attendant}
+                  </span>
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -129,19 +159,24 @@ const OrderItem: React.FC<OrderItemProps> = ({ order, onStatusChange, onEdit, on
             {/* Right Section - Price & Actions */}
             <div className="flex flex-col sm:flex-row lg:flex-col items-start sm:items-center lg:items-end gap-4 lg:gap-3 min-w-fit">
               <div className="text-left sm:text-right lg:text-right">
-                <p className="text-sm text-muted-foreground mb-1">Total Amount</p>
-                <CurrencyDisplay 
-                  amount={order.total - (order.discount_amount || 0)} 
-                  className="text-2xl font-bold text-emerald-600 dark:text-emerald-400" 
+                <p className="text-sm text-muted-foreground mb-1">
+                  Total Amount
+                </p>
+                <CurrencyDisplay
+                  amount={order.total - (order.discount_amount || 0)}
+                  className="text-2xl font-bold text-emerald-600 dark:text-emerald-400"
                 />
-                {(order.discount_amount && order.discount_amount > 0 && order.discount_percentage && order.discount_percentage > 0) ? (
+                {order.discount_amount &&
+                order.discount_amount > 0 &&
+                order.discount_percentage &&
+                order.discount_percentage > 0 ? (
                   <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
                     {order.discount_percentage}% discount applied
                   </p>
                 ) : null}
               </div>
 
-              <OrderActions 
+              <OrderActions
                 order={order}
                 onStatusUpdate={onStatusChange}
                 onEdit={onEdit ? () => onEdit() : undefined}

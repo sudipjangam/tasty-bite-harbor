@@ -2238,6 +2238,7 @@ export type Database = {
           status: string
           total: number
           updated_at: string
+          attendant: string | null
         }
         Insert: {
           created_at?: string
@@ -2257,6 +2258,7 @@ export type Database = {
           status?: string
           total: number
           updated_at?: string
+          attendant?: string | null
         }
         Update: {
           created_at?: string
@@ -2276,6 +2278,7 @@ export type Database = {
           status?: string
           total?: number
           updated_at?: string
+          attendant?: string | null
         }
         Relationships: [
           {
