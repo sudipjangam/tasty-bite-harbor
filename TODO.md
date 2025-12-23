@@ -79,6 +79,25 @@
 
 ---
 
+## Issues
+
+### ActiveOrdersList Component Out of Memory (OOM) Error
+- The `ActiveOrdersList` component causes an OOM error when running tests, specifically in `src/tests/StaffFlow.test.tsx`.
+- This is likely due to the Supabase real-time subscription setup in `useEffect` creating a memory leak or infinite loop during testing, even with mocked clients.
+- The component has been mocked in `src/tests/StaffFlow.test.tsx` to bypass this issue and allow other tests to run.
+- **Action Required:** Investigate `ActiveOrdersList.tsx` for proper cleanup of subscriptions and `useEffect` dependencies. Ensure mocks in tests correctly handle the subscription lifecycle or use a more robust mock for the realtime channel.
+
+### StaffFlow Tests Failures
+- `adds items to the order`: Fails to find "Burger" item.
+- `increments quantity`: Fails to find "Burger" item or quantity.
+- `removes items from order`: Fails to find "Burger" item or clear button correctly.
+- `allows sending order to kitchen`: Fails to find "Send to Kitchen" button or verify completion.
+- These failures might be due to asynchronous rendering or incorrect selectors. The component structure might have changed or the mocks are not returning data as expected by the component logic (e.g., category filtering).
+
+## Next Steps
+- Fix the `ActiveOrdersList` memory leak.
+- Debug and fix the selectors/timing in `src/tests/StaffFlow.test.tsx`.
+
 ## Notes
 
 Add new tasks by editing this file. Use checkbox format:
