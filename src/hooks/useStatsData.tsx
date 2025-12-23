@@ -5,9 +5,9 @@ import { useRealtimeSubscription } from "./useRealtimeSubscription";
 export const useStatsData = () => {
   // Setup real-time subscription for orders table
   useRealtimeSubscription({
-    table: 'orders',
-    queryKey: 'dashboard-orders',
-    schema: 'public',
+    table: "orders",
+    queryKey: "dashboard-orders",
+    schema: "public",
   });
 
   return useQuery({
@@ -43,27 +43,26 @@ export const useStatsData = () => {
         .eq("restaurant_id", restaurantId);
 
       // Transform room billings to match orders structure for easier processing
-      const roomBillingsAsOrders = (roomBillings || []).map(billing => ({
+      const roomBillingsAsOrders = (roomBillings || []).map((billing) => ({
         ...billing,
         total: billing.total_amount,
-        status: billing.payment_status === 'paid' ? 'completed' : 'pending',
+        status: billing.payment_status === "paid" ? "completed" : "pending",
         customer_name: `Room ${billing.room_id}`,
         created_at: billing.checkout_date,
-        source: 'room_billing'
+        source: "room_billing",
       }));
 
       return {
         orders: orders || [],
         roomBillings: roomBillingsAsOrders,
-        allRevenueSources: [...(orders || []), ...roomBillingsAsOrders]
+        allRevenueSources: [...(orders || []), ...roomBillingsAsOrders],
       };
     },
     // Auto-refresh options for real-time data
     staleTime: 0, // Always consider data stale - fetch fresh on every mount
     refetchOnWindowFocus: true, // Refetch when browser tab gains focus
-    refetchOnMount: 'always', // Always refetch when component mounts (navigation)
-    refetchInterval: 30000, // Poll every 30 seconds for live updates
+    refetchOnMount: "always", // Always refetch when component mounts (navigation)
+    // Note: refetchInterval removed - useRealtimeSubscription handles live updates
     refetchIntervalInBackground: false, // Don't poll when tab is in background
   });
 };
-
