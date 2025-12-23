@@ -138,7 +138,7 @@ const ImprovedAddOrderForm = ({
       }
 
       const { data, error } = await supabase
-        .from("staff")
+        .from("profiles")
         .select("*")
         .eq("restaurant_id", profile.restaurant_id);
 
