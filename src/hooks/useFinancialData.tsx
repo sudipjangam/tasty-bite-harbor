@@ -1,23 +1,14 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useRestaurantId } from "./useRestaurantId";
 
 export const useFinancialData = () => {
+  const { restaurantId, isLoading: isRestaurantLoading } = useRestaurantId();
+
   return useQuery({
-    queryKey: ["financial-data"],
+    queryKey: ["financial-data", restaurantId],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("No session found");
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("restaurant_id")
-        .eq("id", session.user.id)
-        .single();
-
-      if (!profile?.restaurant_id) throw new Error("No restaurant found");
-
-      const restaurantId = profile.restaurant_id;
+      if (!restaurantId) throw new Error("No restaurant found");
 
       // Fetch chart of accounts
       const { data: accounts } = await supabase
@@ -30,10 +21,12 @@ export const useFinancialData = () => {
       // Fetch recent invoices
       const { data: invoices } = await supabase
         .from("invoices")
-        .select(`
+        .select(
+          `
           *,
           invoice_line_items(*)
-        `)
+        `
+        )
         .eq("restaurant_id", restaurantId)
         .order("created_at", { ascending: false })
         .limit(10);
@@ -56,13 +49,15 @@ export const useFinancialData = () => {
       // Fetch budgets
       const { data: budgets } = await supabase
         .from("budgets")
-        .select(`
+        .select(
+          `
           *,
           budget_line_items(
             *,
             account:chart_of_accounts(*)
           )
-        `)
+        `
+        )
         .eq("restaurant_id", restaurantId)
         .order("created_at", { ascending: false });
 
@@ -75,6 +70,7 @@ export const useFinancialData = () => {
         restaurantId,
       };
     },
+    enabled: !!restaurantId && !isRestaurantLoading,
     refetchInterval: 60000,
   });
 };

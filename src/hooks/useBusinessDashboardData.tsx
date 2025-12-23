@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, startOfWeek, addDays, isSameDay } from "date-fns";
 import { useExpenseData } from "./useExpenseData";
 import { useRealTimeBusinessData } from "./useRealTimeBusinessData";
+import { useRestaurantId } from "./useRestaurantId";
 
 // Define proper types for inventory items
 interface InventoryItem {
@@ -73,26 +74,16 @@ interface Promotion {
 }
 
 export const useBusinessDashboardData = () => {
+  const { restaurantId, isLoading: isRestaurantLoading } = useRestaurantId();
   const { data: expenseDataFromHook } = useExpenseData();
   const { data: realTimeData } = useRealTimeBusinessData();
 
   return useQuery({
-    queryKey: ["business-dashboard-data"],
+    queryKey: ["business-dashboard-data", restaurantId],
     queryFn: async () => {
-      const { data: profile } = await supabase.auth.getUser();
-      if (!profile.user) throw new Error("No user found");
-
-      const { data: userProfile } = await supabase
-        .from("profiles")
-        .select("restaurant_id")
-        .eq("id", profile.user.id)
-        .single();
-
-      if (!userProfile?.restaurant_id) {
+      if (!restaurantId) {
         throw new Error("No restaurant found for user");
       }
-
-      const restaurantId = userProfile.restaurant_id;
 
       // Fetch promotional campaigns from database
       const { data: promotionCampaigns } = await supabase
@@ -121,8 +112,8 @@ export const useBusinessDashboardData = () => {
       // Create a map of item names to categories
       const itemCategoryMap: Record<string, string> = {};
       if (menuItems) {
-        menuItems.forEach(item => {
-          itemCategoryMap[item.name] = item.category || 'Uncategorized';
+        menuItems.forEach((item) => {
+          itemCategoryMap[item.name] = item.category || "Uncategorized";
         });
       }
 
@@ -147,36 +138,43 @@ export const useBusinessDashboardData = () => {
         .order("date", { ascending: true });
 
       // Cast data to proper types and handle the items properly
-      const typedOrderData: Order[] = orderData ? orderData.map(order => ({
-        ...order,
-        items: Array.isArray(order.items) ? order.items.map((item: any) => {
-          // Handle both string and object formats
-          if (typeof item === 'string') {
-            return {
-              name: item,
-              quantity: 1,
-              category: itemCategoryMap[item] || 'Uncategorized'
-            };
-          } else if (typeof item === 'object' && item !== null) {
-            return {
-              name: item.name || 'Unknown Item',
-              quantity: item.quantity || 1,
-              price: item.price,
-              category: item.category || itemCategoryMap[item.name] || 'Uncategorized',
-              modifiers: item.modifiers
-            };
-          }
-          return {
-            name: 'Unknown Item',
-            quantity: 1,
-            category: 'Uncategorized'
-          };
-        }) : []
-      })) : [];
+      const typedOrderData: Order[] = orderData
+        ? orderData.map((order) => ({
+            ...order,
+            items: Array.isArray(order.items)
+              ? order.items.map((item: any) => {
+                  // Handle both string and object formats
+                  if (typeof item === "string") {
+                    return {
+                      name: item,
+                      quantity: 1,
+                      category: itemCategoryMap[item] || "Uncategorized",
+                    };
+                  } else if (typeof item === "object" && item !== null) {
+                    return {
+                      name: item.name || "Unknown Item",
+                      quantity: item.quantity || 1,
+                      price: item.price,
+                      category:
+                        item.category ||
+                        itemCategoryMap[item.name] ||
+                        "Uncategorized",
+                      modifiers: item.modifiers,
+                    };
+                  }
+                  return {
+                    name: "Unknown Item",
+                    quantity: 1,
+                    category: "Uncategorized",
+                  };
+                })
+              : [],
+          }))
+        : [];
 
-      const typedInventoryData = inventoryData as InventoryItem[] || [];
-      const typedStaffData = staffData as StaffMember[] || [];
-      const typedRevenueStats = revenueStats as RevenueStats[] || [];
+      const typedInventoryData = (inventoryData as InventoryItem[]) || [];
+      const typedStaffData = (staffData as StaffMember[]) || [];
+      const typedRevenueStats = (revenueStats as RevenueStats[]) || [];
 
       // Use live expense data from the expense hook
       const expenseBreakdown = expenseDataFromHook?.expenseBreakdown || [
@@ -184,139 +182,168 @@ export const useBusinessDashboardData = () => {
         { name: "Utilities", value: 0, percentage: 0 },
         { name: "Staff", value: 0, percentage: 0 },
         { name: "Rent", value: 0, percentage: 0 },
-        { name: "Other", value: 0, percentage: 0 }
+        { name: "Other", value: 0, percentage: 0 },
       ];
 
       // Calculate expense breakdown based on live data
-      const totalOrderRevenue = typedOrderData.reduce((sum, order) => sum + order.total, 0) || 0;
-      
+      const totalOrderRevenue =
+        typedOrderData.reduce((sum, order) => sum + order.total, 0) || 0;
+
       // Calculate ingredient costs (from inventory)
-      const ingredientsCost = typedInventoryData.reduce((sum, item) => {
-        return item.category.toLowerCase().includes("ingredient") ? 
-          sum + (item.cost_per_unit || 0) * (item.quantity || 0) : sum;
-      }, 0) || 0;
+      const ingredientsCost =
+        typedInventoryData.reduce((sum, item) => {
+          return item.category.toLowerCase().includes("ingredient")
+            ? sum + (item.cost_per_unit || 0) * (item.quantity || 0)
+            : sum;
+        }, 0) || 0;
 
       // Utilities cost estimation (12% of total revenue)
       const utilitiesCost = totalOrderRevenue * 0.12;
-      
+
       // Staff cost calculation based on live staff data
-      const staffCost = typedStaffData.reduce((sum, staff) => {
-        // Approximate salary based on position
-        let baseSalary = 12000; // Default monthly salary
-        
-        if (staff.position) {
-          const position = staff.position.toLowerCase();
-          if (position.includes('chef') || position.includes('cook')) {
-            baseSalary = 18000;
-          } else if (position.includes('manager')) {
-            baseSalary = 25000;
-          } else if (position.includes('waiter') || position.includes('server')) {
-            baseSalary = 10000;
-          } else if (position.includes('clean') || position.includes('janitor')) {
-            baseSalary = 8000;
+      const staffCost =
+        typedStaffData.reduce((sum, staff) => {
+          // Approximate salary based on position
+          let baseSalary = 12000; // Default monthly salary
+
+          if (staff.position) {
+            const position = staff.position.toLowerCase();
+            if (position.includes("chef") || position.includes("cook")) {
+              baseSalary = 18000;
+            } else if (position.includes("manager")) {
+              baseSalary = 25000;
+            } else if (
+              position.includes("waiter") ||
+              position.includes("server")
+            ) {
+              baseSalary = 10000;
+            } else if (
+              position.includes("clean") ||
+              position.includes("janitor")
+            ) {
+              baseSalary = 8000;
+            }
           }
-        }
-        
-        return sum + baseSalary;
-      }, 0) || 25000; // Default to 25000 if no staff found
-      
+
+          return sum + baseSalary;
+        }, 0) || 25000; // Default to 25000 if no staff found
+
       // Rent cost estimation (10% of revenue)
-      const rentCost = totalOrderRevenue * 0.10;
-      
+      const rentCost = totalOrderRevenue * 0.1;
+
       // Other costs
       const otherCost = totalOrderRevenue * 0.04;
-      
+
       // Total operational costs
-      const totalOperationalCost = ingredientsCost + utilitiesCost + staffCost + rentCost + otherCost;
+      const totalOperationalCost =
+        ingredientsCost + utilitiesCost + staffCost + rentCost + otherCost;
 
       // Format expense data for charts - use live data if available, otherwise use calculated estimates
-      const expenseData = expenseDataFromHook?.expenseBreakdown && expenseDataFromHook.expenseBreakdown.length > 0 
-        ? expenseDataFromHook.expenseBreakdown 
-        : [
-            { 
-              name: "Ingredients", 
-              value: Math.round(ingredientsCost), 
-              percentage: Math.round((ingredientsCost / totalOperationalCost) * 100) 
-            },
-            { 
-              name: "Utilities", 
-              value: Math.round(utilitiesCost), 
-              percentage: Math.round((utilitiesCost / totalOperationalCost) * 100) 
-            },
-            { 
-              name: "Staff", 
-              value: Math.round(staffCost), 
-              percentage: Math.round((staffCost / totalOperationalCost) * 100) 
-            },
-            { 
-              name: "Rent", 
-              value: Math.round(rentCost), 
-              percentage: Math.round((rentCost / totalOperationalCost) * 100) 
-            },
-            { 
-              name: "Other", 
-              value: Math.round(otherCost), 
-              percentage: Math.round((otherCost / totalOperationalCost) * 100) 
-            }
-          ];
+      const expenseData =
+        expenseDataFromHook?.expenseBreakdown &&
+        expenseDataFromHook.expenseBreakdown.length > 0
+          ? expenseDataFromHook.expenseBreakdown
+          : [
+              {
+                name: "Ingredients",
+                value: Math.round(ingredientsCost),
+                percentage: Math.round(
+                  (ingredientsCost / totalOperationalCost) * 100
+                ),
+              },
+              {
+                name: "Utilities",
+                value: Math.round(utilitiesCost),
+                percentage: Math.round(
+                  (utilitiesCost / totalOperationalCost) * 100
+                ),
+              },
+              {
+                name: "Staff",
+                value: Math.round(staffCost),
+                percentage: Math.round(
+                  (staffCost / totalOperationalCost) * 100
+                ),
+              },
+              {
+                name: "Rent",
+                value: Math.round(rentCost),
+                percentage: Math.round((rentCost / totalOperationalCost) * 100),
+              },
+              {
+                name: "Other",
+                value: Math.round(otherCost),
+                percentage: Math.round(
+                  (otherCost / totalOperationalCost) * 100
+                ),
+              },
+            ];
 
       // Use real-time peak hours data if available, otherwise calculate from orders
-      const peakHoursData = realTimeData?.peakHoursData || (() => {
-        const hourCounts: Record<string, number> = {};
-        
-        // Initialize all hours with 0
-        for (let i = 9; i <= 22; i++) {
-          const hourLabel = i < 12 ? `${i} AM` : i === 12 ? `${i} PM` : `${i-12} PM`;
-          hourCounts[hourLabel] = 0;
-        }
-        
-        // Count orders by hour
-        if (typedOrderData) {
-          typedOrderData.forEach(order => {
-            const orderDate = new Date(order.created_at);
-            const hour = orderDate.getHours();
-            
-            // Only count business hours (9 AM to 10 PM)
-            if (hour >= 9 && hour <= 22) {
-              const hourLabel = hour < 12 ? `${hour} AM` : hour === 12 ? `${hour} PM` : `${hour-12} PM`;
-              hourCounts[hourLabel] = (hourCounts[hourLabel] || 0) + 1;
-            }
-          });
-        }
-        
-        // Convert to array format for chart
-        return Object.entries(hourCounts).map(([hour, customers]) => ({
-          hour,
-          customers
-        }));
-      })();
+      const peakHoursData =
+        realTimeData?.peakHoursData ||
+        (() => {
+          const hourCounts: Record<string, number> = {};
+
+          // Initialize all hours with 0
+          for (let i = 9; i <= 22; i++) {
+            const hourLabel =
+              i < 12 ? `${i} AM` : i === 12 ? `${i} PM` : `${i - 12} PM`;
+            hourCounts[hourLabel] = 0;
+          }
+
+          // Count orders by hour
+          if (typedOrderData) {
+            typedOrderData.forEach((order) => {
+              const orderDate = new Date(order.created_at);
+              const hour = orderDate.getHours();
+
+              // Only count business hours (9 AM to 10 PM)
+              if (hour >= 9 && hour <= 22) {
+                const hourLabel =
+                  hour < 12
+                    ? `${hour} AM`
+                    : hour === 12
+                    ? `${hour} PM`
+                    : `${hour - 12} PM`;
+                hourCounts[hourLabel] = (hourCounts[hourLabel] || 0) + 1;
+              }
+            });
+          }
+
+          // Convert to array format for chart
+          return Object.entries(hourCounts).map(([hour, customers]) => ({
+            hour,
+            customers,
+          }));
+        })();
 
       // Calculate peak period revenue from orders (for Peak Hours Performance card)
       const peakPeriodRevenue = {
-        lunch: 0,      // 11 AM - 3 PM
-        dinner: 0,     // 6 PM - 10 PM
-        weekend: 0,    // Saturday + Sunday
-        weekday: 0     // Monday - Friday
+        lunch: 0, // 11 AM - 3 PM
+        dinner: 0, // 6 PM - 10 PM
+        weekend: 0, // Saturday + Sunday
+        weekday: 0, // Monday - Friday
       };
 
       if (typedOrderData) {
-        typedOrderData.forEach(order => {
+        typedOrderData.forEach((order) => {
           const orderDate = new Date(order.created_at);
           const hour = orderDate.getHours();
           const dayOfWeek = orderDate.getDay(); // 0 = Sunday, 6 = Saturday
-          
+
           const amount = order.total || 0;
-          
+
           // Lunch: 11 AM - 3 PM (hours 11-14)
           if (hour >= 11 && hour < 15) {
             peakPeriodRevenue.lunch += amount;
           }
-          
+
           // Dinner: 6 PM - 10 PM (hours 18-21)
           if (hour >= 18 && hour < 22) {
             peakPeriodRevenue.dinner += amount;
           }
-          
+
           // Weekend vs Weekday
           if (dayOfWeek === 0 || dayOfWeek === 6) {
             peakPeriodRevenue.weekend += amount;
@@ -332,24 +359,34 @@ export const useBusinessDashboardData = () => {
         waitStaff: 0,
         cleaning: 0,
         management: 0,
-        total: 0
+        total: 0,
       };
 
       if (typedStaffData) {
-        typedStaffData.forEach(staff => {
-          const position = (staff.position || '').toLowerCase();
+        typedStaffData.forEach((staff) => {
+          const position = (staff.position || "").toLowerCase();
           let salary = 12000; // Default monthly salary
-          
-          if (position.includes('chef') || position.includes('cook')) {
+
+          if (position.includes("chef") || position.includes("cook")) {
             salary = 18000;
             staffExpenseBreakdown.chefs += salary;
-          } else if (position.includes('waiter') || position.includes('server')) {
+          } else if (
+            position.includes("waiter") ||
+            position.includes("server")
+          ) {
             salary = 10000;
             staffExpenseBreakdown.waitStaff += salary;
-          } else if (position.includes('clean') || position.includes('janitor') || position.includes('housekeep')) {
+          } else if (
+            position.includes("clean") ||
+            position.includes("janitor") ||
+            position.includes("housekeep")
+          ) {
             salary = 8000;
             staffExpenseBreakdown.cleaning += salary;
-          } else if (position.includes('manager') || position.includes('admin')) {
+          } else if (
+            position.includes("manager") ||
+            position.includes("admin")
+          ) {
             salary = 25000;
             staffExpenseBreakdown.management += salary;
           } else {
@@ -361,244 +398,296 @@ export const useBusinessDashboardData = () => {
       }
 
       // Convert database promotional campaigns to UI format
-      const promotionalData: Promotion[] = (promotionCampaigns || []).map((campaign: PromotionCampaign, index: number) => ({
-        id: index + 1,
-        name: campaign.name,
-        timePeriod: campaign.time_period || `${format(new Date(campaign.start_date), 'MMM dd')} - ${format(new Date(campaign.end_date), 'MMM dd')}`,
-        potentialIncrease: campaign.potential_increase || `${campaign.discount_percentage || campaign.discount_amount}%`,
-        status: campaign.status || (campaign.is_active ? "active" : "paused"),
-        description: campaign.description || undefined
-      }));
+      const promotionalData: Promotion[] = (promotionCampaigns || []).map(
+        (campaign: PromotionCampaign, index: number) => ({
+          id: index + 1,
+          name: campaign.name,
+          timePeriod:
+            campaign.time_period ||
+            `${format(new Date(campaign.start_date), "MMM dd")} - ${format(
+              new Date(campaign.end_date),
+              "MMM dd"
+            )}`,
+          potentialIncrease:
+            campaign.potential_increase ||
+            `${campaign.discount_percentage || campaign.discount_amount}%`,
+          status: campaign.status || (campaign.is_active ? "active" : "paused"),
+          description: campaign.description || undefined,
+        })
+      );
 
       // If no promotional campaigns exist, create some suggested ones based on data analysis
       if (promotionalData.length === 0) {
         // Analyze orders by day of week
-        const dayOfWeekCounts: Record<string, number> = { 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0 };
-        const dayPartCounts: Record<string, number> = { 
-          'breakfast': 0, 
-          'lunch': 0, 
-          'evening': 0, 
-          'dinner': 0, 
-          'late-night': 0 
+        const dayOfWeekCounts: Record<string, number> = {
+          Mon: 0,
+          Tue: 0,
+          Wed: 0,
+          Thu: 0,
+          Fri: 0,
+          Sat: 0,
+          Sun: 0,
         };
-        
+        const dayPartCounts: Record<string, number> = {
+          breakfast: 0,
+          lunch: 0,
+          evening: 0,
+          dinner: 0,
+          "late-night": 0,
+        };
+
         if (typedOrderData) {
-          typedOrderData.forEach(order => {
+          typedOrderData.forEach((order) => {
             const orderDate = new Date(order.created_at);
-            const dayOfWeek = format(orderDate, 'EEE');
+            const dayOfWeek = format(orderDate, "EEE");
             const hour = orderDate.getHours();
-            
+
             // Update day of week counts
             dayOfWeekCounts[dayOfWeek] = (dayOfWeekCounts[dayOfWeek] || 0) + 1;
-            
+
             // Update day part counts
             if (hour >= 7 && hour < 11) {
-              dayPartCounts['breakfast'] += 1;
+              dayPartCounts["breakfast"] += 1;
             } else if (hour >= 11 && hour < 15) {
-              dayPartCounts['lunch'] += 1;
+              dayPartCounts["lunch"] += 1;
             } else if (hour >= 15 && hour < 18) {
-              dayPartCounts['evening'] += 1;
+              dayPartCounts["evening"] += 1;
             } else if (hour >= 18 && hour < 22) {
-              dayPartCounts['dinner'] += 1;
+              dayPartCounts["dinner"] += 1;
             } else {
-              dayPartCounts['late-night'] += 1;
+              dayPartCounts["late-night"] += 1;
             }
           });
         }
 
         // Find the slowest weekday by order count
-        const weekdayEntries = Object.entries(dayOfWeekCounts)
-          .filter(([day]) => !['Sat', 'Sun'].includes(day));
-        
-        const slowestWeekday = weekdayEntries.length > 0 ? 
-          [...weekdayEntries].sort((a, b) => a[1] - b[1])[0][0] : 'Mon';
-        
+        const weekdayEntries = Object.entries(dayOfWeekCounts).filter(
+          ([day]) => !["Sat", "Sun"].includes(day)
+        );
+
+        const slowestWeekday =
+          weekdayEntries.length > 0
+            ? [...weekdayEntries].sort((a, b) => a[1] - b[1])[0][0]
+            : "Mon";
+
         // Find the lowest performing day part
-        const lowestDayPart = Object.entries(dayPartCounts)
-          .sort((a, b) => a[1] - b[1])[0][0];
+        const lowestDayPart = Object.entries(dayPartCounts).sort(
+          (a, b) => a[1] - b[1]
+        )[0][0];
 
         // Create promotional suggestions based on data analysis
         promotionalData.push(
-          { 
-            id: 1, 
-            name: "Happy Hour", 
-            timePeriod: "5 PM - 7 PM", 
-            potentialIncrease: "25%", 
-            status: (peakHoursData.find(d => d.hour === "5 PM")?.customers || 0) < 
-                   (Math.max(...peakHoursData.map(h => h.customers)) * 0.7) ? "suggested" : "active",
-            description: "Boost evening revenue with discounted drinks and appetizers"
+          {
+            id: 1,
+            name: "Happy Hour",
+            timePeriod: "5 PM - 7 PM",
+            potentialIncrease: "25%",
+            status:
+              (peakHoursData.find((d) => d.hour === "5 PM")?.customers || 0) <
+              Math.max(...peakHoursData.map((h) => h.customers)) * 0.7
+                ? "suggested"
+                : "active",
+            description:
+              "Boost evening revenue with discounted drinks and appetizers",
           },
-          { 
-            id: 2, 
-            name: "Weekend Brunch", 
-            timePeriod: "Sat-Sun, 10 AM - 2 PM", 
-            potentialIncrease: "35%", 
+          {
+            id: 2,
+            name: "Weekend Brunch",
+            timePeriod: "Sat-Sun, 10 AM - 2 PM",
+            potentialIncrease: "35%",
             status: "suggested",
-            description: "Attract weekend crowds with special brunch menu"
+            description: "Attract weekend crowds with special brunch menu",
           },
-          { 
-            id: 3, 
-            name: `${slowestWeekday} Special`, 
-            timePeriod: `Every ${slowestWeekday}`, 
-            potentialIncrease: "20%", 
+          {
+            id: 3,
+            name: `${slowestWeekday} Special`,
+            timePeriod: `Every ${slowestWeekday}`,
+            potentialIncrease: "20%",
             status: "suggested",
-            description: `Boost sales on your slowest day with special offers`
+            description: `Boost sales on your slowest day with special offers`,
           },
-          { 
-            id: 4, 
-            name: "Corporate Lunch", 
-            timePeriod: "Weekdays, 12 PM - 2 PM", 
-            potentialIncrease: "30%", 
-            status: lowestDayPart === 'lunch' ? "suggested" : "active",
-            description: "Target office workers with quick lunch deals"
+          {
+            id: 4,
+            name: "Corporate Lunch",
+            timePeriod: "Weekdays, 12 PM - 2 PM",
+            potentialIncrease: "30%",
+            status: lowestDayPart === "lunch" ? "suggested" : "active",
+            description: "Target office workers with quick lunch deals",
           }
         );
       }
-      
+
       // Get revenue trend from daily_revenue_stats
       let revenueTrend = 0;
-      
+
       if (typedRevenueStats && typedRevenueStats.length >= 2) {
-        const lastWeekRevenue = typedRevenueStats.slice(-7).reduce((sum, day) => sum + day.total_revenue, 0);
-        const previousWeekRevenue = typedRevenueStats.slice(-14, -7).reduce((sum, day) => sum + day.total_revenue, 0);
-        
+        const lastWeekRevenue = typedRevenueStats
+          .slice(-7)
+          .reduce((sum, day) => sum + day.total_revenue, 0);
+        const previousWeekRevenue = typedRevenueStats
+          .slice(-14, -7)
+          .reduce((sum, day) => sum + day.total_revenue, 0);
+
         if (previousWeekRevenue > 0) {
-          revenueTrend = ((lastWeekRevenue - previousWeekRevenue) / previousWeekRevenue) * 100;
+          revenueTrend =
+            ((lastWeekRevenue - previousWeekRevenue) / previousWeekRevenue) *
+            100;
         }
       }
 
       // Find low inventory items
-      const lowStockItems = typedInventoryData.filter(item => 
-        item.quantity <= (item.reorder_level || 0)
-      ) || [];
+      const lowStockItems =
+        typedInventoryData.filter(
+          (item) => item.quantity <= (item.reorder_level || 0)
+        ) || [];
 
       // For document analysis, use actual order data
-      const documents = typedOrderData ? typedOrderData.slice(0, 5).map(order => {
-        return {
-          name: `Order_${order.id.slice(0, 8)}.xlsx`,
-          type: "Excel",
-          date: format(new Date(order.created_at), 'yyyy-MM-dd'),
-          insights: `Order total: ₹${order.total} with ${order.items.length} items`
-        };
-      }) : [];
+      const documents = typedOrderData
+        ? typedOrderData.slice(0, 5).map((order) => {
+            return {
+              name: `Order_${order.id.slice(0, 8)}.xlsx`,
+              type: "Excel",
+              date: format(new Date(order.created_at), "yyyy-MM-dd"),
+              insights: `Order total: ₹${order.total} with ${order.items.length} items`,
+            };
+          })
+        : [];
 
       // Create business insights based on data analysis
       const insights = [];
-      
+
       // Low inventory insights
       if (lowStockItems.length > 0) {
         insights.push({
           type: "inventory",
           title: "Inventory Alert",
-          message: `${lowStockItems.length} items are below reorder level and need attention.`
+          message: `${lowStockItems.length} items are below reorder level and need attention.`,
         });
       }
-      
+
       // Expense-based insights
-      const totalMonthlyExpenses = expenseDataFromHook?.totalMonthlyExpenses || 0;
+      const totalMonthlyExpenses =
+        expenseDataFromHook?.totalMonthlyExpenses || 0;
       if (totalMonthlyExpenses > 0) {
-        const highestExpenseCategory = expenseData.reduce((max, current) => 
+        const highestExpenseCategory = expenseData.reduce((max, current) =>
           current.value > max.value ? current : max
         );
-        
+
         insights.push({
           type: "expense",
           title: "Expense Analysis",
-          message: `${highestExpenseCategory.name} is your highest expense category this month at ₹${highestExpenseCategory.value}.`
+          message: `${highestExpenseCategory.name} is your highest expense category this month at ₹${highestExpenseCategory.value}.`,
         });
       }
 
       // Promotional insights
-      if (promotionalData.filter(p => p.status === "active").length === 0) {
+      if (promotionalData.filter((p) => p.status === "active").length === 0) {
         insights.push({
           type: "revenue",
           title: "Promotional Opportunity",
-          message: `No active promotions running. Consider activating suggested promotions to boost revenue.`
+          message: `No active promotions running. Consider activating suggested promotions to boost revenue.`,
         });
       }
-      
+
       // Seasonal opportunity
-      const currentMonth = format(new Date(), 'MMMM');
+      const currentMonth = format(new Date(), "MMMM");
       insights.push({
         type: "seasonal",
         title: "Seasonal Opportunity",
-        message: `${currentMonth} is approaching. Prepare special promotions to increase traffic based on previous year's data.`
+        message: `${currentMonth} is approaching. Prepare special promotions to increase traffic based on previous year's data.`,
       });
 
       // Use real-time weekday data if available, otherwise calculate from orders
-      const weekdayData = realTimeData?.weekdayComparison || (() => {
-        const dayOfWeekCounts: Record<string, number> = { 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0 };
-        
-        if (typedOrderData) {
-          typedOrderData.forEach(order => {
-            const orderDate = new Date(order.created_at);
-            const dayOfWeek = format(orderDate, 'EEE');
-            
-            // Update day of week counts
-            dayOfWeekCounts[dayOfWeek] = (dayOfWeekCounts[dayOfWeek] || 0) + 1;
-          });
-        }
+      const weekdayData =
+        realTimeData?.weekdayComparison ||
+        (() => {
+          const dayOfWeekCounts: Record<string, number> = {
+            Mon: 0,
+            Tue: 0,
+            Wed: 0,
+            Thu: 0,
+            Fri: 0,
+            Sat: 0,
+            Sun: 0,
+          };
 
-        return Object.entries(dayOfWeekCounts).map(([day, count]) => ({
-          day,
-          orders: count
-        }));
-      })();
+          if (typedOrderData) {
+            typedOrderData.forEach((order) => {
+              const orderDate = new Date(order.created_at);
+              const dayOfWeek = format(orderDate, "EEE");
+
+              // Update day of week counts
+              dayOfWeekCounts[dayOfWeek] =
+                (dayOfWeekCounts[dayOfWeek] || 0) + 1;
+            });
+          }
+
+          return Object.entries(dayOfWeekCounts).map(([day, count]) => ({
+            day,
+            orders: count,
+          }));
+        })();
 
       // Prepare staffing distribution by role
       const staffByRole: Record<string, number> = {};
-      
+
       if (typedStaffData) {
-        typedStaffData.forEach(staff => {
-          const role = staff.position || 'Unassigned';
+        typedStaffData.forEach((staff) => {
+          const role = staff.position || "Unassigned";
           if (!staffByRole[role]) {
             staffByRole[role] = 0;
           }
           staffByRole[role] += 1;
         });
       }
-      
-      const staffDistribution = Object.entries(staffByRole).map(([role, count]) => ({
-        role,
-        count
-      }));
+
+      const staffDistribution = Object.entries(staffByRole).map(
+        ([role, count]) => ({
+          role,
+          count,
+        })
+      );
 
       // Get inventory by category
       const inventoryByCategory: Record<string, number> = {};
-      
+
       if (typedInventoryData) {
-        typedInventoryData.forEach(item => {
-          const category = item.category || 'Other';
+        typedInventoryData.forEach((item) => {
+          const category = item.category || "Other";
           if (!inventoryByCategory[category]) {
             inventoryByCategory[category] = 0;
           }
           inventoryByCategory[category] += 1;
         });
       }
-      
-      const inventoryDistribution = Object.entries(inventoryByCategory).map(([category, count]) => ({
-        category,
-        count
-      }));
+
+      const inventoryDistribution = Object.entries(inventoryByCategory).map(
+        ([category, count]) => ({
+          category,
+          count,
+        })
+      );
 
       // Revenue trend data
-      const revenueTrendData = typedRevenueStats ? typedRevenueStats.map(day => ({
-        date: day.date,
-        revenue: day.total_revenue,
-        orders: day.order_count,
-        average: day.average_order_value
-      })) : [];
+      const revenueTrendData = typedRevenueStats
+        ? typedRevenueStats.map((day) => ({
+            date: day.date,
+            revenue: day.total_revenue,
+            orders: day.order_count,
+            average: day.average_order_value,
+          }))
+        : [];
 
       // Calculate top selling item categories from orders
       const categoryCounts: Record<string, number> = {};
-      
+
       if (typedOrderData && typedOrderData.length > 0) {
-        typedOrderData.forEach(order => {
+        typedOrderData.forEach((order) => {
           if (order.items && Array.isArray(order.items)) {
             order.items.forEach((item) => {
-              const category = item.category || 'Uncategorized';
+              const category = item.category || "Uncategorized";
               const quantity = item.quantity || 1;
-              
+
               if (!categoryCounts[category]) {
                 categoryCounts[category] = 0;
               }
@@ -607,21 +696,21 @@ export const useBusinessDashboardData = () => {
           }
         });
       }
-      
+
       // If no data from orders, add some default categories for display
       if (Object.keys(categoryCounts).length === 0) {
-        categoryCounts['Appetizers'] = 0;
-        categoryCounts['Main Course'] = 0;
-        categoryCounts['Beverages'] = 0;
-        categoryCounts['Desserts'] = 0;
+        categoryCounts["Appetizers"] = 0;
+        categoryCounts["Main Course"] = 0;
+        categoryCounts["Beverages"] = 0;
+        categoryCounts["Desserts"] = 0;
       }
-      
+
       const topCategories = Object.entries(categoryCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
         .map(([category, count]) => ({
           category,
-          count
+          count,
         }));
 
       return {
@@ -640,15 +729,16 @@ export const useBusinessDashboardData = () => {
         inventoryDistribution,
         revenueTrendData,
         topCategories,
-        lowStockItems: lowStockItems.map(item => ({
+        lowStockItems: lowStockItems.map((item) => ({
           name: item.name,
           quantity: item.quantity,
-          reorderLevel: item.reorder_level
+          reorderLevel: item.reorder_level,
         })),
         expenseTrendData: expenseDataFromHook?.expenseTrendData || [],
         staffExpenses: expenseDataFromHook?.staffExpenses || 0,
       };
     },
+    enabled: !!restaurantId && !isRestaurantLoading,
     refetchInterval: 60000,
   });
 };

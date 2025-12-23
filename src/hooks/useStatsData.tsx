@@ -1,8 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSubscription } from "./useRealtimeSubscription";
+import { useRestaurantId } from "./useRestaurantId";
 
 export const useStatsData = () => {
+  const { restaurantId, isLoading: isRestaurantLoading } = useRestaurantId();
+
   // Setup real-time subscription for orders table
   useRealtimeSubscription({
     table: "orders",
@@ -11,22 +14,11 @@ export const useStatsData = () => {
   });
 
   return useQuery({
-    queryKey: ["dashboard-orders"],
+    queryKey: ["dashboard-orders", restaurantId],
     queryFn: async () => {
-      const { data: profile } = await supabase.auth.getUser();
-      if (!profile.user) throw new Error("No user found");
-
-      const { data: userProfile } = await supabase
-        .from("profiles")
-        .select("restaurant_id")
-        .eq("id", profile.user.id)
-        .single();
-
-      if (!userProfile?.restaurant_id) {
+      if (!restaurantId) {
         throw new Error("No restaurant found for user");
       }
-
-      const restaurantId = userProfile.restaurant_id;
 
       // Fetch all orders from all sources (POS, table, manual, room service, QSR, etc.)
       const { data: orders, error } = await supabase
@@ -58,6 +50,7 @@ export const useStatsData = () => {
         allRevenueSources: [...(orders || []), ...roomBillingsAsOrders],
       };
     },
+    enabled: !!restaurantId && !isRestaurantLoading,
     // Auto-refresh options for real-time data
     staleTime: 0, // Always consider data stale - fetch fresh on every mount
     refetchOnWindowFocus: true, // Refetch when browser tab gains focus

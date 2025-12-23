@@ -1,6 +1,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useRestaurantId } from "./useRestaurantId";
 
 export interface TrendingItem {
   name: string;
@@ -9,25 +10,18 @@ export interface TrendingItem {
 }
 
 export const useTrendingItems = () => {
+  const { restaurantId, isLoading: isRestaurantLoading } = useRestaurantId();
+
   return useQuery({
-    queryKey: ["trending-items"],
+    queryKey: ["trending-items", restaurantId],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("No user found");
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("restaurant_id")
-        .eq("id", user.id)
-        .single();
-
-      if (!profile?.restaurant_id) throw new Error("No restaurant linking");
+      if (!restaurantId) throw new Error("No restaurant found");
 
       // Fetch completed orders to calculate trending items
       const { data: orders, error } = await supabase
         .from("orders")
         .select("items, total")
-        .eq("restaurant_id", profile.restaurant_id)
+        .eq("restaurant_id", restaurantId)
         .eq("status", "completed")
         .limit(100); // Analyze last 100 orders for trends
 
@@ -65,6 +59,7 @@ export const useTrendingItems = () => {
         .slice(0, 5); // Top 5
 
       return sortedItems;
-    }
+    },
+    enabled: !!restaurantId && !isRestaurantLoading,
   });
 };
