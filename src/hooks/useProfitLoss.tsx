@@ -1,7 +1,7 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { startOfMonth, endOfMonth, format } from "date-fns";
+import { useRestaurantId } from "./useRestaurantId";
 
 interface ProfitLossData {
   revenue: {
@@ -31,49 +31,52 @@ interface ProfitLossData {
 }
 
 export const useProfitLoss = (startDate?: Date, endDate?: Date) => {
+  const { restaurantId, isLoading: isRestaurantLoading } = useRestaurantId();
   const start = startDate || startOfMonth(new Date());
   const end = endDate || endOfMonth(new Date());
 
   return useQuery({
-    queryKey: ["profit-loss", format(start, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd')],
+    queryKey: [
+      "profit-loss",
+      restaurantId,
+      format(start, "yyyy-MM-dd"),
+      format(end, "yyyy-MM-dd"),
+    ],
     queryFn: async (): Promise<ProfitLossData> => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("No session found");
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("restaurant_id")
-        .eq("id", session.user.id)
-        .single();
-
-      if (!profile?.restaurant_id) throw new Error("No restaurant found");
+      if (!restaurantId) throw new Error("No restaurant found");
 
       // Fetch revenue data
       const { data: orders } = await supabase
         .from("orders")
         .select("total, created_at")
-        .eq("restaurant_id", profile.restaurant_id)
-        .gte("created_at", format(start, 'yyyy-MM-dd'))
-        .lte("created_at", format(end, 'yyyy-MM-dd'));
+        .eq("restaurant_id", restaurantId)
+        .gte("created_at", format(start, "yyyy-MM-dd"))
+        .lte("created_at", format(end, "yyyy-MM-dd"));
 
       const { data: roomBillings } = await supabase
         .from("room_billings")
         .select("total_amount, created_at")
-        .eq("restaurant_id", profile.restaurant_id)
-        .gte("created_at", format(start, 'yyyy-MM-dd'))
-        .lte("created_at", format(end, 'yyyy-MM-dd'));
+        .eq("restaurant_id", restaurantId)
+        .gte("created_at", format(start, "yyyy-MM-dd"))
+        .lte("created_at", format(end, "yyyy-MM-dd"));
 
       // Fetch expense data
       const { data: expenses } = await supabase
         .from("expenses")
         .select("amount, category")
-        .eq("restaurant_id", profile.restaurant_id)
-        .gte("expense_date", format(start, 'yyyy-MM-dd'))
-        .lte("expense_date", format(end, 'yyyy-MM-dd'));
+        .eq("restaurant_id", restaurantId)
+        .gte("expense_date", format(start, "yyyy-MM-dd"))
+        .lte("expense_date", format(end, "yyyy-MM-dd"));
 
       // Calculate revenue
-      const foodSales = (orders || []).reduce((sum, order) => sum + order.total, 0);
-      const roomRevenue = (roomBillings || []).reduce((sum, billing) => sum + billing.total_amount, 0);
+      const foodSales = (orders || []).reduce(
+        (sum, order) => sum + order.total,
+        0
+      );
+      const roomRevenue = (roomBillings || []).reduce(
+        (sum, billing) => sum + billing.total_amount,
+        0
+      );
       const totalRevenue = foodSales + roomRevenue;
 
       // Calculate expenses by category
@@ -86,7 +89,10 @@ export const useProfitLoss = (startDate?: Date, endDate?: Date) => {
         foodCosts: expensesByCategory.ingredients || 0,
         beverageCosts: expensesByCategory.beverages || 0,
         roomSupplies: expensesByCategory.room_supplies || 0,
-        totalCOGS: (expensesByCategory.ingredients || 0) + (expensesByCategory.beverages || 0) + (expensesByCategory.room_supplies || 0),
+        totalCOGS:
+          (expensesByCategory.ingredients || 0) +
+          (expensesByCategory.beverages || 0) +
+          (expensesByCategory.room_supplies || 0),
       };
 
       const grossProfit = totalRevenue - costOfGoodsSold.totalCOGS;
@@ -99,12 +105,16 @@ export const useProfitLoss = (startDate?: Date, endDate?: Date) => {
         maintenance: expensesByCategory.maintenance || 0,
         other: expensesByCategory.other || 0,
         totalExpenses: Object.entries(expensesByCategory)
-          .filter(([category]) => !['ingredients', 'beverages', 'room_supplies'].includes(category))
+          .filter(
+            ([category]) =>
+              !["ingredients", "beverages", "room_supplies"].includes(category)
+          )
           .reduce((sum, [_, amount]) => sum + amount, 0),
       };
 
       const netProfit = grossProfit - operatingExpenses.totalExpenses;
-      const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+      const profitMargin =
+        totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
       return {
         revenue: {
@@ -120,6 +130,7 @@ export const useProfitLoss = (startDate?: Date, endDate?: Date) => {
         profitMargin,
       };
     },
+    enabled: !!restaurantId && !isRestaurantLoading,
     refetchInterval: 300000, // 5 minutes
   });
 };
