@@ -358,22 +358,87 @@ const ImprovedAddOrderForm = ({
         attendant: values.attendant || attendantName || null,
       };
 
+      const kitchenItems = values.orderItems.map((item) => ({
+        name: item.itemName,
+        quantity: item.quantity,
+        price: item.unitPrice,
+        notes: item.notes ? [item.notes] : [],
+      }));
+
       if (editingOrder) {
-        const { error } = await supabase
+        // 1. Update Orders Table
+        const { error: orderError } = await supabase
           .from("orders")
           .update(orderData)
           .eq("id", editingOrder.id);
 
-        if (error) throw error;
+        if (orderError) throw orderError;
+
+        // 2. Update Kitchen Orders Table
+        // Find the kitchen order linked to this order
+        const { data: linkedKitchenOrder } = await supabase
+          .from("kitchen_orders")
+          .select("id")
+          .eq("order_id", editingOrder.id)
+          .single();
+
+        if (linkedKitchenOrder) {
+          const { error: kitchenError } = await supabase
+            .from("kitchen_orders")
+            .update({
+              items: kitchenItems,
+              // Optionally update source/customer_name if changed
+              source: orderData.customer_name,
+            })
+            .eq("id", linkedKitchenOrder.id);
+
+          if (kitchenError) {
+            console.error("Failed to update kitchen order:", kitchenError);
+            toast({
+              title: "Warning",
+              description: "Order updated but kitchen sync failed.",
+              variant: "destructive",
+            });
+          }
+        }
 
         toast({
           title: "Success",
           description: "Order updated successfully",
         });
       } else {
-        const { error } = await supabase.from("orders").insert([orderData]);
+        // 1. Create Order
+        const { data: newOrder, error: orderError } = await supabase
+          .from("orders")
+          .insert([orderData])
+          .select()
+          .single();
 
-        if (error) throw error;
+        if (orderError) throw orderError;
+
+        // 2. Create Kitchen Order
+        if (newOrder) {
+          const { error: kitchenError } = await supabase
+            .from("kitchen_orders")
+            .insert({
+              restaurant_id: profile.restaurant_id,
+              source: orderData.customer_name,
+              status: "new",
+              items: kitchenItems,
+              order_id: newOrder.id,
+              order_type: orderData.order_type,
+              customer_name: values.customerName,
+            });
+
+          if (kitchenError) {
+            console.error("Failed to create kitchen order:", kitchenError);
+            toast({
+              title: "Warning",
+              description: "Order created but sent to kitchen failed.",
+              variant: "destructive",
+            });
+          }
+        }
 
         toast({
           title: "Success",

@@ -34,29 +34,48 @@ export const SyncOrdersButton = () => {
         return;
       }
 
+      // 2. Fetch all orders for today to get discount info
+      const { data: existingOrders, error: ordersError } = await supabase
+        .from("orders")
+        .select("id, discount_amount")
+        .gte("created_at", today.toISOString())
+        .lt("created_at", tomorrow.toISOString());
+
+      if (ordersError) throw ordersError;
+
+      const ordersMap = new Map(existingOrders?.map((o) => [o.id, o]) || []);
       let updatedCount = 0;
 
-      // 2. Iterate and update corresponding 'orders'
+      // 3. Iterate and update corresponding 'orders'
       for (const ko of kitchenOrders) {
         if (!ko.items || !Array.isArray(ko.items)) continue;
 
-        // Calculate real total from kitchen order items
-        const realTotal = ko.items.reduce((sum: number, item: any) => {
+        // Calculate Gross Total from kitchen items
+        const grossTotal = ko.items.reduce((sum: number, item: any) => {
           const price = Number(item.price) || 0;
           const qty = Number(item.quantity) || 1;
           return sum + price * qty;
         }, 0);
 
+        // Get existing discount
+        const existingOrder = ordersMap.get(ko.order_id);
+        const discountAmount = Number(existingOrder?.discount_amount) || 0;
+
+        // Calculate Net Total
+        const netTotal = Math.max(0, grossTotal - discountAmount);
+
         // Format items for orders table
         const formattedItems = ko.items.map((item: any) => {
-          return `${item.quantity}x ${item.name} @${item.price}`;
+          const notes = Array.isArray(item.notes) ? item.notes.join(", ") : "";
+          const meta = notes ? ` (${notes})` : "";
+          return `${item.quantity}x ${item.name}${meta} @${item.price}`;
         });
 
-        // Update the main orders table
+        // Update the main orders table with Net Total and formatted items
         const { error: updateError } = await supabase
           .from("orders")
           .update({
-            total: realTotal,
+            total: netTotal,
             items: formattedItems,
           })
           .eq("id", ko.order_id);
@@ -70,7 +89,7 @@ export const SyncOrdersButton = () => {
 
       toast({
         title: "Sync Complete",
-        description: `Successfully synchronized ${updatedCount} orders.`,
+        description: `Successfully synchronized ${updatedCount} orders (respecting discounts).`,
       });
     } catch (error) {
       console.error("Sync error:", error);
