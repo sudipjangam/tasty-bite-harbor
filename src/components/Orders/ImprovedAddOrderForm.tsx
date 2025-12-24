@@ -615,17 +615,10 @@ const ImprovedAddOrderForm = ({
                                   <FormField
                                     control={form.control}
                                     name={`orderItems.${index}.category`}
-                                    render={({ categoryField }) => (
+                                    render={({ field }) => (
                                       <Select
-                                        onValueChange={(catValue) => {
-                                          form.setValue(
-                                            `orderItems.${index}.category`,
-                                            catValue
-                                          );
-                                        }}
-                                        value={form.watch(
-                                          `orderItems.${index}.category`
-                                        )}
+                                        onValueChange={field.onChange}
+                                        value={field.value}
                                       >
                                         <SelectTrigger className="h-9 text-xs rounded-lg border-gray-200 dark:border-gray-600 mb-1">
                                           <SelectValue placeholder="Category..." />
