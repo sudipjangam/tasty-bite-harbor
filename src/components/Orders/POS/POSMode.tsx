@@ -531,17 +531,18 @@ const POSMode = () => {
           {/* Compact Header Section */}
           <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 rounded-2xl shadow-lg p-4">
             <div className="flex items-center justify-between flex-wrap gap-3">
-              {/* Left side: POS controls + Revenue */}
-              <div className="flex items-center flex-wrap gap-3">
-                <POSHeader
-                  orderType={orderType}
-                  setOrderType={setOrderType}
-                  tableNumber={tableNumber}
-                  setTableNumber={setTableNumber}
-                  tables={tables}
-                />
+              {/* POS controls */}
+              <POSHeader
+                orderType={orderType}
+                setOrderType={setOrderType}
+                tableNumber={tableNumber}
+                setTableNumber={setTableNumber}
+                tables={tables}
+              />
 
-                {/* Today's Revenue Badge - next to Select Table */}
+              {/* Revenue + Hide button grouped together */}
+              <div className="flex items-center gap-2">
+                {/* Today's Revenue Badge */}
                 <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-900/40 dark:to-green-900/40 rounded-xl border border-emerald-200 dark:border-emerald-700/50">
                   <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   <div className="flex flex-col">
@@ -554,31 +555,31 @@ const POSMode = () => {
                     </span>
                   </div>
                 </div>
-              </div>
 
-              {/* Right side: Hide/Show Orders button */}
-              <Button
-                variant="outline"
-                onClick={() => setShowActiveOrders(!showActiveOrders)}
-                size="sm"
-                className={`flex items-center gap-2 rounded-xl px-3 py-2 transition-all duration-300 ${
-                  showActiveOrders
-                    ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-0 shadow-lg shadow-indigo-500/30"
-                    : "bg-white/80 dark:bg-gray-700/80 border-2 border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300"
-                }`}
-              >
-                {showActiveOrders ? (
-                  <>
-                    <ToggleRight className="h-4 w-4" />
-                    <span className="hidden sm:inline">Hide</span>
-                  </>
-                ) : (
-                  <>
-                    <ToggleLeft className="h-4 w-4" />
-                    <span className="hidden sm:inline">Orders</span>
-                  </>
-                )}
-              </Button>
+                {/* Hide/Show Orders button */}
+                <Button
+                  variant="outline"
+                  onClick={() => setShowActiveOrders(!showActiveOrders)}
+                  size="sm"
+                  className={`flex items-center gap-2 rounded-xl px-3 py-2 transition-all duration-300 ${
+                    showActiveOrders
+                      ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-0 shadow-lg shadow-indigo-500/30"
+                      : "bg-white/80 dark:bg-gray-700/80 border-2 border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300"
+                  }`}
+                >
+                  {showActiveOrders ? (
+                    <>
+                      <ToggleRight className="h-4 w-4" />
+                      <span className="hidden sm:inline">Hide</span>
+                    </>
+                  ) : (
+                    <>
+                      <ToggleLeft className="h-4 w-4" />
+                      <span className="hidden sm:inline">Orders</span>
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
 
             {/* Active Orders Panel */}
