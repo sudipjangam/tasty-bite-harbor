@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ToggleLeft, ToggleRight, ChevronUp, ChevronDown } from "lucide-react";
+import {
+  ToggleLeft,
+  ToggleRight,
+  ChevronUp,
+  ChevronDown,
+  TrendingUp,
+} from "lucide-react";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { startOfDay, endOfDay } from "date-fns";
 import POSHeader from "./POSHeader";
 import ActiveOrdersList from "../ActiveOrdersList";
 import MenuCategories from "../MenuCategories";
@@ -49,6 +57,38 @@ const POSMode = () => {
 
   const { toast } = useToast();
   const { user } = useAuth();
+  const { symbol: currencySymbol } = useCurrencyContext();
+
+  // Query for today's revenue (completed orders)
+  const { data: todaysRevenue = 0 } = useQuery({
+    queryKey: ["todays-pos-revenue"],
+    queryFn: async () => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("restaurant_id")
+        .eq("id", (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (!profile?.restaurant_id) return 0;
+
+      const today = new Date();
+      const { data: orders } = await supabase
+        .from("orders")
+        .select("total, discount_amount")
+        .eq("restaurant_id", profile.restaurant_id)
+        .eq("status", "completed")
+        .gte("created_at", startOfDay(today).toISOString())
+        .lte("created_at", endOfDay(today).toISOString());
+
+      if (!orders) return 0;
+
+      return orders.reduce(
+        (sum, order) => sum + (order.total - (order.discount_amount || 0)),
+        0
+      );
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
 
   // Get attendant name from logged-in user
   const attendantName = user
@@ -491,13 +531,32 @@ const POSMode = () => {
           {/* Compact Header Section */}
           <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 rounded-2xl shadow-lg p-4">
             <div className="flex items-center justify-between flex-wrap gap-3">
-              <POSHeader
-                orderType={orderType}
-                setOrderType={setOrderType}
-                tableNumber={tableNumber}
-                setTableNumber={setTableNumber}
-                tables={tables}
-              />
+              {/* Left side: POS controls + Revenue */}
+              <div className="flex items-center flex-wrap gap-3">
+                <POSHeader
+                  orderType={orderType}
+                  setOrderType={setOrderType}
+                  tableNumber={tableNumber}
+                  setTableNumber={setTableNumber}
+                  tables={tables}
+                />
+
+                {/* Today's Revenue Badge - next to Select Table */}
+                <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-900/40 dark:to-green-900/40 rounded-xl border border-emerald-200 dark:border-emerald-700/50">
+                  <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <div className="flex flex-col">
+                    <span className="text-[10px] uppercase tracking-wide text-emerald-600 dark:text-emerald-400 font-medium">
+                      Today's Revenue
+                    </span>
+                    <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                      {currencySymbol}
+                      {todaysRevenue.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right side: Hide/Show Orders button */}
               <Button
                 variant="outline"
                 onClick={() => setShowActiveOrders(!showActiveOrders)}
