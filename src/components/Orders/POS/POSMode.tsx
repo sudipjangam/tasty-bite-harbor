@@ -42,6 +42,7 @@ const POSMode = () => {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showWeightDialog, setShowWeightDialog] = useState(false);
   const [pendingWeightItem, setPendingWeightItem] = useState<any>(null);
+  const [isSendingToKitchen, setIsSendingToKitchen] = useState(false);
 
   // Active Orders panel expand state
   const [activeOrdersExpanded, setActiveOrdersExpanded] = useState(false);
@@ -307,6 +308,9 @@ const POSMode = () => {
       return;
     }
 
+    if (isSendingToKitchen) return; // Prevent double-clicks
+    setIsSendingToKitchen(true);
+
     try {
       const { data: profile } = await supabase
         .from("profiles")
@@ -447,6 +451,8 @@ const POSMode = () => {
         title: "Error",
         description: "Failed to send order to kitchen",
       });
+    } finally {
+      setIsSendingToKitchen(false);
     }
   };
 
