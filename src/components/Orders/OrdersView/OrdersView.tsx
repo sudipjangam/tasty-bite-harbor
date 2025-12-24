@@ -50,6 +50,7 @@ import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { StandardizedLayout } from "@/components/ui/standardized-layout";
 import { SyncOrdersButton } from "./SyncOrdersButton";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 interface OrdersViewProps {
   searchTrigger?: number;
@@ -80,6 +81,7 @@ const OrdersView = ({
   const { toast } = useToast();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { isRole } = useAuth();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   // Handle triggers from parent component
   useEffect(() => {
@@ -149,6 +151,7 @@ const OrdersView = ({
       dateFilter,
       customDateRange?.from?.toISOString(),
       customDateRange?.to?.toISOString(),
+      sourceFilter, // Added for server-side filtering
     ],
     queryFn: async () => {
       const { data: profile } = await supabase
@@ -163,14 +166,23 @@ const OrdersView = ({
 
       const dateRange = getDateRange(dateFilter);
 
-      // Fetch all orders from orders table - includes POS, table, manual, room service, QSR, etc.
-      const { data: allOrders, error: ordersError } = await supabase
+      // Build query with optional source filter
+      let query = supabase
         .from("orders")
         .select("*")
         .eq("restaurant_id", profile.restaurant_id)
         .gte("created_at", dateRange.start.toISOString())
-        .lte("created_at", dateRange.end.toISOString())
-        .order("created_at", { ascending: false });
+        .lte("created_at", dateRange.end.toISOString());
+
+      // Apply source filter server-side if not "all"
+      if (sourceFilter !== "all") {
+        query = query.eq("source", sourceFilter);
+      }
+
+      const { data: allOrders, error: ordersError } = await query.order(
+        "created_at",
+        { ascending: false }
+      );
 
       if (ordersError) throw ordersError;
 
@@ -231,11 +243,11 @@ const OrdersView = ({
         "Order ID": order.id,
         "Customer Name": order.customer_name,
         Items: order.items.join(", "),
-        "Total Amount": `₹${(
+        "Total Amount": `${currencySymbol}${(
           order.total - (order.discount_amount || 0)
         ).toFixed(2)}`,
         Discount: order.discount_amount
-          ? `₹${order.discount_amount.toFixed(2)} (${
+          ? `${currencySymbol}${order.discount_amount.toFixed(2)} (${
               order.discount_percentage
             }%)`
           : "-",
@@ -261,8 +273,8 @@ const OrdersView = ({
         "Order ID": "SUMMARY",
         "Customer Name": `Total Orders: ${totalOrders}`,
         Items: "",
-        "Total Amount": `₹${totalEarned.toFixed(2)}`,
-        Discount: `₹${totalDiscount.toFixed(2)}`,
+        "Total Amount": `${currencySymbol}${totalEarned.toFixed(2)}`,
+        Discount: `${currencySymbol}${totalDiscount.toFixed(2)}`,
         Status: "",
         "Created Date": getDateFilterLabel(),
         "Created Time": "",
@@ -639,7 +651,8 @@ const OrdersView = ({
                         💰 Revenue
                       </p>
                       <p className="text-2xl font-bold text-white mt-1">
-                        ₹{orderStats.totalRevenue.toFixed(0)}
+                        {currencySymbol}
+                        {orderStats.totalRevenue.toFixed(0)}
                       </p>
                     </div>
                     <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center">
