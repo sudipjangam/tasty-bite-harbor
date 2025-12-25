@@ -1,13 +1,12 @@
-
-import React from 'react';
+import React, { useState } from "react";
 import { format } from "date-fns";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,8 +20,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { User, Phone, Mail, Calendar as CalendarIcon, Gift, MessageSquare, Sparkles, Heart } from 'lucide-react';
-import { useCurrencyContext } from '@/contexts/CurrencyContext';
+import {
+  User,
+  Phone,
+  Mail,
+  Calendar as CalendarIcon,
+  Gift,
+  MessageSquare,
+  Sparkles,
+  Heart,
+} from "lucide-react";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { CorporateBookingSection } from "./CorporateBooking";
 
 interface ReservationDialogProps {
   open: boolean;
@@ -55,7 +64,7 @@ const SPECIAL_OCCASIONS = [
   { value: "wedding", label: "Wedding" },
   { value: "honeymoon", label: "Honeymoon" },
   { value: "business", label: "Business Trip" },
-  { value: "other", label: "Other Special Occasion" }
+  { value: "other", label: "Other Special Occasion" },
 ];
 
 const ReservationDialog: React.FC<ReservationDialogProps> = ({
@@ -64,11 +73,20 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
   room,
   reservation,
   setReservation,
-  handleCreateReservation
+  handleCreateReservation,
 }) => {
   if (!room) return null;
   const { symbol: currencySymbol } = useCurrencyContext();
-  
+
+  // Corporate booking state
+  const [isCorporate, setIsCorporate] = useState(false);
+  const [corporateData, setCorporateData] = useState({
+    companyName: "",
+    gstNumber: "",
+    billingAddress: "",
+    corporateRate: room.price,
+  });
+
   const calculateDuration = () => {
     const startDate = new Date(reservation.start_date);
     const endDate = new Date(reservation.end_date);
@@ -107,10 +125,13 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
               <User className="h-5 w-5 text-blue-600" />
               Guest Information
             </h3>
-            
+
             <div className="grid gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="customer-name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Label
+                  htmlFor="customer-name"
+                  className="text-sm font-semibold text-gray-700 flex items-center gap-2"
+                >
                   <User className="h-4 w-4" />
                   Guest Name *
                 </Label>
@@ -130,7 +151,10 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="customer-email" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Label
+                    htmlFor="customer-email"
+                    className="text-sm font-semibold text-gray-700 flex items-center gap-2"
+                  >
                     <Mail className="h-4 w-4" />
                     Guest Email
                   </Label>
@@ -148,9 +172,12 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                     placeholder="guest@email.com"
                   />
                 </div>
-                
+
                 <div className="grid gap-2">
-                  <Label htmlFor="customer-phone" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Label
+                    htmlFor="customer-phone"
+                    className="text-sm font-semibold text-gray-700 flex items-center gap-2"
+                  >
                     <Phone className="h-4 w-4" />
                     Guest Phone *
                   </Label>
@@ -159,7 +186,7 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                     type="tel"
                     value={reservation.customer_phone}
                     onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '');
+                      const value = e.target.value.replace(/\D/g, "");
                       if (value.length <= 10) {
                         setReservation({
                           ...reservation,
@@ -171,7 +198,10 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                     placeholder="10-digit phone number"
                     maxLength={10}
                   />
-                  <p className="text-xs text-gray-500">Required for WhatsApp bill notifications and special occasion promotions</p>
+                  <p className="text-xs text-gray-500">
+                    Required for WhatsApp bill notifications and special
+                    occasion promotions
+                  </p>
                 </div>
               </div>
             </div>
@@ -183,16 +213,19 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
               <CalendarIcon className="h-5 w-5 text-green-600" />
               Stay Dates
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label className="text-sm font-semibold text-gray-700">Check-in Date</Label>
+                <Label className="text-sm font-semibold text-gray-700">
+                  Check-in Date
+                </Label>
                 <div className="border-2 border-gray-200 rounded-xl p-2 bg-white/80 backdrop-blur-sm">
                   <Calendar
                     mode="single"
                     selected={reservation.start_date}
                     onSelect={(date) =>
-                      date && setReservation({ ...reservation, start_date: date })
+                      date &&
+                      setReservation({ ...reservation, start_date: date })
                     }
                     disabled={(date) => date < new Date()}
                     initialFocus
@@ -201,7 +234,9 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                 </div>
               </div>
               <div className="grid gap-2">
-                <Label className="text-sm font-semibold text-gray-700">Check-out Date</Label>
+                <Label className="text-sm font-semibold text-gray-700">
+                  Check-out Date
+                </Label>
                 <div className="border-2 border-gray-200 rounded-xl p-2 bg-white/80 backdrop-blur-sm">
                   <Calendar
                     mode="single"
@@ -219,26 +254,29 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
               </div>
             </div>
           </div>
-          
+
           {/* Special Occasions Section */}
           <div className="bg-gradient-to-r from-pink-50/50 to-rose-50/50 rounded-2xl p-4 border border-pink-100/50">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <Gift className="h-5 w-5 text-pink-600" />
               Special Occasions
             </h3>
-            
+
             <div className="grid gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="special-occasion" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Label
+                  htmlFor="special-occasion"
+                  className="text-sm font-semibold text-gray-700 flex items-center gap-2"
+                >
                   <Heart className="h-4 w-4" />
                   Special Occasion
                 </Label>
                 <Select
                   value={reservation.special_occasion || "none"}
                   onValueChange={(value) =>
-                    setReservation({ 
-                      ...reservation, 
-                      special_occasion: value === "none" ? "" : value 
+                    setReservation({
+                      ...reservation,
+                      special_occasion: value === "none" ? "" : value,
                     })
                   }
                 >
@@ -247,8 +285,8 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                   </SelectTrigger>
                   <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/20 shadow-xl rounded-2xl">
                     {SPECIAL_OCCASIONS.map((occasion) => (
-                      <SelectItem 
-                        key={occasion.value} 
+                      <SelectItem
+                        key={occasion.value}
                         value={occasion.value}
                         className="hover:bg-pink-50 rounded-lg"
                       >
@@ -258,42 +296,58 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-500">
-                  We offer special promotions for your next year's special occasion!
+                  We offer special promotions for your next year's special
+                  occasion!
                 </p>
               </div>
-              
-              {reservation.special_occasion && reservation.special_occasion !== "none" && (
-                <div className="grid gap-2">
-                  <Label className="text-sm font-semibold text-gray-700">Occasion Date</Label>
-                  <div className="border-2 border-gray-200 rounded-xl p-2 bg-white/80 backdrop-blur-sm">
-                    <Calendar
-                      mode="single"
-                      selected={reservation.special_occasion_date || undefined}
-                      onSelect={(date) =>
-                        setReservation({ ...reservation, special_occasion_date: date })
-                      }
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
+
+              {reservation.special_occasion &&
+                reservation.special_occasion !== "none" && (
+                  <div className="grid gap-2">
+                    <Label className="text-sm font-semibold text-gray-700">
+                      Occasion Date
+                    </Label>
+                    <div className="border-2 border-gray-200 rounded-xl p-2 bg-white/80 backdrop-blur-sm">
+                      <Calendar
+                        mode="single"
+                        selected={
+                          reservation.special_occasion_date || undefined
+                        }
+                        onSelect={(date) =>
+                          setReservation({
+                            ...reservation,
+                            special_occasion_date: date,
+                          })
+                        }
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Is this the actual date of your{" "}
+                      {reservation.special_occasion}? We'll send you a special
+                      offer next year!
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-500">
-                    Is this the actual date of your {reservation.special_occasion}? We'll send you a special offer next year!
-                  </p>
-                </div>
-              )}
+                )}
             </div>
           </div>
-          
+
           {/* Additional Information Section */}
           <div className="bg-gradient-to-r from-amber-50/50 to-orange-50/50 rounded-2xl p-4 border border-amber-100/50">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-amber-600" />
               Additional Information
             </h3>
-            
+
             <div className="grid gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="notes" className="text-sm font-semibold text-gray-700">Notes</Label>
+                <Label
+                  htmlFor="notes"
+                  className="text-sm font-semibold text-gray-700"
+                >
+                  Notes
+                </Label>
                 <Input
                   id="notes"
                   value={reservation.notes}
@@ -304,46 +358,93 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                   placeholder="Any special requests or notes..."
                 />
               </div>
-              
+
               <div className="flex items-center space-x-2 pt-2">
-                <Checkbox 
+                <Checkbox
                   id="marketing-consent"
                   checked={reservation.marketing_consent}
-                  onCheckedChange={(checked) => 
-                    setReservation({ 
-                      ...reservation, 
-                      marketing_consent: checked === true 
+                  onCheckedChange={(checked) =>
+                    setReservation({
+                      ...reservation,
+                      marketing_consent: checked === true,
                     })
                   }
                   className="border-2 border-gray-300 data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-blue-500 data-[state=checked]:to-indigo-600"
                 />
-                <label htmlFor="marketing-consent" className="text-sm text-gray-700">
-                  I agree to receive bill receipts, special offers, and promotions via WhatsApp
+                <label
+                  htmlFor="marketing-consent"
+                  className="text-sm text-gray-700"
+                >
+                  I agree to receive bill receipts, special offers, and
+                  promotions via WhatsApp
                 </label>
               </div>
             </div>
           </div>
-          
+
+          {/* Corporate Booking Section */}
+          <CorporateBookingSection
+            data={{
+              isCorporate: isCorporate,
+              companyName: corporateData.companyName,
+              companyGst: corporateData.gstNumber,
+              billingAddress: corporateData.billingAddress,
+              corporateRate: corporateData.corporateRate,
+            }}
+            onChange={(newData) => {
+              setIsCorporate(newData.isCorporate);
+              setCorporateData({
+                companyName: newData.companyName,
+                gstNumber: newData.companyGst,
+                billingAddress: newData.billingAddress,
+                corporateRate: newData.corporateRate ?? room.price,
+              });
+            }}
+            roomPrice={room.price}
+          />
+
           {/* Reservation Summary */}
           <div className="bg-gradient-to-r from-indigo-50/50 to-purple-50/50 rounded-2xl p-4 border border-indigo-100/50">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Reservation Summary</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">
+              Reservation Summary
+            </h3>
             <div className="space-y-2">
               <p className="text-sm text-gray-700">
                 Check-in on{" "}
-                <strong className="text-indigo-600">{format(reservation.start_date, "PPP")}</strong> and
-                check-out on{" "}
-                <strong className="text-indigo-600">{format(reservation.end_date, "PPP")}</strong>
+                <strong className="text-indigo-600">
+                  {format(reservation.start_date, "PPP")}
+                </strong>{" "}
+                and check-out on{" "}
+                <strong className="text-indigo-600">
+                  {format(reservation.end_date, "PPP")}
+                </strong>
               </p>
               <p className="text-lg font-semibold">
-                Total cost: <span className="text-2xl bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{currencySymbol}{(room.price || 0) * calculateDuration()}</span>
+                Total cost:{" "}
+                <span className="text-2xl bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  {currencySymbol}
+                  {((isCorporate ? corporateData.corporateRate : room.price) ||
+                    0) * calculateDuration()}
+                </span>
+                {isCorporate && corporateData.corporateRate < room.price && (
+                  <span className="ml-2 text-sm text-emerald-600">
+                    (Corporate Rate -
+                    {Math.round(
+                      ((room.price - corporateData.corporateRate) /
+                        room.price) *
+                        100
+                    )}
+                    %)
+                  </span>
+                )}
               </p>
             </div>
           </div>
         </div>
-        
+
         <DialogFooter className="px-6 pb-6">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => onOpenChange(false)}
             className="flex-1 border-2 border-gray-300 hover:border-gray-400 bg-white/80 backdrop-blur-sm text-gray-700 hover:bg-gray-50 rounded-xl py-3 font-semibold transition-all duration-300"
           >
@@ -354,22 +455,34 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
               // Validate phone and email before creating
               const phoneRegex = /^\d{10}$/;
               const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-              
+
               if (!reservation.customer_name.trim()) {
                 return;
               }
-              
-              if (!reservation.customer_phone || !phoneRegex.test(reservation.customer_phone)) {
+
+              if (
+                !reservation.customer_phone ||
+                !phoneRegex.test(reservation.customer_phone)
+              ) {
                 return;
               }
-              
-              if (reservation.customer_email && !emailRegex.test(reservation.customer_email)) {
+
+              if (
+                reservation.customer_email &&
+                !emailRegex.test(reservation.customer_email)
+              ) {
                 return;
               }
-              
+
               handleCreateReservation();
             }}
-            disabled={!reservation.customer_name || !reservation.customer_phone || reservation.customer_phone.length !== 10 || (reservation.customer_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reservation.customer_email))}
+            disabled={
+              !reservation.customer_name ||
+              !reservation.customer_phone ||
+              reservation.customer_phone.length !== 10 ||
+              (reservation.customer_email &&
+                !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reservation.customer_email))
+            }
             className="flex-1 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-semibold py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
             Create Reservation

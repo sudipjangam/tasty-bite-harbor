@@ -1,13 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BillingHistory from "@/components/Rooms/BillingHistory";
 import SpecialOccasions from "@/components/Rooms/SpecialOccasions";
 import PromotionsManager from "@/components/Rooms/PromotionsManager";
 import RoomsList from "@/components/Rooms/RoomsList";
+import { OccupancyChart } from "@/components/Rooms/OccupancyForecast";
 import { useRooms } from "@/hooks/useRooms";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Hotel, Calendar, Gift, Percent, Sparkles } from "lucide-react";
+import {
+  Hotel,
+  Calendar,
+  Gift,
+  Percent,
+  Sparkles,
+  TrendingUp,
+} from "lucide-react";
 
 const Rooms = () => {
   const [activeTab, setActiveTab] = useState("rooms");
@@ -21,9 +29,8 @@ const Rooms = () => {
     editRoom,
     createReservation,
     getRoomFoodOrdersTotal,
-    refreshRooms
+    refreshRooms,
   } = useRooms();
-
 
   if (loading) {
     return (
@@ -32,7 +39,10 @@ const Rooms = () => {
           <div className="h-8 w-48 bg-white/20 backdrop-blur-xl rounded-2xl mb-4"></div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-4xl">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-40 bg-white/20 backdrop-blur-xl rounded-2xl"></div>
+              <div
+                key={i}
+                className="h-40 bg-white/20 backdrop-blur-xl rounded-2xl"
+              ></div>
             ))}
           </div>
         </div>
@@ -48,9 +58,12 @@ const Rooms = () => {
             <Hotel className="h-8 w-8 text-white" />
           </div>
           <h2 className="text-2xl font-bold text-red-600 mb-4">{authError}</h2>
-          <p className="mb-4 text-gray-600">You need to be logged in with a valid restaurant account to access this page.</p>
-          <Button 
-            onClick={() => window.location.href = '/auth'}
+          <p className="mb-4 text-gray-600">
+            You need to be logged in with a valid restaurant account to access
+            this page.
+          </p>
+          <Button
+            onClick={() => (window.location.href = "/auth")}
             className="bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
           >
             Go to Login
@@ -83,39 +96,35 @@ const Rooms = () => {
         </div>
       </div>
 
-      <Tabs 
-        value={activeTab} 
-        onValueChange={setActiveTab} 
-        className="w-full"
-      >
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="overflow-x-auto pb-2 mb-6">
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl p-2">
             <TabsList className="inline-flex w-auto min-w-full md:w-auto space-x-1 p-1 bg-transparent rounded-2xl">
-              <TabsTrigger 
-                value="rooms" 
+              <TabsTrigger
+                value="rooms"
                 className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
               >
                 <Hotel className="h-4 w-4" />
                 Rooms
               </TabsTrigger>
-              <TabsTrigger 
-                value="billing" 
+              <TabsTrigger
+                value="billing"
                 className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
                 disabled={!hasRestaurantId}
               >
                 <Calendar className="h-4 w-4" />
                 Billing History
               </TabsTrigger>
-              <TabsTrigger 
-                value="occasions" 
+              <TabsTrigger
+                value="occasions"
                 className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
                 disabled={!hasRestaurantId}
               >
                 <Gift className="h-4 w-4" />
                 Special Occasions
               </TabsTrigger>
-              <TabsTrigger 
-                value="promotions" 
+              <TabsTrigger
+                value="promotions"
                 className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
                 disabled={!hasRestaurantId}
               >
@@ -127,8 +136,13 @@ const Rooms = () => {
         </div>
 
         <TabsContent value="rooms" className="mt-2 animate-in fade-in">
+          {/* Occupancy Forecast */}
+          <div className="mb-6">
+            <OccupancyChart />
+          </div>
+
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl p-8">
-            <RoomsList 
+            <RoomsList
               rooms={rooms}
               getRoomFoodOrdersTotal={getRoomFoodOrdersTotal}
               onAddRoom={addRoom}
@@ -157,7 +171,9 @@ const Rooms = () => {
               <PromotionsManager restaurantId={restaurantId} />
             ) : (
               <div className="flex justify-center items-center min-h-[200px]">
-                <p className="text-muted-foreground">Restaurant ID not available. Please refresh the page.</p>
+                <p className="text-muted-foreground">
+                  Restaurant ID not available. Please refresh the page.
+                </p>
               </div>
             )}
           </div>
