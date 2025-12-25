@@ -23,6 +23,7 @@ import { OrderPayment } from "../Payment/OrderPayment";
 import type { OrderItem, TableData } from "@/types/orders";
 import { WeightQuantityDialog } from "../WeightQuantityDialog";
 import { CustomExtrasPanel } from "../CustomExtrasPanel";
+import { DuplicateOrderWarningDialog } from "../DuplicateOrderWarningDialog";
 import { useAuth } from "@/hooks/useAuth";
 import {
   AlertDialog,
@@ -52,6 +53,22 @@ const POSMode = () => {
   const [pendingWeightItem, setPendingWeightItem] = useState<any>(null);
   const [isSendingToKitchen, setIsSendingToKitchen] = useState(false);
 
+  // Duplicate order warning state
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [existingDuplicateOrder, setExistingDuplicateOrder] = useState<{
+    id: string;
+    source: string;
+    items: { name: string; quantity: number }[];
+    created_at: string;
+  } | null>(null);
+  const [pendingCustomerDetails, setPendingCustomerDetails] = useState<
+    | {
+        name: string;
+        phone: string;
+      }
+    | undefined
+  >(undefined);
+
   // Active Orders panel expand state
   const [activeOrdersExpanded, setActiveOrdersExpanded] = useState(false);
 
@@ -74,9 +91,10 @@ const POSMode = () => {
       const today = new Date();
       const { data: orders } = await supabase
         .from("orders")
-        .select("total, discount_amount")
+        .select("total, discount_amount, order_type")
         .eq("restaurant_id", profile.restaurant_id)
         .eq("status", "completed")
+        .neq("order_type", "non-chargeable") // Exclude non-chargeable orders from revenue
         .gte("created_at", startOfDay(today).toISOString())
         .lte("created_at", endOfDay(today).toISOString());
 
@@ -335,6 +353,98 @@ const POSMode = () => {
     });
   };
 
+  // Check for duplicate orders before sending to kitchen
+  const checkForDuplicateOrder = async (
+    orderSource: string
+  ): Promise<{
+    isDuplicate: boolean;
+    existingOrder?: {
+      id: string;
+      source: string;
+      items: { name: string; quantity: number }[];
+      created_at: string;
+    };
+  }> => {
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("restaurant_id")
+        .eq("id", (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (!profile?.restaurant_id) return { isDuplicate: false };
+
+      // Check for orders from the same source in the last 30 minutes
+      const thirtyMinutesAgo = new Date(
+        Date.now() - 30 * 60 * 1000
+      ).toISOString();
+
+      const { data: existingOrders } = await supabase
+        .from("kitchen_orders")
+        .select("id, source, items, created_at")
+        .eq("restaurant_id", profile.restaurant_id)
+        .in("status", ["new", "preparing"])
+        .gte("created_at", thirtyMinutesAgo)
+        .order("created_at", { ascending: false });
+
+      if (!existingOrders || existingOrders.length === 0) {
+        return { isDuplicate: false };
+      }
+
+      // Find orders with similar source (same table/customer)
+      const currentOrderItemNames = currentOrderItems.map((item) =>
+        item.name.toLowerCase()
+      );
+
+      for (const existingOrder of existingOrders) {
+        // Check if source matches (same table or customer)
+        const sourceMatches =
+          existingOrder.source.includes(orderSource) ||
+          orderSource.includes(existingOrder.source) ||
+          (orderType === "Dine-In" &&
+            tableNumber &&
+            existingOrder.source.includes(`Table ${tableNumber}`));
+
+        if (sourceMatches) {
+          // Check item overlap
+          const existingItems = existingOrder.items as {
+            name: string;
+            quantity: number;
+          }[];
+          const existingItemNames = existingItems.map(
+            (item: { name: string }) => item.name.toLowerCase()
+          );
+
+          const matchingItems = currentOrderItemNames.filter((name) =>
+            existingItemNames.includes(name)
+          );
+
+          // If more than 50% of items match, consider it a potential duplicate
+          const overlapPercentage =
+            matchingItems.length / currentOrderItemNames.length;
+
+          if (overlapPercentage >= 0.5) {
+            return {
+              isDuplicate: true,
+              existingOrder: {
+                id: existingOrder.id,
+                source: existingOrder.source,
+                items: existingItems,
+                created_at: existingOrder.created_at,
+              },
+            };
+          }
+        }
+      }
+
+      return { isDuplicate: false };
+    } catch (error) {
+      console.error("Error checking for duplicate orders:", error);
+      return { isDuplicate: false };
+    }
+  };
+
+  // Wrapper to check duplicates before sending
   const handleSendToKitchen = async (customerDetails?: {
     name: string;
     phone: string;
@@ -348,8 +458,48 @@ const POSMode = () => {
       return;
     }
 
+    // Skip duplicate check for Non-Chargeable orders (they are intentionally duplicates)
+    if (orderType !== "Non-Chargeable") {
+      const computedOrderSource = customerDetails?.name
+        ? `${customerDetails.name} ${
+            customerDetails.phone ? "(" + customerDetails.phone + ")" : ""
+          }`
+        : `${orderType === "Dine-In" ? "Table " + tableNumber : orderType}`;
+
+      const orderSource = recalledSource || computedOrderSource;
+
+      // Check for duplicate orders
+      const { isDuplicate, existingOrder } = await checkForDuplicateOrder(
+        orderSource
+      );
+
+      if (isDuplicate && existingOrder) {
+        setPendingCustomerDetails(customerDetails);
+        setExistingDuplicateOrder(existingOrder);
+        setShowDuplicateWarning(true);
+        return;
+      }
+    }
+
+    // No duplicate found, proceed with sending
+    await performSendToKitchen(customerDetails);
+  };
+
+  // Actual send to kitchen logic (called after duplicate check or when user confirms)
+  const performSendToKitchen = async (
+    customerDetails?: {
+      name: string;
+      phone: string;
+    },
+    forceNonChargeable: boolean = false
+  ) => {
     if (isSendingToKitchen) return; // Prevent double-clicks
     setIsSendingToKitchen(true);
+
+    // Determine effective order type (may be forced to non-chargeable from duplicate dialog)
+    const effectiveOrderType = forceNonChargeable
+      ? "Non-Chargeable"
+      : orderType;
 
     try {
       const { data: profile } = await supabase
@@ -366,7 +516,11 @@ const POSMode = () => {
         ? `${customerDetails.name} ${
             customerDetails.phone ? "(" + customerDetails.phone + ")" : ""
           }`
-        : `${orderType === "Dine-In" ? "Table " + tableNumber : orderType}`;
+        : `${
+            effectiveOrderType === "Dine-In"
+              ? "Table " + tableNumber
+              : effectiveOrderType
+          }`;
 
       const orderSource = recalledSource || computedOrderSource;
 
@@ -406,7 +560,7 @@ const POSMode = () => {
             ),
             status: "pending",
             source: "pos",
-            order_type: orderType.toLowerCase(),
+            order_type: effectiveOrderType.toLowerCase(),
             attendant: attendantName,
           })
           .select()
@@ -459,7 +613,7 @@ const POSMode = () => {
             ),
             status: "pending",
             source: "pos",
-            order_type: orderType.toLowerCase(),
+            order_type: effectiveOrderType.toLowerCase(),
             attendant: attendantName,
           })
           .select()
@@ -755,6 +909,38 @@ const POSMode = () => {
           }}
         />
       )}
+
+      {/* Duplicate Order Warning Dialog */}
+      <DuplicateOrderWarningDialog
+        open={showDuplicateWarning}
+        onClose={() => {
+          setShowDuplicateWarning(false);
+          setExistingDuplicateOrder(null);
+          setPendingCustomerDetails(undefined);
+        }}
+        existingOrder={existingDuplicateOrder}
+        newOrderItems={currentOrderItems.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+        }))}
+        onSendAnyway={async () => {
+          setShowDuplicateWarning(false);
+          await performSendToKitchen(pendingCustomerDetails, false);
+          setExistingDuplicateOrder(null);
+          setPendingCustomerDetails(undefined);
+        }}
+        onMarkNonChargeable={async () => {
+          setShowDuplicateWarning(false);
+          await performSendToKitchen(pendingCustomerDetails, true);
+          setExistingDuplicateOrder(null);
+          setPendingCustomerDetails(undefined);
+          toast({
+            title: "Order Marked as Non-Chargeable",
+            description:
+              "This order has been marked as an accidental KOT and won't count towards revenue.",
+          });
+        }}
+      />
     </div>
   );
 };

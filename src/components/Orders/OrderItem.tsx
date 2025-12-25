@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  Ban,
 } from "lucide-react";
 
 interface OrderItemProps {
@@ -89,6 +90,7 @@ const OrderItem: React.FC<OrderItemProps> = ({
       "dine-in": "Dine-In",
       takeaway: "Takeaway",
       delivery: "Delivery",
+      "non-chargeable": "Non-Chargeable",
     };
 
     const sourceText = sourceLabels[source] || source;
@@ -124,6 +126,15 @@ const OrderItem: React.FC<OrderItemProps> = ({
                     className="bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300"
                   >
                     {sourceLabel}
+                  </Badge>
+                )}
+                {order.order_type === "non-chargeable" && (
+                  <Badge
+                    variant="destructive"
+                    className="bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 flex items-center gap-1"
+                  >
+                    <Ban className="w-3 h-3" />
+                    Non-Chargeable
                   </Badge>
                 )}
               </div>

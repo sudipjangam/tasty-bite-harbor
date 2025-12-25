@@ -349,7 +349,11 @@ const OrdersView = ({
       0,
     totalRevenue:
       filteredOrders
-        .filter((order) => order.status === "completed")
+        .filter(
+          (order) =>
+            order.status === "completed" &&
+            order.order_type !== "non-chargeable"
+        )
         .reduce(
           (sum, order) => sum + (order.total - (order.discount_amount || 0)),
           0
