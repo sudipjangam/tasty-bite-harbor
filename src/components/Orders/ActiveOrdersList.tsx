@@ -36,6 +36,7 @@ import { Calendar } from "@/components/ui/calendar";
 import PaymentDialog from "./POS/PaymentDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { useAuth } from "@/hooks/useAuth";
 import * as XLSX from "xlsx";
 
 interface OrderItem {
@@ -76,6 +77,13 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
   const [restaurantName, setRestaurantName] = useState("Restaurant");
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
+  const { user } = useAuth();
+
+  // Check if user has admin/manager/owner role
+  const canViewSensitiveData =
+    user?.role?.toLowerCase() === "admin" ||
+    user?.role?.toLowerCase() === "manager" ||
+    user?.role?.toLowerCase() === "owner";
 
   useEffect(() => {
     const fetchActiveOrders = async () => {
@@ -533,15 +541,18 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
           </SelectContent>
         </Select>
 
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={handleExportOrders}
-          className="bg-green-50 hover:bg-green-100 border-green-200 dark:bg-green-900/20 dark:hover:bg-green-900/40 dark:border-green-700"
-          title="Export to Excel"
-        >
-          <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
-        </Button>
+        {/* Export button - Only visible to admin/manager/owner */}
+        {canViewSensitiveData && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleExportOrders}
+            className="bg-green-50 hover:bg-green-100 border-green-200 dark:bg-green-900/20 dark:hover:bg-green-900/40 dark:border-green-700"
+            title="Export to Excel"
+          >
+            <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
+          </Button>
+        )}
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
