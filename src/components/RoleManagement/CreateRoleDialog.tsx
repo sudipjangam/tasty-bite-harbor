@@ -1,20 +1,22 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { fetchAllowedComponents } from "@/utils/subscriptionUtils";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useToast } from '@/hooks/use-toast';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
 
 interface CreateRoleDialogProps {
   open: boolean;
@@ -28,25 +30,44 @@ interface AppComponent {
   description: string | null;
 }
 
-export const CreateRoleDialog = ({ open, onOpenChange, onSuccess }: CreateRoleDialogProps) => {
+export const CreateRoleDialog = ({
+  open,
+  onOpenChange,
+  onSuccess,
+}: CreateRoleDialogProps) => {
   const { toast } = useToast();
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const { user } = useAuth();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [selectedComponents, setSelectedComponents] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch all available components
+  // Fetch components filtered by restaurant subscription
   const { data: components } = useQuery({
-    queryKey: ['app-components'],
+    queryKey: ["app-components-filtered", user?.restaurant_id],
     queryFn: async () => {
+      if (!user?.restaurant_id) return [];
+
+      // Get subscription plan components
+      const subscriptionComponents = await fetchAllowedComponents(
+        user.restaurant_id
+      );
+
       const { data, error } = await supabase
-        .from('app_components')
-        .select('*')
-        .order('name');
+        .from("app_components")
+        .select("*")
+        .order("name");
 
       if (error) throw error;
-      return data as AppComponent[];
+
+      // Filter to only show components the restaurant has access to
+      return (data as AppComponent[]).filter((c) =>
+        subscriptionComponents.some(
+          (sc) => sc.toLowerCase() === c.name.toLowerCase()
+        )
+      );
     },
+    enabled: open && !!user?.restaurant_id,
   });
 
   const handleToggleComponent = (componentId: string) => {
@@ -60,9 +81,9 @@ export const CreateRoleDialog = ({ open, onOpenChange, onSuccess }: CreateRoleDi
   const handleSubmit = async () => {
     if (!name.trim()) {
       toast({
-        title: 'Validation Error',
-        description: 'Role name is required',
-        variant: 'destructive',
+        title: "Validation Error",
+        description: "Role name is required",
+        variant: "destructive",
       });
       return;
     }
@@ -70,61 +91,69 @@ export const CreateRoleDialog = ({ open, onOpenChange, onSuccess }: CreateRoleDi
     setIsSubmitting(true);
     try {
       // Validate session to ensure supabase-js will attach the auth token automatically
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
 
       if (sessionError) {
-        console.error('Session error:', sessionError);
-        throw new Error('Failed to get authentication session: ' + sessionError.message);
+        console.error("Session error:", sessionError);
+        throw new Error(
+          "Failed to get authentication session: " + sessionError.message
+        );
       }
 
       if (!sessionData.session?.access_token) {
-        console.error('No access token found in session');
-        throw new Error('You must be signed in to perform this action.');
+        console.error("No access token found in session");
+        throw new Error("You must be signed in to perform this action.");
       }
 
       // Prepare payload and add rich client-side logs
       const payload = {
-        action: 'create',
+        action: "create",
         name: name.trim(),
-        description: (description || '').trim() || null,
+        description: (description || "").trim() || null,
         componentIds: selectedComponents,
       };
-      console.log('CreateRoleDialog → sending payload', {
+      console.log("CreateRoleDialog → sending payload", {
         ...payload,
         componentCount: selectedComponents.length,
       });
 
       // Use supabase.functions.invoke with JSON-stringified body
-      const { data, error } = await supabase.functions.invoke('role-management', {
-        body: JSON.stringify(payload),
-      });
+      const { data, error } = await supabase.functions.invoke(
+        "role-management",
+        {
+          body: JSON.stringify(payload),
+        }
+      );
 
-      console.log('Function response:', { data, error });
+      console.log("Function response:", { data, error });
 
       if (error) {
-        console.error('Function invocation error:', error);
+        console.error("Function invocation error:", error);
         throw error;
       }
 
       if (data?.success) {
         toast({
-          title: 'Success',
-          description: 'Role created successfully',
+          title: "Success",
+          description: "Role created successfully",
         });
-        setName('');
-        setDescription('');
+        setName("");
+        setDescription("");
         setSelectedComponents([]);
         onSuccess();
         onOpenChange(false);
       } else {
-        throw new Error(data?.error || 'Failed to create role');
+        throw new Error(data?.error || "Failed to create role");
       }
     } catch (error: any) {
-      console.error('Error creating role:', error);
+      console.error("Error creating role:", error);
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to create role. Please check the console for details.',
-        variant: 'destructive',
+        title: "Error",
+        description:
+          error.message ||
+          "Failed to create role. Please check the console for details.",
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -171,11 +200,16 @@ export const CreateRoleDialog = ({ open, onOpenChange, onSuccess }: CreateRoleDi
             <ScrollArea className="h-[300px] border rounded-md p-4">
               <div className="space-y-3">
                 {components?.map((component) => (
-                  <div key={component.id} className="flex items-start space-x-3">
+                  <div
+                    key={component.id}
+                    className="flex items-start space-x-3"
+                  >
                     <Checkbox
                       id={component.id}
                       checked={selectedComponents.includes(component.id)}
-                      onCheckedChange={() => handleToggleComponent(component.id)}
+                      onCheckedChange={() =>
+                        handleToggleComponent(component.id)
+                      }
                     />
                     <div className="flex-1">
                       <label
@@ -201,7 +235,7 @@ export const CreateRoleDialog = ({ open, onOpenChange, onSuccess }: CreateRoleDi
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? 'Creating...' : 'Create Role'}
+              {isSubmitting ? "Creating..." : "Create Role"}
             </Button>
           </div>
         </div>

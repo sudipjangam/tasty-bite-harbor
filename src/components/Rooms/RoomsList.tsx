@@ -12,10 +12,12 @@ import RoomCard from "@/components/Rooms/RoomCard";
 import RoomDialog from "@/components/Rooms/RoomDialog";
 import ReservationDialog from "@/components/Rooms/ReservationDialog";
 import WalkInCheckInDialog from "@/components/Rooms/WalkInCheckInDialog";
+import { AvailabilityCalendarGrid } from "@/components/Rooms/AvailabilityCalendar";
+import { GroupReservationDialog } from "@/components/Rooms/GroupReservation";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Room } from "@/hooks/useRooms";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, LayoutGrid, CalendarDays, Users } from "lucide-react";
 
 // Lazy imports moved outside component to prevent remounting
 const RoomCheckout = React.lazy(
@@ -65,11 +67,13 @@ const RoomsList: React.FC<RoomsListProps> = ({
   const [openFoodOrder, setOpenFoodOrder] = useState(false);
   const [openWalkIn, setOpenWalkIn] = useState(false);
   const [walkInRoom, setWalkInRoom] = useState<Room | null>(null);
+  const [openGroupReservation, setOpenGroupReservation] = useState(false);
   const { toast } = useToast();
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [viewMode, setViewMode] = useState<"cards" | "calendar">("cards");
 
   const [newRoom, setNewRoom] = useState({
     name: "",
@@ -316,80 +320,141 @@ const RoomsList: React.FC<RoomsListProps> = ({
   return (
     <>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <Button
-          onClick={() => setOpenAddRoom(true)}
-          className="bg-primary hover:bg-primary/90 text-white"
-        >
-          Add New Room
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            onClick={() => setOpenAddRoom(true)}
+            className="bg-primary hover:bg-primary/90 text-white"
+          >
+            Add New Room
+          </Button>
+          <Button
+            onClick={() => setOpenGroupReservation(true)}
+            className="bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white"
+          >
+            <Users className="h-4 w-4 mr-2" />
+            Group Booking
+          </Button>
+        </div>
+
+        {/* View Mode Toggle */}
+        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
+          <button
+            onClick={() => setViewMode("cards")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              viewMode === "cards"
+                ? "bg-white dark:bg-gray-700 text-primary shadow-sm"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+            }`}
+          >
+            <LayoutGrid className="h-4 w-4" />
+            Cards
+          </button>
+          <button
+            onClick={() => setViewMode("calendar")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              viewMode === "calendar"
+                ? "bg-white dark:bg-gray-700 text-primary shadow-sm"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+            }`}
+          >
+            <CalendarDays className="h-4 w-4" />
+            Calendar
+          </button>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search rooms..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="flex-1 h-10">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="available">Available</SelectItem>
-              <SelectItem value="occupied">Occupied</SelectItem>
-              <SelectItem value="cleaning">Cleaning</SelectItem>
-              <SelectItem value="maintenance">Maintenance</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {filteredRooms.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-          <p className="text-muted-foreground text-center mb-2">
-            {rooms.length === 0
-              ? "No rooms found. Add your first room to get started."
-              : "No rooms match your search criteria."}
-          </p>
-          {rooms.length > 0 && (
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSearchQuery("");
-                setStatusFilter("all");
-              }}
-            >
-              Clear Filters
-            </Button>
-          )}
-        </div>
+      {/* Conditional View Rendering */}
+      {viewMode === "calendar" ? (
+        <AvailabilityCalendarGrid
+          onCreateReservation={(roomId, date) => {
+            const room = rooms.find((r) => r.id === roomId);
+            if (room) {
+              setCurrentRoom(room);
+              setReservation({
+                customer_name: "",
+                customer_email: "",
+                customer_phone: "",
+                start_date: date,
+                end_date: date,
+                notes: "",
+                special_occasion: "",
+                special_occasion_date: null,
+                marketing_consent: false,
+              });
+              setOpenReservation(true);
+            }
+          }}
+        />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredRooms.map((room) => (
-            <RoomCard
-              key={room.id}
-              room={room}
-              foodOrdersTotal={getRoomFoodOrdersTotal(room.id)}
-              onEdit={openEditDialog}
-              onReserve={openReservationDialog}
-              onFoodOrder={openFoodOrderDialog}
-              onCheckout={handleCheckout}
-              onCheckIn={(room) => {
-                setWalkInRoom(room);
-                setOpenWalkIn(true);
-              }}
-              getStatusClass={getStatusClass}
-            />
-          ))}
-        </div>
+        <>
+          {/* Filters - Only show in card view */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search rooms..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="flex-1 h-10">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="available">Available</SelectItem>
+                  <SelectItem value="occupied">Occupied</SelectItem>
+                  <SelectItem value="cleaning">Cleaning</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {filteredRooms.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+              <p className="text-muted-foreground text-center mb-2">
+                {rooms.length === 0
+                  ? "No rooms found. Add your first room to get started."
+                  : "No rooms match your search criteria."}
+              </p>
+              {rooms.length > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setStatusFilter("all");
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredRooms.map((room) => (
+                <RoomCard
+                  key={room.id}
+                  room={room}
+                  foodOrdersTotal={getRoomFoodOrdersTotal(room.id)}
+                  onEdit={openEditDialog}
+                  onReserve={openReservationDialog}
+                  onFoodOrder={openFoodOrderDialog}
+                  onCheckout={handleCheckout}
+                  onCheckIn={(room) => {
+                    setWalkInRoom(room);
+                    setOpenWalkIn(true);
+                  }}
+                  getStatusClass={getStatusClass}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* Keep existing dialogs */}
@@ -439,6 +504,13 @@ const RoomsList: React.FC<RoomsListProps> = ({
           }}
         />
       )}
+
+      {/* Group Reservation Dialog */}
+      <GroupReservationDialog
+        open={openGroupReservation}
+        onOpenChange={setOpenGroupReservation}
+        onSuccess={onCheckoutComplete}
+      />
     </>
   );
 };
