@@ -1,88 +1,147 @@
-# 📋 Project Todo Tasks
+# 📋 Hotel PMS - Development Roadmap
 
-> Last Updated: December 17, 2025
-
----
-
-## 🔴 Critical Priority
-
-- [ ] **Split PaymentDialog.tsx** - Refactor 2000-line file into smaller components
-  - OrderConfirmation.tsx
-  - CustomerDetailsForm.tsx
-  - PaymentMethodSelector.tsx
-  - BillPrinter.tsx
-  - OrderEditor.tsx
-
-- [ ] **Add inventory deduction** - Reduce stock when orders are completed
-
-- [ ] **Add transaction logging** - Record all payments to `transactions` table
-
-- [ ] **Fix column name inconsistency** - Standardize `Customer_Name` vs `customer_name`
+> Last Updated: December 25, 2025
 
 ---
 
-## 🟠 High Priority
+## Phase 1: Core Operations (3-4 weeks)
 
-- [ ] **Enable mobile navigation** - Uncomment line 28 in `POS.tsx`
+### Front Desk
+- [ ] **Walk-in Check-in** - Quick reservation + check-in in single flow
+- [ ] **Room Move/Upgrade** - Mid-stay room change with rate adjustment
+- [ ] **Early Check-in** - Check availability, apply extra charges
+- [ ] **Late Checkout** - Extend stay with hourly/half-day charges
+- [ ] **Express Checkout** - Self-service quick checkout
 
-- [ ] **Add UPI payment verification** - Verify payment status before marking complete
+### Night Audit
+- [ ] **Daily Close Process** - End-of-day reconciliation
+- [ ] **Auto Room Charges** - Post daily rates to guest folios
+- [ ] **Revenue Summary Report** - Day's earnings breakdown
+- [ ] **Discrepancy Report** - Cash vs system mismatch detection
 
-- [ ] **Make tax rate configurable** - Move from hardcoded 5% to restaurant settings
-
-- [ ] **Add loading states** - Show processing feedback in payment flow
-
----
-
-## 🟡 Medium Priority
-
-- [ ] **Centralize restaurant context** - Create `useRestaurantContext` hook
-
-- [ ] **Replace window.confirm()** - Use UI modals instead of native dialogs
-
-- [ ] **Improve empty states** - Better guidance for empty menu categories
-
-- [ ] **Increase menu thumbnails** - Larger images (currently 80x80px)
+### Reports
+- [ ] **Arrivals/Departures List** - Daily movement report
+- [ ] **No-show Report** - Guests who didn't arrive
+- [ ] **Outstanding Balance Report** - Unpaid folios
 
 ---
 
-## 🟢 Future Enhancements
+## Phase 2: Enhanced Features (3-4 weeks)
 
-- [ ] **Offline mode** - Auto-save orders locally for network resilience
+### Reservations
+- [ ] **Group Reservations** - Multiple rooms, single booking
+- [ ] **Corporate Booking** - Company rates, master billing
+- [ ] **Waitlist Management** - Queue when fully booked
+- [ ] **Rate Restrictions** - Min stay, closed to arrival
 
-- [ ] **Barcode scanning** - Quick item lookup via SKU/barcode
+### Visual Tools
+- [ ] **Availability Calendar Grid** - Visual room availability by date
+- [ ] **Drag-drop Reservations** - Move bookings on calendar
+- [ ] **Occupancy Forecast** - Predicted occupancy trends
 
-- [ ] **Split billing** - Divide orders for group payments
-
-- [ ] **Item modifiers** - Extra toppings, custom notes per item
+### Guest Management
+- [ ] **Guest ID Document Upload** - Store ID, passport, DL scans
+- [ ] **VIP/Loyalty Tiers** - Guest categorization
+- [ ] **Guest Preferences** - Room type, floor, amenity preferences
+- [ ] **Registration Card** - Digital/printed with signature capture
 
 ---
 
-## ✅ Completed
+## Phase 3: Revenue & Billing (2-3 weeks)
 
-### Security & Compliance Fixes (Dec 17, 2025)
-- [x] Fix GDPR shared state bug - separate form states for each card
-- [x] Replace window.confirm() with custom UI confirmation dialogs
-- [x] Add pagination to Audit Trail (20 items per page)
-- [x] Connect dashboard metrics to real database data
-- [x] Modernize all Security components with glassmorphism
-- [x] Add email validation for GDPR requests
-- [x] Improve JSON diff display in Audit Trail
+### Billing Enhancements
+- [ ] **Split Billing** - Divide bill across multiple payers
+- [ ] **Folio Transfer** - Move charges between rooms
+- [ ] **Refund Processing** - Track and process refunds
+- [ ] **Advance/Deposit Handling** - Pre-payment management
+- [ ] **Proforma Invoice** - Pre-checkout estimates
+- [ ] **Credit Note Generation** - For refunds/adjustments
 
-### Recipe Management Modernization (Dec 17, 2025)
-- [x] Modernize RecipeDialog.tsx with glassmorphism
-- [x] Modernize RecipeList.tsx with gradient badges
-- [x] Enhance RecipeManagement.tsx stat cards
-- [x] Enhance RecipeCostingCard.tsx metrics
-- [x] Fix input fields not working in RecipeDialog
-- [x] Add unit conversion logic for ingredients (g→kg, ml→l)
-- [x] Fix batch production buttons with dialog
+### Rate Features
+- [ ] **Package Rates** - Room + meals, room + spa bundles
+- [ ] **Dynamic Pricing** - Occupancy-based rate adjustment
+
+### Metrics
+- [ ] **ADR Calculation** - Average Daily Rate
+- [ ] **RevPAR Tracking** - Revenue Per Available Room
+- [ ] **Segment Analysis** - Revenue by source/guest type
+
+---
+
+## Phase 4: Guest Communication (2 weeks)
+
+### Email Automation
+- [ ] **Booking Confirmation** - Auto-send on reservation
+- [ ] **Pre-arrival Email** - Directions, upsell offers
+- [ ] **Thank You Email** - Post-checkout with feedback link
+- [ ] **Email Templates** - Customizable branded templates
+
+### Notifications
+- [ ] **WhatsApp/SMS Integration** - Booking confirmations
+- [ ] **Post-stay Survey** - Automated feedback collection
+- [ ] **Inter-department Messages** - Front desk ↔ Housekeeping
+
+---
+
+## Phase 5: Housekeeping Enhancements
+
+- [ ] **Turndown Service** - Evening service tracking
+- [ ] **Deep Cleaning Schedule** - Periodic thorough cleaning
+- [ ] **Minibar Check** - Stock verification workflow
+- [ ] **Preventive Maintenance** - Scheduled equipment checks
+- [ ] **Maintenance Cost Tracking** - Expense monitoring
+
+---
+
+## Phase 6: Guest Services
+
+- [ ] **Laundry Service** - Pickup, delivery, charges
+- [ ] **Wake-up Calls** - Scheduled notifications
+- [ ] **Concierge Requests** - Tour booking, taxi, etc.
+- [ ] **Special Occasion Alerts** - Birthday/anniversary reminders
+
+---
+
+## 🚫 Deferred (Channel Management)
+
+> Requires external API partnerships - will revisit later
+
+- [ ] OTA Sync (Booking.com, Expedia)
+- [ ] Rate Parity Management
+- [ ] Booking Engine Widget
+- [ ] Online Payment Gateway
+
+---
+
+## ✅ Already Completed
+
+### Restaurant Management
+- [x] POS System with Kitchen Display
+- [x] Order Management & Tracking
+- [x] Menu Management
+- [x] Inventory Management
+- [x] Staff Management
+- [x] GST Invoicing
+- [x] Analytics Dashboard
+
+### Hotel Basics
+- [x] Room Management (31 components)
+- [x] Reservation System (Table + Room)
+- [x] Housekeeping Dashboard
+- [x] Room Checkout & Billing
+- [x] Room Service Orders
+- [x] Maintenance Requests
+- [x] Guest Feedback Collection
+- [x] Revenue Manager
 
 ---
 
 ## Notes
 
-Add new tasks by editing this file. Use checkbox format:
 ```markdown
-- [ ] Task description
-- [x] Completed task
+Priority Guide:
+🔴 Critical - Business blocking
+🟠 High - Important for operations  
+🟡 Medium - Nice to have
+🟢 Low - Future enhancement
 ```
