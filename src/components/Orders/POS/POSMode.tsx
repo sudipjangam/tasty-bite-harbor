@@ -542,19 +542,23 @@ const POSMode = () => {
 
               {/* Revenue + Hide button grouped together */}
               <div className="flex items-center gap-2">
-                {/* Today's Revenue Badge */}
-                <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-900/40 dark:to-green-900/40 rounded-xl border border-emerald-200 dark:border-emerald-700/50">
-                  <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  <div className="flex flex-col">
-                    <span className="text-[10px] uppercase tracking-wide text-emerald-600 dark:text-emerald-400 font-medium">
-                      Today's Revenue
-                    </span>
-                    <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
-                      {currencySymbol}
-                      {todaysRevenue.toFixed(2)}
-                    </span>
+                {/* Today's Revenue Badge - Only visible to admin/manager/owner */}
+                {(user?.role?.toLowerCase() === "admin" ||
+                  user?.role?.toLowerCase() === "manager" ||
+                  user?.role?.toLowerCase() === "owner") && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-900/40 dark:to-green-900/40 rounded-xl border border-emerald-200 dark:border-emerald-700/50">
+                    <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase tracking-wide text-emerald-600 dark:text-emerald-400 font-medium">
+                        Today's Revenue
+                      </span>
+                      <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                        {currencySymbol}
+                        {todaysRevenue.toFixed(2)}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Hide/Show Orders button */}
                 <Button

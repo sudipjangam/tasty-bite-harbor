@@ -567,15 +567,18 @@ const OrdersView = ({
                   Refresh
                 </Button>
 
-                <Button
-                  variant="outline"
-                  onClick={handleExportOrders}
-                  disabled={!filteredOrders || filteredOrders.length === 0}
-                  className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 border shadow-sm transition-all duration-200"
-                >
-                  <Download className="h-3.5 w-3.5 mr-2" />
-                  Export
-                </Button>
+                {/* Export button - Only visible to admin/manager/owner */}
+                {(isRole("admin") || isRole("manager") || isRole("owner")) && (
+                  <Button
+                    variant="outline"
+                    onClick={handleExportOrders}
+                    disabled={!filteredOrders || filteredOrders.length === 0}
+                    className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 border shadow-sm transition-all duration-200"
+                  >
+                    <Download className="h-3.5 w-3.5 mr-2" />
+                    Export
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -641,26 +644,28 @@ const OrdersView = ({
                 </div>
               </div>
 
-              {/* Revenue */}
-              <div className="group relative overflow-hidden bg-gradient-to-br from-pink-500 to-rose-500 p-4 rounded-xl shadow-lg shadow-pink-500/20 hover:shadow-xl hover:shadow-pink-500/30 transition-all duration-300 hover:-translate-y-0.5">
-                <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2"></div>
-                <div className="relative">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-white/80 font-medium uppercase tracking-wider">
-                        💰 Revenue
-                      </p>
-                      <p className="text-2xl font-bold text-white mt-1">
-                        {currencySymbol}
-                        {orderStats.totalRevenue.toFixed(0)}
-                      </p>
-                    </div>
-                    <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center">
-                      <Download className="h-5 w-5 text-white" />
+              {/* Revenue - Only visible to admin/manager/owner */}
+              {(isRole("admin") || isRole("manager") || isRole("owner")) && (
+                <div className="group relative overflow-hidden bg-gradient-to-br from-pink-500 to-rose-500 p-4 rounded-xl shadow-lg shadow-pink-500/20 hover:shadow-xl hover:shadow-pink-500/30 transition-all duration-300 hover:-translate-y-0.5">
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2"></div>
+                  <div className="relative">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-white/80 font-medium uppercase tracking-wider">
+                          💰 Revenue
+                        </p>
+                        <p className="text-2xl font-bold text-white mt-1">
+                          {currencySymbol}
+                          {orderStats.totalRevenue.toFixed(0)}
+                        </p>
+                      </div>
+                      <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center">
+                        <Download className="h-5 w-5 text-white" />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Modern Filter Bar */}
