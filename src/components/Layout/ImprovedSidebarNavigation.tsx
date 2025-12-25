@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { 
-  LayoutDashboard, 
-  Users, 
+import {
+  LayoutDashboard,
+  Users,
   UserPlus,
   ShoppingCart,
   Menu as MenuIcon,
@@ -29,17 +29,47 @@ import {
   Target,
   FileText,
   Receipt,
-  CalendarClock
+  CalendarClock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { Permission } from "@/types/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { supabase } from "@/integrations/supabase/client";
 import { ThemeToggle } from "@/components/ThemeToggle";
+
+// Map hrefs to subscription component names
+const hrefToComponentMap: Record<string, string> = {
+  "/": "dashboard",
+  "/pos": "pos",
+  "/orders": "orders",
+  "/kitchen": "kitchen",
+  "/recipes": "recipes",
+  "/menu": "menu",
+  "/tables": "tables",
+  "/inventory": "inventory",
+  "/staff": "staff",
+  "/shift-management": "staff",
+  "/customers": "customers",
+  "/marketing": "marketing",
+  "/user-management": "user-management",
+  "/role-management": "role-management",
+  "/channel-management": "channel-management",
+  "/analytics": "analytics",
+  "/financial": "financial",
+  "/reports": "reports",
+  "/expenses": "expenses",
+  "/rooms": "rooms",
+  "/reservations": "reservations",
+  "/housekeeping": "housekeeping",
+  "/ai": "ai",
+  "/security": "security",
+  "/settings": "settings",
+};
 
 interface NavigationItem {
   title: string;
@@ -63,9 +93,9 @@ const navigationGroups: NavigationGroup[] = [
         icon: LayoutDashboard,
         href: "/",
         description: "Main dashboard and analytics",
-        requiredPermissions: ["dashboard.view"]
-      }
-    ]
+        requiredPermissions: ["dashboard.view"],
+      },
+    ],
   },
   {
     title: "Operations",
@@ -75,14 +105,14 @@ const navigationGroups: NavigationGroup[] = [
         icon: ShoppingCart,
         href: "/pos",
         description: "Point of Sale system",
-        requiredPermissions: ["orders.view"]
+        requiredPermissions: ["orders.view"],
       },
       {
         title: "Orders",
         icon: ShoppingCart,
         href: "/orders",
         description: "View & manage orders",
-        requiredPermissions: ["orders.view"]
+        requiredPermissions: ["orders.view"],
       },
       // {
       //   title: "QSR POS",
@@ -96,37 +126,37 @@ const navigationGroups: NavigationGroup[] = [
         icon: ChefHat,
         href: "/kitchen",
         description: "Kitchen display system",
-        requiredPermissions: ["kitchen.view"]
+        requiredPermissions: ["kitchen.view"],
       },
       {
         title: "Recipes",
         icon: BookOpen,
         href: "/recipes",
         description: "Recipe & costing management",
-        requiredPermissions: ["menu.view"]
+        requiredPermissions: ["menu.view"],
       },
       {
         title: "Menu",
         icon: MenuIcon,
         href: "/menu",
         description: "Menu management",
-        requiredPermissions: ["menu.view"]
+        requiredPermissions: ["menu.view"],
       },
       {
         title: "Tables",
         icon: MapPin,
         href: "/tables",
         description: "Table management",
-        requiredPermissions: ["tables.view"]
+        requiredPermissions: ["tables.view"],
       },
       {
         title: "Inventory",
         icon: Package,
         href: "/inventory",
         description: "Stock management",
-        requiredPermissions: ["inventory.view"]
-      }
-    ]
+        requiredPermissions: ["inventory.view"],
+      },
+    ],
   },
   {
     title: "Guest Services",
@@ -136,23 +166,23 @@ const navigationGroups: NavigationGroup[] = [
         icon: Bed,
         href: "/rooms",
         description: "Room management",
-        requiredPermissions: ["rooms.view"]
+        requiredPermissions: ["rooms.view"],
       },
       {
         title: "Reservations",
         icon: Calendar,
         href: "/reservations",
         description: "Booking management",
-        requiredPermissions: ["reservations.view"]
+        requiredPermissions: ["reservations.view"],
       },
       {
         title: "Housekeeping",
         icon: Sparkles,
         href: "/housekeeping",
         description: "Cleaning & maintenance",
-        requiredPermissions: ["housekeeping.view"]
-      }
-    ]
+        requiredPermissions: ["housekeeping.view"],
+      },
+    ],
   },
   {
     title: "Management",
@@ -162,21 +192,21 @@ const navigationGroups: NavigationGroup[] = [
         icon: UserCheck,
         href: "/staff",
         description: "Employee management",
-        requiredPermissions: ["staff.view"]
+        requiredPermissions: ["staff.view"],
       },
       {
         title: "Shift Management",
         icon: CalendarClock,
         href: "/shift-management",
         description: "Shifts & scheduling",
-        requiredPermissions: ["staff.update"]
+        requiredPermissions: ["staff.update"],
       },
       {
         title: "Customers",
         icon: Users,
         href: "/customers",
         description: "Customer database",
-        requiredPermissions: ["customers.view"]
+        requiredPermissions: ["customers.view"],
       },
       // {
       //   title: "CRM",
@@ -190,59 +220,59 @@ const navigationGroups: NavigationGroup[] = [
         icon: Target,
         href: "/marketing",
         description: "Campaigns & promotions",
-        requiredPermissions: ["customers.view"]
+        requiredPermissions: ["customers.view"],
       },
       {
         title: "User Management",
         icon: UserPlus,
         href: "/user-management",
         description: "Manage user accounts & roles",
-        requiredPermissions: ["users.manage"]
+        requiredPermissions: ["users.manage"],
       },
       {
         title: "Role Management",
         icon: Shield,
         href: "/role-management",
         description: "Configure roles & permissions",
-        requiredPermissions: ["users.manage"]
+        requiredPermissions: ["users.manage"],
       },
       {
         title: "Channel Management",
         icon: Globe,
         href: "/channel-management",
         description: "OTA & booking channels",
-        requiredPermissions: ["analytics.view"] // Channel management requires analytics access
+        requiredPermissions: ["analytics.view"], // Channel management requires analytics access
       },
       {
         title: "Analytics",
         icon: TrendingUp,
         href: "/analytics",
         description: "Business insights",
-        requiredPermissions: ["analytics.view"]
+        requiredPermissions: ["analytics.view"],
       },
       {
         title: "Financial",
         icon: DollarSign,
         href: "/financial",
         description: "Financial reports",
-        requiredPermissions: ["financial.view"]
+        requiredPermissions: ["financial.view"],
       },
       {
         title: "Reports",
         icon: FileText,
         href: "/reports",
         description: "Business reports",
-        requiredPermissions: ["analytics.view"]
+        requiredPermissions: ["analytics.view"],
       },
       {
         title: "Expenses",
         icon: Receipt,
         href: "/expenses",
         description: "Track business expenses",
-        requiredPermissions: ["financial.view"]
-      }
-    ]
-  }
+        requiredPermissions: ["financial.view"],
+      },
+    ],
+  },
 ];
 
 // Standalone items outside of groups
@@ -252,22 +282,22 @@ const standaloneItems: NavigationItem[] = [
     icon: MessageSquare,
     href: "/ai",
     description: "AI-powered help",
-    requiredPermissions: ["dashboard.view"] // Requires dashboard access
+    requiredPermissions: ["dashboard.view"], // Requires dashboard access
   },
   {
     title: "Security",
     icon: Shield,
     href: "/security",
     description: "Security & compliance",
-    requiredPermissions: ["audit.view"]
+    requiredPermissions: ["audit.view"],
   },
   {
     title: "Settings",
     icon: Settings,
     href: "/settings",
     description: "System configuration",
-    requiredPermissions: ["settings.view"] // Requires settings permission
-  }
+    requiredPermissions: ["settings.view"], // Requires settings permission
+  },
 ];
 
 interface ImprovedSidebarNavigationProps {
@@ -275,16 +305,20 @@ interface ImprovedSidebarNavigationProps {
   setIsSidebarCollapsed: (collapsed: boolean) => void;
 }
 
-export const ImprovedSidebarNavigation = ({ 
-  isSidebarCollapsed, 
-  setIsSidebarCollapsed 
+export const ImprovedSidebarNavigation = ({
+  isSidebarCollapsed,
+  setIsSidebarCollapsed,
 }: ImprovedSidebarNavigationProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, hasAnyPermission } = useAuth();
+  const { hasSubscriptionAccess, isLoading: subscriptionLoading } =
+    useSubscriptionAccess();
   const { toast } = useToast();
   const { restaurantName } = useRestaurantId();
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Dashboard', 'Operations']));
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    new Set(["Dashboard", "Operations"])
+  );
 
   // Dynamic sidebar title - use restaurant name if available
   const sidebarTitle = restaurantName || "Swadeshi Solutions RMS";
@@ -301,10 +335,37 @@ export const ImprovedSidebarNavigation = ({
 
   const isActive = (href: string) => location.pathname === href;
 
+  // System components that should bypass subscription check (admin-only, controls access to system)
+  const systemComponents = [
+    "user-management",
+    "role-management",
+    "settings",
+    "security",
+  ];
+
   // Check if user has permission to access this navigation item
+  // Must satisfy BOTH subscription access AND role-based permission
   const hasPermissionForItem = (item: NavigationItem): boolean => {
     if (!user) return false;
-    if (!item.requiredPermissions || item.requiredPermissions.length === 0) return true;
+
+    const componentName = hrefToComponentMap[item.href];
+
+    // System components bypass subscription check (they're controlled by role permissions)
+    const isSystemComponent =
+      componentName && systemComponents.includes(componentName);
+
+    // Check subscription-based access for non-system components
+    if (
+      componentName &&
+      !isSystemComponent &&
+      !hasSubscriptionAccess(componentName)
+    ) {
+      return false; // Component not in subscription plan
+    }
+
+    // Then check role-based permission
+    if (!item.requiredPermissions || item.requiredPermissions.length === 0)
+      return true;
     return hasAnyPermission(item.requiredPermissions);
   };
 
@@ -327,18 +388,27 @@ export const ImprovedSidebarNavigation = ({
   };
 
   return (
-    <div className={cn(
-      "flex flex-col h-full transition-all duration-300",
-      isSidebarCollapsed ? "opacity-0 invisible w-0" : "opacity-100 visible w-64"
-    )}>
+    <div
+      className={cn(
+        "flex flex-col h-full transition-all duration-300",
+        isSidebarCollapsed
+          ? "opacity-0 invisible w-0"
+          : "opacity-100 visible w-64"
+      )}
+    >
       {/* Header Section */}
       <div className="p-4 border-b border-white/10">
         <div className="flex items-center justify-between">
-          <div 
+          <div
             className="flex items-center space-x-3 truncate cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => navigate("/")}
           >
-            <span className="font-bold text-white text-lg truncate" title={sidebarTitle}>{sidebarTitle}</span>
+            <span
+              className="font-bold text-white text-lg truncate"
+              title={sidebarTitle}
+            >
+              {sidebarTitle}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle variant="mini" />
@@ -359,10 +429,10 @@ export const ImprovedSidebarNavigation = ({
           {navigationGroups.map((group) => {
             const isExpanded = expandedGroups.has(group.title);
             const visibleItems = group.items.filter(hasPermissionForItem);
-            
+
             // Don't show groups with no visible items
             if (visibleItems.length === 0) return null;
-            
+
             return (
               <div key={group.title} className="space-y-1">
                 {group.title !== "Dashboard" && (
@@ -381,13 +451,13 @@ export const ImprovedSidebarNavigation = ({
                     )}
                   </Button>
                 )}
-                
+
                 {(isExpanded || group.title === "Dashboard") && (
                   <div className="space-y-1">
                     {visibleItems.map((item) => {
                       const Icon = item.icon;
                       const active = isActive(item.href);
-                      
+
                       return (
                         <button
                           key={item.href}
@@ -399,19 +469,27 @@ export const ImprovedSidebarNavigation = ({
                               : "text-white hover:bg-white/10 hover:text-white"
                           )}
                         >
-                          <Icon className={cn(
-                            "h-4 w-4 transition-colors",
-                            active ? "text-sidebar-purple" : "text-white/80 group-hover:text-white"
-                          )} />
+                          <Icon
+                            className={cn(
+                              "h-4 w-4 transition-colors",
+                              active
+                                ? "text-sidebar-purple"
+                                : "text-white/80 group-hover:text-white"
+                            )}
+                          />
                           <div className="flex-1 min-w-0">
                             <span className="text-sm font-medium truncate block">
                               {item.title}
                             </span>
                             {item.description && (
-                              <span className={cn(
-                                "text-xs truncate block",
-                                active ? "text-sidebar-purple/70" : "text-white/60"
-                              )}>
+                              <span
+                                className={cn(
+                                  "text-xs truncate block",
+                                  active
+                                    ? "text-sidebar-purple/70"
+                                    : "text-white/60"
+                                )}
+                              >
                                 {item.description}
                               </span>
                             )}
@@ -424,14 +502,14 @@ export const ImprovedSidebarNavigation = ({
               </div>
             );
           })}
-          
+
           {/* Standalone items outside of groups */}
           <div className="pt-4 border-t border-white/10 mt-4">
             <div className="space-y-1">
               {standaloneItems.filter(hasPermissionForItem).map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
-                
+
                 return (
                   <button
                     key={item.href}
@@ -443,19 +521,25 @@ export const ImprovedSidebarNavigation = ({
                         : "text-white hover:bg-white/10 hover:text-white"
                     )}
                   >
-                    <Icon className={cn(
-                      "h-4 w-4 transition-colors",
-                      active ? "text-sidebar-purple" : "text-white/80 group-hover:text-white"
-                    )} />
+                    <Icon
+                      className={cn(
+                        "h-4 w-4 transition-colors",
+                        active
+                          ? "text-sidebar-purple"
+                          : "text-white/80 group-hover:text-white"
+                      )}
+                    />
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-medium truncate block">
                         {item.title}
                       </span>
                       {item.description && (
-                        <span className={cn(
-                          "text-xs truncate block",
-                          active ? "text-sidebar-purple/70" : "text-white/60"
-                        )}>
+                        <span
+                          className={cn(
+                            "text-xs truncate block",
+                            active ? "text-sidebar-purple/70" : "text-white/60"
+                          )}
+                        >
                           {item.description}
                         </span>
                       )}
@@ -467,19 +551,26 @@ export const ImprovedSidebarNavigation = ({
           </div>
         </nav>
       </ScrollArea>
-      
+
       {/* Footer with user info and logout */}
       <div className="px-3 py-2 border-t border-white/10">
         <div className="flex items-center gap-3 mb-2">
           <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-sidebar-purple font-medium">
-            {user?.first_name ? user.first_name.charAt(0) : user?.email?.charAt(0) || "?"}
+            {user?.first_name
+              ? user.first_name.charAt(0)
+              : user?.email?.charAt(0) || "?"}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate text-white">
-              {user?.first_name ? `${user.first_name} ${user.last_name || ""}`.trim() : user?.email?.split("@")[0] || "User"}
+              {user?.first_name
+                ? `${user.first_name} ${user.last_name || ""}`.trim()
+                : user?.email?.split("@")[0] || "User"}
             </p>
             <p className="text-xs text-white/70 truncate">
-              {user?.role_name_text || (user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "Staff Member")}
+              {user?.role_name_text ||
+                (user?.role
+                  ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
+                  : "Staff Member")}
             </p>
           </div>
           <Button
@@ -493,7 +584,9 @@ export const ImprovedSidebarNavigation = ({
           </Button>
         </div>
         <div className="text-center">
-          <span className="text-xs text-white/60">© {new Date().getFullYear()} Restaurant Pro</span>
+          <span className="text-xs text-white/60">
+            © {new Date().getFullYear()} Restaurant Pro
+          </span>
         </div>
       </div>
     </div>
