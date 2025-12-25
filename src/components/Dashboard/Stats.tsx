@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { TrendingUp, Users, ShoppingBag, DollarSign } from "lucide-react";
 import { useStatsData } from "@/hooks/useStatsData";
@@ -36,28 +35,38 @@ const Stats = () => {
     return total - discountAmount;
   };
 
-  const completedRevenue = allRevenueSources.filter(item => 
-    item.status === 'completed' || item.status === 'paid' || item.status === 'ready'
+  const completedRevenue = allRevenueSources.filter(
+    (item) =>
+      (item.status === "completed" ||
+        item.status === "paid" ||
+        item.status === "ready") &&
+      item.order_type !== "non-chargeable" // Exclude non-chargeable orders from revenue
   );
-  const totalSales = completedRevenue.reduce((sum, item) => sum + getActualRevenue(item), 0);
+  const totalSales = completedRevenue.reduce(
+    (sum, item) => sum + getActualRevenue(item),
+    0
+  );
 
   // Define today first so it can be used for filtering
   const today = new Date().toDateString();
 
-  const activeOrdersList = orders.filter(order => {
+  const activeOrdersList = orders.filter((order) => {
     const isToday = new Date(order.created_at).toDateString() === today;
-    const isActive = ['pending', 'preparing', 'ready', 'held'].includes(order.status);
+    const isActive = ["pending", "preparing", "ready", "held"].includes(
+      order.status
+    );
     return isToday && isActive;
   });
-  
+
   const activeOrdersCount = activeOrdersList.length || 0;
-  
-  const uniqueCustomers = orders.length > 0 
-    ? new Set(orders.map(order => order.customer_name).filter(Boolean)).size 
-    : 0;
-  
+
+  const uniqueCustomers =
+    orders.length > 0
+      ? new Set(orders.map((order) => order.customer_name).filter(Boolean)).size
+      : 0;
+
   const todaysRevenue = completedRevenue
-    .filter(item => new Date(item.created_at).toDateString() === today)
+    .filter((item) => new Date(item.created_at).toDateString() === today)
     .reduce((sum, item) => sum + getActualRevenue(item), 0);
 
   // Helper to group revenue by month
@@ -67,23 +76,25 @@ const Stats = () => {
       // Use full month name + year for uniqueness and clarity, or just month if preferred.
       // User asked for "jan, feb, march etc". Let's use short month name.
       // To ensure correct sorting, we store timestamp.
-      const monthKey = date.toLocaleString('default', { month: 'short' }); 
+      const monthKey = date.toLocaleString("default", { month: "short" });
       const year = date.getFullYear();
       const key = `${monthKey} ${year}`;
-      
+
       if (!acc[key]) {
         acc[key] = {
-           date: key,
-           amount: 0,
-           // Use the first day of the month for sorting purposes
-           timestamp: new Date(year, date.getMonth(), 1).getTime()
+          date: key,
+          amount: 0,
+          // Use the first day of the month for sorting purposes
+          timestamp: new Date(year, date.getMonth(), 1).getTime(),
         };
       }
       acc[key].amount += getActualRevenue(item);
       return acc;
     }, {});
-    
-    return Object.values(grouped).sort((a: any, b: any) => a.timestamp - b.timestamp);
+
+    return Object.values(grouped).sort(
+      (a: any, b: any) => a.timestamp - b.timestamp
+    );
   };
 
   const stats = [
@@ -97,7 +108,7 @@ const Stats = () => {
       shadow: "shadow-emerald-500/20",
       type: "sales" as const,
       // Use monthly aggregation for Sales chart
-      chart: getMonthlyRevenue(completedRevenue)
+      chart: getMonthlyRevenue(completedRevenue),
     },
     {
       title: "Active Orders",
@@ -108,7 +119,7 @@ const Stats = () => {
       gradient: "from-blue-500 via-indigo-500 to-blue-600",
       shadow: "shadow-blue-500/20",
       type: "orders" as const,
-      data: activeOrdersList
+      data: activeOrdersList,
     },
     {
       title: "Customers",
@@ -119,11 +130,11 @@ const Stats = () => {
       gradient: "from-violet-500 via-purple-500 to-fuchsia-600",
       shadow: "shadow-purple-500/20",
       type: "customers" as const,
-      data: orders.map(order => ({
+      data: orders.map((order) => ({
         name: order.customer_name,
         orders: 1,
-        total: order.total
-      }))
+        total: order.total,
+      })),
     },
     {
       title: "Today's Revenue",
@@ -135,15 +146,17 @@ const Stats = () => {
       shadow: "shadow-orange-500/20",
       type: "revenue" as const,
       chart: completedRevenue
-        .filter(item => new Date(item.created_at).toDateString() === today)
-        .map(item => ({
+        .filter((item) => new Date(item.created_at).toDateString() === today)
+        .map((item) => ({
           time: new Date(item.created_at).toLocaleTimeString(),
-          amount: getActualRevenue(item)
-        }))
+          amount: getActualRevenue(item),
+        })),
     },
   ];
 
-  const selectedStatData = selectedStat ? stats.find(stat => stat.title === selectedStat) : null;
+  const selectedStatData = selectedStat
+    ? stats.find((stat) => stat.title === selectedStat)
+    : null;
 
   return (
     <div className="space-y-6">
