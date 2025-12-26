@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   ToggleLeft,
@@ -75,6 +75,15 @@ const POSMode = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { symbol: currencySymbol } = useCurrencyContext();
+  const queryClient = useQueryClient();
+
+  // Handle order type change - clear table number when not Dine-In
+  const handleOrderTypeChange = (type: string) => {
+    setOrderType(type);
+    if (type !== "Dine-In") {
+      setTableNumber(""); // Clear stale table number
+    }
+  };
 
   // Query for today's revenue (completed orders)
   const { data: todaysRevenue = 0 } = useQuery({
@@ -105,8 +114,36 @@ const POSMode = () => {
         0
       );
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30000, // Refresh every 30 seconds as fallback
   });
+
+  // Realtime subscription for instant revenue updates
+  useEffect(() => {
+    const channel = supabase
+      .channel("pos-revenue-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+        },
+        (payload) => {
+          // Only refresh if status changed to/from completed
+          const newStatus = (payload.new as any)?.status;
+          const oldStatus = (payload.old as any)?.status;
+
+          if (newStatus === "completed" || oldStatus === "completed") {
+            queryClient.invalidateQueries({ queryKey: ["todays-pos-revenue"] });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Get attendant name from logged-in user
   const attendantName = user
@@ -688,7 +725,7 @@ const POSMode = () => {
               {/* POS controls */}
               <POSHeader
                 orderType={orderType}
-                setOrderType={setOrderType}
+                setOrderType={handleOrderTypeChange}
                 tableNumber={tableNumber}
                 setTableNumber={setTableNumber}
                 tables={tables}
