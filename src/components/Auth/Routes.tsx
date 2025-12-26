@@ -9,8 +9,6 @@ import LandingWebsite from "@/pages/LandingWebsite";
 const Routes = () => {
   const { user, loading } = useAuth();
 
-
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -20,7 +18,6 @@ const Routes = () => {
   }
 
   if (!user) {
-
     return (
       <RouterRoutes>
         <Route path="/website" element={<LandingWebsite />} />
@@ -28,7 +25,6 @@ const Routes = () => {
       </RouterRoutes>
     );
   }
-
 
   return (
     <RouterRoutes>

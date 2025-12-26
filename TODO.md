@@ -136,6 +136,33 @@
 
 ---
 
+## 🔧 Code Refactoring
+
+### Completed ✅
+
+**POS Order Sync Fix (Dec 26, 2025)**
+- [x] Fixed realtime UPDATE handler in `ActiveOrdersList.tsx` to sync all order properties
+- [x] Added instant revenue updates via realtime subscription in `POSMode.tsx`
+- [x] Added table number reset when switching away from Dine-In
+
+**PaymentDialog Component Splitting (Dec 26, 2025)**
+- [x] Created modular structure at `src/components/Orders/POS/PaymentDialog/`
+- [x] Split into 5 step components: `ConfirmStep`, `PaymentMethodStep`, `QRPaymentStep`, `SuccessStep`, `EditOrderStep`
+- [x] Created shared `types.ts` and `utils/paymentCalculations.ts`
+
+### Pending - Large Files 🔴
+
+| Lines | File | Status |
+|-------|------|--------|
+| 986 | `POSMode.tsx` | Pending |
+| 810 | `ImprovedAddOrderForm.tsx` | Pending |
+| 787 | `ActiveOrdersList.tsx` | Pending |
+| 576 | `Settings.tsx` | Pending |
+| 568 | `ImprovedSidebarNavigation.tsx` | Pending |
+| 556 | `StaffDialog.tsx` | Pending |
+
+---
+
 ## Notes
 
 ```markdown

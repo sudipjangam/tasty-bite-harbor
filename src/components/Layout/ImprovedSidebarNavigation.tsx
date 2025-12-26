@@ -30,6 +30,7 @@ import {
   FileText,
   Receipt,
   CalendarClock,
+  Key,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,7 @@ const hrefToComponentMap: Record<string, string> = {
   "/marketing": "marketing",
   "/user-management": "user-management",
   "/role-management": "role-management",
+  "/permission-management": "permission-management",
   "/channel-management": "channel-management",
   "/analytics": "analytics",
   "/financial": "financial",
@@ -77,6 +79,7 @@ interface NavigationItem {
   href: string;
   description?: string;
   requiredPermissions?: Permission[];
+  requiredRole?: string; // Explicit role restriction (e.g., 'admin')
 }
 
 interface NavigationGroup {
@@ -237,6 +240,13 @@ const navigationGroups: NavigationGroup[] = [
         requiredPermissions: ["users.manage"],
       },
       {
+        title: "Permission Management",
+        icon: Key,
+        href: "/permission-management",
+        description: "Manage component permissions",
+        requiredRole: "admin", // Only admin can access, not owner
+      },
+      {
         title: "Channel Management",
         icon: Globe,
         href: "/channel-management",
@@ -339,6 +349,7 @@ export const ImprovedSidebarNavigation = ({
   const systemComponents = [
     "user-management",
     "role-management",
+    "permission-management",
     "settings",
     "security",
   ];
@@ -361,6 +372,12 @@ export const ImprovedSidebarNavigation = ({
       !hasSubscriptionAccess(componentName)
     ) {
       return false; // Component not in subscription plan
+    }
+
+    // Check explicit role requirement first (e.g., admin-only pages)
+    if (item.requiredRole) {
+      const currentRole = user.role_name_text || user.role;
+      return currentRole?.toLowerCase() === item.requiredRole.toLowerCase();
     }
 
     // Then check role-based permission

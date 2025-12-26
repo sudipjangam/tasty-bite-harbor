@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter as Router } from "react-router-dom";
@@ -28,7 +27,7 @@ const queryClient = new QueryClient({
 // Real-time analytics wrapper component
 function AppWithRealtime() {
   useRealtimeAnalytics(); // Initialize real-time subscriptions
-  
+
   return (
     <div className="min-h-screen w-full overflow-auto bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
       <NotificationListener />
@@ -39,8 +38,6 @@ function AppWithRealtime() {
 }
 
 function App() {
-
-  
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="restaurant-pro-theme">

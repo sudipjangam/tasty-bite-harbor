@@ -113,7 +113,7 @@ export const rolePermissions: RolePermissions = {
     'orders.view', 'orders.create', 'orders.update', 'orders.delete', 'pos.access',
     'menu.view', 'menu.create', 'menu.update', 'menu.delete',
     'inventory.view', 'inventory.create', 'inventory.update', 'inventory.delete',
-    'staff.view', 'staff.create', 'staff.update', 'staff.delete', 'staff.manage_roles',
+    'staff.view', 'staff.create', 'staff.update', 'staff.delete',
     'customers.view', 'customers.create', 'customers.update', 'customers.delete',
     'rooms.view', 'rooms.create', 'rooms.update', 'rooms.delete', 'rooms.checkout',
     'reservations.view', 'reservations.create', 'reservations.update', 'reservations.delete',
