@@ -249,31 +249,76 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
           } else if (payload.eventType === "UPDATE") {
             const updatedOrder = payload.new;
 
-            setActiveOrders((prev) => {
-              const updatedOrders = prev.map((order) =>
-                order.id === updatedOrder.id
-                  ? {
-                      ...order,
-                      status: updatedOrder.status as
-                        | "new"
-                        | "preparing"
-                        | "ready"
-                        | "completed"
-                        | "held",
-                      items: parseOrderItems(updatedOrder.items),
+            // Re-fetch discount data from the linked orders table
+            if (updatedOrder.order_id) {
+              supabase
+                .from("orders")
+                .select("discount_amount, discount_percentage")
+                .eq("id", updatedOrder.order_id)
+                .single()
+                .then(({ data: orderData }) => {
+                  setActiveOrders((prev) => {
+                    const updatedOrders = prev.map((order) =>
+                      order.id === updatedOrder.id
+                        ? {
+                            ...order,
+                            source: updatedOrder.source,
+                            status: updatedOrder.status as
+                              | "new"
+                              | "preparing"
+                              | "ready"
+                              | "completed"
+                              | "held",
+                            items: parseOrderItems(updatedOrder.items),
+                            discount_amount: orderData?.discount_amount || 0,
+                            discount_percentage:
+                              orderData?.discount_percentage || 0,
+                          }
+                        : order
+                    );
+
+                    // If status filter is not "all" and not "completed", filter out completed orders
+                    if (
+                      statusFilter !== "all" &&
+                      statusFilter !== "completed"
+                    ) {
+                      return updatedOrders.filter(
+                        (order) => order.status !== "completed"
+                      );
                     }
-                  : order
-              );
 
-              // If status filter is not "all" and not "completed", filter out completed orders
-              if (statusFilter !== "all" && statusFilter !== "completed") {
-                return updatedOrders.filter(
-                  (order) => order.status !== "completed"
+                    return updatedOrders;
+                  });
+                });
+            } else {
+              // No linked order_id, just update without discount info
+              setActiveOrders((prev) => {
+                const updatedOrders = prev.map((order) =>
+                  order.id === updatedOrder.id
+                    ? {
+                        ...order,
+                        source: updatedOrder.source,
+                        status: updatedOrder.status as
+                          | "new"
+                          | "preparing"
+                          | "ready"
+                          | "completed"
+                          | "held",
+                        items: parseOrderItems(updatedOrder.items),
+                      }
+                    : order
                 );
-              }
 
-              return updatedOrders;
-            });
+                // If status filter is not "all" and not "completed", filter out completed orders
+                if (statusFilter !== "all" && statusFilter !== "completed") {
+                  return updatedOrders.filter(
+                    (order) => order.status !== "completed"
+                  );
+                }
+
+                return updatedOrders;
+              });
+            }
 
             if (updatedOrder.status === "ready") {
               toast({
