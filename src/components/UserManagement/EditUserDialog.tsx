@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { UserRole, UserWithMetadata } from "@/types/auth";
-import { User, Loader2, Mail, Lock, ChevronDown } from "lucide-react";
+import { User, Loader2, Lock } from "lucide-react";
 
 interface Role {
   id: string;
@@ -39,7 +39,12 @@ interface EditUserDialogProps {
   onUserUpdated: () => void;
 }
 
-export const EditUserDialog = ({ user, open, onOpenChange, onUserUpdated }: EditUserDialogProps) => {
+export const EditUserDialog = ({
+  user,
+  open,
+  onOpenChange,
+  onUserUpdated,
+}: EditUserDialogProps) => {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -49,40 +54,60 @@ export const EditUserDialog = ({ user, open, onOpenChange, onUserUpdated }: Edit
   const [loading, setLoading] = useState(false);
   const { user: currentUser } = useAuth();
 
+  // Check if current user is an admin
+  const isCurrentUserAdmin = (() => {
+    if (!currentUser) return false;
+    const userRole = (
+      currentUser.role_name_text ||
+      currentUser.role ||
+      ""
+    ).toLowerCase();
+    return currentUser.role_has_full_access || userRole.includes("admin");
+  })();
+
   // Fetch roles from database
-  const { data: roles = [], isLoading: rolesLoading } = useQuery({
-    queryKey: ['roles', currentUser?.restaurant_id],
+  const { data: allRoles = [], isLoading: rolesLoading } = useQuery({
+    queryKey: ["roles", currentUser?.restaurant_id],
     queryFn: async () => {
       if (!currentUser?.restaurant_id) return [];
       const { data, error } = await supabase
-        .from('roles')
-        .select('id, name, description, is_system, has_full_access')
-        .eq('restaurant_id', currentUser.restaurant_id)
-        .order('is_system', { ascending: false })
-        .order('name');
-      
+        .from("roles")
+        .select("id, name, description, is_system, has_full_access")
+        .eq("restaurant_id", currentUser.restaurant_id)
+        .order("is_system", { ascending: false })
+        .order("name");
+
       if (error) throw error;
       return data as Role[];
     },
     enabled: open && !!currentUser?.restaurant_id,
   });
 
+  // Filter roles: non-admins cannot see/assign admin-level roles
+  const roles = isCurrentUserAdmin
+    ? allRoles
+    : allRoles.filter(
+        (r) => !r.name.toLowerCase().includes("admin") && !r.has_full_access
+      );
+
   // Initialize form when dialog opens or user changes
   useEffect(() => {
     if (open && user) {
       // Use role_id if available, otherwise try to find role by name
       let selectedRoleId = user.role_id || "";
-      
+
       // If no role_id but we have roles loaded, try to match by name
       if (!selectedRoleId && roles.length > 0) {
-        const matchingRole = roles.find(r => 
-          r.name.toLowerCase() === (user.role_name_text || user.role || "").toLowerCase()
+        const matchingRole = roles.find(
+          (r) =>
+            r.name.toLowerCase() ===
+            (user.role_name_text || user.role || "").toLowerCase()
         );
         if (matchingRole) {
           selectedRoleId = matchingRole.id;
         }
       }
-      
+
       setFormData({
         firstName: user.first_name || "",
         lastName: user.last_name || "",
@@ -109,7 +134,7 @@ export const EditUserDialog = ({ user, open, onOpenChange, onUserUpdated }: Edit
     setLoading(true);
 
     try {
-      const selectedRole = roles.find(r => r.id === formData.roleId);
+      const selectedRole = roles.find((r) => r.id === formData.roleId);
 
       const payload: any = {
         id: user.id,
@@ -123,24 +148,27 @@ export const EditUserDialog = ({ user, open, onOpenChange, onUserUpdated }: Edit
         payload.new_password = formData.newPassword;
       }
 
-      const { data, error } = await supabase.functions.invoke('user-management', {
-        body: { action: 'update_user', userData: payload },
-      });
+      const { data, error } = await supabase.functions.invoke(
+        "user-management",
+        {
+          body: { action: "update_user", userData: payload },
+        }
+      );
 
       if (error) throw error;
 
-      toast.success('User updated successfully');
+      toast.success("User updated successfully");
       onUserUpdated();
       onOpenChange(false);
     } catch (error: any) {
-      console.error('Error updating user:', error);
-      toast.error(error.message || 'Failed to update user');
+      console.error("Error updating user:", error);
+      toast.error(error.message || "Failed to update user");
     } finally {
       setLoading(false);
     }
   };
 
-  const selectedRole = roles.find(r => r.id === formData.roleId);
+  const selectedRole = roles.find((r) => r.id === formData.roleId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -151,7 +179,9 @@ export const EditUserDialog = ({ user, open, onOpenChange, onUserUpdated }: Edit
               <User className="h-5 w-5 text-white" />
             </div>
             <div>
-              <DialogTitle className="text-lg font-semibold">Edit User</DialogTitle>
+              <DialogTitle className="text-lg font-semibold">
+                Edit User
+              </DialogTitle>
               <DialogDescription className="text-sm">
                 Update user information and role assignment
               </DialogDescription>
@@ -163,22 +193,30 @@ export const EditUserDialog = ({ user, open, onOpenChange, onUserUpdated }: Edit
           {/* Name Fields */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="firstName" className="text-sm font-medium">First Name</Label>
+              <Label htmlFor="firstName" className="text-sm font-medium">
+                First Name
+              </Label>
               <Input
                 id="firstName"
                 value={formData.firstName}
-                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, firstName: e.target.value })
+                }
                 placeholder="Enter first name"
                 className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500/20"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="lastName" className="text-sm font-medium">Last Name</Label>
+              <Label htmlFor="lastName" className="text-sm font-medium">
+                Last Name
+              </Label>
               <Input
                 id="lastName"
                 value={formData.lastName}
-                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, lastName: e.target.value })
+                }
                 placeholder="Enter last name"
                 className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500/20"
                 required
@@ -191,7 +229,9 @@ export const EditUserDialog = ({ user, open, onOpenChange, onUserUpdated }: Edit
             <Label className="text-sm font-medium">Role</Label>
             <Select
               value={formData.roleId}
-              onValueChange={(value) => setFormData({ ...formData, roleId: value })}
+              onValueChange={(value) =>
+                setFormData({ ...formData, roleId: value })
+              }
               disabled={rolesLoading}
             >
               <SelectTrigger className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500/20">
@@ -225,13 +265,18 @@ export const EditUserDialog = ({ user, open, onOpenChange, onUserUpdated }: Edit
               </SelectContent>
             </Select>
             {selectedRole?.description && (
-              <p className="text-xs text-muted-foreground mt-1">{selectedRole.description}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {selectedRole.description}
+              </p>
             )}
           </div>
 
           {/* Password Field */}
           <div className="space-y-2">
-            <Label htmlFor="newPassword" className="text-sm font-medium flex items-center gap-2">
+            <Label
+              htmlFor="newPassword"
+              className="text-sm font-medium flex items-center gap-2"
+            >
               <Lock className="h-3.5 w-3.5" />
               New Password
             </Label>
@@ -239,7 +284,9 @@ export const EditUserDialog = ({ user, open, onOpenChange, onUserUpdated }: Edit
               id="newPassword"
               type="password"
               value={formData.newPassword}
-              onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, newPassword: e.target.value })
+              }
               placeholder="Leave blank to keep current password"
               className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500/20"
               minLength={6}
@@ -250,16 +297,16 @@ export const EditUserDialog = ({ user, open, onOpenChange, onUserUpdated }: Edit
           </div>
 
           <DialogFooter className="pt-4 border-t border-gray-100 dark:border-gray-800 gap-2">
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => onOpenChange(false)}
               className="border-gray-200 dark:border-gray-700"
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={loading || rolesLoading}
               className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/25"
             >
