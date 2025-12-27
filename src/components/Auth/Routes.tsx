@@ -3,6 +3,7 @@ import { Routes as RouterRoutes, Route } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { AppRoutes } from "./AppRoutes";
 import Auth from "@/pages/Auth";
+import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "@/pages/NotFound";
 import LandingWebsite from "@/pages/LandingWebsite";
 
@@ -21,6 +22,7 @@ const Routes = () => {
     return (
       <RouterRoutes>
         <Route path="/website" element={<LandingWebsite />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="*" element={<Auth />} />
       </RouterRoutes>
     );
