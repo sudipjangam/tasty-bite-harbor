@@ -214,134 +214,213 @@ const SubscriptionManager = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 via-slate-800 to-slate-600 dark:from-white dark:via-slate-200 dark:to-slate-400 bg-clip-text text-transparent">
             Subscription Plans
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
-            Manage pricing and subscription plans
+          <p className="text-slate-500 dark:text-slate-400 mt-1 text-lg">
+            Manage pricing tiers and feature entitlements
           </p>
         </div>
         <Button
           onClick={() => setIsAddOpen(true)}
-          className="bg-purple-600 hover:bg-purple-700"
+          className="bg-emerald-600 hover:bg-emerald-700 shadow-lg hover:shadow-emerald-500/25 transition-all text-white"
         >
           <Plus className="h-4 w-4 mr-2" />
-          Add Plan
+          Add New Plan
         </Button>
       </div>
 
       {/* Plans Grid */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
+        </div>
+      ) : plans.length === 0 ? (
+        <div className="text-center py-20 bg-white/30 dark:bg-slate-900/30 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700">
+          <CreditCard className="h-16 w-16 mx-auto text-slate-300 mb-4" />
+          <p className="text-xl font-semibold text-slate-600 dark:text-slate-300">
+            No plans defined
+          </p>
+          <Button onClick={() => setIsAddOpen(true)} className="mt-4">
+            Create First Plan
+          </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {plans.map((plan) => {
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {plans.map((plan, index) => {
             const count = subscriberCounts[plan.id] || 0;
             const features = Array.isArray(plan.features) ? plan.features : [];
 
+            // Tier-based color schemes
+            const tierColor =
+              plan.price === 0
+                ? {
+                    gradient: "from-slate-400 to-slate-500",
+                    light: "slate",
+                    text: "slate",
+                  }
+                : plan.price < 1000
+                ? {
+                    gradient: "from-emerald-500 to-teal-600",
+                    light: "emerald",
+                    text: "emerald",
+                  }
+                : plan.price < 2000
+                ? {
+                    gradient: "from-blue-500 to-indigo-600",
+                    light: "blue",
+                    text: "indigo",
+                  }
+                : plan.price < 5000
+                ? {
+                    gradient: "from-violet-500 to-purple-600",
+                    light: "violet",
+                    text: "purple",
+                  }
+                : {
+                    gradient: "from-amber-500 to-orange-600",
+                    light: "amber",
+                    text: "orange",
+                  };
+
             return (
-              <Card
+              <div
                 key={plan.id}
-                className={`border-slate-200 dark:border-slate-700 relative ${
-                  !plan.is_active ? "opacity-60" : ""
-                }`}
+                className={`group relative bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-3 overflow-hidden
+                ${!plan.is_active ? "opacity-60 grayscale" : ""}
+                `}
               >
+                {/* Gradient border on hover */}
+                <div
+                  className={`absolute inset-0 bg-gradient-to-br ${tierColor.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl`}
+                />
+                <div className="absolute inset-[2px] bg-white dark:bg-slate-900 rounded-3xl" />
+
+                {/* Top gradient bar */}
+                <div
+                  className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${tierColor.gradient} rounded-t-3xl`}
+                />
+
                 {!plan.is_active && (
-                  <Badge className="absolute top-3 right-3 bg-red-100 text-red-700">
+                  <div className="absolute top-4 right-4 bg-red-100 text-red-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider z-20">
                     Inactive
-                  </Badge>
+                  </div>
                 )}
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">{plan.name}</CardTitle>
-                  <p className="text-sm text-slate-500">{plan.description}</p>
-                </CardHeader>
-                <CardContent>
-                  <div className="mb-4">
-                    <span className="text-3xl font-bold flex items-center">
-                      <IndianRupee className="h-5 w-5" />
-                      {plan.price.toLocaleString()}
-                    </span>
-                    <span className="text-slate-500">/{plan.interval}</span>
+
+                <div className="relative z-10">
+                  <div className="mb-6">
+                    <h3
+                      className={`text-xl font-bold mb-2 bg-gradient-to-r ${tierColor.gradient} bg-clip-text text-transparent`}
+                    >
+                      {plan.name}
+                    </h3>
+                    <p className="text-slate-500 text-sm leading-relaxed min-h-[40px]">
+                      {plan.description}
+                    </p>
                   </div>
 
-                  <div className="space-y-2 mb-4">
-                    {features
-                      .slice(0, 4)
-                      .map((feature: string, idx: number) => (
-                        <div
-                          key={idx}
-                          className="flex items-center gap-2 text-sm"
-                        >
-                          <Check className="h-4 w-4 text-emerald-500" />
-                          <span>{feature}</span>
+                  <div className="mb-8">
+                    <div className="flex items-baseline">
+                      <span className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400">
+                        <IndianRupee className="h-8 w-8 inline-block -mt-1 mr-1" />
+                        {plan.price.toLocaleString()}
+                      </span>
+                      <span className="text-slate-400 ml-2 font-medium">
+                        /{plan.interval}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 mb-8 min-h-[120px]">
+                    {features.slice(0, 5).map((feature, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-start gap-3 text-sm text-slate-600 dark:text-slate-300"
+                      >
+                        <div className="mt-1 min-w-[1.25rem] h-5 w-5 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center">
+                          <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
                         </div>
-                      ))}
-                    {features.length > 4 && (
-                      <p className="text-xs text-slate-400">
-                        +{features.length - 4} more
+                        <span className="leading-tight">{feature}</span>
+                      </div>
+                    ))}
+                    {features.length > 5 && (
+                      <p className="text-xs text-slate-400 pl-8">
+                        +{features.length - 5} more features
                       </p>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800 mb-4">
-                    <Building2 className="h-4 w-4 text-purple-500" />
-                    <span className="text-sm text-slate-600 dark:text-slate-300">
-                      {count} subscriber{count !== 1 ? "s" : ""}
-                    </span>
-                  </div>
+                  <div className="flex items-center justify-between pt-6 border-t border-slate-100 dark:border-slate-800/50">
+                    <div className="flex items-center gap-2">
+                      <div className="bg-purple-50 dark:bg-purple-900/20 p-2 rounded-lg">
+                        <Building2 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">
+                          Subscribers
+                        </p>
+                        <p className="font-bold text-slate-900 dark:text-white">
+                          {count}
+                        </p>
+                      </div>
+                    </div>
 
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => openEdit(plan)}
-                    >
-                      <Edit className="h-4 w-4 mr-1" /> Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        toggleMutation.mutate({
-                          id: plan.id,
-                          is_active: !plan.is_active,
-                        })
-                      }
-                    >
-                      {plan.is_active ? (
-                        <X className="h-4 w-4" />
-                      ) : (
-                        <Check className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-500 hover:text-red-600"
-                      onClick={() => {
-                        if (count > 0) {
-                          toast.error(
-                            "Cannot delete plan with active subscribers"
-                          );
-                          return;
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEdit(plan)}
+                        className="hover:bg-purple-50 hover:text-purple-600 dark:hover:bg-purple-900/20"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() =>
+                          toggleMutation.mutate({
+                            id: plan.id,
+                            is_active: !plan.is_active,
+                          })
                         }
-                        if (confirm("Delete this plan?")) {
-                          deleteMutation.mutate(plan.id);
+                        className={
+                          plan.is_active
+                            ? "text-emerald-600 hover:bg-emerald-50"
+                            : "text-slate-400 hover:bg-slate-50"
                         }
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                      >
+                        {plan.is_active ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <X className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        onClick={() => {
+                          if (count > 0) {
+                            toast.error(
+                              "Cannot delete plan with active subscribers"
+                            );
+                            return;
+                          }
+                          if (confirm("Delete this plan?")) {
+                            deleteMutation.mutate(plan.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             );
           })}
         </div>

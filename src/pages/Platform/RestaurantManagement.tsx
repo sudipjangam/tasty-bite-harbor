@@ -419,193 +419,239 @@ const RestaurantManagement = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 via-slate-800 to-slate-600 dark:from-white dark:via-slate-200 dark:to-slate-400 bg-clip-text text-transparent">
             Restaurant Management
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
-            Create, edit, and manage all restaurants
+          <p className="text-slate-500 dark:text-slate-400 mt-1 text-lg">
+            Create, edit, and manage all partner restaurants
           </p>
         </div>
         <Button
           onClick={() => setIsAddOpen(true)}
-          className="bg-purple-600 hover:bg-purple-700"
+          className="bg-purple-600 hover:bg-purple-700 shadow-lg hover:shadow-purple-500/25 transition-all text-white"
         >
           <Plus className="h-4 w-4 mr-2" />
           Add Restaurant
         </Button>
       </div>
 
-      {/* Filters */}
-      <Card className="border-slate-200 dark:border-slate-700">
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                placeholder="Search restaurants..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="trial">Trial</SelectItem>
-                <SelectItem value="expired">Expired</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button variant="outline" onClick={() => refetch()}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
+      {/* Filters Glass Bar */}
+      <div className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl p-4 shadow-sm">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search by name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-white/50 dark:bg-slate-800/50 border-white/20 dark:border-white/10"
+            />
           </div>
-        </CardContent>
-      </Card>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full md:w-[200px] bg-white/50 dark:bg-slate-800/50 border-white/20 dark:border-white/10">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="trial">Trial</SelectItem>
+              <SelectItem value="expired">Expired</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            onClick={() => refetch()}
+            className="bg-white/50 dark:bg-slate-800/50 border-white/20 dark:border-white/10"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
+      </div>
 
-      {/* Table */}
-      <Card className="border-slate-200 dark:border-slate-700">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-purple-600" />
-            All Restaurants
-            <Badge variant="secondary" className="ml-2">
-              {restaurants.length}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-            </div>
-          ) : restaurants.length === 0 ? (
-            <div className="text-center py-12">
-              <Building2 className="h-12 w-12 mx-auto text-slate-300 mb-4" />
-              <p className="text-slate-500">No restaurants found</p>
-              <Button
-                variant="link"
-                className="text-purple-600 mt-2"
-                onClick={() => setIsAddOpen(true)}
+      {/* Grid Content */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
+        </div>
+      ) : restaurants.length === 0 ? (
+        <div className="text-center py-20 bg-white/30 dark:bg-slate-900/30 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700">
+          <Building2 className="h-16 w-16 mx-auto text-slate-300 mb-4" />
+          <p className="text-xl font-semibold text-slate-600 dark:text-slate-300">
+            No restaurants found
+          </p>
+          <p className="text-slate-500 mb-6">
+            Get started by adding your first partner.
+          </p>
+          <Button
+            onClick={() => setIsAddOpen(true)}
+            className="bg-purple-600 text-white"
+          >
+            Add Restaurant
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {restaurants.map((restaurant, index) => {
+            const sub = restaurant.restaurant_subscriptions;
+            const userCount = restaurant.profiles?.length || 0;
+            const expiry = sub?.current_period_end
+              ? new Date(sub.current_period_end).toLocaleDateString()
+              : "N/A";
+
+            // Vibrant color schemes for each card
+            const colors = [
+              {
+                gradient: "from-violet-500 to-purple-600",
+                bg: "violet",
+                shadow: "purple",
+              },
+              {
+                gradient: "from-emerald-500 to-teal-600",
+                bg: "emerald",
+                shadow: "teal",
+              },
+              {
+                gradient: "from-blue-500 to-indigo-600",
+                bg: "blue",
+                shadow: "indigo",
+              },
+              {
+                gradient: "from-rose-500 to-pink-600",
+                bg: "rose",
+                shadow: "pink",
+              },
+              {
+                gradient: "from-amber-500 to-orange-600",
+                bg: "amber",
+                shadow: "orange",
+              },
+              {
+                gradient: "from-cyan-500 to-blue-600",
+                bg: "cyan",
+                shadow: "blue",
+              },
+            ];
+            const color = colors[index % colors.length];
+
+            return (
+              <div
+                key={restaurant.id}
+                className="group relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 overflow-hidden"
               >
-                Add your first restaurant
-              </Button>
-            </div>
-          ) : (
-            <ScrollArea className="h-[500px]">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Restaurant</TableHead>
-                    <TableHead>Plan</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Users</TableHead>
-                    <TableHead>Expires</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {restaurants.map((restaurant) => {
-                    const sub = restaurant.restaurant_subscriptions;
-                    const userCount = restaurant.profiles?.length || 0;
-                    const expiry = sub?.current_period_end
-                      ? new Date(sub.current_period_end).toLocaleDateString()
-                      : "N/A";
+                {/* Gradient border effect */}
+                <div
+                  className={`absolute inset-0 bg-gradient-to-br ${color.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl`}
+                />
+                <div className="absolute inset-[2px] bg-white dark:bg-slate-900 rounded-2xl" />
 
-                    return (
-                      <TableRow key={restaurant.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center">
-                              <Building2 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{restaurant.name}</p>
-                              <p className="text-xs text-slate-500">
-                                {restaurant.phone || "No phone"}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm">
-                            {sub?.subscription_plans?.name || "No plan"}
-                          </span>
-                          {sub?.subscription_plans?.price && (
-                            <p className="text-xs text-slate-400">
-                              ₹{sub.subscription_plans.price}/mo
-                            </p>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(sub?.status || "none")}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1 text-slate-600">
-                            <Users className="h-4 w-4" />
-                            {userCount}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm text-slate-500">
-                          {expiry}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setSelectedRestaurant(restaurant);
-                                  setIsViewOpen(true);
-                                }}
-                              >
-                                <Eye className="h-4 w-4 mr-2" /> View Details
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => openEdit(restaurant)}
-                              >
-                                <Edit className="h-4 w-4 mr-2" /> Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => openSubscription(restaurant)}
-                              >
-                                <CreditCard className="h-4 w-4 mr-2" /> Manage
-                                Subscription
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-red-600"
-                                onClick={() => {
-                                  setSelectedRestaurant(restaurant);
-                                  setIsDeleteOpen(true);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" /> Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
+                {/* Top accent line */}
+                <div
+                  className={`absolute top-0 left-6 right-6 h-1 bg-gradient-to-r ${color.gradient} rounded-b-full opacity-60 group-hover:opacity-100 transition-opacity`}
+                />
+
+                <div className="relative z-10">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-14 h-14 rounded-xl bg-gradient-to-br ${color.gradient} flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-${color.shadow}-500/30 group-hover:scale-110 transition-transform duration-300`}
+                      >
+                        {restaurant.name.charAt(0)}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-tight group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-violet-600 group-hover:to-purple-600 transition-all">
+                          {restaurant.name}
+                        </h3>
+                        <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                          <Phone className="h-3 w-3" />{" "}
+                          {restaurant.phone || "No phone"}
+                        </p>
+                      </div>
+                    </div>
+                    {getStatusBadge(sub?.status || "none")}
+                  </div>
+
+                  <div className="space-y-3 py-4 border-t border-b border-slate-100 dark:border-slate-800/50">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-500 font-medium">Plan</span>
+                      <span
+                        className={`font-semibold px-3 py-1 rounded-full text-xs bg-gradient-to-r ${color.gradient} text-white shadow-sm`}
+                      >
+                        {sub?.subscription_plans?.name || "Free/None"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-500 font-medium">Users</span>
+                      <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">
+                        <Users className="h-3.5 w-3.5 text-blue-500" />{" "}
+                        {userCount}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-500 font-medium">
+                        Expires
+                      </span>
+                      <span className="font-mono text-xs bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-900 px-3 py-1 rounded-full text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                        {expiry}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 flex items-center justify-between gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 hover:bg-purple-50 hover:text-purple-600 dark:hover:bg-purple-900/20 border-slate-200 dark:border-slate-700"
+                      onClick={() => {
+                        setSelectedRestaurant(restaurant);
+                        setIsViewOpen(true);
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-1" /> View
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 data-[state=open]:bg-slate-100 dark:data-[state=open]:bg-slate-800"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEdit(restaurant)}>
+                          <Edit className="h-4 w-4 mr-2" /> Edit Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => openSubscription(restaurant)}
+                        >
+                          <CreditCard className="h-4 w-4 mr-2" /> Manage
+                          Subscription
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          onClick={() => {
+                            setSelectedRestaurant(restaurant);
+                            setIsDeleteOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Add Dialog */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
