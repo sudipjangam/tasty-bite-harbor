@@ -2,6 +2,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "./useRestaurantId";
+import { useRealtimeSubscription } from "./useRealtimeSubscription";
+import { subDays, subMonths } from "date-fns";
 
 export interface TrendingItem {
   name: string;
@@ -9,42 +11,55 @@ export interface TrendingItem {
   revenue: number;
 }
 
-export const useTrendingItems = () => {
+export type TrendingPeriod = "weekly" | "monthly";
+
+export const useTrendingItems = (period: TrendingPeriod = "weekly") => {
   const { restaurantId, isLoading: isRestaurantLoading } = useRestaurantId();
 
+  // Setup real-time subscription for live updates
+  useRealtimeSubscription({
+    table: "orders",
+    queryKey: "trending-items",
+    schema: "public",
+  });
+
   return useQuery({
-    queryKey: ["trending-items", restaurantId],
+    queryKey: ["trending-items", restaurantId, period],
     queryFn: async () => {
       if (!restaurantId) throw new Error("No restaurant found");
 
-      // Fetch completed orders to calculate trending items
+      // Calculate date range based on period
+      const now = new Date();
+      const startDate = period === "weekly" 
+        ? subDays(now, 7) 
+        : subMonths(now, 1);
+
+      // Fetch completed orders within the date range
       const { data: orders, error } = await supabase
         .from("orders")
-        .select("items, total")
+        .select("items, total, created_at")
         .eq("restaurant_id", restaurantId)
         .eq("status", "completed")
-        .limit(100); // Analyze last 100 orders for trends
+        .gte("created_at", startDate.toISOString())
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
       // Group and count items
-      // Assuming items is a string[] of names based on prior checks
       const itemCounts: Record<string, { count: number; revenue: number }> = {};
       
       orders?.forEach(order => {
-        // Fallback if items is not an array or is null
+        // Handle items as array of objects with name property
         const items = Array.isArray(order.items) ? order.items : [];
-        items.forEach((itemName: string) => {
-           // Basic cleaning
-           const name = itemName.trim();
-           if (!itemCounts[name]) {
-             itemCounts[name] = { count: 0, revenue: 0 };
-           }
-           itemCounts[name].count += 1;
-           // Estimate revenue share (rough approximation since individual item prices aren't stored in simple order items array)
-           // For accurate revenue we'd need item prices. Here we focus on popularity (count).
-           // If we have total, we can assign average? No, that's misleading.
-           // Let's stick to popularity (count) for "Trending".
+        items.forEach((item: any) => {
+          // Handle both string and object formats
+          const name = typeof item === 'string' ? item.trim() : (item?.name || '').trim();
+          if (!name) return;
+          
+          if (!itemCounts[name]) {
+            itemCounts[name] = { count: 0, revenue: 0 };
+          }
+          itemCounts[name].count += typeof item === 'object' ? (item.quantity || 1) : 1;
         });
       });
 
