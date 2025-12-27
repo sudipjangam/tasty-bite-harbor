@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,12 +52,15 @@ import {
   UserX,
   Calendar,
   Phone,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 interface Profile {
   id: string;
-  email: string;
-  full_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  email?: string;
   role: string;
   phone: string | null;
   restaurant_id: string | null;
@@ -75,6 +78,9 @@ const AllUsers = () => {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editRole, setEditRole] = useState("");
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    new Set(["all"])
+  );
 
   // Fetch all users
   const {
@@ -96,7 +102,7 @@ const AllUsers = () => {
 
       if (searchQuery) {
         query = query.or(
-          `full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`
+          `first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%`
         );
       }
 
@@ -109,6 +115,42 @@ const AllUsers = () => {
       return data as Profile[];
     },
   });
+
+  // Group users by restaurant
+  const groupedUsers = useMemo(() => {
+    const groups: Record<string, { name: string; users: Profile[] }> = {};
+    users.forEach((user) => {
+      const restaurantName = user.restaurants?.name || "Unassigned";
+      const restaurantId = user.restaurant_id || "unassigned";
+      if (!groups[restaurantId]) {
+        groups[restaurantId] = { name: restaurantName, users: [] };
+      }
+      groups[restaurantId].users.push(user);
+    });
+    return Object.entries(groups).sort((a, b) =>
+      a[1].name.localeCompare(b[1].name)
+    );
+  }, [users]);
+
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    setExpandedGroups(new Set(groupedUsers.map(([id]) => id)));
+  };
+
+  const collapseAll = () => {
+    setExpandedGroups(new Set());
+  };
 
   // Update user role
   const updateRoleMutation = useMutation({
@@ -167,7 +209,7 @@ const AllUsers = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
             All Users
           </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1">
@@ -177,7 +219,7 @@ const AllUsers = () => {
       </div>
 
       {/* Filters */}
-      <Card className="border-slate-200 dark:border-slate-700">
+      <Card className="border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl">
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
@@ -210,16 +252,27 @@ const AllUsers = () => {
         </CardContent>
       </Card>
 
-      {/* Users Table */}
-      <Card className="border-slate-200 dark:border-slate-700">
-        <CardHeader>
+      {/* Grouped Users by Restaurant */}
+      <Card className="border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl">
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5 text-purple-600" />
             Platform Users
             <Badge variant="secondary" className="ml-2">
               {users.length}
             </Badge>
+            <Badge variant="outline" className="ml-1 text-xs">
+              {groupedUsers.length} restaurants
+            </Badge>
           </CardTitle>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={expandAll}>
+              Expand All
+            </Button>
+            <Button variant="ghost" size="sm" onClick={collapseAll}>
+              Collapse All
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -232,81 +285,129 @@ const AllUsers = () => {
               <p className="text-slate-500">No users found</p>
             </div>
           ) : (
-            <ScrollArea className="h-[500px]">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Restaurant</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white font-medium">
-                            {(user.full_name || user.email || "U")
-                              .charAt(0)
-                              .toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-medium">
-                              {user.full_name || "No name"}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {user.email}
-                            </p>
-                          </div>
+            <ScrollArea className="h-[600px]">
+              <div className="space-y-4">
+                {groupedUsers.map(([groupId, group]) => (
+                  <div
+                    key={groupId}
+                    className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white/50 dark:bg-slate-800/50"
+                  >
+                    {/* Restaurant Header - Clickable */}
+                    <button
+                      onClick={() => toggleGroup(groupId)}
+                      className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 hover:from-violet-100 hover:to-purple-100 dark:hover:from-violet-900/30 dark:hover:to-purple-900/30 transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg">
+                          {group.name.charAt(0)}
                         </div>
-                      </TableCell>
-                      <TableCell>{getRoleBadge(user.role)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                          <Building2 className="h-4 w-4" />
-                          <span className="text-sm">
-                            {user.restaurants?.name || "Not assigned"}
-                          </span>
+                        <div className="text-left">
+                          <h3 className="font-semibold text-slate-800 dark:text-white">
+                            {group.name}
+                          </h3>
+                          <p className="text-xs text-slate-500">
+                            {group.users.length} user
+                            {group.users.length !== 1 ? "s" : ""}
+                          </p>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-slate-500">
-                        {new Date(user.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSelectedUser(user);
-                                setIsViewOpen(true);
-                              }}
+                      </div>
+                      {expandedGroups.has(groupId) ? (
+                        <ChevronUp className="h-5 w-5 text-violet-600" />
+                      ) : (
+                        <ChevronDown className="h-5 w-5 text-slate-400" />
+                      )}
+                    </button>
+
+                    {/* Users Table - Collapsible */}
+                    {expandedGroups.has(groupId) && (
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-slate-50 dark:bg-slate-800/50">
+                            <TableHead>User</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead>Joined</TableHead>
+                            <TableHead className="text-right">
+                              Actions
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {group.users.map((user) => (
+                            <TableRow
+                              key={user.id}
+                              className="hover:bg-violet-50/50 dark:hover:bg-violet-900/10"
                             >
-                              <Eye className="h-4 w-4 mr-2" /> View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSelectedUser(user);
-                                setEditRole(user.role);
-                                setIsEditOpen(true);
-                              }}
-                            >
-                              <Edit className="h-4 w-4 mr-2" /> Change Role
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                              <TableCell>
+                                <div className="flex items-center gap-3">
+                                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white font-medium text-sm">
+                                    {(user.first_name || "U")
+                                      .charAt(0)
+                                      .toUpperCase()}
+                                  </div>
+                                  <p className="font-medium text-sm">
+                                    {user.first_name && user.last_name
+                                      ? `${user.first_name} ${user.last_name}`
+                                      : user.first_name ||
+                                        user.last_name ||
+                                        "No name"}
+                                  </p>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                                  <Mail className="h-3.5 w-3.5 text-slate-400" />
+                                  <span className="truncate max-w-[180px]">
+                                    {user.email || "N/A"}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell>{getRoleBadge(user.role)}</TableCell>
+                              <TableCell className="text-sm text-slate-500">
+                                {new Date(user.created_at).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                    >
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setSelectedUser(user);
+                                        setIsViewOpen(true);
+                                      }}
+                                    >
+                                      <Eye className="h-4 w-4 mr-2" /> View
+                                      Details
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setSelectedUser(user);
+                                        setEditRole(user.role);
+                                        setIsEditOpen(true);
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4 mr-2" /> Change
+                                      Role
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+                ))}
+              </div>
             </ScrollArea>
           )}
         </CardContent>
@@ -324,13 +425,15 @@ const AllUsers = () => {
           <div className="space-y-4 py-4">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white text-2xl font-medium">
-                {(selectedUser?.full_name || selectedUser?.email || "U")
-                  .charAt(0)
-                  .toUpperCase()}
+                {(selectedUser?.first_name || "U").charAt(0).toUpperCase()}
               </div>
               <div>
                 <h3 className="font-medium text-lg">
-                  {selectedUser?.full_name || "No name"}
+                  {selectedUser?.first_name && selectedUser?.last_name
+                    ? `${selectedUser.first_name} ${selectedUser.last_name}`
+                    : selectedUser?.first_name ||
+                      selectedUser?.last_name ||
+                      "No name"}
                 </h3>
                 {getRoleBadge(selectedUser?.role || "staff")}
               </div>
@@ -382,7 +485,10 @@ const AllUsers = () => {
           <DialogHeader>
             <DialogTitle>Change User Role</DialogTitle>
             <DialogDescription>
-              Update role for {selectedUser?.full_name || selectedUser?.email}
+              Update role for{" "}
+              {selectedUser?.first_name && selectedUser?.last_name
+                ? `${selectedUser.first_name} ${selectedUser.last_name}`
+                : selectedUser?.email || "this user"}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
