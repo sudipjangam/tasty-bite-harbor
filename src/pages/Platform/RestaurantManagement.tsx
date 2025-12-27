@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -75,6 +76,9 @@ import {
   Shield,
   FileText,
   IndianRupee,
+  ArrowRight,
+  ArrowLeft,
+  Check,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -149,12 +153,62 @@ const RestaurantManagement = () => {
   const [isSubscriptionOpen, setIsSubscriptionOpen] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] =
     useState<Restaurant | null>(null);
+  const [activeTab, setActiveTab] = useState("basic");
+
+  const steps = [
+    { id: "basic", label: "Basic Info", icon: Building2 },
+    { id: "legal", label: "Legal", icon: FileText },
+    { id: "owner", label: "Owner", icon: Users },
+    { id: "bank", label: "Bank", icon: Banknote },
+    { id: "subscription", label: "Plan", icon: CreditCard },
+  ];
+
+  const handleNext = () => {
+    const currentIndex = steps.findIndex((s) => s.id === activeTab);
+    if (currentIndex < steps.length - 1) {
+      // Basic validation
+      if (activeTab === "basic" && !formData.name) {
+        toast.error("Restaurant Name is required");
+        return;
+      }
+      setActiveTab(steps[currentIndex + 1].id);
+    }
+  };
+
+  const handleBack = () => {
+    const currentIndex = steps.findIndex((s) => s.id === activeTab);
+    if (currentIndex > 0) {
+      setActiveTab(steps[currentIndex - 1].id);
+    }
+  };
 
   // Form state
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
     address: "",
+    email: "",
+    website: "",
+    gstin: "",
+    registration_number: "",
+    license_number: "",
+    established_date: "",
+    seating_capacity: "",
+    description: "",
+    owner_name: "",
+    owner_email: "",
+    owner_phone: "",
+    owner_address: "",
+    owner_id_type: "aadhar",
+    owner_id_number: "",
+    emergency_contact_name: "",
+    emergency_contact_phone: "",
+    bank_name: "",
+    account_number: "",
+    ifsc_code: "",
+    pan_number: "",
+    upi_id: "",
+    payment_gateway_enabled: false,
     planId: "",
   });
 
@@ -231,6 +285,32 @@ const RestaurantManagement = () => {
           name: data.name,
           phone: data.phone || null,
           address: data.address || null,
+          email: data.email || null,
+          website: data.website || null,
+          gstin: data.gstin || null,
+          registration_number: data.registration_number || null,
+          license_number: data.license_number || null,
+          established_date: data.established_date || null,
+          seating_capacity: data.seating_capacity
+            ? parseInt(data.seating_capacity)
+            : null,
+          description: data.description || null,
+          owner_name: data.owner_name || null,
+          owner_email: data.owner_email || null,
+          owner_phone: data.owner_phone || null,
+          owner_address: data.owner_address || null,
+          owner_id_type: data.owner_id_type || null,
+          owner_id_number: data.owner_id_number || null,
+          emergency_contact_name: data.emergency_contact_name || null,
+          emergency_contact_phone: data.emergency_contact_phone || null,
+          bank_name: data.bank_name || null,
+          account_number: data.account_number || null,
+          ifsc_code: data.ifsc_code || null,
+          pan_number: data.pan_number || null,
+          upi_id: data.upi_id || null,
+          payment_gateway_enabled: data.payment_gateway_enabled,
+          is_active: true,
+          verification_status: "pending",
         })
         .select()
         .single();
@@ -243,7 +323,7 @@ const RestaurantManagement = () => {
           .from("restaurant_subscriptions")
           .insert({
             restaurant_id: restaurant.id,
-            subscription_plan_id: data.planId,
+            plan_id: data.planId,
             status: "active",
             current_period_start: new Date().toISOString(),
             current_period_end: new Date(
@@ -274,6 +354,28 @@ const RestaurantManagement = () => {
       name: string;
       phone: string;
       address: string;
+      email: string;
+      website: string;
+      gstin: string;
+      registration_number: string;
+      license_number: string;
+      established_date: string;
+      seating_capacity: string;
+      description: string;
+      owner_name: string;
+      owner_email: string;
+      owner_phone: string;
+      owner_address: string;
+      owner_id_type: string;
+      owner_id_number: string;
+      emergency_contact_name: string;
+      emergency_contact_phone: string;
+      bank_name: string;
+      account_number: string;
+      ifsc_code: string;
+      pan_number: string;
+      upi_id: string;
+      payment_gateway_enabled: boolean;
     }) => {
       const { error } = await supabase
         .from("restaurants")
@@ -281,6 +383,30 @@ const RestaurantManagement = () => {
           name: data.name,
           phone: data.phone || null,
           address: data.address || null,
+          email: data.email || null,
+          website: data.website || null,
+          gstin: data.gstin || null,
+          registration_number: data.registration_number || null,
+          license_number: data.license_number || null,
+          established_date: data.established_date || null,
+          seating_capacity: data.seating_capacity
+            ? parseInt(data.seating_capacity)
+            : null,
+          description: data.description || null,
+          owner_name: data.owner_name || null,
+          owner_email: data.owner_email || null,
+          owner_phone: data.owner_phone || null,
+          owner_address: data.owner_address || null,
+          owner_id_type: data.owner_id_type || null,
+          owner_id_number: data.owner_id_number || null,
+          emergency_contact_name: data.emergency_contact_name || null,
+          emergency_contact_phone: data.emergency_contact_phone || null,
+          bank_name: data.bank_name || null,
+          account_number: data.account_number || null,
+          ifsc_code: data.ifsc_code || null,
+          pan_number: data.pan_number || null,
+          upi_id: data.upi_id || null,
+          payment_gateway_enabled: data.payment_gateway_enabled,
         })
         .eq("id", data.id);
       if (error) throw error;
@@ -329,7 +455,7 @@ const RestaurantManagement = () => {
         const { error } = await supabase
           .from("restaurant_subscriptions")
           .update({
-            subscription_plan_id: data.planId,
+            plan_id: data.planId,
             current_period_start: new Date().toISOString(),
             current_period_end: new Date(
               Date.now() + 30 * 24 * 60 * 60 * 1000
@@ -343,7 +469,7 @@ const RestaurantManagement = () => {
           .from("restaurant_subscriptions")
           .insert({
             restaurant_id: data.restaurantId,
-            subscription_plan_id: data.planId,
+            plan_id: data.planId,
             status: "active",
             current_period_start: new Date().toISOString(),
             current_period_end: new Date(
@@ -365,7 +491,35 @@ const RestaurantManagement = () => {
   });
 
   const resetForm = () => {
-    setFormData({ name: "", phone: "", address: "", planId: "" });
+    setActiveTab("basic");
+    setFormData({
+      name: "",
+      phone: "",
+      address: "",
+      email: "",
+      website: "",
+      gstin: "",
+      registration_number: "",
+      license_number: "",
+      established_date: "",
+      seating_capacity: "",
+      description: "",
+      owner_name: "",
+      owner_email: "",
+      owner_phone: "",
+      owner_address: "",
+      owner_id_type: "aadhar",
+      owner_id_number: "",
+      emergency_contact_name: "",
+      emergency_contact_phone: "",
+      bank_name: "",
+      account_number: "",
+      ifsc_code: "",
+      pan_number: "",
+      upi_id: "",
+      payment_gateway_enabled: false,
+      planId: "",
+    });
   };
 
   const openEdit = (restaurant: Restaurant) => {
@@ -374,6 +528,28 @@ const RestaurantManagement = () => {
       name: restaurant.name,
       phone: restaurant.phone || "",
       address: restaurant.address || "",
+      email: restaurant.email || "",
+      website: restaurant.website || "",
+      gstin: restaurant.gstin || "",
+      registration_number: restaurant.registration_number || "",
+      license_number: restaurant.license_number || "",
+      established_date: restaurant.established_date || "",
+      seating_capacity: restaurant.seating_capacity?.toString() || "",
+      description: restaurant.description || "",
+      owner_name: restaurant.owner_name || "",
+      owner_email: restaurant.owner_email || "",
+      owner_phone: restaurant.owner_phone || "",
+      owner_address: restaurant.owner_address || "",
+      owner_id_type: restaurant.owner_id_type || "aadhar",
+      owner_id_number: restaurant.owner_id_number || "",
+      emergency_contact_name: restaurant.emergency_contact_name || "",
+      emergency_contact_phone: restaurant.emergency_contact_phone || "",
+      bank_name: restaurant.bank_name || "",
+      account_number: restaurant.account_number || "",
+      ifsc_code: restaurant.ifsc_code || "",
+      pan_number: restaurant.pan_number || "",
+      upi_id: restaurant.upi_id || "",
+      payment_gateway_enabled: restaurant.payment_gateway_enabled || false,
       planId: "",
     });
     setIsEditOpen(true);
@@ -653,123 +829,848 @@ const RestaurantManagement = () => {
         </div>
       )}
 
-      {/* Add Dialog */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Restaurant</DialogTitle>
-            <DialogDescription>Create a new restaurant entry</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label>Restaurant Name *</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                placeholder="e.g., The Grand Restaurant"
-                className="mt-1"
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 bg-slate-50 dark:bg-slate-950">
+          <div className="p-6 pb-0">
+            <DialogHeader className="mb-6">
+              <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                Add New Restaurant
+              </DialogTitle>
+              <DialogDescription className="text-slate-500">
+                Follow the steps to onboard a new partner restaurant
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Wizard Progress */}
+            <div className="relative mb-8">
+              <div className="absolute top-1/2 left-0 right-0 h-1 bg-slate-200 dark:bg-slate-800 -translate-y-1/2 rounded-full" />
+              <div
+                className="absolute top-1/2 left-0 h-1 bg-gradient-to-r from-purple-500 to-indigo-500 -translate-y-1/2 rounded-full transition-all duration-500 ease-in-out"
+                style={{
+                  width: `${
+                    (steps.findIndex((s) => s.id === activeTab) /
+                      (steps.length - 1)) *
+                    100
+                  }%`,
+                }}
               />
-            </div>
-            <div>
-              <Label>Phone</Label>
-              <Input
-                value={formData.phone}
-                onChange={(e) =>
-                  setFormData({ ...formData, phone: e.target.value })
-                }
-                placeholder="+91 9876543210"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>Address</Label>
-              <Textarea
-                value={formData.address}
-                onChange={(e) =>
-                  setFormData({ ...formData, address: e.target.value })
-                }
-                placeholder="Full address"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>Subscription Plan</Label>
-              <Select
-                value={formData.planId}
-                onValueChange={(v) => setFormData({ ...formData, planId: v })}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select a plan (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {plans.map((plan) => (
-                    <SelectItem key={plan.id} value={plan.id}>
-                      {plan.name} - ₹{plan.price}/{plan.interval}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="relative flex justify-between z-10">
+                {steps.map((step, index) => {
+                  const isActive = step.id === activeTab;
+                  const isCompleted =
+                    steps.findIndex((s) => s.id === activeTab) > index;
+                  const Icon = step.icon;
+
+                  return (
+                    <div
+                      key={step.id}
+                      className="flex flex-col items-center gap-2 cursor-pointer group"
+                      onClick={() => {
+                        // Allow clicking previous steps
+                        if (isCompleted) setActiveTab(step.id);
+                      }}
+                    >
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 border-4 ${
+                          isActive
+                            ? "bg-purple-600 border-purple-100 dark:border-purple-900/30 text-white shadow-lg shadow-purple-500/30 scale-110"
+                            : isCompleted
+                            ? "bg-emerald-500 border-emerald-100 dark:border-emerald-900/30 text-white"
+                            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 group-hover:border-purple-200 dark:group-hover:border-purple-800"
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <Check className="h-5 w-5" />
+                        ) : (
+                          <Icon className="h-4 w-4" />
+                        )}
+                      </div>
+                      <span
+                        className={`text-xs font-semibold transition-colors duration-300 ${
+                          isActive
+                            ? "text-purple-600 dark:text-purple-400"
+                            : isCompleted
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-slate-400"
+                        }`}
+                      >
+                        {step.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddOpen(false)}>
-              Cancel
-            </Button>
+
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="flex-1 overflow-hidden flex flex-col bg-white dark:bg-slate-900 rounded-t-3xl border-t border-slate-200 dark:border-slate-800 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]"
+          >
+            <ScrollArea className="flex-1 mt-6 px-8">
+              <TabsContent value="basic" className="space-y-6 pb-6 mt-0">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <Label>Restaurant Name *</Label>
+                    <Input
+                      value={formData.name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
+                      placeholder="e.g., The Grand Restaurant"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Phone</Label>
+                    <Input
+                      value={formData.phone}
+                      onChange={(e) =>
+                        setFormData({ ...formData, phone: e.target.value })
+                      }
+                      placeholder="+91 9876543210"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Email</Label>
+                    <Input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) =>
+                        setFormData({ ...formData, email: e.target.value })
+                      }
+                      placeholder="restaurant@example.com"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Website</Label>
+                    <Input
+                      value={formData.website}
+                      onChange={(e) =>
+                        setFormData({ ...formData, website: e.target.value })
+                      }
+                      placeholder="https://..."
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Seating Capacity</Label>
+                    <Input
+                      type="number"
+                      value={formData.seating_capacity}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          seating_capacity: e.target.value,
+                        })
+                      }
+                      placeholder="e.g., 50"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Address</Label>
+                    <Textarea
+                      value={formData.address}
+                      onChange={(e) =>
+                        setFormData({ ...formData, address: e.target.value })
+                      }
+                      placeholder="Full address"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      value={formData.description}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          description: e.target.value,
+                        })
+                      }
+                      placeholder="Short description..."
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="legal" className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>GSTIN</Label>
+                    <Input
+                      value={formData.gstin}
+                      onChange={(e) =>
+                        setFormData({ ...formData, gstin: e.target.value })
+                      }
+                      placeholder="GSTIN Number"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Registration Number</Label>
+                    <Input
+                      value={formData.registration_number}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          registration_number: e.target.value,
+                        })
+                      }
+                      placeholder="Reg Number"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>License Number</Label>
+                    <Input
+                      value={formData.license_number}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          license_number: e.target.value,
+                        })
+                      }
+                      placeholder="License Number"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Established Date</Label>
+                    <Input
+                      type="date"
+                      value={formData.established_date}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          established_date: e.target.value,
+                        })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="owner" className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Owner Name</Label>
+                    <Input
+                      value={formData.owner_name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, owner_name: e.target.value })
+                      }
+                      placeholder="Full Name"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Owner Email</Label>
+                    <Input
+                      value={formData.owner_email}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          owner_email: e.target.value,
+                        })
+                      }
+                      placeholder="email@example.com"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Owner Phone</Label>
+                    <Input
+                      value={formData.owner_phone}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          owner_phone: e.target.value,
+                        })
+                      }
+                      placeholder="Phone"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>ID Type</Label>
+                    <Select
+                      value={formData.owner_id_type}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, owner_id_type: v })
+                      }
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="aadhar">Aadhar</SelectItem>
+                        <SelectItem value="pan">PAN</SelectItem>
+                        <SelectItem value="voter_id">Voter ID</SelectItem>
+                        <SelectItem value="driving_license">
+                          Driving License
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>ID Number</Label>
+                    <Input
+                      value={formData.owner_id_number}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          owner_id_number: e.target.value,
+                        })
+                      }
+                      placeholder="ID Number"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Owner Address</Label>
+                    <Textarea
+                      value={formData.owner_address}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          owner_address: e.target.value,
+                        })
+                      }
+                      placeholder="Address"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="col-span-2 pt-4 border-t">
+                    <Label className="text-amber-600">Emergency Contact</Label>
+                  </div>
+                  <div>
+                    <Label>Contact Name</Label>
+                    <Input
+                      value={formData.emergency_contact_name}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          emergency_contact_name: e.target.value,
+                        })
+                      }
+                      placeholder="Name"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Contact Phone</Label>
+                    <Input
+                      value={formData.emergency_contact_phone}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          emergency_contact_phone: e.target.value,
+                        })
+                      }
+                      placeholder="Phone"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="bank" className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Bank Name</Label>
+                    <Input
+                      value={formData.bank_name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, bank_name: e.target.value })
+                      }
+                      placeholder="Bank Name"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Account Number</Label>
+                    <Input
+                      value={formData.account_number}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          account_number: e.target.value,
+                        })
+                      }
+                      placeholder="Acc Number"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>IFSC Code</Label>
+                    <Input
+                      value={formData.ifsc_code}
+                      onChange={(e) =>
+                        setFormData({ ...formData, ifsc_code: e.target.value })
+                      }
+                      placeholder="IFSC"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>PAN Number</Label>
+                    <Input
+                      value={formData.pan_number}
+                      onChange={(e) =>
+                        setFormData({ ...formData, pan_number: e.target.value })
+                      }
+                      placeholder="PAN"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>UPI ID</Label>
+                    <Input
+                      value={formData.upi_id}
+                      onChange={(e) =>
+                        setFormData({ ...formData, upi_id: e.target.value })
+                      }
+                      placeholder="UPI ID"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 mt-8">
+                    <Switch
+                      checked={formData.payment_gateway_enabled}
+                      onCheckedChange={(c) =>
+                        setFormData({ ...formData, payment_gateway_enabled: c })
+                      }
+                    />
+                    <Label>Enable Payment Gateway</Label>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="subscription" className="space-y-4">
+                <div className="py-4">
+                  <Label>Select Subscription Plan</Label>
+                  <div className="grid grid-cols-1 gap-3 mt-2">
+                    {plans.map((plan) => (
+                      <div
+                        key={plan.id}
+                        className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                          formData.planId === plan.id
+                            ? "border-purple-600 bg-purple-50 dark:bg-purple-900/20"
+                            : "border-slate-200 dark:border-slate-700 hover:border-purple-300"
+                        }`}
+                        onClick={() =>
+                          setFormData({ ...formData, planId: plan.id })
+                        }
+                      >
+                        <div>
+                          <p className="font-semibold text-lg">{plan.name}</p>
+                          <p className="text-slate-500">
+                            {plan.interval === "month" ? "Monthly" : "Yearly"}{" "}
+                            Billing
+                          </p>
+                        </div>
+                        <div className="text-xl font-bold text-purple-600">
+                          ₹{plan.price}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </TabsContent>
+            </ScrollArea>
+          </Tabs>
+          <div className="p-6 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center gap-4 z-20">
             <Button
-              onClick={() => createMutation.mutate(formData)}
-              disabled={!formData.name || createMutation.isPending}
-              className="bg-purple-600 hover:bg-purple-700"
+              variant="outline"
+              onClick={() => {
+                if (activeTab === "basic") {
+                  setIsAddOpen(false);
+                } else {
+                  handleBack();
+                }
+              }}
+              className="w-32 hover:bg-slate-100 dark:hover:bg-slate-800"
             >
-              {createMutation.isPending && (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              {activeTab === "basic" ? (
+                "Cancel"
+              ) : (
+                <>
+                  <ArrowLeft className="h-4 w-4 mr-2" /> Back
+                </>
               )}
-              Create Restaurant
             </Button>
-          </DialogFooter>
+
+            {activeTab === "subscription" ? (
+              <Button
+                onClick={() => createMutation.mutate(formData)}
+                disabled={!formData.name || createMutation.isPending}
+                className="w-48 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-lg shadow-purple-500/25 text-white"
+              >
+                {createMutation.isPending && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
+                Create Restaurant
+              </Button>
+            ) : (
+              <Button
+                onClick={handleNext}
+                className="w-32 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-200"
+              >
+                Next <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Edit Restaurant</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label>Restaurant Name</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>Phone</Label>
-              <Input
-                value={formData.phone}
-                onChange={(e) =>
-                  setFormData({ ...formData, phone: e.target.value })
-                }
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>Address</Label>
-              <Textarea
-                value={formData.address}
-                onChange={(e) =>
-                  setFormData({ ...formData, address: e.target.value })
-                }
-                className="mt-1"
-              />
-            </div>
-          </div>
-          <DialogFooter>
+          <Tabs
+            defaultValue="basic"
+            className="flex-1 overflow-hidden flex flex-col"
+          >
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="basic">Basic</TabsTrigger>
+              <TabsTrigger value="legal">Legal</TabsTrigger>
+              <TabsTrigger value="owner">Owner</TabsTrigger>
+              <TabsTrigger value="bank">Bank</TabsTrigger>
+            </TabsList>
+
+            <ScrollArea className="flex-1 mt-4 px-1">
+              <TabsContent value="basic" className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <Label>Restaurant Name *</Label>
+                    <Input
+                      value={formData.name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Phone</Label>
+                    <Input
+                      value={formData.phone}
+                      onChange={(e) =>
+                        setFormData({ ...formData, phone: e.target.value })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Email</Label>
+                    <Input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) =>
+                        setFormData({ ...formData, email: e.target.value })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Website</Label>
+                    <Input
+                      value={formData.website}
+                      onChange={(e) =>
+                        setFormData({ ...formData, website: e.target.value })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Seating Capacity</Label>
+                    <Input
+                      type="number"
+                      value={formData.seating_capacity}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          seating_capacity: e.target.value,
+                        })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Address</Label>
+                    <Textarea
+                      value={formData.address}
+                      onChange={(e) =>
+                        setFormData({ ...formData, address: e.target.value })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      value={formData.description}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          description: e.target.value,
+                        })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="legal" className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>GSTIN</Label>
+                    <Input
+                      value={formData.gstin}
+                      onChange={(e) =>
+                        setFormData({ ...formData, gstin: e.target.value })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Registration Number</Label>
+                    <Input
+                      value={formData.registration_number}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          registration_number: e.target.value,
+                        })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>License Number</Label>
+                    <Input
+                      value={formData.license_number}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          license_number: e.target.value,
+                        })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Established Date</Label>
+                    <Input
+                      type="date"
+                      value={formData.established_date}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          established_date: e.target.value,
+                        })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="owner" className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Owner Name</Label>
+                    <Input
+                      value={formData.owner_name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, owner_name: e.target.value })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Owner Email</Label>
+                    <Input
+                      value={formData.owner_email}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          owner_email: e.target.value,
+                        })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Owner Phone</Label>
+                    <Input
+                      value={formData.owner_phone}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          owner_phone: e.target.value,
+                        })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>ID Type</Label>
+                    <Select
+                      value={formData.owner_id_type}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, owner_id_type: v })
+                      }
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="aadhar">Aadhar</SelectItem>
+                        <SelectItem value="pan">PAN</SelectItem>
+                        <SelectItem value="voter_id">Voter ID</SelectItem>
+                        <SelectItem value="driving_license">
+                          Driving License
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>ID Number</Label>
+                    <Input
+                      value={formData.owner_id_number}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          owner_id_number: e.target.value,
+                        })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Owner Address</Label>
+                    <Textarea
+                      value={formData.owner_address}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          owner_address: e.target.value,
+                        })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="col-span-2 pt-4 border-t">
+                    <Label className="text-amber-600">Emergency Contact</Label>
+                  </div>
+                  <div>
+                    <Label>Contact Name</Label>
+                    <Input
+                      value={formData.emergency_contact_name}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          emergency_contact_name: e.target.value,
+                        })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Contact Phone</Label>
+                    <Input
+                      value={formData.emergency_contact_phone}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          emergency_contact_phone: e.target.value,
+                        })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="bank" className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Bank Name</Label>
+                    <Input
+                      value={formData.bank_name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, bank_name: e.target.value })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Account Number</Label>
+                    <Input
+                      value={formData.account_number}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          account_number: e.target.value,
+                        })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>IFSC Code</Label>
+                    <Input
+                      value={formData.ifsc_code}
+                      onChange={(e) =>
+                        setFormData({ ...formData, ifsc_code: e.target.value })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>PAN Number</Label>
+                    <Input
+                      value={formData.pan_number}
+                      onChange={(e) =>
+                        setFormData({ ...formData, pan_number: e.target.value })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>UPI ID</Label>
+                    <Input
+                      value={formData.upi_id}
+                      onChange={(e) =>
+                        setFormData({ ...formData, upi_id: e.target.value })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 mt-8">
+                    <Switch
+                      checked={formData.payment_gateway_enabled}
+                      onCheckedChange={(c) =>
+                        setFormData({ ...formData, payment_gateway_enabled: c })
+                      }
+                    />
+                    <Label>Enable Payment Gateway</Label>
+                  </div>
+                </div>
+              </TabsContent>
+            </ScrollArea>
+          </Tabs>
+          <DialogFooter className="mt-4 pt-2 border-t">
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
               Cancel
             </Button>
@@ -781,6 +1682,28 @@ const RestaurantManagement = () => {
                     name: formData.name,
                     phone: formData.phone,
                     address: formData.address,
+                    email: formData.email,
+                    website: formData.website,
+                    gstin: formData.gstin,
+                    registration_number: formData.registration_number,
+                    license_number: formData.license_number,
+                    established_date: formData.established_date,
+                    seating_capacity: formData.seating_capacity,
+                    description: formData.description,
+                    owner_name: formData.owner_name,
+                    owner_email: formData.owner_email,
+                    owner_phone: formData.owner_phone,
+                    owner_address: formData.owner_address,
+                    owner_id_type: formData.owner_id_type,
+                    owner_id_number: formData.owner_id_number,
+                    emergency_contact_name: formData.emergency_contact_name,
+                    emergency_contact_phone: formData.emergency_contact_phone,
+                    bank_name: formData.bank_name,
+                    account_number: formData.account_number,
+                    ifsc_code: formData.ifsc_code,
+                    pan_number: formData.pan_number,
+                    upi_id: formData.upi_id,
+                    payment_gateway_enabled: formData.payment_gateway_enabled,
                   });
                 }
               }}
