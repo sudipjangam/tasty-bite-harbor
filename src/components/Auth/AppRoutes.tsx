@@ -40,6 +40,26 @@ import { Button } from "@/components/ui/button";
 import { Menu as MenuIcon } from "lucide-react";
 import { BottomNav } from "../Layout/BottomNav";
 import { MobileNavigation } from "@/components/ui/mobile-navigation";
+import { useAuth } from "@/hooks/useAuth";
+
+// Platform Admin imports
+import PlatformLayout from "@/pages/Platform/PlatformLayout";
+import PlatformDashboard from "@/pages/Platform/PlatformDashboard";
+import RestaurantManagement from "@/pages/Platform/RestaurantManagement";
+import SubscriptionManager from "@/pages/Platform/SubscriptionManager";
+import AllUsers from "@/pages/Platform/AllUsers";
+import PlatformAnalytics from "@/pages/Platform/PlatformAnalytics";
+
+// Role-based guard for admin-only routes
+const AdminRoleGuard = ({ children }: { children: React.ReactNode }) => {
+  const { isRole } = useAuth();
+
+  if (!isRole("admin")) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
 
 /**
  * Main application routes for authenticated users
@@ -309,6 +329,22 @@ export const AppRoutes = () => {
               </PermissionGuard>
             }
           />
+
+          <Route
+            path="/platform"
+            element={
+              <AdminRoleGuard>
+                <PlatformLayout />
+              </AdminRoleGuard>
+            }
+          >
+            <Route index element={<PlatformDashboard />} />
+            <Route path="restaurants" element={<RestaurantManagement />} />
+            <Route path="subscriptions" element={<SubscriptionManager />} />
+            <Route path="users" element={<AllUsers />} />
+            <Route path="analytics" element={<PlatformAnalytics />} />
+          </Route>
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
 

@@ -31,6 +31,7 @@ import {
   Receipt,
   CalendarClock,
   Key,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -287,6 +288,13 @@ const navigationGroups: NavigationGroup[] = [
 
 // Standalone items outside of groups
 const standaloneItems: NavigationItem[] = [
+  {
+    title: "Platform Admin",
+    icon: Building2,
+    href: "/platform",
+    description: "Manage restaurants & subscriptions",
+    requiredRole: "admin", // Only admin can access
+  },
   {
     title: "AI Assistant",
     icon: MessageSquare,
