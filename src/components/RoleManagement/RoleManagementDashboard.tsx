@@ -8,7 +8,6 @@ import {
   Pencil,
   Trash2,
   Shield,
-  Lock,
   ShieldCheck,
   Crown,
   Users,
@@ -16,10 +15,11 @@ import {
   ChefHat,
   UserCircle,
   Eye,
-  MoreVertical,
   LayoutGrid,
   Server,
   UserCog,
+  AlertCircle,
+  SearchX,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +57,8 @@ export const RoleManagementDashboard = () => {
   const {
     data: roles,
     isLoading,
+    isError,
+    error: rolesError,
     refetch,
   } = useQuery({
     queryKey: ["roles", user?.restaurant_id],
@@ -73,6 +75,32 @@ export const RoleManagementDashboard = () => {
 
       if (error) throw error;
       return data as Role[];
+    },
+    enabled: !!user?.restaurant_id,
+  });
+
+  // Fetch active users count per role
+  const { data: userCounts } = useQuery({
+    queryKey: ["role-user-counts", user?.restaurant_id],
+    queryFn: async () => {
+      if (!user?.restaurant_id) return {};
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("role_id")
+        .eq("restaurant_id", user.restaurant_id)
+        .eq("is_active", true);
+
+      if (error) throw error;
+
+      // Count users per role
+      const counts: Record<string, number> = {};
+      data?.forEach((profile) => {
+        if (profile.role_id) {
+          counts[profile.role_id] = (counts[profile.role_id] || 0) + 1;
+        }
+      });
+      return counts;
     },
     enabled: !!user?.restaurant_id,
   });
@@ -125,14 +153,30 @@ export const RoleManagementDashboard = () => {
     return visibleRoles;
   }, [roles, activeTab, isCurrentUserAdmin]);
 
+  // Calculate stats based on VISIBLE roles (respecting admin filtering)
   const stats = useMemo(() => {
-    if (!roles) return { total: 0, system: 0, custom: 0 };
+    if (!roles) return { total: 0, system: 0, custom: 0, activeUsers: 0 };
+
+    // Apply same visibility filter as filteredRoles
+    let visibleRoles = roles;
+    if (!isCurrentUserAdmin) {
+      visibleRoles = roles.filter(
+        (r) => !r.name.toLowerCase().includes("admin")
+      );
+    }
+
+    // Count total active users across all visible roles
+    const totalActiveUsers = visibleRoles.reduce((sum, role) => {
+      return sum + (userCounts?.[role.id] || 0);
+    }, 0);
+
     return {
-      total: roles.length,
-      system: roles.filter((r) => r.is_system).length,
-      custom: roles.filter((r) => !r.is_system).length,
+      total: visibleRoles.length,
+      system: visibleRoles.filter((r) => r.is_system).length,
+      custom: visibleRoles.filter((r) => !r.is_system).length,
+      activeUsers: totalActiveUsers,
     };
-  }, [roles]);
+  }, [roles, isCurrentUserAdmin, userCounts]);
 
   const getRoleIcon = (role: Role) => {
     const n = role.name.toLowerCase();
@@ -213,6 +257,24 @@ export const RoleManagementDashboard = () => {
       <div className="flex flex-col items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="mt-4 text-muted-foreground">Loading roles...</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+          Failed to Load Roles
+        </h3>
+        <p className="text-muted-foreground text-center max-w-md mb-4">
+          {(rolesError as Error)?.message ||
+            "An error occurred while loading roles."}
+        </p>
+        <Button onClick={() => refetch()} variant="outline">
+          Try Again
+        </Button>
       </div>
     );
   }
@@ -306,7 +368,7 @@ export const RoleManagementDashboard = () => {
                 Active Users
               </p>
               <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                -
+                {stats.activeUsers}
               </h3>
               <p className="text-xs text-emerald-600 font-medium">Assigned</p>
             </div>
@@ -392,7 +454,7 @@ export const RoleManagementDashboard = () => {
                     <div className="flex items-center gap-6 text-sm text-gray-600 dark:text-gray-400">
                       <div className="flex items-center gap-2">
                         <Users className="h-4 w-4 text-gray-400" />
-                        <span>Active Users</span>
+                        <span>{userCounts?.[role.id] || 0} Active Users</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Shield className="h-4 w-4 text-gray-400" />
@@ -458,6 +520,32 @@ export const RoleManagementDashboard = () => {
                 </Card>
               );
             })}
+
+            {/* Empty State */}
+            {filteredRoles?.length === 0 && (
+              <div className="col-span-full flex flex-col items-center justify-center py-16">
+                <SearchX className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                  No Roles Found
+                </h3>
+                <p className="text-muted-foreground text-center max-w-md mb-6">
+                  {activeTab === "custom"
+                    ? "No custom roles have been created yet. Click 'New Role' to create one."
+                    : activeTab === "system"
+                    ? "No system roles are available."
+                    : "No roles match your current view."}
+                </p>
+                {activeTab !== "system" && (
+                  <Button
+                    onClick={() => setCreateDialogOpen(true)}
+                    className="bg-orange-500 hover:bg-orange-600"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create First Role
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>

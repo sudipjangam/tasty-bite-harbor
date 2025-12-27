@@ -42,6 +42,13 @@ export const CreateRoleDialog = ({
   const [selectedComponents, setSelectedComponents] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Check if current user is an admin
+  const isCurrentUserAdmin = (() => {
+    if (!user) return false;
+    const userRole = (user.role_name_text || user.role || "").toLowerCase();
+    return user.role_has_full_access || userRole.includes("admin");
+  })();
+
   // Fetch components filtered by restaurant subscription
   const { data: components } = useQuery({
     queryKey: ["app-components-filtered", user?.restaurant_id],
@@ -83,6 +90,17 @@ export const CreateRoleDialog = ({
       toast({
         title: "Validation Error",
         description: "Role name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prevent non-admins from creating roles with "admin" in the name
+    if (!isCurrentUserAdmin && name.trim().toLowerCase().includes("admin")) {
+      toast({
+        title: "Permission Denied",
+        description:
+          "Only administrators can create roles with 'admin' in the name.",
         variant: "destructive",
       });
       return;
