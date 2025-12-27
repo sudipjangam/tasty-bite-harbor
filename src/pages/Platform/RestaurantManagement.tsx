@@ -79,6 +79,9 @@ import {
   ArrowRight,
   ArrowLeft,
   Check,
+  UserPlus,
+  UserX,
+  Key,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -153,7 +156,21 @@ const RestaurantManagement = () => {
   const [isSubscriptionOpen, setIsSubscriptionOpen] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] =
     useState<Restaurant | null>(null);
+  const [isManageUsersOpen, setIsManageUsersOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("basic");
+  const [newUserData, setNewUserData] = useState({
+    email: "",
+    password: "",
+    first_name: "",
+    last_name: "",
+    role: "staff" as
+      | "owner"
+      | "manager"
+      | "chef"
+      | "waiter"
+      | "staff"
+      | "admin",
+  });
 
   const steps = [
     { id: "basic", label: "Basic Info", icon: Building2 },
@@ -809,6 +826,14 @@ const RestaurantManagement = () => {
                           <CreditCard className="h-4 w-4 mr-2" /> Manage
                           Subscription
                         </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedRestaurant(restaurant);
+                            setIsManageUsersOpen(true);
+                          }}
+                        >
+                          <Users className="h-4 w-4 mr-2" /> Manage Users
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-red-600"
@@ -830,15 +855,26 @@ const RestaurantManagement = () => {
       )}
 
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 bg-slate-50 dark:bg-slate-950">
-          <div className="p-6 pb-0">
-            <DialogHeader className="mb-6">
-              <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                Add New Restaurant
-              </DialogTitle>
-              <DialogDescription className="text-slate-500">
-                Follow the steps to onboard a new partner restaurant
-              </DialogDescription>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 bg-gradient-to-br from-slate-50 via-white to-purple-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950/20">
+          <div className="p-6 pb-0 relative overflow-hidden">
+            {/* Background decoration */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-200/40 to-indigo-200/40 dark:from-purple-800/20 dark:to-indigo-800/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-blue-200/30 to-cyan-200/30 dark:from-blue-800/10 dark:to-cyan-800/10 rounded-full blur-2xl -translate-y-1/2 -translate-x-1/2" />
+
+            <DialogHeader className="mb-6 relative z-10">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 via-indigo-500 to-blue-500 flex items-center justify-center text-white shadow-xl shadow-purple-500/30">
+                  <Building2 className="h-7 w-7" />
+                </div>
+                <div>
+                  <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 bg-clip-text text-transparent">
+                    Add New Restaurant
+                  </DialogTitle>
+                  <DialogDescription className="text-slate-500 dark:text-slate-400">
+                    Complete all steps to onboard a new partner
+                  </DialogDescription>
+                </div>
+              </div>
             </DialogHeader>
 
             {/* Wizard Progress */}
@@ -910,31 +946,48 @@ const RestaurantManagement = () => {
           >
             <ScrollArea className="flex-1 mt-6 px-8">
               <TabsContent value="basic" className="space-y-6 pb-6 mt-0">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white shadow-md">
+                    <Building2 className="h-4 w-4" />
+                  </div>
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-200">
+                    Basic Information
+                  </h3>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
-                    <Label>Restaurant Name *</Label>
+                    <Label className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                      <Building2 className="h-3.5 w-3.5 text-purple-500" />
+                      Restaurant Name <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                       value={formData.name}
                       onChange={(e) =>
                         setFormData({ ...formData, name: e.target.value })
                       }
                       placeholder="e.g., The Grand Restaurant"
-                      className="mt-1"
+                      className="mt-1.5 h-11 bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:border-purple-400 focus:ring-purple-400/20"
                     />
                   </div>
                   <div>
-                    <Label>Phone</Label>
+                    <Label className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                      <Phone className="h-3.5 w-3.5 text-blue-500" />
+                      Phone
+                    </Label>
                     <Input
                       value={formData.phone}
                       onChange={(e) =>
                         setFormData({ ...formData, phone: e.target.value })
                       }
                       placeholder="+91 9876543210"
-                      className="mt-1"
+                      className="mt-1.5 h-11 bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"
                     />
                   </div>
                   <div>
-                    <Label>Email</Label>
+                    <Label className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                      <Mail className="h-3.5 w-3.5 text-emerald-500" />
+                      Email
+                    </Label>
                     <Input
                       type="email"
                       value={formData.email}
@@ -942,22 +995,28 @@ const RestaurantManagement = () => {
                         setFormData({ ...formData, email: e.target.value })
                       }
                       placeholder="restaurant@example.com"
-                      className="mt-1"
+                      className="mt-1.5 h-11 bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"
                     />
                   </div>
                   <div>
-                    <Label>Website</Label>
+                    <Label className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                      <Globe className="h-3.5 w-3.5 text-cyan-500" />
+                      Website
+                    </Label>
                     <Input
                       value={formData.website}
                       onChange={(e) =>
                         setFormData({ ...formData, website: e.target.value })
                       }
                       placeholder="https://..."
-                      className="mt-1"
+                      className="mt-1.5 h-11 bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"
                     />
                   </div>
                   <div>
-                    <Label>Seating Capacity</Label>
+                    <Label className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                      <Users className="h-3.5 w-3.5 text-amber-500" />
+                      Seating Capacity
+                    </Label>
                     <Input
                       type="number"
                       value={formData.seating_capacity}
@@ -968,22 +1027,28 @@ const RestaurantManagement = () => {
                         })
                       }
                       placeholder="e.g., 50"
-                      className="mt-1"
+                      className="mt-1.5 h-11 bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"
                     />
                   </div>
                   <div className="col-span-2">
-                    <Label>Address</Label>
+                    <Label className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                      <MapPin className="h-3.5 w-3.5 text-rose-500" />
+                      Address
+                    </Label>
                     <Textarea
                       value={formData.address}
                       onChange={(e) =>
                         setFormData({ ...formData, address: e.target.value })
                       }
                       placeholder="Full address"
-                      className="mt-1"
+                      className="mt-1.5 bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 min-h-[80px]"
                     />
                   </div>
                   <div className="col-span-2">
-                    <Label>Description</Label>
+                    <Label className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                      <FileText className="h-3.5 w-3.5 text-indigo-500" />
+                      Description
+                    </Label>
                     <Textarea
                       value={formData.description}
                       onChange={(e) =>
@@ -992,8 +1057,8 @@ const RestaurantManagement = () => {
                           description: e.target.value,
                         })
                       }
-                      placeholder="Short description..."
-                      className="mt-1"
+                      placeholder="Short description about the restaurant..."
+                      className="mt-1.5 bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 min-h-[80px]"
                     />
                   </div>
                 </div>
@@ -2204,6 +2269,330 @@ const RestaurantManagement = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Manage Users Dialog */}
+      <Dialog open={isManageUsersOpen} onOpenChange={setIsManageUsersOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg">
+                <Users className="h-6 w-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl">Manage Users</DialogTitle>
+                <DialogDescription>
+                  Users for{" "}
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    {selectedRestaurant?.name}
+                  </span>
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-hidden flex flex-col gap-4 mt-4">
+            {/* Add New User Section */}
+            <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800/30">
+              <h4 className="font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-2 mb-3">
+                <UserPlus className="h-4 w-4" /> Add New User
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs text-slate-600 dark:text-slate-400">
+                    First Name
+                  </Label>
+                  <Input
+                    value={newUserData.first_name}
+                    onChange={(e) =>
+                      setNewUserData({
+                        ...newUserData,
+                        first_name: e.target.value,
+                      })
+                    }
+                    placeholder="John"
+                    className="mt-1 h-9 text-sm bg-white dark:bg-slate-900"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-600 dark:text-slate-400">
+                    Last Name
+                  </Label>
+                  <Input
+                    value={newUserData.last_name}
+                    onChange={(e) =>
+                      setNewUserData({
+                        ...newUserData,
+                        last_name: e.target.value,
+                      })
+                    }
+                    placeholder="Doe"
+                    className="mt-1 h-9 text-sm bg-white dark:bg-slate-900"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-600 dark:text-slate-400">
+                    Role
+                  </Label>
+                  <Select
+                    value={newUserData.role}
+                    onValueChange={(v: any) =>
+                      setNewUserData({ ...newUserData, role: v })
+                    }
+                  >
+                    <SelectTrigger className="mt-1 h-9 text-sm bg-white dark:bg-slate-900">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="owner">Owner</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="chef">Chef</SelectItem>
+                      <SelectItem value="waiter">Waiter</SelectItem>
+                      <SelectItem value="staff">Staff</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-600 dark:text-slate-400">
+                    Email
+                  </Label>
+                  <Input
+                    type="email"
+                    value={newUserData.email}
+                    onChange={(e) =>
+                      setNewUserData({ ...newUserData, email: e.target.value })
+                    }
+                    placeholder="user@example.com"
+                    className="mt-1 h-9 text-sm bg-white dark:bg-slate-900"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-600 dark:text-slate-400">
+                    Password
+                  </Label>
+                  <Input
+                    type="password"
+                    value={newUserData.password}
+                    onChange={(e) =>
+                      setNewUserData({
+                        ...newUserData,
+                        password: e.target.value,
+                      })
+                    }
+                    placeholder="••••••••"
+                    className="mt-1 h-9 text-sm bg-white dark:bg-slate-900"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    size="sm"
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md"
+                    onClick={async () => {
+                      console.log("Add User clicked", {
+                        newUserData,
+                        selectedRestaurant,
+                      });
+
+                      if (
+                        !selectedRestaurant ||
+                        !newUserData.email ||
+                        !newUserData.password
+                      ) {
+                        toast.error("Email and password are required");
+                        return;
+                      }
+
+                      // Validate password length (Edge Function requires 8 characters)
+                      if (newUserData.password.length < 8) {
+                        toast.error("Password must be at least 8 characters");
+                        return;
+                      }
+
+                      // Validate email format
+                      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                      if (!emailRegex.test(newUserData.email)) {
+                        toast.error("Please enter a valid email address");
+                        return;
+                      }
+
+                      toast.info("Creating user...");
+
+                      try {
+                        console.log("Calling Edge Function...");
+                        // Call Edge Function to create user (uses Admin API server-side)
+                        const { data, error } = await supabase.functions.invoke(
+                          "user-management",
+                          {
+                            body: {
+                              action: "create_user",
+                              userData: {
+                                email: newUserData.email,
+                                password: newUserData.password,
+                                first_name: newUserData.first_name || "User",
+                                last_name: newUserData.last_name || "",
+                                role: newUserData.role,
+                                restaurant_id: selectedRestaurant.id,
+                              },
+                            },
+                          }
+                        );
+
+                        console.log("Edge Function response:", { data, error });
+
+                        if (error) {
+                          console.error("Edge Function error:", error);
+                          toast.error(error.message || "Failed to create user");
+                          return;
+                        }
+
+                        if (!data?.success) {
+                          console.error(
+                            "Edge Function returned failure:",
+                            data
+                          );
+                          toast.error(data?.error || "Failed to create user");
+                          return;
+                        }
+
+                        toast.success("User created successfully!");
+                        setNewUserData({
+                          email: "",
+                          password: "",
+                          first_name: "",
+                          last_name: "",
+                          role: "staff",
+                        });
+                        queryClient.invalidateQueries({
+                          queryKey: ["platform-restaurants"],
+                        });
+                      } catch (error: any) {
+                        console.error("Exception:", error);
+                        toast.error(`Failed to create user: ${error.message}`);
+                      }
+                    }}
+                  >
+                    <UserPlus className="h-4 w-4 mr-1" /> Add User
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Existing Users */}
+            <div className="flex-1 overflow-hidden">
+              <h4 className="font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+                <Users className="h-4 w-4" /> Current Users (
+                {selectedRestaurant?.profiles?.length || 0})
+              </h4>
+              <ScrollArea className="h-[300px] rounded-lg border">
+                {selectedRestaurant?.profiles &&
+                selectedRestaurant.profiles.length > 0 ? (
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {selectedRestaurant.profiles.map((user) => (
+                      <div
+                        key={user.id}
+                        className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm ${
+                              user.role === "owner"
+                                ? "bg-gradient-to-br from-amber-500 to-orange-600"
+                                : user.role === "manager"
+                                ? "bg-gradient-to-br from-purple-500 to-indigo-600"
+                                : user.role === "chef"
+                                ? "bg-gradient-to-br from-red-500 to-rose-600"
+                                : user.role === "waiter"
+                                ? "bg-gradient-to-br from-emerald-500 to-teal-600"
+                                : "bg-gradient-to-br from-slate-500 to-slate-600"
+                            }`}
+                          >
+                            {(user.first_name?.[0] || "U").toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-800 dark:text-slate-200">
+                              {user.first_name || "Unnamed"}{" "}
+                              {user.last_name || ""}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {user.id.slice(0, 8)}...
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Badge
+                            variant="outline"
+                            className={`capitalize ${
+                              user.role === "owner"
+                                ? "border-amber-300 text-amber-700 bg-amber-50 dark:border-amber-600 dark:text-amber-400 dark:bg-amber-900/20"
+                                : user.role === "manager"
+                                ? "border-purple-300 text-purple-700 bg-purple-50 dark:border-purple-600 dark:text-purple-400 dark:bg-purple-900/20"
+                                : user.role === "chef"
+                                ? "border-red-300 text-red-700 bg-red-50 dark:border-red-600 dark:text-red-400 dark:bg-red-900/20"
+                                : user.role === "waiter"
+                                ? "border-emerald-300 text-emerald-700 bg-emerald-50 dark:border-emerald-600 dark:text-emerald-400 dark:bg-emerald-900/20"
+                                : "border-slate-300 text-slate-600 bg-slate-50"
+                            }`}
+                          >
+                            {user.role}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            onClick={async () => {
+                              if (
+                                !confirm(
+                                  `Remove ${
+                                    user.first_name || "this user"
+                                  } from the restaurant?`
+                                )
+                              )
+                                return;
+                              try {
+                                const { error } = await supabase
+                                  .from("profiles")
+                                  .update({ restaurant_id: null })
+                                  .eq("id", user.id);
+                                if (error) throw error;
+                                toast.success("User removed from restaurant");
+                                queryClient.invalidateQueries({
+                                  queryKey: ["platform-restaurants"],
+                                });
+                              } catch (error: any) {
+                                toast.error(`Failed: ${error.message}`);
+                              }
+                            }}
+                          >
+                            <UserX className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full py-12 text-center">
+                    <Users className="h-12 w-12 text-slate-300 dark:text-slate-600 mb-3" />
+                    <p className="text-slate-500 dark:text-slate-400 font-medium">
+                      No users assigned
+                    </p>
+                    <p className="text-slate-400 dark:text-slate-500 text-sm">
+                      Add users above to get started
+                    </p>
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsManageUsersOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
