@@ -1,54 +1,86 @@
-import React, { useState } from "react";
+import React, { useState, Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ImprovedSidebarNavigation } from "@/components/Layout/ImprovedSidebarNavigation";
-import SimpleSidebar from "../Layout/SimpleSidebar";
-import Index from "@/pages/Index";
-import StaffLandingPage from "@/components/Dashboard/StaffLandingPage";
-import Orders from "@/pages/Orders";
-import POS from "@/pages/POS";
-import QSRPos from "@/pages/QSRPos";
-import Menu from "@/pages/Menu";
-import Staff from "@/pages/Staff";
-import Analytics from "@/pages/Analytics";
-import Settings from "@/pages/Settings";
-import Inventory from "@/pages/Inventory";
-import Tables from "@/pages/Tables";
-import Rooms from "@/pages/Rooms";
-import Housekeeping from "@/pages/Housekeeping";
-import Reservations from "@/pages/Reservations";
-import Customers from "@/pages/Customers";
-import CRM from "@/pages/CRM";
-import Suppliers from "@/pages/Suppliers";
-import Expenses from "@/pages/Expenses";
-import AI from "@/pages/AI";
-import ChannelManagement from "@/pages/ChannelManagement";
-import Kitchen from "@/pages/Kitchen";
-import Financial from "@/pages/Financial";
-import Security from "@/pages/Security";
-import UserManagement from "@/pages/UserManagement";
-import AdminPanel from "@/pages/AdminPanel";
-import RecipeManagement from "@/pages/RecipeManagement";
-import RoleManagement from "@/pages/RoleManagement";
-import PermissionManagement from "@/pages/PermissionManagement";
-import Marketing from "@/pages/Marketing";
-import Reports from "@/pages/Reports";
-import ShiftManagement from "@/pages/ShiftManagement";
-import { PermissionGuard } from "./PermissionGuard";
-import { SidebarHeader } from "../Layout/SidebarHeader";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Menu as MenuIcon } from "lucide-react";
-import { BottomNav } from "../Layout/BottomNav";
 import { MobileNavigation } from "@/components/ui/mobile-navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { PageLoader } from "@/components/ui/page-loader";
+import { PermissionGuard } from "./PermissionGuard";
 
-// Platform Admin imports
-import PlatformLayout from "@/pages/Platform/PlatformLayout";
-import PlatformDashboard from "@/pages/Platform/PlatformDashboard";
-import RestaurantManagement from "@/pages/Platform/RestaurantManagement";
-import SubscriptionManager from "@/pages/Platform/SubscriptionManager";
-import AllUsers from "@/pages/Platform/AllUsers";
-import PlatformAnalytics from "@/pages/Platform/PlatformAnalytics";
+// ============================================================================
+// LAZY LOADED PAGES - Each page is now a separate chunk
+// This dramatically reduces initial bundle size
+// ============================================================================
+
+// Dashboard & Landing
+const Index = lazy(() => import("@/pages/Index"));
+const StaffLandingPage = lazy(
+  () => import("@/components/Dashboard/StaffLandingPage")
+);
+
+// Operations
+const Orders = lazy(() => import("@/pages/Orders"));
+const POS = lazy(() => import("@/pages/POS"));
+const Kitchen = lazy(() => import("@/pages/Kitchen"));
+
+// Menu & Recipes
+const Menu = lazy(() => import("@/pages/Menu"));
+const RecipeManagement = lazy(() => import("@/pages/RecipeManagement"));
+
+// Staff & Management
+const Staff = lazy(() => import("@/pages/Staff"));
+const ShiftManagement = lazy(() => import("@/pages/ShiftManagement"));
+const UserManagement = lazy(() => import("@/pages/UserManagement"));
+const RoleManagement = lazy(() => import("@/pages/RoleManagement"));
+const PermissionManagement = lazy(() => import("@/pages/PermissionManagement"));
+
+// Tables & Rooms
+const Tables = lazy(() => import("@/pages/Tables"));
+const Rooms = lazy(() => import("@/pages/Rooms"));
+const Housekeeping = lazy(() => import("@/pages/Housekeeping"));
+const Reservations = lazy(() => import("@/pages/Reservations"));
+
+// Inventory & Suppliers
+const Inventory = lazy(() => import("@/pages/Inventory"));
+const Suppliers = lazy(() => import("@/pages/Suppliers"));
+
+// Financial
+const Analytics = lazy(() => import("@/pages/Analytics"));
+const Financial = lazy(() => import("@/pages/Financial"));
+const Expenses = lazy(() => import("@/pages/Expenses"));
+const Reports = lazy(() => import("@/pages/Reports"));
+
+// Customers & Marketing
+const Customers = lazy(() => import("@/pages/Customers"));
+const CRM = lazy(() => import("@/pages/CRM"));
+const Marketing = lazy(() => import("@/pages/Marketing"));
+
+// Other Features
+const AI = lazy(() => import("@/pages/AI"));
+const ChannelManagement = lazy(() => import("@/pages/ChannelManagement"));
+const Security = lazy(() => import("@/pages/Security"));
+const Settings = lazy(() => import("@/pages/Settings"));
+const AdminPanel = lazy(() => import("@/pages/AdminPanel"));
+
+// Platform Admin
+const PlatformLayout = lazy(() => import("@/pages/Platform/PlatformLayout"));
+const PlatformDashboard = lazy(
+  () => import("@/pages/Platform/PlatformDashboard")
+);
+const RestaurantManagement = lazy(
+  () => import("@/pages/Platform/RestaurantManagement")
+);
+const SubscriptionManager = lazy(
+  () => import("@/pages/Platform/SubscriptionManager")
+);
+const AllUsers = lazy(() => import("@/pages/Platform/AllUsers"));
+const PlatformAnalytics = lazy(
+  () => import("@/pages/Platform/PlatformAnalytics")
+);
+
+// ============================================================================
 
 // Role-based guard for admin-only routes
 const AdminRoleGuard = ({ children }: { children: React.ReactNode }) => {
@@ -62,7 +94,15 @@ const AdminRoleGuard = ({ children }: { children: React.ReactNode }) => {
 };
 
 /**
+ * Suspense wrapper component for lazy-loaded routes
+ */
+const LazyRoute = ({ children }: { children: React.ReactNode }) => (
+  <Suspense fallback={<PageLoader />}>{children}</Suspense>
+);
+
+/**
  * Main application routes for authenticated users
+ * All page components are now lazy-loaded for optimal performance
  */
 export const AppRoutes = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -100,9 +140,15 @@ export const AppRoutes = () => {
             element={
               <PermissionGuard
                 permission="dashboard.view"
-                fallback={<StaffLandingPage />}
+                fallback={
+                  <LazyRoute>
+                    <StaffLandingPage />
+                  </LazyRoute>
+                }
               >
-                <Index />
+                <LazyRoute>
+                  <Index />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -110,7 +156,9 @@ export const AppRoutes = () => {
             path="/orders"
             element={
               <PermissionGuard permission="orders.view">
-                <Orders />
+                <LazyRoute>
+                  <Orders />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -118,21 +166,20 @@ export const AppRoutes = () => {
             path="/pos"
             element={
               <PermissionGuard permission="orders.view">
-                <POS />
+                <LazyRoute>
+                  <POS />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
-          {/* <Route path="/qsr-pos" element={
-            <PermissionGuard permission="orders.view">
-              <QSRPos />
-            </PermissionGuard>
-          } /> */}
 
           <Route
             path="/menu"
             element={
               <PermissionGuard permission="menu.view">
-                <Menu />
+                <LazyRoute>
+                  <Menu />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -140,7 +187,9 @@ export const AppRoutes = () => {
             path="/recipes"
             element={
               <PermissionGuard permission="menu.view">
-                <RecipeManagement />
+                <LazyRoute>
+                  <RecipeManagement />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -148,7 +197,9 @@ export const AppRoutes = () => {
             path="/staff"
             element={
               <PermissionGuard permission="staff.view">
-                <Staff />
+                <LazyRoute>
+                  <Staff />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -156,7 +207,9 @@ export const AppRoutes = () => {
             path="/shift-management"
             element={
               <PermissionGuard permission="staff.update">
-                <ShiftManagement />
+                <LazyRoute>
+                  <ShiftManagement />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -164,7 +217,9 @@ export const AppRoutes = () => {
             path="/analytics"
             element={
               <PermissionGuard permission="analytics.view">
-                <Analytics />
+                <LazyRoute>
+                  <Analytics />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -172,7 +227,9 @@ export const AppRoutes = () => {
             path="/financial"
             element={
               <PermissionGuard permission="financial.view">
-                <Financial />
+                <LazyRoute>
+                  <Financial />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -180,7 +237,9 @@ export const AppRoutes = () => {
             path="/settings"
             element={
               <PermissionGuard permission="settings.view">
-                <Settings />
+                <LazyRoute>
+                  <Settings />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -188,7 +247,9 @@ export const AppRoutes = () => {
             path="/inventory"
             element={
               <PermissionGuard permission="inventory.view">
-                <Inventory />
+                <LazyRoute>
+                  <Inventory />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -196,7 +257,9 @@ export const AppRoutes = () => {
             path="/tables"
             element={
               <PermissionGuard permission="tables.view">
-                <Tables />
+                <LazyRoute>
+                  <Tables />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -204,7 +267,9 @@ export const AppRoutes = () => {
             path="/rooms"
             element={
               <PermissionGuard permission="rooms.view">
-                <Rooms />
+                <LazyRoute>
+                  <Rooms />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -212,7 +277,9 @@ export const AppRoutes = () => {
             path="/housekeeping"
             element={
               <PermissionGuard permission="housekeeping.view">
-                <Housekeeping />
+                <LazyRoute>
+                  <Housekeeping />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -220,7 +287,9 @@ export const AppRoutes = () => {
             path="/reservations"
             element={
               <PermissionGuard permission="reservations.view">
-                <Reservations />
+                <LazyRoute>
+                  <Reservations />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -228,7 +297,9 @@ export const AppRoutes = () => {
             path="/customers"
             element={
               <PermissionGuard permission="customers.view">
-                <Customers />
+                <LazyRoute>
+                  <Customers />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -237,7 +308,9 @@ export const AppRoutes = () => {
             path="/suppliers"
             element={
               <PermissionGuard permission="inventory.view">
-                <Suppliers />
+                <LazyRoute>
+                  <Suppliers />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -245,7 +318,9 @@ export const AppRoutes = () => {
             path="/expenses"
             element={
               <PermissionGuard permission="financial.view">
-                <Expenses />
+                <LazyRoute>
+                  <Expenses />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -253,7 +328,9 @@ export const AppRoutes = () => {
             path="/ai"
             element={
               <PermissionGuard permission="dashboard.view">
-                <AI />
+                <LazyRoute>
+                  <AI />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -261,7 +338,9 @@ export const AppRoutes = () => {
             path="/channel-management"
             element={
               <PermissionGuard permission="analytics.view">
-                <ChannelManagement />
+                <LazyRoute>
+                  <ChannelManagement />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -269,7 +348,9 @@ export const AppRoutes = () => {
             path="/kitchen"
             element={
               <PermissionGuard permission="kitchen.view">
-                <Kitchen />
+                <LazyRoute>
+                  <Kitchen />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -277,7 +358,9 @@ export const AppRoutes = () => {
             path="/security"
             element={
               <PermissionGuard permission="audit.view">
-                <Security />
+                <LazyRoute>
+                  <Security />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -285,7 +368,9 @@ export const AppRoutes = () => {
             path="/user-management"
             element={
               <PermissionGuard permission="users.manage">
-                <UserManagement />
+                <LazyRoute>
+                  <UserManagement />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -293,7 +378,9 @@ export const AppRoutes = () => {
             path="/admin"
             element={
               <PermissionGuard permission="users.manage">
-                <AdminPanel />
+                <LazyRoute>
+                  <AdminPanel />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -301,7 +388,9 @@ export const AppRoutes = () => {
             path="/role-management"
             element={
               <PermissionGuard permission="users.manage">
-                <RoleManagement />
+                <LazyRoute>
+                  <RoleManagement />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -309,7 +398,9 @@ export const AppRoutes = () => {
             path="/permission-management"
             element={
               <PermissionGuard permission="staff.manage_roles">
-                <PermissionManagement />
+                <LazyRoute>
+                  <PermissionManagement />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -317,7 +408,9 @@ export const AppRoutes = () => {
             path="/marketing"
             element={
               <PermissionGuard permission="customers.view">
-                <Marketing />
+                <LazyRoute>
+                  <Marketing />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -325,7 +418,9 @@ export const AppRoutes = () => {
             path="/reports"
             element={
               <PermissionGuard permission="analytics.view">
-                <Reports />
+                <LazyRoute>
+                  <Reports />
+                </LazyRoute>
               </PermissionGuard>
             }
           />
@@ -334,15 +429,52 @@ export const AppRoutes = () => {
             path="/platform"
             element={
               <AdminRoleGuard>
-                <PlatformLayout />
+                <LazyRoute>
+                  <PlatformLayout />
+                </LazyRoute>
               </AdminRoleGuard>
             }
           >
-            <Route index element={<PlatformDashboard />} />
-            <Route path="restaurants" element={<RestaurantManagement />} />
-            <Route path="subscriptions" element={<SubscriptionManager />} />
-            <Route path="users" element={<AllUsers />} />
-            <Route path="analytics" element={<PlatformAnalytics />} />
+            <Route
+              index
+              element={
+                <LazyRoute>
+                  <PlatformDashboard />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="restaurants"
+              element={
+                <LazyRoute>
+                  <RestaurantManagement />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="subscriptions"
+              element={
+                <LazyRoute>
+                  <SubscriptionManager />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="users"
+              element={
+                <LazyRoute>
+                  <AllUsers />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="analytics"
+              element={
+                <LazyRoute>
+                  <PlatformAnalytics />
+                </LazyRoute>
+              }
+            />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -229,7 +229,7 @@ const OrdersView = ({
     try {
       // Calculate totals
       const totalEarned = filteredOrders.reduce(
-        (sum, order) => sum + (order.total - (order.discount_amount || 0)),
+        (sum, order) => sum + order.total,
         0
       );
       const totalDiscount = filteredOrders.reduce(
@@ -243,9 +243,7 @@ const OrdersView = ({
         "Order ID": order.id,
         "Customer Name": order.customer_name,
         Items: order.items.join(", "),
-        "Total Amount": `${currencySymbol}${(
-          order.total - (order.discount_amount || 0)
-        ).toFixed(2)}`,
+        "Total Amount": `${currencySymbol}${order.total.toFixed(2)}`,
         Discount: order.discount_amount
           ? `${currencySymbol}${order.discount_amount.toFixed(2)} (${
               order.discount_percentage
@@ -354,10 +352,7 @@ const OrdersView = ({
             order.status === "completed" &&
             order.order_type !== "non-chargeable"
         )
-        .reduce(
-          (sum, order) => sum + (order.total - (order.discount_amount || 0)),
-          0
-        ) || 0,
+        .reduce((sum, order) => sum + order.total, 0) || 0,
   };
 
   const getDateFilterLabel = () => {
