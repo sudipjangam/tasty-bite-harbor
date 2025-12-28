@@ -1,6 +1,6 @@
 # 📋 Hotel PMS - Development Roadmap
 
-> Last Updated: December 25, 2025
+> Last Updated: December 28, 2025
 
 ---
 
@@ -113,42 +113,7 @@
 
 ---
 
-## ✅ Already Completed
-
-### Restaurant Management
-- [x] POS System with Kitchen Display
-- [x] Order Management & Tracking
-- [x] Menu Management
-- [x] Inventory Management
-- [x] Staff Management
-- [x] GST Invoicing
-- [x] Analytics Dashboard
-
-### Hotel Basics
-- [x] Room Management (31 components)
-- [x] Reservation System (Table + Room)
-- [x] Housekeeping Dashboard
-- [x] Room Checkout & Billing
-- [x] Room Service Orders
-- [x] Maintenance Requests
-- [x] Guest Feedback Collection
-- [x] Revenue Manager
-
----
-
 ## 🔧 Code Refactoring
-
-### Completed ✅
-
-**POS Order Sync Fix (Dec 26, 2025)**
-- [x] Fixed realtime UPDATE handler in `ActiveOrdersList.tsx` to sync all order properties
-- [x] Added instant revenue updates via realtime subscription in `POSMode.tsx`
-- [x] Added table number reset when switching away from Dine-In
-
-**PaymentDialog Component Splitting (Dec 26, 2025)**
-- [x] Created modular structure at `src/components/Orders/POS/PaymentDialog/`
-- [x] Split into 5 step components: `ConfirmStep`, `PaymentMethodStep`, `QRPaymentStep`, `SuccessStep`, `EditOrderStep`
-- [x] Created shared `types.ts` and `utils/paymentCalculations.ts`
 
 ### Pending - Large Files 🔴
 
@@ -160,6 +125,38 @@
 | 576 | `Settings.tsx` | Pending |
 | 568 | `ImprovedSidebarNavigation.tsx` | Pending |
 | 556 | `StaffDialog.tsx` | Pending |
+
+---
+
+## 🚀 Performance Optimization
+
+### Pending - Recharts → Highcharts Migration 🟠
+
+> **Goal:** Remove Recharts dependency to reduce chart-vendor bundle by ~300KB
+
+#### Phase 1: Setup (Low effort)
+- [ ] Create `src/components/ui/charts/HighchartsWrapper.tsx` - Reusable wrapper
+- [ ] Create `src/components/ui/charts/index.ts` - Export all chart types
+- [ ] Migrate `ExpensesOverview.tsx` - Simple BarChart only
+- [ ] Migrate `OccupancyChart.tsx` - Simple AreaChart only
+
+#### Phase 2: Dashboard Charts (Medium effort)
+- [ ] Migrate `PlatformDashboard.tsx` - AreaChart, BarChart
+- [ ] Migrate `PredictiveAnalytics.tsx` - LineChart
+- [ ] Migrate `BusinessDashboard.tsx` - Mixed charts
+
+#### Phase 3: Analytics & Reports (High effort)
+- [ ] Migrate `SmartInsights.tsx` - PieChart, BarChart, LineChart
+- [ ] Migrate `ExpenseAnalytics.tsx` - BarChart, LineChart
+- [ ] Migrate `ReportViewer.tsx` - LineChart, BarChart, PieChart
+- [ ] Migrate `AdvancedAnalytics.tsx` - LineChart, BarChart, PieChart
+- [ ] Migrate `ExcelAnalyzer.tsx` - Various charts
+
+#### Phase 4: Cleanup
+- [ ] Update `lazy-components.tsx` - Remove Recharts lazy imports
+- [ ] Remove `recharts` from `package.json`
+- [ ] Remove `recharts` from `vite.config.ts` manual chunks
+- [ ] Verify build - Confirm ~300KB savings
 
 ---
 
