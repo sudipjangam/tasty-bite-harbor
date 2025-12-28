@@ -135,10 +135,10 @@
 > **Goal:** Remove Recharts dependency to reduce chart-vendor bundle by ~300KB
 
 #### Phase 1: Setup (Low effort)
-- [ ] Create `src/components/ui/charts/HighchartsWrapper.tsx` - Reusable wrapper
-- [ ] Create `src/components/ui/charts/index.ts` - Export all chart types
-- [ ] Migrate `ExpensesOverview.tsx` - Simple BarChart only
-- [ ] Migrate `OccupancyChart.tsx` - Simple AreaChart only
+- [x] Create `src/components/ui/charts/HighchartsWrapper.tsx` - Reusable wrapper
+- [x] Create `src/components/ui/charts/index.ts` - Export all chart types
+- [x] Migrate `ExpensesOverview.tsx` - Simple BarChart only
+- [x] Migrate `OccupancyChart.tsx` - Simple AreaChart only
 
 #### Phase 2: Dashboard Charts (Medium effort)
 - [ ] Migrate `PlatformDashboard.tsx` - AreaChart, BarChart

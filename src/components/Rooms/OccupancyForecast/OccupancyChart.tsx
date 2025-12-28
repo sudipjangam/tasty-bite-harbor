@@ -1,15 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { format, addDays, startOfDay, eachDayOfInterval } from "date-fns";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceLine,
-} from "recharts";
+import Highcharts from "highcharts";
+import HighchartsReact from "highcharts-react-official";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -158,27 +150,106 @@ const OccupancyChart: React.FC<OccupancyChartProps> = ({ className }) => {
     data.length > 0 ? Math.max(...data.map((d) => d.occupancy)) : 0;
   const peakDate = data.find((d) => d.occupancy === maxOccupancy);
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const d = payload[0].payload;
-      return (
-        <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-          <p className="font-semibold text-gray-800 dark:text-gray-200">
-            {d.dateLabel}
-          </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            <span className="font-medium text-indigo-600 dark:text-indigo-400">
-              {d.occupancy}%
-            </span>{" "}
-            occupancy
-          </p>
-          <p className="text-xs text-gray-500">
-            {d.bookedRooms} of {d.totalRooms} rooms
-          </p>
-        </div>
-      );
-    }
-    return null;
+  // Check if dark mode
+  const isDark = document.documentElement.classList.contains("dark");
+
+  // Highcharts options
+  const chartOptions: Highcharts.Options = {
+    chart: {
+      type: "area",
+      height: 250,
+      backgroundColor: "transparent",
+      style: { fontFamily: "inherit" },
+    },
+    title: { text: undefined },
+    credits: { enabled: false },
+    xAxis: {
+      categories: data.map((d) => d.dateLabel),
+      labels: {
+        style: { color: isDark ? "#9ca3af" : "#6b7280", fontSize: "12px" },
+      },
+      lineColor: isDark ? "#374151" : "#e5e7eb",
+      tickColor: "transparent",
+    },
+    yAxis: {
+      min: 0,
+      max: 100,
+      title: { text: undefined },
+      labels: {
+        format: "{value}%",
+        style: { color: isDark ? "#9ca3af" : "#6b7280", fontSize: "12px" },
+      },
+      gridLineColor: isDark ? "#374151" : "#e5e7eb",
+      plotLines: [
+        {
+          value: 80,
+          color: "#ef4444",
+          dashStyle: "Dash",
+          width: 1,
+          label: {
+            text: "High",
+            align: "right",
+            style: { color: "#ef4444", fontSize: "10px" },
+          },
+        },
+      ],
+    },
+    tooltip: {
+      backgroundColor: isDark
+        ? "rgba(31, 41, 55, 0.95)"
+        : "rgba(255, 255, 255, 0.95)",
+      borderWidth: 0,
+      borderRadius: 12,
+      shadow: true,
+      useHTML: true,
+      formatter: function () {
+        const point = this.point as any;
+        const idx = point.index;
+        const d = data[idx];
+        return `
+          <div style="padding: 8px;">
+            <p style="font-weight: 600; color: ${
+              isDark ? "#e5e7eb" : "#1f2937"
+            }; margin: 0 0 4px 0;">${d.dateLabel}</p>
+            <p style="margin: 0; color: ${isDark ? "#9ca3af" : "#6b7280"};">
+              <span style="font-weight: 500; color: #6366f1;">${
+                d.occupancy
+              }%</span> occupancy
+            </p>
+            <p style="font-size: 12px; color: ${
+              isDark ? "#6b7280" : "#9ca3af"
+            }; margin: 4px 0 0 0;">
+              ${d.bookedRooms} of ${d.totalRooms} rooms
+            </p>
+          </div>
+        `;
+      },
+    },
+    legend: { enabled: false },
+    plotOptions: {
+      area: {
+        fillColor: {
+          linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+          stops: [
+            [0, "rgba(99, 102, 241, 0.4)"],
+            [1, "rgba(99, 102, 241, 0)"],
+          ],
+        },
+        lineWidth: 2,
+        marker: {
+          enabled: false,
+          states: { hover: { enabled: true, radius: 5 } },
+        },
+      },
+    },
+    series: [
+      {
+        type: "area",
+        name: "Occupancy",
+        data: data.map((d) => d.occupancy),
+        color: "#6366f1",
+      },
+    ],
   };
 
   return (
@@ -233,56 +304,7 @@ const OccupancyChart: React.FC<OccupancyChartProps> = ({ className }) => {
             No data available
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={250}>
-            <AreaChart
-              data={data}
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-            >
-              <defs>
-                <linearGradient
-                  id="occupancyGradient"
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                className="stroke-gray-200 dark:stroke-gray-700"
-              />
-              <XAxis
-                dataKey="dateLabel"
-                tick={{ fontSize: 12 }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                domain={[0, 100]}
-                tick={{ fontSize: 12 }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => `${value}%`}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <ReferenceLine
-                y={80}
-                stroke="#ef4444"
-                strokeDasharray="3 3"
-                label="High"
-              />
-              <Area
-                type="monotone"
-                dataKey="occupancy"
-                stroke="#6366f1"
-                strokeWidth={2}
-                fill="url(#occupancyGradient)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          <HighchartsReact highcharts={Highcharts} options={chartOptions} />
         )}
       </CardContent>
     </Card>
