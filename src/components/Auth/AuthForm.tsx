@@ -53,7 +53,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
 
           // Small delay to ensure auth state is updated
           setTimeout(() => {
-            navigate("/");
+            navigate("/dashboard");
           }, 100);
         }
       } else {
@@ -61,7 +61,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/`,
+            emailRedirectTo: `${window.location.origin}/dashboard`,
           },
         });
 

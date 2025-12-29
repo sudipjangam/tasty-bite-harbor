@@ -32,7 +32,7 @@ const AuthCallback = () => {
           setStatus("success");
           // Small delay to show success state
           setTimeout(() => {
-            navigate("/", { replace: true });
+            navigate("/dashboard", { replace: true });
           }, 1000);
         } else {
           // No session yet, wait for auth state change
@@ -42,7 +42,7 @@ const AuthCallback = () => {
             if (event === "SIGNED_IN" && session) {
               setStatus("success");
               setTimeout(() => {
-                navigate("/", { replace: true });
+                navigate("/dashboard", { replace: true });
               }, 1000);
               subscription.unsubscribe();
             }
