@@ -22,18 +22,23 @@ const Routes = () => {
   if (!user) {
     return (
       <RouterRoutes>
-        <Route path="/website" element={<LandingWebsite />} />
+        <Route path="/" element={<LandingWebsite />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/login" element={<Auth />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/enroll/:slug" element={<PublicEnrollmentPage />} />
-        <Route path="*" element={<Auth />} />
+        <Route path="*" element={<LandingWebsite />} />
       </RouterRoutes>
     );
   }
 
   return (
     <RouterRoutes>
-      <Route path="/website" element={<LandingWebsite />} />
+      <Route path="/" element={<LandingWebsite />} />
+      <Route path="/auth" element={<Auth />} />
+      <Route path="/login" element={<Auth />} />
       <Route path="/enroll/:slug" element={<PublicEnrollmentPage />} />
+      <Route path="/dashboard/*" element={<AppRoutes />} />
       <Route path="/*" element={<AppRoutes />} />
       <Route path="*" element={<NotFound />} />
     </RouterRoutes>

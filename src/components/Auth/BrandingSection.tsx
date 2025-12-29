@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +5,7 @@ import { CheckCircle, BarChart3, Users, Package } from "lucide-react";
 
 const BrandingSection: React.FC = () => {
   const [restaurantName, setRestaurantName] = useState<string | null>(null);
-  
+
   useEffect(() => {
     // Try to get the restaurant from the last login if available
     const getLastRestaurant = async () => {
@@ -17,26 +16,28 @@ const BrandingSection: React.FC = () => {
           .select("restaurant_id")
           .eq("id", data.session.user.id)
           .single();
-          
+
         if (profile?.restaurant_id) {
           const { data: restaurant } = await supabase
             .from("restaurants")
             .select("name")
             .eq("id", profile.restaurant_id)
             .single();
-            
+
           if (restaurant?.name) {
             setRestaurantName(restaurant.name);
           }
         }
       }
     };
-    
+
     getLastRestaurant();
   }, []);
 
   // Format the display name
-  const displayName = restaurantName ? `${restaurantName} Management` : "RMS Pro";
+  const displayName = restaurantName
+    ? `${restaurantName} Management`
+    : "RMS Pro";
 
   const features = [
     {
@@ -44,29 +45,29 @@ const BrandingSection: React.FC = () => {
       title: "Complete restaurant management",
       description: "End-to-end solution for all your restaurant needs",
       color: "text-brand-success-green",
-      bgColor: "bg-brand-success-green/10"
+      bgColor: "bg-brand-success-green/10",
     },
     {
       icon: <BarChart3 className="h-6 w-6" />,
       title: "Real-time analytics and reports",
       description: "Make data-driven decisions with powerful insights",
       color: "text-brand-warm-orange",
-      bgColor: "bg-brand-warm-orange/10"
+      bgColor: "bg-brand-warm-orange/10",
     },
     {
       icon: <Users className="h-6 w-6" />,
       title: "Staff management & scheduling",
       description: "Efficiently manage your team and schedules",
       color: "text-blue-600",
-      bgColor: "bg-blue-50"
+      bgColor: "bg-blue-50",
     },
     {
       icon: <Package className="h-6 w-6" />,
       title: "Inventory tracking",
       description: "Keep track of stock levels and automate ordering",
       color: "text-purple-600",
-      bgColor: "bg-purple-50"
-    }
+      bgColor: "bg-purple-50",
+    },
   ];
 
   return (
@@ -92,8 +93,12 @@ const BrandingSection: React.FC = () => {
             </svg>
           </div>
           <div>
-            <span className="text-2xl font-bold text-foreground">{displayName}</span>
-            <p className="text-sm text-muted-foreground">Restaurant Management System</p>
+            <span className="text-2xl font-bold text-foreground">
+              {displayName}
+            </span>
+            <p className="text-sm text-muted-foreground">
+              Restaurant Management System
+            </p>
           </div>
         </div>
 
@@ -103,10 +108,11 @@ const BrandingSection: React.FC = () => {
             Swadeshi Solutions
           </span>
         </h1>
-        
+
         <p className="text-xl text-muted-foreground mb-8 leading-relaxed">
-          Transform your restaurant operations with our comprehensive management platform. 
-          Streamline everything from orders and inventory to staff scheduling and customer analytics.
+          Transform your restaurant operations with our comprehensive management
+          platform. Streamline everything from orders and inventory to staff
+          scheduling and customer analytics.
         </p>
 
         {/* Features Grid */}
@@ -118,12 +124,18 @@ const BrandingSection: React.FC = () => {
               style={{ animationDelay: `${index * 100}ms` }}
             >
               <div className="flex items-start space-x-4">
-                <div className={`p-2 rounded-lg ${feature.bgColor} ${feature.color} group-hover:scale-110 transition-transform duration-200`}>
+                <div
+                  className={`p-2 rounded-lg ${feature.bgColor} ${feature.color} group-hover:scale-110 transition-transform duration-200`}
+                >
                   {feature.icon}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-foreground mb-1">{feature.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
+                  <h3 className="font-semibold text-foreground mb-1">
+                    {feature.title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {feature.description}
+                  </p>
                 </div>
               </div>
             </div>
@@ -132,17 +144,27 @@ const BrandingSection: React.FC = () => {
 
         {/* CTA */}
         <div className="flex flex-col sm:flex-row gap-4 items-start">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="group border-brand-deep-blue/20 text-brand-deep-blue hover:bg-brand-deep-blue hover:text-white transition-all duration-200"
-            onClick={() => window.open("/website", "_blank")}
+            onClick={() => window.open("/", "_blank")}
           >
             <span>Visit our website</span>
-            <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            <svg
+              className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform duration-200"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17 8l4 4m0 0l-4 4m4-4H3"
+              />
             </svg>
           </Button>
-          
+
           <div className="text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
