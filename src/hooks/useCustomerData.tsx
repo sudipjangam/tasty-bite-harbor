@@ -336,6 +336,154 @@ export const useCustomerData = () => {
     );
   };
 
+  // Fetch customer room billings (room stays/checkouts)
+  const getCustomerRoomBillings = async (customerName: string) => {
+    if (!restaurantId || !customerName) return [];
+
+    const { data, error } = await supabase
+      .from("room_billings")
+      .select(
+        `
+        *,
+        rooms:room_id (name, room_number)
+      `
+      )
+      .eq("restaurant_id", restaurantId)
+      .eq("customer_name", customerName)
+      .order("checkout_date", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching room billings:", error);
+      return [];
+    }
+
+    return (data || []).map((billing) => ({
+      id: billing.id,
+      checkoutDate: billing.checkout_date,
+      roomName: billing.rooms?.name || billing.rooms?.room_number || "Room",
+      daysStayed: billing.days_stayed,
+      roomCharges: billing.room_charges,
+      foodOrdersTotal: billing.food_orders_total || 0,
+      serviceCharge: billing.service_charge,
+      totalAmount: billing.total_amount,
+      paymentMethod: billing.payment_method,
+      paymentStatus: billing.payment_status,
+    }));
+  };
+
+  // Fetch customer reservations (room bookings)
+  const getCustomerReservations = async (customerName: string) => {
+    if (!restaurantId || !customerName) return [];
+
+    const { data, error } = await supabase
+      .from("reservations")
+      .select(
+        `
+        *,
+        rooms:room_id (name, room_number)
+      `
+      )
+      .eq("restaurant_id", restaurantId)
+      .eq("customer_name", customerName)
+      .order("start_time", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching reservations:", error);
+      return [];
+    }
+
+    return (data || []).map((reservation) => ({
+      id: reservation.id,
+      startTime: reservation.start_time,
+      endTime: reservation.end_time,
+      roomName:
+        reservation.rooms?.name || reservation.rooms?.room_number || "Room",
+      status: reservation.status,
+      notes: reservation.notes,
+      specialOccasion: reservation.special_occasion,
+    }));
+  };
+
+  // Get comprehensive customer profile with data from all sources
+  const getCustomerComprehensiveData = async (customerName: string) => {
+    if (!restaurantId || !customerName) {
+      return {
+        posOrders: [],
+        roomBillings: [],
+        reservations: [],
+        stats: {
+          totalPosSpend: 0,
+          totalRoomSpend: 0,
+          totalRoomFoodSpend: 0,
+          totalLifetimeValue: 0,
+          posOrderCount: 0,
+          roomStayCount: 0,
+          reservationCount: 0,
+          avgOrderValue: 0,
+          lastVisit: null,
+        },
+      };
+    }
+
+    // Fetch all data in parallel
+    const [posOrders, roomBillings, reservations] = await Promise.all([
+      getCustomerOrders(customerName),
+      getCustomerRoomBillings(customerName),
+      getCustomerReservations(customerName),
+    ]);
+
+    // Calculate stats
+    const posOrdersOnly = posOrders.filter((o) => o.source === "pos");
+    const roomFoodOrders = posOrders.filter((o) => o.source === "room_service");
+
+    const totalPosSpend = posOrdersOnly.reduce(
+      (sum, o) => sum + (o.amount || 0),
+      0
+    );
+    const totalRoomFoodSpend = roomFoodOrders.reduce(
+      (sum, o) => sum + (o.amount || 0),
+      0
+    );
+    const totalRoomSpend = roomBillings.reduce(
+      (sum, b) => sum + (b.totalAmount || 0),
+      0
+    );
+    const totalLifetimeValue = totalPosSpend + totalRoomSpend;
+
+    const allDates = [
+      ...posOrders.map((o) => new Date(o.date)),
+      ...roomBillings.map((b) => new Date(b.checkoutDate)),
+    ].filter((d) => !isNaN(d.getTime()));
+
+    const lastVisit =
+      allDates.length > 0
+        ? new Date(Math.max(...allDates.map((d) => d.getTime())))
+        : null;
+
+    const totalOrders = posOrdersOnly.length + roomFoodOrders.length;
+    const avgOrderValue =
+      totalOrders > 0 ? (totalPosSpend + totalRoomFoodSpend) / totalOrders : 0;
+
+    return {
+      posOrders: posOrdersOnly,
+      roomFoodOrders,
+      roomBillings,
+      reservations,
+      stats: {
+        totalPosSpend,
+        totalRoomSpend,
+        totalRoomFoodSpend,
+        totalLifetimeValue,
+        posOrderCount: posOrdersOnly.length,
+        roomFoodOrderCount: roomFoodOrders.length,
+        roomStayCount: roomBillings.length,
+        reservationCount: reservations.length,
+        avgOrderValue,
+        lastVisit: lastVisit?.toISOString() || null,
+      },
+    };
+  };
+
   // Add note mutation
   const addNote = useMutation({
     mutationFn: async ({
@@ -570,6 +718,9 @@ export const useCustomerData = () => {
     getCustomerNotes,
     getCustomerActivities,
     getCustomerOrders,
+    getCustomerRoomBillings,
+    getCustomerReservations,
+    getCustomerComprehensiveData,
     addNote,
     addActivity,
     saveCustomer,
