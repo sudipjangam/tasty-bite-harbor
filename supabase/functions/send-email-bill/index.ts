@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { 
   checkRateLimit, 
   createRateLimitResponse, 
@@ -34,47 +35,57 @@ interface EmailBillRequest {
   orderDate?: string;
   discount?: number;
   promotionName?: string;
+  // Enrollment options
+  includeEnrollment?: boolean; // Whether to include loyalty enrollment section
+  enrollmentLink?: string; // Direct link to enrollment page
+  isCustomerEnrolled?: boolean; // Skip enrollment section if already enrolled
 }
 
-async function sendEmailViaResend(
+// Send email via Gmail SMTP (PRIMARY)
+async function sendEmailViaGmailSMTP(
   to: string,
   subject: string,
   htmlContent: string,
   restaurantName: string
-): Promise<{ success: boolean; id?: string; error?: string }> {
-  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+): Promise<{ success: boolean; error?: string; provider?: string }> {
+  const smtpUser = Deno.env.get("SMTP_USER") || Deno.env.get("GMAIL_USER");
+  const smtpPass = Deno.env.get("SMTP_PASS") || Deno.env.get("GMAIL_APP_PASSWORD");
+  const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.gmail.com";
+  const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "465");
 
-  if (!resendApiKey) {
-    console.error("Missing RESEND_API_KEY environment variable");
-    return { success: false, error: "Email service not configured" };
+  if (!smtpUser || !smtpPass) {
+    console.log("SMTP credentials not configured");
+    return { success: false, error: "SMTP credentials not configured" };
   }
 
+  console.log(`📧 Attempting Gmail SMTP send to ${to}...`);
+
   try {
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
+    const client = new SMTPClient({
+      connection: {
+        hostname: smtpHost,
+        port: smtpPort,
+        tls: true,
+        auth: {
+          username: smtpUser,
+          password: smtpPass,
+        },
       },
-      body: JSON.stringify({
-        from: `${restaurantName} <onboarding@resend.dev>`, // Dynamic restaurant name
-        to: [to],
-        subject: subject,
-        html: htmlContent,
-      }),
     });
 
-    const result = await response.json();
+    await client.send({
+      from: `${restaurantName} <${smtpUser}>`,
+      to: to,
+      subject: subject,
+      content: "Please view this email in an HTML-compatible client.",
+      html: htmlContent,
+    });
 
-    if (!response.ok) {
-      console.error("Resend API error:", result);
-      return { success: false, error: result.message || "Failed to send email" };
-    }
-
-    console.log("Email sent successfully:", result);
-    return { success: true, id: result.id };
+    await client.close();
+    console.log("✅ Email sent successfully via Gmail SMTP");
+    return { success: true, provider: "gmail_smtp" };
   } catch (error) {
-    console.error("Email sending error:", error);
+    console.error("❌ Gmail SMTP error:", error);
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
@@ -208,6 +219,34 @@ function generateBillHTML(data: EmailBillRequest): string {
       </p>
     </div>
     
+    ${data.includeEnrollment && !data.isCustomerEnrolled && data.enrollmentLink ? `
+    <!-- Loyalty Program Enrollment Invitation -->
+    <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 25px; border-radius: 12px; margin-bottom: 20px; text-align: center;">
+      <div style="background: white; width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+        <span style="font-size: 28px;">🎁</span>
+      </div>
+      <h3 style="color: white; margin: 0 0 10px 0; font-size: 20px; font-weight: 600;">Join Our Loyalty Program!</h3>
+      <p style="color: rgba(255,255,255,0.95); margin: 0 0 20px 0; font-size: 14px; line-height: 1.5;">
+        Earn points on every order, get exclusive discounts, and enjoy special birthday rewards!
+      </p>
+      <a href="${data.enrollmentLink}" style="display: inline-block; background: white; color: #f5576c; text-decoration: none; padding: 14px 35px; border-radius: 50px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+        ✨ Join Now - Get 50 Points FREE!
+      </a>
+      <p style="color: rgba(255,255,255,0.8); margin: 15px 0 0 0; font-size: 12px;">
+        Scan QR code on your next visit or click the button above
+      </p>
+    </div>
+    ` : ''}
+    
+    ${data.isCustomerEnrolled ? `
+    <!-- Already Enrolled Badge -->
+    <div style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+      <p style="color: white; margin: 0; font-size: 14px; font-weight: 500;">
+        ⭐ You earned points on this order! Check your loyalty balance.
+      </p>
+    </div>
+    ` : ''}
+    
     <!-- Contact Information -->
     <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px;">
       <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">
@@ -271,34 +310,63 @@ serve(async (req: Request) => {
     let finalRestaurantName = restaurantName;
     let finalRestaurantAddress = requestBody.restaurantAddress || '';
     let finalRestaurantPhone = requestBody.restaurantPhone || '';
+    let restaurantSlug = '';
+    let isCustomerEnrolled = requestBody.isCustomerEnrolled || false;
     
     // If restaurant name is empty or default, try to fetch from database
-    if ((!restaurantName || restaurantName === 'Restaurant' || restaurantName === '') && restaurantId && supabaseUrl && supabaseServiceKey) {
-      console.log('📍 Restaurant name not provided, fetching from database with ID:', restaurantId);
+    if (restaurantId && supabaseUrl && supabaseServiceKey) {
+      console.log('📍 Fetching restaurant details from database with ID:', restaurantId);
       try {
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
         const { data: restaurant, error: dbError } = await supabase
           .from('restaurants')
-          .select('name, address, phone')
+          .select('name, address, phone, slug')
           .eq('id', restaurantId)
           .single();
         
         if (!dbError && restaurant) {
           console.log('✅ Found restaurant in DB:', restaurant.name);
-          finalRestaurantName = restaurant.name || 'Our Restaurant';
+          if (!restaurantName || restaurantName === 'Restaurant' || restaurantName === '') {
+            finalRestaurantName = restaurant.name || 'Our Restaurant';
+          }
           finalRestaurantAddress = restaurant.address || finalRestaurantAddress;
           finalRestaurantPhone = restaurant.phone || finalRestaurantPhone;
+          restaurantSlug = restaurant.slug || '';
         } else {
           console.warn('❌ Could not fetch restaurant from DB:', dbError);
-          finalRestaurantName = 'Our Restaurant';
+          if (!restaurantName || restaurantName === 'Restaurant' || restaurantName === '') {
+            finalRestaurantName = 'Our Restaurant';
+          }
+        }
+        
+        // Check if customer is already enrolled in loyalty program
+        if (email && !isCustomerEnrolled) {
+          const { data: customer } = await supabase
+            .from('customers')
+            .select('loyalty_enrolled')
+            .eq('restaurant_id', restaurantId)
+            .eq('email', email.toLowerCase())
+            .single();
+          
+          if (customer?.loyalty_enrolled) {
+            isCustomerEnrolled = true;
+            console.log('✅ Customer is already enrolled in loyalty program');
+          }
         }
       } catch (fetchError) {
         console.error('❌ Error fetching restaurant:', fetchError);
-        finalRestaurantName = 'Our Restaurant';
+        if (!restaurantName || restaurantName === 'Restaurant' || restaurantName === '') {
+          finalRestaurantName = 'Our Restaurant';
+        }
       }
     } else if (!restaurantName || restaurantName === 'Restaurant' || restaurantName === '') {
       finalRestaurantName = 'Our Restaurant';
     }
+    
+    // Build enrollment link if we have a slug
+    const enrollmentLink = restaurantSlug 
+      ? `${req.headers.get('origin') || 'https://your-domain.com'}/enroll/${restaurantSlug}`
+      : requestBody.enrollmentLink || '';
     
     console.log("Processing email bill request:", {
       orderId,
@@ -344,26 +412,33 @@ serve(async (req: Request) => {
       ...requestBody, 
       restaurantName: finalRestaurantName,
       restaurantAddress: finalRestaurantAddress,
-      restaurantPhone: finalRestaurantPhone
+      restaurantPhone: finalRestaurantPhone,
+      includeEnrollment: requestBody.includeEnrollment !== false, // Default to true
+      enrollmentLink: enrollmentLink,
+      isCustomerEnrolled: isCustomerEnrolled
     };
 
     // Generate bill HTML
     const htmlContent = generateBillHTML(updatedRequestBody);
     const subject = `Your Receipt from ${finalRestaurantName} - ₹${total.toFixed(2)}`;
 
-    // Send email via Resend
-    const emailResult = await sendEmailViaResend(email, subject, htmlContent, finalRestaurantName);
+    // Send email via Gmail SMTP
+    console.log('📧 Sending bill email to:', email);
+    const emailResult = await sendEmailViaGmailSMTP(email, subject, htmlContent, finalRestaurantName);
+    console.log('📧 Email result:', emailResult);
 
     if (!emailResult.success) {
       console.error("Failed to send email:", emailResult.error);
+      // Return 200 with success: false so client can see the specific error message
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: emailResult.error || 'Failed to send email'
+          error: emailResult.error || 'Failed to send email',
+          debug_provider: emailResult.provider
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
-          status: 500 
+          status: 200 
         }
       );
     }
@@ -404,7 +479,7 @@ serve(async (req: Request) => {
       JSON.stringify({
         success: true,
         message: `Bill sent successfully to ${email}`,
-        emailId: emailResult.id
+        provider: emailResult.provider
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -1954,30 +1954,42 @@ export type Database = {
       loyalty_tiers: {
         Row: {
           benefits: Json | null
+          color: string | null
           created_at: string
           display_order: number
           id: string
+          min_spent: number | null
+          min_visits: number | null
           name: string
+          points_multiplier: number | null
           points_required: number
           restaurant_id: string
           updated_at: string
         }
         Insert: {
           benefits?: Json | null
+          color?: string | null
           created_at?: string
           display_order?: number
           id?: string
+          min_spent?: number | null
+          min_visits?: number | null
           name: string
+          points_multiplier?: number | null
           points_required: number
           restaurant_id: string
           updated_at?: string
         }
         Update: {
           benefits?: Json | null
+          color?: string | null
           created_at?: string
           display_order?: number
           id?: string
+          min_spent?: number | null
+          min_visits?: number | null
           name?: string
+          points_multiplier?: number | null
           points_required?: number
           restaurant_id?: string
           updated_at?: string

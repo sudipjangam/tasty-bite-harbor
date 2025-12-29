@@ -64,6 +64,9 @@ const Security = lazy(() => import("@/pages/Security"));
 const Settings = lazy(() => import("@/pages/Settings"));
 const AdminPanel = lazy(() => import("@/pages/AdminPanel"));
 
+// Dev/Test Tools
+const EmailTester = lazy(() => import("@/components/Email/EmailTester"));
+
 // Platform Admin
 const PlatformLayout = lazy(() => import("@/pages/Platform/PlatformLayout"));
 const PlatformDashboard = lazy(
@@ -422,6 +425,20 @@ export const AppRoutes = () => {
                   <Reports />
                 </LazyRoute>
               </PermissionGuard>
+            }
+          />
+
+          {/* Dev Tools - Admin only */}
+          <Route
+            path="/email-tester"
+            element={
+              <AdminRoleGuard>
+                <LazyRoute>
+                  <div className="p-6">
+                    <EmailTester />
+                  </div>
+                </LazyRoute>
+              </AdminRoleGuard>
             }
           />
 

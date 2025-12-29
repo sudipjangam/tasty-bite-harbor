@@ -1,11 +1,26 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
-import { Customer, CustomerNote, CustomerActivity } from "@/types/customer";
+import {
+  Customer,
+  CustomerNote,
+  CustomerActivity,
+  CustomerLoyaltyTier,
+} from "@/types/customer";
+import { LoyaltyTierDB } from "@/types/loyalty";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
+
+// Default tier thresholds (used when no custom tiers exist)
+const DEFAULT_TIERS = [
+  { name: "Diamond", min_spent: 20000, min_visits: 15, points_required: 5000 },
+  { name: "Platinum", min_spent: 10000, min_visits: 10, points_required: 2500 },
+  { name: "Gold", min_spent: 5000, min_visits: 8, points_required: 1000 },
+  { name: "Silver", min_spent: 2500, min_visits: 5, points_required: 500 },
+  { name: "Bronze", min_spent: 1000, min_visits: 3, points_required: 100 },
+  { name: "None", min_spent: 0, min_visits: 0, points_required: 0 },
+];
 
 export const useCustomerData = () => {
   const { toast } = useToast();
@@ -16,104 +31,216 @@ export const useCustomerData = () => {
   useRealtimeSubscription({
     table: "customers",
     queryKey: "customers",
-    filter: restaurantId ? { column: "restaurant_id", value: restaurantId } : null
+    filter: restaurantId
+      ? { column: "restaurant_id", value: restaurantId }
+      : null,
   });
 
-  // Fetch customers data
+  // Fetch loyalty tiers from database
+  const { data: dbTiers = [] } = useQuery({
+    queryKey: ["loyalty-tiers", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return [];
+      const { data, error } = await supabase
+        .from("loyalty_tiers")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .order("display_order", { ascending: false }); // Order by display_order descending for tier calculation
+
+      if (error) {
+        console.error("Error fetching loyalty tiers:", error);
+        return [];
+      }
+      return (data || []).map((tier) => ({
+        ...tier,
+        min_spent: tier.min_spent ?? 0,
+        min_visits: tier.min_visits ?? 0,
+        points_required: tier.points_required ?? 0,
+      })) as LoyaltyTierDB[];
+    },
+    enabled: !!restaurantId,
+  });
+
+  // Calculate loyalty tier based on database tiers or defaults
+  const calculateLoyaltyTierFromDB = (
+    totalSpent: number,
+    visitCount: number,
+    loyaltyPoints: number
+  ): CustomerLoyaltyTier => {
+    // Use database tiers if available, otherwise use defaults
+    const tiers =
+      dbTiers.length > 0
+        ? dbTiers.sort((a, b) => (b.min_spent || 0) - (a.min_spent || 0)) // Sort by min_spent descending
+        : DEFAULT_TIERS;
+
+    for (const tier of tiers) {
+      const minSpent = "min_spent" in tier ? tier.min_spent || 0 : 0;
+      const minVisits = "min_visits" in tier ? tier.min_visits || 0 : 0;
+
+      // Customer qualifies for tier if they meet BOTH spending and visit requirements
+      if (totalSpent >= minSpent && visitCount >= minVisits) {
+        return tier.name as CustomerLoyaltyTier;
+      }
+    }
+    return "None";
+  };
+
+  // Fetch customers data with OPTIMIZED batch loading (fixes N+1 query problem)
   const {
     data: customers = [],
     isLoading: isLoadingCustomers,
     error: customersError,
-    refetch: refetchCustomers
+    refetch: refetchCustomers,
   } = useQuery({
     queryKey: ["customers", restaurantId],
     enabled: !!restaurantId,
     queryFn: async () => {
       if (!restaurantId) return [];
 
-      // Get all customers associated with this restaurant
-      const { data, error } = await supabase
+      // STEP 1: Fetch all customers
+      const { data: customersData, error: customersError } = await supabase
         .from("customers")
         .select("*")
         .eq("restaurant_id", restaurantId);
 
-      if (error) {
-        console.error("Error fetching customers:", error);
-        throw error;
+      if (customersError) {
+        console.error("Error fetching customers:", customersError);
+        throw customersError;
       }
 
-      // For each customer, enrich their data with information from all order types
-      const enrichedCustomers = await Promise.all(
-        data.map(async (customer) => {
-          // Get regular orders
-          const { data: orderData } = await supabase
-            .from("orders")
-            .select("total, created_at")
-            .eq("restaurant_id", restaurantId)
-            .eq("customer_name", customer.name)
-            .order("created_at", { ascending: false });
-            
-          // Get room food orders
-          const { data: roomFoodOrders } = await supabase
-            .from("room_food_orders")
-            .select("total, created_at")
-            .eq("restaurant_id", restaurantId)
-            .eq("customer_name", customer.name)
-            .order("created_at", { ascending: false });
-            
-          // Get reservations
-          const { data: reservations } = await supabase
-            .from("reservations")
-            .select("created_at")
-            .eq("restaurant_id", restaurantId)
-            .eq("customer_name", customer.name)
-            .order("created_at", { ascending: false });
+      if (!customersData || customersData.length === 0) {
+        return [];
+      }
 
-          // Combine all interactions to calculate metrics
-          const allOrders = [
-            ...(orderData || []).map(o => ({ total: o.total, date: o.created_at })),
-            ...(roomFoodOrders || []).map(o => ({ total: o.total, date: o.created_at }))
-          ];
-          
-          // Calculate metrics
-          const totalSpent = allOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
-          const visitCount = allOrders.length + (reservations?.length || 0);
-          const averageOrderValue = visitCount > 0 ? totalSpent / visitCount : 0;
-          
-          // Find most recent interaction date
-          const allDates = [
-            ...allOrders.map(o => new Date(o.date).getTime()),
-            ...(reservations || []).map(r => new Date(r.created_at).getTime())
-          ];
-          
-          const lastVisitDate = allDates.length > 0 
+      // STEP 2: Batch fetch ALL orders, room_food_orders, and reservations for this restaurant
+      // This is 3 queries total instead of 3*N queries!
+      const [ordersResult, roomOrdersResult, reservationsResult] =
+        await Promise.all([
+          supabase
+            .from("orders")
+            .select("customer_name, total, created_at")
+            .eq("restaurant_id", restaurantId),
+          supabase
+            .from("room_food_orders")
+            .select("customer_name, total, created_at")
+            .eq("restaurant_id", restaurantId),
+          supabase
+            .from("reservations")
+            .select("customer_name, created_at")
+            .eq("restaurant_id", restaurantId),
+        ]);
+
+      // Create lookup maps for efficient O(1) access by customer name
+      const ordersByCustomer = new Map<
+        string,
+        Array<{ total: number; created_at: string }>
+      >();
+      const roomOrdersByCustomer = new Map<
+        string,
+        Array<{ total: number; created_at: string }>
+      >();
+      const reservationsByCustomer = new Map<
+        string,
+        Array<{ created_at: string }>
+      >();
+
+      // Populate orders map
+      (ordersResult.data || []).forEach((order) => {
+        const name = order.customer_name || "";
+        if (!ordersByCustomer.has(name)) {
+          ordersByCustomer.set(name, []);
+        }
+        ordersByCustomer.get(name)!.push({
+          total: Number(order.total) || 0,
+          created_at: order.created_at,
+        });
+      });
+
+      // Populate room orders map
+      (roomOrdersResult.data || []).forEach((order) => {
+        const name = order.customer_name || "";
+        if (!roomOrdersByCustomer.has(name)) {
+          roomOrdersByCustomer.set(name, []);
+        }
+        roomOrdersByCustomer.get(name)!.push({
+          total: Number(order.total) || 0,
+          created_at: order.created_at,
+        });
+      });
+
+      // Populate reservations map
+      (reservationsResult.data || []).forEach((res) => {
+        const name = res.customer_name || "";
+        if (!reservationsByCustomer.has(name)) {
+          reservationsByCustomer.set(name, []);
+        }
+        reservationsByCustomer.get(name)!.push({
+          created_at: res.created_at,
+        });
+      });
+
+      // STEP 3: Enrich customers using the pre-fetched data (in-memory processing)
+      const enrichedCustomers = customersData.map((customer) => {
+        const customerOrders = ordersByCustomer.get(customer.name) || [];
+        const customerRoomOrders =
+          roomOrdersByCustomer.get(customer.name) || [];
+        const customerReservations =
+          reservationsByCustomer.get(customer.name) || [];
+
+        // Combine all orders
+        const allOrders = [
+          ...customerOrders.map((o) => ({
+            total: o.total,
+            date: o.created_at,
+          })),
+          ...customerRoomOrders.map((o) => ({
+            total: o.total,
+            date: o.created_at,
+          })),
+        ];
+
+        // Calculate metrics
+        const totalSpent = allOrders.reduce(
+          (sum, order) => sum + order.total,
+          0
+        );
+        const visitCount = allOrders.length + customerReservations.length;
+        const averageOrderValue = visitCount > 0 ? totalSpent / visitCount : 0;
+
+        // Find most recent interaction date
+        const allDates = [
+          ...allOrders.map((o) => new Date(o.date).getTime()),
+          ...customerReservations.map((r) => new Date(r.created_at).getTime()),
+        ];
+
+        const lastVisitDate =
+          allDates.length > 0
             ? new Date(Math.max(...allDates)).toISOString()
             : customer.last_visit_date;
 
-          return {
-            id: customer.id,
-            name: customer.name,
-            email: customer.email || null,
-            phone: customer.phone || null,
-            address: customer.address || null,
-            birthday: customer.birthday || null,
-            created_at: customer.created_at,
-            restaurant_id: customer.restaurant_id,
-            loyalty_points: customer.loyalty_points || 0,
-            loyalty_tier: calculateLoyaltyTier(
-              totalSpent,
-              visitCount,
-              calculateDaysSince(lastVisitDate)
-            ),
-            tags: customer.tags || [],
-            preferences: customer.preferences || null,
-            last_visit_date: lastVisitDate || null,
-            total_spent: totalSpent,
-            visit_count: visitCount,
-            average_order_value: averageOrderValue,
-          };
-        })
-      );
+        return {
+          id: customer.id,
+          name: customer.name,
+          email: customer.email || null,
+          phone: customer.phone || null,
+          address: customer.address || null,
+          birthday: customer.birthday || null,
+          created_at: customer.created_at,
+          restaurant_id: customer.restaurant_id,
+          loyalty_points: customer.loyalty_points || 0,
+          loyalty_tier: calculateLoyaltyTierFromDB(
+            totalSpent,
+            visitCount,
+            customer.loyalty_points || 0
+          ),
+          tags: customer.tags || [],
+          preferences: customer.preferences || null,
+          last_visit_date: lastVisitDate || null,
+          total_spent: totalSpent,
+          visit_count: visitCount,
+          average_order_value: averageOrderValue,
+        };
+      });
 
       return enrichedCustomers;
     },
@@ -154,7 +281,7 @@ export const useCustomerData = () => {
   // Fetch customer orders from all sources
   const getCustomerOrders = async (customerName: string) => {
     if (!restaurantId || !customerName) return [];
-    
+
     // Get standard orders
     const { data: orders, error: ordersError } = await supabase
       .from("orders")
@@ -162,12 +289,12 @@ export const useCustomerData = () => {
       .eq("restaurant_id", restaurantId)
       .eq("customer_name", customerName)
       .order("created_at", { ascending: false });
-      
+
     if (ordersError) {
       console.error("Error fetching customer orders:", ordersError);
       throw ordersError;
     }
-    
+
     // Get room food orders
     const { data: roomOrders, error: roomError } = await supabase
       .from("room_food_orders")
@@ -175,12 +302,12 @@ export const useCustomerData = () => {
       .eq("restaurant_id", restaurantId)
       .eq("customer_name", customerName)
       .order("created_at", { ascending: false });
-      
+
     if (roomError) {
       console.error("Error fetching room food orders:", roomError);
       throw roomError;
     }
-    
+
     // Combine and format all orders
     const allOrders = [
       ...(orders || []).map((order) => ({
@@ -190,7 +317,7 @@ export const useCustomerData = () => {
         order_id: order.id,
         status: order.status,
         items: order.items || [],
-        source: "pos"
+        source: "pos",
       })),
       ...(roomOrders || []).map((order) => ({
         id: order.id,
@@ -199,23 +326,25 @@ export const useCustomerData = () => {
         order_id: order.id,
         status: order.status,
         items: order.items || [],
-        source: "room_service"
-      }))
+        source: "room_service",
+      })),
     ];
-    
+
     // Sort by date, most recent first
-    return allOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return allOrders.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
   };
 
   // Add note mutation
   const addNote = useMutation({
-    mutationFn: async ({ 
-      customerId, 
-      content, 
-      createdBy 
-    }: { 
-      customerId: string; 
-      content: string; 
+    mutationFn: async ({
+      customerId,
+      content,
+      createdBy,
+    }: {
+      customerId: string;
+      content: string;
       createdBy: string;
     }) => {
       const { data, error } = await supabase
@@ -225,16 +354,18 @@ export const useCustomerData = () => {
             customer_id: customerId,
             restaurant_id: restaurantId,
             content: content,
-            created_by: createdBy
-          }
+            created_by: createdBy,
+          },
         ])
         .select();
-        
+
       if (error) throw error;
       return data;
     },
     onSuccess: (_, { customerId }) => {
-      queryClient.invalidateQueries({ queryKey: ["customer-notes", customerId] });
+      queryClient.invalidateQueries({
+        queryKey: ["customer-notes", customerId],
+      });
       toast({
         title: "Note Added",
         description: "Customer note has been successfully added.",
@@ -252,13 +383,13 @@ export const useCustomerData = () => {
 
   // Add customer activity
   const addActivity = useMutation({
-    mutationFn: async ({ 
-      customerId, 
-      activityType, 
-      description 
-    }: { 
-      customerId: string; 
-      activityType: string; 
+    mutationFn: async ({
+      customerId,
+      activityType,
+      description,
+    }: {
+      customerId: string;
+      activityType: string;
       description: string;
     }) => {
       const { data, error } = await supabase
@@ -269,15 +400,17 @@ export const useCustomerData = () => {
             restaurant_id: restaurantId,
             activity_type: activityType,
             description: description,
-          }
+          },
         ])
         .select();
-        
+
       if (error) throw error;
       return data;
     },
     onSuccess: (_, { customerId }) => {
-      queryClient.invalidateQueries({ queryKey: ["customer-activities", customerId] });
+      queryClient.invalidateQueries({
+        queryKey: ["customer-activities", customerId],
+      });
     },
     onError: (error) => {
       console.error("Error recording activity:", error);
@@ -302,14 +435,14 @@ export const useCustomerData = () => {
             address: customer.address,
             birthday: customer.birthday,
             preferences: customer.preferences,
-            tags: customer.tags || []
+            tags: customer.tags || [],
           })
           .eq("id", customer.id)
           .select();
-          
+
         if (error) throw error;
         return data;
-      } 
+      }
       // If creating new customer
       else {
         const { data, error } = await supabase
@@ -323,11 +456,11 @@ export const useCustomerData = () => {
               birthday: customer.birthday,
               preferences: customer.preferences,
               restaurant_id: restaurantId,
-              tags: customer.tags || []
-            }
+              tags: customer.tags || [],
+            },
           ])
           .select();
-          
+
         if (error) throw error;
         return data;
       }
@@ -351,11 +484,11 @@ export const useCustomerData = () => {
 
   // Add/remove tag mutation
   const updateTags = useMutation({
-    mutationFn: async ({ 
-      customerId, 
-      tags 
-    }: { 
-      customerId: string; 
+    mutationFn: async ({
+      customerId,
+      tags,
+    }: {
+      customerId: string;
       tags: string[];
     }) => {
       const { data, error } = await supabase
@@ -363,16 +496,16 @@ export const useCustomerData = () => {
         .update({ tags })
         .eq("id", customerId)
         .select();
-        
+
       if (error) throw error;
-      
+
       // Record activity
       await addActivity.mutateAsync({
         customerId,
         activityType: "tag_updated",
-        description: "Customer tags were updated"
+        description: "Customer tags were updated",
       });
-      
+
       return data;
     },
     onSuccess: () => {
@@ -392,28 +525,43 @@ export const useCustomerData = () => {
     },
   });
 
-  // Helper function to calculate loyalty tier
-  function calculateLoyaltyTier(
-    totalSpent: number,
-    visitCount: number,
-    daysSinceLastVisit: number
-  ): Customer["loyalty_tier"] {
-    // Simplified loyalty tier calculation logic
-    if (totalSpent > 20000 && visitCount > 15) return "Diamond";
-    if (totalSpent > 10000 && visitCount > 10) return "Platinum";
-    if (totalSpent > 5000 && visitCount > 8) return "Gold";
-    if (totalSpent > 2500 && visitCount > 5) return "Silver";
-    if (totalSpent > 1000 || visitCount > 3) return "Bronze";
-    return "None";
-  }
-  
-  // Calculate days since a given date
-  function calculateDaysSince(dateString?: string | null): number {
-    if (!dateString) return 0;
-    const date = new Date(dateString);
-    const now = new Date();
-    return Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-  }
+  // Delete customer mutation
+  const deleteCustomer = useMutation({
+    mutationFn: async (customerId: string) => {
+      // First delete related records
+      await supabase
+        .from("customer_notes")
+        .delete()
+        .eq("customer_id", customerId);
+      await supabase
+        .from("customer_activities")
+        .delete()
+        .eq("customer_id", customerId);
+
+      // Then delete the customer
+      const { error } = await supabase
+        .from("customers")
+        .delete()
+        .eq("id", customerId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      toast({
+        title: "Customer Deleted",
+        description: "The customer has been successfully deleted.",
+      });
+    },
+    onError: (error) => {
+      console.error("Error deleting customer:", error);
+      toast({
+        title: "Error",
+        description: "There was a problem deleting the customer.",
+        variant: "destructive",
+      });
+    },
+  });
 
   return {
     customers,
@@ -426,6 +574,7 @@ export const useCustomerData = () => {
     addActivity,
     saveCustomer,
     updateTags,
-    refetchCustomers
+    deleteCustomer,
+    refetchCustomers,
   };
 };

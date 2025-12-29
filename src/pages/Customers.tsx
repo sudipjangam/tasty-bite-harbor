@@ -1,68 +1,88 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import CustomerList from "@/components/CRM/CustomerList";
 import CustomerDetail from "@/components/CRM/CustomerDetail";
 import CustomerDialog from "@/components/CRM/CustomerDialog";
 import RealtimeCustomers from "@/components/CRM/RealtimeCustomers";
+import QRCodeGenerator from "@/components/CRM/QRCodeGenerator";
 import { Customer } from "@/types/customer";
-import { User, Users, TrendingUp, Heart } from "lucide-react";
+import { User, Users, TrendingUp, Heart, QrCode } from "lucide-react";
 import { useCustomerData } from "@/hooks/useCustomerData";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const Customers = () => {
   const { toast } = useToast();
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const { user } = useAuth();
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
+    null
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
-  
+  const [showQRGenerator, setShowQRGenerator] = useState(false);
+
   const {
     customers,
     isLoadingCustomers,
     saveCustomer,
+    deleteCustomer,
     getCustomerNotes,
     getCustomerActivities,
     getCustomerOrders,
     addNote,
-    updateTags
+    updateTags,
   } = useCustomerData();
 
   // Customer orders query - includes all order types
-  const { 
-    data: customerOrders = [], 
+  const {
+    data: customerOrders = [],
     isLoading: isLoadingOrders,
-    refetch: refetchOrders
+    refetch: refetchOrders,
   } = useQuery({
     queryKey: ["customer-orders", selectedCustomer?.name], // Using name to fetch orders
-    queryFn: () => selectedCustomer ? getCustomerOrders(selectedCustomer.name) : Promise.resolve([]),
+    queryFn: () =>
+      selectedCustomer
+        ? getCustomerOrders(selectedCustomer.name)
+        : Promise.resolve([]),
     enabled: !!selectedCustomer,
   });
 
   // Customer notes query
-  const {
-    data: customerNotes = [],
-    refetch: refetchNotes
-  } = useQuery({
+  const { data: customerNotes = [], refetch: refetchNotes } = useQuery({
     queryKey: ["customer-notes", selectedCustomer?.id],
-    queryFn: () => selectedCustomer ? getCustomerNotes(selectedCustomer.id) : Promise.resolve([]),
+    queryFn: () =>
+      selectedCustomer
+        ? getCustomerNotes(selectedCustomer.id)
+        : Promise.resolve([]),
     enabled: !!selectedCustomer,
   });
 
   // Customer activities query
-  const {
-    data: customerActivities = [],
-    refetch: refetchActivities
-  } = useQuery({
-    queryKey: ["customer-activities", selectedCustomer?.id],
-    queryFn: () => selectedCustomer ? getCustomerActivities(selectedCustomer.id) : Promise.resolve([]),
-    enabled: !!selectedCustomer,
-  });
+  const { data: customerActivities = [], refetch: refetchActivities } =
+    useQuery({
+      queryKey: ["customer-activities", selectedCustomer?.id],
+      queryFn: () =>
+        selectedCustomer
+          ? getCustomerActivities(selectedCustomer.id)
+          : Promise.resolve([]),
+      enabled: !!selectedCustomer,
+    });
 
   // Update selected customer when the customers array changes
   useEffect(() => {
     if (selectedCustomer && customers.length > 0) {
-      const updatedCustomer = customers.find(c => c.id === selectedCustomer.id);
+      const updatedCustomer = customers.find(
+        (c) => c.id === selectedCustomer.id
+      );
       if (updatedCustomer) {
         setSelectedCustomer(updatedCustomer);
       }
@@ -92,20 +112,26 @@ const Customers = () => {
     console.log("Filter applied:", filters);
   };
 
-  // Handle add note
+  // Handle add note - uses actual logged in user's name
   const handleAddNote = (customerId: string, content: string) => {
     if (content.trim()) {
+      // Get the user's display name from auth context
+      const userName =
+        user?.first_name && user?.last_name
+          ? `${user.first_name} ${user.last_name}`.trim()
+          : user?.first_name || user?.email?.split("@")[0] || "Staff Member";
+
       addNote.mutate(
-        { 
-          customerId, 
-          content, 
-          createdBy: "Staff Member" // You could get the actual staff name from context or state
+        {
+          customerId,
+          content,
+          createdBy: userName,
         },
         {
           onSuccess: () => {
             refetchNotes();
             refetchActivities();
-          }
+          },
         }
       );
     }
@@ -114,8 +140,8 @@ const Customers = () => {
   // Handle add tag
   const handleAddTag = (customerId: string, tag: string) => {
     if (!tag.trim()) return;
-    
-    const customer = customers.find(c => c.id === customerId);
+
+    const customer = customers.find((c) => c.id === customerId);
     if (customer) {
       const updatedTags = [...(customer.tags || [])];
       if (!updatedTags.includes(tag)) {
@@ -127,29 +153,44 @@ const Customers = () => {
 
   // Handle remove tag
   const handleRemoveTag = (customerId: string, tag: string) => {
-    const customer = customers.find(c => c.id === customerId);
+    const customer = customers.find((c) => c.id === customerId);
     if (customer && customer.tags) {
-      const updatedTags = customer.tags.filter(t => t !== tag);
+      const updatedTags = customer.tags.filter((t) => t !== tag);
       updateTags.mutate({ customerId, tags: updatedTags });
     }
   };
 
   // Handle customer updates
-  const handleUpdateCustomer = (customer: Customer, updates: Partial<Customer>) => {
+  const handleUpdateCustomer = (
+    customer: Customer,
+    updates: Partial<Customer>
+  ) => {
     const updatedCustomer = { ...customer, ...updates };
     setSelectedCustomer(updatedCustomer);
     // The actual database update is handled by the LoyaltyManagement component
   };
 
-  const totalSpent = customers.reduce((sum, customer) => sum + customer.total_spent, 0);
-  const averageOrderValue = customers.length > 0 ? totalSpent / customers.reduce((sum, customer) => sum + customer.visit_count, 0) || 0 : 0;
-  const loyalCustomers = customers.filter(customer => customer.loyalty_tier === 'Diamond' || customer.loyalty_tier === 'Platinum').length;
+  const totalSpent = customers.reduce(
+    (sum, customer) => sum + customer.total_spent,
+    0
+  );
+  const averageOrderValue =
+    customers.length > 0
+      ? totalSpent /
+          customers.reduce((sum, customer) => sum + customer.visit_count, 0) ||
+        0
+      : 0;
+  const loyalCustomers = customers.filter(
+    (customer) =>
+      customer.loyalty_tier === "Diamond" ||
+      customer.loyalty_tier === "Platinum"
+  ).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-indigo-950">
       {/* Enable real-time updates for all customer-related data */}
       <RealtimeCustomers />
-      
+
       {/* Modern Header with Stats */}
       <div className="p-6 pb-4">
         <div className="mb-8">
@@ -164,6 +205,22 @@ const Customers = () => {
           <p className="text-gray-600 dark:text-gray-400 ml-12">
             Build lasting relationships and track customer data
           </p>
+
+          {/* QR Code Button */}
+          <Dialog open={showQRGenerator} onOpenChange={setShowQRGenerator}>
+            <DialogTrigger asChild>
+              <Button className="ml-12 mt-3 gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700">
+                <QrCode className="h-4 w-4" />
+                Get Enrollment QR Code
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>Customer Self-Enrollment</DialogTitle>
+              </DialogHeader>
+              <QRCodeGenerator />
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Quick Stats Cards */}
@@ -174,8 +231,12 @@ const Customers = () => {
                 <Users className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Customers</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{customers.length}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Total Customers
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {customers.length}
+                </p>
               </div>
             </div>
           </div>
@@ -186,9 +247,14 @@ const Customers = () => {
                 <TrendingUp className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Revenue</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Total Revenue
+                </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  <CurrencyDisplay amount={totalSpent} className="text-2xl font-bold text-gray-900 dark:text-white" />
+                  <CurrencyDisplay
+                    amount={totalSpent}
+                    className="text-2xl font-bold text-gray-900 dark:text-white"
+                  />
                 </p>
               </div>
             </div>
@@ -200,9 +266,14 @@ const Customers = () => {
                 <TrendingUp className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Avg Order Value</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Avg Order Value
+                </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  <CurrencyDisplay amount={averageOrderValue} className="text-2xl font-bold text-gray-900 dark:text-white" />
+                  <CurrencyDisplay
+                    amount={averageOrderValue}
+                    className="text-2xl font-bold text-gray-900 dark:text-white"
+                  />
                 </p>
               </div>
             </div>
@@ -214,8 +285,12 @@ const Customers = () => {
                 <Heart className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Loyal Customers</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{loyalCustomers}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Loyal Customers
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {loyalCustomers}
+                </p>
               </div>
             </div>
           </div>
@@ -250,9 +325,12 @@ const Customers = () => {
                   <div className="rounded-full bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900 dark:to-indigo-900 p-6 mb-4">
                     <User className="h-12 w-12 text-purple-600 dark:text-purple-400" />
                   </div>
-                  <h3 className="text-xl font-medium text-gray-900 dark:text-white">No Customers Found</h3>
+                  <h3 className="text-xl font-medium text-gray-900 dark:text-white">
+                    No Customers Found
+                  </h3>
                   <p className="text-gray-500 dark:text-gray-400 mt-2 max-w-md">
-                    Your customer database is empty. Add your first customer to get started with the CRM module.
+                    Your customer database is empty. Add your first customer to
+                    get started with the CRM module.
                   </p>
                   <button
                     className="mt-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-6 py-3 rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl transform hover:scale-105"
@@ -285,7 +363,18 @@ const Customers = () => {
         onOpenChange={setDialogOpen}
         customer={customerToEdit}
         onSave={saveCustomer.mutate}
+        onDelete={(customerId) => {
+          deleteCustomer.mutate(customerId, {
+            onSuccess: () => {
+              if (selectedCustomer?.id === customerId) {
+                setSelectedCustomer(null);
+              }
+              setDialogOpen(false);
+            },
+          });
+        }}
         isLoading={saveCustomer.isPending}
+        isDeleting={deleteCustomer.isPending}
       />
     </div>
   );

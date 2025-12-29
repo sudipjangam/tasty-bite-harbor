@@ -866,6 +866,7 @@ const PaymentDialog = ({
             orderDate: new Date().toLocaleString("en-IN"),
             discount: totalDiscountAmount > 0 ? totalDiscountAmount : undefined,
             promotionName: appliedPromotion?.name || undefined,
+            includeEnrollment: true, // Enable loyalty program enrollment invitation
           },
         }
       );

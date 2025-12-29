@@ -6,6 +6,7 @@ import Auth from "@/pages/Auth";
 import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "@/pages/NotFound";
 import LandingWebsite from "@/pages/LandingWebsite";
+import PublicEnrollmentPage from "@/pages/PublicEnrollmentPage";
 
 const Routes = () => {
   const { user, loading } = useAuth();
@@ -23,6 +24,7 @@ const Routes = () => {
       <RouterRoutes>
         <Route path="/website" element={<LandingWebsite />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/enroll/:slug" element={<PublicEnrollmentPage />} />
         <Route path="*" element={<Auth />} />
       </RouterRoutes>
     );
@@ -31,6 +33,7 @@ const Routes = () => {
   return (
     <RouterRoutes>
       <Route path="/website" element={<LandingWebsite />} />
+      <Route path="/enroll/:slug" element={<PublicEnrollmentPage />} />
       <Route path="/*" element={<AppRoutes />} />
       <Route path="*" element={<NotFound />} />
     </RouterRoutes>
