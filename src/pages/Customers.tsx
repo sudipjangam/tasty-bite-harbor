@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import CustomerList from "@/components/CRM/CustomerList";
-import CustomerDetail from "@/components/CRM/CustomerDetail";
+import CustomerFullProfile from "@/components/CRM/CustomerFullProfile";
 import CustomerDialog from "@/components/CRM/CustomerDialog";
 import RealtimeCustomers from "@/components/CRM/RealtimeCustomers";
 import QRCodeGenerator from "@/components/CRM/QRCodeGenerator";
@@ -340,9 +340,8 @@ const Customers = () => {
                   </button>
                 </div>
               ) : (
-                <CustomerDetail
+                <CustomerFullProfile
                   customer={selectedCustomer}
-                  orders={customerOrders}
                   notes={customerNotes}
                   activities={customerActivities}
                   loading={isLoadingOrders}
