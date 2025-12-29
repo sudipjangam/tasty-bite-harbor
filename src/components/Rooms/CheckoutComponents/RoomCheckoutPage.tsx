@@ -64,6 +64,7 @@ interface ReservationDetails {
   id: string;
   customer_name: string;
   customer_phone?: string;
+  customer_email?: string;
   start_time: string;
   end_time: string;
 }
@@ -860,6 +861,7 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           billingId={billingId}
           customerName={reservation.customer_name}
           customerPhone={reservation.customer_phone || ""}
+          customerEmail={reservation.customer_email || ""}
           roomName={room.name}
           checkoutDate={format(new Date(), "PPP")}
           totalAmount={grandTotal}

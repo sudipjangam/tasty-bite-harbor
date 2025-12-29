@@ -1,13 +1,47 @@
-
 import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Customer, CustomerLoyaltyTier } from "@/types/customer";
-import { User, Mail, Phone, MapPin, Calendar, FileText, Star, Gift } from "lucide-react";
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  FileText,
+  Star,
+  Gift,
+  Trash2,
+  AlertCircle,
+} from "lucide-react";
 import LoyaltyBadge from "@/components/Customers/LoyaltyBadge";
 
 interface CustomerDialogProps {
@@ -15,15 +49,25 @@ interface CustomerDialogProps {
   onOpenChange: (open: boolean) => void;
   customer?: Customer | null;
   onSave: (customer: Partial<Customer>) => void;
+  onDelete?: (customerId: string) => void;
   isLoading?: boolean;
+  isDeleting?: boolean;
 }
+
+// Email validation regex
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Phone validation - allows various formats with optional country code
+const PHONE_REGEX =
+  /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,4}[-\s\.]?[0-9]{1,9}$/;
 
 const CustomerDialog: React.FC<CustomerDialogProps> = ({
   open,
   onOpenChange,
   customer,
   onSave,
+  onDelete,
   isLoading = false,
+  isDeleting = false,
 }) => {
   const [formData, setFormData] = useState<Partial<Customer>>({
     name: "",
@@ -36,6 +80,8 @@ const CustomerDialog: React.FC<CustomerDialogProps> = ({
     loyalty_points: 0,
     loyalty_tier: "None" as CustomerLoyaltyTier,
   });
+  const [errors, setErrors] = useState<{ email?: string; phone?: string }>({});
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (customer) {
@@ -64,57 +110,140 @@ const CustomerDialog: React.FC<CustomerDialogProps> = ({
         loyalty_tier: "None" as CustomerLoyaltyTier,
       });
     }
+    setErrors({});
   }, [customer, open]);
 
+  const validateForm = (): boolean => {
+    const newErrors: { email?: string; phone?: string } = {};
+
+    // Validate email if provided
+    if (formData.email && !EMAIL_REGEX.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    // Validate phone if provided
+    if (
+      formData.phone &&
+      !PHONE_REGEX.test(formData.phone.replace(/\s/g, ""))
+    ) {
+      newErrors.phone = "Please enter a valid phone number";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSave = () => {
-    onSave(formData);
-    onOpenChange(false);
+    if (validateForm()) {
+      onSave(formData);
+      onOpenChange(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (customer?.id && onDelete) {
+      onDelete(customer.id);
+      setShowDeleteConfirm(false);
+      onOpenChange(false);
+    }
   };
 
   const isEditing = !!customer?.id;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] bg-white/95 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl">
+      <DialogContent className="sm:max-w-[600px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-2xl rounded-2xl">
         {/* Modern Header */}
-        <DialogHeader className="space-y-4 pb-4 border-b border-white/20">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl shadow-lg">
-              <User className="h-5 w-5 text-white" />
+        <DialogHeader className="space-y-4 pb-4 border-b border-white/20 dark:border-gray-700/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl shadow-lg">
+                <User className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                  {isEditing ? "Edit Customer" : "Add New Customer"}
+                </DialogTitle>
+                <DialogDescription className="text-gray-600 dark:text-gray-400 mt-1">
+                  {isEditing
+                    ? "Update customer information and details."
+                    : "Add a new customer to your database."}
+                </DialogDescription>
+              </div>
             </div>
-            <div>
-              <DialogTitle className="text-xl font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                {isEditing ? "Edit Customer" : "Add New Customer"}
-              </DialogTitle>
-              <DialogDescription className="text-gray-600 mt-1">
-                {isEditing
-                  ? "Update customer information and details."
-                  : "Add a new customer to your database."}
-              </DialogDescription>
-            </div>
+            {/* Delete button for existing customers */}
+            {isEditing && onDelete && (
+              <AlertDialog
+                open={showDeleteConfirm}
+                onOpenChange={setShowDeleteConfirm}
+              >
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2">
+                      <AlertCircle className="h-5 w-5 text-red-500" />
+                      Delete Customer?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete{" "}
+                      <strong>{customer?.name}</strong>? This will also delete
+                      all their notes, activities, and history. This action
+                      cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      className="bg-red-500 hover:bg-red-600"
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? "Deleting..." : "Delete Customer"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </DialogHeader>
-        
-        <div className="space-y-6 py-4">
+
+        <div className="space-y-6 py-4 max-h-[60vh] overflow-y-auto">
           {/* Name Field */}
           <div className="space-y-2">
-            <Label htmlFor="name" className="text-gray-700 font-medium flex items-center gap-2">
+            <Label
+              htmlFor="name"
+              className="text-gray-700 dark:text-gray-300 font-medium flex items-center gap-2"
+            >
               <User className="h-4 w-4 text-purple-500" />
               Name *
             </Label>
             <Input
               id="name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               placeholder="Enter customer name"
-              className="bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-purple-300 transition-all duration-200"
+              className="bg-white/50 dark:bg-gray-800/50 border-white/30 dark:border-gray-600 rounded-xl focus:bg-white dark:focus:bg-gray-800 focus:border-purple-300 transition-all duration-200"
             />
           </div>
-          
+
           {/* Email and Phone Row */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-700 font-medium flex items-center gap-2">
+              <Label
+                htmlFor="email"
+                className="text-gray-700 dark:text-gray-300 font-medium flex items-center gap-2"
+              >
                 <Mail className="h-4 w-4 text-purple-500" />
                 Email
               </Label>
@@ -122,45 +251,78 @@ const CustomerDialog: React.FC<CustomerDialogProps> = ({
                 id="email"
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, email: e.target.value });
+                  if (errors.email) setErrors({ ...errors, email: undefined });
+                }}
                 placeholder="customer@email.com"
-                className="bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-purple-300 transition-all duration-200"
+                className={`bg-white/50 dark:bg-gray-800/50 border-white/30 dark:border-gray-600 rounded-xl focus:bg-white dark:focus:bg-gray-800 focus:border-purple-300 transition-all duration-200 ${
+                  errors.email ? "border-red-500" : ""
+                }`}
               />
+              {errors.email && (
+                <p className="text-xs text-red-500 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.email}
+                </p>
+              )}
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="phone" className="text-gray-700 font-medium flex items-center gap-2">
+              <Label
+                htmlFor="phone"
+                className="text-gray-700 dark:text-gray-300 font-medium flex items-center gap-2"
+              >
                 <Phone className="h-4 w-4 text-purple-500" />
                 Phone
               </Label>
               <Input
                 id="phone"
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="+1 (555) 123-4567"
-                className="bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-purple-300 transition-all duration-200"
+                onChange={(e) => {
+                  setFormData({ ...formData, phone: e.target.value });
+                  if (errors.phone) setErrors({ ...errors, phone: undefined });
+                }}
+                placeholder="+91 98765 43210"
+                className={`bg-white/50 dark:bg-gray-800/50 border-white/30 dark:border-gray-600 rounded-xl focus:bg-white dark:focus:bg-gray-800 focus:border-purple-300 transition-all duration-200 ${
+                  errors.phone ? "border-red-500" : ""
+                }`}
               />
+              {errors.phone && (
+                <p className="text-xs text-red-500 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.phone}
+                </p>
+              )}
             </div>
           </div>
-          
+
           {/* Address Field */}
           <div className="space-y-2">
-            <Label htmlFor="address" className="text-gray-700 font-medium flex items-center gap-2">
+            <Label
+              htmlFor="address"
+              className="text-gray-700 dark:text-gray-300 font-medium flex items-center gap-2"
+            >
               <MapPin className="h-4 w-4 text-purple-500" />
               Address
             </Label>
             <Textarea
               id="address"
               value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, address: e.target.value })
+              }
               placeholder="Enter customer address"
-              className="bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-purple-300 transition-all duration-200 min-h-[80px] resize-none"
+              className="bg-white/50 dark:bg-gray-800/50 border-white/30 dark:border-gray-600 rounded-xl focus:bg-white dark:focus:bg-gray-800 focus:border-purple-300 transition-all duration-200 min-h-[80px] resize-none"
             />
           </div>
-          
+
           {/* Birthday Field */}
           <div className="space-y-2">
-            <Label htmlFor="birthday" className="text-gray-700 font-medium flex items-center gap-2">
+            <Label
+              htmlFor="birthday"
+              className="text-gray-700 dark:text-gray-300 font-medium flex items-center gap-2"
+            >
               <Calendar className="h-4 w-4 text-purple-500" />
               Birthday
             </Label>
@@ -168,15 +330,20 @@ const CustomerDialog: React.FC<CustomerDialogProps> = ({
               id="birthday"
               type="date"
               value={formData.birthday}
-              onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
-              className="bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-purple-300 transition-all duration-200"
+              onChange={(e) =>
+                setFormData({ ...formData, birthday: e.target.value })
+              }
+              className="bg-white/50 dark:bg-gray-800/50 border-white/30 dark:border-gray-600 rounded-xl focus:bg-white dark:focus:bg-gray-800 focus:border-purple-300 transition-all duration-200"
             />
           </div>
-          
+
           {/* Loyalty Section */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="loyalty_points" className="text-gray-700 font-medium flex items-center gap-2">
+              <Label
+                htmlFor="loyalty_points"
+                className="text-gray-700 dark:text-gray-300 font-medium flex items-center gap-2"
+              >
                 <Gift className="h-4 w-4 text-purple-500" />
                 Loyalty Points
               </Label>
@@ -184,23 +351,33 @@ const CustomerDialog: React.FC<CustomerDialogProps> = ({
                 id="loyalty_points"
                 type="number"
                 value={formData.loyalty_points}
-                onChange={(e) => setFormData({ ...formData, loyalty_points: parseInt(e.target.value) || 0 })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    loyalty_points: parseInt(e.target.value) || 0,
+                  })
+                }
                 placeholder="0"
                 min="0"
-                className="bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-purple-300 transition-all duration-200"
+                className="bg-white/50 dark:bg-gray-800/50 border-white/30 dark:border-gray-600 rounded-xl focus:bg-white dark:focus:bg-gray-800 focus:border-purple-300 transition-all duration-200"
               />
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="loyalty_tier" className="text-gray-700 font-medium flex items-center gap-2">
+              <Label
+                htmlFor="loyalty_tier"
+                className="text-gray-700 dark:text-gray-300 font-medium flex items-center gap-2"
+              >
                 <Star className="h-4 w-4 text-purple-500" />
                 Loyalty Tier
               </Label>
-              <Select 
-                value={formData.loyalty_tier} 
-                onValueChange={(value: CustomerLoyaltyTier) => setFormData({ ...formData, loyalty_tier: value })}
+              <Select
+                value={formData.loyalty_tier}
+                onValueChange={(value: CustomerLoyaltyTier) =>
+                  setFormData({ ...formData, loyalty_tier: value })
+                }
               >
-                <SelectTrigger className="bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-purple-300 transition-all duration-200">
+                <SelectTrigger className="bg-white/50 dark:bg-gray-800/50 border-white/30 dark:border-gray-600 rounded-xl focus:bg-white dark:focus:bg-gray-800 focus:border-purple-300 transition-all duration-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -217,31 +394,36 @@ const CustomerDialog: React.FC<CustomerDialogProps> = ({
 
           {/* Preferences Field */}
           <div className="space-y-2">
-            <Label htmlFor="preferences" className="text-gray-700 font-medium flex items-center gap-2">
+            <Label
+              htmlFor="preferences"
+              className="text-gray-700 dark:text-gray-300 font-medium flex items-center gap-2"
+            >
               <FileText className="h-4 w-4 text-purple-500" />
               Preferences
             </Label>
             <Textarea
               id="preferences"
               value={formData.preferences}
-              onChange={(e) => setFormData({ ...formData, preferences: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, preferences: e.target.value })
+              }
               placeholder="Customer preferences, dietary restrictions, etc."
-              className="bg-white/50 border-white/30 rounded-xl focus:bg-white focus:border-purple-300 transition-all duration-200 min-h-[80px] resize-none"
+              className="bg-white/50 dark:bg-gray-800/50 border-white/30 dark:border-gray-600 rounded-xl focus:bg-white dark:focus:bg-gray-800 focus:border-purple-300 transition-all duration-200 min-h-[80px] resize-none"
             />
           </div>
         </div>
-        
+
         {/* Modern Footer */}
-        <DialogFooter className="gap-3 pt-4 border-t border-white/20">
-          <Button 
-            variant="outline" 
+        <DialogFooter className="gap-3 pt-4 border-t border-white/20 dark:border-gray-700/50">
+          <Button
+            variant="outline"
             onClick={() => onOpenChange(false)}
-            className="bg-white/50 border-white/30 text-gray-700 hover:bg-white hover:border-gray-300 rounded-xl px-6"
+            className="bg-white/50 dark:bg-gray-800/50 border-white/30 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 hover:border-gray-300 rounded-xl px-6"
           >
             Cancel
           </Button>
-          <Button 
-            onClick={handleSave} 
+          <Button
+            onClick={handleSave}
             disabled={!formData.name || isLoading}
             className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl px-6 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
           >
@@ -250,8 +432,10 @@ const CustomerDialog: React.FC<CustomerDialogProps> = ({
                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
                 Saving...
               </div>
+            ) : isEditing ? (
+              "Update Customer"
             ) : (
-              isEditing ? "Update Customer" : "Add Customer"
+              "Add Customer"
             )}
           </Button>
         </DialogFooter>
