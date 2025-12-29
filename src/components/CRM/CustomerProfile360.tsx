@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,23 +5,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Customer, CustomerOrder, CustomerNote, CustomerActivity } from "@/types/customer";
-import { 
-  User, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  Calendar, 
-  Star, 
-  TrendingUp, 
-  Heart, 
+import {
+  Customer,
+  CustomerOrder,
+  CustomerNote,
+  CustomerActivity,
+} from "@/types/customer";
+import {
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  Calendar,
+  Star,
+  TrendingUp,
+  Heart,
   Gift,
   MessageCircle,
   DollarSign,
   ShoppingBag,
   Clock,
   Plus,
-  Send
+  Send,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
@@ -46,7 +50,7 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
   onAddNote,
   onAddTag,
   onRemoveTag,
-  onUpdatePreferences
+  onUpdatePreferences,
 }) => {
   const [newNote, setNewNote] = useState("");
   const [newTag, setNewTag] = useState("");
@@ -75,22 +79,35 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
 
   const getLoyaltyTierColor = (tier: string) => {
     switch (tier) {
-      case 'Diamond': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'Platinum': return 'bg-gray-100 text-gray-800 border-gray-200';
-      case 'Gold': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'Silver': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'Bronze': return 'bg-orange-100 text-orange-800 border-orange-200';
-      default: return 'bg-gray-50 text-gray-600 border-gray-200';
+      case "Diamond":
+        return "bg-purple-100 text-purple-800 border-purple-200";
+      case "Platinum":
+        return "bg-gray-100 text-gray-800 border-gray-200";
+      case "Gold":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "Silver":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      case "Bronze":
+        return "bg-orange-100 text-orange-800 border-orange-200";
+      default:
+        return "bg-gray-50 text-gray-600 border-gray-200";
     }
   };
 
   const recentOrders = orders.slice(0, 5);
-  const averageOrderValue = orders.length > 0 ? orders.reduce((sum, order) => sum + order.amount, 0) / orders.length : 0;
-  const favoriteItems = orders.flatMap(order => order.items).reduce((acc: any, item: any) => {
-    acc[item.name] = (acc[item.name] || 0) + item.quantity;
-    return acc;
-  }, {});
-  const topItems = Object.entries(favoriteItems).sort(([,a]: any, [,b]: any) => b - a).slice(0, 3);
+  const averageOrderValue =
+    orders.length > 0
+      ? orders.reduce((sum, order) => sum + order.amount, 0) / orders.length
+      : 0;
+  const favoriteItems = orders
+    .flatMap((order) => order.items)
+    .reduce((acc: any, item: any) => {
+      acc[item.name] = (acc[item.name] || 0) + item.quantity;
+      return acc;
+    }, {});
+  const topItems = Object.entries(favoriteItems)
+    .sort(([, a]: any, [, b]: any) => b - a)
+    .slice(0, 3);
 
   return (
     <div className="space-y-6">
@@ -103,7 +120,9 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
                 {customer.name.charAt(0).toUpperCase()}
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">{customer.name}</h1>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {customer.name}
+                </h1>
                 <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
                   {customer.email && (
                     <div className="flex items-center space-x-1">
@@ -127,12 +146,17 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
               </div>
             </div>
             <div className="text-right">
-              <Badge className={`${getLoyaltyTierColor(customer.loyalty_tier)} border`}>
+              <Badge
+                className={`${getLoyaltyTierColor(
+                  customer.loyalty_tier
+                )} border`}
+              >
                 <Star className="w-3 h-3 mr-1" />
                 {customer.loyalty_tier}
               </Badge>
               <div className="mt-2 text-sm text-gray-600">
-                Customer since {format(new Date(customer.created_at), 'MMM yyyy')}
+                Customer since{" "}
+                {format(new Date(customer.created_at), "MMM yyyy")}
               </div>
             </div>
           </div>
@@ -146,7 +170,10 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Spent</p>
-                <p className="text-2xl font-bold text-green-600">{currencySymbol}{customer.total_spent.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {currencySymbol}
+                  {customer.total_spent.toLocaleString()}
+                </p>
               </div>
               <DollarSign className="w-8 h-8 text-green-600" />
             </div>
@@ -157,7 +184,9 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Visit Count</p>
-                <p className="text-2xl font-bold text-blue-600">{customer.visit_count}</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {customer.visit_count}
+                </p>
               </div>
               <ShoppingBag className="w-8 h-8 text-blue-600" />
             </div>
@@ -168,7 +197,10 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Avg Order Value</p>
-                <p className="text-2xl font-bold text-purple-600">{currencySymbol}{averageOrderValue.toFixed(0)}</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {currencySymbol}
+                  {averageOrderValue.toFixed(1)}
+                </p>
               </div>
               <TrendingUp className="w-8 h-8 text-purple-600" />
             </div>
@@ -179,7 +211,9 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Loyalty Points</p>
-                <p className="text-2xl font-bold text-yellow-600">{customer.loyalty_points}</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {customer.loyalty_points}
+                </p>
               </div>
               <Gift className="w-8 h-8 text-yellow-600" />
             </div>
@@ -209,21 +243,37 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
               </CardHeader>
               <CardContent className="space-y-3">
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Email</label>
-                  <p className="text-gray-900">{customer.email || 'Not provided'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Phone</label>
-                  <p className="text-gray-900">{customer.phone || 'Not provided'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Address</label>
-                  <p className="text-gray-900">{customer.address || 'Not provided'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Birthday</label>
+                  <label className="text-sm font-medium text-gray-600">
+                    Email
+                  </label>
                   <p className="text-gray-900">
-                    {customer.birthday ? format(new Date(customer.birthday), 'MMM dd, yyyy') : 'Not provided'}
+                    {customer.email || "Not provided"}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Phone
+                  </label>
+                  <p className="text-gray-900">
+                    {customer.phone || "Not provided"}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Address
+                  </label>
+                  <p className="text-gray-900">
+                    {customer.address || "Not provided"}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Birthday
+                  </label>
+                  <p className="text-gray-900">
+                    {customer.birthday
+                      ? format(new Date(customer.birthday), "MMM dd, yyyy")
+                      : "Not provided"}
                   </p>
                 </div>
               </CardContent>
@@ -241,7 +291,10 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
                 {topItems.length > 0 ? (
                   <div className="space-y-2">
                     {topItems.map(([item, count]: [string, any]) => (
-                      <div key={item} className="flex justify-between items-center">
+                      <div
+                        key={item}
+                        className="flex justify-between items-center"
+                      >
                         <span className="text-gray-900">{item}</span>
                         <Badge variant="outline">{count} orders</Badge>
                       </div>
@@ -262,7 +315,11 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
             <CardContent>
               <div className="flex flex-wrap gap-2 mb-4">
                 {customer.tags?.map((tag) => (
-                  <Badge key={tag} variant="secondary" className="cursor-pointer">
+                  <Badge
+                    key={tag}
+                    variant="secondary"
+                    className="cursor-pointer"
+                  >
                     {tag}
                     <button
                       onClick={() => onRemoveTag(customer.id, tag)}
@@ -278,7 +335,7 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
                   placeholder="Add new tag"
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+                  onKeyPress={(e) => e.key === "Enter" && handleAddTag()}
                 />
                 <Button onClick={handleAddTag}>
                   <Plus className="w-4 h-4" />
@@ -297,17 +354,32 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
               {recentOrders.length > 0 ? (
                 <div className="space-y-4">
                   {recentOrders.map((order) => (
-                    <div key={order.id} className="flex justify-between items-center p-4 border rounded-lg">
+                    <div
+                      key={order.id}
+                      className="flex justify-between items-center p-4 border rounded-lg"
+                    >
                       <div>
                         <p className="font-medium">Order #{order.order_id}</p>
                         <p className="text-sm text-gray-600">
-                          {format(new Date(order.date), 'MMM dd, yyyy')} • {order.source}
+                          {format(new Date(order.date), "MMM dd, yyyy")} •{" "}
+                          {order.source}
                         </p>
-                        <p className="text-sm text-gray-500">{order.items.length} items</p>
+                        <p className="text-sm text-gray-500">
+                          {order.items.length} items
+                        </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold">{currencySymbol}{order.amount}</p>
-                        <Badge variant={order.status === 'completed' ? 'default' : 'secondary'}>
+                        <p className="font-bold">
+                          {currencySymbol}
+                          {order.amount}
+                        </p>
+                        <Badge
+                          variant={
+                            order.status === "completed"
+                              ? "default"
+                              : "secondary"
+                          }
+                        >
                           {order.status}
                         </Badge>
                       </div>
@@ -337,7 +409,10 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
                   />
                   <div className="flex space-x-2">
                     <Button onClick={handleSavePreferences}>Save</Button>
-                    <Button variant="outline" onClick={() => setIsEditingPreferences(false)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsEditingPreferences(false)}
+                    >
                       Cancel
                     </Button>
                   </div>
@@ -345,7 +420,7 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
               ) : (
                 <div>
                   <p className="text-gray-900 mb-4">
-                    {customer.preferences || 'No preferences recorded'}
+                    {customer.preferences || "No preferences recorded"}
                   </p>
                   <Button onClick={() => setIsEditingPreferences(true)}>
                     Edit Preferences
@@ -375,15 +450,23 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
                   </Button>
                 </div>
               </div>
-              
+
               {notes.length > 0 ? (
                 <div className="space-y-3">
                   {notes.map((note) => (
-                    <div key={note.id} className="p-3 border rounded-lg bg-gray-50">
+                    <div
+                      key={note.id}
+                      className="p-3 border rounded-lg bg-gray-50"
+                    >
                       <p className="text-gray-900">{note.content}</p>
                       <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
                         <span>By {note.created_by}</span>
-                        <span>{format(new Date(note.created_at), 'MMM dd, yyyy HH:mm')}</span>
+                        <span>
+                          {format(
+                            new Date(note.created_at),
+                            "MMM dd, yyyy HH:mm"
+                          )}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -404,12 +487,18 @@ const CustomerProfile360: React.FC<CustomerProfile360Props> = ({
               {activities.length > 0 ? (
                 <div className="space-y-4">
                   {activities.map((activity) => (
-                    <div key={activity.id} className="flex items-start space-x-3">
+                    <div
+                      key={activity.id}
+                      className="flex items-start space-x-3"
+                    >
                       <div className="w-2 h-2 bg-blue-600 rounded-full mt-2"></div>
                       <div>
                         <p className="text-gray-900">{activity.description}</p>
                         <p className="text-xs text-gray-500">
-                          {format(new Date(activity.created_at), 'MMM dd, yyyy HH:mm')}
+                          {format(
+                            new Date(activity.created_at),
+                            "MMM dd, yyyy HH:mm"
+                          )}
                         </p>
                       </div>
                     </div>

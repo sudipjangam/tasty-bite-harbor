@@ -18,6 +18,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
+import { exportToExcel } from "@/utils/exportUtils";
 import {
   Search,
   Plus,
@@ -252,7 +253,7 @@ const CustomerList: React.FC<CustomerListProps> = ({
     }
   };
 
-  // Export customers to CSV
+  // Export customers to Excel
   const exportToCSV = useCallback(() => {
     const customersToExport =
       selectedIds.size > 0
@@ -268,64 +269,41 @@ const CustomerList: React.FC<CustomerListProps> = ({
       return;
     }
 
-    // CSV headers
-    const headers = [
-      "Name",
-      "Email",
-      "Phone",
-      "Address",
-      "Birthday",
-      "Loyalty Tier",
-      "Loyalty Points",
-      "Total Spent",
-      "Visit Count",
-      "Last Visit",
-      "Tags",
-      "Created At",
-    ];
-
-    // CSV rows
-    const rows = customersToExport.map((customer) => [
-      customer.name,
-      customer.email || "",
-      customer.phone || "",
-      customer.address?.replace(/,/g, ";") || "",
-      customer.birthday || "",
-      customer.loyalty_tier,
-      customer.loyalty_points.toString(),
-      customer.total_spent.toFixed(2),
-      customer.visit_count.toString(),
-      customer.last_visit_date
+    // Format data for Excel
+    const exportData = customersToExport.map((customer) => ({
+      Name: customer.name,
+      Email: customer.email || "",
+      Phone: customer.phone || "",
+      Address: customer.address || "",
+      Birthday: customer.birthday || "",
+      "Loyalty Tier": customer.loyalty_tier,
+      "Loyalty Points": customer.loyalty_points,
+      "Total Spent": parseFloat(customer.total_spent.toFixed(2)),
+      "Visit Count": customer.visit_count,
+      "Last Visit": customer.last_visit_date
         ? new Date(customer.last_visit_date).toLocaleDateString()
         : "",
-      customer.tags?.join("; ") || "",
-      new Date(customer.created_at).toLocaleDateString(),
-    ]);
+      Tags: customer.tags?.join(", ") || "",
+      "Created At": new Date(customer.created_at).toLocaleDateString(),
+    }));
 
-    // Create CSV content
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
-    ].join("\n");
+    const filename = `customers_export_${
+      new Date().toISOString().split("T")[0]
+    }`;
+    const success = exportToExcel(exportData, filename, "Customers");
 
-    // Download CSV
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `customers_export_${new Date().toISOString().split("T")[0]}.csv`
-    );
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    toast({
-      title: "Export successful",
-      description: `Exported ${customersToExport.length} customers to CSV.`,
-    });
+    if (success) {
+      toast({
+        title: "Export successful",
+        description: `Exported ${customersToExport.length} customers to Excel.`,
+      });
+    } else {
+      toast({
+        title: "Export failed",
+        description: "An error occurred while exporting data.",
+        variant: "destructive",
+      });
+    }
   }, [filteredCustomers, selectedIds, toast]);
 
   const getLoyaltyColor = (tier: string) => {
@@ -850,7 +828,8 @@ const CustomerList: React.FC<CustomerListProps> = ({
                               {customer.name}
                             </h3>
                             {(customer.loyalty_tier === "Diamond" ||
-                              customer.loyalty_tier === "Platinum") && (
+                              customer.loyalty_tier === "Platinum" ||
+                              customer.loyalty_tier === "Gold") && (
                               <Star className="h-4 w-4 text-yellow-500" />
                             )}
                           </div>
@@ -881,7 +860,7 @@ const CustomerList: React.FC<CustomerListProps> = ({
                           <CurrencyDisplay amount={customer.total_spent} />
                         </div>
                         <div className="text-xs text-gray-600 dark:text-gray-400">
-                          {customer.visit_count} visits
+                          {customer.visit_count} orders
                         </div>
                       </div>
                     </div>

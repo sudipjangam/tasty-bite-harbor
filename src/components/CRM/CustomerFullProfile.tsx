@@ -33,7 +33,19 @@ import {
   CreditCard,
   Activity,
   Sparkles,
+  Trash2,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface CustomerFullProfileProps {
   customer: Customer | null;
@@ -41,6 +53,7 @@ interface CustomerFullProfileProps {
   activities: CustomerActivity[];
   loading?: boolean;
   onEditCustomer: (customer: Customer) => void;
+  onDeleteCustomer: (customerId: string) => void;
   onAddNote: (customerId: string, content: string) => void;
   onAddTag: (customerId: string, tag: string) => void;
   onRemoveTag: (customerId: string, tag: string) => void;
@@ -53,6 +66,7 @@ const CustomerFullProfile: React.FC<CustomerFullProfileProps> = ({
   activities,
   loading = false,
   onEditCustomer,
+  onDeleteCustomer,
   onAddNote,
   onAddTag,
   onRemoveTag,
@@ -188,15 +202,49 @@ const CustomerFullProfile: React.FC<CustomerFullProfileProps> = ({
                 </div>
               </div>
             </div>
-            <Button
-              onClick={() => onEditCustomer(customer)}
-              variant="outline"
-              size="sm"
-              className="bg-white/80"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => onEditCustomer(customer)}
+                variant="outline"
+                size="sm"
+                className="bg-white/80"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-white/80 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete{" "}
+                      <strong>{customer.name}</strong>? This action cannot be
+                      undone. All customer data including notes, activities, and
+                      loyalty points will be permanently removed.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => onDeleteCustomer(customer.id)}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      Delete Customer
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
         </CardHeader>
 
