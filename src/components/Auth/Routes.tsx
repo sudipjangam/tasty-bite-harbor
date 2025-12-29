@@ -1,5 +1,5 @@
 import React from "react";
-import { Routes as RouterRoutes, Route } from "react-router-dom";
+import { Routes as RouterRoutes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { AppRoutes } from "./AppRoutes";
 import Auth from "@/pages/Auth";
@@ -34,9 +34,10 @@ const Routes = () => {
 
   return (
     <RouterRoutes>
-      <Route path="/" element={<LandingWebsite />} />
-      <Route path="/auth" element={<Auth />} />
-      <Route path="/login" element={<Auth />} />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/auth" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/login" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/website" element={<LandingWebsite />} />
       <Route path="/enroll/:slug" element={<PublicEnrollmentPage />} />
       <Route path="/dashboard/*" element={<AppRoutes />} />
       <Route path="/*" element={<AppRoutes />} />
