@@ -40,7 +40,52 @@ const Customers = () => {
     getCustomerOrders,
     addNote,
     updateTags,
+    getAllRoomBillings,
   } = useCustomerData();
+
+  // State for enriched customers with comprehensive data
+  const [enrichedCustomers, setEnrichedCustomers] = useState<Customer[]>([]);
+  const [roomBillingsMap, setRoomBillingsMap] = useState<
+    Record<string, number>
+  >({});
+
+  // Fetch all room billings on mount to calculate global stats
+  useEffect(() => {
+    const fetchRoomBillings = async () => {
+      const billings = await getAllRoomBillings();
+
+      // Aggregate room spend by customer name (normalized)
+      const spendMap: Record<string, number> = {};
+      billings.forEach((bill) => {
+        if (bill.customerName) {
+          const normalizedName = bill.customerName.toLowerCase().trim();
+          spendMap[normalizedName] =
+            (spendMap[normalizedName] || 0) + bill.totalAmount;
+        }
+      });
+      setRoomBillingsMap(spendMap);
+    };
+
+    fetchRoomBillings();
+  }, []);
+
+  // Update enriched customers when customers or room billings change
+  useEffect(() => {
+    if (customers.length > 0) {
+      const enriched = customers.map((customer) => {
+        const normalizedName = customer.name.toLowerCase().trim();
+        const roomSpend = roomBillingsMap[normalizedName] || 0;
+
+        return {
+          ...customer,
+          // Add a temporary field for comprehensive total spent (POS + Room)
+          // We can use this in the UI
+          total_spent: customer.total_spent + roomSpend,
+        };
+      });
+      setEnrichedCustomers(enriched);
+    }
+  }, [customers, roomBillingsMap]);
 
   // Customer orders query - includes all order types
   const {
@@ -77,21 +122,32 @@ const Customers = () => {
       enabled: !!selectedCustomer,
     });
 
-  // Update selected customer when the customers array changes
+  // Use enriched customers for stats if available, otherwise fallback to basic customers
+  const displayCustomers =
+    enrichedCustomers.length > 0 ? enrichedCustomers : customers;
+
+  // Update selected customer when the displayCustomers array changes
   useEffect(() => {
-    if (selectedCustomer && customers.length > 0) {
-      const updatedCustomer = customers.find(
+    if (selectedCustomer && displayCustomers.length > 0) {
+      const updatedCustomer = displayCustomers.find(
         (c) => c.id === selectedCustomer.id
       );
       if (updatedCustomer) {
-        setSelectedCustomer(updatedCustomer);
+        // Only update if data actually changed to avoid infinite loops
+        // Only check if total_spent changed, which is what we modified
+        if (updatedCustomer.total_spent !== selectedCustomer.total_spent) {
+          setSelectedCustomer(updatedCustomer);
+        }
       }
     }
-  }, [customers, selectedCustomer]);
+  }, [displayCustomers, selectedCustomer]);
 
   // Handle customer selection
   const handleSelectCustomer = (customer: Customer) => {
-    setSelectedCustomer(customer);
+    // Ensure we select the enriched version if available
+    const enriched =
+      displayCustomers.find((c) => c.id === customer.id) || customer;
+    setSelectedCustomer(enriched);
   };
 
   // Handle add customer button
@@ -170,20 +226,25 @@ const Customers = () => {
     // The actual database update is handled by the LoyaltyManagement component
   };
 
-  const totalSpent = customers.reduce(
+  // Total spent from all sources (POS + Room) - using enriched data
+  const totalSpent = displayCustomers.reduce(
     (sum, customer) => sum + customer.total_spent,
     0
   );
-  const averageOrderValue =
-    customers.length > 0
-      ? totalSpent /
-          customers.reduce((sum, customer) => sum + customer.visit_count, 0) ||
-        0
-      : 0;
-  const loyalCustomers = customers.filter(
+
+  // Average order value calculation
+  const totalVisits = displayCustomers.reduce(
+    (sum, customer) => sum + customer.visit_count,
+    0
+  );
+  const averageOrderValue = totalVisits > 0 ? totalSpent / totalVisits : 0;
+
+  // Loyal customers: Gold tier and above (Diamond, Platinum, Gold)
+  const loyalCustomers = displayCustomers.filter(
     (customer) =>
       customer.loyalty_tier === "Diamond" ||
-      customer.loyalty_tier === "Platinum"
+      customer.loyalty_tier === "Platinum" ||
+      customer.loyalty_tier === "Gold"
   ).length;
 
   return (
@@ -271,7 +332,7 @@ const Customers = () => {
                 </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   <CurrencyDisplay
-                    amount={averageOrderValue}
+                    amount={Number(averageOrderValue.toFixed(2))}
                     className="text-2xl font-bold text-gray-900 dark:text-white"
                   />
                 </p>
@@ -310,7 +371,7 @@ const Customers = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-320px)]">
             <div className="lg:col-span-5 xl:col-span-4 h-full">
               <CustomerList
-                customers={customers}
+                customers={displayCustomers}
                 loading={isLoadingCustomers}
                 selectedCustomerId={selectedCustomer?.id || null}
                 onSelectCustomer={handleSelectCustomer}
@@ -346,6 +407,13 @@ const Customers = () => {
                   activities={customerActivities}
                   loading={isLoadingOrders}
                   onEditCustomer={handleEditCustomer}
+                  onDeleteCustomer={(customerId) => {
+                    deleteCustomer.mutate(customerId, {
+                      onSuccess: () => {
+                        setSelectedCustomer(null);
+                      },
+                    });
+                  }}
                   onAddNote={handleAddNote}
                   onAddTag={handleAddTag}
                   onRemoveTag={handleRemoveTag}

@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,15 +6,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Calendar, 
-  Edit, 
-  Plus, 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Edit,
+  Plus,
   X,
   MessageSquare,
   ShoppingBag,
@@ -24,9 +30,14 @@ import {
   TrendingUp,
   Star,
   Clock,
-  Gift
+  Gift,
 } from "lucide-react";
-import { Customer, CustomerOrder, CustomerNote, CustomerActivity } from "@/types/customer";
+import {
+  Customer,
+  CustomerOrder,
+  CustomerNote,
+  CustomerActivity,
+} from "@/types/customer";
 import { cn } from "@/lib/utils";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import LoyaltyBadge from "@/components/Customers/LoyaltyBadge";
@@ -66,7 +77,9 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
       <Card className="h-full flex items-center justify-center bg-background border-border">
         <CardContent className="text-center p-8">
           <User className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-xl font-medium text-foreground mb-2">Select a Customer</h3>
+          <h3 className="text-xl font-medium text-foreground mb-2">
+            Select a Customer
+          </h3>
           <p className="text-muted-foreground">
             Choose a customer from the list to view their details and history.
           </p>
@@ -78,32 +91,42 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
   // Remove the old formatCurrency function since we're using CurrencyDisplay now
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Date(dateString).toLocaleDateString("en-IN", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const getLoyaltyColor = (tier: string) => {
     switch (tier) {
-      case "Diamond": return "bg-purple-600 text-white";
-      case "Platinum": return "bg-gray-400 text-white";
-      case "Gold": return "bg-yellow-500 text-white";
-      case "Silver": return "bg-gray-300 text-gray-800";
-      case "Bronze": return "bg-amber-600 text-white";
-      default: return "bg-gray-100 text-gray-800";
+      case "Diamond":
+        return "bg-purple-600 text-white";
+      case "Platinum":
+        return "bg-gray-400 text-white";
+      case "Gold":
+        return "bg-yellow-500 text-white";
+      case "Silver":
+        return "bg-gray-300 text-gray-800";
+      case "Bronze":
+        return "bg-amber-600 text-white";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
 
   const getOrderSourceColor = (source: string) => {
     switch (source) {
-      case "pos": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
-      case "room_service": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
-      case "table": return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
-      default: return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
+      case "pos":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
+      case "room_service":
+        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
+      case "table":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
     }
   };
 
@@ -133,7 +156,9 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
                 <User className="h-8 w-8 text-primary" />
               </div>
               <div className="flex-1">
-                <h1 className="text-2xl font-bold text-foreground">{customer.name}</h1>
+                <h1 className="text-2xl font-bold text-foreground">
+                  {customer.name}
+                </h1>
                 <div className="flex items-center gap-2 mt-2">
                   <LoyaltyBadge tier={customer.loyalty_tier} showIcon={true} />
                   <Badge variant="outline" className="text-xs">
@@ -146,7 +171,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
                 </div>
               </div>
             </div>
-            <Button 
+            <Button
               onClick={() => onEditCustomer(customer)}
               variant="outline"
               size="sm"
@@ -167,36 +192,44 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
               <TrendingUp className="h-5 w-5 text-primary" />
               <div>
                 <p className="text-sm text-muted-foreground">Total Spent</p>
-                <CurrencyDisplay amount={customer.total_spent} className="text-xl font-bold text-foreground" />
+                <CurrencyDisplay
+                  amount={customer.total_spent}
+                  className="text-xl font-bold text-foreground"
+                />
               </div>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="bg-background border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <ShoppingBag className="h-5 w-5 text-primary" />
               <div>
                 <p className="text-sm text-muted-foreground">Total Orders</p>
-                <p className="text-xl font-bold text-foreground">{customer.visit_count}</p>
+                <p className="text-xl font-bold text-foreground">
+                  {customer.visit_count}
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="bg-background border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary" />
               <div>
                 <p className="text-sm text-muted-foreground">Avg Order</p>
-                <CurrencyDisplay amount={customer.average_order_value} className="text-xl font-bold text-foreground" />
+                <CurrencyDisplay
+                  amount={Number(customer.average_order_value.toFixed(2))}
+                  className="text-xl font-bold text-foreground"
+                />
               </div>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="bg-background border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -204,7 +237,9 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
               <div>
                 <p className="text-sm text-muted-foreground">Last Visit</p>
                 <p className="text-sm font-medium text-foreground">
-                  {customer.last_visit_date ? formatDate(customer.last_visit_date) : "Never"}
+                  {customer.last_visit_date
+                    ? formatDate(customer.last_visit_date)
+                    : "Never"}
                 </p>
               </div>
             </div>
@@ -217,11 +252,36 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
         <Tabs defaultValue="overview" className="h-full flex flex-col">
           <CardHeader className="border-b border-border">
             <TabsList className="bg-muted">
-              <TabsTrigger value="overview" className="data-[state=active]:bg-background">Overview</TabsTrigger>
-              <TabsTrigger value="loyalty" className="data-[state=active]:bg-background">Loyalty</TabsTrigger>
-              <TabsTrigger value="orders" className="data-[state=active]:bg-background">Orders ({orders.length})</TabsTrigger>
-              <TabsTrigger value="notes" className="data-[state=active]:bg-background">Notes ({notes.length})</TabsTrigger>
-              <TabsTrigger value="activity" className="data-[state=active]:bg-background">Activity</TabsTrigger>
+              <TabsTrigger
+                value="overview"
+                className="data-[state=active]:bg-background"
+              >
+                Overview
+              </TabsTrigger>
+              <TabsTrigger
+                value="loyalty"
+                className="data-[state=active]:bg-background"
+              >
+                Loyalty
+              </TabsTrigger>
+              <TabsTrigger
+                value="orders"
+                className="data-[state=active]:bg-background"
+              >
+                Orders ({orders.length})
+              </TabsTrigger>
+              <TabsTrigger
+                value="notes"
+                className="data-[state=active]:bg-background"
+              >
+                Notes ({notes.length})
+              </TabsTrigger>
+              <TabsTrigger
+                value="activity"
+                className="data-[state=active]:bg-background"
+              >
+                Activity
+              </TabsTrigger>
             </TabsList>
           </CardHeader>
 
@@ -231,30 +291,40 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
                 {/* Contact Information */}
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-lg font-semibold text-foreground mb-4">Contact Information</h3>
+                    <h3 className="text-lg font-semibold text-foreground mb-4">
+                      Contact Information
+                    </h3>
                     <div className="space-y-3">
                       {customer.email && (
                         <div className="flex items-center gap-3">
                           <Mail className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-foreground">{customer.email}</span>
+                          <span className="text-foreground">
+                            {customer.email}
+                          </span>
                         </div>
                       )}
                       {customer.phone && (
                         <div className="flex items-center gap-3">
                           <Phone className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-foreground">{customer.phone}</span>
+                          <span className="text-foreground">
+                            {customer.phone}
+                          </span>
                         </div>
                       )}
                       {customer.address && (
                         <div className="flex items-center gap-3">
                           <MapPin className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-foreground">{customer.address}</span>
+                          <span className="text-foreground">
+                            {customer.address}
+                          </span>
                         </div>
                       )}
                       {customer.birthday && (
                         <div className="flex items-center gap-3">
                           <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-foreground">{formatDate(customer.birthday)}</span>
+                          <span className="text-foreground">
+                            {formatDate(customer.birthday)}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -263,8 +333,12 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
                   {/* Preferences */}
                   {customer.preferences && (
                     <div>
-                      <h3 className="text-lg font-semibold text-foreground mb-4">Preferences</h3>
-                      <p className="text-muted-foreground">{customer.preferences}</p>
+                      <h3 className="text-lg font-semibold text-foreground mb-4">
+                        Preferences
+                      </h3>
+                      <p className="text-muted-foreground">
+                        {customer.preferences}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -272,7 +346,9 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
                 {/* Tags */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-foreground">Tags</h3>
+                    <h3 className="text-lg font-semibold text-foreground">
+                      Tags
+                    </h3>
                     <Button
                       size="sm"
                       variant="outline"
@@ -283,24 +359,25 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
                       Add Tag
                     </Button>
                   </div>
-                  
+
                   <div className="flex flex-wrap gap-2">
-                    {customer.tags && customer.tags.map((tag, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="flex items-center gap-1 bg-secondary text-secondary-foreground"
-                      >
-                        <Tag className="h-3 w-3" />
-                        {tag}
-                        <button
-                          onClick={() => onRemoveTag(customer.id, tag)}
-                          className="ml-1 hover:bg-secondary-foreground/20 rounded-full p-0.5"
+                    {customer.tags &&
+                      customer.tags.map((tag, index) => (
+                        <Badge
+                          key={index}
+                          variant="secondary"
+                          className="flex items-center gap-1 bg-secondary text-secondary-foreground"
                         >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
+                          <Tag className="h-3 w-3" />
+                          {tag}
+                          <button
+                            onClick={() => onRemoveTag(customer.id, tag)}
+                            className="ml-1 hover:bg-secondary-foreground/20 rounded-full p-0.5"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
                   </div>
 
                   {showAddTag && (
@@ -309,15 +386,19 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
                         placeholder="Enter tag name"
                         value={newTag}
                         onChange={(e) => setNewTag(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+                        onKeyPress={(e) => e.key === "Enter" && handleAddTag()}
                         className="bg-background border-input"
                       />
-                      <Button onClick={handleAddTag} size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
+                      <Button
+                        onClick={handleAddTag}
+                        size="sm"
+                        className="bg-primary text-primary-foreground hover:bg-primary/90"
+                      >
                         Add
                       </Button>
-                      <Button 
-                        onClick={() => setShowAddTag(false)} 
-                        size="sm" 
+                      <Button
+                        onClick={() => setShowAddTag(false)}
+                        size="sm"
                         variant="outline"
                         className="bg-background border-input text-foreground hover:bg-muted"
                       >
@@ -331,9 +412,11 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
 
             <TabsContent value="loyalty" className="h-full">
               <ScrollArea className="h-full">
-                <LoyaltyManagement 
+                <LoyaltyManagement
                   customer={customer}
-                  onUpdateCustomer={(updates) => onUpdateCustomer(customer, updates)}
+                  onUpdateCustomer={(updates) =>
+                    onUpdateCustomer(customer, updates)
+                  }
                 />
               </ScrollArea>
             </TabsContent>
@@ -343,38 +426,69 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
                 {orders.length === 0 ? (
                   <div className="text-center py-8">
                     <ShoppingBag className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-foreground">No orders found</h3>
-                    <p className="text-sm text-muted-foreground">This customer hasn't placed any orders yet.</p>
+                    <h3 className="text-lg font-medium text-foreground">
+                      No orders found
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      This customer hasn't placed any orders yet.
+                    </p>
                   </div>
                 ) : (
                   <Table>
                     <TableHeader>
                       <TableRow className="border-border">
-                        <TableHead className="text-foreground">Order ID</TableHead>
+                        <TableHead className="text-foreground">
+                          Order ID
+                        </TableHead>
                         <TableHead className="text-foreground">Date</TableHead>
-                        <TableHead className="text-foreground">Source</TableHead>
-                        <TableHead className="text-foreground">Amount</TableHead>
-                        <TableHead className="text-foreground">Status</TableHead>
+                        <TableHead className="text-foreground">
+                          Source
+                        </TableHead>
+                        <TableHead className="text-foreground">
+                          Amount
+                        </TableHead>
+                        <TableHead className="text-foreground">
+                          Status
+                        </TableHead>
                         <TableHead className="text-foreground">Items</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {orders.map((order) => (
                         <TableRow key={order.id} className="border-border">
-                          <TableCell className="font-mono text-foreground">{order.order_id.slice(-8)}</TableCell>
-                          <TableCell className="text-foreground">{formatDate(order.date)}</TableCell>
+                          <TableCell className="font-mono text-foreground">
+                            {order.order_id.slice(-8)}
+                          </TableCell>
+                          <TableCell className="text-foreground">
+                            {formatDate(order.date)}
+                          </TableCell>
                           <TableCell>
-                            <Badge className={cn("text-xs", getOrderSourceColor(order.source || 'pos'))}>
-                              {order.source === 'room_service' ? 'Room Service' : 
-                               order.source === 'pos' ? 'POS' : 
-                               order.source === 'table' ? 'Table Order' : 'Unknown'}
+                            <Badge
+                              className={cn(
+                                "text-xs",
+                                getOrderSourceColor(order.source || "pos")
+                              )}
+                            >
+                              {order.source === "room_service"
+                                ? "Room Service"
+                                : order.source === "pos"
+                                ? "POS"
+                                : order.source === "table"
+                                ? "Table Order"
+                                : "Unknown"}
                             </Badge>
                           </TableCell>
                           <TableCell className="font-medium text-foreground">
                             <CurrencyDisplay amount={order.amount} />
                           </TableCell>
                           <TableCell>
-                            <Badge variant={order.status === 'completed' ? 'default' : 'secondary'}>
+                            <Badge
+                              variant={
+                                order.status === "completed"
+                                  ? "default"
+                                  : "secondary"
+                              }
+                            >
                               {order.status}
                             </Badge>
                           </TableCell>
@@ -393,7 +507,9 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
               <div className="space-y-4">
                 {/* Add Note */}
                 <div className="border border-border rounded-lg p-4 bg-background">
-                  <h4 className="font-medium text-foreground mb-3">Add New Note</h4>
+                  <h4 className="font-medium text-foreground mb-3">
+                    Add New Note
+                  </h4>
                   <div className="space-y-3">
                     <Textarea
                       placeholder="Enter your note about this customer..."
@@ -401,8 +517,8 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
                       onChange={(e) => setNewNote(e.target.value)}
                       className="bg-background border-input"
                     />
-                    <Button 
-                      onClick={handleAddNote} 
+                    <Button
+                      onClick={handleAddNote}
                       disabled={!newNote.trim()}
                       size="sm"
                       className="bg-primary text-primary-foreground hover:bg-primary/90"
@@ -418,16 +534,27 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
                   {notes.length === 0 ? (
                     <div className="text-center py-8">
                       <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-foreground">No notes yet</h3>
-                      <p className="text-sm text-muted-foreground">Add your first note about this customer.</p>
+                      <h3 className="text-lg font-medium text-foreground">
+                        No notes yet
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Add your first note about this customer.
+                      </p>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       {notes.map((note) => (
-                        <div key={note.id} className="border border-border rounded-lg p-4 bg-background">
+                        <div
+                          key={note.id}
+                          className="border border-border rounded-lg p-4 bg-background"
+                        >
                           <div className="flex justify-between items-start mb-2">
-                            <span className="text-sm font-medium text-foreground">{note.created_by}</span>
-                            <span className="text-xs text-muted-foreground">{formatDate(note.created_at)}</span>
+                            <span className="text-sm font-medium text-foreground">
+                              {note.created_by}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDate(note.created_at)}
+                            </span>
                           </div>
                           <p className="text-foreground">{note.content}</p>
                         </div>
@@ -443,17 +570,26 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
                 {activities.length === 0 ? (
                   <div className="text-center py-8">
                     <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-foreground">No activity yet</h3>
-                    <p className="text-sm text-muted-foreground">Customer activity will appear here.</p>
+                    <h3 className="text-lg font-medium text-foreground">
+                      No activity yet
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Customer activity will appear here.
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {activities.map((activity) => (
-                      <div key={activity.id} className="border border-border rounded-lg p-4 bg-background">
+                      <div
+                        key={activity.id}
+                        className="border border-border rounded-lg p-4 bg-background"
+                      >
                         <div className="flex items-start gap-3">
                           <Activity className="h-5 w-5 text-primary mt-0.5" />
                           <div className="flex-1">
-                            <p className="text-foreground">{activity.description}</p>
+                            <p className="text-foreground">
+                              {activity.description}
+                            </p>
                             <p className="text-xs text-muted-foreground mt-1">
                               {formatDate(activity.created_at)}
                             </p>

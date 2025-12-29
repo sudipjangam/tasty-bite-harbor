@@ -336,6 +336,28 @@ export const useCustomerData = () => {
     );
   };
 
+  // Fetch all room billings for the restaurant (for global stats)
+  const getAllRoomBillings = async () => {
+    if (!restaurantId) return [];
+
+    const { data, error } = await supabase
+      .from("room_billings")
+      .select("id, customer_name, total_amount, checkout_date")
+      .eq("restaurant_id", restaurantId);
+
+    if (error) {
+      console.error("Error fetching all room billings:", error);
+      return [];
+    }
+
+    return (data || []).map((billing) => ({
+      id: billing.id,
+      customerName: billing.customer_name,
+      totalAmount: Number(billing.total_amount) || 0,
+      checkoutDate: billing.checkout_date,
+    }));
+  };
+
   // Fetch customer room billings (room stays/checkouts)
   const getCustomerRoomBillings = async (customerName: string) => {
     if (!restaurantId || !customerName) return [];
@@ -345,11 +367,11 @@ export const useCustomerData = () => {
       .select(
         `
         *,
-        rooms:room_id (name, room_number)
+        rooms:room_id (name)
       `
       )
       .eq("restaurant_id", restaurantId)
-      .eq("customer_name", customerName)
+      .ilike("customer_name", customerName) // Case-insensitive match
       .order("checkout_date", { ascending: false });
 
     if (error) {
@@ -357,15 +379,17 @@ export const useCustomerData = () => {
       return [];
     }
 
+    console.log("Room billings found for", customerName, ":", data);
+
     return (data || []).map((billing) => ({
       id: billing.id,
       checkoutDate: billing.checkout_date,
-      roomName: billing.rooms?.name || billing.rooms?.room_number || "Room",
-      daysStayed: billing.days_stayed,
-      roomCharges: billing.room_charges,
-      foodOrdersTotal: billing.food_orders_total || 0,
-      serviceCharge: billing.service_charge,
-      totalAmount: billing.total_amount,
+      roomName: billing.rooms?.name || "Room",
+      daysStayed: Number(billing.days_stayed) || 0,
+      roomCharges: Number(billing.room_charges) || 0,
+      foodOrdersTotal: Number(billing.food_orders_total) || 0,
+      serviceCharge: Number(billing.service_charge) || 0,
+      totalAmount: Number(billing.total_amount) || 0,
       paymentMethod: billing.payment_method,
       paymentStatus: billing.payment_status,
     }));
@@ -380,11 +404,11 @@ export const useCustomerData = () => {
       .select(
         `
         *,
-        rooms:room_id (name, room_number)
+        rooms:room_id (name)
       `
       )
       .eq("restaurant_id", restaurantId)
-      .eq("customer_name", customerName)
+      .ilike("customer_name", customerName)
       .order("start_time", { ascending: false });
 
     if (error) {
@@ -396,8 +420,7 @@ export const useCustomerData = () => {
       id: reservation.id,
       startTime: reservation.start_time,
       endTime: reservation.end_time,
-      roomName:
-        reservation.rooms?.name || reservation.rooms?.room_number || "Room",
+      roomName: reservation.rooms?.name || "Room",
       status: reservation.status,
       notes: reservation.notes,
       specialOccasion: reservation.special_occasion,
@@ -676,13 +699,17 @@ export const useCustomerData = () => {
   // Delete customer mutation
   const deleteCustomer = useMutation({
     mutationFn: async (customerId: string) => {
-      // First delete related records
+      // First delete related records from all referencing tables
       await supabase
         .from("customer_notes")
         .delete()
         .eq("customer_id", customerId);
       await supabase
         .from("customer_activities")
+        .delete()
+        .eq("customer_id", customerId);
+      await supabase
+        .from("loyalty_transactions")
         .delete()
         .eq("customer_id", customerId);
 
@@ -694,6 +721,7 @@ export const useCustomerData = () => {
 
       if (error) throw error;
     },
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       toast({
@@ -719,6 +747,7 @@ export const useCustomerData = () => {
     getCustomerActivities,
     getCustomerOrders,
     getCustomerRoomBillings,
+    getAllRoomBillings,
     getCustomerReservations,
     getCustomerComprehensiveData,
     addNote,

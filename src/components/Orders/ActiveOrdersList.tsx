@@ -37,7 +37,7 @@ import PaymentDialog from "./POS/PaymentDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { useAuth } from "@/hooks/useAuth";
-import * as XLSX from "xlsx";
+import { exportToExcel } from "@/utils/exportUtils";
 
 interface OrderItem {
   name: string;
@@ -479,37 +479,34 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
       );
 
       // Prepare data for export
-      const exportData: Record<string, string>[] = filteredOrders.map(
-        (order) => ({
-          "Order ID": order.id.slice(0, 8) + "...",
-          Source: order.source,
-          Items: order.items.map((i) => `${i.quantity}x ${i.name}`).join(", "),
-          "Gross Total": `${currencySymbol}${calculateOrderTotal(
-            order.items
-          ).toFixed(2)}`,
-          Discount: order.discount_amount
-            ? `${currencySymbol}${order.discount_amount.toFixed(2)} (${
-                order.discount_percentage
-              }%)`
-            : "-",
-          "Net Total": `${currencySymbol}${calculateFinalTotal(
-            order.items,
-            order.discount_amount
-          ).toFixed(2)}`,
-          Status: order.status,
-          "Created Date": format(new Date(order.created_at), "yyyy-MM-dd"),
-          "Created Time": format(new Date(order.created_at), "HH:mm:ss"),
-        })
-      );
+      const exportData = filteredOrders.map((order) => ({
+        "Order ID": order.id.slice(0, 8) + "...",
+        Source: order.source,
+        Items: order.items.map((i) => `${i.quantity}x ${i.name}`).join(", "),
+        [`Gross Total (${currencySymbol})`]: parseFloat(
+          calculateOrderTotal(order.items).toFixed(2)
+        ),
+        [`Discount (${currencySymbol})`]: order.discount_amount
+          ? `${order.discount_amount.toFixed(2)} (${
+              order.discount_percentage
+            }%)`
+          : "-",
+        [`Net Total (${currencySymbol})`]: parseFloat(
+          calculateFinalTotal(order.items, order.discount_amount).toFixed(2)
+        ),
+        Status: order.status,
+        "Created Date": format(new Date(order.created_at), "yyyy-MM-dd"),
+        "Created Time": format(new Date(order.created_at), "HH:mm:ss"),
+      }));
 
       // Add empty row as separator
       exportData.push({
         "Order ID": "",
         Source: "",
         Items: "",
-        "Gross Total": "",
-        Discount: "",
-        "Net Total": "",
+        [`Gross Total (${currencySymbol})`]: "" as any,
+        [`Discount (${currencySymbol})`]: "",
+        [`Net Total (${currencySymbol})`]: "" as any,
         Status: "-",
         "Created Date": "",
         "Created Time": "",
@@ -520,34 +517,33 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
         "Order ID": "SUMMARY",
         Source: `Total Orders: ${filteredOrders.length}`,
         Items: "",
-        "Gross Total": "",
-        Discount: `${currencySymbol}${totalDiscount.toFixed(2)}`,
-        "Net Total": `${currencySymbol}${totalRevenue.toFixed(2)}`,
+        [`Gross Total (${currencySymbol})`]: "" as any,
+        [`Discount (${currencySymbol})`]: parseFloat(totalDiscount.toFixed(2)),
+        [`Net Total (${currencySymbol})`]: parseFloat(totalRevenue.toFixed(2)),
         Status: "-",
         "Created Date": format(new Date(), "yyyy-MM-dd"),
         "Created Time": "",
       });
 
-      // Create workbook and worksheet
-      const ws = XLSX.utils.json_to_sheet(exportData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "POS Orders");
-
-      // Generate filename: RestaurantName_POS_Orders_YYYY-MM-DD.xlsx
+      // Generate filename: RestaurantName_POS_Orders_YYYY-MM-DD
       const sanitizedRestaurantName = restaurantName.replace(
         /[^a-zA-Z0-9]/g,
         "_"
       );
       const dateStr = format(new Date(), "yyyy-MM-dd");
-      const filename = `${sanitizedRestaurantName}_POS_Orders_${dateStr}.xlsx`;
+      const filename = `${sanitizedRestaurantName}_POS_Orders_${dateStr}`;
 
-      // Save file
-      XLSX.writeFile(wb, filename);
+      // Use shared export utility
+      const success = exportToExcel(exportData, filename, "POS Orders");
 
-      toast({
-        title: "Export Successful",
-        description: `Orders exported to ${filename}`,
-      });
+      if (success) {
+        toast({
+          title: "Export Successful",
+          description: `Orders exported to ${filename}.xlsx`,
+        });
+      } else {
+        throw new Error("Export failed");
+      }
     } catch (error) {
       console.error("Export error:", error);
       toast({

@@ -43,7 +43,7 @@ import {
 import type { DateRange } from "react-day-picker";
 import type { Order } from "@/types/orders";
 import { useToast } from "@/hooks/use-toast";
-import * as XLSX from "xlsx";
+import { exportToExcel } from "@/utils/exportUtils";
 import { usePagination } from "@/hooks/usePagination";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
@@ -243,9 +243,11 @@ const OrdersView = ({
         "Order ID": order.id,
         "Customer Name": order.customer_name,
         Items: order.items.join(", "),
-        "Total Amount": `${currencySymbol}${order.total.toFixed(2)}`,
-        Discount: order.discount_amount
-          ? `${currencySymbol}${order.discount_amount.toFixed(2)} (${
+        [`Total Amount (${currencySymbol})`]: parseFloat(
+          order.total.toFixed(2)
+        ),
+        [`Discount (${currencySymbol})`]: order.discount_amount
+          ? `${order.discount_amount.toFixed(2)} (${
               order.discount_percentage
             }%)`
           : "-",
@@ -259,8 +261,8 @@ const OrdersView = ({
         "Order ID": "",
         "Customer Name": "",
         Items: "",
-        "Total Amount": "",
-        Discount: "",
+        [`Total Amount (${currencySymbol})`]: "",
+        [`Discount (${currencySymbol})`]: "",
         Status: "",
         "Created Date": "",
         "Created Time": "",
@@ -271,30 +273,31 @@ const OrdersView = ({
         "Order ID": "SUMMARY",
         "Customer Name": `Total Orders: ${totalOrders}`,
         Items: "",
-        "Total Amount": `${currencySymbol}${totalEarned.toFixed(2)}`,
-        Discount: `${currencySymbol}${totalDiscount.toFixed(2)}`,
+        [`Total Amount (${currencySymbol})`]: parseFloat(
+          totalEarned.toFixed(2)
+        ),
+        [`Discount (${currencySymbol})`]: parseFloat(totalDiscount.toFixed(2)),
         Status: "",
         "Created Date": getDateFilterLabel(),
         "Created Time": "",
       });
 
-      // Create workbook and worksheet
-      const ws = XLSX.utils.json_to_sheet(exportData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Orders");
-
       // Generate filename with current date
       const filename = `orders_export_${
         new Date().toISOString().split("T")[0]
-      }.xlsx`;
+      }`;
 
-      // Save file
-      XLSX.writeFile(wb, filename);
+      // Use shared export utility
+      const success = exportToExcel(exportData, filename, "Orders");
 
-      toast({
-        title: "Export Successful",
-        description: `Orders exported to ${filename}`,
-      });
+      if (success) {
+        toast({
+          title: "Export Successful",
+          description: `Orders exported to ${filename}.xlsx`,
+        });
+      } else {
+        throw new Error("Export failed");
+      }
     } catch (error) {
       console.error("Export error:", error);
       toast({
