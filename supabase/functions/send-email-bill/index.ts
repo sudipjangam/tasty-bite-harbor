@@ -109,174 +109,45 @@ function generateBillHTML(data: EmailBillRequest): string {
 
   const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const formattedDate = orderDate || new Date().toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
+    day: 'numeric',
+    month: 'long',
     year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
   });
 
   const invoiceNumber = orderId ? `INV-${orderId.substring(0, 8).toUpperCase()}` : `INV-${Date.now()}`;
 
-  const itemsHTML = items.map(item => `
-    <tr>
-      <td style="padding: 12px 8px; border-bottom: 1px solid #eee; color: #333;">${item.name}</td>
-      <td style="padding: 12px 8px; border-bottom: 1px solid #eee; text-align: center; color: #555;">${item.quantity}</td>
-      <td style="padding: 12px 8px; border-bottom: 1px solid #eee; text-align: right; color: #555;">₹${item.price.toFixed(2)}</td>
-      <td style="padding: 12px 8px; border-bottom: 1px solid #eee; text-align: right; font-weight: 500; color: #333;">₹${(item.price * item.quantity).toFixed(2)}</td>
-    </tr>
-  `).join('');
+  // Build items rows
+  const itemsHTML = items.map(item =>
+    `<tr><td style="padding:15px;color:#4a5568;border-bottom:1px solid #e2e8f0">${item.name}</td><td style="padding:15px;color:#4a5568;border-bottom:1px solid #e2e8f0;text-align:center">${item.quantity}</td><td style="padding:15px;color:#4a5568;border-bottom:1px solid #e2e8f0;text-align:right">₹${item.price.toFixed(2)}</td><td style="padding:15px;color:#1a202c;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700">₹${(item.price * item.quantity).toFixed(2)}</td></tr>`
+  ).join('');
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your Receipt from ${restaurantName}</title>
-</head>
-<body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 650px; margin: 0 auto; padding: 20px; background-color: #f8f9fa;">
-  
-  <!-- Header with Restaurant Branding -->
-  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 35px 30px; border-radius: 16px 16px 0 0; text-align: center;">
-    <h1 style="color: white; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">🍽️ ${restaurantName}</h1>
-    ${restaurantAddress ? `<p style="color: rgba(255,255,255,0.9); margin: 12px 0 0 0; font-size: 14px;">📍 ${restaurantAddress}</p>` : ''}
-    ${restaurantPhone ? `<p style="color: rgba(255,255,255,0.9); margin: 6px 0 0 0; font-size: 14px;">📞 ${restaurantPhone}</p>` : ''}
-  </div>
-  
-  <!-- Main Content -->
-  <div style="background: white; padding: 35px 30px; border-radius: 0 0 16px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
-    
-    <!-- Greeting Section -->
-    <div style="margin-bottom: 25px;">
-      <h2 style="color: #333; margin: 0 0 12px 0; font-size: 22px;">Hi ${customerName},</h2>
-      <p style="color: #666; margin: 0; line-height: 1.6; font-size: 15px;">
-        Thank you for dining with us at <strong style="color: #667eea;">${restaurantName}</strong>! We hope you enjoyed your meal and had a wonderful experience.
-      </p>
-    </div>
-    
-    <!-- Invoice Info Card -->
-    <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 20px; border-radius: 12px; margin-bottom: 25px; border-left: 4px solid #667eea;">
-      <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">
-        <strong style="color: #333;">Invoice Number:</strong> ${invoiceNumber}
-      </p>
-      <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">
-        <strong style="color: #333;">Date:</strong> ${formattedDate}
-      </p>
-      ${tableNumber ? `<p style="margin: 0; font-size: 14px; color: #666;"><strong style="color: #333;">Table:</strong> ${tableNumber}</p>` : ''}
-    </div>
-    
-    <!-- Order Details -->
-    <h3 style="color: #333; margin: 0 0 15px 0; font-size: 16px; border-bottom: 2px solid #667eea; padding-bottom: 8px;">📋 Order Details</h3>
-    
-    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-      <thead>
-        <tr style="background: #f8f9fa;">
-          <th style="padding: 14px 8px; text-align: left; font-weight: 600; color: #333; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Item</th>
-          <th style="padding: 14px 8px; text-align: center; font-weight: 600; color: #333; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Qty</th>
-          <th style="padding: 14px 8px; text-align: right; font-weight: 600; color: #333; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Rate</th>
-          <th style="padding: 14px 8px; text-align: right; font-weight: 600; color: #333; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Amount</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${itemsHTML}
-      </tbody>
-    </table>
-    
-    <!-- Totals Section -->
-    <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
-      <table style="width: 100%; font-size: 15px;">
-        <tr>
-          <td style="padding: 8px 0; color: #666;">Subtotal</td>
-          <td style="padding: 8px 0; text-align: right; color: #666;">₹${subtotal.toFixed(2)}</td>
-        </tr>
-        ${discount && discount > 0 ? `
-        <tr>
-          <td style="padding: 8px 0; color: #27ae60; font-weight: 500;">
-            🎉 Discount ${promotionName ? `(${promotionName})` : ''}
-          </td>
-          <td style="padding: 8px 0; text-align: right; color: #27ae60; font-weight: 500;">-₹${discount.toFixed(2)}</td>
-        </tr>
-        ` : ''}
-        <tr style="border-top: 2px solid #dee2e6;">
-          <td style="padding: 15px 0 5px 0; color: #333; font-size: 18px; font-weight: 700;">Total Amount</td>
-          <td style="padding: 15px 0 5px 0; text-align: right; color: #667eea; font-size: 22px; font-weight: 700;">₹${total.toFixed(2)}</td>
-        </tr>
-      </table>
-    </div>
-    
-    <!-- Payment Confirmation -->
-    <div style="background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); padding: 15px 20px; border-radius: 8px; margin-bottom: 25px; display: flex; align-items: center;">
-      <span style="font-size: 24px; margin-right: 12px;">✅</span>
-      <p style="margin: 0; color: #155724; font-weight: 500;">Payment received. Thank you for your payment!</p>
-    </div>
-    
-    <!-- Thank You Section -->
-    <div style="text-align: center; padding: 30px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; margin-bottom: 20px;">
-      <p style="color: white; margin: 0; font-size: 24px; font-weight: 600;">🙏 Thank You!</p>
-      <p style="color: rgba(255,255,255,0.9); margin: 12px 0 0 0; font-size: 15px; line-height: 1.5;">
-        We truly appreciate your visit. We look forward to serving you again soon!
-      </p>
-    </div>
-    
-    ${data.includeEnrollment && !data.isCustomerEnrolled && data.enrollmentLink ? `
-    <!-- Loyalty Program Enrollment Invitation -->
-    <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 25px; border-radius: 12px; margin-bottom: 20px; text-align: center;">
-      <div style="background: white; width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
-        <span style="font-size: 28px;">🎁</span>
-      </div>
-      <h3 style="color: white; margin: 0 0 10px 0; font-size: 20px; font-weight: 600;">Join Our Loyalty Program!</h3>
-      <p style="color: rgba(255,255,255,0.95); margin: 0 0 20px 0; font-size: 14px; line-height: 1.5;">
-        Earn points on every order, get exclusive discounts, and enjoy special birthday rewards!
-      </p>
-      <a href="${data.enrollmentLink}" style="display: inline-block; background: white; color: #f5576c; text-decoration: none; padding: 14px 35px; border-radius: 50px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-        ✨ Join Now - Get 50 Points FREE!
-      </a>
-      <p style="color: rgba(255,255,255,0.8); margin: 15px 0 0 0; font-size: 12px;">
-        Scan QR code on your next visit or click the button above
-      </p>
-    </div>
-    ` : ''}
-    
-    ${data.isCustomerEnrolled ? `
-    <!-- Already Enrolled Badge -->
-    <div style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
-      <p style="color: white; margin: 0; font-size: 14px; font-weight: 500;">
-        ⭐ You earned points on this order! Check your loyalty balance.
-      </p>
-    </div>
-    ` : ''}
-    
-    <!-- Contact Information -->
-    <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px;">
-      <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">
-        <strong>Questions about your bill?</strong>
-      </p>
-      <p style="margin: 0; color: #888; font-size: 13px;">
-        ${restaurantPhone ? `Call us at <a href="tel:${restaurantPhone}" style="color: #667eea; text-decoration: none;">${restaurantPhone}</a>` : ''}
-        ${restaurantPhone && restaurantEmail ? ' or ' : ''}
-        ${restaurantEmail ? `email <a href="mailto:${restaurantEmail}" style="color: #667eea; text-decoration: none;">${restaurantEmail}</a>` : ''}
-        ${!restaurantPhone && !restaurantEmail ? 'Please contact us at the restaurant.' : ''}
-      </p>
-    </div>
-    
-  </div>
-  
-  <!-- Footer -->
-  <div style="text-align: center; padding: 20px;">
-    <p style="color: #888; font-size: 12px; margin: 0 0 8px 0;">
-      This is an automated receipt from ${restaurantName}.
-    </p>
-    ${restaurantWebsite ? `<p style="margin: 0;"><a href="${restaurantWebsite}" style="color: #667eea; font-size: 12px;">Visit our website</a></p>` : ''}
-    <p style="color: #aaa; font-size: 11px; margin: 10px 0 0 0;">
-      © ${new Date().getFullYear()} ${restaurantName}. All rights reserved.
-    </p>
-  </div>
-  
-</body>
-</html>
-  `;
+  // Build discount row
+  const discountRow = discount && discount > 0
+    ? `<div style="display:flex;justify-content:space-between;padding:12px 0;color:#27ae60"><span>🎉 Discount ${promotionName ? `(${promotionName})` : ''}</span><span style="font-weight:600">-₹${discount.toFixed(2)}</span></div>`
+    : '';
+
+  // Loyalty link - customer can check their points on the website
+  const loyaltyLink = restaurantWebsite || data.enrollmentLink || '#';
+
+  // Build enrollment section (for non-enrolled customers)
+  const enrollmentSection = data.includeEnrollment && !data.isCustomerEnrolled && data.enrollmentLink
+    ? `<div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:12px;padding:24px;text-align:center;margin-bottom:20px"><div style="font-size:40px;margin-bottom:12px">🎁</div><h3 style="color:#166534;margin:0 0 10px 0;font-size:18px;font-weight:700">Join Our Loyalty Program!</h3><p style="color:#4a5568;margin:0 0 16px 0;font-size:14px">Earn points on every order and unlock exclusive rewards</p><a href="${data.enrollmentLink}" style="display:inline-block;background:#22c55e;color:white;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:14px">Join Now & Get 50 FREE Points →</a></div>`
+    : '';
+
+  // Build enrolled badge (for enrolled customers with link to check points)
+  const enrolledBadge = data.isCustomerEnrolled
+    ? `<a href="${loyaltyLink}" style="text-decoration:none;display:block"><div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:12px;padding:20px;text-align:center;margin-bottom:20px"><div style="font-size:36px;margin-bottom:10px">🏆</div><p style="color:#166534;margin:0 0 8px 0;font-size:16px;font-weight:700">You earned points on this order!</p><p style="color:#22c55e;margin:0;font-size:14px;font-weight:600">Click here to check your loyalty balance →</p></div></a>`
+    : '';
+
+  // Build contact info
+  let contactInfo = '';
+  if (restaurantPhone) {
+    contactInfo = `Call us at <a href="tel:${restaurantPhone}" style="color:#667eea;text-decoration:none;font-weight:600">${restaurantPhone}</a>`;
+  }
+
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Your Receipt - ${restaurantName}</title></head><body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background-color:#f5f5f5"><div style="max-width:600px;margin:0 auto;padding:20px"><div style="background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1)"><div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:35px 30px;text-align:center"><div style="display:inline-block;width:60px;height:60px;background:white;border-radius:14px;font-size:32px;line-height:60px;margin-bottom:15px">🍽️</div><h1 style="color:white;font-size:26px;font-weight:700;margin:0">${restaurantName}</h1>${restaurantAddress ? `<p style="color:rgba(255,255,255,0.9);font-size:13px;margin:10px 0 0 0">📍 ${restaurantAddress}</p>` : ''}${restaurantPhone ? `<p style="color:rgba(255,255,255,0.9);font-size:13px;margin:5px 0 0 0">📞 ${restaurantPhone}</p>` : ''}</div><div style="padding:30px"><div style="margin-bottom:24px"><h2 style="color:#1a202c;font-size:22px;font-weight:700;margin:0 0 8px 0">👋 Hi ${customerName},</h2><p style="color:#4a5568;line-height:1.6;margin:0;font-size:15px">Thank you for dining with us at <strong>${restaurantName}</strong>! We hope you enjoyed your meal.</p></div><div style="background:#fef9e7;border-radius:12px;padding:20px;margin-bottom:24px;border-left:4px solid #f39c12"><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#7f8c8d;font-size:13px;font-weight:600">🧾 Invoice</span><span style="color:#2c3e50;font-weight:600">${invoiceNumber}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#7f8c8d;font-size:13px;font-weight:600">📅 Date</span><span style="color:#2c3e50;font-weight:600">${formattedDate}</span></div>${tableNumber ? `<div style="display:flex;justify-content:space-between"><span style="color:#7f8c8d;font-size:13px;font-weight:600">🪑 Table</span><span style="color:#2c3e50;font-weight:600">${tableNumber}</span></div>` : ''}</div><div style="margin-bottom:24px"><h3 style="color:#1a202c;font-size:16px;font-weight:700;margin:0 0 15px 0;display:flex;align-items:center;gap:8px"><span>📦</span> Order Details</h3><div style="background:#f8fafc;border-radius:12px;overflow:hidden"><table style="width:100%;border-collapse:collapse"><thead><tr style="background:#667eea"><th style="color:white;font-weight:600;font-size:12px;text-transform:uppercase;padding:14px 15px;text-align:left">Item</th><th style="color:white;font-weight:600;font-size:12px;text-transform:uppercase;padding:14px 15px;text-align:center">Qty</th><th style="color:white;font-weight:600;font-size:12px;text-transform:uppercase;padding:14px 15px;text-align:right">Rate</th><th style="color:white;font-weight:600;font-size:12px;text-transform:uppercase;padding:14px 15px;text-align:right">Amount</th></tr></thead><tbody>${itemsHTML}</tbody></table></div><div style="margin-top:16px;padding:16px;background:#f8fafc;border-radius:8px"><div style="display:flex;justify-content:space-between;padding:8px 0;color:#4a5568;font-size:14px"><span>Subtotal</span><span>₹${subtotal.toFixed(2)}</span></div>${discountRow}<div style="display:flex;justify-content:space-between;border-top:2px solid #667eea;margin-top:12px;padding-top:12px;font-size:18px;font-weight:700"><span style="color:#1a202c">Total</span><span style="color:#667eea">₹${total.toFixed(2)}</span></div></div></div><div style="background:#e8f5e9;border-radius:12px;padding:16px;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="font-size:28px">✅</span><span style="color:#2e7d32;font-weight:600;font-size:15px">Payment received. Thank you!</span></div><div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:12px;padding:28px;text-align:center;margin-bottom:20px"><div style="font-size:42px;margin-bottom:12px">🙏</div><h3 style="color:white;font-size:22px;margin:0 0 8px 0;font-weight:700">Thank You!</h3><p style="color:rgba(255,255,255,0.9);margin:0;font-size:14px">We appreciate your visit. See you again soon!</p></div>${enrollmentSection}${enrolledBadge}</div><div style="background:#f8fafc;padding:24px;text-align:center;border-top:1px solid #e2e8f0"><p style="color:#4a5568;font-size:14px;margin:0 0 8px 0;font-weight:600">💬 Questions about your bill?</p><p style="color:#718096;font-size:14px;margin:0">${contactInfo || 'Contact us at the restaurant'}</p></div></div><p style="text-align:center;color:#a0aec0;font-size:12px;margin:20px 0 0 0">© ${new Date().getFullYear()} ${restaurantName}</p></div></body></html>`;
 }
+
 
 serve(async (req: Request) => {
   console.log(`${req.method} request received at ${new Date().toISOString()}`);
