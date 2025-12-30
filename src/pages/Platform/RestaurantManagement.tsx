@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import SwadeshiLoader from "@/styles/Loader/SwadeshiLoader";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -669,7 +670,17 @@ const RestaurantManagement = () => {
       {/* Grid Content */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
+          <SwadeshiLoader
+            loadingText="loading"
+            words={[
+              "restaurants",
+              "partners",
+              "businesses",
+              "data",
+              "restaurants",
+            ]}
+            size={150}
+          />
         </div>
       ) : restaurants.length === 0 ? (
         <div className="text-center py-20 bg-white/30 dark:bg-slate-900/30 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700">

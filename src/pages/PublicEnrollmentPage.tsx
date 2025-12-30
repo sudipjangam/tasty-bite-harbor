@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import SwadeshiLoader from "@/styles/Loader/SwadeshiLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -130,10 +131,11 @@ export default function PublicEnrollmentPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 flex items-center justify-center p-4">
-        <div className="text-center text-white">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4" />
-          <p className="text-lg opacity-90">Loading...</p>
-        </div>
+        <SwadeshiLoader
+          loadingText="loading"
+          words={["rewards", "loyalty", "benefits", "points", "rewards"]}
+          size={180}
+        />
       </div>
     );
   }

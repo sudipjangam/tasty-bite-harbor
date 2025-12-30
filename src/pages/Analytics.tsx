@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
+import SwadeshiLoader from "@/styles/Loader/SwadeshiLoader";
 import { useAnalyticsData } from "@/hooks/useAnalyticsData";
 import AnalyticsHeader from "@/components/Analytics/AnalyticsHeader";
 import StatCards from "@/components/Analytics/StatCards";
-import TimeRangeSelector from "@/components/Analytics/TimeRangeSelector";
 import ChartCards from "@/components/Analytics/ChartCards";
 import ExpandedChartDialog from "@/components/Analytics/ExpandedChartDialog";
 import BusinessDashboard from "@/components/Analytics/BusinessDashboard";
 import { HotelMetricsCards } from "@/components/Analytics/HotelMetricsCards";
 import { ConsolidatedRevenueChart } from "@/components/Analytics/ConsolidatedRevenueChart";
-import { format, subDays, subMonths, subYears, startOfDay } from "date-fns";
+import { format } from "date-fns";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -23,7 +23,7 @@ import { TrendingUp, BarChart3, Sparkles, Building2 } from "lucide-react";
 const Analytics = () => {
   const { toast } = useToast();
   const { data, isLoading } = useAnalyticsData();
-  const [timeRange, setTimeRange] = useState("30");
+
   const [expandedChart, setExpandedChart] = useState<string | null>(null);
   const [showDataTable, setShowDataTable] = useState(false);
   const [analyticsView, setAnalyticsView] = useState<"charts" | "business">(
@@ -76,53 +76,17 @@ const Analytics = () => {
     { name: "Specials", value: 20000, percentage: 15 },
   ];
 
-  const generateTimeSeriesData = (
-    days: number,
-    baseValue: number,
-    volatility: number
-  ) => {
-    const result = [];
-    const now = new Date();
-
-    for (let i = days; i >= 0; i--) {
-      const date = subDays(now, i);
-      const randomFactor = 1 + (Math.random() - 0.5) * volatility;
-      const value = Math.round(baseValue * randomFactor);
-
-      result.push({
-        date: format(date, "yyyy-MM-dd"),
-        value: value,
-      });
-    }
-
-    return result;
-  };
-
-  const customerTimeData = generateTimeSeriesData(365, 50, 0.4);
-  const orderTimeData = generateTimeSeriesData(365, 120, 0.3);
-  const avgOrderTimeData = generateTimeSeriesData(365, 850, 0.2);
+  // Use real customer time data from database (via useAnalyticsData hook)
+  const customerTimeData = data?.customerTimeData || [];
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950 p-6">
-        <div className="animate-pulse space-y-6">
-          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8">
-            <div className="h-8 w-48 bg-gradient-to-r from-purple-200 to-indigo-200 rounded"></div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {[...Array(4)].map((_, i) => (
-              <div
-                key={i}
-                className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-6"
-              >
-                <div className="h-24 bg-gradient-to-r from-purple-100 to-indigo-100 rounded"></div>
-              </div>
-            ))}
-          </div>
-          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8">
-            <div className="h-96 bg-gradient-to-r from-purple-100 to-indigo-100 rounded"></div>
-          </div>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950 flex items-center justify-center">
+        <SwadeshiLoader
+          loadingText="loading"
+          words={["charts", "insights", "reports", "analytics", "charts"]}
+          size={200}
+        />
       </div>
     );
   }
@@ -430,12 +394,6 @@ const Analytics = () => {
     }
   };
 
-  const getFilteredData = (days: number) => {
-    if (days === 365) return data.revenueStats;
-    const date = subDays(new Date(), days);
-    return data.revenueStats.filter((stat) => new Date(stat.date) >= date);
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950 animate-fade-in">
       {/* Modern Header */}
@@ -537,21 +495,12 @@ const Analytics = () => {
               />
             </div>
 
-            {/* Enhanced Time Range Selector */}
-            <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-6 transform hover:scale-[1.01] transition-all duration-300">
-              <TimeRangeSelector
-                timeRange={timeRange}
-                setTimeRange={setTimeRange}
-              />
-            </div>
-
             {/* Enhanced Charts Section */}
             <div className="space-y-8">
               <ChartCards
-                filteredData={getFilteredData(parseInt(timeRange))}
+                filteredData={data.revenueStats}
                 categoryData={categoryData}
                 customerTimeData={customerTimeData}
-                timeRange={timeRange}
                 topProducts={data.topProducts}
                 salesPrediction={data.salesPrediction}
                 setExpandedChart={setExpandedChart}
@@ -563,10 +512,9 @@ const Analytics = () => {
               setExpandedChart={setExpandedChart}
               showDataTable={showDataTable}
               setShowDataTable={setShowDataTable}
-              filteredData={getFilteredData(parseInt(timeRange))}
+              filteredData={data.revenueStats}
               categoryData={categoryData}
               customerTimeData={customerTimeData}
-              timeRange={timeRange}
               topProducts={data.topProducts}
               salesPrediction={data.salesPrediction}
             />
