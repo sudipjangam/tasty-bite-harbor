@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, CheckCircle } from "lucide-react";
+import { CheckCircle } from "lucide-react";
+import SwadeshiLoader from "@/styles/Loader/SwadeshiLoader";
 
 /**
  * OAuth callback handler page.
@@ -71,17 +72,11 @@ const AuthCallback = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950">
       <div className="text-center space-y-6 p-8">
         {status === "processing" && (
-          <>
-            <Loader2 className="h-16 w-16 animate-spin text-indigo-600 mx-auto" />
-            <div className="space-y-2">
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
-                Signing you in...
-              </h2>
-              <p className="text-gray-500 dark:text-gray-400">
-                Please wait while we complete your sign-in
-              </p>
-            </div>
-          </>
+          <SwadeshiLoader
+            loadingText="signing"
+            words={["you in", "securely", "safely", "almost done", "you in"]}
+            size={150}
+          />
         )}
 
         {status === "success" && (

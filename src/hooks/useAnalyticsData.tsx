@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { addDays, format, subDays } from "date-fns";
+import { addDays, format, subDays, parseISO } from "date-fns";
 import { useEffect } from "react";
 import { useRestaurantId } from "./useRestaurantId";
+import { fetchSalesForecasts } from "@/utils/aiAnalytics";
 
 export const useAnalyticsData = () => {
   const { restaurantId, isLoading: isRestaurantLoading } = useRestaurantId();
@@ -77,8 +78,8 @@ export const useAnalyticsData = () => {
         .from("reservations")
         .select("*")
         .eq("restaurant_id", restaurantId)
-        .gte("check_in_date", subDays(new Date(), 30).toISOString())
-        .order("check_in_date", { ascending: false });
+        .gte("start_time", subDays(new Date(), 30).toISOString())
+        .order("start_time", { ascending: false });
 
       // Fetch menu items to calculate top products
       const { data: menuItems } = await supabase
@@ -106,8 +107,46 @@ export const useAnalyticsData = () => {
         menuItems || []
       );
 
-      // Generate sales prediction based on historical data
-      const salesPrediction = generateSalesPrediction(revenueStats || []);
+      // Generate sales prediction using real AI (fetch 7 days forecast)
+      // First, get historical data formatted correctly
+      const historicalData = (revenueStats || [])
+        .slice(0, 14) // Take up to 14 days of history
+        .map((stat) => ({
+          date: format(new Date(stat.date), "dd MMM"),
+          actual: Number(stat.total_revenue),
+          predicted: null as number | null,
+        }))
+        .reverse(); // Ensure chronological order
+
+      // Then fetch AI predictions
+      let predictionData: any[] = [];
+      try {
+        const aiForecasts = await fetchSalesForecasts(restaurantId, 7);
+        predictionData = aiForecasts.map((forecast) => ({
+          date: format(new Date(forecast.date), "dd MMM"),
+          actual: null,
+          predicted: forecast.predicted_revenue,
+        }));
+      } catch (e) {
+        console.error("Failed to fetch AI forecasts", e);
+        // Fallback or empty if AI fails, simpler than full fallback implementation here
+        // The fetchSalesForecasts util already has fallback logic, so this catches unexpected errors
+      }
+
+      // Combine them: History first, then Predictions
+      // Depending on chart needs, we might want the lines to connect.
+      // To connect lines, the last historical point should also be the start of prediction line?
+      // Or just side-by-side. For now, side by side is fine as per original implementation.
+      const salesPrediction = [...historicalData, ...predictionData];
+
+      // Calculate customer time data from real order counts
+      // Using order_count from daily_revenue_stats as a proxy for unique customer activity
+      const customerTimeData = (revenueStats || [])
+        .map((stat) => ({
+          date: format(new Date(stat.date), "yyyy-MM-dd"),
+          value: stat.order_count || 0,
+        }))
+        .reverse(); // Chronological order
 
       // Calculate hotel metrics
       const hotelMetrics = calculateHotelMetrics(
@@ -133,6 +172,7 @@ export const useAnalyticsData = () => {
         topProducts,
         salesPrediction,
         categoryData,
+        customerTimeData, // Real data from DB
         roomBillings: roomBillings || [],
         hotelMetrics,
         consolidatedRevenue,
@@ -298,38 +338,6 @@ const calculateCategoryRevenue = (orders: any[], menuItems: any[]) => {
     .slice(0, 5);
 };
 
-// Helper function to generate sales prediction based on historical data
-const generateSalesPrediction = (revenueStats: any[]) => {
-  const today = new Date();
-  const last7Days = revenueStats.slice(0, 7);
-  const averageRevenue =
-    last7Days.length > 0
-      ? last7Days.reduce((sum, stat) => sum + Number(stat.total_revenue), 0) /
-        last7Days.length
-      : 8000;
-
-  return Array.from({ length: 14 }).map((_, i) => {
-    const date = i < 7 ? subDays(today, 7 - i) : addDays(today, i - 7);
-    const isHistory = i < 7;
-    const baseValue = averageRevenue;
-    const dayOfWeek = date.getDay();
-
-    // Weekend boost
-    const weekendMultiplier = dayOfWeek === 5 || dayOfWeek === 6 ? 1.4 : 1;
-    const randomVariation = 0.8 + Math.random() * 0.4; // ±20% variation
-
-    return {
-      date: format(date, "dd MMM"),
-      actual: isHistory
-        ? Math.floor(baseValue * weekendMultiplier * randomVariation)
-        : null,
-      predicted: isHistory
-        ? null
-        : Math.floor(baseValue * weekendMultiplier * randomVariation),
-    };
-  });
-};
-
 // Helper function to calculate hotel metrics
 const calculateHotelMetrics = (
   rooms: any[],
@@ -355,8 +363,8 @@ const calculateHotelMetrics = (
   const avgLengthOfStay =
     reservations.length > 0
       ? reservations.reduce((sum, res) => {
-          const checkIn = new Date(res.check_in_date);
-          const checkOut = new Date(res.check_out_date);
+          const checkIn = new Date(res.start_time);
+          const checkOut = new Date(res.end_time);
           const nights = Math.ceil(
             (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)
           );
