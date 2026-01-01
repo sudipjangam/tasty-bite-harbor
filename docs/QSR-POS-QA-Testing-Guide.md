@@ -16,6 +16,8 @@
 6. [Known Issues](#known-issues)
 7. [Regression Testing](#regression-testing)
 
+> 📋 **Test Execution Tracking:** See [QSR-POS-Test-Tracker.md](./QSR-POS-Test-Tracker.md) to record test results and view execution history.
+
 ---
 
 ## Overview
