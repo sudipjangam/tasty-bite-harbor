@@ -9,6 +9,8 @@ import {
   ChefHat,
   RefreshCw,
   AlertTriangle,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -81,6 +83,8 @@ const KitchenDisplay = () => {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"detailed" | "compact">("compact");
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   // Create the audio element with error handling
@@ -676,6 +680,18 @@ const KitchenDisplay = () => {
     }
   };
 
+  const handleToggleExpand = (orderId: string) => {
+    setExpandedOrders((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
+    });
+  };
+
   const totalOrders = orders.length;
   const newOrders = filterOrdersByStatus("new").length;
   const preparingOrders = filterOrdersByStatus("preparing").length;
@@ -743,6 +759,31 @@ const KitchenDisplay = () => {
                 )}
               </Button>
 
+              {/* View Mode Toggle */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() =>
+                  setViewMode(viewMode === "detailed" ? "compact" : "detailed")
+                }
+                className={`rounded-xl transition-all duration-300 ${
+                  viewMode === "compact"
+                    ? "bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+                title={
+                  viewMode === "compact"
+                    ? "Switch to Detailed View"
+                    : "Switch to Compact View"
+                }
+              >
+                {viewMode === "compact" ? (
+                  <List className="h-5 w-5" />
+                ) : (
+                  <LayoutGrid className="h-5 w-5" />
+                )}
+              </Button>
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -800,6 +841,9 @@ const KitchenDisplay = () => {
           onItemComplete={handleItemComplete}
           variant="new"
           isOrderLate={isOrderLate}
+          isCompact={viewMode === "compact"}
+          expandedOrders={expandedOrders}
+          onToggleExpand={handleToggleExpand}
         />
         <OrdersColumn
           title="Preparing"
@@ -809,6 +853,9 @@ const KitchenDisplay = () => {
           onItemComplete={handleItemComplete}
           variant="preparing"
           isOrderLate={isOrderLate}
+          isCompact={viewMode === "compact"}
+          expandedOrders={expandedOrders}
+          onToggleExpand={handleToggleExpand}
         />
         <OrdersColumn
           title="Ready"
@@ -818,6 +865,9 @@ const KitchenDisplay = () => {
           onItemComplete={handleItemComplete}
           variant="ready"
           isOrderLate={isOrderLate}
+          isCompact={viewMode === "compact"}
+          expandedOrders={expandedOrders}
+          onToggleExpand={handleToggleExpand}
         />
       </div>
 
