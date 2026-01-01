@@ -47,20 +47,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { CustomItemDialog, CustomItem } from "./CustomItemDialog";
+import { PaymentDialogProps } from "./PaymentDialog/types";
 
-type PaymentStep = "confirm" | "method" | "qr" | "success" | "edit";
-
-interface PaymentDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  orderItems: OrderItem[];
-  onSuccess: () => void;
-  tableNumber?: string;
-  onEditOrder?: () => void;
-  onEditOrder?: () => void;
-  orderId?: string; // Kitchen order ID to update status
-  onOrderUpdated?: () => void;
-}
+// Removed local PaymentStep type definition as it's not used in the props anymore
+// and we can infer or import if needed, but for now we just need PaymentDialogProps
 
 const PaymentDialog = ({
   isOpen,
@@ -71,8 +61,11 @@ const PaymentDialog = ({
   onEditOrder,
   orderId,
   onOrderUpdated,
+  itemCompletionStatus: initialItemCompletionStatus,
 }: PaymentDialogProps) => {
-  const [currentStep, setCurrentStep] = useState<PaymentStep>("confirm");
+  const [currentStep, setCurrentStep] = useState<
+    "confirm" | "method" | "qr" | "success" | "edit"
+  >("confirm");
   const [customerName, setCustomerName] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -95,7 +88,7 @@ const PaymentDialog = ({
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemCompletionStatus, setItemCompletionStatus] = useState<boolean[]>(
-    []
+    initialItemCompletionStatus || []
   );
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1107,7 +1100,7 @@ const PaymentDialog = ({
   };
   */
 
-  const handlePrintBill = async () => {
+  const handlePrintBill = async (navigateAfter: boolean = false) => {
     // Save customer details first
     const saved = await saveCustomerDetails();
     if (!saved) {
@@ -1426,6 +1419,10 @@ const PaymentDialog = ({
           ? "Bill has been generated and sent to customer's email."
           : "The bill has been generated and sent to printer.",
       });
+
+      if (navigateAfter) {
+        setCurrentStep("method");
+      }
     } catch (error) {
       console.error("Error generating bill:", error);
       toast({
@@ -1801,6 +1798,42 @@ const PaymentDialog = ({
     }
   };
 
+  const handleItemToggle = async (index: number) => {
+    if (!orderId) return;
+
+    // Create a copy of current status or initialize new array
+    const newCompletionStatus = [
+      ...(itemCompletionStatus || new Array(orderItems.length).fill(false)),
+    ];
+
+    // Ensure array is long enough
+    while (newCompletionStatus.length <= index) {
+      newCompletionStatus.push(false);
+    }
+
+    // Toggle status
+    newCompletionStatus[index] = !newCompletionStatus[index];
+
+    try {
+      const { error } = await supabase
+        .from("kitchen_orders")
+        .update({ item_completion_status: newCompletionStatus })
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      // Update local state (like KDS pattern)
+      setItemCompletionStatus(newCompletionStatus);
+    } catch (error) {
+      console.error("Error toggling item status:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update item status",
+      });
+    }
+  };
+
   const renderConfirmStep = () => (
     <div className="flex flex-col h-full max-h-[80vh]">
       {/* Scrollable Content Area */}
@@ -1827,10 +1860,9 @@ const PaymentDialog = ({
               return (
                 <div
                   key={idx}
-                  className={`flex justify-between text-sm items-center ${
-                    isCompleted
-                      ? "bg-green-50 dark:bg-green-900/20 rounded-lg px-2 py-1 -mx-2"
-                      : ""
+                  onClick={() => handleItemToggle(idx)}
+                  className={`flex justify-between text-sm items-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors p-2 rounded-md ${
+                    isCompleted ? "bg-green-50 dark:bg-green-900/20" : ""
                   }`}
                 >
                   <span
@@ -2133,7 +2165,7 @@ const PaymentDialog = ({
           </Button>
           <Button
             variant="outline"
-            onClick={handlePrintBill}
+            onClick={() => handlePrintBill(true)}
             className="w-full"
             disabled={isSaving}
           >
@@ -2450,6 +2482,15 @@ const PaymentDialog = ({
         size="lg"
       >
         Close
+      </Button>
+
+      <Button
+        variant="outline"
+        onClick={() => handlePrintBill(false)}
+        className="w-full"
+      >
+        <Printer className="w-4 h-4 mr-2" />
+        Print Bill
       </Button>
     </div>
   );

@@ -12,6 +12,8 @@ export interface PaymentDialogProps {
   tableNumber?: string;
   onEditOrder?: () => void;
   orderId?: string;
+  itemCompletionStatus?: boolean[];
+  onOrderUpdated?: () => void;
 }
 
 // Applied promotion state
@@ -75,8 +77,10 @@ export interface ConfirmStepProps extends StepProps {
   promotionDiscountAmount: number;
   manualDiscountAmount: number;
   currencySymbol: string;
+  //tableNumber: string;
   tableNumber: string;
   orderId?: string;
+  itemCompletionStatus?: boolean[];
   
   // Customer details
   customerName: string;
