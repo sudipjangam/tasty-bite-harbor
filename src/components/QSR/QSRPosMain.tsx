@@ -386,6 +386,7 @@ export const QSRPosMain: React.FC = () => {
       // Reset cart but keep table selected for dine-in
       setOrderItems([]);
       setRecalledKitchenOrderId(null);
+      setShowMobileCart(false); // Close cart sheet on mobile
       if (orderMode !== "dine_in") {
         setSelectedTable(null);
       }
@@ -556,6 +557,10 @@ export const QSRPosMain: React.FC = () => {
         setPendingOrderId(null);
         setPendingKitchenOrderId(null);
         setPaymentOrderItems([]);
+
+        // Clear cart items (they were loaded from the recalled order)
+        setOrderItems([]);
+        setRecalledKitchenOrderId(null);
       } else if (orderItems.length > 0 && restaurantId) {
         // PRE-PAY: Create order directly as completed (skip kitchen queue since paid)
         const orderSource =
@@ -827,6 +832,7 @@ export const QSRPosMain: React.FC = () => {
         onSuccess={handlePaymentSuccess}
         tableNumber={selectedTable?.name || ""}
         onEditOrder={() => setShowPaymentDialog(false)}
+        orderId={pendingKitchenOrderId || recalledKitchenOrderId || undefined}
       />
     </div>
   );

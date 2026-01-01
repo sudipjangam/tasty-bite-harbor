@@ -55,10 +55,10 @@ export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
                 isSelected && "ring-2 ring-offset-2 ring-blue-500",
                 isAvailable &&
                   !isSelected &&
-                  "bg-gradient-to-br from-green-50 to-emerald-100 border-green-300 dark:from-green-900/30 dark:to-emerald-900/30 dark:border-green-700 hover:shadow-lg hover:shadow-green-200/50",
+                  "bg-gradient-to-br from-green-100 to-emerald-200 border-green-400 dark:from-green-800/50 dark:to-emerald-800/50 dark:border-green-500 hover:shadow-lg hover:shadow-green-300/60 hover:scale-[1.02]",
                 isOccupied &&
                   !isSelected &&
-                  "bg-gradient-to-br from-orange-50 to-amber-100 border-orange-300 dark:from-orange-900/30 dark:to-amber-900/30 dark:border-orange-700 hover:shadow-lg hover:shadow-orange-200/50",
+                  "bg-gradient-to-br from-amber-100 to-orange-200 border-amber-400 dark:from-amber-800/50 dark:to-orange-800/50 dark:border-amber-500 hover:shadow-lg hover:shadow-amber-300/60 hover:scale-[1.02]",
                 isSelected &&
                   "bg-gradient-to-br from-blue-50 to-indigo-100 border-blue-400 dark:from-blue-900/30 dark:to-indigo-900/30 dark:border-blue-600 shadow-lg shadow-blue-200/50"
               )}
