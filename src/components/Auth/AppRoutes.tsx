@@ -23,6 +23,7 @@ const StaffLandingPage = lazy(
 // Operations
 const Orders = lazy(() => import("@/pages/Orders"));
 const POS = lazy(() => import("@/pages/POS"));
+const QSRPos = lazy(() => import("@/pages/QSRPos"));
 const Kitchen = lazy(() => import("@/pages/Kitchen"));
 
 // Menu & Recipes
@@ -171,6 +172,16 @@ export const AppRoutes = () => {
               <PermissionGuard permission="orders.view">
                 <LazyRoute>
                   <POS />
+                </LazyRoute>
+              </PermissionGuard>
+            }
+          />
+          <Route
+            path="/qsr-pos"
+            element={
+              <PermissionGuard permission="orders.view">
+                <LazyRoute>
+                  <QSRPos />
                 </LazyRoute>
               </PermissionGuard>
             }

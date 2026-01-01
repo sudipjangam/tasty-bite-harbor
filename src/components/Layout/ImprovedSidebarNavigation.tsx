@@ -48,6 +48,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 const hrefToComponentMap: Record<string, string> = {
   "/": "dashboard",
   "/pos": "pos",
+  "/qsr-pos": "qsr-pos",
   "/orders": "orders",
   "/kitchen": "kitchen",
   "/recipes": "recipes",
@@ -118,13 +119,13 @@ const navigationGroups: NavigationGroup[] = [
         description: "View & manage orders",
         requiredPermissions: ["orders.view"],
       },
-      // {
-      //   title: "QSR POS",
-      //   icon: Zap,
-      //   href: "/qsr-pos",
-      //   description: "Quick service restaurant POS",
-      //   requiredPermissions: ["orders.view"]
-      // },
+      {
+        title: "QSR POS",
+        icon: Zap,
+        href: "/qsr-pos",
+        description: "Quick service restaurant POS",
+        requiredPermissions: ["orders.view"],
+      },
       {
         title: "Kitchen",
         icon: ChefHat,
