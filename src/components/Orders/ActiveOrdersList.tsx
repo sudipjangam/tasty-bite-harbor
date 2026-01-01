@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { OrderItem as GlobalOrderItem } from "@/types/orders";
 import {
   Popover,
   PopoverContent,
@@ -39,7 +40,7 @@ import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { exportToExcel } from "@/utils/exportUtils";
 
-interface OrderItem {
+interface LocalOrderItem {
   name: string;
   quantity: number;
   notes?: string[];
@@ -50,10 +51,11 @@ interface ActiveOrder {
   id: string;
   source: string;
   status: "new" | "preparing" | "ready" | "completed" | "held";
-  items: OrderItem[];
+  items: LocalOrderItem[];
   created_at: string;
   discount_amount?: number;
   discount_percentage?: number;
+  item_completion_status?: boolean[];
 }
 
 interface ActiveOrdersListProps {
@@ -64,7 +66,7 @@ interface ActiveOrdersListProps {
   }) => void;
 }
 
-function parseOrderItems(items: Json): OrderItem[] {
+function parseOrderItems(items: Json): LocalOrderItem[] {
   if (!items) return [];
 
   try {
@@ -103,7 +105,9 @@ function parseOrderItems(items: Json): OrderItem[] {
   }
 }
 
-const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
+const ActiveOrdersList = ({
+  onRecallOrder,
+}: ActiveOrdersListProps = {}): JSX.Element => {
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<ActiveOrder | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -191,6 +195,9 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
             created_at: order.created_at,
             discount_amount: orderData?.discount_amount || 0,
             discount_percentage: orderData?.discount_percentage || 0,
+            item_completion_status: Array.isArray(order.item_completion_status)
+              ? order.item_completion_status
+              : [],
           };
         });
 
@@ -237,6 +244,11 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
                   created_at: newOrder.created_at,
                   discount_amount: orderData?.discount_amount || 0,
                   discount_percentage: orderData?.discount_percentage || 0,
+                  item_completion_status: Array.isArray(
+                    newOrder.item_completion_status
+                  )
+                    ? newOrder.item_completion_status
+                    : [],
                 };
 
                 setActiveOrders((prev) => [formattedOrder, ...prev]);
@@ -264,10 +276,14 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
                               | "ready"
                               | "completed"
                               | "held",
-                            items: parseOrderItems(updatedOrder.items),
                             discount_amount: orderData?.discount_amount || 0,
                             discount_percentage:
                               orderData?.discount_percentage || 0,
+                            item_completion_status: Array.isArray(
+                              updatedOrder.item_completion_status
+                            )
+                              ? updatedOrder.item_completion_status
+                              : [],
                           }
                         : order
                     );
@@ -300,6 +316,11 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
                           | "completed"
                           | "held",
                         items: parseOrderItems(updatedOrder.items),
+                        item_completion_status: Array.isArray(
+                          updatedOrder.item_completion_status
+                        )
+                          ? updatedOrder.item_completion_status
+                          : [],
                       }
                     : order
                 );
@@ -401,7 +422,7 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
   });
 
   // Calculate total for an order
-  const calculateOrderTotal = (items: OrderItem[]): number => {
+  const calculateOrderTotal = (items: LocalOrderItem[]): number => {
     return items.reduce((sum, item) => {
       const price = typeof item.price === "number" ? item.price : 0;
       return sum + price * item.quantity;
@@ -410,7 +431,7 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
 
   // Calculate final total after discount
   const calculateFinalTotal = (
-    items: OrderItem[],
+    items: LocalOrderItem[],
     discountAmount?: number
   ): number => {
     const subtotal = calculateOrderTotal(items);
@@ -489,7 +510,7 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
         [`Net Total (${currencySymbol})`]: parseFloat(
           calculateFinalTotal(order.items, order.discount_amount).toFixed(2)
         ),
-        Status: order.status,
+        Status: order.status as string,
         "Created Date": format(new Date(order.created_at), "yyyy-MM-dd"),
         "Created Time": format(new Date(order.created_at), "HH:mm:ss"),
       }));
@@ -799,7 +820,18 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
       <PaymentDialog
         isOpen={!!selectedOrder}
         onClose={() => setSelectedOrder(null)}
-        orderItems={selectedOrder?.items || []}
+        orderItems={
+          selectedOrder?.items
+            ? selectedOrder.items.map((item) => ({
+                id: crypto.randomUUID(),
+                name: item.name,
+                package_price: item.price || 0,
+                price: item.price || 0,
+                quantity: item.quantity,
+                modifiers: item.notes,
+              }))
+            : []
+        }
         onSuccess={() => {
           // Refresh orders - the realtime subscription will handle the list update,
           // but we can force a manual recall if needed, or close dialog.
@@ -829,6 +861,11 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
               created_at: updatedOrder.created_at,
               discount_amount: orderData?.discount_amount || 0,
               discount_percentage: orderData?.discount_percentage || 0,
+              item_completion_status: Array.isArray(
+                updatedOrder.item_completion_status
+              )
+                ? updatedOrder.item_completion_status
+                : [],
             };
 
             // Update both the list and the selected item
@@ -840,6 +877,7 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
         }}
         tableNumber={selectedOrder?.source || "Order"}
         orderId={selectedOrder?.id}
+        itemCompletionStatus={selectedOrder?.item_completion_status}
       />
     </div>
   );
