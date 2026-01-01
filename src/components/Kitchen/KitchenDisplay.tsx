@@ -1,19 +1,40 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Volume2, VolumeX, Filter, Maximize2, ChefHat, RefreshCw, AlertTriangle } from "lucide-react";
+import {
+  Volume2,
+  VolumeX,
+  Filter,
+  Maximize2,
+  ChefHat,
+  RefreshCw,
+  AlertTriangle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import OrderTicket from "./OrderTicket";
 import OrdersColumn from "./OrdersColumn";
 import DateFilter from "./DateFilter";
-import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, differenceInMinutes } from "date-fns";
+import {
+  startOfDay,
+  endOfDay,
+  subDays,
+  startOfMonth,
+  endOfMonth,
+  differenceInMinutes,
+} from "date-fns";
 
 // Enhanced KitchenOrder interface with all new fields
 export interface KitchenOrder {
   id: string;
   source: string;
-  status: "new" | "preparing" | "ready" | "bumped";
+  status: "new" | "preparing" | "ready" | "bumped" | "completed";
   created_at: string;
   priority: "normal" | "rush" | "vip";
   station?: string;
@@ -61,16 +82,17 @@ const KitchenDisplay = () => {
   const [hasMore, setHasMore] = useState(true);
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const { toast } = useToast();
-  
+
   // Create the audio element with error handling
   const [notification] = useState(() => {
     const audio = new Audio();
     try {
       audio.src = "/notification.mp3";
-      audio.addEventListener('error', () => {
+      audio.addEventListener("error", () => {
         // Suppress - notification.mp3 may not exist, fallback handled silently
         try {
-          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const audioContext = new (window.AudioContext ||
+            (window as any).webkitAudioContext)();
           audio.src = createBeepSound(audioContext);
         } catch {
           // Could not create fallback sound - continue without audio
@@ -86,38 +108,40 @@ const KitchenDisplay = () => {
   const createBeepSound = (audioContext: AudioContext): string => {
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
-    
-    oscillator.type = 'sine';
+
+    oscillator.type = "sine";
     oscillator.frequency.value = 800;
     gainNode.gain.value = 0.5;
-    
+
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
-    
+
     const length = 0.3;
     oscillator.start();
     oscillator.stop(audioContext.currentTime + length);
-    
-    return 'data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU9vT18=';
+
+    return "data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU9vT18=";
   };
 
   // Transform raw order data to KitchenOrder type
   const transformOrderData = useCallback((order: any): KitchenOrder => {
     const itemsArray = Array.isArray(order.items) ? order.items : [];
-    const itemCompletionStatus = Array.isArray(order.item_completion_status) 
-      ? order.item_completion_status 
+    const itemCompletionStatus = Array.isArray(order.item_completion_status)
+      ? order.item_completion_status
       : new Array(itemsArray.length).fill(false);
-    
+
     const transformedItems = itemsArray.map((item: any, idx: number) => ({
-      name: typeof item.name === 'string' ? item.name : 'Unknown Item',
-      quantity: typeof item.quantity === 'number' ? item.quantity : 1,
+      name: typeof item.name === "string" ? item.name : "Unknown Item",
+      quantity: typeof item.quantity === "number" ? item.quantity : 1,
       notes: Array.isArray(item.notes) ? item.notes : undefined,
-      has_allergy: item.has_allergy || 
-        (Array.isArray(item.notes) && item.notes.some((note: string) => 
-          /allerg|gluten|dairy|nut|vegan|vegetarian/i.test(note)
-        ))
+      has_allergy:
+        item.has_allergy ||
+        (Array.isArray(item.notes) &&
+          item.notes.some((note: string) =>
+            /allerg|gluten|dairy|nut|vegan|vegetarian/i.test(note)
+          )),
     }));
-    
+
     return {
       id: order.id,
       source: order.source,
@@ -133,16 +157,18 @@ const KitchenDisplay = () => {
       server_name: order.server_name,
       order_type: order.order_type,
       items: transformedItems,
-      item_completion_status: itemCompletionStatus
+      item_completion_status: itemCompletionStatus,
     };
   }, []);
 
   // Fetch restaurant ID on mount
   useEffect(() => {
     const fetchRestaurantId = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
-      
+
       const { data: profile } = await supabase
         .from("profiles")
         .select("restaurant_id")
@@ -158,89 +184,98 @@ const KitchenDisplay = () => {
   }, []);
 
   // Fetch orders with server-side filtering and pagination
-  const fetchOrders = useCallback(async (resetPage = false) => {
-    if (!restaurantId) return;
-    
-    setIsLoading(true);
-    const currentPage = resetPage ? 0 : page;
-    
-    try {
-      let query = supabase
-        .from("kitchen_orders")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .is("bumped_at", null) // Exclude bumped orders
-        .order("priority", { ascending: true }) // VIP first, then rush, then normal (alphabetically vip < rush < normal is false, so we use custom)
-        .order("created_at", { ascending: false })
-        .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
+  const fetchOrders = useCallback(
+    async (resetPage = false) => {
+      if (!restaurantId) return;
 
-      const today = new Date();
-      
-      // Apply date filters
-      switch (dateFilter) {
-        case "today":
-          query = query
-            .gte('created_at', startOfDay(today).toISOString())
-            .lte('created_at', endOfDay(today).toISOString());
-          break;
-        case "yesterday":
-          const yesterday = subDays(today, 1);
-          query = query
-            .gte('created_at', startOfDay(yesterday).toISOString())
-            .lte('created_at', endOfDay(yesterday).toISOString());
-          break;
-        case "last7days":
-          query = query
-            .gte('created_at', startOfDay(subDays(today, 6)).toISOString())
-            .lte('created_at', endOfDay(today).toISOString());
-          break;
-        case "thisMonth":
-          query = query
-            .gte('created_at', startOfMonth(today).toISOString())
-            .lte('created_at', endOfMonth(today).toISOString());
-          break;
-      }
+      setIsLoading(true);
+      const currentPage = resetPage ? 0 : page;
 
-      // Apply station filter
-      if (stationFilter !== "all") {
-        query = query.eq("station", stationFilter);
-      }
+      try {
+        let query = supabase
+          .from("kitchen_orders")
+          .select("*")
+          .eq("restaurant_id", restaurantId)
+          .is("bumped_at", null) // Exclude bumped orders
+          .order("priority", { ascending: true }) // VIP first, then rush, then normal (alphabetically vip < rush < normal is false, so we use custom)
+          .order("created_at", { ascending: false })
+          .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
 
-      const { data, error } = await query;
+        const today = new Date();
 
-      if (error) throw error;
-
-      if (data) {
-        const typedOrders = data.map(transformOrderData);
-        
-        // Sort by priority (vip > rush > normal) then by created_at
-        const sortedOrders = typedOrders.sort((a, b) => {
-          const priorityOrder = { vip: 0, rush: 1, normal: 2 };
-          const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
-          if (priorityDiff !== 0) return priorityDiff;
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        });
-        
-        if (resetPage) {
-          setOrders(sortedOrders);
-          setPage(0);
-        } else {
-          setOrders(prev => currentPage === 0 ? sortedOrders : [...prev, ...sortedOrders]);
+        // Apply date filters
+        switch (dateFilter) {
+          case "today":
+            query = query
+              .gte("created_at", startOfDay(today).toISOString())
+              .lte("created_at", endOfDay(today).toISOString());
+            break;
+          case "yesterday":
+            const yesterday = subDays(today, 1);
+            query = query
+              .gte("created_at", startOfDay(yesterday).toISOString())
+              .lte("created_at", endOfDay(yesterday).toISOString());
+            break;
+          case "last7days":
+            query = query
+              .gte("created_at", startOfDay(subDays(today, 6)).toISOString())
+              .lte("created_at", endOfDay(today).toISOString());
+            break;
+          case "thisMonth":
+            query = query
+              .gte("created_at", startOfMonth(today).toISOString())
+              .lte("created_at", endOfMonth(today).toISOString());
+            break;
         }
-        
-        setHasMore(data.length === PAGE_SIZE);
+
+        // Apply station filter
+        if (stationFilter !== "all") {
+          query = query.eq("station", stationFilter);
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+
+        if (data) {
+          const typedOrders = data.map(transformOrderData);
+
+          // Sort by priority (vip > rush > normal) then by created_at
+          const sortedOrders = typedOrders.sort((a, b) => {
+            const priorityOrder = { vip: 0, rush: 1, normal: 2 };
+            const priorityDiff =
+              priorityOrder[a.priority] - priorityOrder[b.priority];
+            if (priorityDiff !== 0) return priorityDiff;
+            return (
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
+            );
+          });
+
+          if (resetPage) {
+            setOrders(sortedOrders);
+            setPage(0);
+          } else {
+            setOrders((prev) =>
+              currentPage === 0 ? sortedOrders : [...prev, ...sortedOrders]
+            );
+          }
+
+          setHasMore(data.length === PAGE_SIZE);
+        }
+      } catch (error) {
+        console.error("Error fetching orders:", error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to fetch orders",
+        });
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching orders:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to fetch orders",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [restaurantId, dateFilter, stationFilter, page, transformOrderData, toast]);
+    },
+    [restaurantId, dateFilter, stationFilter, page, transformOrderData, toast]
+  );
 
   // Re-fetch when filters change
   useEffect(() => {
@@ -250,26 +285,37 @@ const KitchenDisplay = () => {
   }, [restaurantId, dateFilter, stationFilter]);
 
   // Helper function to check if an order falls within the current date filter
-  const isWithinDateFilter = useCallback((orderCreatedAt: string): boolean => {
-    const orderDate = new Date(orderCreatedAt);
-    const today = new Date();
+  const isWithinDateFilter = useCallback(
+    (orderCreatedAt: string): boolean => {
+      const orderDate = new Date(orderCreatedAt);
+      const today = new Date();
 
-    switch (dateFilter) {
-      case "today":
-        return orderDate >= startOfDay(today) && orderDate <= endOfDay(today);
-      case "yesterday":
-        const yesterday = subDays(today, 1);
-        return orderDate >= startOfDay(yesterday) && orderDate <= endOfDay(yesterday);
-      case "last7days":
-        return orderDate >= startOfDay(subDays(today, 6)) && orderDate <= endOfDay(today);
-      case "thisMonth":
-        return orderDate >= startOfMonth(today) && orderDate <= endOfMonth(today);
-      case "all":
-        return true;
-      default:
-        return true;
-    }
-  }, [dateFilter]);
+      switch (dateFilter) {
+        case "today":
+          return orderDate >= startOfDay(today) && orderDate <= endOfDay(today);
+        case "yesterday":
+          const yesterday = subDays(today, 1);
+          return (
+            orderDate >= startOfDay(yesterday) &&
+            orderDate <= endOfDay(yesterday)
+          );
+        case "last7days":
+          return (
+            orderDate >= startOfDay(subDays(today, 6)) &&
+            orderDate <= endOfDay(today)
+          );
+        case "thisMonth":
+          return (
+            orderDate >= startOfMonth(today) && orderDate <= endOfMonth(today)
+          );
+        case "all":
+          return true;
+        default:
+          return true;
+      }
+    },
+    [dateFilter]
+  );
 
   // Subscribe to real-time updates with restaurant_id filter
   useEffect(() => {
@@ -288,39 +334,52 @@ const KitchenDisplay = () => {
         (payload) => {
           if (payload.eventType === "INSERT") {
             const newOrderData = payload.new;
-            
+
             // Check if the new order falls within current date filter
             if (!isWithinDateFilter(newOrderData.created_at)) {
               return;
             }
 
             // Check station filter
-            if (stationFilter !== "all" && newOrderData.station !== stationFilter) {
+            if (
+              stationFilter !== "all" &&
+              newOrderData.station !== stationFilter
+            ) {
               return;
             }
 
             const newOrder = transformOrderData(newOrderData);
-            
+
             setOrders((prev) => {
               const updated = [newOrder, ...prev];
               // Re-sort by priority
               return updated.sort((a, b) => {
                 const priorityOrder = { vip: 0, rush: 1, normal: 2 };
-                const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+                const priorityDiff =
+                  priorityOrder[a.priority] - priorityOrder[b.priority];
                 if (priorityDiff !== 0) return priorityDiff;
-                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                return (
+                  new Date(b.created_at).getTime() -
+                  new Date(a.created_at).getTime()
+                );
               });
             });
-            
+
             if (soundEnabled) {
               try {
-                notification.play().catch(err => {
+                notification.play().catch((err) => {
                   console.error("Error playing notification sound:", err);
                 });
                 toast({
-                  title: newOrder.priority === "vip" ? "🌟 VIP Order!" : 
-                         newOrder.priority === "rush" ? "🔥 RUSH Order!" : "New Order",
-                  description: `Order from ${newOrder.source}${newOrder.customer_name ? ` - ${newOrder.customer_name}` : ''}`,
+                  title:
+                    newOrder.priority === "vip"
+                      ? "🌟 VIP Order!"
+                      : newOrder.priority === "rush"
+                      ? "🔥 RUSH Order!"
+                      : "New Order",
+                  description: `Order from ${newOrder.source}${
+                    newOrder.customer_name ? ` - ${newOrder.customer_name}` : ""
+                  }`,
                 });
               } catch (e) {
                 console.error("Could not play notification:", e);
@@ -332,23 +391,84 @@ const KitchenDisplay = () => {
             }
           } else if (payload.eventType === "UPDATE") {
             const updatedOrderData = payload.new;
-            
+
             // If order was bumped, remove from list
             if (updatedOrderData.bumped_at) {
-              setOrders((prev) => prev.filter(order => order.id !== updatedOrderData.id));
+              setOrders((prev) =>
+                prev.filter((order) => order.id !== updatedOrderData.id)
+              );
               return;
             }
-            
-            const updatedOrder = transformOrderData(updatedOrderData);
-            
-            setOrders((prev) =>
-              prev.map((order) =>
-                order.id === updatedOrder.id ? updatedOrder : order
-              )
+
+            // Check if the updated order now falls within current date filter
+            const nowWithinDateFilter = isWithinDateFilter(
+              updatedOrderData.created_at
             );
+
+            // Check station filter
+            const matchesStationFilter =
+              stationFilter === "all" ||
+              updatedOrderData.station === stationFilter;
+
+            const updatedOrder = transformOrderData(updatedOrderData);
+
+            setOrders((prev) => {
+              const existingIndex = prev.findIndex(
+                (order) => order.id === updatedOrder.id
+              );
+
+              if (nowWithinDateFilter && matchesStationFilter) {
+                if (existingIndex >= 0) {
+                  // Order exists, update it
+                  const updated = [...prev];
+                  updated[existingIndex] = updatedOrder;
+                  return updated;
+                } else {
+                  // Order doesn't exist but now matches filters, add it (e.g., created_at was updated to today)
+                  const updated = [updatedOrder, ...prev];
+                  // Re-sort by priority
+                  return updated.sort((a, b) => {
+                    const priorityOrder = { vip: 0, rush: 1, normal: 2 };
+                    const priorityDiff =
+                      priorityOrder[a.priority] - priorityOrder[b.priority];
+                    if (priorityDiff !== 0) return priorityDiff;
+                    return (
+                      new Date(b.created_at).getTime() -
+                      new Date(a.created_at).getTime()
+                    );
+                  });
+                }
+              } else {
+                // Order no longer matches filters, remove if present
+                if (existingIndex >= 0) {
+                  return prev.filter((order) => order.id !== updatedOrder.id);
+                }
+                return prev;
+              }
+            });
+
+            // Play notification if order was "refreshed" (status changed to new and now visible)
+            if (
+              updatedOrderData.status === "new" &&
+              nowWithinDateFilter &&
+              matchesStationFilter &&
+              soundEnabled
+            ) {
+              try {
+                notification.play().catch((err) => {
+                  console.error("Error playing notification sound:", err);
+                });
+                toast({
+                  title: "Order Updated",
+                  description: `Order from ${updatedOrder.source} has been updated`,
+                });
+              } catch (e) {
+                console.error("Could not play notification:", e);
+              }
+            }
           } else if (payload.eventType === "DELETE") {
             const deletedId = payload.old.id;
-            setOrders((prev) => prev.filter(order => order.id !== deletedId));
+            setOrders((prev) => prev.filter((order) => order.id !== deletedId));
           }
         }
       )
@@ -357,39 +477,51 @@ const KitchenDisplay = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [restaurantId, soundEnabled, toast, notification, dateFilter, stationFilter, isWithinDateFilter, transformOrderData]);
+  }, [
+    restaurantId,
+    soundEnabled,
+    toast,
+    notification,
+    dateFilter,
+    stationFilter,
+    isWithinDateFilter,
+    transformOrderData,
+  ]);
 
   // Handle status update with time tracking
-  const handleStatusUpdate = async (orderId: string, newStatus: KitchenOrder["status"]) => {
+  const handleStatusUpdate = async (
+    orderId: string,
+    newStatus: KitchenOrder["status"]
+  ) => {
     try {
       const updateData: any = { status: newStatus };
-      
+
       // Add time tracking
       if (newStatus === "preparing") {
         updateData.started_at = new Date().toISOString();
-        
+
         // Deduct inventory
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        const { data: deductResult, error: deductError } = await supabase.functions.invoke(
-          'deduct-inventory-on-prep',
-          {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        const { data: deductResult, error: deductError } =
+          await supabase.functions.invoke("deduct-inventory-on-prep", {
             body: { order_id: orderId },
             headers: {
               Authorization: `Bearer ${session?.access_token}`,
             },
-          }
-        );
+          });
 
         if (deductError) {
           throw new Error(deductError.message);
         }
 
         if (!deductResult?.success) {
-          const errorMessage = deductResult?.errors 
-            ? deductResult.errors.join('\n') 
-            : deductResult?.error || 'Failed to deduct inventory';
-          
+          const errorMessage = deductResult?.errors
+            ? deductResult.errors.join("\n")
+            : deductResult?.error || "Failed to deduct inventory";
+
           toast({
             variant: "destructive",
             title: "Insufficient Stock",
@@ -398,8 +530,8 @@ const KitchenDisplay = () => {
           });
           return;
         }
-        
-        console.log('Inventory deducted successfully:', deductResult);
+
+        console.log("Inventory deducted successfully:", deductResult);
       } else if (newStatus === "ready") {
         updateData.completed_at = new Date().toISOString();
       }
@@ -416,10 +548,10 @@ const KitchenDisplay = () => {
 
       // Also update the corresponding order status in orders table
       if (kitchenOrder?.order_id) {
-        let orderStatus = 'pending';
-        if (newStatus === 'preparing') orderStatus = 'preparing';
-        if (newStatus === 'ready') orderStatus = 'completed';
-        
+        let orderStatus = "pending";
+        if (newStatus === "preparing") orderStatus = "preparing";
+        if (newStatus === "ready") orderStatus = "completed";
+
         await supabase
           .from("orders")
           .update({ status: orderStatus })
@@ -428,14 +560,19 @@ const KitchenDisplay = () => {
 
       toast({
         title: "Status Updated",
-        description: `Order marked as ${newStatus}${newStatus === 'preparing' ? ' - Inventory updated' : ''}`,
+        description: `Order marked as ${newStatus}${
+          newStatus === "preparing" ? " - Inventory updated" : ""
+        }`,
       });
     } catch (error) {
       console.error("Error updating status:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update order status",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to update order status",
       });
     }
   };
@@ -451,7 +588,7 @@ const KitchenDisplay = () => {
       if (error) throw error;
 
       // Optimistically remove from UI (realtime will also handle this)
-      setOrders((prev) => prev.filter(order => order.id !== orderId));
+      setOrders((prev) => prev.filter((order) => order.id !== orderId));
 
       toast({
         title: "Order Bumped",
@@ -468,12 +605,19 @@ const KitchenDisplay = () => {
   };
 
   // Handle item completion persistence
-  const handleItemComplete = async (orderId: string, itemIndex: number, completed: boolean) => {
+  const handleItemComplete = async (
+    orderId: string,
+    itemIndex: number,
+    completed: boolean
+  ) => {
     try {
-      const order = orders.find(o => o.id === orderId);
+      const order = orders.find((o) => o.id === orderId);
       if (!order) return;
 
-      const newCompletionStatus = [...(order.item_completion_status || new Array(order.items.length).fill(false))];
+      const newCompletionStatus = [
+        ...(order.item_completion_status ||
+          new Array(order.items.length).fill(false)),
+      ];
       newCompletionStatus[itemIndex] = completed;
 
       const { error } = await supabase
@@ -486,7 +630,9 @@ const KitchenDisplay = () => {
       // Update local state
       setOrders((prev) =>
         prev.map((o) =>
-          o.id === orderId ? { ...o, item_completion_status: newCompletionStatus } : o
+          o.id === orderId
+            ? { ...o, item_completion_status: newCompletionStatus }
+            : o
         )
       );
     } catch (error) {
@@ -496,14 +642,21 @@ const KitchenDisplay = () => {
 
   // Filter orders by status, excluding bumped
   const filterOrdersByStatus = (status: KitchenOrder["status"]) => {
-    return orders.filter((order) => order.status === status && !order.bumped_at);
+    return orders.filter(
+      (order) => order.status === status && !order.bumped_at
+    );
   };
 
   // Check if an order is late (exceeds threshold)
   const isOrderLate = (order: KitchenOrder): boolean => {
     if (order.status === "ready" || order.bumped_at) return false;
-    const minutesSinceCreation = differenceInMinutes(new Date(), new Date(order.created_at));
-    return minutesSinceCreation > (order.estimated_prep_time || LATE_ORDER_THRESHOLD);
+    const minutesSinceCreation = differenceInMinutes(
+      new Date(),
+      new Date(order.created_at)
+    );
+    return (
+      minutesSinceCreation > (order.estimated_prep_time || LATE_ORDER_THRESHOLD)
+    );
   };
 
   const toggleFullscreen = () => {
@@ -518,7 +671,7 @@ const KitchenDisplay = () => {
 
   const loadMore = () => {
     if (hasMore && !isLoading) {
-      setPage(prev => prev + 1);
+      setPage((prev) => prev + 1);
       fetchOrders(false);
     }
   };
@@ -538,9 +691,11 @@ const KitchenDisplay = () => {
             <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
               Kitchen Display System
             </h1>
-            <p className="text-gray-600 dark:text-gray-300 text-lg">Real-time order management dashboard</p>
+            <p className="text-gray-600 dark:text-gray-300 text-lg">
+              Real-time order management dashboard
+            </p>
           </div>
-          
+
           {/* Action Buttons with Modern Design */}
           <div className="flex items-center gap-4 flex-wrap">
             {/* Station Filter */}
@@ -550,7 +705,7 @@ const KitchenDisplay = () => {
                 <SelectValue placeholder="Station" />
               </SelectTrigger>
               <SelectContent>
-                {STATION_OPTIONS.map(option => (
+                {STATION_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -566,17 +721,19 @@ const KitchenDisplay = () => {
                 disabled={isLoading}
                 className="rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900 transition-all duration-300"
               >
-                <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`h-5 w-5 ${isLoading ? "animate-spin" : ""}`}
+                />
               </Button>
-              
+
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setSoundEnabled(!soundEnabled)}
                 className={`rounded-xl transition-all duration-300 ${
-                  soundEnabled 
-                    ? 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900' 
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  soundEnabled
+                    ? "bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
                 }`}
               >
                 {soundEnabled ? (
@@ -585,7 +742,7 @@ const KitchenDisplay = () => {
                   <VolumeX className="h-5 w-5" />
                 )}
               </Button>
-              
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -627,7 +784,7 @@ const KitchenDisplay = () => {
           )}
         </div>
       </div>
-      
+
       {/* Enhanced Date Filter */}
       <div className="mb-6">
         <DateFilter value={dateFilter} onChange={setDateFilter} />
