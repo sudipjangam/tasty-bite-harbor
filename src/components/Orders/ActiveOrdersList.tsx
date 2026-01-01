@@ -64,6 +64,45 @@ interface ActiveOrdersListProps {
   }) => void;
 }
 
+function parseOrderItems(items: Json): OrderItem[] {
+  if (!items) return [];
+
+  try {
+    if (Array.isArray(items)) {
+      return items.map((item) => {
+        const itemObj = item as Record<string, any>;
+        return {
+          name:
+            typeof itemObj.name === "string" ? itemObj.name : "Unknown Item",
+          quantity: typeof itemObj.quantity === "number" ? itemObj.quantity : 1,
+          notes: Array.isArray(itemObj.notes) ? itemObj.notes : [],
+          price: typeof itemObj.price === "number" ? itemObj.price : undefined,
+        };
+      });
+    }
+
+    const parsedItems = typeof items === "string" ? JSON.parse(items) : items;
+
+    if (Array.isArray(parsedItems)) {
+      return parsedItems.map((item) => {
+        const itemObj = item as Record<string, any>;
+        return {
+          name:
+            typeof itemObj.name === "string" ? itemObj.name : "Unknown Item",
+          quantity: typeof itemObj.quantity === "number" ? itemObj.quantity : 1,
+          notes: Array.isArray(itemObj.notes) ? itemObj.notes : [],
+          price: typeof itemObj.price === "number" ? itemObj.price : undefined,
+        };
+      });
+    }
+
+    return [];
+  } catch (error) {
+    console.error("Error parsing order items:", error);
+    return [];
+  }
+}
+
 const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<ActiveOrder | null>(null);
@@ -161,53 +200,9 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
 
     fetchActiveOrders();
 
-    function parseOrderItems(items: Json): OrderItem[] {
-      if (!items) return [];
+    fetchActiveOrders();
 
-      try {
-        if (Array.isArray(items)) {
-          return items.map((item) => {
-            const itemObj = item as Record<string, any>;
-            return {
-              name:
-                typeof itemObj.name === "string"
-                  ? itemObj.name
-                  : "Unknown Item",
-              quantity:
-                typeof itemObj.quantity === "number" ? itemObj.quantity : 1,
-              notes: Array.isArray(itemObj.notes) ? itemObj.notes : [],
-              price:
-                typeof itemObj.price === "number" ? itemObj.price : undefined,
-            };
-          });
-        }
-
-        const parsedItems =
-          typeof items === "string" ? JSON.parse(items) : items;
-
-        if (Array.isArray(parsedItems)) {
-          return parsedItems.map((item) => {
-            const itemObj = item as Record<string, any>;
-            return {
-              name:
-                typeof itemObj.name === "string"
-                  ? itemObj.name
-                  : "Unknown Item",
-              quantity:
-                typeof itemObj.quantity === "number" ? itemObj.quantity : 1,
-              notes: Array.isArray(itemObj.notes) ? itemObj.notes : [],
-              price:
-                typeof itemObj.price === "number" ? itemObj.price : undefined,
-            };
-          });
-        }
-
-        return [];
-      } catch (error) {
-        console.error("Error parsing order items:", error);
-        return [];
-      }
-    }
+    // Helper function moved to module scope
 
     const channel = supabase
       .channel("kitchen-orders-changes")
@@ -802,22 +797,48 @@ const ActiveOrdersList = ({ onRecallOrder }: ActiveOrdersListProps = {}) => {
       </div>
 
       <PaymentDialog
-        isOpen={selectedOrder !== null}
+        isOpen={!!selectedOrder}
         onClose={() => setSelectedOrder(null)}
-        orderItems={
-          selectedOrder
-            ? selectedOrder.items.map((item) => ({
-                id: crypto.randomUUID(),
-                menuItemId: undefined,
-                name: item.name,
-                price: item.price || 0,
-                quantity: item.quantity,
-                modifiers: item.notes || [],
-              }))
-            : []
-        }
-        onSuccess={() => setSelectedOrder(null)}
-        tableNumber={selectedOrder?.source || undefined}
+        orderItems={selectedOrder?.items || []}
+        onSuccess={() => {
+          // Refresh orders - the realtime subscription will handle the list update,
+          // but we can force a manual recall if needed, or close dialog.
+          // Usually onSuccess means payment done or edits saved and finalized.
+          setSelectedOrder(null);
+        }}
+        onOrderUpdated={async () => {
+          // When an item quantity is updated inside the dialog, we need to refresh
+          // the current selectedOrder so the dialog doesn't close and shows waiting state.
+          if (!selectedOrder) return;
+
+          const { data: updatedOrder } = await supabase
+            .from("kitchen_orders")
+            .select(
+              "*, orders!kitchen_orders_order_id_fkey(discount_amount, discount_percentage)"
+            )
+            .eq("id", selectedOrder.id)
+            .single();
+
+          if (updatedOrder) {
+            const orderData = updatedOrder.orders as any;
+            const formattedOrder: ActiveOrder = {
+              id: updatedOrder.id,
+              source: updatedOrder.source,
+              status: updatedOrder.status as any,
+              items: parseOrderItems(updatedOrder.items),
+              created_at: updatedOrder.created_at,
+              discount_amount: orderData?.discount_amount || 0,
+              discount_percentage: orderData?.discount_percentage || 0,
+            };
+
+            // Update both the list and the selected item
+            setActiveOrders((prev) =>
+              prev.map((o) => (o.id === formattedOrder.id ? formattedOrder : o))
+            );
+            setSelectedOrder(formattedOrder);
+          }
+        }}
+        tableNumber={selectedOrder?.source || "Order"}
         orderId={selectedOrder?.id}
       />
     </div>

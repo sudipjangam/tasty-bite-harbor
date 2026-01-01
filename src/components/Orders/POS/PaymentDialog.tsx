@@ -46,6 +46,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { CustomItemDialog, CustomItem } from "./CustomItemDialog";
 
 type PaymentStep = "confirm" | "method" | "qr" | "success" | "edit";
 
@@ -56,7 +57,9 @@ interface PaymentDialogProps {
   onSuccess: () => void;
   tableNumber?: string;
   onEditOrder?: () => void;
+  onEditOrder?: () => void;
   orderId?: string; // Kitchen order ID to update status
+  onOrderUpdated?: () => void;
 }
 
 const PaymentDialog = ({
@@ -67,6 +70,7 @@ const PaymentDialog = ({
   tableNumber = "",
   onEditOrder,
   orderId,
+  onOrderUpdated,
 }: PaymentDialogProps) => {
   const [currentStep, setCurrentStep] = useState<PaymentStep>("confirm");
   const [customerName, setCustomerName] = useState("");
@@ -96,6 +100,9 @@ const PaymentDialog = ({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { symbol: currencySymbol } = useCurrencyContext();
+
+  // Custom Item State
+  const [showCustomItemDialog, setShowCustomItemDialog] = useState(false);
 
   // Fetch restaurant info
   const { data: restaurantInfo } = useQuery({
@@ -476,7 +483,7 @@ const PaymentDialog = ({
       // Add new item
       const newItem: OrderItem = {
         id: `new-${Date.now()}-${Math.random()}`,
-        menuItemId: item.id,
+        menuItemId: item.id, // Will be undefined for custom items if we reuse this logic? No, item.id is from menu.
         name: item.name,
         price: item.price,
         quantity: 1,
@@ -488,6 +495,23 @@ const PaymentDialog = ({
         description: `${item.name} added to new items list.`,
       });
     }
+  };
+
+  const handleAddCustomItem = (item: CustomItem) => {
+    const newItem: OrderItem = {
+      id: `custom-${Date.now()}-${Math.random()}`,
+      // No menuItemId for custom items
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      modifiers: [],
+    };
+
+    setNewItemsBuffer((prev) => [...prev, newItem]);
+    toast({
+      title: "Custom Item Added",
+      description: `${item.quantity}x ${item.name} added to order.`,
+    });
   };
 
   const handleRemoveNewItem = (itemId: string) => {
@@ -580,6 +604,116 @@ const PaymentDialog = ({
         item.id === itemId ? { ...item, quantity: newQuantity } : item
       )
     );
+  };
+
+  const handleUpdateExistingItemQuantity = async (
+    itemIndex: number,
+    newQuantity: number
+  ) => {
+    if (!orderId) return;
+
+    if (newQuantity < 1) {
+      // If quantity drops to 0 or less, confirm removal?
+      // For now, let's just trigger the remove flow which is safer
+      handleRemoveExistingItem(itemIndex);
+      return;
+    }
+
+    try {
+      // Get current kitchen order
+      const { data: currentOrder, error: fetchError } = await supabase
+        .from("kitchen_orders")
+        .select("items, order_id")
+        .eq("id", orderId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Deep copy items
+      const updatedItems = [...(currentOrder?.items || [])];
+
+      // Update quantity of specific item
+      // Need to handle string format vs object format
+      const targetItem = updatedItems[itemIndex];
+      if (typeof targetItem === "string") {
+        // Parse "1x Name" if needed, but ideally we should normalize first.
+        // If it's a string, we might need to parse it to update quantity.
+        const match = targetItem.match(/^(\d+)x\s+(.+)$/);
+        if (match) {
+          const name = match[2];
+          updatedItems[itemIndex] = { name, quantity: newQuantity, price: 0 };
+        } else {
+          // Fallback if parsing fails, assume name only
+          updatedItems[itemIndex] = {
+            name: targetItem,
+            quantity: newQuantity,
+            price: 0,
+          };
+        }
+      } else {
+        // It's an object
+        updatedItems[itemIndex] = { ...targetItem, quantity: newQuantity };
+      }
+
+      // Calculate new total
+      const newTotal = updatedItems.reduce((sum, item: any) => {
+        const price = item.price || 0;
+        const quantity = item.quantity || 1;
+        return sum + price * quantity;
+      }, 0);
+
+      // Update kitchen_orders
+      const { error: updateError } = await supabase
+        .from("kitchen_orders")
+        .update({
+          items: updatedItems,
+          // CRITICAL: Reset status to 'new' so kitchen sees the change
+          status: "new",
+        })
+        .eq("id", orderId);
+
+      if (updateError) throw updateError;
+
+      // Update linked orders table
+      if (currentOrder?.order_id) {
+        const ordersTableItems = updatedItems.map((item: any) => {
+          const itemName = item.name || "Unknown Item";
+          const itemQty = item.quantity || 1;
+          const itemPrice = item.price || 0;
+          return `${itemQty}x ${itemName} @${itemPrice}`;
+        });
+
+        const { error: ordersUpdateError } = await supabase
+          .from("orders")
+          .update({
+            items: ordersTableItems,
+            total: newTotal,
+          })
+          .eq("id", currentOrder.order_id);
+
+        if (ordersUpdateError) {
+          console.error("Error updating orders table:", ordersUpdateError);
+        }
+      }
+
+      toast({
+        title: "Order Updated",
+        description: `Item quantity updated to ${newQuantity}.`,
+      });
+
+      if (onOrderUpdated) {
+        onOrderUpdated();
+      } else {
+        onSuccess();
+      }
+    } catch (error) {
+      console.error("Error updating item quantity:", error);
+      toast({
+        title: "Update Failed",
+        description: "Could not update item quantity.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSaveNewItems = async () => {
@@ -2350,20 +2484,47 @@ const PaymentDialog = ({
               key={idx}
               className="flex items-center justify-between gap-2 text-sm"
             >
-              <span className="flex-1">
-                {item.quantity}x {item.name}
-              </span>
-              <span className="font-medium">
-                ₹{(item.price * item.quantity).toFixed(2)}
-              </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleRemoveExistingItem(idx)}
-                className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/20"
-              >
-                <X className="w-4 h-4" />
-              </Button>
+              <span className="flex-1">{item.name}</span>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    handleUpdateExistingItemQuantity(idx, item.quantity - 1)
+                  }
+                  className="h-7 w-7 p-0"
+                >
+                  -
+                </Button>
+                <span className="text-sm font-medium w-8 text-center">
+                  {item.quantity}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    handleUpdateExistingItemQuantity(idx, item.quantity + 1)
+                  }
+                  className="h-7 w-7 p-0"
+                  disabled={false}
+                >
+                  +
+                </Button>
+
+                <span className="font-medium w-16 text-right">
+                  {currencySymbol}
+                  {(item.price * item.quantity).toFixed(2)}
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleRemoveExistingItem(idx)}
+                  className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/20"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           ))}
         </div>
@@ -2425,6 +2586,16 @@ const PaymentDialog = ({
           </div>
         </Card>
       )}
+
+      {/* Custom Item Button */}
+      <Button
+        variant="outline"
+        onClick={() => setShowCustomItemDialog(true)}
+        className="w-full border-dashed"
+      >
+        <Plus className="w-4 h-4 mr-2" />
+        Add Custom Item
+      </Button>
 
       {/* Search Menu Items */}
       <div className="space-y-3">
@@ -2516,6 +2687,12 @@ const PaymentDialog = ({
         {currentStep === "success" && renderSuccessStep()}
         {currentStep === "edit" && renderEditStep()}
       </DialogContent>
+
+      <CustomItemDialog
+        isOpen={showCustomItemDialog}
+        onClose={() => setShowCustomItemDialog(false)}
+        onAddItem={handleAddCustomItem}
+      />
     </Dialog>
   );
 };

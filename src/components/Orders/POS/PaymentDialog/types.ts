@@ -148,5 +148,7 @@ export interface EditOrderStepProps extends StepProps {
   onRemoveNewItem: (itemId: string) => void;
   onRemoveExistingItem: (index: number) => void;
   onUpdateNewItemQuantity: (itemId: string, quantity: number) => void;
+  onUpdateExistingItemQuantity: (index: number, quantity: number) => void;
   onSaveNewItems: () => void;
+  onOpenCustomItemDialog: () => void;
 }
