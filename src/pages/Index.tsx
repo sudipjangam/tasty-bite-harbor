@@ -8,27 +8,20 @@ import { StandardizedButton } from "@/components/ui/standardized-button";
 import { PermissionDeniedDialog } from "@/components/Auth/PermissionDeniedDialog";
 import {
   BarChart3,
-  ShoppingCart,
   Users,
-  DollarSign,
   TrendingUp,
-  Plus,
-  Settings,
-  Coffee,
-  Bed,
   Sparkles,
-  ArrowRight,
   Clock,
+  PieChart,
+  Table2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Stats from "@/components/Dashboard/Stats";
 import WeeklySalesChart from "@/components/Dashboard/WeeklySalesChart";
 import TrendingItems from "@/components/Dashboard/TrendingItems";
 import StaffSelfServiceSection from "@/components/Dashboard/StaffSelfServiceSection";
-import StaffAttendanceWidget from "@/components/Dashboard/StaffAttendanceWidget";
-import TodayScheduleWidget from "@/components/Dashboard/TodayScheduleWidget";
-import AttendanceReportsWidget from "@/components/Dashboard/AttendanceReportsWidget";
-import LaborCostWidget from "@/components/Dashboard/LaborCostWidget";
+import RevenuePieChart from "@/components/Dashboard/RevenuePieChart";
+import RecentOrdersTable from "@/components/Dashboard/RecentOrdersTable";
 import TimeClockDialog from "@/components/Staff/TimeClockDialog";
 import LeaveRequestDialog from "@/components/Staff/LeaveRequestDialog";
 import AutoClockInPrompt from "@/components/Staff/AutoClockInPrompt";
@@ -140,66 +133,6 @@ const Index = () => {
       });
     }
   };
-
-  const quickActions = [
-    {
-      title: "New Order",
-      description: "Create a new order",
-      icon: <Plus className="h-5 w-5" />,
-      onClick: () =>
-        handleNavigationWithPermission(
-          "/orders",
-          "orders.create",
-          "Order Management"
-        ),
-      variant: "primary" as const,
-      gradient: "from-emerald-500 to-teal-600",
-      permission: "orders.create" as const,
-    },
-    {
-      title: "View Menu",
-      description: "Manage menu items",
-      icon: <Coffee className="h-5 w-5" />,
-      onClick: () =>
-        handleNavigationWithPermission("/menu", "menu.view", "Menu Management"),
-      variant: "secondary" as const,
-      gradient: "from-amber-500 to-orange-600",
-      permission: "menu.view" as const,
-    },
-    {
-      title: "Room Status",
-      description: "Check room availability",
-      icon: <Bed className="h-5 w-5" />,
-      onClick: () =>
-        handleNavigationWithPermission(
-          "/rooms",
-          "rooms.view",
-          "Room Management"
-        ),
-      variant: "secondary" as const,
-      gradient: "from-blue-500 to-indigo-600",
-      permission: "rooms.view" as const,
-    },
-    {
-      title: "Analytics",
-      description: "View business insights",
-      icon: <BarChart3 className="h-5 w-5" />,
-      onClick: () =>
-        handleNavigationWithPermission(
-          "/analytics",
-          "analytics.view",
-          "Analytics Dashboard"
-        ),
-      variant: "secondary" as const,
-      gradient: "from-purple-500 to-pink-600",
-      permission: "analytics.view" as const,
-    },
-  ];
-
-  // Filter quick actions based on user permissions
-  const filteredQuickActions = quickActions.filter((action) =>
-    hasPermission(action.permission)
-  );
 
   const currentHour = new Date().getHours();
   const greeting =
@@ -331,65 +264,41 @@ const Index = () => {
           <TrendingItems />
         </div>
 
-        {/* Quick Actions - Medium Priority */}
-        <div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <Settings className="h-5 w-5 text-indigo-500" />
-            Quick Actions
-          </h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {filteredQuickActions.length > 0 ? (
-              filteredQuickActions.map((action, index) => (
-                <button
-                  key={index}
-                  className={`group relative overflow-hidden bg-gradient-to-br ${action.gradient} rounded-2xl p-5 text-white shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02] hover:-translate-y-1 active:scale-95`}
-                  onClick={action.onClick}
-                >
-                  <div className="absolute inset-0 bg-white/0 group-hover:bg-white/20 transition-all duration-300"></div>
-                  <div className="relative z-10 flex flex-col items-center text-center gap-3">
-                    <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl group-hover:bg-white/30 group-hover:scale-110 transition-all duration-300">
-                      {React.cloneElement(action.icon as React.ReactElement, {
-                        className: "h-6 w-6 text-white",
-                      })}
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-white text-base sm:text-lg">
-                        {action.title}
-                      </h3>
-                      <p className="text-white/90 text-sm mt-1 hidden sm:block">
-                        {action.description}
-                      </p>
-                    </div>
-                  </div>
-                </button>
-              ))
-            ) : (
-              <div className="col-span-full">
-                <div className="bg-white/50 rounded-2xl p-8 text-center border-dashed border-2 border-gray-300">
-                  <p>No actions available</p>
+        {/* Financial Insights Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Revenue Breakdown Pie Chart */}
+          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-pink-500/10 to-rose-500/10 dark:from-pink-500/20 dark:to-rose-500/20 border-b border-gray-100 dark:border-gray-700/50">
+              <CardTitle className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-pink-500 to-rose-600 rounded-xl shadow-lg shadow-pink-500/20">
+                  <PieChart className="h-5 w-5 text-white" />
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
+                <span className="bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">
+                  Revenue by Category
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <RevenuePieChart />
+            </CardContent>
+          </Card>
 
-        {/* Main Dashboard Grid Legacy Wrapper - Now just for Staff/Reports */}
-        <div className="space-y-8">
-          {/* Staff Management Section */}
-          {hasPermission("staff.view") && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <StaffAttendanceWidget />
-              <TodayScheduleWidget />
-            </div>
-          )}
-
-          {/* Advanced Reports Section */}
-          {hasPermission("staff.view") && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <AttendanceReportsWidget />
-              <LaborCostWidget />
-            </div>
-          )}
+          {/* Recent Orders Table */}
+          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-cyan-500/10 to-teal-500/10 dark:from-cyan-500/20 dark:to-teal-500/20 border-b border-gray-100 dark:border-gray-700/50">
+              <CardTitle className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-xl shadow-lg shadow-cyan-500/20">
+                  <Table2 className="h-5 w-5 text-white" />
+                </div>
+                <span className="bg-gradient-to-r from-cyan-600 to-teal-600 bg-clip-text text-transparent">
+                  Top Orders Today
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <RecentOrdersTable />
+            </CardContent>
+          </Card>
         </div>
       </div>
 
