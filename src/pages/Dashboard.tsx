@@ -4,11 +4,11 @@ import { PageHeader } from "@/components/Layout/PageHeader";
 import { PermissionDeniedDialog } from "@/components/Auth/PermissionDeniedDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  BarChart3, 
-  ShoppingCart, 
-  Users, 
-  DollarSign, 
+import {
+  BarChart3,
+  ShoppingCart,
+  Users,
+  DollarSign,
   TrendingUp,
   Plus,
   Settings,
@@ -21,7 +21,7 @@ import {
   ArrowRight,
   Activity,
   Clock,
-  Package
+  Package,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Stats from "@/components/Dashboard/Stats";
@@ -39,13 +39,13 @@ const Dashboard = () => {
     requiredPermission: string;
   }>({
     open: false,
-    featureName: '',
-    requiredPermission: ''
+    featureName: "",
+    requiredPermission: "",
   });
 
   const handleNavigationWithPermission = (
-    path: string, 
-    permission: string, 
+    path: string,
+    permission: string,
     featureName: string
   ) => {
     if (hasPermission(permission as any)) {
@@ -54,7 +54,7 @@ const Dashboard = () => {
       setPermissionDialog({
         open: true,
         featureName,
-        requiredPermission: permission
+        requiredPermission: permission,
       });
     }
   };
@@ -64,83 +64,120 @@ const Dashboard = () => {
       title: "New Order",
       description: "Create order",
       icon: <Plus className="h-6 w-6" />,
-      onClick: () => handleNavigationWithPermission('/orders', 'orders.create', 'Order Management'),
-      gradient: 'from-emerald-500 to-teal-600',
-      shadowColor: 'shadow-emerald-500/30',
-      permission: 'orders.create' as const
+      onClick: () =>
+        handleNavigationWithPermission(
+          "/orders",
+          "orders.create",
+          "Order Management"
+        ),
+      gradient: "from-emerald-500 to-teal-600",
+      shadowColor: "shadow-emerald-500/30",
+      permission: "orders.create" as const,
     },
     {
       title: "POS",
       description: "Point of sale",
       icon: <Receipt className="h-6 w-6" />,
-      onClick: () => handleNavigationWithPermission('/pos', 'orders.create', 'POS'),
-      gradient: 'from-blue-500 to-indigo-600',
-      shadowColor: 'shadow-blue-500/30',
-      permission: 'orders.create' as const
+      onClick: () =>
+        handleNavigationWithPermission("/pos", "orders.create", "POS"),
+      gradient: "from-blue-500 to-indigo-600",
+      shadowColor: "shadow-blue-500/30",
+      permission: "orders.create" as const,
     },
     {
       title: "Menu",
       description: "Manage items",
       icon: <Coffee className="h-6 w-6" />,
-      onClick: () => handleNavigationWithPermission('/menu', 'menu.view', 'Menu Management'),
-      gradient: 'from-orange-500 to-red-600',
-      shadowColor: 'shadow-orange-500/30',
-      permission: 'menu.view' as const
+      onClick: () =>
+        handleNavigationWithPermission("/menu", "menu.view", "Menu Management"),
+      gradient: "from-orange-500 to-red-600",
+      shadowColor: "shadow-orange-500/30",
+      permission: "menu.view" as const,
     },
     {
       title: "Kitchen",
       description: "View orders",
       icon: <ChefHat className="h-6 w-6" />,
-      onClick: () => handleNavigationWithPermission('/kitchen', 'orders.update', 'Kitchen Display'),
-      gradient: 'from-purple-500 to-pink-600',
-      shadowColor: 'shadow-purple-500/30',
-      permission: 'orders.update' as const
+      onClick: () =>
+        handleNavigationWithPermission(
+          "/kitchen",
+          "orders.update",
+          "Kitchen Display"
+        ),
+      gradient: "from-purple-500 to-pink-600",
+      shadowColor: "shadow-purple-500/30",
+      permission: "orders.update" as const,
     },
     {
       title: "Rooms",
       description: "Room status",
       icon: <Bed className="h-6 w-6" />,
-      onClick: () => handleNavigationWithPermission('/rooms', 'rooms.view', 'Room Management'),
-      gradient: 'from-cyan-500 to-blue-600',
-      shadowColor: 'shadow-cyan-500/30',
-      permission: 'rooms.view' as const
+      onClick: () =>
+        handleNavigationWithPermission(
+          "/rooms",
+          "rooms.view",
+          "Room Management"
+        ),
+      gradient: "from-cyan-500 to-blue-600",
+      shadowColor: "shadow-cyan-500/30",
+      permission: "rooms.view" as const,
     },
     {
       title: "Staff",
       description: "Team management",
       icon: <Users className="h-6 w-6" />,
-      onClick: () => handleNavigationWithPermission('/staff', 'staff.view', 'Staff Management'),
-      gradient: 'from-violet-500 to-purple-600',
-      shadowColor: 'shadow-violet-500/30',
-      permission: 'staff.view' as const
+      onClick: () =>
+        handleNavigationWithPermission(
+          "/staff",
+          "staff.view",
+          "Staff Management"
+        ),
+      gradient: "from-violet-500 to-purple-600",
+      shadowColor: "shadow-violet-500/30",
+      permission: "staff.view" as const,
     },
     {
       title: "Inventory",
       description: "Stock levels",
       icon: <Package className="h-6 w-6" />,
-      onClick: () => handleNavigationWithPermission('/inventory', 'inventory.view', 'Inventory'),
-      gradient: 'from-amber-500 to-orange-600',
-      shadowColor: 'shadow-amber-500/30',
-      permission: 'inventory.view' as const
+      onClick: () =>
+        handleNavigationWithPermission(
+          "/inventory",
+          "inventory.view",
+          "Inventory"
+        ),
+      gradient: "from-amber-500 to-orange-600",
+      shadowColor: "shadow-amber-500/30",
+      permission: "inventory.view" as const,
     },
     {
       title: "Analytics",
       description: "Insights",
       icon: <Sparkles className="h-6 w-6" />,
-      onClick: () => handleNavigationWithPermission('/analytics', 'analytics.view', 'Analytics'),
-      gradient: 'from-pink-500 to-rose-600',
-      shadowColor: 'shadow-pink-500/30',
-      permission: 'analytics.view' as const
-    }
+      onClick: () =>
+        handleNavigationWithPermission(
+          "/analytics",
+          "analytics.view",
+          "Analytics"
+        ),
+      gradient: "from-pink-500 to-rose-600",
+      shadowColor: "shadow-pink-500/30",
+      permission: "analytics.view" as const,
+    },
   ];
 
   // Filter quick actions based on user permissions
-  const filteredQuickActions = quickActions.filter(action => 
+  const filteredQuickActions = quickActions.filter((action) =>
     hasPermission(action.permission)
   );
 
   const currentHour = new Date().getHours();
-  const greeting = currentHour < 12 ? "Good morning" : currentHour < 18 ? "Good afternoon" : "Good evening";
+  const greeting =
+    currentHour < 12
+      ? "Good morning"
+      : currentHour < 18
+      ? "Good afternoon"
+      : "Good evening";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950">
@@ -151,7 +188,8 @@ const Dashboard = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="text-white">
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold">
-                {greeting}, {user?.email ? user.email.split('@')[0] : 'there'}! 👋
+                {greeting}, {user?.email ? user.email.split("@")[0] : "there"}!
+                👋
               </h1>
               <p className="mt-2 text-white/80 text-sm sm:text-base">
                 Here's what's happening with your restaurant today
@@ -161,7 +199,10 @@ const Dashboard = () => {
               <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2">
                 <Clock className="h-5 w-5 text-white" />
                 <span className="text-white font-medium text-sm sm:text-base">
-                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {new Date().toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </span>
               </div>
               <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2">
@@ -174,24 +215,28 @@ const Dashboard = () => {
         {/* Wave divider */}
         <div className="absolute bottom-0 left-0 right-0">
           <svg viewBox="0 0 1440 100" fill="none" className="w-full h-auto">
-            <path 
-              d="M0,50 C150,100 350,0 500,50 C650,100 800,0 1000,50 C1200,100 1350,0 1440,50 L1440,100 L0,100 Z" 
+            <path
+              d="M0,50 C150,100 350,0 500,50 C650,100 800,0 1000,50 C1200,100 1350,0 1440,50 L1440,100 L0,100 Z"
               className="fill-slate-50 dark:fill-gray-900"
             />
           </svg>
         </div>
       </div>
-      
+
       <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8 -mt-4">
         {/* Quick Actions Grid */}
         <div className="relative">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Quick Actions</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Jump to frequently used features</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                Quick Actions
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Jump to frequently used features
+              </p>
             </div>
           </div>
-          
+
           {filteredQuickActions.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-3 sm:gap-4">
               {filteredQuickActions.map((action, index) => (
@@ -206,8 +251,12 @@ const Dashboard = () => {
                       {action.icon}
                     </div>
                     <div>
-                      <div className="font-semibold text-sm">{action.title}</div>
-                      <div className="text-xs opacity-80 hidden sm:block">{action.description}</div>
+                      <div className="font-semibold text-sm">
+                        {action.title}
+                      </div>
+                      <div className="text-sm opacity-90 hidden sm:block">
+                        {action.description}
+                      </div>
                     </div>
                   </div>
                 </button>
@@ -217,8 +266,12 @@ const Dashboard = () => {
             <Card className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border-0 shadow-lg">
               <CardContent className="py-12 text-center">
                 <Settings className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-500 dark:text-gray-400">No quick actions available for your role.</p>
-                <p className="text-sm text-gray-400">Contact your administrator for access.</p>
+                <p className="text-gray-500 dark:text-gray-400">
+                  No quick actions available for your role.
+                </p>
+                <p className="text-sm text-gray-400">
+                  Contact your administrator for access.
+                </p>
               </CardContent>
             </Card>
           )}
@@ -244,7 +297,7 @@ const Dashboard = () => {
           </Card>
 
           {/* Room Status Widget */}
-          {hasPermission('rooms.view') && (
+          {hasPermission("rooms.view") && (
             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-0 shadow-xl shadow-gray-200/50 dark:shadow-gray-900/50 rounded-3xl overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 dark:from-cyan-500/20 dark:to-blue-500/20 border-b border-gray-100 dark:border-gray-700">
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -264,7 +317,7 @@ const Dashboard = () => {
         </div>
 
         {/* Staff Attendance - Full Width */}
-        {hasPermission('staff.view') && (
+        {hasPermission("staff.view") && (
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-0 shadow-xl shadow-gray-200/50 dark:shadow-gray-900/50 rounded-3xl overflow-hidden">
             <CardHeader className="bg-gradient-to-r from-violet-500/10 to-purple-500/10 dark:from-violet-500/20 dark:to-purple-500/20 border-b border-gray-100 dark:border-gray-700">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -320,10 +373,12 @@ const Dashboard = () => {
       {/* Permission Denied Dialog */}
       <PermissionDeniedDialog
         open={permissionDialog.open}
-        onOpenChange={(open) => setPermissionDialog(prev => ({ ...prev, open }))}
+        onOpenChange={(open) =>
+          setPermissionDialog((prev) => ({ ...prev, open }))
+        }
         featureName={permissionDialog.featureName}
         requiredPermission={permissionDialog.requiredPermission}
-        onNavigateToHome={() => navigate('/')}
+        onNavigateToHome={() => navigate("/")}
       />
     </div>
   );
