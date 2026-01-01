@@ -31,27 +31,58 @@ export const useActiveKitchenOrders = (
     options.statusFilter || "all"
   );
 
-  // Calculate date range based on filter
+  // Calculate date range based on filter (using UTC to match database timestamps)
   const getDateRange = () => {
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // Use UTC dates to match database timestamps
+    const todayStart = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        0,
+        0,
+        0
+      )
+    );
+    const todayEnd = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        23,
+        59,
+        59,
+        999
+      )
+    );
 
     switch (dateFilter) {
       case "today":
-        return { start: today.toISOString(), end: now.toISOString() };
+        return { start: todayStart.toISOString(), end: todayEnd.toISOString() };
       case "yesterday":
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        return { start: yesterday.toISOString(), end: today.toISOString() };
+        const yesterdayStart = new Date(todayStart);
+        yesterdayStart.setUTCDate(yesterdayStart.getUTCDate() - 1);
+        const yesterdayEnd = new Date(todayStart);
+        yesterdayEnd.setUTCMilliseconds(-1); // End of yesterday
+        return {
+          start: yesterdayStart.toISOString(),
+          end: yesterdayEnd.toISOString(),
+        };
       case "last7days":
-        const weekAgo = new Date(today);
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        return { start: weekAgo.toISOString(), end: now.toISOString() };
+        const weekAgoStart = new Date(todayStart);
+        weekAgoStart.setUTCDate(weekAgoStart.getUTCDate() - 7);
+        return {
+          start: weekAgoStart.toISOString(),
+          end: todayEnd.toISOString(),
+        };
       case "thisMonth":
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        return { start: monthStart.toISOString(), end: now.toISOString() };
+        const monthStart = new Date(
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0)
+        );
+        return { start: monthStart.toISOString(), end: todayEnd.toISOString() };
       default:
-        return { start: today.toISOString(), end: now.toISOString() };
+        return { start: todayStart.toISOString(), end: todayEnd.toISOString() };
     }
   };
 
@@ -128,7 +159,7 @@ export const useActiveKitchenOrders = (
       return mappedOrders;
     },
     enabled: !!restaurantId,
-    refetchInterval: 15000, // Refresh every 15 seconds
+    // refetchInterval: 15000, // Removed to prevent double-fetching with realtime subscription
   });
 
   // Real-time subscription for kitchen orders
