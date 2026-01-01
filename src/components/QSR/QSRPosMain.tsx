@@ -271,7 +271,16 @@ export const QSRPosMain: React.FC = () => {
 
   // Send to kitchen
   const handleSendToKitchen = useCallback(async () => {
-    if (orderItems.length === 0 || !restaurantId) return;
+    if (orderItems.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Empty Order",
+        description: "Please add items to the order before sending to kitchen.",
+      });
+      return;
+    }
+
+    if (!restaurantId) return;
 
     setIsLoading(true);
     try {

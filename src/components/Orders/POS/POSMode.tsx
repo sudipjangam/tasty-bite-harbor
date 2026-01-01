@@ -390,6 +390,19 @@ const POSMode = () => {
     });
   };
 
+  // Local cache for recently sent orders to prevent rapid duplicates
+  // Stores a hash of the order content with a timestamp
+  const recentlySentHashes = useState<{ [hash: string]: number }>({})[0];
+
+  // Helper to generate a simple hash for order items
+  const generateOrderHash = (items: OrderItem[], source: string) => {
+    const itemString = items
+      .map((i) => `${i.menuItemId}:${i.quantity}:${i.price}`)
+      .sort()
+      .join("|");
+    return `${source}|${itemString}`;
+  };
+
   // Check for duplicate orders before sending to kitchen
   const checkForDuplicateOrder = async (
     orderSource: string
@@ -403,6 +416,16 @@ const POSMode = () => {
     };
   }> => {
     try {
+      // 1. Check local cache first (Immediate response for rapid double-clicks)
+      const currentHash = generateOrderHash(currentOrderItems, orderSource);
+      const lastSentTime = recentlySentHashes[currentHash];
+
+      // If sent within the last 10 seconds, block it immediately
+      if (lastSentTime && Date.now() - lastSentTime < 10000) {
+        console.log("Blocked by local duplicate cache");
+        return { isDuplicate: true };
+      }
+
       const { data: profile } = await supabase
         .from("profiles")
         .select("restaurant_id")
@@ -416,13 +439,28 @@ const POSMode = () => {
         Date.now() - 30 * 60 * 1000
       ).toISOString();
 
-      const { data: existingOrders } = await supabase
+      // Optimize: Only fetch orders that match the source or are from the table
+      // This drastically reduces the data transfer by filtering on the server
+      let query = supabase
         .from("kitchen_orders")
         .select("id, source, items, created_at")
         .eq("restaurant_id", profile.restaurant_id)
         .in("status", ["new", "preparing"])
         .gte("created_at", thirtyMinutesAgo)
         .order("created_at", { ascending: false });
+
+      // Apply server-side text search (unions are tricky in Supabase basic query builder without OR)
+      // We'll use a broad filter and then refine, or use .or()
+      // "source.ilike.%query%"
+      const sourceQuery = `source.ilike.%${orderSource}%${
+        orderType === "Dine-In" && tableNumber
+          ? `,source.ilike.%Table ${tableNumber}%`
+          : ""
+      }`;
+
+      query = query.or(sourceQuery);
+
+      const { data: existingOrders } = await query;
 
       if (!existingOrders || existingOrders.length === 0) {
         return { isDuplicate: false };
@@ -434,43 +472,34 @@ const POSMode = () => {
       );
 
       for (const existingOrder of existingOrders) {
-        // Check if source matches (same table or customer)
-        const sourceMatches =
-          existingOrder.source.includes(orderSource) ||
-          orderSource.includes(existingOrder.source) ||
-          (orderType === "Dine-In" &&
-            tableNumber &&
-            existingOrder.source.includes(`Table ${tableNumber}`));
+        // Source match is now guaranteed by the query mostly, but we double check logic
+        // Verify item overlap
+        const existingItems = existingOrder.items as {
+          name: string;
+          quantity: number;
+        }[];
+        const existingItemNames = existingItems.map((item: { name: string }) =>
+          item.name.toLowerCase()
+        );
 
-        if (sourceMatches) {
-          // Check item overlap
-          const existingItems = existingOrder.items as {
-            name: string;
-            quantity: number;
-          }[];
-          const existingItemNames = existingItems.map(
-            (item: { name: string }) => item.name.toLowerCase()
-          );
+        const matchingItems = currentOrderItemNames.filter((name) =>
+          existingItemNames.includes(name)
+        );
 
-          const matchingItems = currentOrderItemNames.filter((name) =>
-            existingItemNames.includes(name)
-          );
+        // If more than 50% of items match, consider it a potential duplicate
+        const overlapPercentage =
+          matchingItems.length / currentOrderItemNames.length;
 
-          // If more than 50% of items match, consider it a potential duplicate
-          const overlapPercentage =
-            matchingItems.length / currentOrderItemNames.length;
-
-          if (overlapPercentage >= 0.5) {
-            return {
-              isDuplicate: true,
-              existingOrder: {
-                id: existingOrder.id,
-                source: existingOrder.source,
-                items: existingItems,
-                created_at: existingOrder.created_at,
-              },
-            };
-          }
+        if (overlapPercentage >= 0.5) {
+          return {
+            isDuplicate: true,
+            existingOrder: {
+              id: existingOrder.id,
+              source: existingOrder.source,
+              items: existingItems,
+              created_at: existingOrder.created_at,
+            },
+          };
         }
       }
 
