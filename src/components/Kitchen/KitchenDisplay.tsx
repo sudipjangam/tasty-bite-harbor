@@ -87,45 +87,18 @@ const KitchenDisplay = () => {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
-  // Create the audio element with error handling
-  const [notification] = useState(() => {
-    const audio = new Audio();
+  // Audio ref for notifications
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialize audio on mount
+  useEffect(() => {
     try {
-      audio.src = "/notification.mp3";
-      audio.addEventListener("error", () => {
-        // Suppress - notification.mp3 may not exist, fallback handled silently
-        try {
-          const audioContext = new (window.AudioContext ||
-            (window as any).webkitAudioContext)();
-          audio.src = createBeepSound(audioContext);
-        } catch {
-          // Could not create fallback sound - continue without audio
-        }
-      });
-    } catch {
-      // Could not initialize audio - continue without notifications
+      audioRef.current = new Audio("/notification.mp3");
+      audioRef.current.volume = 0.5;
+    } catch (error) {
+      console.error("Audio initialization failed:", error);
     }
-    return audio;
-  });
-
-  // Function to create a simple beep sound as fallback
-  const createBeepSound = (audioContext: AudioContext): string => {
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-
-    oscillator.type = "sine";
-    oscillator.frequency.value = 800;
-    gainNode.gain.value = 0.5;
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-
-    const length = 0.3;
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + length);
-
-    return "data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU9vT18=";
-  };
+  }, []);
 
   // Transform raw order data to KitchenOrder type
   const transformOrderData = useCallback((order: any): KitchenOrder => {
@@ -369,9 +342,9 @@ const KitchenDisplay = () => {
               });
             });
 
-            if (soundEnabled) {
+            if (soundEnabled && audioRef.current) {
               try {
-                notification.play().catch((err) => {
+                audioRef.current.play().catch((err) => {
                   console.error("Error playing notification sound:", err);
                 });
                 toast({
@@ -456,10 +429,11 @@ const KitchenDisplay = () => {
               updatedOrderData.status === "new" &&
               nowWithinDateFilter &&
               matchesStationFilter &&
-              soundEnabled
+              soundEnabled &&
+              audioRef.current
             ) {
               try {
-                notification.play().catch((err) => {
+                audioRef.current.play().catch((err) => {
                   console.error("Error playing notification sound:", err);
                 });
                 toast({
@@ -485,7 +459,7 @@ const KitchenDisplay = () => {
     restaurantId,
     soundEnabled,
     toast,
-    notification,
+    // notification removed from dependencies
     dateFilter,
     stationFilter,
     isWithinDateFilter,
