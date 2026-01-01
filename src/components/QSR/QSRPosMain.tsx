@@ -20,7 +20,7 @@ import { QSROrderPad } from "./QSROrderPad";
 import { QSRActiveOrdersDrawer } from "./QSRActiveOrdersDrawer";
 import { QSRCustomItemDialog } from "./QSRCustomItemDialog";
 import { QSRCartBottomSheet, QSRCartFAB } from "./QSRCartBottomSheet";
-import { Clock, Zap, History } from "lucide-react";
+import { Clock, Zap, History, ArrowLeft, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PaymentDialog from "@/components/Orders/POS/PaymentDialog";
 
@@ -682,9 +682,33 @@ export const QSRPosMain: React.FC = () => {
         <div className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
+              {/* Back to Tables button - shows when table is selected in dine-in mode */}
+              {orderMode === "dine_in" && selectedTable && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedTable(null);
+                    // Clear cart if there are items and no order sent yet
+                    if (
+                      orderItems.length > 0 &&
+                      !pendingKitchenOrderId &&
+                      !recalledKitchenOrderId
+                    ) {
+                      setOrderItems([]);
+                    }
+                  }}
+                  className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <LayoutGrid className="w-4 h-4" />
+                </Button>
+              )}
               <Zap className="w-6 h-6 text-indigo-500" />
               <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                QSR POS
+                {orderMode === "dine_in" && selectedTable
+                  ? `Table ${selectedTable.name}`
+                  : "QSR POS"}
               </h1>
             </div>
             <div className="flex items-center gap-2">
@@ -746,6 +770,7 @@ export const QSRPosMain: React.FC = () => {
               selectedTableId={selectedTable?.id || null}
               onSelectTable={handleSelectTable}
               isLoading={tablesLoading}
+              onRetry={refetchTables}
             />
           ) : showMenu ? (
             <QSRMenuGrid

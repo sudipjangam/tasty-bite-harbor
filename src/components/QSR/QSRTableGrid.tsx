@@ -1,15 +1,17 @@
 import React from "react";
-import { Users, ShoppingBag } from "lucide-react";
+import { Users, ShoppingBag, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QSRTable } from "@/types/qsr";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 interface QSRTableGridProps {
   tables: QSRTable[];
   selectedTableId: string | null;
   onSelectTable: (table: QSRTable) => void;
   isLoading?: boolean;
+  onRetry?: () => void;
 }
 
 export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
@@ -17,6 +19,7 @@ export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
   selectedTableId,
   onSelectTable,
   isLoading = false,
+  onRetry,
 }) => {
   if (isLoading) {
     return (
@@ -114,8 +117,21 @@ export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
       {tables.length === 0 && (
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
           <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p className="font-medium">No tables configured</p>
-          <p className="text-sm">Add tables in the Tables management section</p>
+          <p className="font-medium">No tables found</p>
+          <p className="text-sm mb-4">
+            Tables may still be loading or none are configured
+          </p>
+          {onRetry && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRetry}
+              className="gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh Tables
+            </Button>
+          )}
         </div>
       )}
     </div>
