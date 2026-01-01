@@ -60,16 +60,6 @@ const mobileNavItems: MobileNavItem[] = [
     textColor: "text-violet-600",
   },
   {
-    id: "pos",
-    label: "POS",
-    path: "/pos",
-    icon: CreditCard,
-    requiredPermissions: ["orders.view"],
-    gradient: "from-emerald-500 to-teal-600",
-    shadowColor: "shadow-emerald-500/30",
-    textColor: "text-emerald-600",
-  },
-  {
     id: "qsr-pos",
     label: "QSR POS",
     path: "/qsr-pos",
@@ -79,6 +69,7 @@ const mobileNavItems: MobileNavItem[] = [
     shadowColor: "shadow-amber-500/30",
     textColor: "text-amber-600",
   },
+
   {
     id: "orders",
     label: "Orders",
@@ -98,6 +89,16 @@ const mobileNavItems: MobileNavItem[] = [
     gradient: "from-orange-500 to-red-500",
     shadowColor: "shadow-orange-500/30",
     textColor: "text-orange-600",
+  },
+  {
+    id: "pos",
+    label: "POS",
+    path: "/pos",
+    icon: CreditCard,
+    requiredPermissions: ["orders.view"],
+    gradient: "from-emerald-500 to-teal-600",
+    shadowColor: "shadow-emerald-500/30",
+    textColor: "text-emerald-600",
   },
   {
     id: "menu",
@@ -284,7 +285,7 @@ const mobileNavItems: MobileNavItem[] = [
 // Priority items for bottom bar
 const priorityItemIds = [
   "dashboard",
-  "pos",
+  "qsr-pos",
   "orders",
   "kitchen",
   "menu",
