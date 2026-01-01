@@ -748,8 +748,8 @@ export const QSRPosMain: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 overflow-hidden flex flex-col md:flex-row gap-4 p-4">
-        {/* Left Panel - Order Pad (Desktop only) */}
-        <div className="hidden md:block w-[35%] min-w-[320px] max-w-[400px]">
+        {/* Left Panel - Order Pad (Desktop only) - Sticky */}
+        <div className="hidden md:block w-[35%] min-w-[320px] max-w-[400px] sticky top-0 self-start h-[calc(100vh-140px)] overflow-y-auto">
           <QSROrderPad
             items={orderItems}
             mode={orderMode}
@@ -771,25 +771,28 @@ export const QSRPosMain: React.FC = () => {
           />
         </div>
 
-        {/* Right Panel - Selection Area */}
-        <div className="flex-1 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-          {showTableSelection ? (
-            <QSRTableGrid
-              tables={tables}
-              selectedTableId={selectedTable?.id || null}
-              onSelectTable={handleSelectTable}
-              isLoading={tablesLoading}
-              onRetry={refetchTables}
-            />
-          ) : showMenu ? (
-            <QSRMenuGrid
-              menuItems={menuItems}
-              categories={categories}
-              onAddItem={handleAddItem}
-              cartItemCounts={cartItemCounts}
-              isLoading={menuLoading}
-            />
-          ) : null}
+        {/* Right Panel - Selection Area - Scrollable with fixed height */}
+        {/* Mobile: h-[calc(100vh-200px)] to account for header + FAB, Desktop: h-[calc(100vh-140px)] */}
+        <div className="flex-1 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden h-[calc(100vh-200px)] md:h-[calc(100vh-140px)]">
+          <div className="h-full overflow-y-auto">
+            {showTableSelection ? (
+              <QSRTableGrid
+                tables={tables}
+                selectedTableId={selectedTable?.id || null}
+                onSelectTable={handleSelectTable}
+                isLoading={tablesLoading}
+                onRetry={refetchTables}
+              />
+            ) : showMenu ? (
+              <QSRMenuGrid
+                menuItems={menuItems}
+                categories={categories}
+                onAddItem={handleAddItem}
+                cartItemCounts={cartItemCounts}
+                isLoading={menuLoading}
+              />
+            ) : null}
+          </div>
         </div>
       </div>
 
