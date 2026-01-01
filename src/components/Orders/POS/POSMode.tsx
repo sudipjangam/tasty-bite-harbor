@@ -696,6 +696,10 @@ const POSMode = () => {
         }
       }
 
+      // Add to local duplicate prevention cache
+      const hash = generateOrderHash(currentOrderItems, orderSource);
+      recentlySentHashes[hash] = Date.now();
+
       toast({
         title: "Order Sent",
         description: "The order has been sent to the kitchen",
