@@ -48,6 +48,10 @@ export const QSRPosMain: React.FC = () => {
   const [paymentOrderItems, setPaymentOrderItems] = useState<QSROrderItem[]>(
     []
   );
+  // Track item completion status for strikethrough in order pad
+  const [itemCompletionStatus, setItemCompletionStatus] = useState<boolean[]>(
+    []
+  );
 
   // Hooks
   const { restaurantId } = useRestaurantId();
@@ -69,6 +73,7 @@ export const QSRPosMain: React.FC = () => {
     setDateFilter,
     statusFilter,
     setStatusFilter,
+    toggleItemCompletion,
   } = useActiveKitchenOrders();
 
   // Get attendant name
@@ -142,6 +147,9 @@ export const QSRPosMain: React.FC = () => {
 
             setOrderItems(mappedItems);
             setRecalledKitchenOrderId(kitchenOrder.id);
+            setItemCompletionStatus(
+              (kitchenOrder.item_completion_status as boolean[]) || []
+            );
 
             // Restore payment state if order exists
             if (kitchenOrder.order_id) {
@@ -263,11 +271,49 @@ export const QSRPosMain: React.FC = () => {
   const handleClearOrder = useCallback(() => {
     setOrderItems([]);
     setRecalledKitchenOrderId(null);
+    setItemCompletionStatus([]);
     toast({
       title: "Order Cleared",
       description: "All items removed from order",
     });
   }, [toast]);
+
+  // Toggle item completion status in order pad (for recalled orders)
+  const handleToggleItemCompletion = useCallback(
+    async (index: number) => {
+      const kitchenOrderId = recalledKitchenOrderId || pendingKitchenOrderId;
+      if (!kitchenOrderId) return;
+
+      // Create a copy of current status or initialize new array
+      const newCompletionStatus = [...itemCompletionStatus];
+
+      // Ensure array is long enough
+      while (newCompletionStatus.length <= index) {
+        newCompletionStatus.push(false);
+      }
+
+      // Toggle status
+      newCompletionStatus[index] = !newCompletionStatus[index];
+
+      // Update local state immediately
+      setItemCompletionStatus(newCompletionStatus);
+
+      // Update database
+      try {
+        const { error } = await supabase
+          .from("kitchen_orders")
+          .update({ item_completion_status: newCompletionStatus })
+          .eq("id", kitchenOrderId);
+
+        if (error) throw error;
+      } catch (error) {
+        console.error("Error toggling item completion:", error);
+        // Revert on error
+        setItemCompletionStatus(itemCompletionStatus);
+      }
+    },
+    [recalledKitchenOrderId, pendingKitchenOrderId, itemCompletionStatus]
+  );
 
   // Send to kitchen
   const handleSendToKitchen = useCallback(async () => {
@@ -553,6 +599,7 @@ export const QSRPosMain: React.FC = () => {
 
       setOrderItems(mappedItems);
       setRecalledKitchenOrderId(order.id);
+      setItemCompletionStatus(order.itemCompletionStatus || []);
       setShowActiveOrders(false);
 
       // Try to extract table from source
@@ -803,6 +850,11 @@ export const QSRPosMain: React.FC = () => {
             onAddCustomItem={() => setShowCustomItemDialog(true)}
             onChangeTable={() => setSelectedTable(null)}
             isLoading={isLoading}
+            itemCompletionStatus={itemCompletionStatus}
+            onToggleItemCompletion={handleToggleItemCompletion}
+            isRecalledOrder={
+              !!(recalledKitchenOrderId || pendingKitchenOrderId)
+            }
           />
         </div>
 
@@ -876,6 +928,7 @@ export const QSRPosMain: React.FC = () => {
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         onRecallOrder={handleRecallOrder}
+        onToggleItemCompletion={toggleItemCompletion}
       />
 
       {/* Custom Item Dialog */}
