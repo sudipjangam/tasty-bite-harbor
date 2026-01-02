@@ -1058,47 +1058,70 @@ const PaymentDialog = ({
     }
   };
 
-  /* FROZEN: WhatsApp sending - Uncomment when Twilio credentials are available
+  // WhatsApp bill sending function (using WhatsApp Cloud API)
   const sendBillViaWhatsApp = async () => {
-    if (!customerMobile) return;
+    console.log("📱 sendBillViaWhatsApp called", {
+      sendBillToMobile,
+      customerMobile,
+    });
+    if (!sendBillToMobile || !customerMobile) {
+      console.log("⚠️ sendBillViaWhatsApp skipped - missing data", {
+        sendBillToMobile,
+        customerMobile,
+      });
+      return;
+    }
 
     try {
-      const { data, error } = await supabase.functions.invoke('send-whatsapp-bill', {
-        body: {
-          phoneNumber: customerMobile,
-          restaurantName: restaurantInfo?.name || 'Restaurant',
-          customerName: customerName || 'Valued Customer',
-          total: total,
-          roomName: tableNumber || 'POS',
-          checkoutDate: new Date().toLocaleDateString('en-IN'),
-          billingId: orderId || 'N/A'
-        }
-      });
+      const restaurantId =
+        restaurantInfo?.restaurantId || restaurantInfo?.id || "";
 
+      const { data, error } = await supabase.functions.invoke(
+        "send-whatsapp-cloud",
+        {
+          body: {
+            phone: customerMobile,
+            orderId: orderId || "",
+            customerName: customerName || "Valued Customer",
+            restaurantName: restaurantInfo?.name || "Restaurant",
+            restaurantId: restaurantId,
+            total: total,
+            items: orderItems.map((item) => ({
+              name: item.name,
+              quantity: item.quantity,
+              price: item.price,
+            })),
+            tableNumber: tableNumber || "POS",
+            orderDate: new Date().toLocaleString("en-IN"),
+            messageType: "bill",
+          },
+        }
+      );
+
+      console.log("📱 WhatsApp Edge function response:", { data, error });
       if (error) throw error;
 
       if (data?.success) {
         toast({
-          title: "Bill Sent Successfully",
-          description: `Bill has been sent to ${customerMobile} via WhatsApp.`
+          title: "Bill Sent via WhatsApp",
+          description: `Bill has been sent to ${customerMobile} via WhatsApp.`,
         });
       } else {
         toast({
-          title: "Failed to Send Bill",
-          description: data?.message || "There was an error sending the bill.",
-          variant: "destructive"
+          title: "Failed to Send WhatsApp Bill",
+          description: data?.error || "There was an error sending the bill.",
+          variant: "destructive",
         });
       }
     } catch (error) {
-      console.error('Error sending WhatsApp bill:', error);
+      console.error("Error sending WhatsApp bill:", error);
       toast({
         title: "WhatsApp Send Failed",
-        description: "Failed to send bill via WhatsApp. Please check Twilio settings.",
-        variant: "destructive"
+        description: "Failed to send bill via WhatsApp. Please try again.",
+        variant: "destructive",
       });
     }
   };
-  */
 
   const handlePrintBill = async (navigateAfter: boolean = false) => {
     // Save customer details first
@@ -1413,11 +1436,32 @@ const PaymentDialog = ({
         });
       }
 
+      // Send bill via WhatsApp if checkbox is checked
+      if (sendBillToMobile && customerMobile) {
+        console.log("📱 Sending bill via WhatsApp");
+        await sendBillViaWhatsApp();
+      } else {
+        console.log("ℹ️ Skipping WhatsApp send", {
+          sendBillToMobile,
+          customerMobile,
+        });
+      }
+
+      // Build toast description based on what was sent
+      let toastDescription = "The bill has been generated and sent to printer.";
+      if (sendBillToEmail && sendBillToMobile) {
+        toastDescription = "Bill sent to customer's email and WhatsApp.";
+      } else if (sendBillToEmail) {
+        toastDescription =
+          "Bill has been generated and sent to customer's email.";
+      } else if (sendBillToMobile) {
+        toastDescription =
+          "Bill has been generated and sent to customer's WhatsApp.";
+      }
+
       toast({
         title: "Bill Generated",
-        description: sendBillToEmail
-          ? "Bill has been generated and sent to customer's email."
-          : "The bill has been generated and sent to printer.",
+        description: toastDescription,
       });
 
       if (navigateAfter) {
@@ -2268,6 +2312,24 @@ const PaymentDialog = ({
                       <span className="text-sm text-green-700 dark:text-green-300">
                         Guest detected in {detectedReservation.roomName}
                       </span>
+                    </div>
+                  )}
+                  {/* WhatsApp Checkbox - show if mobile is entered */}
+                  {customerMobile && customerMobile.length >= 10 && (
+                    <div className="flex items-center space-x-2 pt-2">
+                      <input
+                        type="checkbox"
+                        id="send-whatsapp-checkbox"
+                        checked={sendBillToMobile}
+                        onChange={(e) => setSendBillToMobile(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                      />
+                      <label
+                        htmlFor="send-whatsapp-checkbox"
+                        className="text-sm font-medium leading-none cursor-pointer text-green-700 dark:text-green-400"
+                      >
+                        📱 Send bill via WhatsApp to {customerMobile}
+                      </label>
                     </div>
                   )}
                 </div>
