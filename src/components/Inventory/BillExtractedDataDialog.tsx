@@ -302,12 +302,12 @@ export const BillExtractedDataDialog: React.FC<
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+      <DialogContent className="w-full max-w-4xl h-[95vh] sm:h-auto sm:max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800 p-4 sm:p-6">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-lg sm:text-xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
             Review Extracted Bill Data
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             Review and edit the extracted information. Items marked will be
             added to inventory.
           </DialogDescription>
@@ -316,26 +316,28 @@ export const BillExtractedDataDialog: React.FC<
         <ScrollArea className="flex-1 max-h-[calc(90vh-200px)] pr-4">
           <div className="space-y-6 py-4">
             {/* Supplier Section */}
-            <Card className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800">
-              <div className="flex items-center gap-2 mb-4">
-                <Building2 className="h-5 w-5 text-blue-600" />
-                <h3 className="font-semibold text-gray-900 dark:text-white">
+            <Card className="p-3 sm:p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                <Building2 className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                <h3 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white">
                   Supplier Details
                 </h3>
                 {existingSupplierId ? (
-                  <Badge className="bg-green-100 text-green-700">
-                    Existing Supplier
+                  <Badge className="bg-green-100 text-green-700 text-xs">
+                    Existing
                   </Badge>
                 ) : vendorName ? (
-                  <Badge className="bg-amber-100 text-amber-700">
-                    New Supplier
+                  <Badge className="bg-amber-100 text-amber-700 text-xs">
+                    New
                   </Badge>
                 ) : null}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <Label className="text-sm">Supplier Name *</Label>
+                  <Label className="text-xs sm:text-sm font-medium">
+                    Supplier Name *
+                  </Label>
                   <Input
                     value={vendorName}
                     onChange={(e) => {
@@ -347,57 +349,67 @@ export const BillExtractedDataDialog: React.FC<
                       setExistingSupplierId(matched?.id || null);
                     }}
                     placeholder="Enter supplier name"
-                    className="bg-white dark:bg-gray-700"
+                    className="bg-white dark:bg-gray-700 h-9 sm:h-10 text-sm"
                   />
                 </div>
                 <div>
-                  <Label className="text-sm">Mobile</Label>
+                  <Label className="text-xs sm:text-sm font-medium">
+                    Mobile
+                  </Label>
                   <Input
                     value={vendorMobile}
                     onChange={(e) => setVendorMobile(e.target.value)}
                     placeholder="Phone number"
-                    className="bg-white dark:bg-gray-700"
+                    className="bg-white dark:bg-gray-700 h-9 sm:h-10 text-sm"
                   />
                 </div>
                 <div>
-                  <Label className="text-sm">Address</Label>
+                  <Label className="text-xs sm:text-sm font-medium">
+                    Address
+                  </Label>
                   <Input
                     value={vendorAddress}
                     onChange={(e) => setVendorAddress(e.target.value)}
                     placeholder="Supplier address"
-                    className="bg-white dark:bg-gray-700"
+                    className="bg-white dark:bg-gray-700 h-9 sm:h-10 text-sm"
                   />
                 </div>
                 <div>
-                  <Label className="text-sm">Email</Label>
+                  <Label className="text-xs sm:text-sm font-medium">
+                    Email
+                  </Label>
                   <Input
                     value={vendorEmail}
                     onChange={(e) => setVendorEmail(e.target.value)}
                     placeholder="Email address"
-                    className="bg-white dark:bg-gray-700"
+                    className="bg-white dark:bg-gray-700 h-9 sm:h-10 text-sm"
                   />
                 </div>
               </div>
             </Card>
 
             {/* Invoice Info */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <Label className="text-sm">Invoice Number</Label>
+                <Label className="text-xs sm:text-sm font-medium">
+                  Invoice Number
+                </Label>
                 <Input
                   value={invoiceNumber}
                   onChange={(e) => setInvoiceNumber(e.target.value)}
                   placeholder="Invoice #"
-                  className="bg-white dark:bg-gray-700"
+                  className="bg-white dark:bg-gray-700 h-9 sm:h-10 text-sm"
                 />
               </div>
               <div>
-                <Label className="text-sm">Invoice Date</Label>
+                <Label className="text-xs sm:text-sm font-medium">
+                  Invoice Date
+                </Label>
                 <Input
                   type="date"
                   value={invoiceDate}
                   onChange={(e) => setInvoiceDate(e.target.value)}
-                  className="bg-white dark:bg-gray-700"
+                  className="bg-white dark:bg-gray-700 h-9 sm:h-10 text-sm"
                 />
               </div>
             </div>
@@ -406,16 +418,23 @@ export const BillExtractedDataDialog: React.FC<
 
             {/* Items Section */}
             <div>
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex justify-between items-center mb-3 sm:mb-4">
                 <div className="flex items-center gap-2">
-                  <Package className="h-5 w-5 text-emerald-600" />
-                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                  <Package className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
+                  <h3 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white">
                     Items
                   </h3>
-                  <Badge variant="outline">{items.length} items</Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {items.length} items
+                  </Badge>
                 </div>
-                <Button variant="outline" size="sm" onClick={addNewItem}>
-                  <Plus className="h-4 w-4 mr-1" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={addNewItem}
+                  className="h-8 text-xs"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
                   Add Item
                 </Button>
               </div>
@@ -424,96 +443,100 @@ export const BillExtractedDataDialog: React.FC<
                 {items.map((item, index) => (
                   <Card
                     key={index}
-                    className="p-4 bg-gray-50 dark:bg-gray-700/50"
+                    className="p-3 sm:p-4 bg-gray-50 dark:bg-gray-700/50"
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="pt-2">
-                        <Checkbox
-                          checked={item.addToInventory}
-                          onCheckedChange={(checked) =>
-                            updateItem(index, "addToInventory", checked)
+                    {/* Item Name Row */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <Checkbox
+                        checked={item.addToInventory}
+                        onCheckedChange={(checked) =>
+                          updateItem(index, "addToInventory", checked)
+                        }
+                        className="h-5 w-5"
+                      />
+                      <div className="flex-1">
+                        <Label className="text-xs text-gray-500 mb-1 block">
+                          Item Name
+                        </Label>
+                        <Input
+                          value={item.item_name}
+                          onChange={(e) =>
+                            updateItem(index, "item_name", e.target.value)
                           }
+                          placeholder="Item name"
+                          className="bg-white dark:bg-gray-600 h-9 text-sm font-medium"
                         />
                       </div>
-
-                      <div className="flex-1 grid grid-cols-12 gap-3">
-                        <div className="col-span-12 md:col-span-4">
-                          <Label className="text-xs text-gray-500">
-                            Item Name
-                          </Label>
-                          <Input
-                            value={item.item_name}
-                            onChange={(e) =>
-                              updateItem(index, "item_name", e.target.value)
-                            }
-                            placeholder="Item name"
-                            className="bg-white dark:bg-gray-600"
-                          />
-                        </div>
-                        <div className="col-span-3 md:col-span-2">
-                          <Label className="text-xs text-gray-500">Qty</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={item.quantity}
-                            onChange={(e) =>
-                              updateItem(
-                                index,
-                                "quantity",
-                                parseFloat(e.target.value) || 0
-                              )
-                            }
-                            className="bg-white dark:bg-gray-600"
-                          />
-                        </div>
-                        <div className="col-span-3 md:col-span-2">
-                          <Label className="text-xs text-gray-500">Unit</Label>
-                          <Input
-                            value={item.unit}
-                            onChange={(e) =>
-                              updateItem(index, "unit", e.target.value)
-                            }
-                            placeholder="kg"
-                            className="bg-white dark:bg-gray-600"
-                          />
-                        </div>
-                        <div className="col-span-3 md:col-span-2">
-                          <Label className="text-xs text-gray-500">
-                            Rate ({currencySymbol})
-                          </Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={item.rate}
-                            onChange={(e) =>
-                              updateItem(
-                                index,
-                                "rate",
-                                parseFloat(e.target.value) || 0
-                              )
-                            }
-                            className="bg-white dark:bg-gray-600"
-                          />
-                        </div>
-                        <div className="col-span-3 md:col-span-2">
-                          <Label className="text-xs text-gray-500">
-                            Amount
-                          </Label>
-                          <div className="h-10 flex items-center px-3 bg-gray-100 dark:bg-gray-700 rounded-md font-semibold">
-                            {currencySymbol}
-                            {item.amount.toFixed(2)}
-                          </div>
-                        </div>
-                      </div>
-
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => removeItem(index)}
-                        className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30"
+                        className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 h-8 w-8 shrink-0"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
+                    </div>
+
+                    {/* Qty, Unit, Rate, Amount Row */}
+                    <div className="grid grid-cols-4 gap-2">
+                      <div>
+                        <Label className="text-xs text-gray-500 block mb-1">
+                          Qty
+                        </Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={item.quantity}
+                          onChange={(e) =>
+                            updateItem(
+                              index,
+                              "quantity",
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
+                          className="bg-white dark:bg-gray-600 h-9 text-sm px-2 text-center"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500 block mb-1">
+                          Unit
+                        </Label>
+                        <Input
+                          value={item.unit}
+                          onChange={(e) =>
+                            updateItem(index, "unit", e.target.value)
+                          }
+                          placeholder="kg"
+                          className="bg-white dark:bg-gray-600 h-9 text-sm px-2 text-center"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500 block mb-1">
+                          Rate ({currencySymbol})
+                        </Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={item.rate}
+                          onChange={(e) =>
+                            updateItem(
+                              index,
+                              "rate",
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
+                          className="bg-white dark:bg-gray-600 h-9 text-sm px-2 text-center"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500 block mb-1">
+                          Amount
+                        </Label>
+                        <div className="h-9 flex items-center justify-center px-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-md font-bold text-sm text-emerald-700 dark:text-emerald-300">
+                          {currencySymbol}
+                          {item.amount.toFixed(2)}
+                        </div>
+                      </div>
                     </div>
                   </Card>
                 ))}

@@ -20,6 +20,9 @@ import {
   Search,
   Filter,
   Upload,
+  MoreVertical,
+  FileSpreadsheet,
+  FileText,
 } from "lucide-react";
 import {
   Dialog,
@@ -59,6 +62,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 interface InventoryItem {
   id: string;
@@ -367,10 +377,10 @@ const Inventory = () => {
               <Package className="h-6 md:h-8 w-6 md:w-8 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 bg-clip-text text-transparent">
+              <h1 className="text-xl md:text-4xl font-bold bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 bg-clip-text text-transparent">
                 Enhanced Inventory
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 text-sm md:text-lg mt-1 flex items-center gap-2">
+              <p className="hidden sm:flex text-gray-600 dark:text-gray-400 text-sm md:text-lg mt-1 items-center gap-2">
                 <Sparkles className="h-4 w-4 text-emerald-500" />
                 Complete inventory control with alerts
               </p>
@@ -603,114 +613,186 @@ const Inventory = () => {
       {/* Modern Tabs with Glass Effect */}
       <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-2xl md:rounded-3xl shadow-xl overflow-hidden">
         <Tabs defaultValue="overview" className="w-full">
-          <div className="bg-gradient-to-r from-emerald-500/10 to-green-500/10 dark:from-emerald-900/20 dark:to-green-900/20 p-2 overflow-x-auto">
-            <TabsList className="grid w-full min-w-[600px] md:min-w-0 grid-cols-5 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm rounded-xl">
+          <div className="bg-gradient-to-r from-emerald-500/10 to-green-500/10 dark:from-emerald-900/20 dark:to-green-900/20 p-2">
+            <TabsList className="flex w-full overflow-x-auto scrollbar-hide gap-1 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm rounded-xl p-1">
               <TabsTrigger
                 value="overview"
-                className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white rounded-lg font-medium text-sm"
+                className="flex-1 min-w-[70px] flex items-center justify-center gap-1.5 py-2.5 px-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white rounded-lg font-medium text-xs md:text-sm"
               >
                 <Package className="h-4 w-4" />
-                <span className="hidden md:inline">Overview</span>
+                <span className="hidden sm:inline">Overview</span>
               </TabsTrigger>
               <TabsTrigger
                 value="alerts"
-                className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white rounded-lg font-medium text-sm"
+                className="flex-1 min-w-[70px] flex items-center justify-center gap-1.5 py-2.5 px-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white rounded-lg font-medium text-xs md:text-sm"
               >
                 <Bell className="h-4 w-4" />
-                <span className="hidden md:inline">Alerts</span>
+                <span className="hidden sm:inline">Alerts</span>
               </TabsTrigger>
               <TabsTrigger
                 value="purchase-orders"
-                className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white rounded-lg font-medium text-sm"
+                className="flex-1 min-w-[70px] flex items-center justify-center gap-1.5 py-2.5 px-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white rounded-lg font-medium text-xs md:text-sm"
               >
                 <ShoppingCart className="h-4 w-4" />
-                <span className="hidden md:inline">Orders</span>
+                <span className="hidden sm:inline">Orders</span>
               </TabsTrigger>
               <TabsTrigger
                 value="suggestions"
-                className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white rounded-lg font-medium text-sm"
+                className="flex-1 min-w-[70px] flex items-center justify-center gap-1.5 py-2.5 px-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white rounded-lg font-medium text-xs md:text-sm"
               >
                 <BarChart3 className="h-4 w-4" />
-                <span className="hidden md:inline">Suggestions</span>
+                <span className="hidden sm:inline">Suggest</span>
               </TabsTrigger>
               <TabsTrigger
                 value="transactions"
-                className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white rounded-lg font-medium text-sm"
+                className="flex-1 min-w-[70px] flex items-center justify-center gap-1.5 py-2.5 px-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white rounded-lg font-medium text-xs md:text-sm"
               >
                 <History className="h-4 w-4" />
-                <span className="hidden md:inline">History</span>
+                <span className="hidden sm:inline">History</span>
               </TabsTrigger>
             </TabsList>
           </div>
 
           <TabsContent value="overview" className="p-4 md:p-6 space-y-6">
             {/* Search and Filter Bar */}
-            <div className="flex flex-col md:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search items by name or category..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-white/80 dark:bg-gray-700/80 border-gray-200 dark:border-gray-600 rounded-xl"
-                />
+            <div className="flex flex-col gap-3">
+              {/* Search row */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search items..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 bg-white/80 dark:bg-gray-700/80 border-gray-200 dark:border-gray-600 rounded-xl"
+                  />
+                </div>
+
+                {/* Scan Bill button - always visible */}
+                <Button
+                  onClick={() => setIsBillUploadOpen(true)}
+                  size="icon"
+                  className="md:hidden h-10 w-10 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white rounded-xl shadow-md shrink-0"
+                  title="Scan Bill"
+                >
+                  <Upload className="h-4 w-4" />
+                </Button>
+
+                {/* Mobile: More actions dropdown (Export only) */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="md:hidden h-10 w-10 bg-white/80 dark:bg-gray-700/80 border-gray-200 dark:border-gray-600 rounded-xl shrink-0"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        const exportButton = document.querySelector(
+                          "[data-export-excel]"
+                        ) as HTMLButtonElement;
+                        if (exportButton) exportButton.click();
+                      }}
+                    >
+                      <FileSpreadsheet className="h-4 w-4 mr-2 text-green-600" />
+                      Export Excel
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        const exportButton = document.querySelector(
+                          "[data-export-pdf]"
+                        ) as HTMLButtonElement;
+                        if (exportButton) exportButton.click();
+                      }}
+                    >
+                      <FileText className="h-4 w-4 mr-2 text-red-600" />
+                      Export PDF
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-full md:w-[180px] bg-white/80 dark:bg-gray-700/80 border-gray-200 dark:border-gray-600 rounded-xl">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {Object.keys(groupedItems).map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                variant={showLowStockOnly ? "default" : "outline"}
-                onClick={() => setShowLowStockOnly(!showLowStockOnly)}
-                className={
-                  showLowStockOnly
-                    ? "bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white rounded-xl"
-                    : "bg-white/80 dark:bg-gray-700/80 border-gray-200 dark:border-gray-600 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/30"
-                }
-              >
-                <AlertTriangle className="mr-2 h-4 w-4" />
-                Low Stock ({lowStockCount})
-              </Button>
-              <ReportExport
-                items={
-                  showLowStockOnly || filterCategory !== "all" || searchQuery
-                    ? filteredItems
-                    : items
-                }
-                title={
-                  showLowStockOnly
-                    ? "Low Stock Items Report"
-                    : filterCategory !== "all"
-                    ? `${filterCategory} Inventory Report`
-                    : "Complete Inventory Report"
-                }
-              />
-              <Button
-                onClick={() => setIsBillUploadOpen(true)}
-                variant="outline"
-                className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white border-0 rounded-xl shadow-md"
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                Upload Bill (AI)
-              </Button>
+
+              {/* Filter row */}
+              <div className="flex flex-wrap gap-2">
+                <Select
+                  value={filterCategory}
+                  onValueChange={setFilterCategory}
+                >
+                  <SelectTrigger className="flex-1 min-w-[120px] md:w-[180px] md:flex-none bg-white/80 dark:bg-gray-700/80 border-gray-200 dark:border-gray-600 rounded-xl h-9 text-sm">
+                    <Filter className="h-3.5 w-3.5 mr-1.5" />
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {Object.keys(groupedItems).map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Button
+                  variant={showLowStockOnly ? "default" : "outline"}
+                  onClick={() => setShowLowStockOnly(!showLowStockOnly)}
+                  size="sm"
+                  className={
+                    showLowStockOnly
+                      ? "bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white rounded-xl h-9"
+                      : "bg-white/80 dark:bg-gray-700/80 border-gray-200 dark:border-gray-600 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/30 h-9"
+                  }
+                >
+                  <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
+                  <span className="hidden sm:inline">Low Stock</span>
+                  <span className="sm:hidden">Low</span>
+                  <Badge
+                    variant="secondary"
+                    className="ml-1.5 h-5 px-1.5 text-xs"
+                  >
+                    {lowStockCount}
+                  </Badge>
+                </Button>
+
+                {/* Desktop: Show export and upload buttons */}
+                <div className="hidden md:flex gap-2 ml-auto">
+                  <ReportExport
+                    items={
+                      showLowStockOnly ||
+                      filterCategory !== "all" ||
+                      searchQuery
+                        ? filteredItems
+                        : items
+                    }
+                    title={
+                      showLowStockOnly
+                        ? "Low Stock Items Report"
+                        : filterCategory !== "all"
+                        ? `${filterCategory} Inventory Report`
+                        : "Complete Inventory Report"
+                    }
+                  />
+                  <Button
+                    onClick={() => setIsBillUploadOpen(true)}
+                    variant="outline"
+                    className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white border-0 rounded-xl shadow-md"
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    Scan Bill
+                  </Button>
+                </div>
+              </div>
             </div>
 
             {/* Category Quick Filters */}
-            <div className="flex flex-wrap gap-3">
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1">
               {Object.entries(groupedItems).map(([category, categoryItems]) => (
                 <Card
                   key={category}
-                  className={`flex items-center gap-3 p-3 border-none shadow-md cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 ${
+                  className={`flex items-center gap-2 p-2.5 shrink-0 border-none shadow-md cursor-pointer transition-all duration-300 hover:shadow-lg active:scale-95 ${
                     filterCategory === category
                       ? "bg-gradient-to-br from-emerald-100 via-green-50 to-emerald-100 dark:from-emerald-900/40 dark:via-green-900/40 dark:to-emerald-900/40 ring-2 ring-emerald-500"
                       : "bg-white/80 dark:bg-gray-700/80"
@@ -721,13 +803,13 @@ const Inventory = () => {
                     )
                   }
                 >
-                  {getCategoryIcon(category)}
-                  <div>
-                    <h3 className="font-semibold text-gray-800 dark:text-white text-sm">
+                  <div className="shrink-0">{getCategoryIcon(category)}</div>
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-gray-800 dark:text-white text-xs sm:text-sm truncate">
                       {category}
                     </h3>
                     <p className="text-xs text-gray-600 dark:text-gray-400">
-                      {categoryItems.length} items
+                      {categoryItems.length}
                     </p>
                   </div>
                 </Card>
@@ -816,7 +898,8 @@ const Inventory = () => {
                             )}
                           </div>
                         </div>
-                        <div className="flex gap-1">
+                        {/* Desktop: Edit/Delete buttons */}
+                        <div className="hidden md:flex gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -824,7 +907,7 @@ const Inventory = () => {
                               setEditingItem(item);
                               setIsAddDialogOpen(true);
                             }}
-                            className="hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded-lg"
+                            className="hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded-lg h-8 w-8"
                           >
                             <Edit className="h-4 w-4 text-emerald-600" />
                           </Button>
@@ -832,11 +915,43 @@ const Inventory = () => {
                             variant="ghost"
                             size="icon"
                             onClick={() => setItemToDelete(item)}
-                            className="hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg"
+                            className="hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg h-8 w-8"
                           >
                             <Trash2 className="h-4 w-4 text-red-600" />
                           </Button>
                         </div>
+
+                        {/* Mobile: 3-dot menu */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="md:hidden h-8 w-8 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                            >
+                              <MoreVertical className="h-4 w-4 text-gray-600" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-36">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setEditingItem(item);
+                                setIsAddDialogOpen(true);
+                              }}
+                              className="flex items-center gap-2"
+                            >
+                              <Edit className="h-4 w-4 text-emerald-600" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setItemToDelete(item)}
+                              className="flex items-center gap-2 text-red-600 focus:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </Card>
                   ))
