@@ -145,6 +145,8 @@ export const useActiveKitchenOrders = (
             status: order.status as ActiveKitchenOrder["status"],
             createdAt: order.created_at,
             total,
+            itemCompletionStatus:
+              (order.item_completion_status as boolean[]) || [],
           };
         })
         .filter((order) => {
@@ -216,7 +218,45 @@ export const useActiveKitchenOrders = (
       status: data.status as ActiveKitchenOrder["status"],
       createdAt: data.created_at,
       total,
+      itemCompletionStatus: (data.item_completion_status as boolean[]) || [],
     };
+  };
+
+  // Toggle item completion status (strikethrough)
+  const toggleItemCompletion = async (
+    orderId: string,
+    itemIndex: number,
+    currentStatus: boolean[] = []
+  ): Promise<boolean> => {
+    // Create a copy of current status or initialize new array
+    const newCompletionStatus = [...currentStatus];
+
+    // Ensure array is long enough
+    while (newCompletionStatus.length <= itemIndex) {
+      newCompletionStatus.push(false);
+    }
+
+    // Toggle status
+    newCompletionStatus[itemIndex] = !newCompletionStatus[itemIndex];
+
+    try {
+      const { error } = await supabase
+        .from("kitchen_orders")
+        .update({ item_completion_status: newCompletionStatus })
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      // Invalidate query to refresh data
+      queryClient.invalidateQueries({
+        queryKey: ["active-kitchen-orders", restaurantId],
+      });
+
+      return true;
+    } catch (error) {
+      console.error("Error toggling item completion:", error);
+      return false;
+    }
   };
 
   return {
@@ -230,5 +270,6 @@ export const useActiveKitchenOrders = (
     statusFilter,
     setStatusFilter,
     getOrderById,
+    toggleItemCompletion,
   };
 };

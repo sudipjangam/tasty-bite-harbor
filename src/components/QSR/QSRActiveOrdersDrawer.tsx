@@ -6,6 +6,7 @@ import {
   ChevronRight,
   RotateCcw,
   Filter,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ActiveKitchenOrder } from "@/types/qsr";
@@ -28,6 +29,11 @@ interface QSRActiveOrdersDrawerProps {
   statusFilter: StatusFilter;
   onStatusFilterChange: (filter: StatusFilter) => void;
   onRecallOrder: (order: ActiveKitchenOrder) => void;
+  onToggleItemCompletion?: (
+    orderId: string,
+    itemIndex: number,
+    currentStatus: boolean[]
+  ) => Promise<boolean>;
 }
 
 const dateFilters: { value: DateFilter; label: string }[] = [
@@ -74,6 +80,7 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
   statusFilter,
   onStatusFilterChange,
   onRecallOrder,
+  onToggleItemCompletion,
 }) => {
   const [showStatusFilter, setShowStatusFilter] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
@@ -253,21 +260,59 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                   {expandedOrderId === order.id && (
                     <div className="px-3 pb-3 pt-0 border-t border-gray-200 dark:border-gray-700 mt-2">
                       <div className="mt-2 space-y-1.5">
-                        {order.items.map((item, idx) => (
-                          <div
-                            key={idx}
-                            className="flex justify-between text-sm"
-                          >
-                            <span className="text-gray-600 dark:text-gray-400">
-                              {item.quantity}x {item.name}
-                            </span>
-                            <CurrencyDisplay
-                              amount={item.price * item.quantity}
-                              showTooltip={false}
-                              className="text-gray-600 dark:text-gray-400"
-                            />
-                          </div>
-                        ))}
+                        {order.items.map((item, idx) => {
+                          const isCompleted =
+                            order.itemCompletionStatus?.[idx] === true;
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() =>
+                                onToggleItemCompletion?.(
+                                  order.id,
+                                  idx,
+                                  order.itemCompletionStatus || []
+                                )
+                              }
+                              className={cn(
+                                "flex items-center justify-between text-sm p-2 rounded-lg transition-all cursor-pointer",
+                                isCompleted
+                                  ? "bg-green-50 dark:bg-green-900/20"
+                                  : "hover:bg-gray-100 dark:hover:bg-gray-700"
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className={cn(
+                                    "w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors",
+                                    isCompleted
+                                      ? "bg-green-500 text-white"
+                                      : "border-2 border-gray-300 dark:border-gray-500"
+                                  )}
+                                >
+                                  {isCompleted && <Check className="w-3 h-3" />}
+                                </div>
+                                <span
+                                  className={cn(
+                                    isCompleted
+                                      ? "line-through text-gray-400 dark:text-gray-500"
+                                      : "text-gray-700 dark:text-gray-300"
+                                  )}
+                                >
+                                  {item.quantity}x {item.name}
+                                </span>
+                              </div>
+                              <CurrencyDisplay
+                                amount={item.price * item.quantity}
+                                showTooltip={false}
+                                className={cn(
+                                  isCompleted
+                                    ? "line-through text-gray-400 dark:text-gray-500"
+                                    : "text-gray-600 dark:text-gray-400"
+                                )}
+                              />
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

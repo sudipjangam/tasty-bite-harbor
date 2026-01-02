@@ -39,6 +39,7 @@ export interface ActiveKitchenOrder {
   status: 'new' | 'preparing' | 'ready' | 'held' | 'completed';
   createdAt: string;
   total: number;
+  itemCompletionStatus?: boolean[];
 }
 
 // QSR Order structure
