@@ -228,25 +228,40 @@ serve(async (req: Request) => {
     
     // Generate message based on type
     let finalMessage = message;
-    if (messageType === 'bill' || !message) {
+    let useTemplate = false;
+    let templateToUse = templateName || 'hello_world';
+    
+    // For bills, we use template message to bypass 24-hour window
+    // The hello_world template is pre-approved by Meta
+    if (messageType === 'bill') {
+      finalMessage = generateBillMessage(requestBody);
+      useTemplate = true; // Always use template for bills to ensure delivery
+      templateToUse = templateName || 'hello_world'; // Use custom template if provided, else hello_world
+      console.log('📋 Bill message - using template:', templateToUse);
+    } else if (messageType === 'template') {
+      useTemplate = true;
+    } else if (!message) {
       finalMessage = generateBillMessage(requestBody);
     }
     
     console.log('Processing WhatsApp message:', {
       phone: phone ? `${phone.substring(0, 3)}***` : 'Missing',
       messageType,
+      useTemplate,
+      templateName: templateToUse,
       messageLength: finalMessage?.length || 0,
     });
     
-    // Send the message
+    // Send the message - use template for bills to bypass 24hr window
     const result = await sendWhatsAppMessage(
       phoneNumberId,
       accessToken,
       phone,
       finalMessage || '',
-      messageType === 'template' ? 'template' : 'text',
-      templateName
+      useTemplate ? 'template' : 'text',
+      templateToUse
     );
+
     
     // Update order record if orderId provided
     if (orderId && result.success) {
