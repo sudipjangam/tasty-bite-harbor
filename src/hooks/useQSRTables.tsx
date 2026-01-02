@@ -74,7 +74,9 @@ export const useQSRTables = () => {
           id: table.id,
           name: table.name,
           capacity: table.capacity,
-          status: tableOrder ? "occupied" : table.status || "available",
+          // Always derive status from active orders - don't use stale database status
+          // Table is occupied only if there's an active order, otherwise available
+          status: tableOrder ? "occupied" : "available",
           activeOrderId: tableOrder?.id,
           activeOrderTotal,
           activeOrderItems,

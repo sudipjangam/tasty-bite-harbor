@@ -163,17 +163,11 @@ const ActiveOrdersList = ({
         )
         .eq("restaurant_id", profile.restaurant_id);
 
-      // Only filter out completed orders if status filter is not "all"
+      // Apply status filter - "all" shows everything, otherwise filter by specific status
       if (statusFilter !== "all") {
-        if (statusFilter === "completed") {
-          query = query.eq("status", "completed");
-        } else {
-          query = query.not("status", "eq", "completed");
-          if (statusFilter !== "all") {
-            query = query.eq("status", statusFilter);
-          }
-        }
+        query = query.eq("status", statusFilter);
       }
+      // Note: When statusFilter is "all", no status filter is applied - shows all orders
 
       const { data: orders } = await query.order("created_at", {
         ascending: false,
@@ -207,9 +201,7 @@ const ActiveOrdersList = ({
 
     fetchActiveOrders();
 
-    fetchActiveOrders();
-
-    // Helper function moved to module scope
+    // Real-time subscription for kitchen order changes
 
     const channel = supabase
       .channel("kitchen-orders-changes")
