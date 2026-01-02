@@ -295,7 +295,7 @@ export const QSRPosMain: React.FC = () => {
         name: item.name,
         quantity: item.quantity,
         price: item.price,
-        notes: item.notes,
+        notes: item.notes ? [item.notes] : [],
       }));
 
       if (recalledKitchenOrderId) {
@@ -439,7 +439,7 @@ export const QSRPosMain: React.FC = () => {
         name: item.name,
         quantity: item.quantity,
         price: item.price,
-        notes: item.notes,
+        notes: item.notes ? [item.notes] : [],
       }));
 
       if (recalledKitchenOrderId) {
@@ -512,7 +512,9 @@ export const QSRPosMain: React.FC = () => {
           name: item.name,
           price: item.price,
           quantity: item.quantity,
+          quantity: item.quantity,
           isCustom: !menuItem,
+          notes: Array.isArray(item.notes) ? item.notes.join(", ") : item.notes,
         };
       });
 
@@ -586,7 +588,7 @@ export const QSRPosMain: React.FC = () => {
           name: item.name,
           quantity: item.quantity,
           price: item.price,
-          notes: item.notes,
+          notes: item.notes ? [item.notes] : [],
         }));
 
         // Create kitchen order as bumped (completed) - for record keeping

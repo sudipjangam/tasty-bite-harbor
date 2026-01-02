@@ -139,14 +139,14 @@ const ActiveOrdersList = ({
       if (!profile?.restaurant_id) return;
 
       // Fetch restaurant name
-      const { data: settings } = await supabase
-        .from("restaurant_settings")
-        .select("restaurant_name")
-        .eq("restaurant_id", profile.restaurant_id)
+      const { data: restaurant } = await supabase
+        .from("restaurants")
+        .select("name")
+        .eq("id", profile.restaurant_id)
         .single();
 
-      if (settings?.restaurant_name) {
-        setRestaurantName(settings.restaurant_name);
+      if (restaurant?.name) {
+        setRestaurantName(restaurant.name);
       }
 
       // Build query based on status filter

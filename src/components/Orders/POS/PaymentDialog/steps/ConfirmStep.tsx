@@ -90,25 +90,35 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
               item.calculatedPrice ?? item.price * item.quantity;
 
             return (
-              <div key={idx} className="flex justify-between text-sm">
-                <span>
-                  {isWeightBased && item.actualQuantity ? (
-                    <>
-                      {item.actualQuantity} {item.unit} {item.name}
-                    </>
-                  ) : (
-                    <>
-                      {item.quantity}x {item.name}
-                    </>
-                  )}
-                  {item.isCustomExtra && (
-                    <span className="text-purple-600 ml-1">[Custom]</span>
-                  )}
-                </span>
-                <span className="font-medium">
-                  {currencySymbol}
-                  {itemTotal.toFixed(2)}
-                </span>
+              <div key={idx} className="flex flex-col gap-1">
+                <div className="flex justify-between text-sm">
+                  <span>
+                    {isWeightBased && item.actualQuantity ? (
+                      <>
+                        {item.actualQuantity} {item.unit} {item.name}
+                      </>
+                    ) : (
+                      <>
+                        {item.quantity}x {item.name}
+                      </>
+                    )}
+                    {item.isCustomExtra && (
+                      <span className="text-purple-600 ml-1">[Custom]</span>
+                    )}
+                  </span>
+                  <span className="font-medium">
+                    {currencySymbol}
+                    {itemTotal.toFixed(2)}
+                  </span>
+                </div>
+                {item.notes && (
+                  <div className="text-xs text-muted-foreground ml-4 mb-2">
+                    Note:{" "}
+                    {Array.isArray(item.notes)
+                      ? item.notes.join(", ")
+                      : item.notes}
+                  </div>
+                )}
               </div>
             );
           })}

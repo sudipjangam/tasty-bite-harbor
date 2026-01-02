@@ -1,14 +1,20 @@
-import React from 'react';
+import React from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Receipt, Printer, Trash2, X, Check } from 'lucide-react';
-import type { OrderConfirmationProps } from './types';
-import { useCurrencyContext } from '@/contexts/CurrencyContext';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Receipt, Printer, Trash2, X, Check } from "lucide-react";
+import type { OrderConfirmationProps } from "./types";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
   orderItems,
@@ -46,9 +52,12 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
   return (
     <div className="space-y-6 p-2">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-foreground mb-2">Confirm Order</h2>
+        <h2 className="text-2xl font-bold text-foreground mb-2">
+          Confirm Order
+        </h2>
         <p className="text-muted-foreground">
-          Review the details for {tableNumber ? `Table ${tableNumber}` : 'POS Order'}
+          Review the details for{" "}
+          {tableNumber ? `Table ${tableNumber}` : "POS Order"}
         </p>
       </div>
 
@@ -56,45 +65,75 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
       <Card className="p-4 bg-muted/50">
         <div className="space-y-3">
           {orderItems.map((item, idx) => (
-            <div key={idx} className="flex justify-between text-sm">
-              <span>{item.quantity}x {item.name}</span>
-              <span className="font-medium">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+            <div key={idx} className="flex flex-col gap-1">
+              <div className="flex justify-between text-sm">
+                <span>
+                  {item.quantity}x {item.name}
+                </span>
+                <span className="font-medium">
+                  {currencySymbol}
+                  {(item.price * item.quantity).toFixed(2)}
+                </span>
+              </div>
+              {item.notes && (
+                <div className="text-xs text-muted-foreground ml-4 mb-2">
+                  Note:{" "}
+                  {Array.isArray(item.notes)
+                    ? item.notes.join(", ")
+                    : item.notes}
+                </div>
+              )}
             </div>
           ))}
-          
+
           <Separator className="my-3" />
-          
+
           <div className="flex justify-between text-sm">
             <span>Subtotal</span>
-            <span>{currencySymbol}{subtotal.toFixed(2)}</span>
+            <span>
+              {currencySymbol}
+              {subtotal.toFixed(2)}
+            </span>
           </div>
-          
+
           {appliedPromotion && promotionDiscountAmount > 0 && (
             <div className="flex justify-between text-sm text-green-600">
               <span>Promo Discount ({appliedPromotion.name})</span>
-              <span>-{currencySymbol}{promotionDiscountAmount.toFixed(2)}</span>
+              <span>
+                -{currencySymbol}
+                {promotionDiscountAmount.toFixed(2)}
+              </span>
             </div>
           )}
-          
+
           {manualDiscountPercent > 0 && (
             <div className="flex justify-between text-sm text-green-600">
               <span>Discount ({manualDiscountPercent}%)</span>
-              <span>-{currencySymbol}{manualDiscountAmount.toFixed(2)}</span>
+              <span>
+                -{currencySymbol}
+                {manualDiscountAmount.toFixed(2)}
+              </span>
             </div>
           )}
-          
+
           {totalDiscountAmount > 0 && (
             <div className="flex justify-between text-sm font-semibold text-green-600">
               <span>Total Discount</span>
-              <span>-{currencySymbol}{totalDiscountAmount.toFixed(2)}</span>
+              <span>
+                -{currencySymbol}
+                {totalDiscountAmount.toFixed(2)}
+              </span>
             </div>
           )}
-          
+
           <Separator className="my-3" />
-          
+
           <div className="flex justify-between text-lg font-bold">
             <span>Total Due</span>
-            <span>{currencySymbol}{total.toFixed(2)}</span>
+            <span>
+              {currencySymbol}
+              {total.toFixed(2)}
+            </span>
           </div>
         </div>
       </Card>
@@ -103,10 +142,12 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
       <Card className="p-4 bg-background">
         <div className="space-y-3">
           <h3 className="font-semibold text-sm">Apply Promotion</h3>
-          
+
           {!appliedPromotion ? (
             <div className="space-y-3">
-              <Label htmlFor="promo-select" className="text-xs">Select or Enter Promotion Code</Label>
+              <Label htmlFor="promo-select" className="text-xs">
+                Select or Enter Promotion Code
+              </Label>
               <Select
                 value={promotionCode}
                 onValueChange={(value) => {
@@ -123,38 +164,57 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
                   {activePromotions.length > 0 ? (
                     <>
                       {activePromotions.map((promo) => (
-                        <SelectItem key={promo.id} value={promo.promotion_code || ''}>
+                        <SelectItem
+                          key={promo.id}
+                          value={promo.promotion_code || ""}
+                        >
                           <div className="flex items-center justify-between w-full gap-3 pr-2">
                             <div className="flex flex-col min-w-0 flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="font-semibold text-xs">{promo.promotion_code}</span>
-                                <span className="text-xs text-muted-foreground truncate">{promo.name}</span>
+                                <span className="font-semibold text-xs">
+                                  {promo.promotion_code}
+                                </span>
+                                <span className="text-xs text-muted-foreground truncate">
+                                  {promo.name}
+                                </span>
                               </div>
                             </div>
-                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200 text-xs whitespace-nowrap">
-                              {promo.discount_percentage ? `${promo.discount_percentage}% off` : `${currencySymbol}${promo.discount_amount} off`}
+                            <Badge
+                              variant="secondary"
+                              className="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200 text-xs whitespace-nowrap"
+                            >
+                              {promo.discount_percentage
+                                ? `${promo.discount_percentage}% off`
+                                : `${currencySymbol}${promo.discount_amount} off`}
                             </Badge>
                           </div>
                         </SelectItem>
                       ))}
                       <Separator className="my-1" />
-                      <SelectItem value="manual">✏️ Enter code manually...</SelectItem>
+                      <SelectItem value="manual">
+                        ✏️ Enter code manually...
+                      </SelectItem>
                     </>
                   ) : (
-                    <SelectItem value="manual">Enter code manually...</SelectItem>
+                    <SelectItem value="manual">
+                      Enter code manually...
+                    </SelectItem>
                   )}
                 </SelectContent>
               </Select>
-              
-              {(promotionCode === "manual" || activePromotions.length === 0) && (
+
+              {(promotionCode === "manual" ||
+                activePromotions.length === 0) && (
                 <div className="flex items-center gap-2">
                   <Input
                     value={promotionCode === "manual" ? "" : promotionCode}
-                    onChange={(e) => onPromotionCodeChange(e.target.value.toUpperCase())}
+                    onChange={(e) =>
+                      onPromotionCodeChange(e.target.value.toUpperCase())
+                    }
                     placeholder="Enter promotion code"
                     className="flex-1"
                     onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
+                      if (e.key === "Enter") {
                         onApplyPromotion();
                       }
                     }}
@@ -178,7 +238,8 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-green-600 dark:text-green-400">
-                    Discount: {currencySymbol}{promotionDiscountAmount.toFixed(2)}
+                    Discount: {currencySymbol}
+                    {promotionDiscountAmount.toFixed(2)}
                   </p>
                 </div>
                 <Button
@@ -205,7 +266,7 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
               placeholder="0"
               min="0"
               max="100"
-              value={manualDiscountPercent || ''}
+              value={manualDiscountPercent || ""}
               onChange={(e) => {
                 const value = parseFloat(e.target.value) || 0;
                 if (value >= 0 && value <= 100) {
@@ -216,9 +277,9 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
             />
             <span className="text-sm text-muted-foreground">%</span>
             {manualDiscountPercent > 0 && (
-              <Button 
-                onClick={() => onManualDiscountChange(0)} 
-                variant="outline" 
+              <Button
+                onClick={() => onManualDiscountChange(0)}
+                variant="outline"
                 size="sm"
               >
                 Clear
@@ -227,7 +288,9 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
           </div>
           {manualDiscountPercent > 0 && (
             <div className="text-sm text-green-600 dark:text-green-400 font-medium">
-              ✓ {manualDiscountPercent}% discount applied - Save {currencySymbol}{manualDiscountAmount.toFixed(2)}
+              ✓ {manualDiscountPercent}% discount applied - Save{" "}
+              {currencySymbol}
+              {manualDiscountAmount.toFixed(2)}
             </div>
           )}
         </div>
@@ -239,9 +302,9 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
           <Receipt className="w-4 h-4 mr-2" />
           Edit Order
         </Button>
-        <Button 
-          variant="outline" 
-          onClick={onPrintBill} 
+        <Button
+          variant="outline"
+          onClick={onPrintBill}
           className="w-full"
           disabled={isSaving}
         >
@@ -250,11 +313,7 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
         </Button>
       </div>
 
-      <Button 
-        variant="destructive" 
-        onClick={onDeleteOrder}
-        className="w-full"
-      >
+      <Button variant="destructive" onClick={onDeleteOrder} className="w-full">
         <Trash2 className="w-4 h-4 mr-2" />
         Delete Order
       </Button>
@@ -293,7 +352,10 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">
-                  Mobile Number <span className="text-muted-foreground text-xs">(for room detection)</span>
+                  Mobile Number{" "}
+                  <span className="text-muted-foreground text-xs">
+                    (for room detection)
+                  </span>
                 </label>
                 <Input
                   type="tel"
@@ -301,7 +363,10 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
                   value={customerMobile}
                   onChange={(e) => onCustomerMobileChange(e.target.value)}
                   onBlur={() => {
-                    if (customerMobile && customerMobile.replace(/\D/g, '').length >= 10) {
+                    if (
+                      customerMobile &&
+                      customerMobile.replace(/\D/g, "").length >= 10
+                    ) {
                       onCheckReservation();
                     }
                   }}
@@ -318,7 +383,10 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">
-                  Email Address <span className="text-muted-foreground text-xs">(for email receipt)</span>
+                  Email Address{" "}
+                  <span className="text-muted-foreground text-xs">
+                    (for email receipt)
+                  </span>
                 </label>
                 <Input
                   type="email"
@@ -333,7 +401,7 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
         </div>
       </Card>
 
-      <Button 
+      <Button
         onClick={onContinue}
         className="w-full bg-green-600 hover:bg-green-700 text-white"
         size="lg"
