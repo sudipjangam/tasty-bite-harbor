@@ -442,8 +442,13 @@ export const QSRPosMain: React.FC = () => {
         notes: item.notes ? [item.notes] : [],
       }));
 
+      const total = orderItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+
       if (recalledKitchenOrderId) {
-        // Update existing
+        // Update existing kitchen order
         await supabase
           .from("kitchen_orders")
           .update({
@@ -453,14 +458,41 @@ export const QSRPosMain: React.FC = () => {
           })
           .eq("id", recalledKitchenOrderId);
       } else {
-        // Create new held order
-        await supabase.from("kitchen_orders").insert({
-          restaurant_id: restaurantId,
-          source: `QSR-${orderSource}`,
-          status: "held",
-          items: kitchenItems,
-          server_name: attendantName,
-        });
+        // Create new held order with linked orders record for proper tracking
+        // First create the orders record
+        const { data: createdOrder, error: orderError } = await supabase
+          .from("orders")
+          .insert({
+            restaurant_id: restaurantId,
+            customer_name: orderSource,
+            items: orderItems.map((item) => {
+              const notes = item.notes ? ` (${item.notes})` : "";
+              return `${item.quantity}x ${item.name}${notes} @${item.price}`;
+            }),
+            total: total,
+            status: "held",
+            source: "pos",
+            order_type: orderMode.replace("_", "-"),
+            attendant: attendantName,
+          })
+          .select()
+          .single();
+
+        if (orderError) throw orderError;
+
+        // Create kitchen order linked to the orders record
+        const { error: kitchenError } = await supabase
+          .from("kitchen_orders")
+          .insert({
+            restaurant_id: restaurantId,
+            source: `QSR-${orderSource}`,
+            status: "held",
+            items: kitchenItems,
+            server_name: attendantName,
+            order_id: createdOrder?.id, // Link to orders record
+          });
+
+        if (kitchenError) throw kitchenError;
       }
 
       toast({
@@ -486,6 +518,7 @@ export const QSRPosMain: React.FC = () => {
     orderMode,
     selectedTable,
     recalledKitchenOrderId,
+    attendantName,
     toast,
   ]);
 
