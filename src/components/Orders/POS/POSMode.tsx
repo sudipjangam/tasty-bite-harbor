@@ -307,6 +307,7 @@ const POSMode = () => {
         price: item.price,
         quantity: item.quantity,
         modifiers: item.modifiers || [],
+        notes: item.notes ? [item.notes] : [],
       }));
 
       if (recalledKitchenOrderId) {
@@ -600,6 +601,10 @@ const POSMode = () => {
               name: item.name,
               quantity: item.quantity,
               price: item.price,
+              notes: [
+                ...(item.modifiers || []),
+                ...(item.notes ? [item.notes] : []),
+              ],
             })),
             status: "new",
           })
@@ -653,6 +658,10 @@ const POSMode = () => {
               name: item.name,
               quantity: item.quantity,
               price: item.price,
+              notes: [
+                ...(item.modifiers || []),
+                ...(item.notes ? [item.notes] : []),
+              ],
             })),
             status: "new",
           })

@@ -191,6 +191,27 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => {
+                        const splitTag = "1/2";
+                        const currentNotes = item.notes || "";
+                        const newNotes = currentNotes.includes(splitTag)
+                          ? currentNotes.replace(splitTag, "").trim()
+                          : currentNotes
+                          ? `${currentNotes}, ${splitTag}`
+                          : splitTag;
+                        onAddNote(item.id, newNotes);
+                      }}
+                      className={cn(
+                        "p-1.5 rounded-lg transition-colors touch-manipulation font-medium text-xs w-8 h-8 flex items-center justify-center border",
+                        item.notes?.includes("1/2")
+                          ? "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300 dark:border-indigo-700"
+                          : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 border-transparent"
+                      )}
+                      title="Toggle 1/2"
+                    >
+                      1/2
+                    </button>
+                    <button
+                      onClick={() => {
                         setEditingNoteId(item.id);
                         setNoteText(item.notes || "");
                       }}
