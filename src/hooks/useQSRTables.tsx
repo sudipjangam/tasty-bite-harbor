@@ -30,7 +30,7 @@ export const useQSRTables = () => {
       // Fetch active kitchen orders to determine occupied status
       const { data: activeOrders, error: ordersError } = await supabase
         .from("kitchen_orders")
-        .select("id, source, items, status")
+        .select("id, source, items, status, created_at, updated_at")
         .eq("restaurant_id", restaurantId)
         .in("status", ["new", "preparing", "ready", "held"]);
 
@@ -80,6 +80,8 @@ export const useQSRTables = () => {
           activeOrderId: tableOrder?.id,
           activeOrderTotal,
           activeOrderItems,
+          orderCreatedAt: tableOrder?.created_at,
+          lastActivityAt: tableOrder?.updated_at,
         };
       });
 
