@@ -174,7 +174,7 @@ const OrderItem: React.FC<OrderItemProps> = ({
                   Total Amount
                 </p>
                 <CurrencyDisplay
-                  amount={order.total - (order.discount_amount || 0)}
+                  amount={order.total}
                   className="text-2xl font-bold text-emerald-600 dark:text-emerald-400"
                 />
                 {order.discount_amount &&

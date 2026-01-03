@@ -30,9 +30,9 @@ const Stats = () => {
   const orders = statsData?.orders || [];
 
   const getActualRevenue = (item: any) => {
-    const total = Number(item.total) || 0;
-    const discountAmount = Number(item.discount_amount) || 0;
-    return total - discountAmount;
+    // Note: order.total already stores the final discounted amount
+    // Do NOT subtract discount_amount again (it was already applied when saving)
+    return Number(item.total) || 0;
   };
 
   const completedRevenue = allRevenueSources.filter(

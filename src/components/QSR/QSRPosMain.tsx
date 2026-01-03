@@ -6,6 +6,9 @@ import { useQSRTables } from "@/hooks/useQSRTables";
 import { useActiveKitchenOrders } from "@/hooks/useActiveKitchenOrders";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { startOfDay, endOfDay } from "date-fns";
+import { formatIndianCurrency } from "@/utils/formatters";
 import {
   QSROrderItem,
   QSROrderMode,
@@ -27,6 +30,7 @@ import {
   ArrowLeft,
   LayoutGrid,
   RefreshCw,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PaymentDialog from "@/components/Orders/POS/PaymentDialog";
@@ -87,6 +91,58 @@ export const QSRPosMain: React.FC = () => {
   const attendantName = user
     ? `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email
     : "Staff";
+
+  // Query for today's revenue
+  const queryClient = useQueryClient();
+  const { data: todaysRevenue = 0 } = useQuery({
+    queryKey: ["qsr-todays-revenue", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return 0;
+
+      const today = new Date();
+      const { data: orders } = await supabase
+        .from("orders")
+        .select("total")
+        .eq("restaurant_id", restaurantId)
+        .eq("status", "completed")
+        .neq("order_type", "non-chargeable")
+        .gte("created_at", startOfDay(today).toISOString())
+        .lte("created_at", endOfDay(today).toISOString());
+
+      if (!orders) return 0;
+      return orders.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
+    },
+    enabled: !!restaurantId,
+    refetchInterval: 30000,
+  });
+
+  // Real-time subscription for revenue updates
+  useEffect(() => {
+    if (!restaurantId) return;
+
+    const channel = supabase
+      .channel("qsr-revenue-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+        },
+        (payload) => {
+          const newStatus = (payload.new as any)?.status;
+          const oldStatus = (payload.old as any)?.status;
+          if (newStatus === "completed" || oldStatus === "completed") {
+            queryClient.invalidateQueries({ queryKey: ["qsr-todays-revenue"] });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [restaurantId, queryClient]);
 
   // Calculations - No tax in QSR POS (per user request)
   const subtotal = useMemo(
@@ -851,6 +907,18 @@ export const QSRPosMain: React.FC = () => {
                   </span>
                 )}
               </Button>
+              {/* Today's Revenue Badge */}
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg shadow-sm">
+                <TrendingUp className="w-4 h-4" />
+                <div className="flex flex-col leading-tight">
+                  <span className="text-[10px] font-medium opacity-90">
+                    TODAY'S REVENUE
+                  </span>
+                  <span className="text-sm font-bold">
+                    {formatIndianCurrency(todaysRevenue).formatted}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
