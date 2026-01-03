@@ -431,7 +431,26 @@ const ActiveOrdersList = ({
     return subtotal - discount;
   };
 
-  const getCardStyleByStatus = (status: string) => {
+  // Check if all items in order are delivered
+  const isAllItemsDelivered = (order: ActiveOrder): boolean => {
+    const items = order.items || [];
+    const completionStatus = order.item_completion_status || [];
+    return (
+      items.length > 0 &&
+      completionStatus.length >= items.length &&
+      completionStatus.slice(0, items.length).every((status) => status === true)
+    );
+  };
+
+  const getCardStyleByStatus = (
+    status: string,
+    allDelivered: boolean = false
+  ) => {
+    // Purple for all items delivered (ready for payment)
+    if (allDelivered && status !== "completed") {
+      return "bg-gradient-to-br from-purple-50 to-indigo-100 border-l-4 border-purple-400";
+    }
+
     switch (status) {
       case "preparing":
         return "bg-[#fee2e2] border-l-4 border-red-400";
@@ -693,114 +712,122 @@ const ActiveOrdersList = ({
       <div className="h-[calc(70vh-180px)] overflow-auto">
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {filteredOrders.length > 0 ? (
-            filteredOrders.map((order) => (
-              <Card
-                key={order.id}
-                className={`p-4 hover:shadow-md transition-shadow cursor-pointer ${getCardStyleByStatus(
-                  order.status
-                )}`}
-                onClick={() => setSelectedOrder(order)}
-              >
-                <div className="flex flex-col h-full">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-semibold text-sm truncate mr-2 flex-1">
-                      {order.source}
-                    </h3>
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(
-                        order.status
-                      )}`}
-                    >
-                      {order.status}
-                    </span>
-                  </div>
-
-                  <div className="space-y-2 flex-1">
-                    <div className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(order.created_at), {
-                        addSuffix: true,
-                      })}
-                    </div>
-
-                    <ul className="text-xs space-y-1 max-h-16 overflow-y-auto">
-                      {order.items.map((item, index) => (
-                        <li key={index} className="flex justify-between">
-                          <span className="truncate flex-1">
-                            {item.quantity}x {item.name}
-                          </span>
-                          <span className="pl-1">
-                            {currencySymbol}
-                            {item.price
-                              ? (item.price * item.quantity).toFixed(2)
-                              : "0.00"}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="mt-2 pt-2 border-t flex justify-between items-center">
-                    <div className="font-semibold text-sm">
-                      Total: {currencySymbol}
-                      {calculateFinalTotal(
-                        order.items,
-                        order.discount_amount
-                      ).toFixed(2)}
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedOrder(order);
-                        }}
+            filteredOrders.map((order) => {
+              const allDelivered = isAllItemsDelivered(order);
+              return (
+                <Card
+                  key={order.id}
+                  className={`p-4 hover:shadow-md transition-shadow cursor-pointer ${getCardStyleByStatus(
+                    order.status,
+                    allDelivered
+                  )}`}
+                  onClick={() => setSelectedOrder(order)}
+                >
+                  <div className="flex flex-col h-full">
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-semibold text-sm truncate mr-2 flex-1">
+                        {order.source}
+                      </h3>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full ${
+                          allDelivered && order.status !== "completed"
+                            ? "bg-purple-100 text-purple-800"
+                            : getStatusBadgeColor(order.status)
+                        }`}
                       >
-                        Details
-                      </Button>
-                      {order.status === "held" && onRecallOrder && (
+                        {allDelivered && order.status !== "completed"
+                          ? "served"
+                          : order.status}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 flex-1">
+                      <div className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(order.created_at), {
+                          addSuffix: true,
+                        })}
+                      </div>
+
+                      <ul className="text-xs space-y-1 max-h-16 overflow-y-auto">
+                        {order.items.map((item, index) => (
+                          <li key={index} className="flex justify-between">
+                            <span className="truncate flex-1">
+                              {item.quantity}x {item.name}
+                            </span>
+                            <span className="pl-1">
+                              {currencySymbol}
+                              {item.price
+                                ? (item.price * item.quantity).toFixed(2)
+                                : "0.00"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="mt-2 pt-2 border-t flex justify-between items-center">
+                      <div className="font-semibold text-sm">
+                        Total: {currencySymbol}
+                        {calculateFinalTotal(
+                          order.items,
+                          order.discount_amount
+                        ).toFixed(2)}
+                      </div>
+                      <div className="flex gap-1">
                         <Button
-                          variant="default"
+                          variant="outline"
                           size="sm"
-                          className="text-xs bg-amber-600 hover:bg-amber-700"
-                          onClick={async (e) => {
+                          className="text-xs"
+                          onClick={(e) => {
                             e.stopPropagation();
-
-                            // Convert order items to POS OrderItem format
-                            const recalledItems: any[] = order.items.map(
-                              (item) => ({
-                                id: crypto.randomUUID(),
-                                menuItemId: undefined,
-                                name: item.name,
-                                price: item.price || 0,
-                                quantity: item.quantity,
-                                modifiers: item.notes || [],
-                              })
-                            );
-
-                            // Do NOT delete the held order; send its ID back so POS can update it
-                            onRecallOrder({
-                              items: recalledItems,
-                              kitchenOrderId: order.id,
-                              source: order.source,
-                            });
-
-                            toast({
-                              title: "Order Recalled",
-                              description:
-                                "Held order has been recalled to POS",
-                            });
+                            setSelectedOrder(order);
                           }}
                         >
-                          Recall
+                          Details
                         </Button>
-                      )}
+                        {order.status === "held" && onRecallOrder && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="text-xs bg-amber-600 hover:bg-amber-700"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+
+                              // Convert order items to POS OrderItem format
+                              const recalledItems: any[] = order.items.map(
+                                (item) => ({
+                                  id: crypto.randomUUID(),
+                                  menuItemId: undefined,
+                                  name: item.name,
+                                  price: item.price || 0,
+                                  quantity: item.quantity,
+                                  modifiers: item.notes || [],
+                                })
+                              );
+
+                              // Do NOT delete the held order; send its ID back so POS can update it
+                              onRecallOrder({
+                                items: recalledItems,
+                                kitchenOrderId: order.id,
+                                source: order.source,
+                              });
+
+                              toast({
+                                title: "Order Recalled",
+                                description:
+                                  "Held order has been recalled to POS",
+                              });
+                            }}
+                          >
+                            Recall
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Card>
-            ))
+                </Card>
+              );
+            })
           ) : (
             <div className="col-span-full text-center p-4 text-muted-foreground">
               No orders found matching your filters

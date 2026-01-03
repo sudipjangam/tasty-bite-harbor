@@ -81,19 +81,15 @@ export const useQSRTables = () => {
         }
 
         // Check if all items are delivered (ready for payment)
+        // item_completion_status array has one entry per item in items array
         const itemCompletionStatus =
           (tableOrder?.item_completion_status as boolean[]) || [];
-        const totalItems = tableOrder?.items
-          ? (tableOrder.items as { quantity: number }[]).reduce(
-              (sum, item) => sum + item.quantity,
-              0
-            )
-          : 0;
+        const itemsArray = (tableOrder?.items as unknown[]) || [];
         const allItemsDelivered =
-          totalItems > 0 &&
-          itemCompletionStatus.length >= totalItems &&
+          itemsArray.length > 0 &&
+          itemCompletionStatus.length >= itemsArray.length &&
           itemCompletionStatus
-            .slice(0, totalItems)
+            .slice(0, itemsArray.length)
             .every((status) => status === true);
 
         return {
