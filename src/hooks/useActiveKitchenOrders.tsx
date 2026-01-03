@@ -105,7 +105,9 @@ export const useActiveKitchenOrders = (
 
       let query = supabase
         .from("kitchen_orders")
-        .select("*")
+        .select(
+          "id, source, items, status, created_at, order_id, item_completion_status"
+        )
         .eq("restaurant_id", restaurantId)
         .gte("created_at", start)
         .lte("created_at", end)
@@ -161,7 +163,8 @@ export const useActiveKitchenOrders = (
       return mappedOrders;
     },
     enabled: !!restaurantId,
-    // refetchInterval: 15000, // Removed to prevent double-fetching with realtime subscription
+    staleTime: 1000 * 5, // 5 sec cache - orders change often, real-time handles updates
+    gcTime: 1000 * 60 * 5, // 5 min garbage collection
   });
 
   // Real-time subscription for kitchen orders
