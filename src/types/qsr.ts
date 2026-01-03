@@ -28,6 +28,8 @@ export interface QSRTable {
   activeOrderId?: string;
   activeOrderTotal?: number;
   activeOrderItems?: number;
+  orderCreatedAt?: string;    // When order was placed
+  lastActivityAt?: string;    // Last item_completion_status update
 }
 
 // Active kitchen order for drawer
