@@ -21,7 +21,7 @@ export const useQSRTables = () => {
       // Fetch tables
       const { data: tablesData, error: tablesError } = await supabase
         .from("restaurant_tables")
-        .select("*")
+        .select("id, name, capacity")
         .eq("restaurant_id", restaurantId)
         .order("name");
 
@@ -86,7 +86,9 @@ export const useQSRTables = () => {
       return tablesWithStatus;
     },
     enabled: !!restaurantId,
-    refetchInterval: 30000, // Refresh every 30 seconds
+    staleTime: 1000 * 15, // 15 sec cache - real-time handles instant updates
+    gcTime: 1000 * 60 * 5, // 5 min garbage collection
+    refetchInterval: 120000, // 2 min fallback (real-time is primary)
   });
 
   // Real-time subscription for table and order changes

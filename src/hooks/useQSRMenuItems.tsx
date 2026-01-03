@@ -25,42 +25,48 @@ export const useQSRMenuItems = () => {
 
   // Fetch menu items with real-time updates
   const { data: menuItems = [], isLoading } = useQuery({
-    queryKey: ['qsr-menu-items', restaurantId],
+    queryKey: ["qsr-menu-items", restaurantId],
     queryFn: async () => {
       if (!restaurantId) return [];
-      
+
       const { data, error } = await supabase
-        .from('menu_items')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .eq('is_available', true)
-        .order('category', { ascending: true });
+        .from("menu_items")
+        .select(
+          "id, name, price, description, category, image_url, is_available, is_veg"
+        )
+        .eq("restaurant_id", restaurantId)
+        .eq("is_available", true)
+        .order("category", { ascending: true });
 
       if (error) throw error;
       return data as QSRMenuItem[];
     },
     enabled: !!restaurantId,
+    staleTime: 1000 * 60 * 5, // 5 min cache - real-time overrides when data changes
+    gcTime: 1000 * 60 * 30, // 30 min garbage collection
   });
 
   // Set up real-time subscription
   useRealtimeSubscription({
-    table: 'menu_items',
-    queryKey: ['qsr-menu-items', restaurantId],
-    filter: restaurantId ? { column: 'restaurant_id', value: restaurantId } : null,
+    table: "menu_items",
+    queryKey: ["qsr-menu-items", restaurantId],
+    filter: restaurantId
+      ? { column: "restaurant_id", value: restaurantId }
+      : null,
   });
 
   // Extract unique categories from menu items
   const categories: QSRCategory[] = React.useMemo(() => {
     if (!menuItems.length) return [];
-    
+
     const categoryMap = new Map<string, QSRCategory>();
-    
+
     menuItems.forEach((item) => {
       if (!categoryMap.has(item.category)) {
         // Generate emoji based on category name
         const emoji = getCategoryEmoji(item.category);
         categoryMap.set(item.category, {
-          id: item.category.toLowerCase().replace(/\s+/g, '-'),
+          id: item.category.toLowerCase().replace(/\s+/g, "-"),
           name: item.category,
           emoji: emoji,
         });
@@ -80,28 +86,28 @@ export const useQSRMenuItems = () => {
 // Helper function to get emoji for category
 const getCategoryEmoji = (category: string): string => {
   const categoryLower = category.toLowerCase();
-  
+
   const emojiMap: Record<string, string> = {
-    breakfast: '🌅',
-    lunch: '🍛',
-    dinner: '🌙',
-    snacks: '🍿',
-    beverages: '☕',
-    drinks: '🥤',
-    desserts: '🍰',
-    appetizers: '🥗',
-    starters: '🥙',
-    'main course': '🍽️',
-    biryani: '🍛',
-    chinese: '🥡',
-    pizza: '🍕',
-    burgers: '🍔',
-    sandwiches: '🥪',
-    salads: '🥗',
-    soups: '🥣',
-    rice: '🍚',
-    breads: '🍞',
-    curries: '🍲',
+    breakfast: "🌅",
+    lunch: "🍛",
+    dinner: "🌙",
+    snacks: "🍿",
+    beverages: "☕",
+    drinks: "🥤",
+    desserts: "🍰",
+    appetizers: "🥗",
+    starters: "🥙",
+    "main course": "🍽️",
+    biryani: "🍛",
+    chinese: "🥡",
+    pizza: "🍕",
+    burgers: "🍔",
+    sandwiches: "🥪",
+    salads: "🥗",
+    soups: "🥣",
+    rice: "🍚",
+    breads: "🍞",
+    curries: "🍲",
   };
 
   // Try exact match first
@@ -117,8 +123,8 @@ const getCategoryEmoji = (category: string): string => {
   }
 
   // Default emoji
-  return '🍽️';
+  return "🍽️";
 };
 
 // Export React for useMemo
-import React from 'react';
+import React from "react";

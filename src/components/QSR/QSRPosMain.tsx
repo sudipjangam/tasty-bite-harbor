@@ -607,7 +607,6 @@ export const QSRPosMain: React.FC = () => {
           name: item.name,
           price: item.price,
           quantity: item.quantity,
-          quantity: item.quantity,
           isCustom: !menuItem,
           notes: Array.isArray(item.notes) ? item.notes.join(", ") : item.notes,
         };
