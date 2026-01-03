@@ -361,14 +361,14 @@ export const QSRPosMain: React.FC = () => {
       }));
 
       if (recalledKitchenOrderId) {
-        // Update existing kitchen order - also reset created_at so it appears in KDS "Today" filter
+        // Update existing kitchen order - preserve original created_at for timing display
         const { error: updateError } = await supabase
           .from("kitchen_orders")
           .update({
             items: kitchenItems,
             status: "new",
             source: `QSR-${orderSource}`,
-            created_at: new Date().toISOString(), // Reset to now for KDS date filtering
+            // Note: NOT resetting created_at - preserves original order timing
             started_at: null, // Reset preparation status
             completed_at: null,
             bumped_at: null,
