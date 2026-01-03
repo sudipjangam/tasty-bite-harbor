@@ -31,7 +31,7 @@ export const useQSRTables = () => {
       const { data: activeOrders, error: ordersError } = await supabase
         .from("kitchen_orders")
         .select(
-          "id, source, items, status, created_at, updated_at, customer_name"
+          "id, source, items, status, created_at, updated_at, customer_name, item_completion_status"
         )
         .eq("restaurant_id", restaurantId)
         .in("status", ["new", "preparing", "ready", "held"]);
@@ -80,6 +80,22 @@ export const useQSRTables = () => {
           );
         }
 
+        // Check if all items are delivered (ready for payment)
+        const itemCompletionStatus =
+          (tableOrder?.item_completion_status as boolean[]) || [];
+        const totalItems = tableOrder?.items
+          ? (tableOrder.items as { quantity: number }[]).reduce(
+              (sum, item) => sum + item.quantity,
+              0
+            )
+          : 0;
+        const allItemsDelivered =
+          totalItems > 0 &&
+          itemCompletionStatus.length >= totalItems &&
+          itemCompletionStatus
+            .slice(0, totalItems)
+            .every((status) => status === true);
+
         return {
           id: table.id,
           name: table.name,
@@ -92,6 +108,7 @@ export const useQSRTables = () => {
           activeOrderItems,
           orderCreatedAt: tableOrder?.created_at,
           lastActivityAt: tableOrder?.updated_at,
+          allItemsDelivered,
         };
       });
 

@@ -5,6 +5,7 @@ import {
   RefreshCw,
   Clock,
   AlertTriangle,
+  CheckCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QSRTable } from "@/types/qsr";
@@ -71,6 +72,7 @@ export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
           const isOccupied = table.status === "occupied";
           const isAvailable = table.status === "available";
           const isLate = isOccupied && isLateOrder(table.lastActivityAt);
+          const isDelivered = isOccupied && table.allItemsDelivered;
 
           return (
             <button
@@ -80,17 +82,28 @@ export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
                 "relative p-4 rounded-xl border-2 transition-all duration-200 touch-manipulation",
                 "flex flex-col items-center justify-center gap-1 min-h-[100px]",
                 isSelected && "ring-2 ring-offset-2 ring-blue-500",
+                // Available - Green
                 isAvailable &&
                   !isSelected &&
                   "bg-gradient-to-br from-green-100 to-emerald-200 border-green-400 dark:from-green-800/50 dark:to-emerald-800/50 dark:border-green-500 hover:shadow-lg hover:shadow-green-300/60 hover:scale-[1.02]",
+                // Occupied & Delivered - Purple (ready for payment)
+                isOccupied &&
+                  !isSelected &&
+                  isDelivered &&
+                  "bg-gradient-to-br from-purple-100 to-indigo-200 border-purple-400 dark:from-purple-800/50 dark:to-indigo-800/50 dark:border-purple-500 hover:shadow-lg hover:shadow-purple-300/60 hover:scale-[1.02]",
+                // Occupied - Orange (pending items)
                 isOccupied &&
                   !isSelected &&
                   !isLate &&
+                  !isDelivered &&
                   "bg-gradient-to-br from-amber-100 to-orange-200 border-amber-400 dark:from-amber-800/50 dark:to-orange-800/50 dark:border-amber-500 hover:shadow-lg hover:shadow-amber-300/60 hover:scale-[1.02]",
+                // Occupied & Late - Red
                 isOccupied &&
                   !isSelected &&
                   isLate &&
+                  !isDelivered &&
                   "bg-gradient-to-br from-red-100 to-red-200 border-red-400 dark:from-red-800/50 dark:to-red-800/50 dark:border-red-500 hover:shadow-lg hover:shadow-red-300/60 hover:scale-[1.02]",
+                // Selected - Blue
                 isSelected &&
                   "bg-gradient-to-br from-blue-50 to-indigo-100 border-blue-400 dark:from-blue-900/30 dark:to-indigo-900/30 dark:border-blue-600 shadow-lg shadow-blue-200/50"
               )}
@@ -101,9 +114,16 @@ export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
                   "text-lg font-bold",
                   isAvailable && "text-green-700 dark:text-green-400",
                   isOccupied &&
+                    isDelivered &&
+                    "text-purple-700 dark:text-purple-400",
+                  isOccupied &&
                     !isLate &&
+                    !isDelivered &&
                     "text-orange-700 dark:text-orange-400",
-                  isOccupied && isLate && "text-red-700 dark:text-red-400",
+                  isOccupied &&
+                    isLate &&
+                    !isDelivered &&
+                    "text-red-700 dark:text-red-400",
                   isSelected && "text-blue-700 dark:text-blue-400"
                 )}
               >
@@ -122,17 +142,36 @@ export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
                   "text-[10px] font-medium uppercase tracking-wide mt-1",
                   isAvailable && "text-green-600 dark:text-green-500",
                   isOccupied &&
+                    isDelivered &&
+                    "text-purple-600 dark:text-purple-500",
+                  isOccupied &&
                     !isLate &&
+                    !isDelivered &&
                     "text-orange-600 dark:text-orange-500",
-                  isOccupied && isLate && "text-red-600 dark:text-red-500",
+                  isOccupied &&
+                    isLate &&
+                    !isDelivered &&
+                    "text-red-600 dark:text-red-500",
                   isSelected && "text-blue-600 dark:text-blue-500"
                 )}
               >
-                {isSelected ? "SELECTED" : table.status.toUpperCase()}
+                {isSelected
+                  ? "SELECTED"
+                  : isDelivered
+                  ? "READY"
+                  : table.status.toUpperCase()}
               </span>
 
-              {/* Order Timing - Shows elapsed time for occupied tables */}
-              {isOccupied && table.orderCreatedAt && (
+              {/* Ready for Payment Badge */}
+              {isDelivered && (
+                <div className="flex items-center gap-1 text-[10px] font-medium text-purple-600 dark:text-purple-400 mt-0.5">
+                  <CheckCircle className="w-3 h-3" />
+                  <span>All Served</span>
+                </div>
+              )}
+
+              {/* Order Timing - Shows elapsed time for occupied tables (not delivered) */}
+              {isOccupied && table.orderCreatedAt && !isDelivered && (
                 <div
                   className={cn(
                     "flex items-center gap-1 text-[10px] font-medium mt-0.5",
@@ -159,7 +198,11 @@ export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
                   <div
                     className={cn(
                       "absolute -top-2 -right-2 flex items-center gap-1 text-white text-xs px-2 py-0.5 rounded-full shadow-md",
-                      isLate ? "bg-red-500" : "bg-orange-500"
+                      isDelivered
+                        ? "bg-purple-500"
+                        : isLate
+                        ? "bg-red-500"
+                        : "bg-orange-500"
                     )}
                   >
                     <ShoppingBag className="w-3 h-3" />
