@@ -20,7 +20,14 @@ import { QSROrderPad } from "./QSROrderPad";
 import { QSRActiveOrdersDrawer } from "./QSRActiveOrdersDrawer";
 import { QSRCustomItemDialog } from "./QSRCustomItemDialog";
 import { QSRCartBottomSheet, QSRCartFAB } from "./QSRCartBottomSheet";
-import { Clock, Zap, History, ArrowLeft, LayoutGrid } from "lucide-react";
+import {
+  Clock,
+  Zap,
+  History,
+  ArrowLeft,
+  LayoutGrid,
+  RefreshCw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PaymentDialog from "@/components/Orders/POS/PaymentDialog";
 
@@ -171,6 +178,15 @@ export const QSRPosMain: React.FC = () => {
             description: "Failed to load table order",
           });
         }
+      } else {
+        // Table is available - clear any existing order data from previous table
+        // This prevents showing stale data when switching from an occupied table
+        setOrderItems([]);
+        setRecalledKitchenOrderId(null);
+        setItemCompletionStatus([]);
+        setPendingOrderId(null);
+        setPendingKitchenOrderId(null);
+        setPaymentOrderItems([]);
       }
       setSelectedTable(table);
     },
@@ -776,7 +792,7 @@ export const QSRPosMain: React.FC = () => {
               {/* Back to Tables button - shows when table is selected in dine-in mode */}
               {orderMode === "dine_in" && selectedTable && (
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={() => {
                     setSelectedTable(null);
@@ -789,10 +805,11 @@ export const QSRPosMain: React.FC = () => {
                       setOrderItems([]);
                     }
                   }}
-                  className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                  className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground border-dashed"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   <LayoutGrid className="w-4 h-4" />
+                  <span className="hidden sm:inline text-xs">Tables</span>
                 </Button>
               )}
               <Zap className="w-6 h-6 text-indigo-500" />
@@ -803,6 +820,24 @@ export const QSRPosMain: React.FC = () => {
               </h1>
             </div>
             <div className="flex items-center gap-2">
+              {/* Refresh Tables Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  refetchTables();
+                  toast({
+                    title: "Refreshed",
+                    description: "Tables status updated",
+                    duration: 1500,
+                  });
+                }}
+                className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                title="Refresh Tables"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+              {/* Active Orders Button */}
               <Button
                 variant="outline"
                 size="sm"
