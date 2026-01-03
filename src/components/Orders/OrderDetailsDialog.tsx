@@ -139,24 +139,26 @@ const OrderDetailsDialog = ({
   const { data: orderDetails } = useQuery({
     queryKey: ["order-details", order.id],
     queryFn: async () => {
+      if (!order?.id) return null;
+
       const { data: kitchenOrder } = await supabase
         .from("kitchen_orders")
         .select("order_id")
         .eq("id", order.id)
-        .single();
+        .maybeSingle();
 
       if (kitchenOrder?.order_id) {
         const { data } = await supabase
           .from("orders")
           .select("discount_amount, discount_percentage")
           .eq("id", kitchenOrder.order_id)
-          .single();
+          .maybeSingle();
 
         return data;
       }
       return null;
     },
-    enabled: isOpen,
+    enabled: isOpen && !!order?.id,
   });
 
   // Calculate total - use the provided price from the item itself

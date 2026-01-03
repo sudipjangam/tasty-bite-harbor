@@ -104,6 +104,7 @@ export const useQSRTables = () => {
           filter: `restaurant_id=eq.${restaurantId}`,
         },
         () => {
+          console.log("🔄 [QSR] Restaurant table changed - refreshing");
           queryClient.invalidateQueries({
             queryKey: ["qsr-tables", restaurantId],
           });
@@ -117,10 +118,31 @@ export const useQSRTables = () => {
           table: "kitchen_orders",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
-        () => {
+        (payload) => {
+          // Immediately refetch when order status changes (especially to 'completed')
+          console.log("🔄 [QSR] Kitchen order changed - refreshing", payload);
           queryClient.invalidateQueries({
             queryKey: ["qsr-tables", restaurantId],
           });
+          // Also trigger an immediate refetch for faster UI update
+          refetch();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
+        (payload) => {
+          // Listen to orders table for payment status changes
+          console.log("🔄 [QSR] Order changed - refreshing", payload);
+          queryClient.invalidateQueries({
+            queryKey: ["qsr-tables", restaurantId],
+          });
+          refetch();
         }
       )
       .subscribe();
@@ -128,7 +150,7 @@ export const useQSRTables = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [restaurantId, queryClient]);
+  }, [restaurantId, queryClient, refetch]);
 
   // Update table status
   const updateTableStatus = async (

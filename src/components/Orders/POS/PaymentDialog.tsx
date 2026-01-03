@@ -2347,6 +2347,25 @@ const PaymentDialog = ({
                     onChange={(e) => setCustomerEmail(e.target.value)}
                     className="w-full"
                   />
+                  {/* Email Checkbox - show if valid email is entered */}
+                  {customerEmail &&
+                    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail) && (
+                      <div className="flex items-center space-x-2 pt-2">
+                        <input
+                          type="checkbox"
+                          id="send-email-checkbox"
+                          checked={sendBillToEmail}
+                          onChange={(e) => setSendBillToEmail(e.target.checked)}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <label
+                          htmlFor="send-email-checkbox"
+                          className="text-sm font-medium leading-none cursor-pointer text-blue-700 dark:text-blue-400"
+                        >
+                          📧 Send bill via Email to {customerEmail}
+                        </label>
+                      </div>
+                    )}
                 </div>
               </div>
             )}
