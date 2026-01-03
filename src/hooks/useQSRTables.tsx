@@ -30,7 +30,9 @@ export const useQSRTables = () => {
       // Fetch active kitchen orders to determine occupied status
       const { data: activeOrders, error: ordersError } = await supabase
         .from("kitchen_orders")
-        .select("id, source, items, status, created_at, updated_at")
+        .select(
+          "id, source, items, status, created_at, updated_at, customer_name"
+        )
         .eq("restaurant_id", restaurantId)
         .in("status", ["new", "preparing", "ready", "held"]);
 
@@ -41,15 +43,23 @@ export const useQSRTables = () => {
       // Map tables with active order info
       const tablesWithStatus: QSRTable[] = tablesData.map((table) => {
         // Check if there's an active order for this table
+        // Match by source OR customer_name (customer_name contains "Table X" for dine-in)
         const tableOrder = activeOrders?.find((order) => {
           const source = order.source?.toLowerCase() || "";
+          const customerName = order.customer_name?.toLowerCase() || "";
           const tableName = table.name?.toLowerCase() || "";
-          return (
+
+          // Check source field
+          const sourceMatch =
             source.includes(`table ${tableName}`) ||
             source.includes(`table-${tableName}`) ||
-            source === `pos-table ${tableName}` ||
-            source.includes(tableName)
-          );
+            source === `pos-table ${tableName}`;
+
+          // Check customer_name field (used for dine-in orders)
+          const customerNameMatch =
+            customerName === `table ${tableName}` || customerName === tableName;
+
+          return sourceMatch || customerNameMatch;
         });
 
         let activeOrderTotal = 0;
