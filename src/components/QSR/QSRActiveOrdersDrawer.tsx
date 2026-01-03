@@ -63,9 +63,22 @@ const getStatusBadgeColor = (status: string) => {
       return "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400";
     case "completed":
       return "bg-gray-100 text-gray-700 dark:bg-gray-900/50 dark:text-gray-400";
+    case "served":
+      return "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-400";
     default:
       return "bg-gray-100 text-gray-700 dark:bg-gray-900/50 dark:text-gray-400";
   }
+};
+
+// Check if all items in order are delivered
+const isAllItemsDelivered = (order: ActiveKitchenOrder): boolean => {
+  const items = order.items || [];
+  const completionStatus = order.itemCompletionStatus || [];
+  return (
+    items.length > 0 &&
+    completionStatus.length >= items.length &&
+    completionStatus.slice(0, items.length).every((status) => status === true)
+  );
 };
 
 export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
@@ -200,137 +213,172 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                 <p className="text-sm">Try adjusting your filters</p>
               </div>
             ) : (
-              orders.map((order) => (
-                <div
-                  key={order.id}
-                  className="bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
-                >
-                  {/* Order Header */}
-                  <div className="p-3 flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-800 dark:text-gray-200 truncate">
-                          {order.source}
-                        </span>
-                        <span
-                          className={cn(
-                            "px-2 py-0.5 text-xs font-medium rounded-full",
-                            getStatusBadgeColor(order.status)
-                          )}
-                        >
-                          {order.status}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                        <Clock className="w-3 h-3" />
-                        <span>
-                          {formatDistanceToNow(new Date(order.createdAt), {
-                            addSuffix: true,
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold text-gray-800 dark:text-gray-200">
-                        <CurrencyDisplay
-                          amount={order.total}
-                          showTooltip={false}
-                        />
-                      </div>
-                      <button
-                        onClick={() =>
-                          setExpandedOrderId(
-                            expandedOrderId === order.id ? null : order.id
-                          )
-                        }
-                        className="text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-1 mt-1"
-                      >
-                        Details
-                        <ChevronRight
-                          className={cn(
-                            "w-3 h-3 transition-transform",
-                            expandedOrderId === order.id && "rotate-90"
-                          )}
-                        />
-                      </button>
-                    </div>
-                  </div>
+              orders.map((order) => {
+                const allDelivered = isAllItemsDelivered(order);
 
-                  {/* Order Items (Expanded) */}
-                  {expandedOrderId === order.id && (
-                    <div className="px-3 pb-3 pt-0 border-t border-gray-200 dark:border-gray-700 mt-2">
-                      <div className="mt-2 space-y-1.5">
-                        {order.items.map((item, idx) => {
-                          const isCompleted =
-                            order.itemCompletionStatus?.[idx] === true;
-                          return (
-                            <div
-                              key={idx}
-                              onClick={() =>
-                                onToggleItemCompletion?.(
-                                  order.id,
-                                  idx,
-                                  order.itemCompletionStatus || []
-                                )
-                              }
-                              className={cn(
-                                "flex items-center justify-between text-sm p-2 rounded-lg transition-all cursor-pointer",
-                                isCompleted
-                                  ? "bg-green-50 dark:bg-green-900/20"
-                                  : "hover:bg-gray-100 dark:hover:bg-gray-700"
-                              )}
-                            >
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className={cn(
-                                    "w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors",
-                                    isCompleted
-                                      ? "bg-green-500 text-white"
-                                      : "border-2 border-gray-300 dark:border-gray-500"
-                                  )}
-                                >
-                                  {isCompleted && <Check className="w-3 h-3" />}
+                // Determine card background based on status
+                const getCardBackground = () => {
+                  // All served takes priority (purple)
+                  if (allDelivered && order.status !== "completed") {
+                    return "bg-gradient-to-br from-purple-50 to-indigo-100 border-purple-300 dark:from-purple-900/30 dark:to-indigo-900/30 dark:border-purple-700";
+                  }
+                  switch (order.status) {
+                    case "preparing":
+                      return "bg-gradient-to-br from-red-50 to-orange-100 border-red-300 dark:from-red-900/30 dark:to-orange-900/30 dark:border-red-700";
+                    case "ready":
+                      return "bg-gradient-to-br from-green-50 to-emerald-100 border-green-300 dark:from-green-900/30 dark:to-emerald-900/30 dark:border-green-700";
+                    case "completed":
+                      return "bg-gradient-to-br from-blue-50 to-sky-100 border-blue-300 dark:from-blue-900/30 dark:to-sky-900/30 dark:border-blue-700";
+                    case "held":
+                      return "bg-gradient-to-br from-amber-50 to-yellow-100 border-amber-300 dark:from-amber-900/30 dark:to-yellow-900/30 dark:border-amber-700";
+                    default: // new
+                      return "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700";
+                  }
+                };
+
+                return (
+                  <div
+                    key={order.id}
+                    className={cn(
+                      "rounded-xl border overflow-hidden",
+                      getCardBackground()
+                    )}
+                  >
+                    {/* Order Header */}
+                    <div className="p-3 flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-gray-800 dark:text-gray-200 truncate">
+                            {order.source}
+                          </span>
+                          <span
+                            className={cn(
+                              "px-2 py-0.5 text-xs font-medium rounded-full",
+                              getStatusBadgeColor(
+                                allDelivered && order.status !== "completed"
+                                  ? "served"
+                                  : order.status
+                              )
+                            )}
+                          >
+                            {allDelivered && order.status !== "completed"
+                              ? "served"
+                              : order.status}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                          <Clock className="w-3 h-3" />
+                          <span>
+                            {formatDistanceToNow(new Date(order.createdAt), {
+                              addSuffix: true,
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold text-gray-800 dark:text-gray-200">
+                          <CurrencyDisplay
+                            amount={order.total}
+                            showTooltip={false}
+                          />
+                        </div>
+                        <button
+                          onClick={() =>
+                            setExpandedOrderId(
+                              expandedOrderId === order.id ? null : order.id
+                            )
+                          }
+                          className="text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-1 mt-1"
+                        >
+                          Details
+                          <ChevronRight
+                            className={cn(
+                              "w-3 h-3 transition-transform",
+                              expandedOrderId === order.id && "rotate-90"
+                            )}
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Order Items (Expanded) */}
+                    {expandedOrderId === order.id && (
+                      <div className="px-3 pb-3 pt-0 border-t border-gray-200 dark:border-gray-700 mt-2">
+                        <div className="mt-2 space-y-1.5">
+                          {order.items.map((item, idx) => {
+                            const isCompleted =
+                              order.itemCompletionStatus?.[idx] === true;
+                            return (
+                              <div
+                                key={idx}
+                                onClick={() =>
+                                  onToggleItemCompletion?.(
+                                    order.id,
+                                    idx,
+                                    order.itemCompletionStatus || []
+                                  )
+                                }
+                                className={cn(
+                                  "flex items-center justify-between text-sm p-2 rounded-lg transition-all cursor-pointer",
+                                  isCompleted
+                                    ? "bg-green-50 dark:bg-green-900/20"
+                                    : "hover:bg-gray-100 dark:hover:bg-gray-700"
+                                )}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className={cn(
+                                      "w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors",
+                                      isCompleted
+                                        ? "bg-green-500 text-white"
+                                        : "border-2 border-gray-300 dark:border-gray-500"
+                                    )}
+                                  >
+                                    {isCompleted && (
+                                      <Check className="w-3 h-3" />
+                                    )}
+                                  </div>
+                                  <span
+                                    className={cn(
+                                      isCompleted
+                                        ? "line-through text-gray-400 dark:text-gray-500"
+                                        : "text-gray-700 dark:text-gray-300"
+                                    )}
+                                  >
+                                    {item.quantity}x {item.name}
+                                  </span>
                                 </div>
-                                <span
+                                <CurrencyDisplay
+                                  amount={item.price * item.quantity}
+                                  showTooltip={false}
                                   className={cn(
                                     isCompleted
                                       ? "line-through text-gray-400 dark:text-gray-500"
-                                      : "text-gray-700 dark:text-gray-300"
+                                      : "text-gray-600 dark:text-gray-400"
                                   )}
-                                >
-                                  {item.quantity}x {item.name}
-                                </span>
+                                />
                               </div>
-                              <CurrencyDisplay
-                                amount={item.price * item.quantity}
-                                showTooltip={false}
-                                className={cn(
-                                  isCompleted
-                                    ? "line-through text-gray-400 dark:text-gray-500"
-                                    : "text-gray-600 dark:text-gray-400"
-                                )}
-                              />
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Recall Button */}
-                  <div className="px-3 pb-3">
-                    <Button
-                      onClick={() => onRecallOrder(order)}
-                      variant="outline"
-                      size="sm"
-                      className="w-full flex items-center justify-center gap-2 border-indigo-300 text-indigo-600 dark:border-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      Recall Order
-                    </Button>
+                    {/* Recall Button */}
+                    <div className="px-3 pb-3">
+                      <Button
+                        onClick={() => onRecallOrder(order)}
+                        variant="outline"
+                        size="sm"
+                        className="w-full flex items-center justify-center gap-2 border-indigo-300 text-indigo-600 dark:border-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        Recall Order
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </ScrollArea>
