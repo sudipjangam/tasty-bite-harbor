@@ -116,6 +116,24 @@ export const QSRPosMain: React.FC = () => {
     refetchInterval: 30000,
   });
 
+  // Query for restaurant name (for export filename)
+  const { data: restaurantName = "Restaurant" } = useQuery({
+    queryKey: ["restaurant-name", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return "Restaurant";
+
+      const { data } = await supabase
+        .from("restaurants")
+        .select("name")
+        .eq("id", restaurantId)
+        .single();
+
+      return data?.name || "Restaurant";
+    },
+    enabled: !!restaurantId,
+    staleTime: 1000 * 60 * 60, // 1 hour cache
+  });
+
   // Real-time subscription for revenue updates
   useEffect(() => {
     if (!restaurantId) return;
@@ -692,6 +710,48 @@ export const QSRPosMain: React.FC = () => {
     [orderItems.length, menuItems, tables, orderMode, toast]
   );
 
+  // Handle proceed to payment directly from active orders
+  const handleProceedToPayment = useCallback(
+    (order: ActiveKitchenOrder) => {
+      // Map order items for payment
+      const mappedItems: QSROrderItem[] = order.items.map((item, idx) => {
+        const menuItem = menuItems.find(
+          (m) => m.name.toLowerCase() === item.name.toLowerCase()
+        );
+        return {
+          id: `${order.id}-${idx}`,
+          menuItemId: menuItem?.id || `custom-${idx}`,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          isCustom: !menuItem,
+          notes: Array.isArray(item.notes) ? item.notes.join(", ") : item.notes,
+        };
+      });
+
+      // Store the items for payment dialog
+      setPaymentOrderItems(mappedItems);
+      setPendingKitchenOrderId(order.id);
+      setRecalledKitchenOrderId(order.id);
+
+      // Try to extract table from source
+      const sourceMatch = order.source.match(/table\s+(\w+)/i);
+      if (sourceMatch && orderMode === "dine_in") {
+        const table = tables.find(
+          (t) => t.name.toLowerCase() === sourceMatch[1].toLowerCase()
+        );
+        if (table) {
+          setSelectedTable(table);
+        }
+      }
+
+      // Close drawer and open payment
+      setShowActiveOrders(false);
+      setShowPaymentDialog(true);
+    },
+    [menuItems, tables, orderMode]
+  );
+
   // Payment success handler - Supports both pre-pay and post-pay flows
   const handlePaymentSuccess = useCallback(async () => {
     try {
@@ -1030,7 +1090,9 @@ export const QSRPosMain: React.FC = () => {
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         onRecallOrder={handleRecallOrder}
+        onProceedToPayment={handleProceedToPayment}
         onToggleItemCompletion={toggleItemCompletion}
+        restaurantName={restaurantName}
       />
 
       {/* Custom Item Dialog */}
