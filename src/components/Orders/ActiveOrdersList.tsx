@@ -446,37 +446,41 @@ const ActiveOrdersList = ({
     status: string,
     allDelivered: boolean = false
   ) => {
-    // Purple for all items delivered (ready for payment)
+    // Purple for all items delivered (ready for payment) - takes priority
     if (allDelivered && status !== "completed") {
-      return "bg-gradient-to-br from-purple-50 to-indigo-100 border-l-4 border-purple-400";
+      return "bg-gradient-to-br from-purple-50 via-violet-100 to-indigo-100 border-l-4 border-purple-500 shadow-lg shadow-purple-100/50 hover:shadow-purple-200/60 hover:scale-[1.01] transition-all duration-200";
     }
 
     switch (status) {
+      case "new":
+        return "bg-gradient-to-br from-white via-slate-50 to-gray-100 border-l-4 border-indigo-400 shadow-md hover:shadow-lg hover:shadow-indigo-100/50 hover:scale-[1.01] transition-all duration-200";
       case "preparing":
-        return "bg-[#fee2e2] border-l-4 border-red-400";
+        return "bg-gradient-to-br from-red-50 via-orange-50 to-amber-100 border-l-4 border-red-500 shadow-lg shadow-red-100/50 hover:shadow-red-200/60 hover:scale-[1.01] transition-all duration-200";
       case "ready":
-        return "bg-[#F2FCE2] border-l-4 border-green-400";
+        return "bg-gradient-to-br from-green-50 via-emerald-100 to-teal-100 border-l-4 border-green-500 shadow-lg shadow-green-100/50 hover:shadow-green-200/60 hover:scale-[1.01] transition-all duration-200";
       case "completed":
-        return "bg-[#e5f3ff] border-l-4 border-blue-400";
+        return "bg-gradient-to-br from-blue-50 via-sky-100 to-cyan-100 border-l-4 border-blue-500 shadow-lg shadow-blue-100/50 hover:shadow-blue-200/60 hover:scale-[1.01] transition-all duration-200";
       case "held":
-        return "bg-[#fef3c7] border-l-4 border-amber-400";
+        return "bg-gradient-to-br from-amber-50 via-yellow-100 to-orange-100 border-l-4 border-amber-500 shadow-lg shadow-amber-100/50 hover:shadow-amber-200/60 hover:scale-[1.01] transition-all duration-200";
       default:
-        return "bg-white border";
+        return "bg-white border shadow-sm hover:shadow-md transition-all duration-200";
     }
   };
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case "new":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-gradient-to-r from-indigo-500 to-blue-500 text-white shadow-sm";
       case "preparing":
-        return "bg-red-100 text-red-800";
+        return "bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-sm";
       case "ready":
-        return "bg-green-100 text-green-800";
+        return "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-sm";
       case "completed":
-        return "bg-blue-100 text-blue-800";
+        return "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-sm";
       case "held":
-        return "bg-amber-100 text-amber-800";
+        return "bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-sm";
+      case "served":
+        return "bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-sm";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -717,7 +721,7 @@ const ActiveOrdersList = ({
               return (
                 <Card
                   key={order.id}
-                  className={`p-4 hover:shadow-md transition-shadow cursor-pointer ${getCardStyleByStatus(
+                  className={`p-4 rounded-xl cursor-pointer overflow-hidden ${getCardStyleByStatus(
                     order.status,
                     allDelivered
                   )}`}
@@ -725,13 +729,13 @@ const ActiveOrdersList = ({
                 >
                   <div className="flex flex-col h-full">
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-semibold text-sm truncate mr-2 flex-1">
+                      <h3 className="font-semibold text-sm truncate mr-2 flex-1 text-gray-800">
                         {order.source}
                       </h3>
                       <span
-                        className={`text-xs px-2 py-1 rounded-full ${
+                        className={`text-xs px-3 py-1 rounded-full font-medium ${
                           allDelivered && order.status !== "completed"
-                            ? "bg-purple-100 text-purple-800"
+                            ? getStatusBadgeColor("served")
                             : getStatusBadgeColor(order.status)
                         }`}
                       >
