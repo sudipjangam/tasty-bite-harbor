@@ -1,0 +1,13 @@
+{
+  "name": "Swadeshi Status",
+  "short_name": "Status",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ],
+  "description": "View current restaurant status",
+  "screenshots": []
+}
