@@ -1,7 +1,9 @@
 // Service Worker for Swadeshi Solutions PWA
 // Provides offline support and caching
+// Cache version is dynamically set based on build timestamp
 
-const CACHE_NAME = 'swadeshi-v2'; // Incremented to bust old cache
+const BUILD_TIMESTAMP = '__BUILD_TIMESTAMP__'; // Replaced during build
+const CACHE_NAME = `swadeshi-${BUILD_TIMESTAMP}`;
 const OFFLINE_URL = '/';
 
 // Assets to cache on install
@@ -14,6 +16,7 @@ const ASSETS_TO_CACHE = [
 
 // Install event - cache essential assets
 self.addEventListener('install', (event) => {
+  console.log('[SW] Installing with cache:', CACHE_NAME);
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('[SW] Caching essential assets');
@@ -26,12 +29,16 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
+  console.log('[SW] Activating and cleaning old caches');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((cacheName) => cacheName !== CACHE_NAME)
-          .map((cacheName) => caches.delete(cacheName))
+          .filter((cacheName) => cacheName.startsWith('swadeshi-') && cacheName !== CACHE_NAME)
+          .map((cacheName) => {
+            console.log('[SW] Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          })
       );
     })
   );
@@ -104,8 +111,8 @@ self.addEventListener('push', (event) => {
     const data = event.data.json();
     const options = {
       body: data.body,
-      icon: '/icons/icon-192x192.png',
-      badge: '/icons/icon-192x192.png',
+      icon: '/icons/swadeshi-icon-192.png',
+      badge: '/icons/swadeshi-icon-192.png',
       vibrate: [100, 50, 100],
       data: {
         url: data.url || '/'
