@@ -1,25 +1,25 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# Signing keys - NEVER commit these!
+public/Signingkey/
+*.keystore
+*.jks
 
+# Scripts
+scripts/
+
+# Dependencies
 node_modules
+.pnp
+.pnp.js
+
+# Testing
+coverage
+
+# Build
 dist
 dist-ssr
 *.local
 
-# Environment variables - NEVER commit these!
-.env
-.env.local
-.env.*.local
-.env.production
-.env.development
-
-# Editor directories and files
+# Editor
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -30,9 +30,16 @@ dist-ssr
 *.sln
 *.sw?
 
-# Local Netlify folder
-.netlify
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Developer-only documentation (local only, not for git)
-docs/ARCHITECTURE_DEV.md
-docs/Developer-guide.md
+# Environment
+.env
+.env.local
+.env.*.local
