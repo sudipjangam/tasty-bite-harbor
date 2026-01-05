@@ -5,19 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  User, 
-  Users, 
-  LogIn, 
-  LogOut, 
-  Search, 
+import {
+  User,
+  Users,
+  LogIn,
+  LogOut,
+  Search,
   Filter,
   Star,
   Clock,
   Phone,
   Mail,
   CreditCard,
-  Calendar
+  Calendar,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useGuestManagement } from "@/hooks/useGuestManagement";
@@ -37,7 +37,8 @@ const GuestManagementDashboard = () => {
     checkOutGuest,
   } = useGuestManagement();
 
-  const { roomReservations, isLoading: isLoadingReservations } = useReservations();
+  const { roomReservations, isLoading: isLoadingReservations } =
+    useReservations();
   const { symbol: currencySymbol } = useCurrencyContext();
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -47,28 +48,31 @@ const GuestManagementDashboard = () => {
   const [selectedCheckIn, setSelectedCheckIn] = useState(null);
 
   // Filter for pending check-ins: confirmed reservations with upcoming start dates
-  const pendingReservations = roomReservations.filter(reservation => 
-    reservation.status === 'confirmed' && 
-    new Date(reservation.start_time) >= new Date()
-  ).map(reservation => ({
-    id: reservation.id,
-    customer_name: reservation.customer_name,
-    customer_email: reservation.customer_email || "",
-    customer_phone: reservation.customer_phone || "",
-    start_time: reservation.start_time,
-    end_time: reservation.end_time,
-    room: { 
-      id: reservation.room_id, 
-      name: reservation.rooms?.name || "Room", 
-      price: reservation.rooms?.price || 0 
-    }
-  }));
+  const pendingReservations = roomReservations
+    .filter(
+      (reservation) =>
+        reservation.status === "confirmed" &&
+        new Date(reservation.start_time) >= new Date()
+    )
+    .map((reservation) => ({
+      id: reservation.id,
+      customer_name: reservation.customer_name,
+      customer_email: reservation.customer_email || "",
+      customer_phone: reservation.customer_phone || "",
+      start_time: reservation.start_time,
+      end_time: reservation.end_time,
+      room: {
+        id: reservation.room_id,
+        name: reservation.rooms?.name || "Room",
+        price: reservation.rooms?.price || 0,
+      },
+    }));
 
   const handleCheckIn = async (data: any) => {
     try {
       // First create guest profile
       const guestProfile = await createGuestProfile.mutateAsync(data.guestData);
-      
+
       // Then check in the guest
       await checkInGuest.mutateAsync({
         ...data.checkInDetails,
@@ -93,10 +97,11 @@ const GuestManagementDashboard = () => {
     setCheckOutDialog(true);
   };
 
-  const filteredGuests = guestProfiles.filter(guest =>
-    guest.guest_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    guest.guest_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    guest.guest_phone?.includes(searchTerm)
+  const filteredGuests = guestProfiles.filter(
+    (guest) =>
+      guest.guest_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      guest.guest_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      guest.guest_phone?.includes(searchTerm)
   );
 
   if (isLoadingGuests || isLoadingCheckIns) {
@@ -104,11 +109,13 @@ const GuestManagementDashboard = () => {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
-          <h1 className="text-3xl font-bold">Guest Management</h1>
-          <p className="text-muted-foreground">Manage check-ins, check-outs, and guest profiles</p>
+          <h1 className="text-2xl md:text-3xl font-bold">Guest Management</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Manage check-ins, check-outs, and guest profiles
+          </p>
         </div>
       </div>
 
@@ -119,7 +126,9 @@ const GuestManagementDashboard = () => {
             <div className="flex items-center">
               <Users className="h-8 w-8 text-blue-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Total Guests</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Total Guests
+                </p>
                 <p className="text-2xl font-bold">{guestProfiles.length}</p>
               </div>
             </div>
@@ -131,7 +140,9 @@ const GuestManagementDashboard = () => {
             <div className="flex items-center">
               <LogIn className="h-8 w-8 text-green-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Current Check-ins</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Current Check-ins
+                </p>
                 <p className="text-2xl font-bold">{currentCheckIns.length}</p>
               </div>
             </div>
@@ -143,8 +154,12 @@ const GuestManagementDashboard = () => {
             <div className="flex items-center">
               <Clock className="h-8 w-8 text-orange-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Pending Check-ins</p>
-                <p className="text-2xl font-bold">{pendingReservations.length}</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Pending Check-ins
+                </p>
+                <p className="text-2xl font-bold">
+                  {pendingReservations.length}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -155,8 +170,12 @@ const GuestManagementDashboard = () => {
             <div className="flex items-center">
               <Star className="h-8 w-8 text-yellow-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">VIP Guests</p>
-                <p className="text-2xl font-bold">{guestProfiles.filter(g => g.vip_status).length}</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  VIP Guests
+                </p>
+                <p className="text-2xl font-bold">
+                  {guestProfiles.filter((g) => g.vip_status).length}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -164,12 +183,34 @@ const GuestManagementDashboard = () => {
       </div>
 
       <Tabs defaultValue="check-ins" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="check-ins">Current Check-ins</TabsTrigger>
-          <TabsTrigger value="pending">Pending Check-ins</TabsTrigger>
-          <TabsTrigger value="guests">Guest Profiles</TabsTrigger>
-          <TabsTrigger value="history">Check-out History</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto pb-2">
+          <TabsList className="flex md:grid md:grid-cols-4 w-max md:w-full gap-1">
+            <TabsTrigger
+              value="check-ins"
+              className="text-xs md:text-sm px-3 md:px-4 whitespace-nowrap"
+            >
+              Current Check-ins
+            </TabsTrigger>
+            <TabsTrigger
+              value="pending"
+              className="text-xs md:text-sm px-3 md:px-4 whitespace-nowrap"
+            >
+              Pending Check-ins
+            </TabsTrigger>
+            <TabsTrigger
+              value="guests"
+              className="text-xs md:text-sm px-3 md:px-4 whitespace-nowrap"
+            >
+              Guest Profiles
+            </TabsTrigger>
+            <TabsTrigger
+              value="history"
+              className="text-xs md:text-sm px-3 md:px-4 whitespace-nowrap"
+            >
+              Check-out History
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Current Check-ins */}
         <TabsContent value="check-ins" className="space-y-4">
@@ -182,41 +223,63 @@ const GuestManagementDashboard = () => {
             </CardHeader>
             <CardContent>
               {currentCheckIns.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">No guests currently checked in</p>
+                <p className="text-center text-muted-foreground py-8">
+                  No guests currently checked in
+                </p>
               ) : (
                 <div className="space-y-4">
                   {currentCheckIns.map((checkIn: any) => (
-                    <div key={checkIn.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div
+                      key={checkIn.id}
+                      className="flex items-center justify-between p-4 border rounded-lg"
+                    >
                       <div className="flex items-center space-x-4">
                         <Avatar>
                           <AvatarFallback>
-                            {checkIn.guest_profiles?.guest_name?.split(' ').map((n: string) => n[0]).join('') || 'G'}
+                            {checkIn.guest_profiles?.guest_name
+                              ?.split(" ")
+                              .map((n: string) => n[0])
+                              .join("") || "G"}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <h3 className="font-medium">{checkIn.guest_profiles?.guest_name}</h3>
-                          <p className="text-sm text-muted-foreground">{checkIn.rooms?.name}</p>
+                          <h3 className="font-medium">
+                            {checkIn.guest_profiles?.guest_name}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {checkIn.rooms?.name}
+                          </p>
                           <div className="flex items-center gap-4 mt-1">
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <Clock className="h-3 w-3" />
-                              In: {format(new Date(checkIn.check_in_time), "MMM dd, HH:mm")}
+                              In:{" "}
+                              {format(
+                                new Date(checkIn.check_in_time),
+                                "MMM dd, HH:mm"
+                              )}
                             </div>
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <Calendar className="h-3 w-3" />
-                              Out: {format(new Date(checkIn.expected_check_out), "MMM dd, HH:mm")}
+                              Out:{" "}
+                              {format(
+                                new Date(checkIn.expected_check_out),
+                                "MMM dd, HH:mm"
+                              )}
                             </div>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary">
-                          {checkIn.total_guests} guest{checkIn.total_guests > 1 ? 's' : ''}
+                          {checkIn.total_guests} guest
+                          {checkIn.total_guests > 1 ? "s" : ""}
                         </Badge>
                         <Badge variant="outline">
-                          {currencySymbol}{checkIn.room_rate}/night
+                          {currencySymbol}
+                          {checkIn.room_rate}/night
                         </Badge>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={() => openCheckOutDialog(checkIn)}
                         >
@@ -243,20 +306,32 @@ const GuestManagementDashboard = () => {
             </CardHeader>
             <CardContent>
               {pendingReservations.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">No pending check-ins</p>
+                <p className="text-center text-muted-foreground py-8">
+                  No pending check-ins
+                </p>
               ) : (
                 <div className="space-y-4">
                   {pendingReservations.map((reservation) => (
-                    <div key={reservation.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div
+                      key={reservation.id}
+                      className="flex items-center justify-between p-4 border rounded-lg"
+                    >
                       <div className="flex items-center space-x-4">
                         <Avatar>
                           <AvatarFallback>
-                            {reservation.customer_name.split(' ').map(n => n[0]).join('')}
+                            {reservation.customer_name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <h3 className="font-medium">{reservation.customer_name}</h3>
-                          <p className="text-sm text-muted-foreground">{reservation.room.name}</p>
+                          <h3 className="font-medium">
+                            {reservation.customer_name}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {reservation.room.name}
+                          </p>
                           <div className="flex items-center gap-4 mt-1">
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <Phone className="h-3 w-3" />
@@ -271,9 +346,10 @@ const GuestManagementDashboard = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline">
-                          {currencySymbol}{reservation.room.price}/night
+                          {currencySymbol}
+                          {reservation.room.price}/night
                         </Badge>
-                        <Button 
+                        <Button
                           size="sm"
                           onClick={() => openCheckInDialog(reservation)}
                         >
@@ -311,20 +387,30 @@ const GuestManagementDashboard = () => {
             </CardHeader>
             <CardContent>
               {filteredGuests.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">No guest profiles found</p>
+                <p className="text-center text-muted-foreground py-8">
+                  No guest profiles found
+                </p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredGuests.map((guest) => (
-                    <div key={guest.id} className="p-4 border rounded-lg space-y-3">
+                    <div
+                      key={guest.id}
+                      className="p-4 border rounded-lg space-y-3"
+                    >
                       <div className="flex items-center space-x-3">
                         <Avatar>
                           <AvatarFallback>
-                            {guest.guest_name.split(' ').map(n => n[0]).join('')}
+                            {guest.guest_name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
                           <h3 className="font-medium">{guest.guest_name}</h3>
-                          <p className="text-sm text-muted-foreground">{guest.guest_email}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {guest.guest_email}
+                          </p>
                         </div>
                         {guest.vip_status && (
                           <Badge variant="secondary">
@@ -333,7 +419,7 @@ const GuestManagementDashboard = () => {
                           </Badge>
                         )}
                       </div>
-                      
+
                       <div className="space-y-2 text-sm">
                         {guest.guest_phone && (
                           <div className="flex items-center gap-2">
@@ -341,21 +427,34 @@ const GuestManagementDashboard = () => {
                             <span>{guest.guest_phone}</span>
                           </div>
                         )}
-                        
+
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Total Stays:</span>
-                          <span className="font-medium">{guest.total_stays}</span>
+                          <span className="text-muted-foreground">
+                            Total Stays:
+                          </span>
+                          <span className="font-medium">
+                            {guest.total_stays}
+                          </span>
                         </div>
-                        
+
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Total Spent:</span>
-                          <span className="font-medium">{currencySymbol}{guest.total_spent}</span>
+                          <span className="text-muted-foreground">
+                            Total Spent:
+                          </span>
+                          <span className="font-medium">
+                            {currencySymbol}
+                            {guest.total_spent}
+                          </span>
                         </div>
-                        
+
                         {guest.last_stay && (
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Last Stay:</span>
-                            <span className="font-medium">{format(new Date(guest.last_stay), "MMM yyyy")}</span>
+                            <span className="text-muted-foreground">
+                              Last Stay:
+                            </span>
+                            <span className="font-medium">
+                              {format(new Date(guest.last_stay), "MMM yyyy")}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -377,7 +476,9 @@ const GuestManagementDashboard = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-center text-muted-foreground py-8">Check-out history will appear here</p>
+              <p className="text-center text-muted-foreground py-8">
+                Check-out history will appear here
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
