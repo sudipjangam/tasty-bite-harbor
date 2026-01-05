@@ -5,7 +5,7 @@
   "start_url": "/",
   "id": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui", "browser"],
+  "display_override": ["window-controls-overlay", "tabbed", "standalone", "minimal-ui", "browser"],
   "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#1e3a8a",
@@ -15,27 +15,28 @@
   "categories": ["business", "productivity", "food"],
   "prefer_related_applications": false,
   "related_applications": [],
+  "iarc_rating_id": "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7",
   "icons": [
     {
-      "src": "/icons/icon-192x192.png",
+      "src": "/icons/swadeshi-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512x512.png",
+      "src": "/icons/swadeshi-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-maskable-192x192.png",
+      "src": "/icons/swadeshi-icon-maskable-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/icons/icon-maskable-512x512.png",
+      "src": "/icons/swadeshi-icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -43,14 +44,14 @@
   ],
   "screenshots": [
     {
-      "src": "/screenshot-mobile.png",
+      "src": "/swadeshi-screenshot-mobile.png",
       "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Swadeshi Mobile App"
     },
     {
-      "src": "/og-image.png",
+      "src": "/swadeshi-screenshot-desktop.png",
       "sizes": "1200x629",
       "type": "image/png",
       "form_factor": "wide",
@@ -63,21 +64,21 @@
       "short_name": "Dashboard",
       "description": "View your restaurant dashboard",
       "url": "/dashboard",
-      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [{ "src": "/icons/swadeshi-icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Point of Sale",
       "short_name": "POS",
       "description": "Open Point of Sale",
       "url": "/pos",
-      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [{ "src": "/icons/swadeshi-icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Orders",
       "short_name": "Orders",
       "description": "Manage orders",
       "url": "/order-management",
-      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [{ "src": "/icons/swadeshi-icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ],
   "launch_handler": {
@@ -101,7 +102,7 @@
       },
       "icons": [
         {
-          "src": "/icons/icon-192x192.png",
+          "src": "/icons/swadeshi-icon-192.png",
           "sizes": "192x192",
           "type": "image/png"
         }
