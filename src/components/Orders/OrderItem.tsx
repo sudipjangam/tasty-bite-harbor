@@ -39,7 +39,7 @@ const OrderItem: React.FC<OrderItemProps> = ({
           label: "Completed",
           variant: "default" as const,
           className:
-            "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400",
+            "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-sm",
         };
       case "pending":
         return {
@@ -47,7 +47,7 @@ const OrderItem: React.FC<OrderItemProps> = ({
           label: "Pending",
           variant: "secondary" as const,
           className:
-            "bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400",
+            "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm",
         };
       case "preparing":
         return {
@@ -55,7 +55,15 @@ const OrderItem: React.FC<OrderItemProps> = ({
           label: "Preparing",
           variant: "secondary" as const,
           className:
-            "bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400",
+            "bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-sm",
+        };
+      case "ready":
+        return {
+          icon: CheckCircle2,
+          label: "Ready",
+          variant: "secondary" as const,
+          className:
+            "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-sm",
         };
       case "cancelled":
         return {
@@ -63,15 +71,35 @@ const OrderItem: React.FC<OrderItemProps> = ({
           label: "Cancelled",
           variant: "destructive" as const,
           className:
-            "bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400",
+            "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-sm",
         };
       default:
         return {
           icon: ShoppingBag,
           label: status,
           variant: "outline" as const,
-          className: "",
+          className: "bg-gray-100 text-gray-700",
         };
+    }
+  };
+
+  // Get card background gradient based on order status
+  const getCardBackground = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "bg-gradient-to-br from-blue-50 via-sky-100 to-cyan-100 border-l-4 border-blue-500 shadow-lg shadow-blue-100/50 hover:shadow-blue-200/60";
+      case "pending":
+        return "bg-gradient-to-br from-amber-50 via-yellow-100 to-orange-100 border-l-4 border-amber-500 shadow-lg shadow-amber-100/50 hover:shadow-amber-200/60";
+      case "preparing":
+        return "bg-gradient-to-br from-red-50 via-orange-100 to-amber-100 border-l-4 border-red-500 shadow-lg shadow-red-100/50 hover:shadow-red-200/60";
+      case "ready":
+        return "bg-gradient-to-br from-green-50 via-emerald-100 to-teal-100 border-l-4 border-green-500 shadow-lg shadow-green-100/50 hover:shadow-green-200/60";
+      case "held":
+        return "bg-gradient-to-br from-purple-50 via-violet-100 to-indigo-100 border-l-4 border-purple-500 shadow-lg shadow-purple-100/50 hover:shadow-purple-200/60";
+      case "cancelled":
+        return "bg-gradient-to-br from-red-50 via-rose-100 to-pink-100 border-l-4 border-red-600 shadow-lg shadow-red-100/50 hover:shadow-red-200/60";
+      default:
+        return "bg-gradient-to-br from-gray-50 via-slate-100 to-gray-100 border-l-4 border-gray-400 shadow-md";
     }
   };
 
@@ -106,7 +134,11 @@ const OrderItem: React.FC<OrderItemProps> = ({
   const sourceLabel = getSourceLabel(order.source, order.order_type);
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary/20 hover:border-l-primary">
+    <Card
+      className={`overflow-hidden hover:scale-[1.01] transition-all duration-200 rounded-xl ${getCardBackground(
+        order.status
+      )}`}
+    >
       <CardContent className="p-0">
         <div className="p-6">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
