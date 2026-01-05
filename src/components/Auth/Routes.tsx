@@ -7,6 +7,8 @@ import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "@/pages/NotFound";
 import LandingWebsite from "@/pages/LandingWebsite";
 import PublicEnrollmentPage from "@/pages/PublicEnrollmentPage";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import DeleteAccount from "@/pages/DeleteAccount";
 
 const Routes = () => {
   const { user, loading } = useAuth();
@@ -27,6 +29,8 @@ const Routes = () => {
         <Route path="/login" element={<Auth />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/enroll/:slug" element={<PublicEnrollmentPage />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/delete-account" element={<DeleteAccount />} />
         <Route path="*" element={<LandingWebsite />} />
       </RouterRoutes>
     );
@@ -39,6 +43,8 @@ const Routes = () => {
       <Route path="/login" element={<Navigate to="/dashboard" replace />} />
       <Route path="/website" element={<LandingWebsite />} />
       <Route path="/enroll/:slug" element={<PublicEnrollmentPage />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/delete-account" element={<DeleteAccount />} />
       <Route path="/dashboard/*" element={<AppRoutes />} />
       <Route path="/*" element={<AppRoutes />} />
       <Route path="*" element={<NotFound />} />

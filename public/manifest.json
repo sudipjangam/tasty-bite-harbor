@@ -1,0 +1,144 @@
+{
+  "name": "Swadeshi Solutions Restaurant Management",
+  "short_name": "Swadeshi",
+  "description": "The complete, Made-in-India digital partner for modern restaurant management. Manage orders, billing, inventory, and more.",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "tabbed", "standalone", "minimal-ui", "browser"],
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#1e3a8a",
+  "scope": "/",
+  "lang": "en-IN",
+  "dir": "ltr",
+  "categories": ["business", "productivity", "food"],
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "iarc_rating_id": "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7",
+  "icons": [
+    {
+      "src": "/icons/swadeshi-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/swadeshi-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/swadeshi-icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/swadeshi-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/swadeshi-screenshot-mobile.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Swadeshi Mobile App"
+    },
+    {
+      "src": "/swadeshi-screenshot-desktop.png",
+      "sizes": "1200x629",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Swadeshi Desktop Dashboard"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your restaurant dashboard",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icons/swadeshi-icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Point of Sale",
+      "short_name": "POS",
+      "description": "Open Point of Sale",
+      "url": "/pos",
+      "icons": [{ "src": "/icons/swadeshi-icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Orders",
+      "short_name": "Orders",
+      "description": "Manage orders",
+      "url": "/order-management",
+      "icons": [{ "src": "/icons/swadeshi-icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "handle_links": "preferred",
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+swadeshi",
+      "url": "/dashboard?ref=%s"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/dashboard",
+      "accept": {
+        "text/csv": [".csv"]
+      },
+      "icons": [
+        {
+          "src": "/icons/swadeshi-icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ],
+      "launch_type": "single-client"
+    }
+  ],
+  "share_target": {
+    "action": "/dashboard",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "widgets": [
+    {
+      "name": "Swadeshi Status",
+      "short_name": "Status",
+      "description": "Quick access to restaurant status",
+      "tag": "status",
+      "template": "status-widget",
+      "ms_ac_template": "widgets/status.json",
+      "data": "widgets/status-data.json",
+      "type": "application/json",
+      "screenshots": []
+    }
+  ],
+  "note_taking": {
+    "new_note_url": "/order-management"
+  },
+  "scope_extensions": [
+    {
+      "origin": "https://swadeshisolutions.com"
+    }
+  ]
+}
