@@ -1,7 +1,7 @@
 // Service Worker for Swadeshi Solutions PWA
 // Provides offline support and caching
 
-const CACHE_NAME = 'swadeshi-v1';
+const CACHE_NAME = 'swadeshi-v2'; // Incremented to bust old cache
 const OFFLINE_URL = '/';
 
 // Assets to cache on install
