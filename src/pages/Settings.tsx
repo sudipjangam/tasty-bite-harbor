@@ -2,9 +2,32 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { LogOut, User, Building, Clock, Shield, CreditCard, Loader2, Mail, Phone, MapPin, CalendarClock, CheckCircle2, Sparkles, Star, Smartphone } from "lucide-react";
+import {
+  LogOut,
+  User,
+  Building,
+  Clock,
+  Shield,
+  CreditCard,
+  Loader2,
+  Mail,
+  Phone,
+  MapPin,
+  CalendarClock,
+  CheckCircle2,
+  Sparkles,
+  Star,
+  Smartphone,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,7 +37,7 @@ import { format } from "date-fns";
 import PaymentSettingsTab from "@/components/Settings/PaymentSettingsTab";
 import { SystemConfigurationTab } from "@/components/Settings/SystemConfigurationTab";
 import { AuditLogTab } from "@/components/Settings/AuditLogTab";
-import { useCurrencyContext } from '@/contexts/CurrencyContext';
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 const Settings = () => {
   const { toast } = useToast();
@@ -26,13 +49,13 @@ const Settings = () => {
 
   // Fetch user and profile data
   const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ['profile', user?.id],
+    queryKey: ["profile", user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user?.id)
+        .from("profiles")
+        .select("*")
+        .eq("id", user?.id)
         .single();
 
       if (error) throw error;
@@ -42,13 +65,13 @@ const Settings = () => {
 
   // Fetch restaurant data
   const { data: restaurant, isLoading: restaurantLoading } = useQuery({
-    queryKey: ['restaurant', profile?.restaurant_id],
+    queryKey: ["restaurant", profile?.restaurant_id],
     enabled: !!profile?.restaurant_id,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('restaurants')
-        .select('*')
-        .eq('id', profile?.restaurant_id)
+        .from("restaurants")
+        .select("*")
+        .eq("id", profile?.restaurant_id)
         .single();
 
       if (error) throw error;
@@ -58,17 +81,17 @@ const Settings = () => {
 
   // Fetch subscription data
   const { data: subscription, isLoading: subscriptionLoading } = useQuery({
-    queryKey: ['subscription', profile?.restaurant_id],
+    queryKey: ["subscription", profile?.restaurant_id],
     enabled: !!profile?.restaurant_id,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('restaurant_subscriptions')
-        .select('*, subscription_plans(*)')
-        .eq('restaurant_id', profile?.restaurant_id)
-        .eq('status', 'active')
+        .from("restaurant_subscriptions")
+        .select("*, subscription_plans(*)")
+        .eq("restaurant_id", profile?.restaurant_id)
+        .eq("status", "active")
         .single();
 
-      if (error && error.code !== 'PGRST116') throw error; // Ignore 'no rows returned' error
+      if (error && error.code !== "PGRST116") throw error; // Ignore 'no rows returned' error
       return data;
     },
   });
@@ -79,18 +102,18 @@ const Settings = () => {
       setLoading(true);
       // Clear all queries from the cache on logout
       queryClient.clear();
-      
+
       await signOut();
-      
+
       // Redirect to auth page after sign out
-      navigate('/auth');
-      
+      navigate("/auth");
+
       toast({
         title: "Success",
         description: "Logged out successfully",
       });
     } catch (error) {
-      console.error('Error logging out:', error);
+      console.error("Error logging out:", error);
       toast({
         title: "Error",
         description: "Failed to log out",
@@ -131,8 +154,8 @@ const Settings = () => {
                 </p>
               </div>
             </div>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={handleLogout}
               className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 shadow-lg hover:shadow-xl transition-all duration-300"
               disabled={loading}
@@ -152,53 +175,57 @@ const Settings = () => {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto">
         <Tabs defaultValue="account" className="w-full">
-          <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-2xl p-2 mb-8 shadow-lg">
-            <TabsList className="w-full bg-transparent grid grid-cols-6 gap-2">
-              <TabsTrigger 
-                value="account" 
-                className="flex items-center gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-4 px-6 transition-all duration-300"
+          <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-2xl p-2 mb-8 shadow-lg overflow-x-auto">
+            <TabsList className="w-full bg-transparent flex md:grid md:grid-cols-6 gap-1 md:gap-2 min-w-max md:min-w-0">
+              <TabsTrigger
+                value="account"
+                className="flex items-center justify-center gap-2 md:gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-3 md:py-4 px-3 md:px-6 transition-all duration-300 whitespace-nowrap"
               >
-                <User className="h-5 w-5" />
-                <span className="font-semibold">Account</span>
+                <User className="h-5 w-5 flex-shrink-0" />
+                <span className="font-semibold hidden sm:inline">Account</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="restaurant" 
-                className="flex items-center gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-4 px-6 transition-all duration-300"
+              <TabsTrigger
+                value="restaurant"
+                className="flex items-center justify-center gap-2 md:gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-3 md:py-4 px-3 md:px-6 transition-all duration-300 whitespace-nowrap"
               >
-                <Building className="h-5 w-5" />
-                <span className="font-semibold">Restaurant</span>
+                <Building className="h-5 w-5 flex-shrink-0" />
+                <span className="font-semibold hidden sm:inline">
+                  Restaurant
+                </span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="subscription" 
-                className="flex items-center gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-4 px-6 transition-all duration-300"
+              <TabsTrigger
+                value="subscription"
+                className="flex items-center justify-center gap-2 md:gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-3 md:py-4 px-3 md:px-6 transition-all duration-300 whitespace-nowrap"
               >
-                <CreditCard className="h-5 w-5" />
-                <span className="font-semibold">Subscription</span>
+                <CreditCard className="h-5 w-5 flex-shrink-0" />
+                <span className="font-semibold hidden sm:inline">
+                  Subscription
+                </span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="payments" 
-                className="flex items-center gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-4 px-6 transition-all duration-300"
+              <TabsTrigger
+                value="payments"
+                className="flex items-center justify-center gap-2 md:gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-3 md:py-4 px-3 md:px-6 transition-all duration-300 whitespace-nowrap"
               >
-                <Smartphone className="h-5 w-5" />
-                <span className="font-semibold">Payments</span>
+                <Smartphone className="h-5 w-5 flex-shrink-0" />
+                <span className="font-semibold hidden sm:inline">Payments</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="system" 
-                className="flex items-center gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-4 px-6 transition-all duration-300"
+              <TabsTrigger
+                value="system"
+                className="flex items-center justify-center gap-2 md:gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-3 md:py-4 px-3 md:px-6 transition-all duration-300 whitespace-nowrap"
               >
-                <Shield className="h-5 w-5" />
-                <span className="font-semibold">System</span>
+                <Shield className="h-5 w-5 flex-shrink-0" />
+                <span className="font-semibold hidden sm:inline">System</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="audit" 
-                className="flex items-center gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-4 px-6 transition-all duration-300"
+              <TabsTrigger
+                value="audit"
+                className="flex items-center justify-center gap-2 md:gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-3 md:py-4 px-3 md:px-6 transition-all duration-300 whitespace-nowrap"
               >
-                <Clock className="h-5 w-5" />
-                <span className="font-semibold">Audit</span>
+                <Clock className="h-5 w-5 flex-shrink-0" />
+                <span className="font-semibold hidden sm:inline">Audit</span>
               </TabsTrigger>
             </TabsList>
           </div>
-          
+
           <TabsContent value="account">
             <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-2xl hover:shadow-3xl transition-all duration-500">
               <CardHeader className="pb-4 border-b border-gray-100 dark:border-gray-700">
@@ -224,7 +251,9 @@ const Settings = () => {
                         <Mail className="h-4 w-4" />
                         Email Address
                       </p>
-                      <p className="font-bold text-xl text-gray-900 dark:text-white">{user?.email}</p>
+                      <p className="font-bold text-xl text-gray-900 dark:text-white">
+                        {user?.email}
+                      </p>
                     </div>
                     <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-2xl border border-purple-100 dark:border-purple-800">
                       <p className="text-sm font-semibold text-purple-600 flex items-center gap-2 mb-2">
@@ -232,7 +261,7 @@ const Settings = () => {
                         Account Role
                       </p>
                       <Badge className="text-lg font-bold px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg capitalize">
-                        {profile?.role || 'N/A'}
+                        {profile?.role || "N/A"}
                       </Badge>
                     </div>
                   </div>
@@ -242,20 +271,24 @@ const Settings = () => {
                         <User className="h-4 w-4" />
                         First Name
                       </p>
-                      <p className="font-bold text-xl text-gray-900 dark:text-white">{profile?.first_name || 'Not Set'}</p>
+                      <p className="font-bold text-xl text-gray-900 dark:text-white">
+                        {profile?.first_name || "Not Set"}
+                      </p>
                     </div>
                     <div className="p-6 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/30 rounded-2xl border border-orange-100 dark:border-orange-800">
                       <p className="text-sm font-semibold text-orange-600 flex items-center gap-2 mb-2">
                         <User className="h-4 w-4" />
                         Last Name
                       </p>
-                      <p className="font-bold text-xl text-gray-900 dark:text-white">{profile?.last_name || 'Not Set'}</p>
+                      <p className="font-bold text-xl text-gray-900 dark:text-white">
+                        {profile?.last_name || "Not Set"}
+                      </p>
                     </div>
                   </div>
                 </div>
-                
+
                 <Separator className="my-8" />
-                
+
                 <div className="p-6 bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-700/50 dark:to-slate-700/50 rounded-2xl border border-gray-100 dark:border-gray-600">
                   <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-2">
                     <Clock className="h-4 w-4" />
@@ -263,14 +296,14 @@ const Settings = () => {
                   </p>
                   <p className="font-bold text-xl text-gray-900 dark:text-white">
                     {user?.created_at
-                      ? format(new Date(user.created_at), 'PPPP')
-                      : 'N/A'}
+                      ? format(new Date(user.created_at), "PPPP")
+                      : "N/A"}
                   </p>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="restaurant">
             <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-2xl hover:shadow-3xl transition-all duration-500">
               <CardHeader className="pb-4 border-b border-gray-100 dark:border-gray-700">
@@ -301,14 +334,18 @@ const Settings = () => {
                         <Building className="h-4 w-4" />
                         Restaurant Name
                       </p>
-                      <p className="font-bold text-xl text-gray-900 dark:text-white">{restaurant?.name || 'Not Set'}</p>
+                      <p className="font-bold text-xl text-gray-900 dark:text-white">
+                        {restaurant?.name || "Not Set"}
+                      </p>
                     </div>
                     <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-2xl border border-purple-100 dark:border-purple-800">
                       <p className="text-sm font-semibold text-purple-600 flex items-center gap-2 mb-2">
                         <MapPin className="h-4 w-4" />
                         Address
                       </p>
-                      <p className="font-medium text-lg text-gray-900 dark:text-white">{restaurant?.address || 'Not Set'}</p>
+                      <p className="font-medium text-lg text-gray-900 dark:text-white">
+                        {restaurant?.address || "Not Set"}
+                      </p>
                     </div>
                     <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-2xl border border-green-100 dark:border-green-800">
                       <p className="text-sm font-semibold text-green-600 flex items-center gap-2 mb-2">
@@ -316,9 +353,16 @@ const Settings = () => {
                         Phone Number
                       </p>
                       <p className="font-bold text-xl text-gray-900 dark:text-white">
-                        {restaurant?.phone 
-                          ? <a href={`tel:${restaurant.phone}`} className="text-blue-600 hover:text-blue-800 transition-colors duration-200">{restaurant.phone}</a>
-                          : 'Not Set'}
+                        {restaurant?.phone ? (
+                          <a
+                            href={`tel:${restaurant.phone}`}
+                            className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
+                          >
+                            {restaurant.phone}
+                          </a>
+                        ) : (
+                          "Not Set"
+                        )}
                       </p>
                     </div>
                     <div className="p-6 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/30 rounded-2xl border border-orange-100 dark:border-orange-800">
@@ -327,9 +371,16 @@ const Settings = () => {
                         Email
                       </p>
                       <p className="font-bold text-xl text-gray-900 dark:text-white">
-                        {restaurant?.email 
-                          ? <a href={`mailto:${restaurant.email}`} className="text-blue-600 hover:text-blue-800 transition-colors duration-200">{restaurant.email}</a>
-                          : 'Not Set'}
+                        {restaurant?.email ? (
+                          <a
+                            href={`mailto:${restaurant.email}`}
+                            className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
+                          >
+                            {restaurant.email}
+                          </a>
+                        ) : (
+                          "Not Set"
+                        )}
                       </p>
                     </div>
                   </div>
@@ -347,7 +398,9 @@ const Settings = () => {
                         <Shield className="h-4 w-4" />
                         GST Number
                       </p>
-                      <p className="font-bold text-xl text-gray-900 dark:text-white">{restaurant?.gstin || 'Not Set'}</p>
+                      <p className="font-bold text-xl text-gray-900 dark:text-white">
+                        {restaurant?.gstin || "Not Set"}
+                      </p>
                     </div>
                     <div className="p-6 bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-teal-900/30 dark:to-cyan-900/30 rounded-2xl border border-teal-100 dark:border-teal-800">
                       <p className="text-sm font-semibold text-teal-600 flex items-center gap-2 mb-2">
@@ -355,9 +408,18 @@ const Settings = () => {
                         Website
                       </p>
                       <p className="font-bold text-xl text-gray-900 dark:text-white">
-                        {restaurant?.website 
-                          ? <a href={restaurant.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 transition-colors duration-200">{restaurant.website}</a>
-                          : 'Not Set'}
+                        {restaurant?.website ? (
+                          <a
+                            href={restaurant.website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
+                          >
+                            {restaurant.website}
+                          </a>
+                        ) : (
+                          "Not Set"
+                        )}
                       </p>
                     </div>
                     <div className="p-6 bg-gradient-to-br from-pink-50 to-rose-50 dark:from-pink-900/30 dark:to-rose-900/30 rounded-2xl border border-pink-100 dark:border-pink-800">
@@ -365,14 +427,18 @@ const Settings = () => {
                         <CreditCard className="h-4 w-4" />
                         Registration Number
                       </p>
-                      <p className="font-bold text-xl text-gray-900 dark:text-white">{restaurant?.registration_number || 'Not Set'}</p>
+                      <p className="font-bold text-xl text-gray-900 dark:text-white">
+                        {restaurant?.registration_number || "Not Set"}
+                      </p>
                     </div>
                     <div className="p-6 bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/30 dark:to-amber-900/30 rounded-2xl border border-yellow-100 dark:border-yellow-800">
                       <p className="text-sm font-semibold text-yellow-600 flex items-center gap-2 mb-2">
                         <Shield className="h-4 w-4" />
                         License Number
                       </p>
-                      <p className="font-bold text-xl text-gray-900 dark:text-white">{restaurant?.license_number || 'Not Set'}</p>
+                      <p className="font-bold text-xl text-gray-900 dark:text-white">
+                        {restaurant?.license_number || "Not Set"}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -389,7 +455,9 @@ const Settings = () => {
                         <User className="h-4 w-4" />
                         Owner Name
                       </p>
-                      <p className="font-bold text-xl text-gray-900 dark:text-white">{restaurant?.owner_name || 'Not Set'}</p>
+                      <p className="font-bold text-xl text-gray-900 dark:text-white">
+                        {restaurant?.owner_name || "Not Set"}
+                      </p>
                     </div>
                     <div className="p-6 bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/30 dark:to-purple-900/30 rounded-2xl border border-violet-100 dark:border-violet-800">
                       <p className="text-sm font-semibold text-violet-600 flex items-center gap-2 mb-2">
@@ -397,9 +465,12 @@ const Settings = () => {
                         Established Date
                       </p>
                       <p className="font-bold text-xl text-gray-900 dark:text-white">
-                        {restaurant?.established_date 
-                          ? format(new Date(restaurant.established_date), 'PPPP')
-                          : 'Not Set'}
+                        {restaurant?.established_date
+                          ? format(
+                              new Date(restaurant.established_date),
+                              "PPPP"
+                            )
+                          : "Not Set"}
                       </p>
                     </div>
                     <div className="p-6 bg-gradient-to-br from-cyan-50 to-sky-50 dark:from-cyan-900/30 dark:to-sky-900/30 rounded-2xl border border-cyan-100 dark:border-cyan-800">
@@ -407,7 +478,9 @@ const Settings = () => {
                         <User className="h-4 w-4" />
                         Seating Capacity
                       </p>
-                      <p className="font-bold text-xl text-gray-900 dark:text-white">{restaurant?.seating_capacity || 'Not Set'}</p>
+                      <p className="font-bold text-xl text-gray-900 dark:text-white">
+                        {restaurant?.seating_capacity || "Not Set"}
+                      </p>
                     </div>
                     <div className="p-6 bg-gradient-to-br from-slate-50 to-gray-50 dark:from-slate-700/50 dark:to-gray-700/50 rounded-2xl border border-slate-100 dark:border-slate-600">
                       <p className="text-sm font-semibold text-slate-600 flex items-center gap-2 mb-2">
@@ -415,9 +488,13 @@ const Settings = () => {
                         Rating
                       </p>
                       <p className="font-bold text-xl text-gray-900 dark:text-white">
-                        {restaurant?.rating ? `${restaurant.rating}/5.0` : 'Not Rated'}
+                        {restaurant?.rating
+                          ? `${restaurant.rating}/5.0`
+                          : "Not Rated"}
                         {restaurant?.total_reviews > 0 && (
-                          <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">({restaurant.total_reviews} reviews)</span>
+                          <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                            ({restaurant.total_reviews} reviews)
+                          </span>
                         )}
                       </p>
                     </div>
@@ -427,15 +504,19 @@ const Settings = () => {
                 {/* Description */}
                 {restaurant?.description && (
                   <div className="mb-10">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Description</h3>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
+                      Description
+                    </h3>
                     <div className="p-6 bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-700/50 dark:to-slate-700/50 rounded-2xl border border-gray-100 dark:border-gray-600">
-                      <p className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed">{restaurant.description}</p>
+                      <p className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed">
+                        {restaurant.description}
+                      </p>
                     </div>
                   </div>
                 )}
-                
+
                 <Separator className="my-8" />
-                
+
                 <div className="p-6 bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-700/50 dark:to-slate-700/50 rounded-2xl border border-gray-100 dark:border-gray-600">
                   <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-2">
                     <CalendarClock className="h-4 w-4" />
@@ -443,14 +524,14 @@ const Settings = () => {
                   </p>
                   <p className="font-bold text-xl text-gray-900 dark:text-white">
                     {restaurant?.created_at
-                      ? format(new Date(restaurant.created_at), 'PPPP')
-                      : 'N/A'}
+                      ? format(new Date(restaurant.created_at), "PPPP")
+                      : "N/A"}
                   </p>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="subscription">
             <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-2xl hover:shadow-3xl transition-all duration-500">
               <CardHeader className="pb-4 border-b border-gray-100 dark:border-gray-700">
@@ -476,24 +557,30 @@ const Settings = () => {
                         <div>
                           <div className="flex items-center gap-3 mb-4">
                             <Star className="h-8 w-8 text-yellow-300" />
-                            <p className="text-white/80 text-lg font-medium">Current Plan</p>
+                            <p className="text-white/80 text-lg font-medium">
+                              Current Plan
+                            </p>
                           </div>
                           <h3 className="text-3xl font-bold mb-4">
-                            {subscription.subscription_plans?.name || 'Standard Plan'}
+                            {subscription.subscription_plans?.name ||
+                              "Standard Plan"}
                           </h3>
                           <Badge className="bg-green-500 hover:bg-green-500 text-white border-0 text-lg font-bold px-4 py-2 shadow-lg">
                             <CheckCircle2 className="mr-2 h-5 w-5" /> Active
                           </Badge>
                         </div>
                         <div className="text-right">
-                          <p className="text-white/80 text-lg font-medium mb-2">Monthly Price</p>
+                          <p className="text-white/80 text-lg font-medium mb-2">
+                            Monthly Price
+                          </p>
                           <p className="text-4xl font-bold">
-                            {currencySymbol}{subscription.subscription_plans?.price || 'N/A'}
+                            {currencySymbol}
+                            {subscription.subscription_plans?.price || "N/A"}
                           </p>
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                       <div className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-2xl border border-blue-100 dark:border-blue-800">
                         <p className="text-sm font-semibold text-blue-600 flex items-center gap-2 mb-2">
@@ -502,8 +589,11 @@ const Settings = () => {
                         </p>
                         <p className="font-bold text-xl text-gray-900 dark:text-white">
                           {subscription?.current_period_start
-                            ? format(new Date(subscription.current_period_start), 'PPP')
-                            : 'N/A'}
+                            ? format(
+                                new Date(subscription.current_period_start),
+                                "PPP"
+                              )
+                            : "N/A"}
                         </p>
                       </div>
                       <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-2xl border border-purple-100 dark:border-purple-800">
@@ -513,12 +603,15 @@ const Settings = () => {
                         </p>
                         <p className="font-bold text-xl text-gray-900 dark:text-white">
                           {subscription?.current_period_end
-                            ? format(new Date(subscription.current_period_end), 'PPP')
-                            : 'N/A'}
+                            ? format(
+                                new Date(subscription.current_period_end),
+                                "PPP"
+                              )
+                            : "N/A"}
                         </p>
                       </div>
                     </div>
-                    
+
                     {subscription.subscription_plans?.features && (
                       <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-2xl border border-green-100 dark:border-green-800">
                         <p className="text-lg font-bold text-green-700 mb-4 flex items-center gap-2">
@@ -526,25 +619,37 @@ const Settings = () => {
                           Plan Features
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {Array.isArray(subscription.subscription_plans.features) && 
-                            subscription.subscription_plans.features.map((feature: string, index: number) => (
-                              <div key={index} className="flex items-center gap-3 p-3 bg-white dark:bg-gray-700 rounded-xl shadow-sm">
-                                <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
-                                <span className="font-medium text-gray-900 dark:text-white">{feature}</span>
-                              </div>
-                            ))
-                          }
+                          {Array.isArray(
+                            subscription.subscription_plans.features
+                          ) &&
+                            subscription.subscription_plans.features.map(
+                              (feature: string, index: number) => (
+                                <div
+                                  key={index}
+                                  className="flex items-center gap-3 p-3 bg-white dark:bg-gray-700 rounded-xl shadow-sm"
+                                >
+                                  <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
+                                  <span className="font-medium text-gray-900 dark:text-white">
+                                    {feature}
+                                  </span>
+                                </div>
+                              )
+                            )}
                         </div>
                       </div>
                     )}
                   </>
                 ) : (
                   <div className="text-center py-12">
-                      <div className="p-6 bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-700/50 dark:to-slate-700/50 rounded-3xl border border-gray-200 dark:border-gray-600 max-w-md mx-auto">
+                    <div className="p-6 bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-700/50 dark:to-slate-700/50 rounded-3xl border border-gray-200 dark:border-gray-600 max-w-md mx-auto">
                       <CreditCard className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No Active Subscription</h3>
-                      <p className="text-gray-600 dark:text-gray-400 mb-6">Choose a plan to unlock all features</p>
-                      <Button 
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                        No Active Subscription
+                      </h3>
+                      <p className="text-gray-600 dark:text-gray-400 mb-6">
+                        Choose a plan to unlock all features
+                      </p>
+                      <Button
                         className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
                         size="lg"
                       >
@@ -559,10 +664,12 @@ const Settings = () => {
                   <p className="text-gray-600 dark:text-gray-400 font-medium">
                     Need help with your subscription?
                   </p>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="bg-white dark:bg-gray-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 hover:text-indigo-700 dark:hover:text-indigo-300 border-indigo-200 dark:border-indigo-700 dark:text-white font-semibold px-6 py-2 rounded-xl shadow-md hover:shadow-lg transition-all duration-300"
-                    onClick={() => window.open('mailto:support@swadeshi.solutions', '_blank')}
+                    onClick={() =>
+                      window.open("mailto:support@swadeshi.solutions", "_blank")
+                    }
                   >
                     Contact Support
                   </Button>
@@ -570,15 +677,15 @@ const Settings = () => {
               </CardFooter>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="payments">
             <PaymentSettingsTab />
           </TabsContent>
-          
+
           <TabsContent value="system">
             <SystemConfigurationTab />
           </TabsContent>
-          
+
           <TabsContent value="audit">
             <AuditLogTab />
           </TabsContent>
