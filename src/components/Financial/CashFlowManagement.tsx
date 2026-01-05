@@ -1,11 +1,22 @@
-
 import React, { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useFinancialData } from "@/hooks/useFinancialData";
-import { TrendingUp, TrendingDown, DollarSign, Clock, AlertTriangle } from "lucide-react";
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Clock,
+  AlertTriangle,
+} from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
@@ -15,9 +26,9 @@ export const CashFlowManagement = () => {
   const { toast } = useToast();
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
     }).format(amount);
   };
 
@@ -27,7 +38,7 @@ export const CashFlowManagement = () => {
         title: "Generating Cash Flow Report",
         description: "Your report is being prepared...",
       });
-      
+
       if (!financialData?.restaurantId) {
         toast({
           title: "Error",
@@ -39,43 +50,53 @@ export const CashFlowManagement = () => {
 
       // Generate CSV content
       const csvContent = [
-        ['Date', 'Type', 'Description', 'Amount', 'Status'],
-        ...overdueInvoices.map(invoice => [
+        ["Date", "Type", "Description", "Amount", "Status"],
+        ...overdueInvoices.map((invoice) => [
           format(new Date(invoice.due_date), "yyyy-MM-dd"),
-          'Receivable (Overdue)',
+          "Receivable (Overdue)",
           `Invoice ${invoice.invoice_number} - ${invoice.customer_name}`,
           (invoice.total_amount - invoice.paid_amount).toString(),
-          invoice.status
+          invoice.status,
         ]),
         ...financialData.invoices
-          .filter(invoice => invoice.status !== 'paid' && invoice.status !== 'cancelled' && !overdueInvoices.find(o => o.id === invoice.id))
-          .map(invoice => [
+          .filter(
+            (invoice) =>
+              invoice.status !== "paid" &&
+              invoice.status !== "cancelled" &&
+              !overdueInvoices.find((o) => o.id === invoice.id)
+          )
+          .map((invoice) => [
             format(new Date(invoice.due_date), "yyyy-MM-dd"),
-            'Receivable',
+            "Receivable",
             `Invoice ${invoice.invoice_number} - ${invoice.customer_name}`,
             (invoice.total_amount - invoice.paid_amount).toString(),
-            invoice.status
+            invoice.status,
           ]),
-        ...recentPayments.map(payment => [
+        ...recentPayments.map((payment) => [
           format(new Date(payment.payment_date), "yyyy-MM-dd"),
-          'Payment Received',
+          "Payment Received",
           `Payment ${payment.payment_number}`,
           payment.amount.toString(),
-          'Completed'
-        ])
-      ].map(row => row.join(',')).join('\n');
+          "Completed",
+        ]),
+      ]
+        .map((row) => row.join(","))
+        .join("\n");
 
       // Create and download file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
       const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `cash-flow-report-${format(new Date(), 'yyyy-MM-dd')}.csv`);
-      link.style.visibility = 'hidden';
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `cash-flow-report-${format(new Date(), "yyyy-MM-dd")}.csv`
+      );
+      link.style.visibility = "hidden";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       toast({
         title: "Report Generated",
         description: "Cash flow report has been downloaded successfully",
@@ -92,18 +113,24 @@ export const CashFlowManagement = () => {
   const getOverdueInvoices = () => {
     if (!financialData?.invoices) return [];
     const today = new Date();
-    return financialData.invoices.filter(invoice => 
-      new Date(invoice.due_date) < today && 
-      invoice.status !== 'paid' && 
-      invoice.status !== 'cancelled'
+    return financialData.invoices.filter(
+      (invoice) =>
+        new Date(invoice.due_date) < today &&
+        invoice.status !== "paid" &&
+        invoice.status !== "cancelled"
     );
   };
 
   const getTotalReceivables = () => {
     if (!financialData?.invoices) return 0;
     return financialData.invoices
-      .filter(invoice => invoice.status !== 'paid' && invoice.status !== 'cancelled')
-      .reduce((sum, invoice) => sum + (invoice.total_amount - invoice.paid_amount), 0);
+      .filter(
+        (invoice) => invoice.status !== "paid" && invoice.status !== "cancelled"
+      )
+      .reduce(
+        (sum, invoice) => sum + (invoice.total_amount - invoice.paid_amount),
+        0
+      );
   };
 
   const getRecentPayments = () => {
@@ -121,19 +148,30 @@ export const CashFlowManagement = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Cash Flow Management</h2>
-          <p className="text-muted-foreground">Monitor your cash inflows and outflows</p>
+          <h2 className="text-xl md:text-2xl font-bold">
+            Cash Flow Management
+          </h2>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Monitor your cash inflows and outflows
+          </p>
         </div>
-        <Button onClick={() => handleGenerateCashFlowReport()}>Generate Cash Flow Report</Button>
+        <Button
+          onClick={() => handleGenerateCashFlowReport()}
+          className="w-full sm:w-auto text-sm"
+        >
+          Generate Cash Flow Report
+        </Button>
       </div>
 
       {/* Cash Flow Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Receivables</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Receivables
+            </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -141,21 +179,28 @@ export const CashFlowManagement = () => {
               <CurrencyDisplay amount={totalReceivables} />
             </div>
             <p className="text-xs text-muted-foreground">
-              From {financialData?.invoices?.filter(i => i.status !== 'paid').length || 0} unpaid invoices
+              From{" "}
+              {financialData?.invoices?.filter((i) => i.status !== "paid")
+                .length || 0}{" "}
+              unpaid invoices
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overdue Amount</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Overdue Amount
+            </CardTitle>
             <AlertTriangle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              <CurrencyDisplay 
-                amount={overdueInvoices.reduce((sum, invoice) => 
-                  sum + (invoice.total_amount - invoice.paid_amount), 0
+              <CurrencyDisplay
+                amount={overdueInvoices.reduce(
+                  (sum, invoice) =>
+                    sum + (invoice.total_amount - invoice.paid_amount),
+                  0
                 )}
               />
             </div>
@@ -167,13 +212,18 @@ export const CashFlowManagement = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Month Payments</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              This Month Payments
+            </CardTitle>
             <TrendingUp className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              <CurrencyDisplay 
-                amount={recentPayments.reduce((sum, payment) => sum + payment.amount, 0)}
+              <CurrencyDisplay
+                amount={recentPayments.reduce(
+                  (sum, payment) => sum + payment.amount,
+                  0
+                )}
               />
             </div>
             <p className="text-xs text-muted-foreground">
@@ -184,11 +234,28 @@ export const CashFlowManagement = () => {
       </div>
 
       <Tabs defaultValue="receivables" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="receivables">Receivables</TabsTrigger>
-          <TabsTrigger value="payments">Recent Payments</TabsTrigger>
-          <TabsTrigger value="forecast">Cash Forecast</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="flex md:grid md:grid-cols-3 w-max md:w-full gap-1">
+            <TabsTrigger
+              value="receivables"
+              className="text-xs md:text-sm px-3 md:px-4 whitespace-nowrap"
+            >
+              Receivables
+            </TabsTrigger>
+            <TabsTrigger
+              value="payments"
+              className="text-xs md:text-sm px-3 md:px-4 whitespace-nowrap"
+            >
+              Recent Payments
+            </TabsTrigger>
+            <TabsTrigger
+              value="forecast"
+              className="text-xs md:text-sm px-3 md:px-4 whitespace-nowrap"
+            >
+              Cash Forecast
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="receivables" className="mt-6">
           <Card>
@@ -201,11 +268,16 @@ export const CashFlowManagement = () => {
             <CardContent>
               <div className="space-y-4">
                 {financialData?.invoices
-                  ?.filter(invoice => invoice.status !== 'paid' && invoice.status !== 'cancelled')
+                  ?.filter(
+                    (invoice) =>
+                      invoice.status !== "paid" &&
+                      invoice.status !== "cancelled"
+                  )
                   .map((invoice) => {
                     const isOverdue = new Date(invoice.due_date) < new Date();
-                    const remainingAmount = invoice.total_amount - invoice.paid_amount;
-                    
+                    const remainingAmount =
+                      invoice.total_amount - invoice.paid_amount;
+
                     return (
                       <div
                         key={invoice.id}
@@ -213,15 +285,18 @@ export const CashFlowManagement = () => {
                       >
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">{invoice.invoice_number}</span>
-                            <Badge 
+                            <span className="font-medium">
+                              {invoice.invoice_number}
+                            </span>
+                            <Badge
                               variant={isOverdue ? "destructive" : "secondary"}
                             >
                               {isOverdue ? "Overdue" : invoice.status}
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            {invoice.customer_name} • Due: {format(new Date(invoice.due_date), "MMM dd, yyyy")}
+                            {invoice.customer_name} • Due:{" "}
+                            {format(new Date(invoice.due_date), "MMM dd, yyyy")}
                           </p>
                         </div>
                         <div className="text-right">
@@ -237,8 +312,9 @@ export const CashFlowManagement = () => {
                       </div>
                     );
                   })}
-                
-                {(!financialData?.invoices || financialData.invoices.length === 0) && (
+
+                {(!financialData?.invoices ||
+                  financialData.invoices.length === 0) && (
                   <div className="text-center py-8 text-muted-foreground">
                     No outstanding receivables
                   </div>
@@ -265,12 +341,17 @@ export const CashFlowManagement = () => {
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{payment.payment_number}</span>
-                        <Badge variant="outline">{payment.payment_method}</Badge>
+                        <span className="font-medium">
+                          {payment.payment_number}
+                        </span>
+                        <Badge variant="outline">
+                          {payment.payment_method}
+                        </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
                         {format(new Date(payment.payment_date), "MMM dd, yyyy")}
-                        {payment.reference_number && ` • Ref: ${payment.reference_number}`}
+                        {payment.reference_number &&
+                          ` • Ref: ${payment.reference_number}`}
                       </p>
                     </div>
                     <div className="text-right">
@@ -280,7 +361,7 @@ export const CashFlowManagement = () => {
                     </div>
                   </div>
                 ))}
-                
+
                 {recentPayments.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
                     No recent payments
@@ -303,7 +384,8 @@ export const CashFlowManagement = () => {
               <div className="text-center py-8 text-muted-foreground">
                 Cash flow forecasting feature coming soon...
                 <br />
-                This will show projected income from pending invoices and scheduled expenses.
+                This will show projected income from pending invoices and
+                scheduled expenses.
               </div>
             </CardContent>
           </Card>
