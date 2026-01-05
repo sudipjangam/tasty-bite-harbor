@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#ffffff"/>
+  
+  <!-- Triangle (Prosperity Pyramid) -->
+  <polygon points="256,60 450,420 62,420" fill="none" stroke="#1e3a8a" stroke-width="24" stroke-linejoin="round"/>
+  
+  <!-- Stylized S -->
+  <path d="M 200,180 
+           C 200,180 320,140 320,200 
+           C 320,240 200,240 200,280 
+           C 200,340 320,300 320,300" 
+        fill="none" 
+        stroke="#1e3a8a" 
+        stroke-width="28" 
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+</svg>
