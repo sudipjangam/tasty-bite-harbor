@@ -97,12 +97,97 @@ const Stats = () => {
     );
   };
 
+  // ===== DYNAMIC TREND CALCULATIONS =====
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toDateString();
+
+  // Current month and previous month boundaries
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+  // 1. Total Sales Trend: This month vs last month
+  const thisMonthSales = completedRevenue
+    .filter((item) => new Date(item.created_at) >= currentMonthStart)
+    .reduce((sum, item) => sum + getActualRevenue(item), 0);
+
+  const lastMonthSales = completedRevenue
+    .filter((item) => {
+      const date = new Date(item.created_at);
+      return date >= previousMonthStart && date <= previousMonthEnd;
+    })
+    .reduce((sum, item) => sum + getActualRevenue(item), 0);
+
+  const salesTrendPercent =
+    lastMonthSales > 0
+      ? (((thisMonthSales - lastMonthSales) / lastMonthSales) * 100).toFixed(1)
+      : thisMonthSales > 0
+      ? "+100"
+      : "0";
+  const salesTrend = `${
+    Number(salesTrendPercent) >= 0 ? "+" : ""
+  }${salesTrendPercent}%`;
+
+  // 2. Active Orders Trend: Today vs yesterday
+  const yesterdaysActiveOrders = orders.filter((order) => {
+    const isYesterday =
+      new Date(order.created_at).toDateString() === yesterdayStr;
+    const isActive = ["pending", "preparing", "ready", "held"].includes(
+      order.status
+    );
+    return isYesterday && isActive;
+  }).length;
+
+  const ordersDiff = activeOrdersCount - yesterdaysActiveOrders;
+  const ordersTrend = `${ordersDiff >= 0 ? "+" : ""}${ordersDiff}`;
+
+  // 3. Customers Trend: This month's unique customers vs last month
+  const thisMonthCustomers = new Set(
+    orders
+      .filter((order) => new Date(order.created_at) >= currentMonthStart)
+      .map((order) => order.customer_name)
+      .filter(Boolean)
+  ).size;
+
+  const lastMonthCustomers = new Set(
+    orders
+      .filter((order) => {
+        const date = new Date(order.created_at);
+        return date >= previousMonthStart && date <= previousMonthEnd;
+      })
+      .map((order) => order.customer_name)
+      .filter(Boolean)
+  ).size;
+
+  const customersDiff = thisMonthCustomers - lastMonthCustomers;
+  const customersTrend = `${customersDiff >= 0 ? "+" : ""}${customersDiff}`;
+
+  // 4. Today's Revenue Trend: Today vs yesterday
+  const yesterdaysRevenue = completedRevenue
+    .filter((item) => new Date(item.created_at).toDateString() === yesterdayStr)
+    .reduce((sum, item) => sum + getActualRevenue(item), 0);
+
+  const revenueTrendPercent =
+    yesterdaysRevenue > 0
+      ? (
+          ((todaysRevenue - yesterdaysRevenue) / yesterdaysRevenue) *
+          100
+        ).toFixed(1)
+      : todaysRevenue > 0
+      ? "+100"
+      : "0";
+  const revenueTrend = `${
+    Number(revenueTrendPercent) >= 0 ? "+" : ""
+  }${revenueTrendPercent}%`;
+
   const stats = [
     {
       title: "Total Sales",
       value: formatIndianCurrency(totalSales).formatted,
       icon: DollarSign,
-      trend: "+12.5%",
+      trend: salesTrend,
       color: "text-emerald-600 dark:text-emerald-400",
       gradient: "from-emerald-500 via-teal-500 to-emerald-600",
       shadow: "shadow-emerald-500/20",
@@ -114,7 +199,7 @@ const Stats = () => {
       title: "Active Orders",
       value: activeOrdersCount.toString(),
       icon: ShoppingBag,
-      trend: "+3",
+      trend: ordersTrend,
       color: "text-blue-600 dark:text-blue-400",
       gradient: "from-blue-500 via-indigo-500 to-blue-600",
       shadow: "shadow-blue-500/20",
@@ -125,7 +210,7 @@ const Stats = () => {
       title: "Customers",
       value: uniqueCustomers.toString(),
       icon: Users,
-      trend: "+5",
+      trend: customersTrend,
       color: "text-purple-600 dark:text-purple-400",
       gradient: "from-violet-500 via-purple-500 to-fuchsia-600",
       shadow: "shadow-purple-500/20",
@@ -140,7 +225,7 @@ const Stats = () => {
       title: "Today's Revenue",
       value: formatIndianCurrency(todaysRevenue).formatted,
       icon: TrendingUp,
-      trend: "+8.2%",
+      trend: revenueTrend,
       color: "text-orange-600 dark:text-orange-400",
       gradient: "from-orange-500 via-amber-500 to-orange-600",
       shadow: "shadow-orange-500/20",
