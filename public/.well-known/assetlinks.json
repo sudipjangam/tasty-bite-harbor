@@ -3,9 +3,9 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.swadeshisolutions.restaurant",
+      "package_name": "in.swadeshisolutions.app",
       "sha256_cert_fingerprints": [
-        "REPLACE_WITH_YOUR_SHA256_FINGERPRINT_FROM_PWABUILDER"
+        "49:18:AB:FD:1E:0E:D5:E8:B8:19:20:62:93:CE:F8:55:21:EA:39:5D:50:56:FA:DF:28:3E:41:BD:D9:1C:7B:52"
       ]
     }
   }
