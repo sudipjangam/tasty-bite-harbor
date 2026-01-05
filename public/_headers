@@ -28,3 +28,14 @@
 # Root HTML should not be cached
 /index.html
   Cache-Control: public, max-age=0, must-revalidate
+
+# PWA Manifest
+/manifest.json
+  Content-Type: application/manifest+json
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Digital Asset Links for TWA
+/.well-known/*
+  Content-Type: application/json
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=0, must-revalidate
