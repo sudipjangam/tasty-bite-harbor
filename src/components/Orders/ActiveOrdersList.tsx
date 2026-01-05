@@ -448,22 +448,22 @@ const ActiveOrdersList = ({
   ) => {
     // Purple for all items delivered (ready for payment) - takes priority
     if (allDelivered && status !== "completed") {
-      return "bg-gradient-to-br from-purple-50 via-violet-100 to-indigo-100 border-l-4 border-purple-500 shadow-lg shadow-purple-100/50 hover:shadow-purple-200/60 hover:scale-[1.01] transition-all duration-200";
+      return "bg-gradient-to-br from-purple-100 via-violet-150 to-indigo-200 border-l-4 border-purple-500 shadow-lg shadow-purple-200/60 hover:shadow-purple-300/70 hover:scale-[1.01] transition-all duration-200";
     }
 
     switch (status) {
       case "new":
-        return "bg-gradient-to-br from-white via-slate-50 to-gray-100 border-l-4 border-indigo-400 shadow-md hover:shadow-lg hover:shadow-indigo-100/50 hover:scale-[1.01] transition-all duration-200";
+        return "bg-gradient-to-br from-slate-50 via-indigo-50 to-blue-100 border-l-4 border-indigo-500 shadow-md hover:shadow-lg hover:shadow-indigo-200/60 hover:scale-[1.01] transition-all duration-200";
       case "preparing":
-        return "bg-gradient-to-br from-red-50 via-orange-50 to-amber-100 border-l-4 border-red-500 shadow-lg shadow-red-100/50 hover:shadow-red-200/60 hover:scale-[1.01] transition-all duration-200";
+        return "bg-gradient-to-br from-red-100 via-orange-100 to-amber-150 border-l-4 border-red-500 shadow-lg shadow-red-200/60 hover:shadow-red-300/70 hover:scale-[1.01] transition-all duration-200";
       case "ready":
-        return "bg-gradient-to-br from-green-50 via-emerald-100 to-teal-100 border-l-4 border-green-500 shadow-lg shadow-green-100/50 hover:shadow-green-200/60 hover:scale-[1.01] transition-all duration-200";
+        return "bg-gradient-to-br from-green-100 via-emerald-150 to-teal-200 border-l-4 border-green-500 shadow-lg shadow-green-200/60 hover:shadow-green-300/70 hover:scale-[1.01] transition-all duration-200";
       case "completed":
-        return "bg-gradient-to-br from-blue-50 via-sky-100 to-cyan-100 border-l-4 border-blue-500 shadow-lg shadow-blue-100/50 hover:shadow-blue-200/60 hover:scale-[1.01] transition-all duration-200";
+        return "bg-gradient-to-br from-blue-100 via-sky-150 to-cyan-200 border-l-4 border-blue-500 shadow-lg shadow-blue-200/60 hover:shadow-blue-300/70 hover:scale-[1.01] transition-all duration-200";
       case "held":
-        return "bg-gradient-to-br from-amber-50 via-yellow-100 to-orange-100 border-l-4 border-amber-500 shadow-lg shadow-amber-100/50 hover:shadow-amber-200/60 hover:scale-[1.01] transition-all duration-200";
+        return "bg-gradient-to-br from-amber-100 via-yellow-150 to-orange-200 border-l-4 border-amber-500 shadow-lg shadow-amber-200/60 hover:shadow-amber-300/70 hover:scale-[1.01] transition-all duration-200";
       default:
-        return "bg-white border shadow-sm hover:shadow-md transition-all duration-200";
+        return "bg-gradient-to-br from-gray-50 to-slate-100 border-l-4 border-gray-400 shadow-sm hover:shadow-md transition-all duration-200";
     }
   };
 
