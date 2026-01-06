@@ -1,7 +1,6 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash, Check, Clock } from "lucide-react";
+import { Edit, Trash, Check, Clock, Printer } from "lucide-react";
 import type { Order } from "@/types/orders";
 
 interface OrderActionsProps {
@@ -10,6 +9,7 @@ interface OrderActionsProps {
   onEdit?: (order: Order) => void;
   onStatusUpdate?: (orderId: string, newStatus: string) => void;
   onDelete?: (orderId: string) => void;
+  onPrintBill?: (order: Order) => void;
 }
 
 const OrderActions: React.FC<OrderActionsProps> = ({
@@ -18,6 +18,7 @@ const OrderActions: React.FC<OrderActionsProps> = ({
   onEdit,
   onStatusUpdate,
   onDelete,
+  onPrintBill,
 }) => {
   // Return early if order is undefined or null
   if (!order) {
@@ -38,8 +39,9 @@ const OrderActions: React.FC<OrderActionsProps> = ({
           <span className="ml-1">Edit</span>
         </Button>
       )}
-      
-      {onStatusUpdate && (order.status === "pending" || order.status === "preparing") ? (
+
+      {onStatusUpdate &&
+      (order.status === "pending" || order.status === "preparing") ? (
         <Button
           variant="outline"
           size="sm"
@@ -62,7 +64,21 @@ const OrderActions: React.FC<OrderActionsProps> = ({
           <span className="ml-1">Pending</span>
         </Button>
       ) : null}
-      
+
+      {/* Print Bill Button */}
+      {onPrintBill && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPrintBill(order)}
+          disabled={loading}
+          className="bg-purple-50 text-purple-600 hover:bg-purple-100 border-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:hover:bg-purple-900"
+        >
+          <Printer className="w-4 h-4" />
+          <span className="ml-1">Print Bill</span>
+        </Button>
+      )}
+
       {onDelete && (
         <Button
           variant="outline"
