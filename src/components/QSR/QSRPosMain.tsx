@@ -4,6 +4,7 @@ import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useQSRMenuItems, QSRMenuItem } from "@/hooks/useQSRMenuItems";
 import { useQSRTables } from "@/hooks/useQSRTables";
 import { useActiveKitchenOrders } from "@/hooks/useActiveKitchenOrders";
+import { usePastOrders } from "@/hooks/usePastOrders";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -21,6 +22,7 @@ import { QSRTableGrid } from "./QSRTableGrid";
 import { QSRMenuGrid } from "./QSRMenuGrid";
 import { QSROrderPad } from "./QSROrderPad";
 import { QSRActiveOrdersDrawer } from "./QSRActiveOrdersDrawer";
+import { QSRPastOrdersDrawer } from "./QSRPastOrdersDrawer";
 import { QSRCustomItemDialog } from "./QSRCustomItemDialog";
 import { QSRCartBottomSheet, QSRCartFAB } from "./QSRCartBottomSheet";
 import {
@@ -31,6 +33,7 @@ import {
   LayoutGrid,
   RefreshCw,
   TrendingUp,
+  Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PaymentDialog from "@/components/Orders/POS/PaymentDialog";
@@ -43,6 +46,7 @@ export const QSRPosMain: React.FC = () => {
   const [selectedTable, setSelectedTable] = useState<QSRTable | null>(null);
   const [orderItems, setOrderItems] = useState<QSROrderItem[]>([]);
   const [showActiveOrders, setShowActiveOrders] = useState(false);
+  const [showPastOrders, setShowPastOrders] = useState(false);
   const [showCustomItemDialog, setShowCustomItemDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showMobileCart, setShowMobileCart] = useState(false);
@@ -86,6 +90,14 @@ export const QSRPosMain: React.FC = () => {
     setStatusFilter,
     toggleItemCompletion,
   } = useActiveKitchenOrders();
+  const {
+    orders: pastOrders,
+    isLoading: pastOrdersLoading,
+    searchQuery: pastSearchQuery,
+    setSearchQuery: setPastSearchQuery,
+    dateFilter: pastDateFilter,
+    setDateFilter: setPastDateFilter,
+  } = usePastOrders();
 
   // Get attendant name
   const attendantName = user
@@ -967,6 +979,16 @@ export const QSRPosMain: React.FC = () => {
                   </span>
                 )}
               </Button>
+              {/* Past Orders Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPastOrders(true)}
+                className="flex items-center gap-2"
+              >
+                <Receipt className="w-4 h-4" />
+                <span className="hidden sm:inline">Past Orders</span>
+              </Button>
               {/* Today's Revenue Badge */}
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg shadow-sm">
                 <TrendingUp className="w-4 h-4" />
@@ -1092,6 +1114,19 @@ export const QSRPosMain: React.FC = () => {
         onRecallOrder={handleRecallOrder}
         onProceedToPayment={handleProceedToPayment}
         onToggleItemCompletion={toggleItemCompletion}
+        restaurantName={restaurantName}
+      />
+
+      {/* Past Orders Drawer */}
+      <QSRPastOrdersDrawer
+        isOpen={showPastOrders}
+        onClose={() => setShowPastOrders(false)}
+        orders={pastOrders}
+        isLoading={pastOrdersLoading}
+        searchQuery={pastSearchQuery}
+        onSearchChange={setPastSearchQuery}
+        dateFilter={pastDateFilter}
+        onDateFilterChange={setPastDateFilter}
         restaurantName={restaurantName}
       />
 
