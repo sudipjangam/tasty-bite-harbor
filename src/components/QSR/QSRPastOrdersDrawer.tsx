@@ -22,10 +22,7 @@ import { exportToExcel } from "@/utils/exportUtils";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
-import jsPDF from "jspdf";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useRestaurantId } from "@/hooks/useRestaurantId";
+import PaymentDialog from "@/components/Orders/POS/PaymentDialog";
 
 interface QSRPastOrdersDrawerProps {
   isOpen: boolean;
@@ -58,29 +55,15 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
   restaurantName = "Restaurant",
 }) => {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [selectedOrderForPayment, setSelectedOrderForPayment] =
+    useState<PastOrder | null>(null);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const { symbol: currencySymbol } = useCurrencyContext();
-  const { restaurantId } = useRestaurantId();
 
   // Maximum items to show before "Show more"
   const MAX_VISIBLE_ITEMS = 3;
-
-  // Fetch restaurant settings for bill printing
-  const { data: restaurantInfo } = useQuery({
-    queryKey: ["restaurant-settings", restaurantId],
-    queryFn: async () => {
-      if (!restaurantId) return null;
-      const { data } = await supabase
-        .from("restaurant_settings")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!restaurantId,
-    staleTime: 1000 * 60 * 30, // 30 min cache
-  });
 
   // Toggle order expansion
   const toggleOrderExpansion = (orderId: string) => {
@@ -101,219 +84,16 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
     user?.role?.toLowerCase() === "manager" ||
     user?.role?.toLowerCase() === "owner";
 
-  // Print bill using jsPDF (same as PaymentDialog)
-  const handlePrintBill = (order: PastOrder) => {
-    try {
-      const doc = new jsPDF({
-        format: [58, 297], // 58mm thermal printer width
-        unit: "mm",
-      });
+  // Open PaymentDialog for an order (for print bill or view details)
+  const handleOpenPaymentDialog = (order: PastOrder) => {
+    setSelectedOrderForPayment(order);
+    setShowPaymentDialog(true);
+  };
 
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 0.5;
-      const printSymbol = currencySymbol === "₹" ? "Rs." : currencySymbol;
-      const contentWidth = pageWidth - margin * 2;
-      let yPos = 5;
-
-      // Restaurant Header
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      const restName = restaurantInfo?.name || restaurantName || "Restaurant";
-      const nameLines = doc.splitTextToSize(restName, contentWidth);
-      doc.text(nameLines, pageWidth / 2, yPos, { align: "center" });
-      yPos += nameLines.length * 5 + 2;
-
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      if (restaurantInfo?.address) {
-        const addressLines = doc.splitTextToSize(
-          restaurantInfo.address,
-          contentWidth
-        );
-        doc.text(addressLines, pageWidth / 2, yPos, { align: "center" });
-        yPos += addressLines.length * 4;
-      }
-      if (restaurantInfo?.phone) {
-        doc.text(`Ph: ${restaurantInfo.phone}`, pageWidth / 2, yPos, {
-          align: "center",
-        });
-        yPos += 4;
-      }
-      if (restaurantInfo?.gstin) {
-        doc.text(`GSTIN: ${restaurantInfo.gstin}`, pageWidth / 2, yPos, {
-          align: "center",
-        });
-        yPos += 4;
-
-        // Tax Invoice title
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.text("TAX INVOICE", pageWidth / 2, yPos, { align: "center" });
-        yPos += 4;
-      }
-
-      // Dashed line
-      for (let i = margin; i < pageWidth - margin; i += 2) {
-        doc.line(i, yPos, i + 1, yPos);
-      }
-      yPos += 4;
-
-      // Bill details
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      const billNumber = `#${order.id.slice(0, 8).toUpperCase()}`;
-      const orderDate = order.completedAt || order.createdAt;
-      const currentDate = new Date(orderDate).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
-      const currentTime = new Date(orderDate).toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-
-      doc.text(`Bill#: ${billNumber}`, margin, yPos);
-      yPos += 4;
-
-      doc.text(`To: ${order.source.replace("QSR-", "")}`, margin, yPos);
-      yPos += 4;
-
-      doc.text(`Date: ${currentDate}  Time: ${currentTime}`, margin, yPos);
-      yPos += 4;
-
-      if (order.attendant) {
-        doc.text(`Staff: ${order.attendant}`, margin, yPos);
-        yPos += 4;
-      }
-
-      // Dashed line
-      for (let i = margin; i < pageWidth - margin; i += 2) {
-        doc.line(i, yPos, i + 1, yPos);
-      }
-      yPos += 4;
-
-      // Items header
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.text("Particulars", pageWidth / 2, yPos, { align: "center" });
-      yPos += 4;
-
-      // Column headers
-      doc.setFontSize(9.5);
-      doc.text("Item", margin, yPos);
-      doc.text("Qty", pageWidth - 32, yPos, { align: "right" });
-      doc.text("Rate", pageWidth - 18, yPos, { align: "right" });
-      doc.text("Amt", pageWidth - margin, yPos, { align: "right" });
-      yPos += 1;
-
-      // Line under headers
-      doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 3.5;
-
-      // Items
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      order.items.forEach((item, index) => {
-        const itemName = doc.splitTextToSize(item.name, 22);
-        doc.text(itemName, margin, yPos);
-        doc.text(item.quantity.toString(), pageWidth - 32, yPos, {
-          align: "right",
-        });
-        doc.text(item.price.toFixed(0), pageWidth - 18, yPos, {
-          align: "right",
-        });
-        doc.text(
-          (item.price * item.quantity).toFixed(0),
-          pageWidth - margin,
-          yPos,
-          { align: "right" }
-        );
-        yPos += Math.max(itemName.length * 4, 4);
-        if (index < order.items.length - 1) {
-          yPos += 2;
-        }
-      });
-
-      // Dashed line
-      yPos += 1;
-      for (let i = margin; i < pageWidth - margin; i += 2) {
-        doc.line(i, yPos, i + 1, yPos);
-      }
-      yPos += 4;
-
-      // Totals
-      doc.setFontSize(10);
-      doc.text("Sub Total:", margin, yPos);
-      doc.text(order.total.toFixed(2), pageWidth - margin, yPos, {
-        align: "right",
-      });
-      yPos += 4;
-
-      // Dashed line
-      for (let i = margin; i < pageWidth - margin; i += 2) {
-        doc.line(i, yPos, i + 1, yPos);
-      }
-      yPos += 4;
-
-      // Net Amount
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
-      doc.text("Net Amount:", margin, yPos);
-      doc.text(
-        `${printSymbol}${order.total.toFixed(2)}`,
-        pageWidth - margin,
-        yPos,
-        {
-          align: "right",
-        }
-      );
-      yPos += 6;
-
-      // Dashed line
-      for (let i = margin; i < pageWidth - margin; i += 2) {
-        doc.line(i, yPos, i + 1, yPos);
-      }
-      yPos += 4;
-
-      // Footer
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text("Thank You!", pageWidth / 2, yPos, { align: "center" });
-      yPos += 4;
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text("Please visit again", pageWidth / 2, yPos, { align: "center" });
-
-      // PAID stamp
-      yPos += 6;
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("*** PAID ***", pageWidth / 2, yPos, { align: "center" });
-
-      // Save and print
-      const pdfBlob = doc.output("blob");
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-      const printWindow = window.open(pdfUrl, "_blank");
-
-      if (printWindow) {
-        printWindow.onload = () => {
-          printWindow.print();
-        };
-      }
-
-      toast({
-        title: "Bill Generated",
-        description: "Bill has been generated and sent to printer.",
-      });
-    } catch (error) {
-      console.error("Error generating bill:", error);
-      toast({
-        title: "Print Error",
-        description: "Failed to generate bill. Please try again.",
-        variant: "destructive",
-      });
-    }
+  // Handle payment dialog close
+  const handlePaymentDialogClose = () => {
+    setShowPaymentDialog(false);
+    setSelectedOrderForPayment(null);
   };
 
   // Export orders to Excel
@@ -395,6 +175,18 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
   if (!isOpen) return null;
 
   const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
+
+  // Map selected order items for PaymentDialog
+  const paymentDialogOrderItems = selectedOrderForPayment
+    ? selectedOrderForPayment.items.map((item, idx) => ({
+        id: `${selectedOrderForPayment.id}-${idx}`,
+        menuItemId: `item-${idx}`,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        notes: item.notes?.join(", "),
+      }))
+    : [];
 
   return (
     <>
@@ -649,10 +441,10 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                           );
                         })()}
 
-                        {/* Action Button - Print Bill */}
+                        {/* Action Button - Print Bill using PaymentDialog */}
                         <div className="flex gap-2 mt-auto shrink-0">
                           <Button
-                            onClick={() => handlePrintBill(order)}
+                            onClick={() => handleOpenPaymentDialog(order)}
                             size="sm"
                             className="flex-1 flex items-center justify-center gap-1.5 font-semibold transition-all duration-300 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white border-0 shadow-lg hover:shadow-xl"
                           >
@@ -669,6 +461,21 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
           </div>
         </ScrollArea>
       </div>
+
+      {/* Reusable PaymentDialog for Print Bill - Already paid orders */}
+      {selectedOrderForPayment && (
+        <PaymentDialog
+          isOpen={showPaymentDialog}
+          onClose={handlePaymentDialogClose}
+          orderItems={paymentDialogOrderItems}
+          onSuccess={handlePaymentDialogClose}
+          tableNumber={selectedOrderForPayment.source
+            .replace("QSR-", "")
+            .replace("Table ", "")}
+          onEditOrder={handlePaymentDialogClose}
+          orderId={selectedOrderForPayment.id}
+        />
+      )}
     </>
   );
 };
