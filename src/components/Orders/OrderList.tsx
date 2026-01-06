@@ -8,6 +8,7 @@ import AddOrderForm from "./AddOrderForm";
 import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
 import { AlertCircle } from "lucide-react";
 import { StandardizedCard } from "@/components/ui/standardized-card";
+import PaymentDialog from "@/components/Orders/POS/PaymentDialog";
 
 interface OrderListProps {
   orders: Order[];
@@ -16,18 +17,20 @@ interface OrderListProps {
   isLoading?: boolean;
 }
 
-const OrderList: React.FC<OrderListProps> = ({ 
-  orders, 
+const OrderList: React.FC<OrderListProps> = ({
+  orders,
   onOrdersChange,
   onEditOrder,
-  isLoading = false
+  isLoading = false,
 }) => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showEditForm, setShowEditForm] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [printBillOrder, setPrintBillOrder] = useState<Order | null>(null);
   const { toast } = useToast();
 
-  const filteredOrders = orders.filter(order => {
+  const filteredOrders = orders.filter((order) => {
     if (statusFilter === "all") return true;
     return order.status === statusFilter;
   });
@@ -91,10 +94,42 @@ const OrderList: React.FC<OrderListProps> = ({
     }
   };
 
+  // Handle Print Bill - opens PaymentDialog
+  const handlePrintBill = (order: Order) => {
+    setPrintBillOrder(order);
+    setShowPaymentDialog(true);
+  };
+
+  // Parse order items for PaymentDialog format
+  const parseOrderItemsForDialog = (order: Order) => {
+    return order.items.map((itemStr, idx) => {
+      // Parse item string format: "2x ItemName @price" or "2x ItemName"
+      const match = itemStr.match(/^(\d+)x\s+(.+?)(?:\s+@(\d+(?:\.\d+)?))?$/);
+      if (match) {
+        return {
+          id: `${order.id}-${idx}`,
+          name: match[2],
+          price: match[3] ? parseFloat(match[3]) : 0,
+          quantity: parseInt(match[1], 10),
+        };
+      }
+      // Fallback for simple strings
+      return {
+        id: `${order.id}-${idx}`,
+        name: itemStr,
+        price: 0,
+        quantity: 1,
+      };
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <OrderFilters statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
+        <OrderFilters
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+        />
         <EnhancedSkeleton type="orders" count={5} showHeader={false} />
       </div>
     );
@@ -106,29 +141,34 @@ const OrderList: React.FC<OrderListProps> = ({
         <h3 className="text-lg font-semibold text-gray-900">
           Orders ({filteredOrders.length})
         </h3>
-        <OrderFilters statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
+        <OrderFilters
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+        />
       </div>
-      
+
       {filteredOrders.length === 0 ? (
         <StandardizedCard padding="lg" className="text-center border-dashed">
           <AlertCircle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <p className="text-lg font-medium text-gray-900 mb-2">No orders found</p>
+          <p className="text-lg font-medium text-gray-900 mb-2">
+            No orders found
+          </p>
           <p className="text-gray-500">
-            {statusFilter === "all" 
-              ? "No orders have been placed yet." 
-              : `No ${statusFilter} orders found.`
-            }
+            {statusFilter === "all"
+              ? "No orders have been placed yet."
+              : `No ${statusFilter} orders found.`}
           </p>
         </StandardizedCard>
       ) : (
         <div className="grid gap-4">
           {filteredOrders.map((order) => (
-            <OrderItem 
-              key={order.id} 
-              order={order} 
+            <OrderItem
+              key={order.id}
+              order={order}
               onStatusChange={handleStatusChange}
               onEdit={() => handleEditOrder(order)}
               onDelete={handleDeleteOrder}
+              onPrintBill={handlePrintBill}
             />
           ))}
         </div>
@@ -136,7 +176,7 @@ const OrderList: React.FC<OrderListProps> = ({
 
       {/* Edit Order Dialog - Uses transparent wrapper, form is styled */}
       {showEditForm && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
@@ -160,6 +200,25 @@ const OrderList: React.FC<OrderListProps> = ({
             />
           </div>
         </div>
+      )}
+
+      {/* PaymentDialog for Print Bill */}
+      {printBillOrder && (
+        <PaymentDialog
+          isOpen={showPaymentDialog}
+          onClose={() => {
+            setShowPaymentDialog(false);
+            setPrintBillOrder(null);
+          }}
+          orderItems={parseOrderItemsForDialog(printBillOrder)}
+          onSuccess={() => {
+            setShowPaymentDialog(false);
+            setPrintBillOrder(null);
+            onOrdersChange();
+          }}
+          tableNumber={printBillOrder.customer_name || "Order"}
+          orderId={printBillOrder.id}
+        />
       )}
     </div>
   );
