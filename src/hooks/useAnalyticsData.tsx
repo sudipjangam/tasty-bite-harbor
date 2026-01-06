@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { addDays, format, subDays, parseISO } from "date-fns";
 import { useEffect } from "react";
 import { useRestaurantId } from "./useRestaurantId";
-import { fetchSalesForecasts } from "@/utils/aiAnalytics";
+// Note: fetchSalesForecasts is now called on-demand from SalesPrediction component
 
 export const useAnalyticsData = () => {
   const { restaurantId, isLoading: isRestaurantLoading } = useRestaurantId();
@@ -107,7 +107,8 @@ export const useAnalyticsData = () => {
         menuItems || []
       );
 
-      // Generate sales prediction using real AI (fetch 7 days forecast)
+      // Generate sales prediction data with only historical data
+      // AI predictions will be fetched on-demand when user clicks "Generate Forecast" button
       // First, get historical data formatted correctly
       const historicalData = (revenueStats || [])
         .slice(0, 14) // Take up to 14 days of history
@@ -118,26 +119,9 @@ export const useAnalyticsData = () => {
         }))
         .reverse(); // Ensure chronological order
 
-      // Then fetch AI predictions
-      let predictionData: any[] = [];
-      try {
-        const aiForecasts = await fetchSalesForecasts(restaurantId, 7);
-        predictionData = aiForecasts.map((forecast) => ({
-          date: format(new Date(forecast.date), "dd MMM"),
-          actual: null,
-          predicted: forecast.predicted_revenue,
-        }));
-      } catch (e) {
-        console.error("Failed to fetch AI forecasts", e);
-        // Fallback or empty if AI fails, simpler than full fallback implementation here
-        // The fetchSalesForecasts util already has fallback logic, so this catches unexpected errors
-      }
-
-      // Combine them: History first, then Predictions
-      // Depending on chart needs, we might want the lines to connect.
-      // To connect lines, the last historical point should also be the start of prediction line?
-      // Or just side-by-side. For now, side by side is fine as per original implementation.
-      const salesPrediction = [...historicalData, ...predictionData];
+      // Return only historical data - AI predictions will be loaded on-demand
+      // This prevents unnecessary Gemini API calls on page load
+      const salesPrediction = [...historicalData];
 
       // Calculate customer time data from real order counts
       // Using order_count from daily_revenue_stats as a proxy for unique customer activity
@@ -176,6 +160,7 @@ export const useAnalyticsData = () => {
         roomBillings: roomBillings || [],
         hotelMetrics,
         consolidatedRevenue,
+        menuItems: menuItems || [],
       };
     },
     enabled: !!restaurantId && !isRestaurantLoading,
@@ -284,6 +269,7 @@ const calculateTopProducts = (orders: any[], menuItems: any[]) => {
   });
 
   return Object.values(productStats)
+    .filter((product) => product.name !== "Unknown Product") // Filter out unmatched items
     .sort((a, b) => b.orders - a.orders)
     .slice(0, 10)
     .map((product) => ({

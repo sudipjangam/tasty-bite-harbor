@@ -1,14 +1,6 @@
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Maximize,
-  TrendingUp,
-  PieChart,
-  Users,
-  Package,
-  Zap,
-} from "lucide-react";
+import { Maximize } from "lucide-react";
 import RevenueHighchart from "@/components/Analytics/RevenueHighchart";
 import RevenueByCategoryChart from "@/components/Analytics/RevenueByCategoryChart";
 import TimeSeriesAnalysis from "@/components/Analytics/TimeSeriesAnalysis";
@@ -22,6 +14,8 @@ interface ChartCardsProps {
   topProducts: any[];
   salesPrediction: any[];
   setExpandedChart: (chart: string | null) => void;
+  orders?: any[];
+  menuItems?: any[];
 }
 
 const ChartCards = ({
@@ -31,107 +25,87 @@ const ChartCards = ({
   topProducts,
   salesPrediction,
   setExpandedChart,
+  orders = [],
+  menuItems = [],
 }: ChartCardsProps) => {
-  const chartConfigs = [
-    {
-      id: "revenue",
-      title: "Revenue Analysis",
-      subtitle: "Track your financial performance",
-      icon: TrendingUp,
-      gradient: "from-blue-500 to-indigo-600",
-      component: <RevenueHighchart data={filteredData} />,
-    },
-    {
-      id: "category",
-      title: "Category Revenue",
-      subtitle: "Revenue breakdown by menu categories",
-      icon: PieChart,
-      gradient: "from-purple-500 to-pink-600",
-      component: <RevenueByCategoryChart data={categoryData} />,
-    },
-    {
-      id: "customer",
-      title: "Customer Growth",
-      subtitle: "Track customer acquisition trends",
-      icon: Users,
-      gradient: "from-green-500 to-emerald-600",
-      component: (
-        <TimeSeriesAnalysis
-          data={customerTimeData}
-          title="Customer Growth"
-          description="Daily unique customers over time"
-          valuePrefix=""
-          valueSuffix=" customers"
-          color="#6366f1"
-        />
-      ),
-    },
-    {
-      id: "products",
-      title: "Top Selling Products",
-      subtitle: "Best performing menu items",
-      icon: Package,
-      gradient: "from-orange-500 to-red-600",
-      component: <TopProducts data={topProducts} />,
-    },
-    {
-      id: "forecast",
-      title: "Sales Forecast",
-      subtitle: "Predictive analytics and trends",
-      icon: Zap,
-      gradient: "from-cyan-500 to-blue-600",
-      component: <SalesPrediction data={salesPrediction} />,
-    },
-  ];
+  // Wrapper component for each chart widget with consistent height
+  const ChartWidget = ({
+    id,
+    children,
+    onExpand,
+    fullWidth = false,
+  }: {
+    id: string;
+    children: React.ReactNode;
+    onExpand: () => void;
+    fullWidth?: boolean;
+  }) => (
+    <div
+      className={`relative group h-full ${fullWidth ? "lg:col-span-2" : ""}`}
+    >
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onExpand}
+        className="absolute top-3 right-3 z-10 h-8 w-8 opacity-0 group-hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-300 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm shadow-sm"
+      >
+        <Maximize className="h-4 w-4" />
+      </Button>
+      <div className="h-full [&>*]:h-full">{children}</div>
+    </div>
+  );
 
   return (
-    <div className="grid grid-cols-1 gap-8">
-      {chartConfigs.map((chart, index) => (
-        <div
-          key={chart.id}
-          className="group relative overflow-hidden bg-white/90 backdrop-blur-sm border border-white/30 rounded-3xl shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
-        >
-          {/* Gradient overlay */}
-          <div
-            className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${chart.gradient}`}
-          ></div>
-
-          <CardHeader className="flex flex-row items-center justify-between pb-4 pt-6 px-8">
-            <div className="flex items-center gap-4">
-              <div
-                className={`p-3 bg-gradient-to-r ${chart.gradient} rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300`}
-              >
-                <chart.icon className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <CardTitle className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
-                  {chart.title}
-                </CardTitle>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  {chart.subtitle}
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setExpandedChart(chart.id)}
-              className="hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-300"
-            >
-              <Maximize className="h-5 w-5" />
-            </Button>
-          </CardHeader>
-
-          <CardContent
-            id={`${chart.id}-chart`}
-            className="px-4 pb-4 md:px-8 md:pb-8"
-          >
-            <div className="bg-gradient-to-br from-gray-50/50 to-white/50 dark:from-gray-800/50 dark:to-gray-900/50 rounded-2xl p-4">
-              {chart.component}
-            </div>
-          </CardContent>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 auto-rows-fr">
+      {/* Revenue Analysis */}
+      <ChartWidget id="revenue" onExpand={() => setExpandedChart("revenue")}>
+        <div id="revenue-chart" className="min-h-[400px]">
+          <RevenueHighchart data={filteredData} />
         </div>
-      ))}
+      </ChartWidget>
+
+      {/* Category Revenue */}
+      <ChartWidget id="category" onExpand={() => setExpandedChart("category")}>
+        <div id="category-chart" className="min-h-[400px]">
+          <RevenueByCategoryChart
+            data={categoryData}
+            orders={orders}
+            menuItems={menuItems}
+          />
+        </div>
+      </ChartWidget>
+
+      {/* Customer Growth */}
+      <ChartWidget id="customer" onExpand={() => setExpandedChart("customer")}>
+        <div className="min-h-[400px]">
+          <TimeSeriesAnalysis
+            data={customerTimeData}
+            title="Customer Growth"
+            description="Daily unique customers over time"
+            valuePrefix=""
+            valueSuffix=" customers"
+            color="#6366f1"
+          />
+        </div>
+      </ChartWidget>
+
+      {/* Top Products */}
+      <ChartWidget id="products" onExpand={() => setExpandedChart("products")}>
+        <div className="min-h-[400px]">
+          <TopProducts data={topProducts} />
+        </div>
+      </ChartWidget>
+
+      {/* Sales Forecast - Full width */}
+      <ChartWidget
+        id="forecast"
+        onExpand={() => setExpandedChart("forecast")}
+        fullWidth
+      >
+        <div id="forecast-chart">
+          <SalesPrediction data={salesPrediction} />
+        </div>
+      </ChartWidget>
     </div>
   );
 };

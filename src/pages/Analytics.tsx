@@ -504,6 +504,8 @@ const Analytics = () => {
                 topProducts={data.topProducts}
                 salesPrediction={data.salesPrediction}
                 setExpandedChart={setExpandedChart}
+                orders={data.recentOrders}
+                menuItems={data.menuItems}
               />
             </div>
 
@@ -517,6 +519,8 @@ const Analytics = () => {
               customerTimeData={customerTimeData}
               topProducts={data.topProducts}
               salesPrediction={data.salesPrediction}
+              orders={data.recentOrders}
+              menuItems={data.menuItems}
             />
           </>
         ) : (

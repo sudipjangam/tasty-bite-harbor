@@ -45,7 +45,7 @@ export const formatIndianCurrency = (amount: number | null | undefined): { forma
       maximumFractionDigits: 0,
     }).format(amount);
   } else {
-    formatted = `₹${amount}`;
+    formatted = `₹${Math.round(amount)}`;
   }
   
   if (amount < 0) {
