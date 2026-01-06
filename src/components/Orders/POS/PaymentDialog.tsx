@@ -1782,6 +1782,48 @@ const PaymentDialog = ({
           if (orderError) {
             console.error("Error updating order payment status:", orderError);
           }
+        } else {
+          // No linked order_id - create a new order record in the orders table
+          // This ensures QSR orders appear in Order Management
+          try {
+            // Format items for the orders table (string array format)
+            const formattedItems = orderItems.map((item) => {
+              return `${item.quantity}x ${item.name} @${item.price}`;
+            });
+
+            const { data: newOrder, error: insertError } = await supabase
+              .from("orders")
+              .insert({
+                restaurant_id: restaurantIdToUse,
+                customer_name: tableNumber || "QSR-Order",
+                items: formattedItems,
+                total: total,
+                status: "completed",
+                payment_status: "paid",
+                source: "qsr",
+                order_type: "dine-in",
+                discount_amount: totalDiscountAmount,
+                discount_percentage:
+                  manualDiscountPercent > 0
+                    ? manualDiscountPercent
+                    : appliedPromotion?.discount_percentage || 0,
+              })
+              .select()
+              .single();
+
+            if (insertError) {
+              console.error("Error creating order record:", insertError);
+            } else if (newOrder) {
+              // Link the new order back to the kitchen_order
+              await supabase
+                .from("kitchen_orders")
+                .update({ order_id: newOrder.id })
+                .eq("id", orderId);
+            }
+          } catch (createOrderError) {
+            console.error("Error creating order for QSR:", createOrderError);
+            // Don't fail the payment if order creation fails
+          }
         }
 
         // Log promotion usage if promotion was applied
