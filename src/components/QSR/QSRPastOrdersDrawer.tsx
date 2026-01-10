@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   X,
   Search,
@@ -11,6 +11,9 @@ import {
   Calendar,
   Trash2,
   CalendarRange,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PastOrder } from "@/hooks/usePastOrders";
@@ -56,6 +59,24 @@ const dateFilters: { value: DateFilter; label: string }[] = [
   { value: "custom", label: "Custom Range" },
 ];
 
+type SortOption =
+  | "time-desc"
+  | "time-asc"
+  | "name-asc"
+  | "name-desc"
+  | "amount-desc"
+  | "amount-asc";
+
+const sortOptions: { value: SortOption; label: string; icon: "up" | "down" }[] =
+  [
+    { value: "time-desc", label: "Newest First", icon: "down" },
+    { value: "time-asc", label: "Oldest First", icon: "up" },
+    { value: "name-asc", label: "Name (A-Z)", icon: "up" },
+    { value: "name-desc", label: "Name (Z-A)", icon: "down" },
+    { value: "amount-desc", label: "Amount (High-Low)", icon: "down" },
+    { value: "amount-asc", label: "Amount (Low-High)", icon: "up" },
+  ];
+
 export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
   isOpen,
   onClose,
@@ -76,12 +97,43 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
   const [selectedOrderForPayment, setSelectedOrderForPayment] =
     useState<PastOrder | null>(null);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>("time-desc");
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const { symbol: currencySymbol } = useCurrencyContext();
 
   // Maximum items to show before "Show more"
   const MAX_VISIBLE_ITEMS = 3;
+
+  // Sort orders based on selected option
+  const sortedOrders = useMemo(() => {
+    const sorted = [...orders];
+    switch (sortBy) {
+      case "time-desc":
+        return sorted.sort(
+          (a, b) =>
+            new Date(b.completedAt || b.createdAt).getTime() -
+            new Date(a.completedAt || a.createdAt).getTime()
+        );
+      case "time-asc":
+        return sorted.sort(
+          (a, b) =>
+            new Date(a.completedAt || a.createdAt).getTime() -
+            new Date(b.completedAt || b.createdAt).getTime()
+        );
+      case "name-asc":
+        return sorted.sort((a, b) => a.source.localeCompare(b.source));
+      case "name-desc":
+        return sorted.sort((a, b) => b.source.localeCompare(a.source));
+      case "amount-desc":
+        return sorted.sort((a, b) => b.total - a.total);
+      case "amount-asc":
+        return sorted.sort((a, b) => a.total - b.total);
+      default:
+        return sorted;
+    }
+  }, [orders, sortBy]);
 
   // Toggle order expansion
   const toggleOrderExpansion = (orderId: string) => {
@@ -344,25 +396,78 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
           )}
 
           {/* Actions Row */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-sm text-gray-500">
               {orders.length} completed order{orders.length !== 1 ? "s" : ""}
             </span>
-            {/* Export button */}
-            {canViewSensitiveData && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportOrders}
-                className="flex items-center gap-2 bg-green-50 hover:bg-green-100 border-green-200 dark:bg-green-900/20 dark:hover:bg-green-900/40 dark:border-green-700"
-                title="Export to Excel"
-              >
-                <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <span className="hidden sm:inline text-green-600 dark:text-green-400 text-xs font-medium">
-                  Export
-                </span>
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Sort Dropdown */}
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowSortDropdown(!showSortDropdown)}
+                  className="flex items-center gap-2 bg-purple-50 hover:bg-purple-100 border-purple-200 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 dark:border-purple-700"
+                  title="Sort Orders"
+                >
+                  <ArrowUpDown className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <span className="hidden sm:inline text-purple-600 dark:text-purple-400 text-xs font-medium">
+                    {sortOptions.find((o) => o.value === sortBy)?.label ||
+                      "Sort"}
+                  </span>
+                  <ChevronDown className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+                </Button>
+                {showSortDropdown && (
+                  <>
+                    {/* Backdrop to close dropdown */}
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setShowSortDropdown(false)}
+                    />
+                    {/* Dropdown menu */}
+                    <div className="absolute right-0 top-full mt-1 z-20 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 animate-in fade-in-0 zoom-in-95">
+                      {sortOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => {
+                            setSortBy(option.value);
+                            setShowSortDropdown(false);
+                          }}
+                          className={cn(
+                            "w-full px-3 py-2 text-left text-sm flex items-center gap-2 transition-colors",
+                            sortBy === option.value
+                              ? "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 font-medium"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          )}
+                        >
+                          {option.icon === "up" ? (
+                            <ArrowUp className="h-3.5 w-3.5" />
+                          ) : (
+                            <ArrowDown className="h-3.5 w-3.5" />
+                          )}
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+              {/* Export button */}
+              {canViewSensitiveData && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportOrders}
+                  className="flex items-center gap-2 bg-green-50 hover:bg-green-100 border-green-200 dark:bg-green-900/20 dark:hover:bg-green-900/40 dark:border-green-700"
+                  title="Export to Excel"
+                >
+                  <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  <span className="hidden sm:inline text-green-600 dark:text-green-400 text-xs font-medium">
+                    Export
+                  </span>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -376,7 +481,7 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                   Loading past orders...
                 </p>
               </div>
-            ) : orders.length === 0 ? (
+            ) : sortedOrders.length === 0 ? (
               <div className="text-center py-12">
                 <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center">
                   <Receipt className="w-8 h-8 text-gray-400" />
@@ -390,7 +495,7 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {orders.map((order) => {
+                {sortedOrders.map((order) => {
                   const totalItems = order.items.length;
 
                   return (
