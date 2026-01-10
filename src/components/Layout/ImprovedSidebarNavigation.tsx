@@ -200,13 +200,6 @@ const navigationGroups: NavigationGroup[] = [
         requiredPermissions: ["staff.view"],
       },
       {
-        title: "Shift Management",
-        icon: CalendarClock,
-        href: "/shift-management",
-        description: "Shifts & scheduling",
-        requiredPermissions: ["staff.update"],
-      },
-      {
         title: "Customers",
         icon: Users,
         href: "/customers",
@@ -228,17 +221,10 @@ const navigationGroups: NavigationGroup[] = [
         requiredPermissions: ["customers.view"],
       },
       {
-        title: "User Management",
+        title: "User & Access",
         icon: UserPlus,
         href: "/user-management",
-        description: "Manage user accounts & roles",
-        requiredPermissions: ["users.manage"],
-      },
-      {
-        title: "Role Management",
-        icon: Shield,
-        href: "/role-management",
-        description: "Configure roles & permissions",
+        description: "Users, roles & permissions",
         requiredPermissions: ["users.manage"],
       },
       {
