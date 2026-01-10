@@ -10,6 +10,7 @@ import {
   Receipt,
   Calendar,
   Trash2,
+  CalendarRange,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PastOrder } from "@/hooks/usePastOrders";
@@ -24,6 +25,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import PaymentDialog from "@/components/Orders/POS/PaymentDialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface QSRPastOrdersDrawerProps {
   isOpen: boolean;
@@ -35,6 +41,10 @@ interface QSRPastOrdersDrawerProps {
   dateFilter: DateFilter;
   onDateFilterChange: (filter: DateFilter) => void;
   onDeleteOrder?: (order: PastOrder) => void;
+  customStartDate?: Date | null;
+  customEndDate?: Date | null;
+  onCustomStartDateChange?: (date: Date | null) => void;
+  onCustomEndDateChange?: (date: Date | null) => void;
   restaurantName?: string;
 }
 
@@ -43,6 +53,7 @@ const dateFilters: { value: DateFilter; label: string }[] = [
   { value: "yesterday", label: "Yesterday" },
   { value: "last7days", label: "Last 7 Days" },
   { value: "thisMonth", label: "This Month" },
+  { value: "custom", label: "Custom Range" },
 ];
 
 export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
@@ -55,6 +66,10 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
   dateFilter,
   onDateFilterChange,
   onDeleteOrder,
+  customStartDate,
+  customEndDate,
+  onCustomStartDateChange,
+  onCustomEndDateChange,
   restaurantName = "Restaurant",
 }) => {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
@@ -259,11 +274,74 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                     : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
                 )}
               >
-                <Calendar className="w-3.5 h-3.5" />
+                {filter.value === "custom" ? (
+                  <CalendarRange className="w-3.5 h-3.5" />
+                ) : (
+                  <Calendar className="w-3.5 h-3.5" />
+                )}
                 {filter.label}
               </button>
             ))}
           </div>
+
+          {/* Custom Date Range Picker */}
+          {dateFilter === "custom" && (
+            <div className="flex flex-wrap items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-700">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  From:
+                </label>
+                <input
+                  type="date"
+                  value={
+                    customStartDate ? format(customStartDate, "yyyy-MM-dd") : ""
+                  }
+                  onChange={(e) => {
+                    const date = e.target.value
+                      ? new Date(e.target.value)
+                      : null;
+                    onCustomStartDateChange?.(date);
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  max={
+                    customEndDate
+                      ? format(customEndDate, "yyyy-MM-dd")
+                      : format(new Date(), "yyyy-MM-dd")
+                  }
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  To:
+                </label>
+                <input
+                  type="date"
+                  value={
+                    customEndDate ? format(customEndDate, "yyyy-MM-dd") : ""
+                  }
+                  onChange={(e) => {
+                    const date = e.target.value
+                      ? new Date(e.target.value)
+                      : null;
+                    onCustomEndDateChange?.(date);
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  min={
+                    customStartDate
+                      ? format(customStartDate, "yyyy-MM-dd")
+                      : undefined
+                  }
+                  max={format(new Date(), "yyyy-MM-dd")}
+                />
+              </div>
+              {customStartDate && customEndDate && (
+                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded-full">
+                  {format(customStartDate, "MMM d")} -{" "}
+                  {format(customEndDate, "MMM d, yyyy")}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Actions Row */}
           <div className="flex items-center justify-between">

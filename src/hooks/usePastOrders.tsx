@@ -27,6 +27,8 @@ export interface PastOrder {
 interface UsePastOrdersOptions {
   dateFilter?: DateFilter;
   searchQuery?: string;
+  customStartDate?: Date | null;
+  customEndDate?: Date | null;
 }
 
 export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
@@ -35,6 +37,12 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
   const [searchQuery, setSearchQuery] = useState(options.searchQuery || "");
   const [dateFilter, setDateFilter] = useState<DateFilter>(
     options.dateFilter || "today"
+  );
+  const [customStartDate, setCustomStartDate] = useState<Date | null>(
+    options.customStartDate || null
+  );
+  const [customEndDate, setCustomEndDate] = useState<Date | null>(
+    options.customEndDate || null
   );
 
   // Calculate date range based on filter (using UTC to match database timestamps)
@@ -87,6 +95,36 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
           Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0)
         );
         return { start: monthStart.toISOString(), end: todayEnd.toISOString() };
+      case "custom":
+        if (customStartDate && customEndDate) {
+          const customStart = new Date(
+            Date.UTC(
+              customStartDate.getFullYear(),
+              customStartDate.getMonth(),
+              customStartDate.getDate(),
+              0,
+              0,
+              0
+            )
+          );
+          const customEnd = new Date(
+            Date.UTC(
+              customEndDate.getFullYear(),
+              customEndDate.getMonth(),
+              customEndDate.getDate(),
+              23,
+              59,
+              59,
+              999
+            )
+          );
+          return {
+            start: customStart.toISOString(),
+            end: customEnd.toISOString(),
+          };
+        }
+        // Fallback to today if custom dates not set
+        return { start: todayStart.toISOString(), end: todayEnd.toISOString() };
       default:
         return { start: todayStart.toISOString(), end: todayEnd.toISOString() };
     }
@@ -97,7 +135,14 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: ["past-orders", restaurantId, dateFilter, searchQuery],
+    queryKey: [
+      "past-orders",
+      restaurantId,
+      dateFilter,
+      searchQuery,
+      customStartDate?.toISOString(),
+      customEndDate?.toISOString(),
+    ],
     queryFn: async () => {
       if (!restaurantId) return [];
 
@@ -238,6 +283,10 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
     setSearchQuery,
     dateFilter,
     setDateFilter,
+    customStartDate,
+    setCustomStartDate,
+    customEndDate,
+    setCustomEndDate,
     getOrderById,
   };
 };
