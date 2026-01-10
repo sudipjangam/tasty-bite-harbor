@@ -4,7 +4,7 @@ import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useQSRMenuItems, QSRMenuItem } from "@/hooks/useQSRMenuItems";
 import { useQSRTables } from "@/hooks/useQSRTables";
 import { useActiveKitchenOrders } from "@/hooks/useActiveKitchenOrders";
-import { usePastOrders } from "@/hooks/usePastOrders";
+import { usePastOrders, PastOrder } from "@/hooks/usePastOrders";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -905,6 +905,108 @@ export const QSRPosMain: React.FC = () => {
     toast,
   ]);
 
+  // Delete active order handler
+  const handleDeleteActiveOrder = useCallback(
+    async (order: ActiveKitchenOrder) => {
+      const confirmed = window.confirm(
+        `Are you sure you want to delete this order from ${order.source}? This action cannot be undone.`
+      );
+
+      if (!confirmed) return;
+
+      try {
+        // Delete from kitchen_orders
+        const { error: kitchenError } = await supabase
+          .from("kitchen_orders")
+          .delete()
+          .eq("id", order.id);
+
+        if (kitchenError) throw kitchenError;
+
+        // If there's a linked order in orders table, delete it too
+        if (order.orderId) {
+          const { error: orderError } = await supabase
+            .from("orders")
+            .delete()
+            .eq("id", order.orderId);
+
+          if (orderError) {
+            console.error("Error deleting linked order:", orderError);
+          }
+        }
+
+        // Invalidate queries to refresh data
+        queryClient.invalidateQueries({
+          queryKey: ["active-kitchen-orders", restaurantId],
+        });
+
+        toast({
+          title: "Order Deleted",
+          description: `Order from ${order.source} has been deleted`,
+        });
+      } catch (error) {
+        console.error("Error deleting order:", error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to delete order",
+        });
+      }
+    },
+    [restaurantId, queryClient, toast]
+  );
+
+  // Delete past order handler
+  const handleDeletePastOrder = useCallback(
+    async (order: PastOrder) => {
+      const confirmed = window.confirm(
+        `Are you sure you want to delete this completed order from ${order.source}? This action cannot be undone.`
+      );
+
+      if (!confirmed) return;
+
+      try {
+        // Delete from kitchen_orders
+        const { error: kitchenError } = await supabase
+          .from("kitchen_orders")
+          .delete()
+          .eq("id", order.id);
+
+        if (kitchenError) throw kitchenError;
+
+        // If there's a linked order in orders table, delete it too
+        if (order.orderId) {
+          const { error: orderError } = await supabase
+            .from("orders")
+            .delete()
+            .eq("id", order.orderId);
+
+          if (orderError) {
+            console.error("Error deleting linked order:", orderError);
+          }
+        }
+
+        // Invalidate queries to refresh data
+        queryClient.invalidateQueries({
+          queryKey: ["past-orders", restaurantId],
+        });
+
+        toast({
+          title: "Order Deleted",
+          description: `Completed order from ${order.source} has been deleted`,
+        });
+      } catch (error) {
+        console.error("Error deleting order:", error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to delete order",
+        });
+      }
+    },
+    [restaurantId, queryClient, toast]
+  );
+
   // Determine what to show in main area
   const showTableSelection = orderMode === "dine_in" && !selectedTable;
   const showMenu = orderMode !== "dine_in" || selectedTable;
@@ -1114,6 +1216,7 @@ export const QSRPosMain: React.FC = () => {
         onRecallOrder={handleRecallOrder}
         onProceedToPayment={handleProceedToPayment}
         onToggleItemCompletion={toggleItemCompletion}
+        onDeleteOrder={handleDeleteActiveOrder}
         restaurantName={restaurantName}
       />
 
@@ -1127,6 +1230,7 @@ export const QSRPosMain: React.FC = () => {
         onSearchChange={setPastSearchQuery}
         dateFilter={pastDateFilter}
         onDateFilterChange={setPastDateFilter}
+        onDeleteOrder={handleDeletePastOrder}
         restaurantName={restaurantName}
       />
 

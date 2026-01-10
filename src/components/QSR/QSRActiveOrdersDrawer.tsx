@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
   CreditCard,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ActiveKitchenOrder } from "@/types/qsr";
@@ -42,6 +43,7 @@ interface QSRActiveOrdersDrawerProps {
     itemIndex: number,
     currentStatus: boolean[]
   ) => Promise<boolean>;
+  onDeleteOrder?: (order: ActiveKitchenOrder) => void;
   restaurantName?: string;
 }
 
@@ -87,6 +89,7 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
   onRecallOrder,
   onProceedToPayment,
   onToggleItemCompletion,
+  onDeleteOrder,
   restaurantName = "Restaurant",
 }) => {
   const [showStatusFilter, setShowStatusFilter] = useState(false);
@@ -616,6 +619,20 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
 
                         {/* Action Buttons - Pinned at bottom */}
                         <div className="flex gap-2 mt-auto shrink-0">
+                          {onDeleteOrder && (
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteOrder(order);
+                              }}
+                              size="sm"
+                              variant="outline"
+                              className="flex items-center justify-center gap-1.5 font-medium transition-all duration-300 border-red-300 dark:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400"
+                              title="Delete Order"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
                           <Button
                             onClick={() => onRecallOrder(order)}
                             size="sm"

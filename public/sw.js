@@ -2,7 +2,7 @@
 // Provides offline support and caching
 // Cache version is dynamically set based on build timestamp
 
-const BUILD_TIMESTAMP = '__BUILD_TIMESTAMP__'; // Replaced during build
+const BUILD_TIMESTAMP = '1768046774947'; // Replaced during build
 const CACHE_NAME = `swadeshi-${BUILD_TIMESTAMP}`;
 const OFFLINE_URL = '/';
 
