@@ -9,6 +9,7 @@ import {
   Printer,
   Receipt,
   Calendar,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PastOrder } from "@/hooks/usePastOrders";
@@ -33,6 +34,7 @@ interface QSRPastOrdersDrawerProps {
   onSearchChange: (query: string) => void;
   dateFilter: DateFilter;
   onDateFilterChange: (filter: DateFilter) => void;
+  onDeleteOrder?: (order: PastOrder) => void;
   restaurantName?: string;
 }
 
@@ -52,6 +54,7 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
   onSearchChange,
   dateFilter,
   onDateFilterChange,
+  onDeleteOrder,
   restaurantName = "Restaurant",
 }) => {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
@@ -441,8 +444,22 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                           );
                         })()}
 
-                        {/* Action Button - Print Bill using PaymentDialog */}
+                        {/* Action Buttons - Print Bill and Delete */}
                         <div className="flex gap-2 mt-auto shrink-0">
+                          {onDeleteOrder && (
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteOrder(order);
+                              }}
+                              size="sm"
+                              variant="outline"
+                              className="flex items-center justify-center gap-1.5 font-medium transition-all duration-300 border-red-300 dark:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400"
+                              title="Delete Order"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
                           <Button
                             onClick={() => handleOpenPaymentDialog(order)}
                             size="sm"

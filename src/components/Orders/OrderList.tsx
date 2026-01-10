@@ -71,6 +71,19 @@ const OrderList: React.FC<OrderListProps> = ({
     }
 
     try {
+      // First delete related kitchen_orders to satisfy foreign key constraints
+      const { error: kitchenError } = await supabase
+        .from("kitchen_orders" as any)
+        .delete()
+        .eq("order_id", orderId);
+
+      if (kitchenError) {
+        console.error("Error deleting kitchen orders:", kitchenError);
+        // Continue to try deleting items if kitchen_orders delete failed?
+        // Or throw? If strict constraint, order delete will fail anyway.
+        // Let's log it but proceed to try order delete, which will catch the actual error if it persists.
+      }
+
       const { error } = await supabase
         .from("orders")
         .delete()
