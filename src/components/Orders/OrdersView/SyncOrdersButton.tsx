@@ -26,6 +26,7 @@ export const SyncOrdersButton = () => {
 
       if (koError) throw koError;
 
+      //push to bitbucket
       if (!kitchenOrders || kitchenOrders.length === 0) {
         toast({
           title: "No orders to sync",
