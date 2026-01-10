@@ -24,7 +24,6 @@ export interface PastOrder {
   discountType?: string;
   customerName?: string;
   attendant?: string;
-  paymentMethod?: string;
 }
 
 interface UsePastOrdersOptions {
@@ -180,17 +179,17 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
           total?: string | number;
           discount_amount?: string | number;
           discount_percentage?: string | number;
-          payment_method?: string;
         }
       > = {};
 
       if (orderIds.length > 0) {
         const { data: ordersData, error: ordersError } = await supabase
           .from("orders")
-          .select(
-            "id, total, discount_amount, discount_percentage, payment_method"
-          )
+          .select("id, total, discount_amount, discount_percentage")
           .in("id", orderIds);
+
+        console.log("[usePastOrders] Fetched orders data:", ordersData);
+        console.log("[usePastOrders] Orders error:", ordersError);
 
         if (!ordersError && ordersData) {
           ordersMap = ordersData.reduce((acc, order) => {
@@ -199,6 +198,9 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
           }, {} as typeof ordersMap);
         }
       }
+
+      console.log("[usePastOrders] Order IDs:", orderIds);
+      console.log("[usePastOrders] Orders Map:", ordersMap);
 
       const data = kitchenData;
 
@@ -241,7 +243,6 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
             : discountAmount
             ? "amount"
             : undefined;
-          const paymentMethod = linkedOrder?.payment_method || undefined;
 
           return {
             id: order.id,
@@ -257,7 +258,6 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
             discountType,
             customerName: order.customer_name || undefined,
             attendant: order.server_name || undefined,
-            paymentMethod,
           };
         })
         .filter((order) => {
@@ -314,7 +314,7 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
     const { data, error } = await supabase
       .from("kitchen_orders")
       .select(
-        `*, orders:order_id (total, discount_amount, discount_percentage, payment_method)`
+        `*, orders:order_id (total, discount_amount, discount_percentage)`
       )
       .eq("id", orderId)
       .single();
@@ -339,7 +339,6 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
       total?: number | string;
       discount_amount?: number | string;
       discount_percentage?: number | string;
-      payment_method?: string;
     } | null;
 
     // Use linked order total if available (includes discount), otherwise fallback to subtotal
@@ -361,7 +360,6 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
       : discountAmount
       ? "amount"
       : undefined;
-    const paymentMethod = linkedOrder?.payment_method || undefined;
 
     return {
       id: data.id,
@@ -377,7 +375,6 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
       discountType,
       customerName: data.customer_name || undefined,
       attendant: data.server_name || undefined,
-      paymentMethod,
     };
   };
 
