@@ -1,8 +1,13 @@
-
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import type { StaffMember, StaffTimeClockEntry, StaffLeaveBalance, StaffLeaveRequest } from "@/types/staff";
+import type {
+  StaffMember,
+  StaffTimeClockEntry,
+  StaffLeaveBalance,
+  StaffLeaveRequest,
+} from "@/types/staff";
 
 interface CurrentStaffData {
   staff: StaffMember | null;
@@ -10,6 +15,7 @@ interface CurrentStaffData {
   isStaff: boolean;
   activeClockEntry: StaffTimeClockEntry | null;
   recentTimeEntries: StaffTimeClockEntry[];
+  hasCompletedShiftToday: boolean;
   leaveBalances: StaffLeaveBalance[];
   upcomingLeave: StaffLeaveRequest[];
   refetch: () => void;
@@ -26,10 +32,10 @@ export const useCurrentStaff = (): CurrentStaffData => {
   const { user } = useAuth();
 
   // Fetch the staff record for the current user by matching email
-  const { 
-    data: staff = null, 
-    isLoading: isLoadingStaff, 
-    refetch 
+  const {
+    data: staff = null,
+    isLoading: isLoadingStaff,
+    refetch,
   } = useQuery<StaffMember | null>({
     queryKey: ["current-staff", user?.email],
     enabled: !!user?.email && !!user?.restaurant_id,
@@ -55,66 +61,62 @@ export const useCurrentStaff = (): CurrentStaffData => {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-
   // Fetch active clock entry (if currently clocked in)
-  const { 
-    data: activeClockEntry = null,
-    refetch: refetchActive 
-  } = useQuery<StaffTimeClockEntry | null>({
-    queryKey: ["staff-active-clock", staff?.id],
-    enabled: !!staff?.id,
-    queryFn: async () => {
-      if (!staff?.id) return null;
+  const { data: activeClockEntry = null, refetch: refetchActive } =
+    useQuery<StaffTimeClockEntry | null>({
+      queryKey: ["staff-active-clock", staff?.id],
+      enabled: !!staff?.id,
+      queryFn: async () => {
+        if (!staff?.id) return null;
 
-      const { data, error } = await supabase
-        .from("staff_time_clock")
-        .select("*")
-        .eq("staff_id", staff.id)
-        .is("clock_out", null)
-        .order("clock_in", { ascending: false })
-        .limit(1);
+        const { data, error } = await supabase
+          .from("staff_time_clock")
+          .select("*")
+          .eq("staff_id", staff.id)
+          .is("clock_out", null)
+          .order("clock_in", { ascending: false })
+          .limit(1);
 
-      if (error) {
-        console.error("Error fetching active clock entry:", error);
-        return null;
-      }
+        if (error) {
+          console.error("Error fetching active clock entry:", error);
+          return null;
+        }
 
-      return data && data.length > 0 ? (data[0] as StaffTimeClockEntry) : null;
-    },
-    refetchInterval: 30000, // Refresh every 30 seconds
-  });
+        return data && data.length > 0
+          ? (data[0] as StaffTimeClockEntry)
+          : null;
+      },
+      refetchInterval: 30000, // Refresh every 30 seconds
+    });
 
   // Fetch recent time clock entries (last 10)
-  const { 
-    data: recentTimeEntries = [],
-    refetch: refetchTimeEntries 
-  } = useQuery<StaffTimeClockEntry[]>({
-    queryKey: ["staff-recent-time-entries", staff?.id],
-    enabled: !!staff?.id,
-    queryFn: async () => {
-      if (!staff?.id) return [];
+  const { data: recentTimeEntries = [], refetch: refetchTimeEntries } =
+    useQuery<StaffTimeClockEntry[]>({
+      queryKey: ["staff-recent-time-entries", staff?.id],
+      enabled: !!staff?.id,
+      queryFn: async () => {
+        if (!staff?.id) return [];
 
-      const { data, error } = await supabase
-        .from("staff_time_clock")
-        .select("*")
-        .eq("staff_id", staff.id)
-        .order("clock_in", { ascending: false })
-        .limit(10);
+        const { data, error } = await supabase
+          .from("staff_time_clock")
+          .select("*")
+          .eq("staff_id", staff.id)
+          .order("clock_in", { ascending: false })
+          .limit(10);
 
-      if (error) {
-        console.error("Error fetching time entries:", error);
-        return [];
-      }
+        if (error) {
+          console.error("Error fetching time entries:", error);
+          return [];
+        }
 
-      return data as StaffTimeClockEntry[];
-    },
-  });
+        return data as StaffTimeClockEntry[];
+      },
+    });
 
   // Fetch leave balances
-  const { 
-    data: leaveBalances = [],
-    refetch: refetchLeaveBalances 
-  } = useQuery<StaffLeaveBalance[]>({
+  const { data: leaveBalances = [], refetch: refetchLeaveBalances } = useQuery<
+    StaffLeaveBalance[]
+  >({
     queryKey: ["staff-leave-balances", staff?.id],
     enabled: !!staff?.id,
     queryFn: async () => {
@@ -135,10 +137,9 @@ export const useCurrentStaff = (): CurrentStaffData => {
   });
 
   // Fetch upcoming/pending leave requests
-  const { 
-    data: upcomingLeave = [],
-    refetch: refetchUpcomingLeave 
-  } = useQuery<StaffLeaveRequest[]>({
+  const { data: upcomingLeave = [], refetch: refetchUpcomingLeave } = useQuery<
+    StaffLeaveRequest[]
+  >({
     queryKey: ["staff-upcoming-leave", staff?.id],
     enabled: !!staff?.id,
     queryFn: async () => {
@@ -172,12 +173,22 @@ export const useCurrentStaff = (): CurrentStaffData => {
     refetchTimeEntries();
   };
 
+  // Check if staff completed a shift today (to prevent re-prompting for clock-in)
+  const hasCompletedShiftToday = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    return recentTimeEntries.some((entry) => {
+      const entryDate = new Date(entry.clock_in).toISOString().split("T")[0];
+      return entryDate === today && entry.clock_out !== null;
+    });
+  }, [recentTimeEntries]);
+
   return {
     staff,
     isLoading: isLoadingStaff,
     isStaff: !!staff,
     activeClockEntry,
     recentTimeEntries,
+    hasCompletedShiftToday,
     leaveBalances,
     upcomingLeave,
     refetch,

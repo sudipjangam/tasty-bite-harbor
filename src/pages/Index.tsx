@@ -26,6 +26,7 @@ import TimeClockDialog from "@/components/Staff/TimeClockDialog";
 import LeaveRequestDialog from "@/components/Staff/LeaveRequestDialog";
 import AutoClockInPrompt from "@/components/Staff/AutoClockInPrompt";
 import { useRefetchOnNavigation } from "@/hooks/useRefetchOnNavigation";
+import { useAutoClockOut } from "@/hooks/useAutoClockOut";
 import type { StaffMember } from "@/types/staff";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -60,11 +61,15 @@ const Index = () => {
     isStaff,
     activeClockEntry,
     recentTimeEntries,
+    hasCompletedShiftToday,
     leaveBalances,
     upcomingLeave,
     refetchTimeEntries,
     refetchLeaveData,
   } = useCurrentStaff();
+
+  // Auto clock-out: automatically ends shift after configured time
+  useAutoClockOut(staff?.id, activeClockEntry, restaurantId);
 
   // Handle clock in/out success
   const handleClockSuccess = () => {
@@ -89,12 +94,14 @@ const Index = () => {
   };
 
   // Auto clock-in prompt: Show when staff is logged in but not clocked in
+  // AND has not already completed a shift today
   useEffect(() => {
     if (
       !isLoadingStaff &&
       isStaff &&
       staff &&
       !activeClockEntry &&
+      !hasCompletedShiftToday &&
       restaurantId
     ) {
       // Check if already dismissed today
@@ -110,7 +117,14 @@ const Index = () => {
         return () => clearTimeout(timer);
       }
     }
-  }, [isLoadingStaff, isStaff, staff, activeClockEntry, restaurantId]);
+  }, [
+    isLoadingStaff,
+    isStaff,
+    staff,
+    activeClockEntry,
+    hasCompletedShiftToday,
+    restaurantId,
+  ]);
 
   // Handle auto clock-in success
   const handleAutoClockSuccess = () => {

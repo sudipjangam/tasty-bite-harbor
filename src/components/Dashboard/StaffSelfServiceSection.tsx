@@ -385,15 +385,19 @@ const StaffSelfServiceSection: React.FC<StaffSelfServiceSectionProps> = ({
                       <div className="flex items-center gap-2 mt-1">
                         <Badge
                           variant="outline"
-                          className={`text-[10px] h-5 px-1.5 ${
+                          className={`text-[10px] h-auto py-1 px-1.5 ${
                             !entry.clock_out
                               ? "text-emerald-600 bg-emerald-50 border-emerald-200"
                               : "text-gray-500 border-gray-200"
                           }`}
                         >
+                          {format(parseISO(entry.clock_in), "MMM d")}{" "}
                           {format(parseISO(entry.clock_in), "h:mm a")}
                           {entry.clock_out &&
-                            ` - ${format(parseISO(entry.clock_out), "h:mm a")}`}
+                            ` - ${format(
+                              parseISO(entry.clock_out),
+                              "MMM d"
+                            )} ${format(parseISO(entry.clock_out), "h:mm a")}`}
                         </Badge>
                       </div>
                     </div>
