@@ -553,6 +553,14 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                             <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                               {totalItems} item{totalItems !== 1 ? "s" : ""}
                             </div>
+                            {/* Discount Badge */}
+                            {order.discount && order.discount > 0 && (
+                              <div className="text-xs text-green-600 dark:text-green-400 font-medium mt-0.5 bg-green-50 dark:bg-green-900/30 px-1.5 py-0.5 rounded-full inline-block">
+                                {order.discountType === "percentage"
+                                  ? `${order.discount}% off`
+                                  : `${currencySymbol}${order.discount} off`}
+                              </div>
+                            )}
                           </div>
                         </div>
 
