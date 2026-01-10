@@ -97,6 +97,10 @@ export const QSRPosMain: React.FC = () => {
     setSearchQuery: setPastSearchQuery,
     dateFilter: pastDateFilter,
     setDateFilter: setPastDateFilter,
+    customStartDate: pastCustomStartDate,
+    setCustomStartDate: setPastCustomStartDate,
+    customEndDate: pastCustomEndDate,
+    setCustomEndDate: setPastCustomEndDate,
   } = usePastOrders();
 
   // Get attendant name
@@ -1231,6 +1235,10 @@ export const QSRPosMain: React.FC = () => {
         dateFilter={pastDateFilter}
         onDateFilterChange={setPastDateFilter}
         onDeleteOrder={handleDeletePastOrder}
+        customStartDate={pastCustomStartDate}
+        customEndDate={pastCustomEndDate}
+        onCustomStartDateChange={setPastCustomStartDate}
+        onCustomEndDateChange={setPastCustomEndDate}
         restaurantName={restaurantName}
       />
 
