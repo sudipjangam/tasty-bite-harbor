@@ -218,9 +218,9 @@ const generateFallbackInventoryRecommendations = async (
       return [];
     }
 
-    // Get recent orders to calculate consumption rate
+    // Get recent orders from unified table to calculate consumption rate
     const { data: recentOrders } = await supabase
-      .from("orders")
+      .from("orders_unified")
       .select("*")
       .eq("restaurant_id", restaurantId)
       .order("created_at", { ascending: false })

@@ -142,10 +142,10 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
         if (ordersError) throw ordersError;
         setFoodOrders(ordersData || []);
 
-        // Fetch POS orders charged to this reservation (Pending - Room Charge)
+        // Fetch POS orders charged to this reservation (Pending - Room Charge) from unified table
         const { data: posData, error: posError } = await supabase
-          .from("orders")
-          .select("id, total, payment_status, reservation_id")
+          .from("orders_unified")
+          .select("id, total_amount, payment_status, reservation_id")
           .eq("reservation_id", reservationId)
           .eq("payment_status", "Pending - Room Charge");
         if (posError) {
@@ -154,7 +154,7 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           setPosOrders(
             (posData || []).map((o: any) => ({
               id: o.id,
-              total: Number(o.total) || 0,
+              total: Number(o.total_amount) || 0,
             }))
           );
         }

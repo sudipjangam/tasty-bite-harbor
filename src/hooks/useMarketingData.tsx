@@ -1,7 +1,6 @@
-
-import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AnalyticsData {
   messagesSent: number;
@@ -29,20 +28,22 @@ export const useMarketingData = () => {
   useEffect(() => {
     const fetchRestaurantId = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (!user) return;
 
         const { data: profile } = await supabase
-          .from('profiles')
-          .select('restaurant_id')
-          .eq('id', user.id)
+          .from("profiles")
+          .select("restaurant_id")
+          .eq("id", user.id)
           .single();
 
         if (profile?.restaurant_id) {
           setRestaurantId(profile.restaurant_id);
         }
       } catch (error) {
-        console.error('Error fetching restaurant ID:', error);
+        console.error("Error fetching restaurant ID:", error);
       }
     };
 
@@ -51,15 +52,15 @@ export const useMarketingData = () => {
 
   // Fetch campaigns
   const { data: campaigns = [], isLoading: campaignsLoading } = useQuery({
-    queryKey: ['promotion-campaigns', restaurantId],
+    queryKey: ["promotion-campaigns", restaurantId],
     queryFn: async () => {
       if (!restaurantId) return [];
-      
+
       const { data, error } = await supabase
-        .from('promotion_campaigns')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .order('created_at', { ascending: false });
+        .from("promotion_campaigns")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data;
@@ -69,19 +70,19 @@ export const useMarketingData = () => {
 
   // Fetch customers with marketing data
   const { data: customers = [], isLoading: customersLoading } = useQuery({
-    queryKey: ['customers-marketing', restaurantId],
+    queryKey: ["customers-marketing", restaurantId],
     queryFn: async () => {
       if (!restaurantId) return [];
-      
+
       // Fetch customers without FK joins (no direct FK to loyalty_tiers/orders)
       const { data, error } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .order('created_at', { ascending: false });
+        .from("customers")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.log('Customers query error:', error.message);
+        console.log("Customers query error:", error.message);
         return [];
       }
       return data || [];
@@ -90,19 +91,22 @@ export const useMarketingData = () => {
   });
 
   // Fetch marketing analytics
-  const { data: analytics = {
-    messagesSent: 0,
-    revenueImpact: 0,
-    specialOccasions: 0,
-    campaignPerformance: [],
-    messageGrowth: 0,
-    revenueGrowth: 0,
-    avgOrderValue: 0,
-    repeatCustomerRate: 0,
-    customerLifetimeValue: 0,
-    churnRate: 0
-  } as AnalyticsData, isLoading: analyticsLoading } = useQuery({
-    queryKey: ['marketing-analytics', restaurantId],
+  const {
+    data: analytics = {
+      messagesSent: 0,
+      revenueImpact: 0,
+      specialOccasions: 0,
+      campaignPerformance: [],
+      messageGrowth: 0,
+      revenueGrowth: 0,
+      avgOrderValue: 0,
+      repeatCustomerRate: 0,
+      customerLifetimeValue: 0,
+      churnRate: 0,
+    } as AnalyticsData,
+    isLoading: analyticsLoading,
+  } = useQuery({
+    queryKey: ["marketing-analytics", restaurantId],
     queryFn: async (): Promise<AnalyticsData> => {
       if (!restaurantId) {
         return {
@@ -115,7 +119,7 @@ export const useMarketingData = () => {
           avgOrderValue: 0,
           repeatCustomerRate: 0,
           customerLifetimeValue: 0,
-          churnRate: 0
+          churnRate: 0,
         };
       }
 
@@ -143,15 +147,15 @@ export const useMarketingData = () => {
         .gte("sent_date", sixtyDaysAgo.toISOString())
         .lt("sent_date", thirtyDaysAgo.toISOString());
 
-      // Fetch orders data to calculate actual revenue impact
+      // Fetch orders data from unified table to calculate actual revenue impact
       const { data: orders } = await supabase
-        .from("orders")
+        .from("orders_unified")
         .select("*")
         .eq("restaurant_id", restaurantId)
         .gte("created_at", thirtyDaysAgo.toISOString());
 
       const { data: previousOrders } = await supabase
-        .from("orders")
+        .from("orders_unified")
         .select("*")
         .eq("restaurant_id", restaurantId)
         .gte("created_at", sixtyDaysAgo.toISOString())
@@ -167,59 +171,80 @@ export const useMarketingData = () => {
       // Calculate actual metrics
       const messagesSent = recentPromotions?.length || 0;
       const previousMessagesSent = previousPromotions?.length || 0;
-      const messageGrowth = previousMessagesSent > 0 
-        ? ((messagesSent - previousMessagesSent) / previousMessagesSent * 100)
-        : 0;
+      const messageGrowth =
+        previousMessagesSent > 0
+          ? ((messagesSent - previousMessagesSent) / previousMessagesSent) * 100
+          : 0;
 
       // Calculate revenue impact from orders
-      const recentRevenue = orders?.reduce((sum, order) => sum + order.total, 0) || 0;
-      const previousRevenue = previousOrders?.reduce((sum, order) => sum + order.total, 0) || 0;
-      const revenueGrowth = previousRevenue > 0 
-        ? ((recentRevenue - previousRevenue) / previousRevenue * 100)
-        : 0;
+      const recentRevenue =
+        orders?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0;
+      const previousRevenue =
+        previousOrders?.reduce(
+          (sum, order) => sum + (order.total_amount || 0),
+          0
+        ) || 0;
+      const revenueGrowth =
+        previousRevenue > 0
+          ? ((recentRevenue - previousRevenue) / previousRevenue) * 100
+          : 0;
 
       // Calculate customer engagement metrics
       const totalCustomers = customers?.length || 0;
-      const avgOrderValue = orders && orders.length > 0 
-        ? orders.reduce((sum, order) => sum + order.total, 0) / orders.length
-        : 0;
-      
-      const repeatCustomers = customers?.filter(c => c.visit_count > 1)?.length || 0;
-      const repeatRate = totalCustomers > 0 ? (repeatCustomers / totalCustomers * 100) : 0;
+      const avgOrderValue =
+        orders && orders.length > 0
+          ? orders.reduce((sum, order) => sum + (order.total_amount || 0), 0) /
+            orders.length
+          : 0;
+
+      const repeatCustomers =
+        customers?.filter((c) => c.visit_count > 1)?.length || 0;
+      const repeatRate =
+        totalCustomers > 0 ? (repeatCustomers / totalCustomers) * 100 : 0;
 
       // Calculate customer lifetime value
-      const avgLifetimeValue = customers && customers.length > 0
-        ? customers.reduce((sum, customer) => sum + customer.total_spent, 0) / customers.length
-        : 0;
+      const avgLifetimeValue =
+        customers && customers.length > 0
+          ? customers.reduce((sum, customer) => sum + customer.total_spent, 0) /
+            customers.length
+          : 0;
 
       // Calculate churn rate (customers who haven't visited in 30+ days)
-      const activeCustomers = customers?.filter(c => {
-        if (!c.last_visit_date) return false;
-        const lastVisit = new Date(c.last_visit_date);
-        const daysSinceVisit = (new Date().getTime() - lastVisit.getTime()) / (1000 * 3600 * 24);
-        return daysSinceVisit <= 30;
-      })?.length || 0;
-      
-      const churnRate = totalCustomers > 0 ? ((totalCustomers - activeCustomers) / totalCustomers * 100) : 0;
+      const activeCustomers =
+        customers?.filter((c) => {
+          if (!c.last_visit_date) return false;
+          const lastVisit = new Date(c.last_visit_date);
+          const daysSinceVisit =
+            (new Date().getTime() - lastVisit.getTime()) / (1000 * 3600 * 24);
+          return daysSinceVisit <= 30;
+        })?.length || 0;
+
+      const churnRate =
+        totalCustomers > 0
+          ? ((totalCustomers - activeCustomers) / totalCustomers) * 100
+          : 0;
 
       const specialOccasions = reservations?.length || 0;
 
       // Calculate campaign performance with actual data
-      const campaignPerformance = campaigns?.map(campaign => {
-        const campaignPromotions = sentPromotions?.filter(sp => 
-          sp.promotion_campaign_id === campaign.id
-        ) || [];
-        
-        // Estimate revenue based on promotion success and average order value
-        const estimatedRevenue = campaignPromotions.length * (avgOrderValue || 300);
-        
-        return {
-          id: campaign.id,
-          name: campaign.name,
-          sent: campaignPromotions.length,
-          revenue: Math.round(estimatedRevenue)
-        };
-      }) || [];
+      const campaignPerformance =
+        campaigns?.map((campaign) => {
+          const campaignPromotions =
+            sentPromotions?.filter(
+              (sp) => sp.promotion_campaign_id === campaign.id
+            ) || [];
+
+          // Estimate revenue based on promotion success and average order value
+          const estimatedRevenue =
+            campaignPromotions.length * (avgOrderValue || 300);
+
+          return {
+            id: campaign.id,
+            name: campaign.name,
+            sent: campaignPromotions.length,
+            revenue: Math.round(estimatedRevenue),
+          };
+        }) || [];
 
       return {
         messagesSent,
@@ -231,7 +256,7 @@ export const useMarketingData = () => {
         avgOrderValue: Math.round(avgOrderValue),
         repeatCustomerRate: Math.round(repeatRate * 10) / 10,
         customerLifetimeValue: Math.round(avgLifetimeValue),
-        churnRate: Math.round(churnRate * 10) / 10
+        churnRate: Math.round(churnRate * 10) / 10,
       };
     },
     enabled: !!restaurantId && !!campaigns,

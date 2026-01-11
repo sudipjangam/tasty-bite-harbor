@@ -276,14 +276,14 @@ export const useGSTData = (period: GSTReportPeriod = 'current_month') => {
         console.error('Error fetching invoices:', invoicesError);
       }
       
-      // Fetch orders for the period (B2C transactions)
+      // Fetch orders from unified table for the period (B2C transactions)
       const { data: orders, error: ordersError } = await supabase
-        .from('orders')
+        .from('orders_unified')
         .select('*')
         .eq('restaurant_id', user.restaurant_id)
         .gte('created_at', dateRange.start.toISOString())
         .lte('created_at', dateRange.end.toISOString())
-        .in('status', ['completed', 'paid']);
+        .in('kitchen_status', ['completed', 'paid']);
         
       if (ordersError) {
         console.error('Error fetching orders:', ordersError);

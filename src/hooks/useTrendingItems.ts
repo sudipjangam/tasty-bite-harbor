@@ -18,7 +18,7 @@ export const useTrendingItems = (period: TrendingPeriod = "weekly") => {
 
   // Setup real-time subscription for live updates
   useRealtimeSubscription({
-    table: "orders",
+    table: "orders_unified",
     queryKey: "trending-items",
     schema: "public",
   });
@@ -34,12 +34,12 @@ export const useTrendingItems = (period: TrendingPeriod = "weekly") => {
         ? subDays(now, 7) 
         : subMonths(now, 1);
 
-      // Fetch completed orders within the date range
+      // Fetch completed orders from unified table within the date range
       const { data: orders, error } = await supabase
-        .from("orders")
-        .select("items, total, created_at")
+        .from("orders_unified")
+        .select("items, total_amount, created_at")
         .eq("restaurant_id", restaurantId)
-        .eq("status", "completed")
+        .eq("kitchen_status", "completed")
         .gte("created_at", startDate.toISOString())
         .order("created_at", { ascending: false });
 

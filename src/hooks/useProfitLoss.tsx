@@ -45,10 +45,10 @@ export const useProfitLoss = (startDate?: Date, endDate?: Date) => {
     queryFn: async (): Promise<ProfitLossData> => {
       if (!restaurantId) throw new Error("No restaurant found");
 
-      // Fetch revenue data
+      // Fetch revenue data from unified table
       const { data: orders } = await supabase
-        .from("orders")
-        .select("total, created_at")
+        .from("orders_unified")
+        .select("total_amount, created_at")
         .eq("restaurant_id", restaurantId)
         .gte("created_at", format(start, "yyyy-MM-dd"))
         .lte("created_at", format(end, "yyyy-MM-dd"));
@@ -70,7 +70,7 @@ export const useProfitLoss = (startDate?: Date, endDate?: Date) => {
 
       // Calculate revenue
       const foodSales = (orders || []).reduce(
-        (sum, order) => sum + order.total,
+        (sum, order) => sum + (order.total_amount || 0),
         0
       );
       const roomRevenue = (roomBillings || []).reduce(

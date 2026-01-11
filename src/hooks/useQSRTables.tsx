@@ -27,14 +27,14 @@ export const useQSRTables = () => {
 
       if (tablesError) throw tablesError;
 
-      // Fetch active kitchen orders to determine occupied status
+      // Fetch active orders from unified table to determine occupied status
       const { data: activeOrders, error: ordersError } = await supabase
-        .from("kitchen_orders")
+        .from("orders_unified")
         .select(
-          "id, source, items, status, created_at, updated_at, customer_name, item_completion_status"
+          "id, source, items, kitchen_status, created_at, updated_at, customer_name, items_completion, table_id"
         )
         .eq("restaurant_id", restaurantId)
-        .in("status", ["new", "preparing", "ready", "held"]);
+        .in("kitchen_status", ["new", "preparing", "ready", "held"]);
 
       if (ordersError) {
         console.error("Error fetching active orders:", ordersError);
@@ -43,8 +43,11 @@ export const useQSRTables = () => {
       // Map tables with active order info
       const tablesWithStatus: QSRTable[] = tablesData.map((table) => {
         // Check if there's an active order for this table
-        // Match by source OR customer_name (customer_name contains "Table X" for dine-in)
+        // Match by table_id, source OR customer_name (customer_name contains "Table X" for dine-in)
         const tableOrder = activeOrders?.find((order) => {
+          // Direct table_id match (preferred)
+          if (order.table_id === table.id) return true;
+
           const source = order.source?.toLowerCase() || "";
           const customerName = order.customer_name?.toLowerCase() || "";
           const tableName = table.name?.toLowerCase() || "";
@@ -81,9 +84,9 @@ export const useQSRTables = () => {
         }
 
         // Check if all items are delivered (ready for payment)
-        // item_completion_status array has one entry per item in items array
+        // items_completion array has one entry per item in items array
         const itemCompletionStatus =
-          (tableOrder?.item_completion_status as boolean[]) || [];
+          (tableOrder?.items_completion as boolean[]) || [];
         const itemsArray = (tableOrder?.items as unknown[]) || [];
         const allItemsDelivered =
           itemsArray.length > 0 &&
@@ -142,33 +145,16 @@ export const useQSRTables = () => {
         {
           event: "*",
           schema: "public",
-          table: "kitchen_orders",
+          table: "orders_unified",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
         (payload) => {
           // Immediately refetch when order status changes (especially to 'completed')
-          console.log("🔄 [QSR] Kitchen order changed - refreshing", payload);
-          queryClient.invalidateQueries({
-            queryKey: ["qsr-tables", restaurantId],
-          });
-          // Also trigger an immediate refetch for faster UI update
-          refetch();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "orders",
-          filter: `restaurant_id=eq.${restaurantId}`,
-        },
-        (payload) => {
-          // Listen to orders table for payment status changes
           console.log("🔄 [QSR] Order changed - refreshing", payload);
           queryClient.invalidateQueries({
             queryKey: ["qsr-tables", restaurantId],
           });
+          // Also trigger an immediate refetch for faster UI update
           refetch();
         }
       )

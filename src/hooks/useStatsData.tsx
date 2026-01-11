@@ -6,9 +6,9 @@ import { useRestaurantId } from "./useRestaurantId";
 export const useStatsData = () => {
   const { restaurantId, isLoading: isRestaurantLoading } = useRestaurantId();
 
-  // Setup real-time subscription for orders table
+  // Setup real-time subscription for orders_unified table
   useRealtimeSubscription({
-    table: "orders",
+    table: "orders_unified",
     queryKey: "dashboard-orders",
     schema: "public",
   });
@@ -20,9 +20,9 @@ export const useStatsData = () => {
         throw new Error("No restaurant found for user");
       }
 
-      // Fetch all orders from all sources (POS, table, manual, room service, QSR, etc.)
+      // Fetch all orders from unified table (POS, table, manual, room service, QSR, etc.)
       const { data: orders, error } = await supabase
-        .from("orders")
+        .from("orders_unified")
         .select("*")
         .eq("restaurant_id", restaurantId);
 

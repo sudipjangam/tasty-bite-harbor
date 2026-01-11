@@ -49,11 +49,11 @@ const RecentOrdersTable = () => {
         )
       ).toISOString();
 
-      // Fetch from orders table - today's orders
+      // Fetch from orders_unified table - today's orders
       let query = supabase
-        .from("orders")
+        .from("orders_unified")
         .select(
-          "id, customer_name, status, total, created_at, order_type, attendant",
+          "id, customer_name, kitchen_status, payment_status, total_amount, created_at, order_type, waiter_id",
           { count: "exact" }
         )
         .gte("created_at", todayStart)
@@ -61,7 +61,7 @@ const RecentOrdersTable = () => {
         .order("created_at", { ascending: false });
 
       if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
+        query = query.eq("kitchen_status", statusFilter);
       }
 
       const { data: orders, error, count } = await query;
@@ -76,8 +76,8 @@ const RecentOrdersTable = () => {
         id: o.id,
         order_number: o.id.slice(0, 8).toUpperCase(), // Use first 8 chars of ID as order number
         customer_name: o.customer_name,
-        status: o.status,
-        total: parseFloat(o.total) || 0, // Parse string to number
+        status: o.kitchen_status || o.payment_status,
+        total: o.total_amount || 0,
         created_at: o.created_at,
         order_type: o.order_type,
       }));

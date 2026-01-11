@@ -99,17 +99,20 @@ const POSMode = () => {
 
       const today = new Date();
       const { data: orders } = await supabase
-        .from("orders")
-        .select("total, discount_amount, order_type")
+        .from("orders_unified")
+        .select("total_amount, order_type")
         .eq("restaurant_id", profile.restaurant_id)
         .eq("status", "completed")
-        .neq("order_type", "non-chargeable") // Exclude non-chargeable orders from revenue
+        .neq("order_type", "nc") // Exclude non-chargeable orders from revenue
         .gte("created_at", startOfDay(today).toISOString())
         .lte("created_at", endOfDay(today).toISOString());
 
       if (!orders) return 0;
 
-      return orders.reduce((sum, order) => sum + (order.total || 0), 0);
+      return orders.reduce(
+        (sum, order) => sum + (Number(order.total_amount) || 0),
+        0
+      );
     },
     refetchInterval: 30000, // Refresh every 30 seconds as fallback
   });
@@ -123,7 +126,7 @@ const POSMode = () => {
         {
           event: "*",
           schema: "public",
-          table: "orders",
+          table: "orders_unified",
         },
         (payload) => {
           // Only refresh if status changed to/from completed
@@ -307,14 +310,21 @@ const POSMode = () => {
         notes: item.notes ? [item.notes] : [],
       }));
 
+      const orderTotal = currentOrderItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+
       if (recalledKitchenOrderId) {
         // Update existing held order
         const { error: updateError } = await supabase
-          .from("kitchen_orders")
+          .from("orders_unified")
           .update({
             items: payloadItems,
+            kitchen_status: "held",
             status: "held",
             source: recalledSource || "POS",
+            total_amount: orderTotal,
           })
           .eq("id", recalledKitchenOrderId);
 
@@ -329,9 +339,9 @@ const POSMode = () => {
           description: "Held order has been updated successfully",
         });
       } else {
-        // Create new held order
-        const { error: kitchenError } = await supabase
-          .from("kitchen_orders")
+        // Create new held order in unified table
+        const { error: orderError } = await supabase
+          .from("orders_unified")
           .insert({
             restaurant_id: profile.restaurant_id,
             source:
@@ -339,10 +349,14 @@ const POSMode = () => {
                 ? `Table ${tableNumber}`
                 : "POS",
             status: "held",
+            kitchen_status: "held",
             items: payloadItems,
+            total_amount: orderTotal,
+            subtotal: orderTotal,
+            waiter_id: user.id,
           });
 
-        if (kitchenError) throw kitchenError;
+        if (orderError) throw orderError;
 
         // Clear current order
         setCurrentOrderItems([]);
@@ -437,19 +451,16 @@ const POSMode = () => {
         Date.now() - 30 * 60 * 1000
       ).toISOString();
 
-      // Optimize: Only fetch orders that match the source or are from the table
-      // This drastically reduces the data transfer by filtering on the server
+      // Query orders_unified for active kitchen orders
       let query = supabase
-        .from("kitchen_orders")
+        .from("orders_unified")
         .select("id, source, items, created_at")
         .eq("restaurant_id", profile.restaurant_id)
-        .in("status", ["new", "preparing"])
+        .in("kitchen_status", ["new", "preparing"])
         .gte("created_at", thirtyMinutesAgo)
         .order("created_at", { ascending: false });
 
-      // Apply server-side text search (unions are tricky in Supabase basic query builder without OR)
-      // We'll use a broad filter and then refine, or use .or()
-      // "source.ilike.%query%"
+      // Apply server-side text search
       const sourceQuery = `source.ilike.%${orderSource}%${
         orderType === "Dine-In" && tableNumber
           ? `,source.ilike.%Table ${tableNumber}%`
@@ -470,9 +481,7 @@ const POSMode = () => {
       );
 
       for (const existingOrder of existingOrders) {
-        // Source match is now guaranteed by the query mostly, but we double check logic
-        // Verify item overlap
-        const existingItems = existingOrder.items as {
+        const existingItems = (existingOrder.items || []) as {
           name: string;
           quantity: number;
         }[];
@@ -566,10 +575,15 @@ const POSMode = () => {
       : orderType;
 
     try {
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error("User not authenticated");
+
       const { data: profile } = await supabase
         .from("profiles")
         .select("restaurant_id")
-        .eq("id", (await supabase.auth.getUser()).data.user?.id)
+        .eq("id", currentUser.id)
         .single();
 
       if (!profile?.restaurant_id) {
@@ -587,119 +601,56 @@ const POSMode = () => {
           }`;
 
       const orderSource = recalledSource || computedOrderSource;
+      const posOrderSource = `POS-${orderSource}`;
+
+      const orderTotal = currentOrderItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+
+      const orderItems = currentOrderItems.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        notes: [...(item.modifiers || []), ...(item.notes ? [item.notes] : [])],
+      }));
 
       if (recalledKitchenOrderId) {
-        // Update existing kitchen order from held to active
+        // Update existing order from held to active
         const { error: updateError } = await supabase
-          .from("kitchen_orders")
+          .from("orders_unified")
           .update({
-            source: orderSource,
-            items: currentOrderItems.map((item) => ({
-              name: item.name,
-              quantity: item.quantity,
-              price: item.price,
-              notes: [
-                ...(item.modifiers || []),
-                ...(item.notes ? [item.notes] : []),
-              ],
-            })),
-            status: "new",
+            source: posOrderSource,
+            items: orderItems,
+            kitchen_status: "new",
+            status: "pending",
+            total_amount: orderTotal,
+            subtotal: orderTotal,
+            customer_name: orderSource,
+            order_type: effectiveOrderType.toLowerCase().replace("-", "_"),
           })
           .eq("id", recalledKitchenOrderId);
 
         if (updateError) throw updateError;
-
-        // Create corresponding order record
-        const { data: createdOrder, error: orderError } = await supabase
-          .from("orders")
-          .insert({
-            restaurant_id: profile.restaurant_id,
-            customer_name: orderSource,
-            items: currentOrderItems.map((item) => {
-              const notes = [...(item.modifiers || []), item.notes]
-                .filter(Boolean)
-                .join(", ");
-              const meta = notes ? ` (${notes})` : "";
-              return `${item.quantity}x ${item.name}${meta} @${item.price}`;
-            }),
-            total: currentOrderItems.reduce(
-              (sum, item) => sum + item.price * item.quantity,
-              0
-            ),
-            status: "pending",
-            source: "pos",
-            order_type: effectiveOrderType.toLowerCase(),
-            attendant: attendantName,
-          })
-          .select()
-          .single();
-
-        if (orderError) throw orderError;
-
-        // Link the kitchen order to the created order
-        if (createdOrder?.id) {
-          await supabase
-            .from("kitchen_orders")
-            .update({ order_id: createdOrder.id })
-            .eq("id", recalledKitchenOrderId);
-        }
       } else {
-        const posOrderSource = `POS-${orderSource}`;
-
-        const { error: kitchenError, data: kitchenOrder } = await supabase
-          .from("kitchen_orders")
+        // Create new unified order
+        const { error: orderError } = await supabase
+          .from("orders_unified")
           .insert({
             restaurant_id: profile.restaurant_id,
             source: posOrderSource,
-            items: currentOrderItems.map((item) => ({
-              name: item.name,
-              quantity: item.quantity,
-              price: item.price,
-              notes: [
-                ...(item.modifiers || []),
-                ...(item.notes ? [item.notes] : []),
-              ],
-            })),
-            status: "new",
-          })
-          .select()
-          .single();
-
-        if (kitchenError) throw kitchenError;
-
-        const { error: orderError, data: createdOrder } = await supabase
-          .from("orders")
-          .insert({
-            restaurant_id: profile.restaurant_id,
-            customer_name: orderSource,
-            items: currentOrderItems.map((item) => {
-              const notes = [...(item.modifiers || []), item.notes]
-                .filter(Boolean)
-                .join(", ");
-              const meta = notes ? ` (${notes})` : "";
-              return `${item.quantity}x ${item.name}${meta} @${item.price}`;
-            }),
-            total: currentOrderItems.reduce(
-              (sum, item) => sum + item.price * item.quantity,
-              0
-            ),
+            items: orderItems,
+            kitchen_status: "new",
             status: "pending",
-            source: "pos",
-            order_type: effectiveOrderType.toLowerCase(),
-            attendant: attendantName,
-          })
-          .select()
-          .single();
+            total_amount: orderTotal,
+            subtotal: orderTotal,
+            customer_name: orderSource,
+            order_type: effectiveOrderType.toLowerCase().replace("-", "_"),
+            waiter_id: currentUser.id,
+            server_name: attendantName,
+          });
 
         if (orderError) throw orderError;
-
-        // Link the kitchen order to the created orders record so status sync works
-        if (createdOrder?.id && kitchenOrder?.id) {
-          await supabase
-            .from("kitchen_orders")
-            .update({ order_id: createdOrder.id })
-            .eq("id", kitchenOrder.id);
-        }
       }
 
       // Add to local duplicate prevention cache

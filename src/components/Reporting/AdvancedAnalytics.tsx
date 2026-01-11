@@ -6,15 +6,37 @@ import { StandardizedButton } from "@/components/ui/standardized-button";
 import { DatePickerWithRange } from "@/components/ui/date-picker-with-range";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { TrendingUp, Download, DollarSign, ShoppingCart, Users, Loader2, RefreshCw } from "lucide-react";
+import {
+  TrendingUp,
+  Download,
+  DollarSign,
+  ShoppingCart,
+  Users,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { startOfWeek, endOfWeek, format } from "date-fns";
 import { DateRange } from "react-day-picker";
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"];
 
 const AdvancedAnalytics = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -25,7 +47,12 @@ const AdvancedAnalytics = () => {
   const { toast } = useToast();
   const { restaurantId } = useRestaurantId();
 
-  const { data: analyticsData, isLoading, error, refetch } = useQuery({
+  const {
+    data: analyticsData,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["analytics-data", restaurantId, dateRange],
     queryFn: async () => {
       if (!restaurantId || !dateRange?.from || !dateRange?.to) return null;
@@ -48,36 +75,40 @@ const AdvancedAnalytics = () => {
         console.log("RPC failed, using fallback", rpcError);
       }
 
-      // Fallback: Fetch directly from tables
+      // Fallback: Fetch directly from unified table
       const [ordersResult, customersResult] = await Promise.all([
         supabase
-          .from('orders')
-          .select('*')
-          .eq('restaurant_id', restaurantId)
-          .gte('created_at', `${startDate}T00:00:00`)
-          .lte('created_at', `${endDate}T23:59:59`),
+          .from("orders_unified")
+          .select("*")
+          .eq("restaurant_id", restaurantId)
+          .gte("created_at", `${startDate}T00:00:00`)
+          .lte("created_at", `${endDate}T23:59:59`),
         supabase
-          .from('customers')
-          .select('*')
-          .eq('restaurant_id', restaurantId)
-          .gte('created_at', `${startDate}T00:00:00`)
-          .lte('created_at', `${endDate}T23:59:59`)
+          .from("customers")
+          .select("*")
+          .eq("restaurant_id", restaurantId)
+          .gte("created_at", `${startDate}T00:00:00`)
+          .lte("created_at", `${endDate}T23:59:59`),
       ]);
 
       const orders = ordersResult.data || [];
       const customers = customersResult.data || [];
 
       // Calculate KPIs
-      const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+      const totalRevenue = orders.reduce(
+        (sum, o) => sum + (o.total_amount || 0),
+        0
+      );
       const totalOrders = orders.length;
       const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
       const newCustomers = customers.length;
 
       // Group orders by date for daily revenue chart
       const dailyRevenueMap: Record<string, number> = {};
-      orders.forEach(order => {
-        const date = order.created_at.split('T')[0];
-        dailyRevenueMap[date] = (dailyRevenueMap[date] || 0) + (order.total || 0);
+      orders.forEach((order) => {
+        const date = order.created_at.split("T")[0];
+        dailyRevenueMap[date] =
+          (dailyRevenueMap[date] || 0) + (order.total_amount || 0);
       });
       const dailyRevenue = Object.entries(dailyRevenueMap)
         .map(([date, amount]) => ({ date, amount }))
@@ -85,15 +116,17 @@ const AdvancedAnalytics = () => {
 
       // Group orders by category (parse items)
       const categoryMap: Record<string, number> = {};
-      orders.forEach(order => {
+      orders.forEach((order) => {
         if (order.items && Array.isArray(order.items)) {
           order.items.forEach((item: string) => {
             try {
-              const parsed = typeof item === 'string' ? JSON.parse(item) : item;
-              const category = parsed.category || 'Other';
-              categoryMap[category] = (categoryMap[category] || 0) + (parsed.price || 0) * (parsed.quantity || 1);
+              const parsed = typeof item === "string" ? JSON.parse(item) : item;
+              const category = parsed.category || "Other";
+              categoryMap[category] =
+                (categoryMap[category] || 0) +
+                (parsed.price || 0) * (parsed.quantity || 1);
             } catch {
-              categoryMap['Other'] = (categoryMap['Other'] || 0) + 0;
+              categoryMap["Other"] = (categoryMap["Other"] || 0) + 0;
             }
           });
         }
@@ -104,17 +137,18 @@ const AdvancedAnalytics = () => {
 
       // Top products
       const productMap: Record<string, { count: number; revenue: number }> = {};
-      orders.forEach(order => {
+      orders.forEach((order) => {
         if (order.items && Array.isArray(order.items)) {
           order.items.forEach((item: string) => {
             try {
-              const parsed = typeof item === 'string' ? JSON.parse(item) : item;
-              const name = parsed.name || 'Unknown';
+              const parsed = typeof item === "string" ? JSON.parse(item) : item;
+              const name = parsed.name || "Unknown";
               if (!productMap[name]) {
                 productMap[name] = { count: 0, revenue: 0 };
               }
               productMap[name].count += parsed.quantity || 1;
-              productMap[name].revenue += (parsed.price || 0) * (parsed.quantity || 1);
+              productMap[name].revenue +=
+                (parsed.price || 0) * (parsed.quantity || 1);
             } catch {
               // Skip invalid items
             }
@@ -122,7 +156,11 @@ const AdvancedAnalytics = () => {
         }
       });
       const topProducts = Object.entries(productMap)
-        .map(([name, data]) => ({ name, quantity: data.count, revenue: data.revenue }))
+        .map(([name, data]) => ({
+          name,
+          quantity: data.count,
+          revenue: data.revenue,
+        }))
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 10);
 
@@ -137,7 +175,7 @@ const AdvancedAnalytics = () => {
           dailyRevenue,
           salesByCategory,
           topProducts,
-        }
+        },
       };
     },
     enabled: !!restaurantId && !!dateRange?.from && !!dateRange?.to,
@@ -166,159 +204,188 @@ const AdvancedAnalytics = () => {
       };
 
       const doc = new jsPDF();
-      
+
       // Set up document properties
       doc.setProperties({
-        title: 'Business Analytics Report',
-        author: restaurantName || 'Restaurant Management System',
-        creator: 'Swadeshi Solutions',
-        subject: 'Analytics Report',
+        title: "Business Analytics Report",
+        author: restaurantName || "Restaurant Management System",
+        creator: "Swadeshi Solutions",
+        subject: "Analytics Report",
       });
-      
+
       // Add header with teal background
       doc.setFillColor(0, 179, 167);
-      doc.rect(0, 0, 210, 25, 'F');
+      doc.rect(0, 0, 210, 25, "F");
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text("BUSINESS ANALYTICS REPORT", 105, 16, { align: 'center' });
-      
+      doc.setFont("helvetica", "bold");
+      doc.text("BUSINESS ANALYTICS REPORT", 105, 16, { align: "center" });
+
       // Add restaurant name
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text(restaurantName || 'Restaurant Management System', 14, 38);
-      
+      doc.setFont("helvetica", "bold");
+      doc.text(restaurantName || "Restaurant Management System", 14, 38);
+
       // Add date range
       doc.setFontSize(11);
-      doc.setFont('helvetica', 'normal');
-      const dateRangeText = dateRange?.from && dateRange?.to 
-        ? `Report Period: ${format(dateRange.from, 'MMM dd, yyyy')} - ${format(dateRange.to, 'MMM dd, yyyy')}`
-        : 'Report Period: All Time';
+      doc.setFont("helvetica", "normal");
+      const dateRangeText =
+        dateRange?.from && dateRange?.to
+          ? `Report Period: ${format(
+              dateRange.from,
+              "MMM dd, yyyy"
+            )} - ${format(dateRange.to, "MMM dd, yyyy")}`
+          : "Report Period: All Time";
       doc.text(dateRangeText, 14, 48);
-      doc.text(`Generated on: ${format(new Date(), 'MMM dd, yyyy')}`, 14, 56);
-      
+      doc.text(`Generated on: ${format(new Date(), "MMM dd, yyyy")}`, 14, 56);
+
       // Add Performance Summary section
       doc.setFillColor(240, 240, 240);
-      doc.rect(14, 64, 182, 35, 'F');
+      doc.rect(14, 64, 182, 35, "F");
       doc.setFontSize(13);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont("helvetica", "bold");
       doc.text("Performance Summary", 18, 74);
-      
-      doc.setFont('helvetica', 'normal');
+
+      doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
-      doc.text(`Total Revenue: ₹${Number(kpis.totalRevenue || 0).toFixed(2)}`, 18, 84);
+      doc.text(
+        `Total Revenue: ₹${Number(kpis.totalRevenue || 0).toFixed(2)}`,
+        18,
+        84
+      );
       doc.text(`Total Orders: ${kpis.totalOrders || 0}`, 110, 84);
-      doc.text(`Average Order Value: ₹${Number(kpis.avgOrderValue || 0).toFixed(2)}`, 18, 92);
+      doc.text(
+        `Average Order Value: ₹${Number(kpis.avgOrderValue || 0).toFixed(2)}`,
+        18,
+        92
+      );
       doc.text(`Active Customers: ${kpis.newCustomers || 0}`, 110, 92);
-      
+
       // Add Revenue Data table
       let startY = 108;
       doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont("helvetica", "bold");
       doc.text("Revenue Data (Last 30 days)", 14, startY);
-      
+
       const revenueTableData = (charts.dailyRevenue || []).map((day: any) => [
-        format(new Date(day.date), 'MMM dd, yyyy'),
+        format(new Date(day.date), "MMM dd, yyyy"),
         `₹${Number(day.revenue || 0).toFixed(2)}`,
         day.orders || 0,
-        `₹${(day.revenue / (day.orders || 1)).toFixed(2)}`
+        `₹${(day.revenue / (day.orders || 1)).toFixed(2)}`,
       ]);
-      
+
       autoTable(doc, {
-        head: [['Date', 'Revenue', 'Orders', 'Avg Order Value']],
+        head: [["Date", "Revenue", "Orders", "Avg Order Value"]],
         body: revenueTableData,
         startY: startY + 6,
-        theme: 'grid',
+        theme: "grid",
         styles: { fontSize: 9, cellPadding: 2 },
-        headStyles: { fillColor: [0, 179, 167], textColor: 255, fontStyle: 'bold' },
+        headStyles: {
+          fillColor: [0, 179, 167],
+          textColor: 255,
+          fontStyle: "bold",
+        },
         alternateRowStyles: { fillColor: [245, 245, 245] },
       });
-      
+
       // Add Sales by Category table on new page if needed
       const finalY = (doc as any).lastAutoTable.finalY || startY + 60;
-      
+
       if (finalY > 240) {
         doc.addPage();
         startY = 20;
       } else {
         startY = finalY + 15;
       }
-      
+
       doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont("helvetica", "bold");
       doc.text("Sales by Category", 14, startY);
-      
-      const categoryTableData = (charts.salesByCategory || []).map((cat: any) => [
-        cat.name,
-        `₹${Number(cat.value || 0).toFixed(2)}`,
-        `${((cat.value / kpis.totalRevenue) * 100).toFixed(1)}%`
-      ]);
-      
+
+      const categoryTableData = (charts.salesByCategory || []).map(
+        (cat: any) => [
+          cat.name,
+          `₹${Number(cat.value || 0).toFixed(2)}`,
+          `${((cat.value / kpis.totalRevenue) * 100).toFixed(1)}%`,
+        ]
+      );
+
       autoTable(doc, {
-        head: [['Category', 'Revenue', 'Percentage']],
+        head: [["Category", "Revenue", "Percentage"]],
         body: categoryTableData,
         startY: startY + 6,
-        theme: 'grid',
+        theme: "grid",
         styles: { fontSize: 9, cellPadding: 2 },
-        headStyles: { fillColor: [0, 179, 167], textColor: 255, fontStyle: 'bold' },
+        headStyles: {
+          fillColor: [0, 179, 167],
+          textColor: 255,
+          fontStyle: "bold",
+        },
         alternateRowStyles: { fillColor: [245, 245, 245] },
       });
-      
+
       // Add Top Products table
       const finalY2 = (doc as any).lastAutoTable.finalY || startY + 40;
-      
+
       if (finalY2 > 240) {
         doc.addPage();
         startY = 20;
       } else {
         startY = finalY2 + 15;
       }
-      
+
       doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont("helvetica", "bold");
       doc.text("Top Performing Products", 14, startY);
-      
+
       const productsTableData = (charts.topProducts || []).map((prod: any) => [
         prod.name,
         `₹${Number(prod.revenue || 0).toFixed(2)}`,
-        prod.quantity || 0
+        prod.quantity || 0,
       ]);
-      
+
       autoTable(doc, {
-        head: [['Product Name', 'Revenue', 'Quantity Sold']],
+        head: [["Product Name", "Revenue", "Quantity Sold"]],
         body: productsTableData,
         startY: startY + 6,
-        theme: 'grid',
+        theme: "grid",
         styles: { fontSize: 9, cellPadding: 2 },
-        headStyles: { fillColor: [0, 179, 167], textColor: 255, fontStyle: 'bold' },
+        headStyles: {
+          fillColor: [0, 179, 167],
+          textColor: 255,
+          fontStyle: "bold",
+        },
         alternateRowStyles: { fillColor: [245, 245, 245] },
       });
-      
+
       // Add watermark to all pages
       const pageCount = doc.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(150, 150, 150);
-        doc.text("Powered by Swadeshi Solutions", 160, 285, { align: 'right' });
+        doc.text("Powered by Swadeshi Solutions", 160, 285, { align: "right" });
         doc.setFontSize(10);
-        doc.text(`Page ${i} of ${pageCount}`, 105, 285, { align: 'center' });
+        doc.text(`Page ${i} of ${pageCount}`, 105, 285, { align: "center" });
       }
-      
-      const fileName = `Analytics_Report_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+
+      const fileName = `Analytics_Report_${format(
+        new Date(),
+        "yyyy-MM-dd"
+      )}.pdf`;
       doc.save(fileName);
-      
-      toast({ 
+
+      toast({
         title: "PDF Export Successful",
-        description: `Report saved as ${fileName}` 
+        description: `Report saved as ${fileName}`,
       });
     } catch (error) {
       console.error("PDF export error:", error);
-      toast({ 
-        title: "Export Failed", 
+      toast({
+        title: "Export Failed",
         description: "Could not export to PDF. Please try again.",
-        variant: "destructive" 
+        variant: "destructive",
       });
     } finally {
       setIsExporting(false);
@@ -353,12 +420,16 @@ const AdvancedAnalytics = () => {
     return (
       <StandardizedCard className="p-8 text-center">
         <div className="space-y-4">
-          <p className="text-destructive text-lg font-semibold">Failed to load analytics data</p>
-          <p className="text-muted-foreground">
-            {error instanceof Error ? error.message : "An unknown error occurred"}
+          <p className="text-destructive text-lg font-semibold">
+            Failed to load analytics data
           </p>
-          <StandardizedButton 
-            onClick={() => refetch()} 
+          <p className="text-muted-foreground">
+            {error instanceof Error
+              ? error.message
+              : "An unknown error occurred"}
+          </p>
+          <StandardizedButton
+            onClick={() => refetch()}
             variant="secondary"
             className="mx-auto"
           >
@@ -387,8 +458,8 @@ const AdvancedAnalytics = () => {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Advanced Analytics & Reporting</h2>
         <div className="flex gap-2">
-          <StandardizedButton 
-            variant="secondary" 
+          <StandardizedButton
+            variant="secondary"
             onClick={handleExportPDF}
             disabled={isExporting}
           >
@@ -403,9 +474,9 @@ const AdvancedAnalytics = () => {
       </div>
 
       <div className="flex items-center gap-2">
-        <DatePickerWithRange 
+        <DatePickerWithRange
           initialDateRange={dateRange}
-          onDateRangeChange={setDateRange} 
+          onDateRangeChange={setDateRange}
         />
       </div>
 
@@ -419,7 +490,9 @@ const AdvancedAnalytics = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Revenue</p>
-                <p className="text-2xl font-bold">₹{Number(kpis.totalRevenue || 0).toFixed(2)}</p>
+                <p className="text-2xl font-bold">
+                  ₹{Number(kpis.totalRevenue || 0).toFixed(2)}
+                </p>
               </div>
             </div>
           </StandardizedCard>
@@ -443,7 +516,9 @@ const AdvancedAnalytics = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Avg Order Value</p>
-                <p className="text-2xl font-bold">₹{Number(kpis.avgOrderValue || 0).toFixed(2)}</p>
+                <p className="text-2xl font-bold">
+                  ₹{Number(kpis.avgOrderValue || 0).toFixed(2)}
+                </p>
               </div>
             </div>
           </StandardizedCard>
@@ -473,7 +548,12 @@ const AdvancedAnalytics = () => {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="revenue" stroke="#8884d8" strokeWidth={2} />
+                <Line
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="#8884d8"
+                  strokeWidth={2}
+                />
               </LineChart>
             </ResponsiveContainer>
           </StandardizedCard>
@@ -493,9 +573,14 @@ const AdvancedAnalytics = () => {
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {(charts.salesByCategory || []).map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
+                  {(charts.salesByCategory || []).map(
+                    (entry: any, index: number) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    )
+                  )}
                 </Pie>
                 <Tooltip />
               </PieChart>
@@ -505,7 +590,9 @@ const AdvancedAnalytics = () => {
 
         {/* Top Products */}
         <StandardizedCard className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Top Performing Products</h3>
+          <h3 className="text-lg font-semibold mb-4">
+            Top Performing Products
+          </h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={charts.topProducts || []}>
               <CartesianGrid strokeDasharray="3 3" />

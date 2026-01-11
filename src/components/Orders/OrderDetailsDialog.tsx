@@ -135,28 +135,20 @@ const OrderDetailsDialog = ({
 
   if (!order) return null;
 
-  // Fetch the order details including discount info from orders table
+  // Fetch the order details including discount info from orders_unified table
   const { data: orderDetails } = useQuery({
     queryKey: ["order-details", order.id],
     queryFn: async () => {
       if (!order?.id) return null;
 
-      const { data: kitchenOrder } = await supabase
-        .from("kitchen_orders")
-        .select("order_id")
+      // Query discount info directly from orders_unified
+      const { data } = await supabase
+        .from("orders_unified")
+        .select("discount_amount, discount_percentage")
         .eq("id", order.id)
         .maybeSingle();
 
-      if (kitchenOrder?.order_id) {
-        const { data } = await supabase
-          .from("orders")
-          .select("discount_amount, discount_percentage")
-          .eq("id", kitchenOrder.order_id)
-          .maybeSingle();
-
-        return data;
-      }
-      return null;
+      return data;
     },
     enabled: isOpen && !!order?.id,
   });
@@ -225,8 +217,8 @@ const OrderDetailsDialog = ({
   ) => {
     try {
       const { error } = await supabase
-        .from("kitchen_orders")
-        .update({ status: newStatus })
+        .from("orders_unified")
+        .update({ kitchen_status: newStatus })
         .eq("id", order.id);
 
       if (error) throw error;

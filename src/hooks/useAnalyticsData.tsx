@@ -31,9 +31,9 @@ export const useAnalyticsData = () => {
         .order("total_spent", { ascending: false })
         .limit(100);
 
-      // Fetch recent orders from all sources - EXCLUDE cancelled orders
-      const { data: regularOrders } = await supabase
-        .from("orders")
+      // Fetch recent orders from unified table - EXCLUDE cancelled orders
+      const { data: unifiedOrders } = await supabase
+        .from("orders_unified")
         .select("*")
         .eq("restaurant_id", restaurantId)
         .neq("status", "cancelled") // Exclude cancelled orders
@@ -43,15 +43,6 @@ export const useAnalyticsData = () => {
       // Room service orders - EXCLUDE cancelled
       const { data: roomOrders } = await supabase
         .from("room_food_orders")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .neq("status", "cancelled") // Exclude cancelled orders
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      // Kitchen orders - EXCLUDE cancelled
-      const { data: kitchenOrders } = await supabase
-        .from("kitchen_orders")
         .select("*")
         .eq("restaurant_id", restaurantId)
         .neq("status", "cancelled") // Exclude cancelled orders
@@ -87,23 +78,15 @@ export const useAnalyticsData = () => {
         .select("*")
         .eq("restaurant_id", restaurantId);
 
-      // Calculate top products from actual orders
+      // Calculate top products from actual orders (unified table + room orders)
       const topProducts = calculateTopProducts(
-        [
-          ...(regularOrders || []),
-          ...(roomOrders || []),
-          ...(kitchenOrders || []),
-        ],
+        [...(unifiedOrders || []), ...(roomOrders || [])],
         menuItems || []
       );
 
       // Calculate category revenue from actual data
       const categoryData = calculateCategoryRevenue(
-        [
-          ...(regularOrders || []),
-          ...(roomOrders || []),
-          ...(kitchenOrders || []),
-        ],
+        [...(unifiedOrders || []), ...(roomOrders || [])],
         menuItems || []
       );
 
@@ -148,11 +131,7 @@ export const useAnalyticsData = () => {
       return {
         revenueStats: revenueStats || [],
         customerInsights: customerInsights || [],
-        recentOrders: [
-          ...(regularOrders || []),
-          ...(roomOrders || []),
-          ...(kitchenOrders || []),
-        ],
+        recentOrders: [...(unifiedOrders || []), ...(roomOrders || [])],
         topProducts,
         salesPrediction,
         categoryData,
@@ -178,7 +157,7 @@ export const useAnalyticsData = () => {
         {
           event: "*",
           schema: "public",
-          table: "orders",
+          table: "orders_unified",
         },
         () => {
           query.refetch();
@@ -190,17 +169,6 @@ export const useAnalyticsData = () => {
           event: "*",
           schema: "public",
           table: "room_food_orders",
-        },
-        () => {
-          query.refetch();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "kitchen_orders",
         },
         () => {
           query.refetch();

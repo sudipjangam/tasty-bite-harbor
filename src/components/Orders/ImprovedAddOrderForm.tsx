@@ -366,79 +366,48 @@ const ImprovedAddOrderForm = ({
       }));
 
       if (editingOrder) {
-        // 1. Update Orders Table
+        // Update orders_unified directly
         const { error: orderError } = await supabase
-          .from("orders")
-          .update(orderData)
+          .from("orders_unified")
+          .update({
+            ...orderData,
+            items: kitchenItems,
+            source: orderData.customer_name,
+            table_number:
+              values.orderType === "dineIn" ? values.tableNumber : null,
+          })
           .eq("id", editingOrder.id);
 
         if (orderError) throw orderError;
-
-        // 2. Update Kitchen Orders Table
-        // Find the kitchen order linked to this order
-        const { data: linkedKitchenOrder } = await supabase
-          .from("kitchen_orders")
-          .select("id")
-          .eq("order_id", editingOrder.id)
-          .single();
-
-        if (linkedKitchenOrder) {
-          const { error: kitchenError } = await supabase
-            .from("kitchen_orders")
-            .update({
-              items: kitchenItems,
-              // Optionally update source/customer_name if changed
-              source: orderData.customer_name,
-            })
-            .eq("id", linkedKitchenOrder.id);
-
-          if (kitchenError) {
-            console.error("Failed to update kitchen order:", kitchenError);
-            toast({
-              title: "Warning",
-              description: "Order updated but kitchen sync failed.",
-              variant: "destructive",
-            });
-          }
-        }
 
         toast({
           title: "Success",
           description: "Order updated successfully",
         });
       } else {
-        // 1. Create Order
-        const { data: newOrder, error: orderError } = await supabase
-          .from("orders")
-          .insert([orderData])
-          .select()
-          .single();
+        // Create single order in orders_unified
+        const { error: orderError } = await supabase
+          .from("orders_unified")
+          .insert({
+            restaurant_id: profile.restaurant_id,
+            source: orderData.customer_name,
+            table_number:
+              values.orderType === "dineIn" ? values.tableNumber : null,
+            items: kitchenItems,
+            kitchen_status: "new",
+            payment_status: "Pending",
+            total_amount: orderTotal,
+            discount_amount: discountAmount || 0,
+            discount_percentage:
+              values.discountType === "percentage" ? values.discountValue : 0,
+            order_type: values.orderType === "dineIn" ? "dine-in" : "takeaway",
+            customer_name: values.customerName || null,
+            customer_phone: values.customerPhone || null,
+            attendant: values.attendant || attendantName || null,
+            created_by: (await supabase.auth.getUser()).data.user?.id || null,
+          });
 
         if (orderError) throw orderError;
-
-        // 2. Create Kitchen Order
-        if (newOrder) {
-          const { error: kitchenError } = await supabase
-            .from("kitchen_orders")
-            .insert({
-              restaurant_id: profile.restaurant_id,
-              source: orderData.customer_name,
-              status: "new",
-              items: kitchenItems,
-              order_id: newOrder.id,
-              order_type: orderData.order_type,
-              customer_name: values.customerName,
-            });
-
-          if (kitchenError) {
-            console.error("Failed to create kitchen order:", kitchenError);
-            toast({
-              title: "Warning",
-              description: "Order created but sent to kitchen failed.",
-              variant: "destructive",
-            });
-          }
-        }
 
         toast({
           title: "Success",

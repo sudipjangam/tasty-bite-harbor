@@ -31,7 +31,7 @@ export interface RetryOptions {
  * ```tsx
  * // Basic usage
  * const result = await withRetry(async () => {
- *   return await supabase.from("orders").insert(orderData);
+ *   return await supabase.from("orders_unified").insert(orderData);
  * });
  * 
  * // With options

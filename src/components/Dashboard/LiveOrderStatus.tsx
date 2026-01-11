@@ -10,7 +10,7 @@ interface KitchenOrder {
   id: string;
   order_id: string;
   source: string;
-  status: 'new' | 'preparing' | 'ready' | 'completed' | 'cancelled';
+  status: "new" | "preparing" | "ready" | "completed" | "cancelled";
   items: Array<{ name: string; quantity: number; notes?: string }>;
   created_at: string;
 }
@@ -24,7 +24,7 @@ export const LiveOrderStatus = () => {
 
   // Initialize audio
   useEffect(() => {
-    audioRef.current = new Audio('/notification.mp3');
+    audioRef.current = new Audio("/notification.mp3");
     audioRef.current.volume = 0.5;
   }, []);
 
@@ -34,21 +34,23 @@ export const LiveOrderStatus = () => {
 
     const fetchOrders = async () => {
       const { data, error } = await supabase
-        .from('kitchen_orders')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .in('status', ['preparing', 'ready'])
-        .is('bumped_at', null) // Exclude bumped orders
-        .order('created_at', { ascending: false });
+        .from("orders_unified")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .in("kitchen_status", ["preparing", "ready"])
+        .is("bumped_at", null) // Exclude bumped orders
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error('Error fetching kitchen orders:', error);
+        console.error("Error fetching orders:", error);
         return;
       }
 
-      const preparing = data.filter(o => o.status === 'preparing');
-      const ready = data.filter(o => o.status === 'ready');
-      
+      // Map kitchen_status to status for component compatibility
+      const mappedData = data.map((o) => ({ ...o, status: o.kitchen_status }));
+      const preparing = mappedData.filter((o) => o.status === "preparing");
+      const ready = mappedData.filter((o) => o.status === "ready");
+
       setPreparingOrders(preparing);
       setReadyOrders(ready);
     };
@@ -61,81 +63,114 @@ export const LiveOrderStatus = () => {
     if (!restaurantId) return;
 
     const channel = supabase
-      .channel('kitchen-orders-changes')
+      .channel("orders-unified-live-status")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: '*',
-          schema: 'public',
-          table: 'kitchen_orders',
-          filter: `restaurant_id=eq.${restaurantId}`
+          event: "*",
+          schema: "public",
+          table: "orders_unified",
+          filter: `restaurant_id=eq.${restaurantId}`,
         },
         (payload) => {
-          console.log('Kitchen order change detected:', payload);
-          
-          if (payload.eventType === 'UPDATE') {
-            const updatedOrder = payload.new as KitchenOrder & { bumped_at?: string };
-            
+          console.log("Kitchen order change detected:", payload);
+
+          if (payload.eventType === "UPDATE") {
+            const rawOrder = payload.new as any;
+            const updatedOrder = {
+              ...rawOrder,
+              status: rawOrder.kitchen_status,
+            } as KitchenOrder & { bumped_at?: string };
+
             // If order was bumped, remove from both lists
             if (updatedOrder.bumped_at) {
-              setPreparingOrders(prev => prev.filter(o => o.id !== updatedOrder.id));
-              setReadyOrders(prev => prev.filter(o => o.id !== updatedOrder.id));
+              setPreparingOrders((prev) =>
+                prev.filter((o) => o.id !== updatedOrder.id)
+              );
+              setReadyOrders((prev) =>
+                prev.filter((o) => o.id !== updatedOrder.id)
+              );
               return;
             }
-            
+
             // Order marked as ready
-            if (updatedOrder.status === 'ready') {
-              setPreparingOrders(prev => prev.filter(o => o.id !== updatedOrder.id));
-              setReadyOrders(prev => {
-                const exists = prev.find(o => o.id === updatedOrder.id);
+            if (updatedOrder.status === "ready") {
+              setPreparingOrders((prev) =>
+                prev.filter((o) => o.id !== updatedOrder.id)
+              );
+              setReadyOrders((prev) => {
+                const exists = prev.find((o) => o.id === updatedOrder.id);
                 if (!exists) {
                   // Play notification sound
-                  audioRef.current?.play().catch(e => console.error('Audio play failed:', e));
-                  
+                  audioRef.current
+                    ?.play()
+                    .catch((e) => console.error("Audio play failed:", e));
+
                   // Add to newly ready set for animation
-                  setNewlyReadyIds(prevSet => new Set(prevSet).add(updatedOrder.id));
-                  
+                  setNewlyReadyIds((prevSet) =>
+                    new Set(prevSet).add(updatedOrder.id)
+                  );
+
                   // Remove from newly ready after animation
                   setTimeout(() => {
-                    setNewlyReadyIds(prevSet => {
+                    setNewlyReadyIds((prevSet) => {
                       const newSet = new Set(prevSet);
                       newSet.delete(updatedOrder.id);
                       return newSet;
                     });
                   }, 3000);
-                  
+
                   return [updatedOrder, ...prev];
                 }
-                return prev.map(o => o.id === updatedOrder.id ? updatedOrder : o);
+                return prev.map((o) =>
+                  o.id === updatedOrder.id ? updatedOrder : o
+                );
               });
             }
             // Order marked as preparing
-            else if (updatedOrder.status === 'preparing') {
-              setReadyOrders(prev => prev.filter(o => o.id !== updatedOrder.id));
-              setPreparingOrders(prev => {
-                const exists = prev.find(o => o.id === updatedOrder.id);
+            else if (updatedOrder.status === "preparing") {
+              setReadyOrders((prev) =>
+                prev.filter((o) => o.id !== updatedOrder.id)
+              );
+              setPreparingOrders((prev) => {
+                const exists = prev.find((o) => o.id === updatedOrder.id);
                 if (!exists) return [updatedOrder, ...prev];
-                return prev.map(o => o.id === updatedOrder.id ? updatedOrder : o);
+                return prev.map((o) =>
+                  o.id === updatedOrder.id ? updatedOrder : o
+                );
               });
             }
             // Order completed or cancelled - remove from both
-            else if (updatedOrder.status === 'completed' || updatedOrder.status === 'cancelled') {
-              setPreparingOrders(prev => prev.filter(o => o.id !== updatedOrder.id));
-              setReadyOrders(prev => prev.filter(o => o.id !== updatedOrder.id));
+            else if (
+              updatedOrder.status === "completed" ||
+              updatedOrder.status === "cancelled"
+            ) {
+              setPreparingOrders((prev) =>
+                prev.filter((o) => o.id !== updatedOrder.id)
+              );
+              setReadyOrders((prev) =>
+                prev.filter((o) => o.id !== updatedOrder.id)
+              );
             }
-          }
-          else if (payload.eventType === 'INSERT') {
-            const newOrder = payload.new as KitchenOrder;
-            if (newOrder.status === 'preparing') {
-              setPreparingOrders(prev => [newOrder, ...prev]);
-            } else if (newOrder.status === 'ready') {
-              setReadyOrders(prev => [newOrder, ...prev]);
+          } else if (payload.eventType === "INSERT") {
+            const rawOrder = payload.new as any;
+            const newOrder = {
+              ...rawOrder,
+              status: rawOrder.kitchen_status,
+            } as KitchenOrder;
+            if (newOrder.status === "preparing") {
+              setPreparingOrders((prev) => [newOrder, ...prev]);
+            } else if (newOrder.status === "ready") {
+              setReadyOrders((prev) => [newOrder, ...prev]);
             }
-          }
-          else if (payload.eventType === 'DELETE') {
+          } else if (payload.eventType === "DELETE") {
             const deletedOrder = payload.old as KitchenOrder;
-            setPreparingOrders(prev => prev.filter(o => o.id !== deletedOrder.id));
-            setReadyOrders(prev => prev.filter(o => o.id !== deletedOrder.id));
+            setPreparingOrders((prev) =>
+              prev.filter((o) => o.id !== deletedOrder.id)
+            );
+            setReadyOrders((prev) =>
+              prev.filter((o) => o.id !== deletedOrder.id)
+            );
           }
         }
       )
@@ -149,26 +184,33 @@ export const LiveOrderStatus = () => {
   const handleDismissReady = async (orderId: string) => {
     // Update order status to completed
     const { error } = await supabase
-      .from('kitchen_orders')
-      .update({ status: 'completed' })
-      .eq('id', orderId);
+      .from("orders_unified")
+      .update({ kitchen_status: "completed" })
+      .eq("id", orderId);
 
     if (error) {
-      console.error('Error dismissing order:', error);
+      console.error("Error dismissing order:", error);
       return;
     }
 
-    setReadyOrders(prev => prev.filter(o => o.id !== orderId));
+    setReadyOrders((prev) => prev.filter((o) => o.id !== orderId));
   };
 
-  const OrderTicket = ({ order, isReady }: { order: KitchenOrder; isReady?: boolean }) => {
+  const OrderTicket = ({
+    order,
+    isReady,
+  }: {
+    order: KitchenOrder;
+    isReady?: boolean;
+  }) => {
     const isNewlyReady = newlyReadyIds.has(order.id);
-    
+
     return (
-      <Card 
+      <Card
         className={cn(
           "p-4 transition-all duration-300",
-          isNewlyReady && "animate-pulse border-2 border-green-500 bg-green-50 dark:bg-green-900/20"
+          isNewlyReady &&
+            "animate-pulse border-2 border-green-500 bg-green-50 dark:bg-green-900/20"
         )}
       >
         <div className="flex items-start justify-between mb-3">
@@ -194,27 +236,31 @@ export const LiveOrderStatus = () => {
             </button>
           )}
         </div>
-        
+
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Badge variant="outline" className="font-mono">
               {order.source}
             </Badge>
             <span className="text-xs text-muted-foreground">
-              {new Date(order.created_at).toLocaleTimeString('en-US', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
+              {new Date(order.created_at).toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
               })}
             </span>
           </div>
-          
+
           <div className="border-t pt-2 mt-2">
-            <p className="text-xs font-semibold text-muted-foreground mb-1">Items:</p>
+            <p className="text-xs font-semibold text-muted-foreground mb-1">
+              Items:
+            </p>
             <ul className="space-y-1">
               {order.items.map((item, idx) => (
                 <li key={idx} className="text-sm flex justify-between">
                   <span>{item.name}</span>
-                  <span className="text-muted-foreground">x{item.quantity}</span>
+                  <span className="text-muted-foreground">
+                    x{item.quantity}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -230,7 +276,7 @@ export const LiveOrderStatus = () => {
         <CheckCircle className="h-5 w-5 text-primary" />
         <h2 className="text-lg font-semibold">Live Order Status</h2>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Preparing Column */}
         <div className="space-y-3">
@@ -248,7 +294,7 @@ export const LiveOrderStatus = () => {
                 <p>No orders preparing</p>
               </Card>
             ) : (
-              preparingOrders.map(order => (
+              preparingOrders.map((order) => (
                 <OrderTicket key={order.id} order={order} />
               ))
             )}
@@ -262,7 +308,10 @@ export const LiveOrderStatus = () => {
               <Bell className="h-4 w-4" />
               Ready for Pickup
             </h3>
-            <Badge variant="secondary" className="bg-green-100 dark:bg-green-900/40">
+            <Badge
+              variant="secondary"
+              className="bg-green-100 dark:bg-green-900/40"
+            >
               {readyOrders.length}
             </Badge>
           </div>
@@ -273,7 +322,7 @@ export const LiveOrderStatus = () => {
                 <p>No orders ready</p>
               </Card>
             ) : (
-              readyOrders.map(order => (
+              readyOrders.map((order) => (
                 <OrderTicket key={order.id} order={order} isReady />
               ))
             )}

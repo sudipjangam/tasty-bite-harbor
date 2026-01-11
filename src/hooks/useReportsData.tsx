@@ -121,9 +121,9 @@ export const useReportsData = (dateRange?: DateRange) => {
     queryFn: async () => {
       if (!restaurantId) return null;
 
-      // Fetch orders with actual column names
+      // Fetch orders from unified table
       const { data: orders, error } = await supabase
-        .from("orders")
+        .from("orders_unified")
         .select("*")
         .eq("restaurant_id", restaurantId)
         .gte("created_at", startDate)
@@ -136,7 +136,7 @@ export const useReportsData = (dateRange?: DateRange) => {
       const chargeableOrders =
         orders?.filter((o) => o.order_type !== "non-chargeable") || [];
       const totalRevenue = chargeableOrders.reduce(
-        (sum, o) => sum + (o.total || 0),
+        (sum, o) => sum + (o.total_amount || 0),
         0
       );
       const orderCount = orders?.length || 0;
@@ -161,14 +161,14 @@ export const useReportsData = (dateRange?: DateRange) => {
       const formattedOrders =
         orders?.map((o) => ({
           "Order Date": format(new Date(o.created_at), "MMM dd, yyyy HH:mm"),
-          Customer: o.customer_name || o.Customer_Name || "Walk-in",
-          Phone: o.customer_phone || o.Customer_MobileNumber || "-",
+          Customer: o.customer_name || "Walk-in",
+          Phone: o.customer_phone || "-",
           Type: o.order_type || "dine-in",
           Source: o.source || "POS",
           Items: o.items,
           Discount: o.discount_amount || 0,
-          Total: o.total || 0,
-          Status: o.status || "completed",
+          Total: o.total_amount || 0,
+          Status: o.kitchen_status || "completed",
         })) || [];
 
       return {
@@ -204,8 +204,8 @@ export const useReportsData = (dateRange?: DateRange) => {
           .select("*")
           .eq("restaurant_id", restaurantId),
         supabase
-          .from("orders")
-          .select("items, total")
+          .from("orders_unified")
+          .select("items, total_amount")
           .eq("restaurant_id", restaurantId)
           .gte("created_at", startDate)
           .lte("created_at", endDate),

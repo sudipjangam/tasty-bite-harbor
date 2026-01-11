@@ -166,9 +166,9 @@ const OrdersView = ({
 
       const dateRange = getDateRange(dateFilter);
 
-      // Build query with optional source filter
+      // Build query with optional source filter - using orders_unified
       let query = supabase
-        .from("orders")
+        .from("orders_unified")
         .select("*")
         .eq("restaurant_id", profile.restaurant_id)
         .gte("created_at", dateRange.start.toISOString())
@@ -186,13 +186,18 @@ const OrdersView = ({
 
       if (ordersError) throw ordersError;
 
-      return (allOrders || []) as Order[];
+      // Map orders_unified fields to Order type
+      return ((allOrders || []) as any[]).map((o) => ({
+        ...o,
+        status: o.kitchen_status,
+        total: o.total_amount,
+      })) as Order[];
     },
   });
 
-  // Real-time subscription for orders table to update UI immediately
+  // Real-time subscription for orders_unified table to update UI immediately
   useRealtimeSubscription({
-    table: "orders",
+    table: "orders_unified",
     queryKey: [
       "all-orders",
       dateFilter,
