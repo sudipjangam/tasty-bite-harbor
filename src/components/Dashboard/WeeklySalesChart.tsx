@@ -15,7 +15,7 @@ const WeeklySalesChart = () => {
 
   // Setup real-time subscriptions for live chart updates
   useRealtimeSubscription({
-    table: "orders",
+    table: "orders_unified",
     queryKey: "weekly-sales",
     schema: "public",
   });
@@ -55,12 +55,12 @@ const WeeklySalesChart = () => {
         format(addDays(startDate, i), "EEE d MMM")
       );
 
-      // Fetch orders revenue
+      // Fetch orders revenue from unified table
       const { data: orders } = await supabase
-        .from("orders")
-        .select("created_at, total, status")
+        .from("orders_unified")
+        .select("created_at, total_amount, kitchen_status")
         .eq("restaurant_id", profile?.restaurant_id)
-        .eq("status", "completed")
+        .eq("kitchen_status", "completed")
         .gte("created_at", startDate.toISOString())
         .lte("created_at", endOfDay(endDate).toISOString());
 
@@ -82,7 +82,8 @@ const WeeklySalesChart = () => {
 
       orders?.forEach((order) => {
         const day = format(new Date(order.created_at), "EEE d MMM");
-        dailyRevenue[day] = (dailyRevenue[day] || 0) + (order.total || 0);
+        dailyRevenue[day] =
+          (dailyRevenue[day] || 0) + (order.total_amount || 0);
       });
 
       roomBillings?.forEach((billing) => {

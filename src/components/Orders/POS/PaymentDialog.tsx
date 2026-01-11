@@ -263,61 +263,34 @@ const PaymentDialog = ({
     const fetchCustomerDetails = async () => {
       if (orderId && isOpen) {
         try {
-          const { data: kitchenOrder } = await supabase
-            .from("kitchen_orders")
-            .select("order_id, customer_name, customer_phone")
+          // Fetch directly from orders_unified
+          const { data: order } = await supabase
+            .from("orders_unified")
+            .select(
+              "customer_name, customer_phone, discount_percentage, discount_amount"
+            )
             .eq("id", orderId)
             .single();
 
-          if (kitchenOrder?.order_id) {
-            // Try fetching from orders with both naming conventions AND discount fields
-            const { data: order } = await supabase
-              .from("orders")
-              .select(
-                "Customer_Name, Customer_MobileNumber, customer_name, customer_phone, discount_percentage, discount_amount"
-              )
-              .eq("id", kitchenOrder.order_id)
-              .maybeSingle();
+          if (order) {
+            if (order.customer_name) setCustomerName(order.customer_name);
+            if (order.customer_phone) {
+              setCustomerMobile(String(order.customer_phone));
+              setSendBillToEmail(true);
+            }
 
-            if (order) {
-              const name =
-                (order as any).Customer_Name || (order as any).customer_name;
-              const phone =
-                (order as any).Customer_MobileNumber ||
-                (order as any).customer_phone;
-              if (name) setCustomerName(name);
-              if (phone) {
-                setCustomerMobile(String(phone));
-                setSendBillToEmail(true);
-              }
+            // Load existing discount percentage from DB, or reset to 0 if no discount
+            const discountPercent =
+              parseFloat(String(order.discount_percentage)) || 0;
+            setManualDiscountPercent(discountPercent);
 
-              // Load existing discount percentage from DB, or reset to 0 if no discount
-              const discountPercent =
-                parseFloat((order as any).discount_percentage) || 0;
-              setManualDiscountPercent(discountPercent);
-
-              // Reset promotion state since we're loading fresh order data
-              if (discountPercent === 0) {
-                setAppliedPromotion(null);
-                setPromotionCode("");
-              }
-            } else {
-              // No order found - reset discount state
-              setManualDiscountPercent(0);
+            // Reset promotion state since we're loading fresh order data
+            if (discountPercent === 0) {
               setAppliedPromotion(null);
               setPromotionCode("");
             }
           } else {
-            // Fall back to details stored on the kitchen order
-            if (kitchenOrder?.customer_name)
-              setCustomerName(kitchenOrder.customer_name);
-            if ((kitchenOrder as any)?.customer_phone) {
-              setCustomerMobile(String((kitchenOrder as any).customer_phone));
-              setSendBillToEmail(true);
-            } else {
-              setSendBillToEmail(false);
-            }
-            // No linked order - reset discount state
+            // No order found - reset discount state
             setManualDiscountPercent(0);
             setAppliedPromotion(null);
             setPromotionCode("");
@@ -340,19 +313,19 @@ const PaymentDialog = ({
     fetchCustomerDetails();
   }, [orderId, isOpen]);
 
-  // Fetch item completion status from KDS (synced with kitchen display)
+  // Fetch item completion status from orders_unified
   useEffect(() => {
     const fetchItemCompletionStatus = async () => {
       if (orderId && isOpen) {
         try {
           const { data, error } = await supabase
-            .from("kitchen_orders")
-            .select("item_completion_status")
+            .from("orders_unified")
+            .select("items_completion")
             .eq("id", orderId)
             .single();
 
-          if (!error && data?.item_completion_status) {
-            setItemCompletionStatus(data.item_completion_status);
+          if (!error && data?.items_completion) {
+            setItemCompletionStatus(data.items_completion as boolean[]);
           } else {
             setItemCompletionStatus([]);
           }
@@ -402,35 +375,17 @@ const PaymentDialog = ({
 
     try {
       if (orderId) {
-        // First, get the order_id from kitchen_orders to delete related order
-        const { data: kitchenOrder } = await supabase
-          .from("kitchen_orders")
-          .select("order_id")
-          .eq("id", orderId)
-          .single();
-
-        // Delete from kitchen_orders table
-        const { error: kitchenError } = await supabase
-          .from("kitchen_orders")
+        // Delete from orders_unified table
+        const { error: deleteError } = await supabase
+          .from("orders_unified")
           .delete()
           .eq("id", orderId);
 
-        if (kitchenError) throw kitchenError;
-
-        // Delete corresponding order from orders table if it exists
-        if (kitchenOrder?.order_id) {
-          const { error: orderError } = await supabase
-            .from("orders")
-            .delete()
-            .eq("id", kitchenOrder.order_id);
-
-          if (orderError)
-            console.error("Error deleting from orders table:", orderError);
-        }
+        if (deleteError) throw deleteError;
 
         // Invalidate queries to refresh UI
-        queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
-        queryClient.invalidateQueries({ queryKey: ["orders"] });
+        queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["past-orders"] });
         queryClient.invalidateQueries({ queryKey: ["dashboard-orders"] });
       }
 
@@ -515,17 +470,17 @@ const PaymentDialog = ({
     if (!orderId) return;
 
     try {
-      // Get current kitchen order including order_id for syncing
+      // Get current order from orders_unified
       const { data: currentOrder, error: fetchError } = await supabase
-        .from("kitchen_orders")
-        .select("items, order_id")
+        .from("orders_unified")
+        .select("items")
         .eq("id", orderId)
         .single();
 
       if (fetchError) throw fetchError;
 
       // Remove the item at the specified index
-      const updatedItems = [...(currentOrder?.items || [])];
+      const updatedItems = [...((currentOrder?.items as any[]) || [])];
       updatedItems.splice(itemIndex, 1);
 
       // Calculate new total from remaining items
@@ -535,40 +490,18 @@ const PaymentDialog = ({
         return sum + price * quantity;
       }, 0);
 
-      // Update the kitchen_orders table
+      // Update the orders_unified table
       const { error: updateError } = await supabase
-        .from("kitchen_orders")
+        .from("orders_unified")
         .update({
           items: updatedItems,
-          status: "new",
+          kitchen_status: "new",
+          total_amount: newTotal,
+          subtotal: newTotal,
         })
         .eq("id", orderId);
 
       if (updateError) throw updateError;
-
-      // Also update the linked orders table to keep Orders Management in sync
-      if (currentOrder?.order_id) {
-        // Format items for orders table (string array format: "2x Item Name @price")
-        const ordersTableItems = updatedItems.map((item: any) => {
-          const itemName = item.name || "Unknown Item";
-          const itemQty = item.quantity || 1;
-          const itemPrice = item.price || 0;
-          return `${itemQty}x ${itemName} @${itemPrice}`;
-        });
-
-        const { error: ordersUpdateError } = await supabase
-          .from("orders")
-          .update({
-            items: ordersTableItems,
-            total: newTotal,
-          })
-          .eq("id", currentOrder.order_id);
-
-        if (ordersUpdateError) {
-          console.error("Error updating orders table:", ordersUpdateError);
-          // Don't fail the whole operation - kitchen order is already updated
-        }
-      }
 
       toast({
         title: "Item Removed",
@@ -609,37 +542,31 @@ const PaymentDialog = ({
     if (!orderId) return;
 
     if (newQuantity < 1) {
-      // If quantity drops to 0 or less, confirm removal?
-      // For now, let's just trigger the remove flow which is safer
       handleRemoveExistingItem(itemIndex);
       return;
     }
 
     try {
-      // Get current kitchen order
+      // Get current order from orders_unified
       const { data: currentOrder, error: fetchError } = await supabase
-        .from("kitchen_orders")
-        .select("items, order_id")
+        .from("orders_unified")
+        .select("items")
         .eq("id", orderId)
         .single();
 
       if (fetchError) throw fetchError;
 
       // Deep copy items
-      const updatedItems = [...(currentOrder?.items || [])];
+      const updatedItems = [...((currentOrder?.items as any[]) || [])];
 
       // Update quantity of specific item
-      // Need to handle string format vs object format
       const targetItem = updatedItems[itemIndex];
       if (typeof targetItem === "string") {
-        // Parse "1x Name" if needed, but ideally we should normalize first.
-        // If it's a string, we might need to parse it to update quantity.
         const match = targetItem.match(/^(\d+)x\s+(.+)$/);
         if (match) {
           const name = match[2];
           updatedItems[itemIndex] = { name, quantity: newQuantity, price: 0 };
         } else {
-          // Fallback if parsing fails, assume name only
           updatedItems[itemIndex] = {
             name: targetItem,
             quantity: newQuantity,
@@ -647,7 +574,6 @@ const PaymentDialog = ({
           };
         }
       } else {
-        // It's an object
         updatedItems[itemIndex] = { ...targetItem, quantity: newQuantity };
       }
 
@@ -658,39 +584,18 @@ const PaymentDialog = ({
         return sum + price * quantity;
       }, 0);
 
-      // Update kitchen_orders
+      // Update orders_unified
       const { error: updateError } = await supabase
-        .from("kitchen_orders")
+        .from("orders_unified")
         .update({
           items: updatedItems,
-          // CRITICAL: Reset status to 'new' so kitchen sees the change
-          status: "new",
+          kitchen_status: "new",
+          total_amount: newTotal,
+          subtotal: newTotal,
         })
         .eq("id", orderId);
 
       if (updateError) throw updateError;
-
-      // Update linked orders table
-      if (currentOrder?.order_id) {
-        const ordersTableItems = updatedItems.map((item: any) => {
-          const itemName = item.name || "Unknown Item";
-          const itemQty = item.quantity || 1;
-          const itemPrice = item.price || 0;
-          return `${itemQty}x ${itemName} @${itemPrice}`;
-        });
-
-        const { error: ordersUpdateError } = await supabase
-          .from("orders")
-          .update({
-            items: ordersTableItems,
-            total: newTotal,
-          })
-          .eq("id", currentOrder.order_id);
-
-        if (ordersUpdateError) {
-          console.error("Error updating orders table:", ordersUpdateError);
-        }
-      }
 
       toast({
         title: "Order Updated",
@@ -746,27 +651,28 @@ const PaymentDialog = ({
 
       if (!profile?.restaurant_id) throw new Error("Restaurant not found");
 
-      // Get current kitchen order to update items and get linked order_id
+      // Get current order from orders_unified
       const { data: currentOrder, error: fetchError } = await supabase
-        .from("kitchen_orders")
-        .select("items, order_id")
+        .from("orders_unified")
+        .select("items")
         .eq("id", orderId)
         .single();
 
       if (fetchError) throw fetchError;
 
       // Normalize old items to ensure they are objects
-      const normalizedOldItems = (currentOrder?.items || []).map((item) => {
-        if (typeof item === "string") {
-          // Parse string format "1x Item Name" to object
-          const match = item.match(/^(\d+)x\s+(.+)$/);
-          if (match) {
-            return { name: match[2], quantity: parseInt(match[1]), price: 0 };
+      const normalizedOldItems = ((currentOrder?.items as any[]) || []).map(
+        (item) => {
+          if (typeof item === "string") {
+            const match = item.match(/^(\d+)x\s+(.+)$/);
+            if (match) {
+              return { name: match[2], quantity: parseInt(match[1]), price: 0 };
+            }
+            return { name: item, quantity: 1, price: 0 };
           }
-          return { name: item, quantity: 1, price: 0 };
+          return item;
         }
-        return item;
-      });
+      );
 
       // Convert newItemsBuffer to proper format
       const formattedNewItems = newItemsBuffer.map((item) => ({
@@ -785,40 +691,18 @@ const PaymentDialog = ({
         return sum + price * quantity;
       }, 0);
 
-      // Update the kitchen_orders table
+      // Update orders_unified table
       const { error: updateError } = await supabase
-        .from("kitchen_orders")
+        .from("orders_unified")
         .update({
           items: combinedItems,
-          status: "new",
+          kitchen_status: "new",
+          total_amount: newTotal,
+          subtotal: newTotal,
         })
         .eq("id", orderId);
 
       if (updateError) throw updateError;
-
-      // Also update the linked orders table to keep Orders Management in sync
-      if (currentOrder?.order_id) {
-        // Format items for orders table (string array format: "2x Item Name @price")
-        const ordersTableItems = combinedItems.map((item: any) => {
-          const itemName = item.name || "Unknown Item";
-          const itemQty = item.quantity || 1;
-          const itemPrice = item.price || 0;
-          return `${itemQty}x ${itemName} @${itemPrice}`;
-        });
-
-        const { error: ordersUpdateError } = await supabase
-          .from("orders")
-          .update({
-            items: ordersTableItems,
-            total: newTotal,
-          })
-          .eq("id", currentOrder.order_id);
-
-        if (ordersUpdateError) {
-          console.error("Error updating orders table:", ordersUpdateError);
-          // Don't fail the whole operation - kitchen order is already updated
-        }
-      }
 
       toast({
         title: "Items Added Successfully",
@@ -896,91 +780,25 @@ const PaymentDialog = ({
     setIsSaving(true);
 
     try {
-      // Try to find the order_id from kitchen_orders
-      const { data: kitchenOrder, error: kitchenError } = await supabase
-        .from("kitchen_orders")
-        .select("order_id")
+      // Update customer details directly on orders_unified
+      const { data: updateData, error: updateError } = await supabase
+        .from("orders_unified")
+        .update({
+          customer_name: customerName.trim(),
+          customer_phone: customerMobile.trim(),
+        })
         .eq("id", orderId)
-        .maybeSingle();
+        .select();
 
-      let targetOrderId = null;
-
-      if (kitchenOrder?.order_id) {
-        // Found a linked order_id
-        targetOrderId = kitchenOrder.order_id;
-      } else {
-        // Maybe orderId is directly the orders table ID
-
-        const { data: directOrder, error: directError } = await supabase
-          .from("orders")
-          .select("id")
-          .eq("id", orderId)
-          .maybeSingle();
-
-        if (directOrder) {
-          targetOrderId = orderId;
-        } else {
-          console.error("❌ No order found with ID:", orderId, { directError });
-        }
+      if (updateError) {
+        console.error("❌ Update error:", updateError);
+        throw updateError;
       }
 
-      if (targetOrderId) {
-        // Use snake_case column names (standardized)
-        const { data: updateData, error: updateError } = await supabase
-          .from("orders")
-          .update({
-            customer_name: customerName.trim(),
-            customer_phone: String(customerMobile).trim(),
-          })
-          .eq("id", targetOrderId)
-          .select();
-
-        if (updateError) {
-          console.error("❌ Update error:", updateError);
-          throw updateError;
-        }
-
-        toast({
-          title: "Details Saved",
-          description: "Customer details saved successfully.",
-        });
-      } else {
-        console.warn(
-          "⚠️ No linked order found. Saving name on kitchen order and proceeding."
-        );
-        // Fallback: store the customer name on the kitchen order so it is visible to staff
-        try {
-          const { error: koUpdateError } = await supabase
-            .from("kitchen_orders")
-            .update({
-              customer_name: customerName.trim(),
-              customer_phone: customerMobile.trim(),
-            })
-            .eq("id", orderId);
-
-          if (koUpdateError) {
-            console.error(
-              "⚠️ Failed to save on kitchen_orders:",
-              koUpdateError
-            );
-            toast({
-              title: "Proceeding without DB save",
-              description:
-                "Could not link order yet. We'll still proceed and include details on the bill.",
-            });
-          } else {
-            toast({
-              title: "Details Saved (Temporary)",
-              description:
-                "Name saved for this order. It will be attached when the order is created.",
-            });
-          }
-        } catch (e) {
-          console.error("⚠️ Kitchen order fallback failed:", e);
-        }
-        setIsSaving(false);
-        return true;
-      }
+      toast({
+        title: "Details Saved",
+        description: "Customer details saved successfully.",
+      });
 
       setIsSaving(false);
       return true;
@@ -1649,54 +1467,37 @@ const PaymentDialog = ({
     try {
       // Update order with reservation_id and payment status
       if (orderId) {
-        // First get the order_id from kitchen_orders
-        const { data: kitchenOrder } = await supabase
-          .from("kitchen_orders")
-          .select("order_id")
-          .eq("id", orderId)
-          .single();
-
-        if (kitchenOrder?.order_id) {
-          // Update the order with reservation link, payment status, and discount info
-          const { error: updateError } = await supabase
-            .from("orders")
-            .update({
-              reservation_id: detectedReservation.reservation_id,
-              payment_status: "Pending - Room Charge",
-              status: "completed",
-              total: total, // Save final amount after discount
-              discount_amount: totalDiscountAmount,
-              discount_percentage:
-                manualDiscountPercent > 0
-                  ? manualDiscountPercent
-                  : appliedPromotion?.discount_percentage || 0,
-            })
-            .eq("id", kitchenOrder.order_id);
-
-          if (updateError) throw updateError;
-        }
-
-        // Update kitchen order status
-        const { error: kitchenError } = await supabase
-          .from("kitchen_orders")
-          .update({ status: "completed" })
+        // Update orders_unified directly
+        const { error: updateError } = await supabase
+          .from("orders_unified")
+          .update({
+            reservation_id: detectedReservation.reservation_id,
+            payment_status: "Pending - Room Charge",
+            status: "completed",
+            kitchen_status: "completed",
+            total_amount: total,
+            discount_amount: totalDiscountAmount,
+            discount_percentage:
+              manualDiscountPercent > 0
+                ? manualDiscountPercent
+                : appliedPromotion?.discount_percentage || 0,
+          })
           .eq("id", orderId);
 
-        if (kitchenError) throw kitchenError;
+        if (updateError) throw updateError;
 
         // Create room food order entry
         const { error: roomOrderError } = await supabase
           .from("room_food_orders")
           .insert({
             room_id: detectedReservation.room_id,
-            order_id: kitchenOrder?.order_id,
+            order_id: orderId,
             total: total,
             status: "pending",
           });
 
         if (roomOrderError) {
           console.error("Error creating room food order:", roomOrderError);
-          // Don't fail the whole operation if this fails
         }
       }
 
@@ -1741,17 +1542,21 @@ const PaymentDialog = ({
 
       // Update order status to completed in database if orderId is provided
       if (orderId) {
-        // First get the kitchen order to find linked order_id
-        const { data: kitchenOrder } = await supabase
-          .from("kitchen_orders")
-          .select("order_id")
-          .eq("id", orderId)
-          .single();
-
-        // Update kitchen order status
+        // Update orders_unified directly
         const { error } = await supabase
-          .from("kitchen_orders")
-          .update({ status: "completed" })
+          .from("orders_unified")
+          .update({
+            status: "completed",
+            kitchen_status: "completed",
+            payment_status: "paid",
+            payment_method: paymentMethod,
+            total_amount: total,
+            discount_amount: totalDiscountAmount,
+            discount_percentage:
+              manualDiscountPercent > 0
+                ? manualDiscountPercent
+                : appliedPromotion?.discount_percentage || 0,
+          })
           .eq("id", orderId);
 
         if (error) {
@@ -1761,69 +1566,6 @@ const PaymentDialog = ({
             description: "Payment received but order status update failed.",
             variant: "destructive",
           });
-        }
-
-        // Update the linked order with payment status and discount info
-        if (kitchenOrder?.order_id) {
-          const { error: orderError } = await supabase
-            .from("orders")
-            .update({
-              payment_status: "paid",
-              status: "completed",
-              total: total, // Save final amount after discount
-              discount_amount: totalDiscountAmount,
-              discount_percentage:
-                manualDiscountPercent > 0
-                  ? manualDiscountPercent
-                  : appliedPromotion?.discount_percentage || 0,
-            })
-            .eq("id", kitchenOrder.order_id);
-
-          if (orderError) {
-            console.error("Error updating order payment status:", orderError);
-          }
-        } else {
-          // No linked order_id - create a new order record in the orders table
-          // This ensures QSR orders appear in Order Management
-          try {
-            // Format items for the orders table (string array format)
-            const formattedItems = orderItems.map((item) => {
-              return `${item.quantity}x ${item.name} @${item.price}`;
-            });
-
-            const { data: newOrder, error: insertError } = await supabase
-              .from("orders")
-              .insert({
-                restaurant_id: restaurantIdToUse,
-                customer_name: tableNumber || "QSR-Order",
-                items: formattedItems,
-                total: total,
-                status: "completed",
-                payment_status: "paid",
-                source: "qsr",
-                order_type: "dine-in",
-                discount_amount: totalDiscountAmount,
-                discount_percentage:
-                  manualDiscountPercent > 0
-                    ? manualDiscountPercent
-                    : appliedPromotion?.discount_percentage || 0,
-              })
-              .select()
-              .single();
-
-            if (insertError) {
-              console.error("Error creating order record:", insertError);
-            } else if (newOrder) {
-              // Link the new order back to the kitchen_order
-              await supabase
-                .from("kitchen_orders")
-                .update({ order_id: newOrder.id })
-                .eq("id", orderId);
-            }
-          } catch (createOrderError) {
-            console.error("Error creating order for QSR:", createOrderError);
-            // Don't fail the payment if order creation fails
-          }
         }
 
         // Log promotion usage if promotion was applied
@@ -1910,8 +1652,8 @@ const PaymentDialog = ({
 
     try {
       const { error } = await supabase
-        .from("kitchen_orders")
-        .update({ item_completion_status: newCompletionStatus })
+        .from("orders_unified")
+        .update({ items_completion: newCompletionStatus })
         .eq("id", orderId);
 
       if (error) throw error;

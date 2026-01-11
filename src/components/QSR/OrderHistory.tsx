@@ -1,13 +1,13 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useRestaurantId } from '@/hooks/useRestaurantId';
-import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
-import { CurrencyDisplay } from '@/components/ui/currency-display';
-import { format } from 'date-fns';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { RotateCcw } from 'lucide-react';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
+import { format } from "date-fns";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { RotateCcw } from "lucide-react";
 
 interface HistoryOrder {
   id: string;
@@ -24,52 +24,79 @@ interface OrderHistoryProps {
   currentOrderHasItems: boolean;
 }
 
-export const OrderHistory = ({ onRetrieveOrder, currentOrderHasItems }: OrderHistoryProps) => {
+export const OrderHistory = ({
+  onRetrieveOrder,
+  currentOrderHasItems,
+}: OrderHistoryProps) => {
   const { restaurantId } = useRestaurantId();
   const [showQSROnly, setShowQSROnly] = useState(true);
 
   const { data: allOrders = [], isLoading } = useQuery({
-    queryKey: ['qsr-orders', restaurantId],
+    queryKey: ["qsr-orders", restaurantId],
     queryFn: async () => {
       if (!restaurantId) return [];
 
       const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .order('created_at', { ascending: false })
+        .from("orders_unified")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .order("created_at", { ascending: false })
         .limit(100);
 
       if (error) throw error;
-      return data as HistoryOrder[];
+      // Map unified fields to component expected format
+      return (data || []).map((order: any) => ({
+        ...order,
+        total: order.total_amount,
+        status: order.kitchen_status,
+      })) as HistoryOrder[];
     },
     enabled: !!restaurantId,
   });
 
   // Filter orders based on toggle
-  const orders = showQSROnly 
-    ? allOrders.filter(order => order.source === 'qsr')
+  const orders = showQSROnly
+    ? allOrders.filter((order) => order.source === "qsr")
     : allOrders;
 
-  // Set up real-time subscription for orders
+  // Set up real-time subscription for orders_unified
   useRealtimeSubscription({
-    table: 'orders',
-    queryKey: ['qsr-orders', restaurantId],
-    filter: restaurantId ? { column: 'restaurant_id', value: restaurantId } : null,
+    table: "orders_unified",
+    queryKey: ["qsr-orders", restaurantId],
+    filter: restaurantId
+      ? { column: "restaurant_id", value: restaurantId }
+      : null,
   });
 
   const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; className?: string }> = {
-      paid: { label: 'Paid', variant: 'default' },
-      completed: { label: 'Paid', variant: 'default' },
-      pending: { label: 'Pending', variant: 'secondary' },
-      held: { label: 'Held', variant: 'secondary', className: 'bg-amber-500 text-white' },
-      cancelled: { label: 'Cancelled', variant: 'destructive' },
+    const statusMap: Record<
+      string,
+      {
+        label: string;
+        variant: "default" | "secondary" | "destructive" | "outline";
+        className?: string;
+      }
+    > = {
+      paid: { label: "Paid", variant: "default" },
+      completed: { label: "Paid", variant: "default" },
+      pending: { label: "Pending", variant: "secondary" },
+      held: {
+        label: "Held",
+        variant: "secondary",
+        className: "bg-amber-500 text-white",
+      },
+      cancelled: { label: "Cancelled", variant: "destructive" },
     };
-    
-    const statusInfo = statusMap[status] || { label: status, variant: 'outline' as const };
+
+    const statusInfo = statusMap[status] || {
+      label: status,
+      variant: "outline" as const,
+    };
     return (
-      <Badge variant={statusInfo.variant} className={statusInfo.className || ''}>
+      <Badge
+        variant={statusInfo.variant}
+        className={statusInfo.className || ""}
+      >
         {statusInfo.label}
       </Badge>
     );
@@ -92,14 +119,16 @@ export const OrderHistory = ({ onRetrieveOrder, currentOrderHasItems }: OrderHis
     <div className="h-full overflow-y-auto bg-background">
       <div className="p-6 border-b border-border sticky top-0 bg-background z-10">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-foreground">Order History Log</h2>
+          <h2 className="text-2xl font-bold text-foreground">
+            Order History Log
+          </h2>
           <div className="flex gap-2">
             <button
               onClick={() => setShowQSROnly(true)}
               className={`px-4 py-2 rounded-lg font-medium transition-all touch-manipulation ${
                 showQSROnly
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
               }`}
             >
               QSR Orders
@@ -108,8 +137,8 @@ export const OrderHistory = ({ onRetrieveOrder, currentOrderHasItems }: OrderHis
               onClick={() => setShowQSROnly(false)}
               className={`px-4 py-2 rounded-lg font-medium transition-all touch-manipulation ${
                 !showQSROnly
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
               }`}
             >
               All Orders
@@ -117,7 +146,7 @@ export const OrderHistory = ({ onRetrieveOrder, currentOrderHasItems }: OrderHis
           </div>
         </div>
       </div>
-      
+
       <div className="p-6 space-y-4">
         {orders.length === 0 ? (
           <div className="text-center text-muted-foreground py-12">
@@ -128,9 +157,9 @@ export const OrderHistory = ({ onRetrieveOrder, currentOrderHasItems }: OrderHis
             <div
               key={order.id}
               className={`border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow ${
-                order.status === 'held' 
-                  ? 'bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800' 
-                  : 'bg-card border-border'
+                order.status === "held"
+                  ? "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800"
+                  : "bg-card border-border"
               }`}
             >
               <div className="flex justify-between items-start mb-4">
@@ -139,8 +168,9 @@ export const OrderHistory = ({ onRetrieveOrder, currentOrderHasItems }: OrderHis
                     Order ID: #{order.id.substring(0, 8).toUpperCase()}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {order.customer_name && `Customer: ${order.customer_name} | `}
-                    {format(new Date(order.created_at), 'MMM dd, yyyy, h:mm a')}
+                    {order.customer_name &&
+                      `Customer: ${order.customer_name} | `}
+                    {format(new Date(order.created_at), "MMM dd, yyyy, h:mm a")}
                   </div>
                 </div>
                 <div className="text-right flex flex-col items-end gap-2">
@@ -149,11 +179,13 @@ export const OrderHistory = ({ onRetrieveOrder, currentOrderHasItems }: OrderHis
                   </div>
                   <div className="flex items-center gap-2">
                     {getStatusBadge(order.status)}
-                    {order.status === 'held' && (
+                    {order.status === "held" && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => onRetrieveOrder(order.id, order.items, order.total)}
+                        onClick={() =>
+                          onRetrieveOrder(order.id, order.items, order.total)
+                        }
                         disabled={currentOrderHasItems}
                         className="gap-1"
                       >
@@ -164,11 +196,13 @@ export const OrderHistory = ({ onRetrieveOrder, currentOrderHasItems }: OrderHis
                   </div>
                 </div>
               </div>
-              
+
               <div className="border-t border-border pt-3">
-                <div className="text-sm text-muted-foreground font-medium mb-2">Items:</div>
+                <div className="text-sm text-muted-foreground font-medium mb-2">
+                  Items:
+                </div>
                 <div className="text-card-foreground">
-                  {parseItems(order.items).join(', ') || 'No items'}
+                  {parseItems(order.items).join(", ") || "No items"}
                 </div>
               </div>
             </div>

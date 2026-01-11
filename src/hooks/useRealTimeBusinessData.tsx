@@ -27,9 +27,9 @@ export interface RealTimeBusinessMetrics {
 export const useRealTimeBusinessData = () => {
   const { restaurantId, isLoading: isRestaurantLoading } = useRestaurantId();
 
-  // Setup real-time subscription for orders table
+  // Setup real-time subscription for orders_unified table
   useRealtimeSubscription({
-    table: "orders",
+    table: "orders_unified",
     queryKey: "realtime-business-data",
     schema: "public",
   });
@@ -43,17 +43,17 @@ export const useRealTimeBusinessData = () => {
       const sevenDaysAgo = subDays(new Date(), 7);
       const today = new Date();
 
-      // Fetch orders for the last 7 days
+      // Fetch orders from unified table for the last 7 days
       const { data: weekOrders } = await supabase
-        .from("orders")
+        .from("orders_unified")
         .select("*")
         .eq("restaurant_id", restaurantId)
         .gte("created_at", sevenDaysAgo.toISOString())
         .order("created_at", { ascending: true });
 
-      // Fetch today's orders specifically
+      // Fetch today's orders specifically from unified table
       const { data: todayOrders } = await supabase
-        .from("orders")
+        .from("orders_unified")
         .select("*")
         .eq("restaurant_id", restaurantId)
         .gte("created_at", startOfDay(today).toISOString())
@@ -73,8 +73,8 @@ export const useRealTimeBusinessData = () => {
       // Process week orders for hour analysis - ONLY COUNT COMPLETED ORDERS
       if (weekOrders) {
         weekOrders.forEach((order) => {
-          // Only count completed orders for revenue
-          if (order.status !== "completed") return;
+          // Only count completed orders for revenue (kitchen_status in unified table)
+          if (order.kitchen_status !== "completed") return;
 
           const orderDate = new Date(order.created_at);
           const hour = orderDate.getHours();
@@ -87,7 +87,7 @@ export const useRealTimeBusinessData = () => {
                 ? `${hour} PM`
                 : `${hour - 12} PM`;
             hourCounts[hourLabel].customers += 1;
-            hourCounts[hourLabel].revenue += order.total || 0;
+            hourCounts[hourLabel].revenue += order.total_amount || 0;
           }
         });
       }
@@ -130,9 +130,9 @@ export const useRealTimeBusinessData = () => {
           const dayOfWeek = format(new Date(order.created_at), "EEE");
           if (dayOfWeekData[dayOfWeek]) {
             dayOfWeekData[dayOfWeek].orders += 1;
-            // Only count revenue from completed orders
-            if (order.status === "completed") {
-              dayOfWeekData[dayOfWeek].revenue += order.total || 0;
+            // Only count revenue from completed orders (kitchen_status in unified table)
+            if (order.kitchen_status === "completed") {
+              dayOfWeekData[dayOfWeek].revenue += order.total_amount || 0;
             }
           }
         });
@@ -149,9 +149,10 @@ export const useRealTimeBusinessData = () => {
       // Calculate today's metrics - ONLY COUNT COMPLETED ORDERS FOR REVENUE
       const totalDailyOrders = todayOrders?.length || 0;
       const completedTodayOrders =
-        todayOrders?.filter((order) => order.status === "completed") || [];
+        todayOrders?.filter((order) => order.kitchen_status === "completed") ||
+        [];
       const todayRevenue = completedTodayOrders.reduce(
-        (sum, order) => sum + (order.total || 0),
+        (sum, order) => sum + (order.total_amount || 0),
         0
       );
 

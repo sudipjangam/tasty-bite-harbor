@@ -28,17 +28,17 @@ export const useFinancialTrends = () => {
       const previousMonthStart = startOfMonth(subDays(currentMonthStart, 1));
       const previousMonthEnd = endOfMonth(subDays(currentMonthStart, 1));
 
-      // Fetch current month orders
+      // Fetch current month orders from unified table
       const { data: currentOrders } = await supabase
-        .from("orders")
+        .from("orders_unified")
         .select("*")
         .eq("restaurant_id", restaurantId)
         .gte("created_at", currentMonthStart.toISOString())
         .lte("created_at", currentMonthEnd.toISOString());
 
-      // Fetch previous month orders
+      // Fetch previous month orders from unified table
       const { data: previousOrders } = await supabase
-        .from("orders")
+        .from("orders_unified")
         .select("*")
         .eq("restaurant_id", restaurantId)
         .gte("created_at", previousMonthStart.toISOString())
@@ -69,9 +69,15 @@ export const useFinancialTrends = () => {
 
       // Calculate revenue metrics
       const currentRevenue =
-        currentOrders?.reduce((sum, order) => sum + order.total, 0) || 0;
+        currentOrders?.reduce(
+          (sum, order) => sum + (order.total_amount || 0),
+          0
+        ) || 0;
       const previousRevenue =
-        previousOrders?.reduce((sum, order) => sum + order.total, 0) || 0;
+        previousOrders?.reduce(
+          (sum, order) => sum + (order.total_amount || 0),
+          0
+        ) || 0;
       const revenueGrowth =
         previousRevenue > 0
           ? ((currentRevenue - previousRevenue) / previousRevenue) * 100

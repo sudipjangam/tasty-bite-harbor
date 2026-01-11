@@ -24,6 +24,9 @@ export interface PastOrder {
   discountType?: string;
   customerName?: string;
   attendant?: string;
+  orderNumber?: string;
+  paymentStatus?: string;
+  paymentMethod?: string;
 }
 
 interface UsePastOrdersOptions {
@@ -150,59 +153,22 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
 
       const { start, end } = getDateRange();
 
-      // Fetch completed kitchen orders
-      const { data: kitchenData, error: kitchenError } = await supabase
-        .from("kitchen_orders")
+      // Fetch completed orders from unified table with profile join for staff names
+      const { data, error } = await supabase
+        .from("orders_unified")
         .select(
-          "id, source, items, status, created_at, bumped_at, order_id, server_name, customer_name"
+          `id, source, items, kitchen_status, status, created_at, completed_at, total_amount, subtotal, discount_amount, customer_name, waiter_id, order_number, payment_status, payment_method, profiles:waiter_id(first_name, last_name)`
         )
         .eq("restaurant_id", restaurantId)
-        .eq("status", "completed")
+        .eq("kitchen_status", "completed")
         .gte("created_at", start)
         .lte("created_at", end)
-        .order("bumped_at", { ascending: false });
+        .order("completed_at", { ascending: false, nullsFirst: false });
 
-      if (kitchenError) {
-        console.error("Error fetching kitchen orders:", kitchenError);
-        throw kitchenError;
+      if (error) {
+        console.error("Error fetching past orders:", error);
+        throw error;
       }
-
-      // Get all linked order IDs
-      const orderIds = (kitchenData || [])
-        .map((o) => o.order_id)
-        .filter((id): id is string => id !== null && id !== undefined);
-
-      // Fetch linked orders for discount info (if any)
-      let ordersMap: Record<
-        string,
-        {
-          total?: string | number;
-          discount_amount?: string | number;
-          discount_percentage?: string | number;
-        }
-      > = {};
-
-      if (orderIds.length > 0) {
-        const { data: ordersData, error: ordersError } = await supabase
-          .from("orders")
-          .select("id, total, discount_amount, discount_percentage")
-          .in("id", orderIds);
-
-        console.log("[usePastOrders] Fetched orders data:", ordersData);
-        console.log("[usePastOrders] Orders error:", ordersError);
-
-        if (!ordersError && ordersData) {
-          ordersMap = ordersData.reduce((acc, order) => {
-            acc[order.id] = order;
-            return acc;
-          }, {} as typeof ordersMap);
-        }
-      }
-
-      console.log("[usePastOrders] Order IDs:", orderIds);
-      console.log("[usePastOrders] Orders Map:", ordersMap);
-
-      const data = kitchenData;
 
       // Map to PastOrder format and apply search filter
       const mappedOrders: PastOrder[] = (data || [])
@@ -215,49 +181,47 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
               notes?: string[];
             }[]) || [];
 
-          // Calculate subtotal from items
-          const subtotal = items.reduce(
+          // Calculate subtotal from items if not available
+          const calculatedSubtotal = items.reduce(
             (sum, item) => sum + item.price * item.quantity,
             0
           );
 
-          // Get linked order data (if available) for actual total with discount
-          const linkedOrder = order.order_id ? ordersMap[order.order_id] : null;
+          const subtotal = order.subtotal || calculatedSubtotal;
+          const total = order.total_amount || subtotal;
+          const discount = order.discount_amount || 0;
 
-          // Use linked order total if available (includes discount), otherwise fallback to subtotal
-          const total =
-            linkedOrder?.total !== undefined && linkedOrder?.total !== null
-              ? Number(linkedOrder.total)
-              : subtotal;
-
-          // Get discount info - use percentage if available
-          const discountPercentage = linkedOrder?.discount_percentage
-            ? Number(linkedOrder.discount_percentage)
-            : undefined;
-          const discountAmount = linkedOrder?.discount_amount
-            ? Number(linkedOrder.discount_amount)
-            : undefined;
-          const discount = discountPercentage || discountAmount;
-          const discountType = discountPercentage
-            ? "percentage"
-            : discountAmount
-            ? "amount"
+          // Get staff name from joined profile
+          const profileData = order.profiles as unknown;
+          const profile = Array.isArray(profileData)
+            ? (profileData[0] as
+                | { first_name: string | null; last_name: string | null }
+                | undefined)
+            : (profileData as {
+                first_name: string | null;
+                last_name: string | null;
+              } | null);
+          const staffName = profile
+            ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim()
             : undefined;
 
           return {
             id: order.id,
-            orderId: order.order_id,
-            source: order.source || "Unknown",
+            orderId: order.id, // In unified table, order ID is the same
+            source: order.source || "pos",
             items,
-            status: order.status,
+            status: order.status || "completed",
             createdAt: order.created_at,
-            completedAt: order.bumped_at,
+            completedAt: order.completed_at,
             total,
             subtotal,
-            discount,
-            discountType,
+            discount: discount > 0 ? discount : undefined,
+            discountType: discount > 0 ? "amount" : undefined,
             customerName: order.customer_name || undefined,
-            attendant: order.server_name || undefined,
+            attendant: staffName || undefined,
+            orderNumber: order.order_number || undefined,
+            paymentStatus: order.payment_status || undefined,
+            paymentMethod: order.payment_method || undefined,
           };
         })
         .filter((order) => {
@@ -268,7 +232,8 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
             order.items.some((item) =>
               item.name.toLowerCase().includes(query)
             ) ||
-            (order.customerName?.toLowerCase().includes(query) ?? false)
+            (order.customerName?.toLowerCase().includes(query) ?? false) ||
+            (order.orderNumber?.toLowerCase().includes(query) ?? false)
           );
         });
 
@@ -279,7 +244,7 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
     gcTime: 1000 * 60 * 10, // 10 min garbage collection
   });
 
-  // Real-time subscription for kitchen orders becoming completed
+  // Real-time subscription for orders becoming completed
   useEffect(() => {
     if (!restaurantId) return;
 
@@ -290,12 +255,12 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
         {
           event: "UPDATE",
           schema: "public",
-          table: "kitchen_orders",
+          table: "orders_unified",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
         (payload) => {
           // Refetch when an order becomes completed
-          if ((payload.new as any)?.status === "completed") {
+          if ((payload.new as any)?.kitchen_status === "completed") {
             queryClient.invalidateQueries({
               queryKey: ["past-orders", restaurantId],
             });
@@ -312,10 +277,8 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
   // Get order by ID for printing
   const getOrderById = async (orderId: string): Promise<PastOrder | null> => {
     const { data, error } = await supabase
-      .from("kitchen_orders")
-      .select(
-        `*, orders:order_id (total, discount_amount, discount_percentage)`
-      )
+      .from("orders_unified")
+      .select("*, profiles:waiter_id(first_name, last_name)")
       .eq("id", orderId)
       .single();
 
@@ -329,52 +292,46 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
         notes?: string[];
       }[]) || [];
 
-    const subtotal = items.reduce(
+    const calculatedSubtotal = items.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     );
 
-    // Get linked order data (if available) for actual total with discount
-    const linkedOrder = data.orders as {
-      total?: number | string;
-      discount_amount?: number | string;
-      discount_percentage?: number | string;
-    } | null;
+    const subtotal = data.subtotal || calculatedSubtotal;
+    const total = data.total_amount || subtotal;
+    const discount = data.discount_amount || 0;
 
-    // Use linked order total if available (includes discount), otherwise fallback to subtotal
-    const total =
-      linkedOrder?.total !== undefined && linkedOrder?.total !== null
-        ? Number(linkedOrder.total)
-        : subtotal;
-
-    // Get discount info - use percentage if available
-    const discountPercentage = linkedOrder?.discount_percentage
-      ? Number(linkedOrder.discount_percentage)
-      : undefined;
-    const discountAmount = linkedOrder?.discount_amount
-      ? Number(linkedOrder.discount_amount)
-      : undefined;
-    const discount = discountPercentage || discountAmount;
-    const discountType = discountPercentage
-      ? "percentage"
-      : discountAmount
-      ? "amount"
+    // Get staff name from joined profile
+    const profileData = data.profiles as unknown;
+    const profile = Array.isArray(profileData)
+      ? (profileData[0] as
+          | { first_name: string | null; last_name: string | null }
+          | undefined)
+      : (profileData as {
+          first_name: string | null;
+          last_name: string | null;
+        } | null);
+    const staffName = profile
+      ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim()
       : undefined;
 
     return {
       id: data.id,
-      orderId: data.order_id,
-      source: data.source || "Unknown",
+      orderId: data.id,
+      source: data.source || "pos",
       items,
-      status: data.status,
+      status: data.status || "completed",
       createdAt: data.created_at,
-      completedAt: data.bumped_at,
+      completedAt: data.completed_at,
       total,
       subtotal,
-      discount,
-      discountType,
+      discount: discount > 0 ? discount : undefined,
+      discountType: discount > 0 ? "amount" : undefined,
       customerName: data.customer_name || undefined,
-      attendant: data.server_name || undefined,
+      attendant: staffName || undefined,
+      orderNumber: data.order_number || undefined,
+      paymentStatus: data.payment_status || undefined,
+      paymentMethod: data.payment_method || undefined,
     };
   };
 

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,19 +9,25 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 import { OrderItem } from "@/integrations/supabase/client";
-import { 
-  ShoppingCart, 
-  History, 
-  Plus, 
+import {
+  ShoppingCart,
+  History,
+  Plus,
   Minus,
-  Clock, 
-  CheckCircle2, 
+  Clock,
+  CheckCircle2,
   ChefHat,
   Utensils,
   Store,
@@ -30,9 +36,9 @@ import {
   X,
   Search,
   Package,
-  ArrowLeft
-} from 'lucide-react';
-import { useCurrencyContext } from '@/contexts/CurrencyContext';
+  ArrowLeft,
+} from "lucide-react";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 interface RoomOrdersDialogProps {
   roomId: string;
@@ -53,50 +59,55 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
   onClose,
   onSuccess,
   restaurantId,
-  customerName
+  customerName,
 }) => {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'history' | 'newOrder'>('history');
+  const [activeTab, setActiveTab] = useState<"history" | "newOrder">("history");
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
   const queryClient = useQueryClient();
 
   // Fetch existing orders for this reservation
   const { data: existingOrders = [], isLoading: ordersLoading } = useQuery({
-    queryKey: ['room-orders', reservationId],
+    queryKey: ["room-orders", reservationId],
     queryFn: async () => {
       if (!reservationId) return [];
-      
+
       const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('reservation_id', reservationId)
-        .order('created_at', { ascending: false });
+        .from("orders_unified")
+        .select("*")
+        .eq("reservation_id", reservationId)
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error('Error fetching room orders:', error);
+        console.error("Error fetching room orders:", error);
         return [];
       }
-      
-      return data || [];
+
+      // Map to expected format
+      return (data || []).map((order) => ({
+        ...order,
+        status: order.kitchen_status || order.payment_status,
+        total: order.total_amount,
+      }));
     },
     enabled: open && !!reservationId,
-    refetchOnWindowFocus: true, // Only refresh on window focus instead of interval
-    staleTime: 10000, // Consider data stale after 10 seconds
+    refetchOnWindowFocus: true,
+    staleTime: 10000,
   });
 
   // Fetch menu items
   const { data: menuItems = [], isLoading: menuLoading } = useQuery({
-    queryKey: ['menu-items', restaurantId],
+    queryKey: ["menu-items", restaurantId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('menu_items')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .eq('is_available', true);
+        .from("menu_items")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .eq("is_available", true);
 
       if (error) throw error;
       return data || [];
@@ -108,52 +119,65 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
   // Calculate total pending amount
   const pendingTotal = useMemo(() => {
     return existingOrders
-      .filter(o => o.payment_status === 'Pending - Room Charge')
+      .filter((o) => o.payment_status === "Pending - Room Charge")
       .reduce((sum, o) => sum + (o.total || 0), 0);
   }, [existingOrders]);
 
-  const handleAddToOrder = useCallback((menuItem: any) => {
-    const existingItemIndex = orderItems.findIndex(item => item.menuItemId === menuItem.id);
+  const handleAddToOrder = useCallback(
+    (menuItem: any) => {
+      const existingItemIndex = orderItems.findIndex(
+        (item) => item.menuItemId === menuItem.id
+      );
 
-    if (existingItemIndex !== -1) {
-      const updatedItems = [...orderItems];
-      updatedItems[existingItemIndex].quantity += 1;
-      setOrderItems(updatedItems);
-    } else {
-      setOrderItems([
-        ...orderItems,
-        {
-          id: uuidv4(),
-          menuItemId: menuItem.id,
-          name: menuItem.name,
-          price: menuItem.price,
-          quantity: 1
-        }
-      ]);
-    }
-    
-    toast({
-      title: "Item Added",
-      description: `${menuItem.name} added to order`,
-    });
-  }, [orderItems, toast]);
+      if (existingItemIndex !== -1) {
+        const updatedItems = [...orderItems];
+        updatedItems[existingItemIndex].quantity += 1;
+        setOrderItems(updatedItems);
+      } else {
+        setOrderItems([
+          ...orderItems,
+          {
+            id: uuidv4(),
+            menuItemId: menuItem.id,
+            name: menuItem.name,
+            price: menuItem.price,
+            quantity: 1,
+          },
+        ]);
+      }
 
-  const handleUpdateQuantity = useCallback((itemId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      setOrderItems(prev => prev.filter(item => item.id !== itemId));
-      return;
-    }
-    setOrderItems(prev => prev.map(item => 
-      item.id === itemId ? { ...item, quantity: newQuantity } : item
-    ));
-  }, []);
+      toast({
+        title: "Item Added",
+        description: `${menuItem.name} added to order`,
+      });
+    },
+    [orderItems, toast]
+  );
+
+  const handleUpdateQuantity = useCallback(
+    (itemId: string, newQuantity: number) => {
+      if (newQuantity <= 0) {
+        setOrderItems((prev) => prev.filter((item) => item.id !== itemId));
+        return;
+      }
+      setOrderItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId ? { ...item, quantity: newQuantity } : item
+        )
+      );
+    },
+    []
+  );
 
   const handleRemoveItem = useCallback((itemId: string) => {
-    setOrderItems(prev => prev.filter(item => item.id !== itemId));
+    setOrderItems((prev) => prev.filter((item) => item.id !== itemId));
   }, []);
 
   const calculateTotal = useMemo(() => {
-    return orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    return orderItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
   }, [orderItems]);
 
   // Submit order to kitchen
@@ -172,60 +196,39 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
       const orderSource = `Room Service - ${roomName}`;
       const total = calculateTotal;
 
-      // 1. Create kitchen order
-      const { data: kitchenOrder, error: kitchenError } = await supabase
-        .from('kitchen_orders')
+      // Create single order in orders_unified
+      const { data: createdOrder, error: orderError } = await supabase
+        .from("orders_unified")
         .insert({
           restaurant_id: restaurantId,
           source: orderSource,
-          items: orderItems.map(item => ({
+          items: orderItems.map((item) => ({
             name: item.name,
             quantity: item.quantity,
-            price: item.price
+            price: item.price,
           })),
-          status: 'new',
-          customer_name: customerName
-        })
-        .select()
-        .single();
-
-      if (kitchenError) throw kitchenError;
-
-      // 2. Create order record
-      const { data: createdOrder, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          restaurant_id: restaurantId,
-          customer_name: customerName,
-          items: orderItems.map(item => `${item.quantity}x ${item.name}`),
-          total: total,
-          status: 'pending',
-          source: 'room_service',
-          order_type: 'room-service',
+          kitchen_status: "new",
+          payment_status: "Pending - Room Charge",
+          total_amount: total,
+          order_type: "room-service",
           reservation_id: reservationId,
-          payment_status: 'Pending - Room Charge'
+          customer_name: customerName,
         })
         .select()
         .single();
 
       if (orderError) throw orderError;
 
-      // 3. Link kitchen order to order record
-      if (createdOrder?.id && kitchenOrder?.id) {
-        await supabase
-          .from('kitchen_orders')
-          .update({ order_id: createdOrder.id })
-          .eq('id', kitchenOrder.id);
+      // Also create room_food_orders entry
+      if (createdOrder?.id) {
+        await supabase.from("room_food_orders").insert({
+          room_id: roomId,
+          order_id: createdOrder.id,
+          total: total,
+          status: "pending",
+          restaurant_id: restaurantId,
+        });
       }
-
-      // 4. Also create room_food_orders entry
-      await supabase.from('room_food_orders').insert({
-        room_id: roomId,
-        order_id: createdOrder?.id,
-        total: total,
-        status: 'pending',
-        restaurant_id: restaurantId
-      });
 
       toast({
         title: "Order Sent to Kitchen",
@@ -233,13 +236,14 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
       });
 
       setOrderItems([]);
-      setActiveTab('history');
-      queryClient.invalidateQueries({ queryKey: ['room-orders', reservationId] });
-      queryClient.invalidateQueries({ queryKey: ['kitchen-orders'] });
+      setActiveTab("history");
+      queryClient.invalidateQueries({
+        queryKey: ["room-orders", reservationId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
       onSuccess();
-
     } catch (error) {
-      console.error('Error creating room order:', error);
+      console.error("Error creating room order:", error);
       toast({
         variant: "destructive",
         title: "Order Failed",
@@ -248,32 +252,41 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [orderItems, roomId, roomName, restaurantId, customerName, reservationId, calculateTotal, toast, queryClient, onSuccess]);
+  }, [
+    orderItems,
+    roomId,
+    roomName,
+    restaurantId,
+    customerName,
+    reservationId,
+    calculateTotal,
+    toast,
+    queryClient,
+    onSuccess,
+  ]);
 
   // Cancel an order
   const handleCancelOrder = async (orderId: string) => {
-    if (!window.confirm('Are you sure you want to cancel this order?')) return;
+    if (!window.confirm("Are you sure you want to cancel this order?")) return;
 
     try {
+      // Update orders_unified
       await supabase
-        .from('orders')
-        .update({ status: 'cancelled', payment_status: 'Cancelled' })
-        .eq('id', orderId);
-
-      await supabase
-        .from('kitchen_orders')
-        .update({ status: 'cancelled' })
-        .eq('order_id', orderId);
+        .from("orders_unified")
+        .update({ kitchen_status: "cancelled", payment_status: "Cancelled" })
+        .eq("id", orderId);
 
       toast({
         title: "Order Cancelled",
         description: "The order has been cancelled.",
       });
 
-      queryClient.invalidateQueries({ queryKey: ['room-orders', reservationId] });
-      queryClient.invalidateQueries({ queryKey: ['kitchen-orders'] });
+      queryClient.invalidateQueries({
+        queryKey: ["room-orders", reservationId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
     } catch (error) {
-      console.error('Error cancelling order:', error);
+      console.error("Error cancelling order:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -286,17 +299,52 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
   const getStatusBadge = (status: string) => {
     const baseClass = "text-xs px-3 py-1 rounded-full font-semibold shadow-sm";
     switch (status?.toLowerCase()) {
-      case 'new':
-      case 'pending':
-        return <span className={`${baseClass} bg-gradient-to-r from-amber-400 to-orange-400 text-white`}><Clock className="w-3 h-3 inline mr-1" />New</span>;
-      case 'preparing':
-        return <span className={`${baseClass} bg-gradient-to-r from-blue-400 to-cyan-400 text-white`}><ChefHat className="w-3 h-3 inline mr-1" />Preparing</span>;
-      case 'ready':
-        return <span className={`${baseClass} bg-gradient-to-r from-green-400 to-emerald-400 text-white`}><Utensils className="w-3 h-3 inline mr-1" />Ready</span>;
-      case 'completed':
-        return <span className={`${baseClass} bg-gradient-to-r from-emerald-500 to-teal-500 text-white`}><CheckCircle2 className="w-3 h-3 inline mr-1" />Completed</span>;
-      case 'cancelled':
-        return <span className={`${baseClass} bg-gradient-to-r from-red-400 to-rose-400 text-white`}><X className="w-3 h-3 inline mr-1" />Cancelled</span>;
+      case "new":
+      case "pending":
+        return (
+          <span
+            className={`${baseClass} bg-gradient-to-r from-amber-400 to-orange-400 text-white`}
+          >
+            <Clock className="w-3 h-3 inline mr-1" />
+            New
+          </span>
+        );
+      case "preparing":
+        return (
+          <span
+            className={`${baseClass} bg-gradient-to-r from-blue-400 to-cyan-400 text-white`}
+          >
+            <ChefHat className="w-3 h-3 inline mr-1" />
+            Preparing
+          </span>
+        );
+      case "ready":
+        return (
+          <span
+            className={`${baseClass} bg-gradient-to-r from-green-400 to-emerald-400 text-white`}
+          >
+            <Utensils className="w-3 h-3 inline mr-1" />
+            Ready
+          </span>
+        );
+      case "completed":
+        return (
+          <span
+            className={`${baseClass} bg-gradient-to-r from-emerald-500 to-teal-500 text-white`}
+          >
+            <CheckCircle2 className="w-3 h-3 inline mr-1" />
+            Completed
+          </span>
+        );
+      case "cancelled":
+        return (
+          <span
+            className={`${baseClass} bg-gradient-to-r from-red-400 to-rose-400 text-white`}
+          >
+            <X className="w-3 h-3 inline mr-1" />
+            Cancelled
+          </span>
+        );
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -305,31 +353,50 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
   // Get source badge
   const getSourceBadge = (source: string) => {
     const baseClass = "text-xs px-3 py-1 rounded-full font-semibold shadow-sm";
-    if (source === 'room_service' || source?.includes('Room')) {
-      return <span className={`${baseClass} bg-gradient-to-r from-pink-500 to-rose-500 text-white`}><BedDouble className="w-3 h-3 inline mr-1" />Room</span>;
+    if (source === "room_service" || source?.includes("Room")) {
+      return (
+        <span
+          className={`${baseClass} bg-gradient-to-r from-pink-500 to-rose-500 text-white`}
+        >
+          <BedDouble className="w-3 h-3 inline mr-1" />
+          Room
+        </span>
+      );
     }
-    return <span className={`${baseClass} bg-gradient-to-r from-blue-500 to-cyan-500 text-white`}><Store className="w-3 h-3 inline mr-1" />POS</span>;
+    return (
+      <span
+        className={`${baseClass} bg-gradient-to-r from-blue-500 to-cyan-500 text-white`}
+      >
+        <Store className="w-3 h-3 inline mr-1" />
+        POS
+      </span>
+    );
   };
 
   // Filter menu items
   const filteredMenuItems = useMemo(() => {
-    return menuItems.filter(item => {
-      const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
-      const matchesSearch = searchQuery === "" || 
+    return menuItems.filter((item) => {
+      const matchesCategory =
+        categoryFilter === "all" || item.category === categoryFilter;
+      const matchesSearch =
+        searchQuery === "" ||
         item.name.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     });
   }, [menuItems, categoryFilter, searchQuery]);
 
   const categories = useMemo(() => {
-    return ["all", ...new Set(menuItems.map(item => item.category).filter(Boolean))];
+    return [
+      "all",
+      ...new Set(menuItems.map((item) => item.category).filter(Boolean)),
+    ];
   }, [menuItems]);
 
   const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('en-IN', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: true
+    return new Date(dateString).toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
     });
   };
 
@@ -337,9 +404,9 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
     const date = new Date(dateString);
     const today = new Date();
     if (date.toDateString() === today.toDateString()) {
-      return 'Today';
+      return "Today";
     }
-    return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
   };
 
   return (
@@ -351,11 +418,20 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
             <div className="flex items-center gap-3">
               <BedDouble className="h-6 w-6 md:h-8 md:w-8 text-white" />
               <div>
-                <h1 className="text-xl md:text-2xl font-bold text-white">Room Orders - {roomName}</h1>
-                <p className="text-white/80 text-sm">Guest: <span className="font-semibold">{customerName}</span></p>
+                <h1 className="text-xl md:text-2xl font-bold text-white">
+                  Room Orders - {roomName}
+                </h1>
+                <p className="text-white/80 text-sm">
+                  Guest: <span className="font-semibold">{customerName}</span>
+                </p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="text-white hover:bg-white/20"
+            >
               <X className="h-6 w-6" />
             </Button>
           </div>
@@ -364,22 +440,22 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
         {/* Mobile Tab Switcher */}
         <div className="lg:hidden flex border-b bg-white/80 dark:bg-slate-800/80">
           <button
-            onClick={() => setActiveTab('history')}
+            onClick={() => setActiveTab("history")}
             className={`flex-1 py-3 px-4 text-sm font-medium transition-all ${
-              activeTab === 'history' 
-                ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50 dark:bg-purple-900/30' 
-                : 'text-gray-500 hover:text-gray-700'
+              activeTab === "history"
+                ? "text-purple-600 border-b-2 border-purple-600 bg-purple-50 dark:bg-purple-900/30"
+                : "text-gray-500 hover:text-gray-700"
             }`}
           >
             <History className="w-4 h-4 inline mr-2" />
             Order History ({existingOrders.length})
           </button>
           <button
-            onClick={() => setActiveTab('newOrder')}
+            onClick={() => setActiveTab("newOrder")}
             className={`flex-1 py-3 px-4 text-sm font-medium transition-all ${
-              activeTab === 'newOrder' 
-                ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50 dark:bg-purple-900/30' 
-                : 'text-gray-500 hover:text-gray-700'
+              activeTab === "newOrder"
+                ? "text-purple-600 border-b-2 border-purple-600 bg-purple-50 dark:bg-purple-900/30"
+                : "text-gray-500 hover:text-gray-700"
             }`}
           >
             <Plus className="w-4 h-4 inline mr-2" />
@@ -390,23 +466,33 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
         {/* Main Content - 3 Column Layout */}
         <div className="flex-1 overflow-hidden pb-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 h-[calc(95vh-140px)] lg:h-[calc(95vh-120px)]">
-            
             {/* Left Panel - Order History */}
-            <div className={`${activeTab === 'history' ? 'flex' : 'hidden'} lg:flex flex-col bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-r border-purple-200 dark:border-purple-900 overflow-hidden`}>
+            <div
+              className={`${
+                activeTab === "history" ? "flex" : "hidden"
+              } lg:flex flex-col bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-r border-purple-200 dark:border-purple-900 overflow-hidden`}
+            >
               {/* History Header */}
               <div className="p-4 border-b border-purple-100 dark:border-purple-800">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <History className="w-5 h-5 text-purple-600" />
-                    <h2 className="text-lg font-bold text-gray-800 dark:text-white">Order History</h2>
+                    <h2 className="text-lg font-bold text-gray-800 dark:text-white">
+                      Order History
+                    </h2>
                     <span className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
                       {existingOrders.length}
                     </span>
                   </div>
                 </div>
                 <div className="mt-2 text-right">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Pending Total</p>
-                  <p className="text-xl font-bold text-gray-800 dark:text-white">{currencySymbol}{pendingTotal.toFixed(2)}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Pending Total
+                  </p>
+                  <p className="text-xl font-bold text-gray-800 dark:text-white">
+                    {currencySymbol}
+                    {pendingTotal.toFixed(2)}
+                  </p>
                 </div>
               </div>
 
@@ -421,33 +507,49 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
                     <div className="w-20 h-20 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center mb-4">
                       <ShoppingCart className="h-10 w-10 text-purple-400" />
                     </div>
-                    <p className="font-medium text-gray-600 dark:text-gray-300">No orders yet</p>
-                    <p className="text-sm text-gray-400 mt-1">Place an order to get started</p>
+                    <p className="font-medium text-gray-600 dark:text-gray-300">
+                      No orders yet
+                    </p>
+                    <p className="text-sm text-gray-400 mt-1">
+                      Place an order to get started
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {existingOrders.map(order => (
-                      <Card key={order.id} className="p-4 bg-white dark:bg-slate-700/50 border border-purple-100 dark:border-purple-800 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.01] rounded-2xl">
+                    {existingOrders.map((order) => (
+                      <Card
+                        key={order.id}
+                        className="p-4 bg-white dark:bg-slate-700/50 border border-purple-100 dark:border-purple-800 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.01] rounded-2xl"
+                      >
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-2 flex-wrap">
                             {getSourceBadge(order.source)}
                             {getStatusBadge(order.status)}
                           </div>
-                          <span className="text-xs text-gray-500">{formatDate(order.created_at)} {formatTime(order.created_at)}</span>
+                          <span className="text-xs text-gray-500">
+                            {formatDate(order.created_at)}{" "}
+                            {formatTime(order.created_at)}
+                          </span>
                         </div>
                         <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 line-clamp-2">
-                          {Array.isArray(order.items) ? order.items.join(', ') : String(order.items)}
+                          {Array.isArray(order.items)
+                            ? order.items.join(", ")
+                            : String(order.items)}
                         </p>
                         <div className="flex items-center justify-between">
-                          <span className="text-2xl font-bold text-gray-800 dark:text-white">{currencySymbol}{(order.total || 0).toFixed(2)}</span>
-                          {order.status !== 'completed' && order.status !== 'cancelled' && (
-                            <button 
-                              onClick={() => handleCancelOrder(order.id)}
-                              className="text-red-500 hover:text-red-600 flex items-center gap-1 text-sm font-medium"
-                            >
-                              <Trash2 className="w-4 h-4" /> Cancel
-                            </button>
-                          )}
+                          <span className="text-2xl font-bold text-gray-800 dark:text-white">
+                            {currencySymbol}
+                            {(order.total || 0).toFixed(2)}
+                          </span>
+                          {order.status !== "completed" &&
+                            order.status !== "cancelled" && (
+                              <button
+                                onClick={() => handleCancelOrder(order.id)}
+                                className="text-red-500 hover:text-red-600 flex items-center gap-1 text-sm font-medium"
+                              >
+                                <Trash2 className="w-4 h-4" /> Cancel
+                              </button>
+                            )}
                         </div>
                       </Card>
                     ))}
@@ -457,13 +559,17 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
             </div>
 
             {/* Middle Panel - Menu */}
-            <div className={`${activeTab === 'newOrder' ? 'flex' : 'hidden'} lg:flex flex-col bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm overflow-hidden`}>
+            <div
+              className={`${
+                activeTab === "newOrder" ? "flex" : "hidden"
+              } lg:flex flex-col bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm overflow-hidden`}
+            >
               {/* Menu Header */}
               <div className="p-4 border-b border-purple-100 dark:border-purple-800">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
                   <Plus className="w-5 h-5" /> New Order
                 </h2>
-                
+
                 {/* Search */}
                 <div className="relative mb-3">
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -477,14 +583,17 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
                 </div>
 
                 {/* Category Filter */}
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <Select
+                  value={categoryFilter}
+                  onValueChange={setCategoryFilter}
+                >
                   <SelectTrigger className="rounded-xl border-purple-200 dark:border-purple-700">
                     <SelectValue placeholder="All Categories" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map(cat => (
+                    {categories.map((cat) => (
                       <SelectItem key={cat} value={cat}>
-                        {cat === 'all' ? 'All Categories' : cat}
+                        {cat === "all" ? "All Categories" : cat}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -500,16 +609,23 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {filteredMenuItems.map((item) => (
-                      <Card 
-                        key={item.id} 
+                      <Card
+                        key={item.id}
                         className="p-3 bg-white dark:bg-slate-700/50 border border-purple-100 dark:border-purple-800 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] rounded-xl"
                       >
                         <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-semibold text-gray-800 dark:text-white truncate flex-1">{item.name}</h3>
-                          <span className="font-bold text-purple-600 dark:text-purple-400 ml-2">{currencySymbol}{item.price.toFixed(2)}</span>
+                          <h3 className="font-semibold text-gray-800 dark:text-white truncate flex-1">
+                            {item.name}
+                          </h3>
+                          <span className="font-bold text-purple-600 dark:text-purple-400 ml-2">
+                            {currencySymbol}
+                            {item.price.toFixed(2)}
+                          </span>
                         </div>
                         {item.description && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 line-clamp-1">{item.description}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 line-clamp-1">
+                            {item.description}
+                          </p>
                         )}
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="bg-gradient-to-r from-cyan-100 to-blue-100 dark:from-cyan-900/30 dark:to-blue-900/30 text-cyan-700 dark:text-cyan-300 text-xs px-2 py-0.5 rounded-full">
@@ -520,8 +636,8 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
                               🌱 Veg
                             </span>
                           )}
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             className="ml-auto h-7 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -539,7 +655,11 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
             </div>
 
             {/* Right Panel - Order Summary */}
-            <div className={`${activeTab === 'newOrder' ? 'flex' : 'hidden'} lg:flex flex-col bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-l border-purple-200 dark:border-purple-900 overflow-hidden`}>
+            <div
+              className={`${
+                activeTab === "newOrder" ? "flex" : "hidden"
+              } lg:flex flex-col bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-l border-purple-200 dark:border-purple-900 overflow-hidden`}
+            >
               {/* Summary Header */}
               <div className="p-4 border-b border-purple-100 dark:border-purple-800">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
@@ -554,16 +674,25 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
                     <div className="w-24 h-24 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center mb-4">
                       <Package className="h-12 w-12 text-purple-300" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-1">No items in order</h3>
-                    <p className="text-sm text-gray-400">Add items from the menu to start</p>
+                    <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                      No items in order
+                    </h3>
+                    <p className="text-sm text-gray-400">
+                      Add items from the menu to start
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {orderItems.map(item => (
-                      <Card key={item.id} className="p-3 bg-white dark:bg-slate-700/50 border border-purple-100 dark:border-purple-800 rounded-xl">
+                    {orderItems.map((item) => (
+                      <Card
+                        key={item.id}
+                        className="p-3 bg-white dark:bg-slate-700/50 border border-purple-100 dark:border-purple-800 rounded-xl"
+                      >
                         <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-gray-800 dark:text-white flex-1 truncate">{item.name}</span>
-                          <button 
+                          <span className="font-medium text-gray-800 dark:text-white flex-1 truncate">
+                            {item.name}
+                          </span>
+                          <button
                             onClick={() => handleRemoveItem(item.id)}
                             className="text-red-400 hover:text-red-500 p-1"
                           >
@@ -572,26 +701,33 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Button 
-                              size="icon" 
-                              variant="outline" 
+                            <Button
+                              size="icon"
+                              variant="outline"
                               className="h-8 w-8 rounded-lg"
-                              onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                              onClick={() =>
+                                handleUpdateQuantity(item.id, item.quantity - 1)
+                              }
                             >
                               <Minus className="h-3 w-3" />
                             </Button>
-                            <span className="w-8 text-center font-semibold">{item.quantity}</span>
-                            <Button 
-                              size="icon" 
-                              variant="outline" 
+                            <span className="w-8 text-center font-semibold">
+                              {item.quantity}
+                            </span>
+                            <Button
+                              size="icon"
+                              variant="outline"
                               className="h-8 w-8 rounded-lg"
-                              onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                              onClick={() =>
+                                handleUpdateQuantity(item.id, item.quantity + 1)
+                              }
                             >
                               <Plus className="h-3 w-3" />
                             </Button>
                           </div>
                           <span className="font-bold text-purple-600 dark:text-purple-400">
-                            {currencySymbol}{(item.price * item.quantity).toFixed(2)}
+                            {currencySymbol}
+                            {(item.price * item.quantity).toFixed(2)}
                           </span>
                         </div>
                       </Card>
@@ -603,17 +739,20 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
               {/* Total and Submit Button */}
               <div className="p-4 border-t border-purple-100 dark:border-purple-800 bg-white/90 dark:bg-slate-800/90">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-lg font-semibold text-gray-800 dark:text-white">Total:</span>
+                  <span className="text-lg font-semibold text-gray-800 dark:text-white">
+                    Total:
+                  </span>
                   <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                    {currencySymbol}{calculateTotal.toFixed(2)}
+                    {currencySymbol}
+                    {calculateTotal.toFixed(2)}
                   </span>
                 </div>
-                <Button 
+                <Button
                   onClick={handleSubmitOrder}
                   disabled={orderItems.length === 0 || isSubmitting}
                   className="w-full h-12 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold text-lg rounded-xl shadow-lg transition-all duration-300 hover:scale-[1.02]"
                 >
-                  {isSubmitting ? 'Sending...' : 'Send to Kitchen 🍳'}
+                  {isSubmitting ? "Sending..." : "Send to Kitchen 🍳"}
                 </Button>
               </div>
             </div>

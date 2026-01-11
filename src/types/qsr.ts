@@ -38,11 +38,14 @@ export interface ActiveKitchenOrder {
   id: string;
   orderId?: string;
   source: string;
-  items: { name: string; quantity: number; price: number }[];
+  items: { name: string; quantity: number; price: number; notes?: string | string[] }[];
   status: 'new' | 'preparing' | 'ready' | 'held' | 'completed';
   createdAt: string;
   total: number;
   itemCompletionStatus?: boolean[];
+  orderNumber?: string | null;
+  customerName?: string | null;
+  tableId?: string | null;
 }
 
 // QSR Order structure

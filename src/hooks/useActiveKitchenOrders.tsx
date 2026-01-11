@@ -104,21 +104,26 @@ export const useActiveKitchenOrders = (
       const { start, end } = getDateRange();
 
       let query = supabase
-        .from("kitchen_orders")
+        .from("orders_unified")
         .select(
-          "id, source, items, status, created_at, order_id, item_completion_status"
+          "id, source, items, kitchen_status, created_at, items_completion, order_number, customer_name, table_id, total_amount"
         )
         .eq("restaurant_id", restaurantId)
         .gte("created_at", start)
         .lte("created_at", end)
         .order("created_at", { ascending: false });
 
-      // Apply status filter
+      // Apply status filter (using kitchen_status for kitchen display)
       if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
+        query = query.eq("kitchen_status", statusFilter);
       } else {
         // Default: show active orders (not completed)
-        query = query.in("status", ["new", "preparing", "ready", "held"]);
+        query = query.in("kitchen_status", [
+          "new",
+          "preparing",
+          "ready",
+          "held",
+        ]);
       }
 
       const { data, error } = await query;
@@ -134,21 +139,22 @@ export const useActiveKitchenOrders = (
               quantity: number;
               price: number;
             }[]) || [];
-          const total = items.reduce(
-            (sum, item) => sum + item.price * item.quantity,
-            0
-          );
+          const total =
+            order.total_amount ||
+            items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
           return {
             id: order.id,
-            orderId: order.order_id,
-            source: order.source || "Unknown",
+            orderId: order.id, // In unified table, order ID is the same
+            source: order.source || "pos",
             items,
-            status: order.status as ActiveKitchenOrder["status"],
+            status: order.kitchen_status as ActiveKitchenOrder["status"],
             createdAt: order.created_at,
             total,
-            itemCompletionStatus:
-              (order.item_completion_status as boolean[]) || [],
+            itemCompletionStatus: (order.items_completion as boolean[]) || [],
+            orderNumber: order.order_number,
+            customerName: order.customer_name,
+            tableId: order.table_id,
           };
         })
         .filter((order) => {
@@ -156,7 +162,13 @@ export const useActiveKitchenOrders = (
           const query = searchQuery.toLowerCase();
           return (
             order.source.toLowerCase().includes(query) ||
-            order.items.some((item) => item.name.toLowerCase().includes(query))
+            order.items.some((item) =>
+              item.name.toLowerCase().includes(query)
+            ) ||
+            (order.orderNumber &&
+              order.orderNumber.toLowerCase().includes(query)) ||
+            (order.customerName &&
+              order.customerName.toLowerCase().includes(query))
           );
         });
 
@@ -167,7 +179,7 @@ export const useActiveKitchenOrders = (
     gcTime: 1000 * 60 * 5, // 5 min garbage collection
   });
 
-  // Real-time subscription for kitchen orders
+  // Real-time subscription for orders_unified
   useEffect(() => {
     if (!restaurantId) return;
 
@@ -178,7 +190,7 @@ export const useActiveKitchenOrders = (
         {
           event: "*",
           schema: "public",
-          table: "kitchen_orders",
+          table: "orders_unified",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
         () => {
@@ -199,7 +211,7 @@ export const useActiveKitchenOrders = (
     orderId: string
   ): Promise<ActiveKitchenOrder | null> => {
     const { data, error } = await supabase
-      .from("kitchen_orders")
+      .from("orders_unified")
       .select("*")
       .eq("id", orderId)
       .single();
@@ -208,20 +220,22 @@ export const useActiveKitchenOrders = (
 
     const items =
       (data.items as { name: string; quantity: number; price: number }[]) || [];
-    const total = items.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
+    const total =
+      data.total_amount ||
+      items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
     return {
       id: data.id,
-      orderId: data.order_id,
-      source: data.source || "Unknown",
+      orderId: data.id,
+      source: data.source || "pos",
       items,
-      status: data.status as ActiveKitchenOrder["status"],
+      status: data.kitchen_status as ActiveKitchenOrder["status"],
       createdAt: data.created_at,
       total,
-      itemCompletionStatus: (data.item_completion_status as boolean[]) || [],
+      itemCompletionStatus: (data.items_completion as boolean[]) || [],
+      orderNumber: data.order_number,
+      customerName: data.customer_name,
+      tableId: data.table_id,
     };
   };
 
@@ -244,8 +258,8 @@ export const useActiveKitchenOrders = (
 
     try {
       const { error } = await supabase
-        .from("kitchen_orders")
-        .update({ item_completion_status: newCompletionStatus })
+        .from("orders_unified")
+        .update({ items_completion: newCompletionStatus })
         .eq("id", orderId);
 
       if (error) throw error;

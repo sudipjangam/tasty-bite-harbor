@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useQueryClient } from '@tanstack/react-query';
+import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 /**
  * Global real-time analytics synchronization hook
@@ -13,60 +13,58 @@ export const useRealtimeAnalytics = () => {
   useEffect(() => {
     // Create a single channel for all critical table subscriptions
     const channel = supabase
-      .channel('realtime-analytics')
+      .channel("realtime-analytics")
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders_unified" },
         () => {
-          console.log('🔄 Orders changed - invalidating all dashboard queries');
-          queryClient.invalidateQueries({ queryKey: ['analytics-data'] });
-          queryClient.invalidateQueries({ queryKey: ['dashboard-orders'] });
-          queryClient.invalidateQueries({ queryKey: ['liveActivity'] });
-          queryClient.invalidateQueries({ queryKey: ['realtime-business-data'] });
-          queryClient.invalidateQueries({ queryKey: ['business-dashboard-data'] });
+          console.log("🔄 Orders changed - invalidating all dashboard queries");
+          queryClient.invalidateQueries({ queryKey: ["analytics-data"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard-orders"] });
+          queryClient.invalidateQueries({ queryKey: ["liveActivity"] });
+          queryClient.invalidateQueries({
+            queryKey: ["realtime-business-data"],
+          });
+          queryClient.invalidateQueries({
+            queryKey: ["business-dashboard-data"],
+          });
+          queryClient.invalidateQueries({
+            queryKey: ["active-kitchen-orders"],
+          });
+          queryClient.invalidateQueries({ queryKey: ["past-orders"] });
+          queryClient.invalidateQueries({ queryKey: ["qsr-tables"] });
         }
       )
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'room_billings' },
+        "postgres_changes",
+        { event: "*", schema: "public", table: "room_billings" },
         () => {
-          console.log('🔄 Room billings changed - invalidating analytics');
-          queryClient.invalidateQueries({ queryKey: ['analytics-data'] });
-          queryClient.invalidateQueries({ queryKey: ['dashboard-orders'] });
+          console.log("🔄 Room billings changed - invalidating analytics");
+          queryClient.invalidateQueries({ queryKey: ["analytics-data"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard-orders"] });
         }
       )
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'kitchen_orders' },
+        "postgres_changes",
+        { event: "*", schema: "public", table: "check_ins" },
         () => {
-          console.log('🔄 Kitchen orders changed - invalidating all dashboard queries');
-          queryClient.invalidateQueries({ queryKey: ['liveActivity'] });
-          queryClient.invalidateQueries({ queryKey: ['analytics-data'] });
-          queryClient.invalidateQueries({ queryKey: ['kitchen-orders'] });
-          queryClient.invalidateQueries({ queryKey: ['realtime-business-data'] });
+          console.log("🔄 Check-ins changed - invalidating analytics");
+          queryClient.invalidateQueries({ queryKey: ["liveActivity"] });
         }
       )
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'check_ins' },
+        "postgres_changes",
+        { event: "*", schema: "public", table: "daily_revenue_stats" },
         () => {
-          console.log('🔄 Check-ins changed - invalidating analytics');
-          queryClient.invalidateQueries({ queryKey: ['liveActivity'] });
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'daily_revenue_stats' },
-        () => {
-          console.log('🔄 Revenue stats changed - invalidating analytics');
-          queryClient.invalidateQueries({ queryKey: ['analytics-data'] });
+          console.log("🔄 Revenue stats changed - invalidating analytics");
+          queryClient.invalidateQueries({ queryKey: ["analytics-data"] });
         }
       )
       .subscribe();
 
     // Cleanup on unmount
     return () => {
-      console.log('🛑 Unsubscribing from realtime analytics');
+      console.log("🛑 Unsubscribing from realtime analytics");
       supabase.removeChannel(channel);
     };
   }, [queryClient]);

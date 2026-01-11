@@ -3,38 +3,40 @@
  * Tests for order CRUD operations with database verification
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { supabase } from '@/integrations/supabase/client';
-import { createMockOrder, createMockOrderItem } from '../utils/mockFactories';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { supabase } from "@/integrations/supabase/client";
+import { createMockOrder, createMockOrderItem } from "../utils/mockFactories";
 
 // Mock Supabase client
-vi.mock('@/integrations/supabase/client', () => ({
+vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     from: vi.fn(),
     auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-123' } } }),
+      getUser: vi
+        .fn()
+        .mockResolvedValue({ data: { user: { id: "user-123" } } }),
     },
   },
 }));
 
-describe('Orders Integration Tests', () => {
+describe("Orders Integration Tests", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe('Create Order', () => {
-    it('successfully creates a new order', async () => {
+  describe("Create Order", () => {
+    it("successfully creates a new order", async () => {
       const newOrder = createMockOrder({
-        customer_name: 'Test Customer',
+        customer_name: "Test Customer",
         total: 1000,
-        status: 'pending',
+        status: "pending",
       });
 
       const mockFrom = vi.fn().mockReturnValue({
         insert: vi.fn().mockReturnValue({
           select: vi.fn().mockReturnValue({
             single: vi.fn().mockResolvedValue({
-              data: { ...newOrder, id: 'order-123' },
+              data: { ...newOrder, id: "order-123" },
               error: null,
             }),
           }),
@@ -44,21 +46,29 @@ describe('Orders Integration Tests', () => {
       (supabase.from as any) = mockFrom;
 
       const result = await supabase
-        .from('orders')
+        .from("orders_unified")
         .insert(newOrder)
         .select()
         .single();
 
       expect(result.error).toBeNull();
-      expect(result.data.customer_name).toBe('Test Customer');
-      expect(result.data.status).toBe('pending');
+      expect(result.data.customer_name).toBe("Test Customer");
+      expect(result.data.status).toBe("pending");
     });
 
-    it('creates order with items', async () => {
+    it("creates order with items", async () => {
       const order = createMockOrder();
       const items = [
-        createMockOrderItem({ order_id: 'order-123', menu_item_id: 'item-1', quantity: 2 }),
-        createMockOrderItem({ order_id: 'order-123', menu_item_id: 'item-2', quantity: 1 }),
+        createMockOrderItem({
+          order_id: "order-123",
+          menu_item_id: "item-1",
+          quantity: 2,
+        }),
+        createMockOrderItem({
+          order_id: "order-123",
+          menu_item_id: "item-2",
+          quantity: 1,
+        }),
       ];
 
       const mockFrom = vi.fn().mockReturnValue({
@@ -72,40 +82,37 @@ describe('Orders Integration Tests', () => {
 
       (supabase.from as any) = mockFrom;
 
-      const result = await supabase
-        .from('order_items')
-        .insert(items)
-        .select();
+      const result = await supabase.from("order_items").insert(items).select();
 
       expect(result.error).toBeNull();
       expect(result.data).toHaveLength(2);
     });
 
-    it('validates required fields', async () => {
+    it("validates required fields", async () => {
       const invalidOrder = {
         // Missing required fields
-        customer_name: '',
+        customer_name: "",
         total: -100,
       };
 
       const validateOrder = (order: typeof invalidOrder) => {
         const errors: string[] = [];
-        if (!order.customer_name) errors.push('Customer name required');
-        if (order.total < 0) errors.push('Total cannot be negative');
+        if (!order.customer_name) errors.push("Customer name required");
+        if (order.total < 0) errors.push("Total cannot be negative");
         return errors;
       };
 
       const errors = validateOrder(invalidOrder);
-      expect(errors).toContain('Customer name required');
-      expect(errors).toContain('Total cannot be negative');
+      expect(errors).toContain("Customer name required");
+      expect(errors).toContain("Total cannot be negative");
     });
   });
 
-  describe('Read Orders', () => {
-    it('fetches orders for restaurant', async () => {
+  describe("Read Orders", () => {
+    it("fetches orders for restaurant", async () => {
       const mockOrders = [
-        createMockOrder({ id: '1', order_number: 'ORD-001' }),
-        createMockOrder({ id: '2', order_number: 'ORD-002' }),
+        createMockOrder({ id: "1", order_number: "ORD-001" }),
+        createMockOrder({ id: "2", order_number: "ORD-002" }),
       ];
 
       const mockFrom = vi.fn().mockReturnValue({
@@ -122,20 +129,18 @@ describe('Orders Integration Tests', () => {
       (supabase.from as any) = mockFrom;
 
       const result = await supabase
-        .from('orders')
-        .select('*')
-        .eq('restaurant_id', 'rest-123')
-        .order('created_at', { ascending: false });
+        .from("orders_unified")
+        .select("*")
+        .eq("restaurant_id", "rest-123")
+        .order("created_at", { ascending: false });
 
       expect(result.error).toBeNull();
       expect(result.data).toHaveLength(2);
     });
 
-    it('fetches single order with items', async () => {
-      const mockOrder = createMockOrder({ id: 'order-123' });
-      const mockItems = [
-        createMockOrderItem({ order_id: 'order-123' }),
-      ];
+    it("fetches single order with items", async () => {
+      const mockOrder = createMockOrder({ id: "order-123" });
+      const mockItems = [createMockOrderItem({ order_id: "order-123" })];
 
       const mockFrom = vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
@@ -151,19 +156,19 @@ describe('Orders Integration Tests', () => {
       (supabase.from as any) = mockFrom;
 
       const result = await supabase
-        .from('orders')
-        .select('*, order_items(*)')
-        .eq('id', 'order-123')
+        .from("orders_unified")
+        .select("*, order_items(*)")
+        .eq("id", "order-123")
         .single();
 
       expect(result.error).toBeNull();
       expect(result.data.order_items).toHaveLength(1);
     });
 
-    it('filters orders by status', async () => {
+    it("filters orders by status", async () => {
       const mockOrders = [
-        createMockOrder({ status: 'pending' }),
-        createMockOrder({ status: 'pending' }),
+        createMockOrder({ status: "pending" }),
+        createMockOrder({ status: "pending" }),
       ];
 
       const mockFrom = vi.fn().mockReturnValue({
@@ -180,17 +185,17 @@ describe('Orders Integration Tests', () => {
       (supabase.from as any) = mockFrom;
 
       const result = await supabase
-        .from('orders')
-        .select('*')
-        .eq('restaurant_id', 'rest-123')
-        .eq('status', 'pending');
+        .from("orders_unified")
+        .select("*")
+        .eq("restaurant_id", "rest-123")
+        .eq("status", "pending");
 
       expect(result.data).toHaveLength(2);
-      expect(result.data?.every((o: any) => o.status === 'pending')).toBe(true);
+      expect(result.data?.every((o: any) => o.status === "pending")).toBe(true);
     });
 
-    it('filters orders by date range', async () => {
-      const today = new Date().toISOString().split('T')[0];
+    it("filters orders by date range", async () => {
+      const today = new Date().toISOString().split("T")[0];
       const mockOrders = [createMockOrder()];
 
       const mockFrom = vi.fn().mockReturnValue({
@@ -209,24 +214,24 @@ describe('Orders Integration Tests', () => {
       (supabase.from as any) = mockFrom;
 
       const result = await supabase
-        .from('orders')
-        .select('*')
-        .eq('restaurant_id', 'rest-123')
-        .gte('created_at', `${today}T00:00:00`)
-        .lte('created_at', `${today}T23:59:59`);
+        .from("orders_unified")
+        .select("*")
+        .eq("restaurant_id", "rest-123")
+        .gte("created_at", `${today}T00:00:00`)
+        .lte("created_at", `${today}T23:59:59`);
 
       expect(result.error).toBeNull();
     });
   });
 
-  describe('Update Order', () => {
-    it('updates order status', async () => {
+  describe("Update Order", () => {
+    it("updates order status", async () => {
       const mockFrom = vi.fn().mockReturnValue({
         update: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
             select: vi.fn().mockReturnValue({
               single: vi.fn().mockResolvedValue({
-                data: { id: 'order-123', status: 'preparing' },
+                data: { id: "order-123", status: "preparing" },
                 error: null,
               }),
             }),
@@ -237,24 +242,24 @@ describe('Orders Integration Tests', () => {
       (supabase.from as any) = mockFrom;
 
       const result = await supabase
-        .from('orders')
-        .update({ status: 'preparing', updated_at: new Date().toISOString() })
-        .eq('id', 'order-123')
+        .from("orders_unified")
+        .update({ status: "preparing", updated_at: new Date().toISOString() })
+        .eq("id", "order-123")
         .select()
         .single();
 
       expect(result.error).toBeNull();
-      expect(result.data.status).toBe('preparing');
+      expect(result.data.status).toBe("preparing");
     });
 
-    it('updates order with discount', async () => {
+    it("updates order with discount", async () => {
       const mockFrom = vi.fn().mockReturnValue({
         update: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
             select: vi.fn().mockReturnValue({
               single: vi.fn().mockResolvedValue({
-                data: { 
-                  id: 'order-123', 
+                data: {
+                  id: "order-123",
                   subtotal: 1000,
                   discount: 100,
                   total: 900,
@@ -269,9 +274,9 @@ describe('Orders Integration Tests', () => {
       (supabase.from as any) = mockFrom;
 
       const result = await supabase
-        .from('orders')
+        .from("orders_unified")
         .update({ discount: 100, total: 900 })
-        .eq('id', 'order-123')
+        .eq("id", "order-123")
         .select()
         .single();
 
@@ -281,12 +286,12 @@ describe('Orders Integration Tests', () => {
     });
   });
 
-  describe('Delete Order', () => {
-    it('soft deletes an order', async () => {
+  describe("Delete Order", () => {
+    it("soft deletes an order", async () => {
       const mockFrom = vi.fn().mockReturnValue({
         update: vi.fn().mockReturnValue({
           eq: vi.fn().mockResolvedValue({
-            data: { id: 'order-123', status: 'cancelled' },
+            data: { id: "order-123", status: "cancelled" },
             error: null,
           }),
         }),
@@ -296,25 +301,26 @@ describe('Orders Integration Tests', () => {
 
       // Soft delete by changing status
       const result = await supabase
-        .from('orders')
-        .update({ status: 'cancelled' })
-        .eq('id', 'order-123');
+        .from("orders_unified")
+        .update({ status: "cancelled" })
+        .eq("id", "order-123");
 
       expect(result.error).toBeNull();
     });
   });
 
-  describe('Order Calculations', () => {
-    it('calculates order total correctly', () => {
+  describe("Order Calculations", () => {
+    it("calculates order total correctly", () => {
       const items = [
         { quantity: 2, unit_price: 250, modifiers: 0 },
         { quantity: 1, unit_price: 400, modifiers: 50 },
         { quantity: 3, unit_price: 150, modifiers: 0 },
       ];
 
-      const calculateSubtotal = (orderItems: typeof items) => 
-        orderItems.reduce((sum, item) => 
-          sum + (item.quantity * item.unit_price) + item.modifiers, 0
+      const calculateSubtotal = (orderItems: typeof items) =>
+        orderItems.reduce(
+          (sum, item) => sum + item.quantity * item.unit_price + item.modifiers,
+          0
         );
 
       const subtotal = calculateSubtotal(items);
@@ -322,7 +328,7 @@ describe('Orders Integration Tests', () => {
       expect(subtotal).toBe(1400);
     });
 
-    it('applies tax correctly', () => {
+    it("applies tax correctly", () => {
       const subtotal = 1000;
       const taxRate = 5; // 5%
       const tax = (subtotal * taxRate) / 100;
@@ -332,7 +338,7 @@ describe('Orders Integration Tests', () => {
       expect(total).toBe(1050);
     });
 
-    it('applies service charge correctly', () => {
+    it("applies service charge correctly", () => {
       const subtotal = 1000;
       const serviceChargeRate = 10; // 10%
       const serviceCharge = (subtotal * serviceChargeRate) / 100;
@@ -341,20 +347,20 @@ describe('Orders Integration Tests', () => {
     });
   });
 
-  describe('Payment Recording', () => {
-    it('records payment for order', async () => {
+  describe("Payment Recording", () => {
+    it("records payment for order", async () => {
       const payment = {
-        order_id: 'order-123',
+        order_id: "order-123",
         amount: 1000,
-        payment_method: 'cash',
-        status: 'completed',
+        payment_method: "cash",
+        status: "completed",
       };
 
       const mockFrom = vi.fn().mockReturnValue({
         insert: vi.fn().mockReturnValue({
           select: vi.fn().mockReturnValue({
             single: vi.fn().mockResolvedValue({
-              data: { ...payment, id: 'payment-123' },
+              data: { ...payment, id: "payment-123" },
               error: null,
             }),
           }),
@@ -364,21 +370,21 @@ describe('Orders Integration Tests', () => {
       (supabase.from as any) = mockFrom;
 
       const result = await supabase
-        .from('payments')
+        .from("payments")
         .insert(payment)
         .select()
         .single();
 
       expect(result.error).toBeNull();
       expect(result.data.amount).toBe(1000);
-      expect(result.data.status).toBe('completed');
+      expect(result.data.status).toBe("completed");
     });
 
-    it('handles split payment', () => {
+    it("handles split payment", () => {
       const orderTotal = 1000;
       const payments = [
-        { method: 'cash', amount: 600 },
-        { method: 'card', amount: 400 },
+        { method: "cash", amount: 600 },
+        { method: "card", amount: 400 },
       ];
 
       const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -390,31 +396,32 @@ describe('Orders Integration Tests', () => {
   });
 });
 
-describe('Order Status Workflow', () => {
+describe("Order Status Workflow", () => {
   const statusFlow = {
-    'pending': ['confirmed', 'cancelled'],
-    'confirmed': ['preparing', 'cancelled'],
-    'preparing': ['ready'],
-    'ready': ['completed', 'preparing'],
-    'completed': [],
-    'cancelled': [],
+    pending: ["confirmed", "cancelled"],
+    confirmed: ["preparing", "cancelled"],
+    preparing: ["ready"],
+    ready: ["completed", "preparing"],
+    completed: [],
+    cancelled: [],
   };
 
-  it('validates all status transitions', () => {
+  it("validates all status transitions", () => {
     Object.entries(statusFlow).forEach(([from, validTo]) => {
-      validTo.forEach(to => {
-        const canTransition = statusFlow[from as keyof typeof statusFlow].includes(to);
+      validTo.forEach((to) => {
+        const canTransition =
+          statusFlow[from as keyof typeof statusFlow].includes(to);
         expect(canTransition).toBe(true);
       });
     });
   });
 
-  it('prevents invalid status transitions', () => {
-    const canTransition = (from: string, to: string) => 
+  it("prevents invalid status transitions", () => {
+    const canTransition = (from: string, to: string) =>
       statusFlow[from as keyof typeof statusFlow]?.includes(to) || false;
 
-    expect(canTransition('completed', 'pending')).toBe(false);
-    expect(canTransition('cancelled', 'preparing')).toBe(false);
-    expect(canTransition('pending', 'completed')).toBe(false);
+    expect(canTransition("completed", "pending")).toBe(false);
+    expect(canTransition("cancelled", "preparing")).toBe(false);
+    expect(canTransition("pending", "completed")).toBe(false);
   });
 });

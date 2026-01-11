@@ -117,16 +117,19 @@ export const QSRPosMain: React.FC = () => {
 
       const today = new Date();
       const { data: orders } = await supabase
-        .from("orders")
-        .select("total")
+        .from("orders_unified")
+        .select("total_amount")
         .eq("restaurant_id", restaurantId)
         .eq("status", "completed")
-        .neq("order_type", "non-chargeable")
+        .neq("order_type", "nc")
         .gte("created_at", startOfDay(today).toISOString())
         .lte("created_at", endOfDay(today).toISOString());
 
       if (!orders) return 0;
-      return orders.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
+      return orders.reduce(
+        (sum, order) => sum + (Number(order.total_amount) || 0),
+        0
+      );
     },
     enabled: !!restaurantId,
     refetchInterval: 30000,
@@ -161,7 +164,7 @@ export const QSRPosMain: React.FC = () => {
         {
           event: "*",
           schema: "public",
-          table: "orders",
+          table: "orders_unified",
         },
         (payload) => {
           const newStatus = (payload.new as any)?.status;
@@ -212,17 +215,17 @@ export const QSRPosMain: React.FC = () => {
       if (table.status === "occupied" && table.activeOrderId) {
         // Load existing order for this table
         try {
-          const { data: kitchenOrder, error } = await supabase
-            .from("kitchen_orders")
+          const { data: unifiedOrder, error } = await supabase
+            .from("orders_unified")
             .select("*")
             .eq("id", table.activeOrderId)
             .single();
 
           if (error) throw error;
 
-          if (kitchenOrder) {
+          if (unifiedOrder) {
             const items =
-              (kitchenOrder.items as {
+              (unifiedOrder.items as {
                 name: string;
                 quantity: number;
                 price: number;
@@ -233,7 +236,7 @@ export const QSRPosMain: React.FC = () => {
                 (m) => m.name.toLowerCase() === item.name.toLowerCase()
               );
               return {
-                id: `${kitchenOrder.id}-${idx}`,
+                id: `${unifiedOrder.id}-${idx}`,
                 menuItemId: menuItem?.id || `custom-${idx}`,
                 name: item.name,
                 price: item.price,
@@ -243,15 +246,15 @@ export const QSRPosMain: React.FC = () => {
             });
 
             setOrderItems(mappedItems);
-            setRecalledKitchenOrderId(kitchenOrder.id);
+            setRecalledKitchenOrderId(unifiedOrder.id);
             setItemCompletionStatus(
-              (kitchenOrder.item_completion_status as boolean[]) || []
+              (unifiedOrder.items_completion as boolean[]) || []
             );
 
             // Restore payment state if order exists
-            if (kitchenOrder.order_id) {
-              setPendingOrderId(kitchenOrder.order_id);
-              setPendingKitchenOrderId(kitchenOrder.id);
+            if (unifiedOrder.id) {
+              setPendingOrderId(unifiedOrder.id);
+              setPendingKitchenOrderId(unifiedOrder.id);
               setPaymentOrderItems(mappedItems);
             }
 
@@ -407,8 +410,8 @@ export const QSRPosMain: React.FC = () => {
       // Update database
       try {
         const { error } = await supabase
-          .from("kitchen_orders")
-          .update({ item_completion_status: newCompletionStatus })
+          .from("orders_unified")
+          .update({ items_completion: newCompletionStatus })
           .eq("id", kitchenOrderId);
 
         if (error) throw error;
@@ -451,23 +454,22 @@ export const QSRPosMain: React.FC = () => {
       }));
 
       if (recalledKitchenOrderId) {
-        // Update existing kitchen order - preserve original created_at for timing display
+        // Update existing order - preserve original created_at for timing display
         const { error: updateError } = await supabase
-          .from("kitchen_orders")
+          .from("orders_unified")
           .update({
             items: kitchenItems,
-            status: "new",
+            kitchen_status: "new",
             source: `QSR-${orderSource}`,
             // Note: NOT resetting created_at - preserves original order timing
             started_at: null, // Reset preparation status
             completed_at: null,
-            bumped_at: null,
           })
           .eq("id", recalledKitchenOrderId);
 
         if (updateError) throw updateError;
         console.log(
-          "[QSR POS] Kitchen order updated and reset:",
+          "[QSR POS] Order updated and reset:",
           recalledKitchenOrderId
         );
       } else {
@@ -479,57 +481,33 @@ export const QSRPosMain: React.FC = () => {
           nc: "takeaway", // NC treated as takeaway in KDS
         };
 
-        // Create new kitchen order with all required fields
-        const { data: kitchenOrder, error: kitchenError } = await supabase
-          .from("kitchen_orders")
+        // Create new order in unified table
+        const { data: createdOrder, error: orderError } = await supabase
+          .from("orders_unified")
           .insert({
             restaurant_id: restaurantId,
             source: `QSR-${orderSource}`,
-            status: "new",
+            kitchen_status: "new",
+            status: "pending",
             items: kitchenItems,
             order_type: orderTypeMap[orderMode],
             customer_name: orderSource,
-            server_name: attendantName,
-            priority: "normal",
+            waiter_id: user?.id,
+            priority: 0,
+            subtotal: subtotal,
+            total_amount: total,
           })
           .select()
           .single();
 
-        console.log("[QSR POS] Kitchen order created:", kitchenOrder);
-
-        if (kitchenError) throw kitchenError;
-
-        // Create corresponding order record
-        const { data: createdOrder, error: orderError } = await supabase
-          .from("orders")
-          .insert({
-            restaurant_id: restaurantId,
-            customer_name: orderSource,
-            items: orderItems.map((item) => {
-              const notes = item.notes ? ` (${item.notes})` : "";
-              return `${item.quantity}x ${item.name}${notes} @${item.price}`;
-            }),
-            total: total,
-            status: "pending",
-            source: "pos",
-            order_type: orderMode.replace("_", "-"),
-            attendant: attendantName,
-          })
-          .select()
-          .single();
+        console.log("[QSR POS] Unified order created:", createdOrder);
 
         if (orderError) throw orderError;
 
-        // Link kitchen order to order record
-        if (createdOrder?.id && kitchenOrder?.id) {
-          await supabase
-            .from("kitchen_orders")
-            .update({ order_id: createdOrder.id })
-            .eq("id", kitchenOrder.id);
-
-          // Store for post-pay flow
+        // Store for post-pay flow
+        if (createdOrder?.id) {
           setPendingOrderId(createdOrder.id);
-          setPendingKitchenOrderId(kitchenOrder.id);
+          setPendingKitchenOrderId(createdOrder.id);
           setPaymentOrderItems([...orderItems]); // Copy for payment dialog
         }
       }
@@ -600,51 +578,34 @@ export const QSRPosMain: React.FC = () => {
       );
 
       if (recalledKitchenOrderId) {
-        // Update existing kitchen order
+        // Update existing order
         await supabase
-          .from("kitchen_orders")
+          .from("orders_unified")
           .update({
             items: kitchenItems,
+            kitchen_status: "held",
             status: "held",
             source: `QSR-${orderSource}`,
           })
           .eq("id", recalledKitchenOrderId);
       } else {
-        // Create new held order with linked orders record for proper tracking
-        // First create the orders record
-        const { data: createdOrder, error: orderError } = await supabase
-          .from("orders")
+        // Create new held order in unified table
+        const { error: orderError } = await supabase
+          .from("orders_unified")
           .insert({
             restaurant_id: restaurantId,
             customer_name: orderSource,
-            items: orderItems.map((item) => {
-              const notes = item.notes ? ` (${item.notes})` : "";
-              return `${item.quantity}x ${item.name}${notes} @${item.price}`;
-            }),
-            total: total,
-            status: "held",
-            source: "pos",
-            order_type: orderMode.replace("_", "-"),
-            attendant: attendantName,
-          })
-          .select()
-          .single();
-
-        if (orderError) throw orderError;
-
-        // Create kitchen order linked to the orders record
-        const { error: kitchenError } = await supabase
-          .from("kitchen_orders")
-          .insert({
-            restaurant_id: restaurantId,
-            source: `QSR-${orderSource}`,
-            status: "held",
             items: kitchenItems,
-            server_name: attendantName,
-            order_id: createdOrder?.id, // Link to orders record
+            total_amount: total,
+            subtotal: total,
+            status: "held",
+            kitchen_status: "held",
+            source: `QSR-${orderSource}`,
+            order_type: orderMode.replace("_", "-"),
+            waiter_id: user?.id,
           });
 
-        if (kitchenError) throw kitchenError;
+        if (orderError) throw orderError;
       }
 
       toast({
@@ -777,19 +738,16 @@ export const QSRPosMain: React.FC = () => {
 
       // Check if this is post-pay (order already in kitchen)
       if (pendingOrderId && pendingKitchenOrderId) {
-        // POST-PAY: Order already in kitchen, just mark as completed
+        // POST-PAY: Order already in unified table, just mark as completed
         await supabase
-          .from("orders")
-          .update({ status: "completed" })
-          .eq("id", pendingOrderId);
-
-        await supabase
-          .from("kitchen_orders")
+          .from("orders_unified")
           .update({
-            bumped_at: new Date().toISOString(),
             status: "completed",
+            kitchen_status: "completed",
+            completed_at: new Date().toISOString(),
+            payment_status: "paid",
           })
-          .eq("id", pendingKitchenOrderId);
+          .eq("id", pendingOrderId);
 
         // Clear pending order state
         setPendingOrderId(null);
@@ -818,57 +776,37 @@ export const QSRPosMain: React.FC = () => {
           notes: item.notes ? [item.notes] : [],
         }));
 
-        // Create kitchen order as bumped (completed) - for record keeping
-        const { data: kitchenOrder, error: kitchenError } = await supabase
-          .from("kitchen_orders")
+        const orderTotal = orderItems.reduce(
+          (sum, item) => sum + item.price * item.quantity,
+          0
+        );
+
+        // Create unified order as completed - for record keeping
+        const { data: createdOrder, error: orderError } = await supabase
+          .from("orders_unified")
           .insert({
             restaurant_id: restaurantId,
             source: `QSR-${orderSource}`,
-            status: "completed", // Already completed since paid
+            status: "completed",
+            kitchen_status: "completed",
             items: kitchenItems,
             order_type: currentMode === "nc" ? "takeaway" : currentMode,
             customer_name: orderSource,
-            server_name: attendantName,
-            priority: "normal",
-            bumped_at: new Date().toISOString(), // Mark as completed immediately
-          })
-          .select()
-          .single();
-
-        if (kitchenError) throw kitchenError;
-        console.log(
-          "[QSR POS] Pre-pay order created (completed):",
-          kitchenOrder?.id
-        );
-
-        // Create order record as completed
-        const { data: createdOrder, error: orderError } = await supabase
-          .from("orders")
-          .insert({
-            restaurant_id: restaurantId,
-            status: "completed", // Already completed since paid
-            total: orderItems.reduce(
-              (sum, item) => sum + item.price * item.quantity,
-              0
-            ),
-            order_type: currentMode,
-            table_number:
-              currentMode === "dine_in" && currentTable
-                ? currentTable.name
-                : null,
+            waiter_id: user?.id,
+            priority: 0,
+            completed_at: new Date().toISOString(),
+            subtotal: orderTotal,
+            total_amount: orderTotal,
+            payment_status: "paid",
           })
           .select()
           .single();
 
         if (orderError) throw orderError;
-
-        // Link kitchen order to order record
-        if (createdOrder?.id && kitchenOrder?.id) {
-          await supabase
-            .from("kitchen_orders")
-            .update({ order_id: createdOrder.id })
-            .eq("id", kitchenOrder.id);
-        }
+        console.log(
+          "[QSR POS] Pre-pay order created (completed):",
+          createdOrder?.id
+        );
 
         // Clear cart
         setOrderItems([]);
@@ -919,25 +857,13 @@ export const QSRPosMain: React.FC = () => {
       if (!confirmed) return;
 
       try {
-        // Delete from kitchen_orders
-        const { error: kitchenError } = await supabase
-          .from("kitchen_orders")
+        // Delete from orders_unified
+        const { error: orderError } = await supabase
+          .from("orders_unified")
           .delete()
           .eq("id", order.id);
 
-        if (kitchenError) throw kitchenError;
-
-        // If there's a linked order in orders table, delete it too
-        if (order.orderId) {
-          const { error: orderError } = await supabase
-            .from("orders")
-            .delete()
-            .eq("id", order.orderId);
-
-          if (orderError) {
-            console.error("Error deleting linked order:", orderError);
-          }
-        }
+        if (orderError) throw orderError;
 
         // Invalidate queries to refresh data
         queryClient.invalidateQueries({
@@ -970,25 +896,13 @@ export const QSRPosMain: React.FC = () => {
       if (!confirmed) return;
 
       try {
-        // Delete from kitchen_orders
-        const { error: kitchenError } = await supabase
-          .from("kitchen_orders")
+        // Delete from orders_unified
+        const { error: orderError } = await supabase
+          .from("orders_unified")
           .delete()
           .eq("id", order.id);
 
-        if (kitchenError) throw kitchenError;
-
-        // If there's a linked order in orders table, delete it too
-        if (order.orderId) {
-          const { error: orderError } = await supabase
-            .from("orders")
-            .delete()
-            .eq("id", order.orderId);
-
-          if (orderError) {
-            console.error("Error deleting linked order:", orderError);
-          }
-        }
+        if (orderError) throw orderError;
 
         // Invalidate queries to refresh data
         queryClient.invalidateQueries({

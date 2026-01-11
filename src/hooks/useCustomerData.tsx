@@ -112,13 +112,13 @@ export const useCustomerData = () => {
         return [];
       }
 
-      // STEP 2: Batch fetch ALL orders, room_food_orders, and reservations for this restaurant
+      // STEP 2: Batch fetch ALL orders from unified table, room_food_orders, and reservations for this restaurant
       // This is 3 queries total instead of 3*N queries!
       const [ordersResult, roomOrdersResult, reservationsResult] =
         await Promise.all([
           supabase
-            .from("orders")
-            .select("customer_name, total, created_at")
+            .from("orders_unified")
+            .select("customer_name, total_amount, created_at")
             .eq("restaurant_id", restaurantId),
           supabase
             .from("room_food_orders")
@@ -151,7 +151,7 @@ export const useCustomerData = () => {
           ordersByCustomer.set(name, []);
         }
         ordersByCustomer.get(name)!.push({
-          total: Number(order.total) || 0,
+          total: Number(order.total_amount) || 0,
           created_at: order.created_at,
         });
       });
@@ -282,9 +282,9 @@ export const useCustomerData = () => {
   const getCustomerOrders = async (customerName: string) => {
     if (!restaurantId || !customerName) return [];
 
-    // Get standard orders
+    // Get standard orders from unified table
     const { data: orders, error: ordersError } = await supabase
-      .from("orders")
+      .from("orders_unified")
       .select("*")
       .eq("restaurant_id", restaurantId)
       .eq("customer_name", customerName)
@@ -313,9 +313,9 @@ export const useCustomerData = () => {
       ...(orders || []).map((order) => ({
         id: order.id,
         date: order.created_at,
-        amount: order.total,
+        amount: order.total_amount,
         order_id: order.id,
-        status: order.status,
+        status: order.kitchen_status,
         items: order.items || [],
         source: "pos",
       })),

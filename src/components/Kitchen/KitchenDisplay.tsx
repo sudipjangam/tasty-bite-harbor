@@ -38,12 +38,11 @@ export interface KitchenOrder {
   source: string;
   status: "new" | "preparing" | "ready" | "bumped" | "completed";
   created_at: string;
-  priority: "normal" | "rush" | "vip";
+  priority: number;
   station?: string;
   estimated_prep_time?: number;
   started_at?: string;
   completed_at?: string;
-  bumped_at?: string;
   customer_name?: string;
   server_name?: string;
   order_type?: "dine_in" | "takeaway" | "delivery" | "room_service";
@@ -53,7 +52,7 @@ export interface KitchenOrder {
     notes?: string[];
     has_allergy?: boolean;
   }[];
-  item_completion_status?: boolean[];
+  items_completion?: boolean[];
 }
 
 // Station options for filtering
@@ -103,8 +102,8 @@ const KitchenDisplay = () => {
   // Transform raw order data to KitchenOrder type
   const transformOrderData = useCallback((order: any): KitchenOrder => {
     const itemsArray = Array.isArray(order.items) ? order.items : [];
-    const itemCompletionStatus = Array.isArray(order.item_completion_status)
-      ? order.item_completion_status
+    const itemsCompletion = Array.isArray(order.items_completion)
+      ? order.items_completion
       : new Array(itemsArray.length).fill(false);
 
     const transformedItems = itemsArray.map((item: any, idx: number) => ({
@@ -119,22 +118,24 @@ const KitchenDisplay = () => {
           )),
     }));
 
+    // Map kitchen_status to status for display
+    const kitchenStatus = order.kitchen_status;
+
     return {
       id: order.id,
       source: order.source,
-      status: order.status as KitchenOrder["status"],
+      status: kitchenStatus as KitchenOrder["status"],
       created_at: order.created_at,
-      priority: (order.priority as KitchenOrder["priority"]) || "normal",
+      priority: order.priority || 0,
       station: order.station,
-      estimated_prep_time: order.estimated_prep_time,
+      estimated_prep_time: order.estimated_time,
       started_at: order.started_at,
       completed_at: order.completed_at,
-      bumped_at: order.bumped_at,
       customer_name: order.customer_name,
-      server_name: order.server_name,
+      server_name: order.waiter_id,
       order_type: order.order_type,
       items: transformedItems,
-      item_completion_status: itemCompletionStatus,
+      items_completion: itemsCompletion,
     };
   }, []);
 
@@ -170,11 +171,11 @@ const KitchenDisplay = () => {
 
       try {
         let query = supabase
-          .from("kitchen_orders")
+          .from("orders_unified")
           .select("*")
           .eq("restaurant_id", restaurantId)
-          .is("bumped_at", null) // Exclude bumped orders
-          .order("priority", { ascending: true }) // VIP first, then rush, then normal (alphabetically vip < rush < normal is false, so we use custom)
+          .in("kitchen_status", ["new", "preparing", "ready"]) // Active orders only
+          .order("priority", { ascending: true })
           .order("created_at", { ascending: false })
           .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
 
@@ -305,7 +306,7 @@ const KitchenDisplay = () => {
         {
           event: "*",
           schema: "public",
-          table: "kitchen_orders",
+          table: "orders_unified",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
         (payload) => {
@@ -329,11 +330,9 @@ const KitchenDisplay = () => {
 
             setOrders((prev) => {
               const updated = [newOrder, ...prev];
-              // Re-sort by priority
+              // Re-sort by priority (lower number = higher priority)
               return updated.sort((a, b) => {
-                const priorityOrder = { vip: 0, rush: 1, normal: 2 };
-                const priorityDiff =
-                  priorityOrder[a.priority] - priorityOrder[b.priority];
+                const priorityDiff = a.priority - b.priority;
                 if (priorityDiff !== 0) return priorityDiff;
                 return (
                   new Date(b.created_at).getTime() -
@@ -349,9 +348,9 @@ const KitchenDisplay = () => {
                 });
                 toast({
                   title:
-                    newOrder.priority === "vip"
+                    newOrder.priority === 0
                       ? "🌟 VIP Order!"
-                      : newOrder.priority === "rush"
+                      : newOrder.priority === 1
                       ? "🔥 RUSH Order!"
                       : "New Order",
                   description: `Order from ${newOrder.source}${
@@ -369,8 +368,10 @@ const KitchenDisplay = () => {
           } else if (payload.eventType === "UPDATE") {
             const updatedOrderData = payload.new;
 
-            // If order was bumped, remove from list
-            if (updatedOrderData.bumped_at) {
+            // If order was completed, remove from list
+            const kitchenStatus =
+              updatedOrderData.kitchen_status || updatedOrderData.status;
+            if (kitchenStatus === "completed") {
               setOrders((prev) =>
                 prev.filter((order) => order.id !== updatedOrderData.id)
               );
@@ -401,13 +402,11 @@ const KitchenDisplay = () => {
                   updated[existingIndex] = updatedOrder;
                   return updated;
                 } else {
-                  // Order doesn't exist but now matches filters, add it (e.g., created_at was updated to today)
+                  // Order doesn't exist but now matches filters, add it
                   const updated = [updatedOrder, ...prev];
-                  // Re-sort by priority
+                  // Re-sort by priority (lower number = higher priority)
                   return updated.sort((a, b) => {
-                    const priorityOrder = { vip: 0, rush: 1, normal: 2 };
-                    const priorityDiff =
-                      priorityOrder[a.priority] - priorityOrder[b.priority];
+                    const priorityDiff = a.priority - b.priority;
                     if (priorityDiff !== 0) return priorityDiff;
                     return (
                       new Date(b.created_at).getTime() -
@@ -425,8 +424,10 @@ const KitchenDisplay = () => {
             });
 
             // Play notification if order was "refreshed" (status changed to new and now visible)
+            const kitchenStatusForNotif =
+              updatedOrderData.kitchen_status || updatedOrderData.status;
             if (
-              updatedOrderData.status === "new" &&
+              kitchenStatusForNotif === "new" &&
               nowWithinDateFilter &&
               matchesStationFilter &&
               soundEnabled &&
@@ -472,7 +473,7 @@ const KitchenDisplay = () => {
     newStatus: KitchenOrder["status"]
   ) => {
     try {
-      const updateData: any = { status: newStatus };
+      const updateData: any = { kitchen_status: newStatus };
 
       // Add time tracking
       if (newStatus === "preparing") {
@@ -512,29 +513,17 @@ const KitchenDisplay = () => {
         console.log("Inventory deducted successfully:", deductResult);
       } else if (newStatus === "ready") {
         updateData.completed_at = new Date().toISOString();
+        // Also update the main status
+        updateData.status = "completed";
       }
 
-      // Update kitchen order status
-      const { data: kitchenOrder, error: kitchenError } = await supabase
-        .from("kitchen_orders")
+      // Update order status in unified table
+      const { error: updateError } = await supabase
+        .from("orders_unified")
         .update(updateData)
-        .eq("id", orderId)
-        .select("order_id")
-        .single();
+        .eq("id", orderId);
 
-      if (kitchenError) throw kitchenError;
-
-      // Also update the corresponding order status in orders table
-      if (kitchenOrder?.order_id) {
-        let orderStatus = "pending";
-        if (newStatus === "preparing") orderStatus = "preparing";
-        if (newStatus === "ready") orderStatus = "completed";
-
-        await supabase
-          .from("orders")
-          .update({ status: orderStatus })
-          .eq("id", kitchenOrder.order_id);
-      }
+      if (updateError) throw updateError;
 
       toast({
         title: "Status Updated",
@@ -555,12 +544,15 @@ const KitchenDisplay = () => {
     }
   };
 
-  // Handle bumping (archiving) an order
+  // Handle bumping (completing) an order
   const handleBumpOrder = async (orderId: string) => {
     try {
       const { error } = await supabase
-        .from("kitchen_orders")
-        .update({ bumped_at: new Date().toISOString() })
+        .from("orders_unified")
+        .update({
+          kitchen_status: "completed",
+          completed_at: new Date().toISOString(),
+        })
         .eq("id", orderId);
 
       if (error) throw error;
@@ -570,7 +562,7 @@ const KitchenDisplay = () => {
 
       toast({
         title: "Order Bumped",
-        description: "Order has been archived",
+        description: "Order has been completed",
       });
     } catch (error) {
       console.error("Error bumping order:", error);
@@ -593,14 +585,14 @@ const KitchenDisplay = () => {
       if (!order) return;
 
       const newCompletionStatus = [
-        ...(order.item_completion_status ||
+        ...(order.items_completion ||
           new Array(order.items.length).fill(false)),
       ];
       newCompletionStatus[itemIndex] = completed;
 
       const { error } = await supabase
-        .from("kitchen_orders")
-        .update({ item_completion_status: newCompletionStatus })
+        .from("orders_unified")
+        .update({ items_completion: newCompletionStatus })
         .eq("id", orderId);
 
       if (error) throw error;
@@ -608,9 +600,7 @@ const KitchenDisplay = () => {
       // Update local state
       setOrders((prev) =>
         prev.map((o) =>
-          o.id === orderId
-            ? { ...o, item_completion_status: newCompletionStatus }
-            : o
+          o.id === orderId ? { ...o, items_completion: newCompletionStatus } : o
         )
       );
     } catch (error) {
@@ -618,16 +608,14 @@ const KitchenDisplay = () => {
     }
   };
 
-  // Filter orders by status, excluding bumped
+  // Filter orders by status (only active orders are loaded)
   const filterOrdersByStatus = (status: KitchenOrder["status"]) => {
-    return orders.filter(
-      (order) => order.status === status && !order.bumped_at
-    );
+    return orders.filter((order) => order.status === status);
   };
 
   // Check if an order is late (exceeds threshold)
   const isOrderLate = (order: KitchenOrder): boolean => {
-    if (order.status === "ready" || order.bumped_at) return false;
+    if (order.status === "ready" || order.status === "completed") return false;
     const minutesSinceCreation = differenceInMinutes(
       new Date(),
       new Date(order.created_at)

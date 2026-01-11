@@ -92,12 +92,12 @@ export const useBusinessDashboardData = () => {
         .eq("restaurant_id", restaurantId)
         .order("created_at", { ascending: false });
 
-      // Fetch orders data with date range
+      // Fetch orders data from unified table with date range
       const thirtyDaysAgo = subDays(new Date(), 30);
       const formattedDate = thirtyDaysAgo.toISOString();
 
       const { data: orderData } = await supabase
-        .from("orders")
+        .from("orders_unified")
         .select("*")
         .eq("restaurant_id", restaurantId)
         .gte("created_at", formattedDate)

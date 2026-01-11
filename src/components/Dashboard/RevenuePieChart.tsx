@@ -30,11 +30,11 @@ const RevenuePieChart = () => {
   const { data: revenueData, isLoading } = useQuery<CategoryRevenue[]>({
     queryKey: ["revenue-by-order-type"],
     queryFn: async () => {
-      // Fetch all orders and group by order_type
+      // Fetch all orders from unified table and group by order_type
       const { data: orders, error } = await supabase
-        .from("orders")
-        .select("order_type, total, status")
-        .in("status", ["completed", "paid", "ready", "pending", "preparing"]);
+        .from("orders_unified")
+        .select("order_type, total_amount, kitchen_status")
+        .in("kitchen_status", ["completed", "ready", "new", "preparing"]);
 
       if (error) throw error;
 
@@ -53,7 +53,8 @@ const RevenuePieChart = () => {
           .split("-")
           .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
           .join(" ");
-        typeMap[displayType] = (typeMap[displayType] || 0) + (order.total || 0);
+        typeMap[displayType] =
+          (typeMap[displayType] || 0) + (order.total_amount || 0);
       });
 
       const result = Object.entries(typeMap)
