@@ -43,6 +43,7 @@ export interface ActiveKitchenOrder {
   createdAt: string;
   total: number;
   itemCompletionStatus?: boolean[];
+  orderType?: QSROrderMode; // Order type for mode switching on recall
 }
 
 // QSR Order structure

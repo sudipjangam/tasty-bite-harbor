@@ -19,16 +19,16 @@ interface UseActiveKitchenOrdersOptions {
 }
 
 export const useActiveKitchenOrders = (
-  options: UseActiveKitchenOrdersOptions = {}
+  options: UseActiveKitchenOrdersOptions = {},
 ) => {
   const { restaurantId } = useRestaurantId();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState(options.searchQuery || "");
   const [dateFilter, setDateFilter] = useState<DateFilter>(
-    options.dateFilter || "today"
+    options.dateFilter || "today",
   );
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
-    options.statusFilter || "all"
+    options.statusFilter || "all",
   );
 
   // Calculate date range based on filter (using UTC to match database timestamps)
@@ -42,8 +42,8 @@ export const useActiveKitchenOrders = (
         now.getUTCDate(),
         0,
         0,
-        0
-      )
+        0,
+      ),
     );
     const todayEnd = new Date(
       Date.UTC(
@@ -53,8 +53,8 @@ export const useActiveKitchenOrders = (
         23,
         59,
         59,
-        999
-      )
+        999,
+      ),
     );
 
     switch (dateFilter) {
@@ -78,7 +78,7 @@ export const useActiveKitchenOrders = (
         };
       case "thisMonth":
         const monthStart = new Date(
-          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0)
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0),
         );
         return { start: monthStart.toISOString(), end: todayEnd.toISOString() };
       default:
@@ -106,7 +106,7 @@ export const useActiveKitchenOrders = (
       let query = supabase
         .from("kitchen_orders")
         .select(
-          "id, source, items, status, created_at, order_id, item_completion_status"
+          "id, source, items, status, created_at, order_id, item_completion_status, order_type",
         )
         .eq("restaurant_id", restaurantId)
         .gte("created_at", start)
@@ -136,7 +136,7 @@ export const useActiveKitchenOrders = (
             }[]) || [];
           const total = items.reduce(
             (sum, item) => sum + item.price * item.quantity,
-            0
+            0,
           );
 
           return {
@@ -149,6 +149,7 @@ export const useActiveKitchenOrders = (
             total,
             itemCompletionStatus:
               (order.item_completion_status as boolean[]) || [],
+            orderType: order.order_type as ActiveKitchenOrder["orderType"],
           };
         })
         .filter((order) => {
@@ -185,7 +186,7 @@ export const useActiveKitchenOrders = (
           queryClient.invalidateQueries({
             queryKey: ["active-kitchen-orders", restaurantId],
           });
-        }
+        },
       )
       .subscribe();
 
@@ -196,7 +197,7 @@ export const useActiveKitchenOrders = (
 
   // Get order by ID for recall
   const getOrderById = async (
-    orderId: string
+    orderId: string,
   ): Promise<ActiveKitchenOrder | null> => {
     const { data, error } = await supabase
       .from("kitchen_orders")
@@ -210,7 +211,7 @@ export const useActiveKitchenOrders = (
       (data.items as { name: string; quantity: number; price: number }[]) || [];
     const total = items.reduce(
       (sum, item) => sum + item.price * item.quantity,
-      0
+      0,
     );
 
     return {
@@ -222,6 +223,7 @@ export const useActiveKitchenOrders = (
       createdAt: data.created_at,
       total,
       itemCompletionStatus: (data.item_completion_status as boolean[]) || [],
+      orderType: data.order_type as ActiveKitchenOrder["orderType"],
     };
   };
 
@@ -229,7 +231,7 @@ export const useActiveKitchenOrders = (
   const toggleItemCompletion = async (
     orderId: string,
     itemIndex: number,
-    currentStatus: boolean[] = []
+    currentStatus: boolean[] = [],
   ): Promise<boolean> => {
     // Create a copy of current status or initialize new array
     const newCompletionStatus = [...currentStatus];
