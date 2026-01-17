@@ -30,16 +30,15 @@ const Stats = () => {
   const orders = statsData?.orders || [];
 
   const getActualRevenue = (item: any) => {
-    // Note: order.total already stores the final discounted amount
-    // Do NOT subtract discount_amount again (it was already applied when saving)
-    return Number(item.total) || 0;
+    // Note: total_amount already stores the final discounted amount
+    return Number(item.total_amount) || 0;
   };
 
   const completedRevenue = allRevenueSources.filter(
     (item) =>
-      (item.status === "completed" ||
-        item.status === "paid" ||
-        item.status === "ready") &&
+      (item.kitchen_status === "completed" ||
+        item.kitchen_status === "served" ||
+        item.payment_status === "paid") &&
       item.order_type !== "non-chargeable" // Exclude non-chargeable orders from revenue
   );
   const totalSales = completedRevenue.reduce(
@@ -50,11 +49,12 @@ const Stats = () => {
   // Define today first so it can be used for filtering
   const today = new Date().toDateString();
 
-  const activeOrdersList = orders.filter((order) => {
+  const activeOrdersList = orders.filter((order: any) => {
     const isToday = new Date(order.created_at).toDateString() === today;
-    const isActive = ["pending", "preparing", "ready", "held"].includes(
-      order.status
-    );
+    // Active orders are those not completed, served, or cancelled and not paid
+    const isActive =
+      ["new", "preparing", "ready"].includes(order.kitchen_status) &&
+      order.payment_status !== "paid";
     return isToday && isActive;
   });
 
@@ -62,7 +62,8 @@ const Stats = () => {
 
   const uniqueCustomers =
     orders.length > 0
-      ? new Set(orders.map((order) => order.customer_name).filter(Boolean)).size
+      ? new Set(orders.map((order: any) => order.customer_name).filter(Boolean))
+          .size
       : 0;
 
   const todaysRevenue = completedRevenue
@@ -131,12 +132,12 @@ const Stats = () => {
   }${salesTrendPercent}%`;
 
   // 2. Active Orders Trend: Today vs yesterday
-  const yesterdaysActiveOrders = orders.filter((order) => {
+  const yesterdaysActiveOrders = orders.filter((order: any) => {
     const isYesterday =
       new Date(order.created_at).toDateString() === yesterdayStr;
-    const isActive = ["pending", "preparing", "ready", "held"].includes(
-      order.status
-    );
+    const isActive =
+      ["new", "preparing", "ready"].includes(order.kitchen_status) &&
+      order.payment_status !== "paid";
     return isYesterday && isActive;
   }).length;
 
@@ -218,7 +219,7 @@ const Stats = () => {
       data: orders.map((order) => ({
         name: order.customer_name,
         orders: 1,
-        total: order.total,
+        total: order.total_amount,
       })),
     },
     {

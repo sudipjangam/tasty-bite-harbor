@@ -20,11 +20,18 @@ export const useStatsData = () => {
         throw new Error("No restaurant found for user");
       }
 
+      // Calculate date 60 days ago to fetch relevant history for trends
+      const sixtyDaysAgo = new Date();
+      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
       // Fetch all orders from unified table (POS, table, manual, room service, QSR, etc.)
+      // Limit to last 60 days to ensure we get recent data and don't hit 1000 row limit on older data
       const { data: orders, error } = await supabase
         .from("orders_unified")
         .select("*")
-        .eq("restaurant_id", restaurantId);
+        .eq("restaurant_id", restaurantId)
+        .gte("created_at", sixtyDaysAgo.toISOString())
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
@@ -37,11 +44,16 @@ export const useStatsData = () => {
       // Transform room billings to match orders structure for easier processing
       const roomBillingsAsOrders = (roomBillings || []).map((billing) => ({
         ...billing,
-        total: billing.total_amount,
-        status: billing.payment_status === "paid" ? "completed" : "pending",
+        // Match orders_unified schema
+        total_amount: billing.total_amount,
+        kitchen_status:
+          billing.payment_status === "paid" ? "completed" : "served", // Treat checkout as completed/served
+        payment_status: billing.payment_status,
         customer_name: `Room ${billing.room_id}`,
         created_at: billing.checkout_date,
         source: "room_billing",
+        items_completion: [], // Placeholder
+        items: [], // Placeholder
       }));
 
       return {
