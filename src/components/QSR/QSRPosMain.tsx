@@ -1164,7 +1164,17 @@ export const QSRPosMain: React.FC = () => {
             onProceedToPayment={() => setShowPaymentDialog(true)}
             onClearOrder={handleClearOrder}
             onAddCustomItem={() => setShowCustomItemDialog(true)}
-            onChangeTable={() => setSelectedTable(null)}
+            onChangeTable={() => {
+              setSelectedTable(null);
+              // Clear cart if there are items and no order sent yet
+              if (
+                orderItems.length > 0 &&
+                !pendingKitchenOrderId &&
+                !recalledKitchenOrderId
+              ) {
+                setOrderItems([]);
+              }
+            }}
             isLoading={isLoading}
             itemCompletionStatus={itemCompletionStatus}
             onToggleItemCompletion={handleToggleItemCompletion}
@@ -1225,7 +1235,17 @@ export const QSRPosMain: React.FC = () => {
         onProceedToPayment={() => setShowPaymentDialog(true)}
         onClearOrder={handleClearOrder}
         onAddCustomItem={() => setShowCustomItemDialog(true)}
-        onChangeTable={() => setSelectedTable(null)}
+        onChangeTable={() => {
+          setSelectedTable(null);
+          // Clear cart if there are items and no order sent yet
+          if (
+            orderItems.length > 0 &&
+            !pendingKitchenOrderId &&
+            !recalledKitchenOrderId
+          ) {
+            setOrderItems([]);
+          }
+        }}
         isLoading={isLoading}
         menuItems={menuItems}
         onAddMenuItem={handleAddItem}

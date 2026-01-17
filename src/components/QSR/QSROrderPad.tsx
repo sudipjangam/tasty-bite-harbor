@@ -108,7 +108,7 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
               onClick={onChangeTable}
               className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm transition-colors"
             >
-              <span>{selectedTable.name}</span>
+              <span>Back to {selectedTable.name}</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           )}
@@ -142,7 +142,7 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
                     "bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border transition-all",
                     isCompleted
                       ? "border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20"
-                      : "border-gray-100 dark:border-gray-700"
+                      : "border-gray-100 dark:border-gray-700",
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -154,7 +154,7 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
                           "w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-colors",
                           isCompleted
                             ? "bg-green-500 text-white"
-                            : "border-2 border-gray-300 dark:border-gray-500 hover:border-green-400"
+                            : "border-2 border-gray-300 dark:border-gray-500 hover:border-green-400",
                         )}
                       >
                         {isCompleted && <Check className="w-3.5 h-3.5" />}
@@ -170,7 +170,7 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
                               "font-medium text-sm leading-tight block",
                               isCompleted
                                 ? "line-through text-gray-400 dark:text-gray-500"
-                                : "text-gray-800 dark:text-gray-200"
+                                : "text-gray-800 dark:text-gray-200",
                             )}
                             title={item.name}
                           >
@@ -196,7 +196,7 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
                               "font-bold",
                               isCompleted
                                 ? "line-through text-gray-400 dark:text-gray-500"
-                                : "text-gray-800 dark:text-gray-200"
+                                : "text-gray-800 dark:text-gray-200",
                             )}
                           />
                         </div>
@@ -250,15 +250,15 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
                               const newNotes = currentNotes.includes(splitTag)
                                 ? currentNotes.replace(splitTag, "").trim()
                                 : currentNotes
-                                ? `${currentNotes}, ${splitTag}`
-                                : splitTag;
+                                  ? `${currentNotes}, ${splitTag}`
+                                  : splitTag;
                               onAddNote(item.id, newNotes);
                             }}
                             className={cn(
                               "p-1.5 rounded-lg transition-colors touch-manipulation font-medium text-xs w-7 h-7 flex items-center justify-center border",
                               item.notes?.includes("1/2")
                                 ? "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300 dark:border-indigo-700"
-                                : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 border-transparent"
+                                : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 border-transparent",
                             )}
                             title="Toggle 1/2"
                           >
