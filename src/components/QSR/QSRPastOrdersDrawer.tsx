@@ -114,13 +114,13 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
         return sorted.sort(
           (a, b) =>
             new Date(b.completedAt || b.createdAt).getTime() -
-            new Date(a.completedAt || a.createdAt).getTime()
+            new Date(a.completedAt || a.createdAt).getTime(),
         );
       case "time-asc":
         return sorted.sort(
           (a, b) =>
             new Date(a.completedAt || a.createdAt).getTime() -
-            new Date(b.completedAt || b.createdAt).getTime()
+            new Date(b.completedAt || b.createdAt).getTime(),
         );
       case "name-asc":
         return sorted.sort((a, b) => a.source.localeCompare(b.source));
@@ -217,7 +217,7 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
 
       const sanitizedRestaurantName = restaurantName.replace(
         /[^a-zA-Z0-9]/g,
-        "_"
+        "_",
       );
       const dateStr = format(new Date(), "yyyy-MM-dd");
       const filename = `${sanitizedRestaurantName}_Past_Orders_${dateStr}`;
@@ -323,7 +323,7 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                   "px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all touch-manipulation flex items-center gap-1.5",
                   dateFilter === filter.value
                     ? "bg-blue-600 text-white"
-                    : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                    : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300",
                 )}
               >
                 {filter.value === "custom" ? (
@@ -437,7 +437,7 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                             "w-full px-3 py-2 text-left text-sm flex items-center gap-2 transition-colors",
                             sortBy === option.value
                               ? "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 font-medium"
-                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700",
                           )}
                         >
                           {option.icon === "up" ? (
@@ -501,10 +501,10 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                   return (
                     <div
                       key={order.id}
-                      className="rounded-2xl overflow-hidden backdrop-blur-sm transition-all duration-300 hover:shadow-xl flex flex-col h-[340px] bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:from-slate-900/60 dark:via-gray-800/60 dark:to-blue-900/40 border-2 border-blue-200 dark:border-blue-700 shadow-lg"
+                      className="rounded-2xl overflow-hidden backdrop-blur-sm transition-all duration-300 hover:shadow-xl flex flex-col h-[340px] bg-gradient-to-br from-blue-50 via-sky-50 to-cyan-100 dark:from-blue-900/40 dark:via-sky-900/30 dark:to-cyan-900/40 border-2 border-blue-300 dark:border-blue-600 shadow-lg shadow-blue-200/50 dark:shadow-blue-900/30"
                     >
                       {/* Gradient Top Bar */}
-                      <div className="h-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 shrink-0"></div>
+                      <div className="h-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 shrink-0"></div>
 
                       {/* Order Content */}
                       <div className="p-3 flex-1 flex flex-col overflow-hidden">
@@ -515,7 +515,7 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                               <h3 className="font-bold text-gray-800 dark:text-gray-100 text-base truncate">
                                 {order.source.replace("QSR-", "")}
                               </h3>
-                              <span className="px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wide bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg">
+                              <span className="px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wide bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-300/50">
                                 ✓ Paid
                               </span>
                             </div>
@@ -527,11 +527,11 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                                   {order.completedAt
                                     ? formatDistanceToNow(
                                         new Date(order.completedAt),
-                                        { addSuffix: true }
+                                        { addSuffix: true },
                                       )
                                     : format(
                                         new Date(order.createdAt),
-                                        "h:mm a"
+                                        "h:mm a",
                                       )}
                                 </span>
                               </div>
@@ -544,7 +544,7 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                           </div>
                           {/* Total Amount */}
                           <div className="text-right shrink-0 ml-3">
-                            <div className="text-xl font-extrabold bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
+                            <div className="text-xl font-extrabold bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent">
                               <CurrencyDisplay
                                 amount={order.total}
                                 showTooltip={false}
@@ -614,7 +614,7 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                                     "bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700",
                                     "hover:from-blue-50 hover:to-indigo-50 dark:hover:from-blue-900/30 dark:hover:to-indigo-900/30",
                                     "border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600",
-                                    "text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+                                    "text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400",
                                   )}
                                 >
                                   {isExpanded ? (
@@ -654,7 +654,7 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                           <Button
                             onClick={() => handleOpenPaymentDialog(order)}
                             size="sm"
-                            className="flex-1 flex items-center justify-center gap-1.5 font-semibold transition-all duration-300 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white border-0 shadow-lg hover:shadow-xl"
+                            className="flex-1 flex items-center justify-center gap-1.5 font-semibold transition-all duration-300 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-lg hover:shadow-xl"
                           >
                             <Printer className="w-3.5 h-3.5" />
                             Print Bill
