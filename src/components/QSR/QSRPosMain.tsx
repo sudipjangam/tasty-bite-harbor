@@ -61,11 +61,11 @@ export const QSRPosMain: React.FC = () => {
   >(null);
   // Store order items for payment (since cart is cleared after send to kitchen)
   const [paymentOrderItems, setPaymentOrderItems] = useState<QSROrderItem[]>(
-    []
+    [],
   );
   // Track item completion status for strikethrough in order pad
   const [itemCompletionStatus, setItemCompletionStatus] = useState<boolean[]>(
-    []
+    [],
   );
 
   // Hooks
@@ -169,7 +169,7 @@ export const QSRPosMain: React.FC = () => {
           if (newStatus === "completed" || oldStatus === "completed") {
             queryClient.invalidateQueries({ queryKey: ["qsr-todays-revenue"] });
           }
-        }
+        },
       )
       .subscribe();
 
@@ -181,7 +181,7 @@ export const QSRPosMain: React.FC = () => {
   // Calculations - No tax in QSR POS (per user request)
   const subtotal = useMemo(
     () => orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
-    [orderItems]
+    [orderItems],
   );
   const tax = 0; // No tax in QSR POS
   const total = subtotal;
@@ -230,7 +230,7 @@ export const QSRPosMain: React.FC = () => {
             const mappedItems: QSROrderItem[] = items.map((item, idx) => {
               // Try to find matching menu item
               const menuItem = menuItems.find(
-                (m) => m.name.toLowerCase() === item.name.toLowerCase()
+                (m) => m.name.toLowerCase() === item.name.toLowerCase(),
               );
               return {
                 id: `${kitchenOrder.id}-${idx}`,
@@ -245,7 +245,7 @@ export const QSRPosMain: React.FC = () => {
             setOrderItems(mappedItems);
             setRecalledKitchenOrderId(kitchenOrder.id);
             setItemCompletionStatus(
-              (kitchenOrder.item_completion_status as boolean[]) || []
+              (kitchenOrder.item_completion_status as boolean[]) || [],
             );
 
             // Restore payment state if order exists
@@ -280,7 +280,7 @@ export const QSRPosMain: React.FC = () => {
       }
       setSelectedTable(table);
     },
-    [menuItems, toast]
+    [menuItems, toast],
   );
 
   // Add menu item to cart
@@ -288,13 +288,13 @@ export const QSRPosMain: React.FC = () => {
     (menuItem: QSRMenuItem) => {
       setOrderItems((prev) => {
         const existing = prev.find(
-          (item) => item.menuItemId === menuItem.id && !item.isCustom
+          (item) => item.menuItemId === menuItem.id && !item.isCustom,
         );
         if (existing) {
           return prev.map((item) =>
             item.menuItemId === menuItem.id && !item.isCustom
               ? { ...item, quantity: item.quantity + 1 }
-              : item
+              : item,
           );
         }
         return [
@@ -322,7 +322,7 @@ export const QSRPosMain: React.FC = () => {
         duration: 1500,
       });
     },
-    [toast]
+    [toast],
   );
 
   // Add custom item
@@ -342,15 +342,15 @@ export const QSRPosMain: React.FC = () => {
         description: `${customItem.name} added to order`,
       });
     },
-    [toast]
+    [toast],
   );
 
   // Cart operations
   const handleIncrement = useCallback((id: string) => {
     setOrderItems((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, quantity: item.quantity + 1 } : item
-      )
+        item.id === id ? { ...item, quantity: item.quantity + 1 } : item,
+      ),
     );
   }, []);
 
@@ -358,9 +358,9 @@ export const QSRPosMain: React.FC = () => {
     setOrderItems((prev) =>
       prev
         .map((item) =>
-          item.id === id ? { ...item, quantity: item.quantity - 1 } : item
+          item.id === id ? { ...item, quantity: item.quantity - 1 } : item,
         )
-        .filter((item) => item.quantity > 0)
+        .filter((item) => item.quantity > 0),
     );
   }, []);
 
@@ -370,7 +370,7 @@ export const QSRPosMain: React.FC = () => {
 
   const handleAddNote = useCallback((id: string, note: string) => {
     setOrderItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, notes: note } : item))
+      prev.map((item) => (item.id === id ? { ...item, notes: note } : item)),
     );
   }, []);
 
@@ -418,7 +418,7 @@ export const QSRPosMain: React.FC = () => {
         setItemCompletionStatus(itemCompletionStatus);
       }
     },
-    [recalledKitchenOrderId, pendingKitchenOrderId, itemCompletionStatus]
+    [recalledKitchenOrderId, pendingKitchenOrderId, itemCompletionStatus],
   );
 
   // Send to kitchen
@@ -468,7 +468,7 @@ export const QSRPosMain: React.FC = () => {
         if (updateError) throw updateError;
         console.log(
           "[QSR POS] Kitchen order updated and reset:",
-          recalledKitchenOrderId
+          recalledKitchenOrderId,
         );
       } else {
         // Build order type for KDS
@@ -596,7 +596,7 @@ export const QSRPosMain: React.FC = () => {
 
       const total = orderItems.reduce(
         (sum, item) => sum + item.price * item.quantity,
-        0
+        0,
       );
 
       if (recalledKitchenOrderId) {
@@ -689,7 +689,7 @@ export const QSRPosMain: React.FC = () => {
 
       const mappedItems: QSROrderItem[] = order.items.map((item, idx) => {
         const menuItem = menuItems.find(
-          (m) => m.name.toLowerCase() === item.name.toLowerCase()
+          (m) => m.name.toLowerCase() === item.name.toLowerCase(),
         );
         return {
           id: `${order.id}-${idx}`,
@@ -711,7 +711,7 @@ export const QSRPosMain: React.FC = () => {
       const sourceMatch = order.source.match(/table\s+(\w+)/i);
       if (sourceMatch && orderMode === "dine_in") {
         const table = tables.find(
-          (t) => t.name.toLowerCase() === sourceMatch[1].toLowerCase()
+          (t) => t.name.toLowerCase() === sourceMatch[1].toLowerCase(),
         );
         if (table) {
           setSelectedTable(table);
@@ -723,7 +723,7 @@ export const QSRPosMain: React.FC = () => {
         description: `Recalled order from ${order.source}`,
       });
     },
-    [orderItems.length, menuItems, tables, orderMode, toast]
+    [orderItems.length, menuItems, tables, orderMode, toast],
   );
 
   // Handle proceed to payment directly from active orders
@@ -732,7 +732,7 @@ export const QSRPosMain: React.FC = () => {
       // Map order items for payment
       const mappedItems: QSROrderItem[] = order.items.map((item, idx) => {
         const menuItem = menuItems.find(
-          (m) => m.name.toLowerCase() === item.name.toLowerCase()
+          (m) => m.name.toLowerCase() === item.name.toLowerCase(),
         );
         return {
           id: `${order.id}-${idx}`,
@@ -754,19 +754,27 @@ export const QSRPosMain: React.FC = () => {
       const sourceMatch = order.source.match(/table\s+(\w+)/i);
       if (sourceMatch && orderMode === "dine_in") {
         const table = tables.find(
-          (t) => t.name.toLowerCase() === sourceMatch[1].toLowerCase()
+          (t) => t.name.toLowerCase() === sourceMatch[1].toLowerCase(),
         );
         if (table) {
           setSelectedTable(table);
         }
       }
 
-      // Close drawer and open payment
-      setShowActiveOrders(false);
+      // Open payment dialog (drawer stays open in background)
       setShowPaymentDialog(true);
     },
-    [menuItems, tables, orderMode]
+    [menuItems, tables, orderMode],
   );
+
+  // Handle payment dialog close - Clear all payment state
+  const handlePaymentDialogClose = useCallback(() => {
+    setShowPaymentDialog(false);
+    // Clear payment state to prevent stale data on next open
+    setPaymentOrderItems([]);
+    setPendingKitchenOrderId(null);
+    // Note: We don't clear recalledKitchenOrderId here as it may be needed if user recalls the order again
+  }, []);
 
   // Payment success handler - Supports both pre-pay and post-pay flows
   const handlePaymentSuccess = useCallback(async () => {
@@ -805,10 +813,10 @@ export const QSRPosMain: React.FC = () => {
           currentMode === "dine_in" && currentTable
             ? `Table ${currentTable.name}`
             : currentMode === "takeaway"
-            ? "Takeaway"
-            : currentMode === "delivery"
-            ? "Delivery"
-            : "NC";
+              ? "Takeaway"
+              : currentMode === "delivery"
+                ? "Delivery"
+                : "NC";
 
         // Prepare kitchen items
         const kitchenItems = orderItems.map((item) => ({
@@ -838,7 +846,7 @@ export const QSRPosMain: React.FC = () => {
         if (kitchenError) throw kitchenError;
         console.log(
           "[QSR POS] Pre-pay order created (completed):",
-          kitchenOrder?.id
+          kitchenOrder?.id,
         );
 
         // Create order record as completed
@@ -849,7 +857,7 @@ export const QSRPosMain: React.FC = () => {
             status: "completed", // Already completed since paid
             total: orderItems.reduce(
               (sum, item) => sum + item.price * item.quantity,
-              0
+              0,
             ),
             order_type: currentMode,
             table_number:
@@ -888,6 +896,7 @@ export const QSRPosMain: React.FC = () => {
       });
 
       setShowPaymentDialog(false);
+      setShowActiveOrders(false); // Close Active Orders drawer after successful payment
     } catch (error) {
       console.error("Error completing payment:", error);
       toast({
@@ -913,7 +922,7 @@ export const QSRPosMain: React.FC = () => {
   const handleDeleteActiveOrder = useCallback(
     async (order: ActiveKitchenOrder) => {
       const confirmed = window.confirm(
-        `Are you sure you want to delete this order from ${order.source}? This action cannot be undone.`
+        `Are you sure you want to delete this order from ${order.source}? This action cannot be undone.`,
       );
 
       if (!confirmed) return;
@@ -957,14 +966,14 @@ export const QSRPosMain: React.FC = () => {
         });
       }
     },
-    [restaurantId, queryClient, toast]
+    [restaurantId, queryClient, toast],
   );
 
   // Delete past order handler
   const handleDeletePastOrder = useCallback(
     async (order: PastOrder) => {
       const confirmed = window.confirm(
-        `Are you sure you want to delete this completed order from ${order.source}? This action cannot be undone.`
+        `Are you sure you want to delete this completed order from ${order.source}? This action cannot be undone.`,
       );
 
       if (!confirmed) return;
@@ -1008,7 +1017,7 @@ export const QSRPosMain: React.FC = () => {
         });
       }
     },
-    [restaurantId, queryClient, toast]
+    [restaurantId, queryClient, toast],
   );
 
   // Determine what to show in main area
@@ -1252,7 +1261,7 @@ export const QSRPosMain: React.FC = () => {
       {/* Payment Dialog - Uses cart items for pre-pay, stored items for post-pay */}
       <PaymentDialog
         isOpen={showPaymentDialog}
-        onClose={() => setShowPaymentDialog(false)}
+        onClose={handlePaymentDialogClose}
         orderItems={(orderItems.length > 0
           ? orderItems
           : paymentOrderItems
@@ -1267,7 +1276,7 @@ export const QSRPosMain: React.FC = () => {
         }))}
         onSuccess={handlePaymentSuccess}
         tableNumber={selectedTable?.name || ""}
-        onEditOrder={() => setShowPaymentDialog(false)}
+        onEditOrder={handlePaymentDialogClose}
         orderId={pendingKitchenOrderId || recalledKitchenOrderId || undefined}
       />
     </div>
