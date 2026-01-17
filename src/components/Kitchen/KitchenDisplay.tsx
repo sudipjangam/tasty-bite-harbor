@@ -115,7 +115,7 @@ const KitchenDisplay = () => {
         item.has_allergy ||
         (Array.isArray(item.notes) &&
           item.notes.some((note: string) =>
-            /allerg|gluten|dairy|nut|vegan|vegetarian/i.test(note)
+            /allerg|gluten|dairy|nut|vegan|vegetarian/i.test(note),
           )),
     }));
 
@@ -234,7 +234,7 @@ const KitchenDisplay = () => {
             setPage(0);
           } else {
             setOrders((prev) =>
-              currentPage === 0 ? sortedOrders : [...prev, ...sortedOrders]
+              currentPage === 0 ? sortedOrders : [...prev, ...sortedOrders],
             );
           }
 
@@ -251,7 +251,7 @@ const KitchenDisplay = () => {
         setIsLoading(false);
       }
     },
-    [restaurantId, dateFilter, stationFilter, page, transformOrderData, toast]
+    [restaurantId, dateFilter, stationFilter, page, transformOrderData, toast],
   );
 
   // Re-fetch when filters change
@@ -291,7 +291,7 @@ const KitchenDisplay = () => {
           return true;
       }
     },
-    [dateFilter]
+    [dateFilter],
   );
 
   // Subscribe to real-time updates with restaurant_id filter
@@ -352,8 +352,8 @@ const KitchenDisplay = () => {
                     newOrder.priority === "vip"
                       ? "🌟 VIP Order!"
                       : newOrder.priority === "rush"
-                      ? "🔥 RUSH Order!"
-                      : "New Order",
+                        ? "🔥 RUSH Order!"
+                        : "New Order",
                   description: `Order from ${newOrder.source}${
                     newOrder.customer_name ? ` - ${newOrder.customer_name}` : ""
                   }`,
@@ -372,14 +372,14 @@ const KitchenDisplay = () => {
             // If order was bumped, remove from list
             if (updatedOrderData.bumped_at) {
               setOrders((prev) =>
-                prev.filter((order) => order.id !== updatedOrderData.id)
+                prev.filter((order) => order.id !== updatedOrderData.id),
               );
               return;
             }
 
             // Check if the updated order now falls within current date filter
             const nowWithinDateFilter = isWithinDateFilter(
-              updatedOrderData.created_at
+              updatedOrderData.created_at,
             );
 
             // Check station filter
@@ -391,7 +391,7 @@ const KitchenDisplay = () => {
 
             setOrders((prev) => {
               const existingIndex = prev.findIndex(
-                (order) => order.id === updatedOrder.id
+                (order) => order.id === updatedOrder.id,
               );
 
               if (nowWithinDateFilter && matchesStationFilter) {
@@ -448,7 +448,7 @@ const KitchenDisplay = () => {
             const deletedId = payload.old.id;
             setOrders((prev) => prev.filter((order) => order.id !== deletedId));
           }
-        }
+        },
       )
       .subscribe();
 
@@ -469,7 +469,7 @@ const KitchenDisplay = () => {
   // Handle status update with time tracking
   const handleStatusUpdate = async (
     orderId: string,
-    newStatus: KitchenOrder["status"]
+    newStatus: KitchenOrder["status"],
   ) => {
     try {
       const updateData: any = { status: newStatus };
@@ -514,18 +514,23 @@ const KitchenDisplay = () => {
         updateData.completed_at = new Date().toISOString();
       }
 
-      // Update kitchen order status
-      const { data: kitchenOrder, error: kitchenError } = await supabase
+      // Fetch order_id FIRST to avoid circular trigger issues with .select() after update
+      const { data: existingOrder } = await supabase
+        .from("kitchen_orders")
+        .select("order_id")
+        .eq("id", orderId)
+        .single();
+
+      // Update kitchen order status WITHOUT select to avoid triggering circular database triggers
+      const { error: kitchenError } = await supabase
         .from("kitchen_orders")
         .update(updateData)
-        .eq("id", orderId)
-        .select("order_id")
-        .single();
+        .eq("id", orderId);
 
       if (kitchenError) throw kitchenError;
 
       // Also update the corresponding order status in orders table
-      if (kitchenOrder?.order_id) {
+      if (existingOrder?.order_id) {
         let orderStatus = "pending";
         if (newStatus === "preparing") orderStatus = "preparing";
         if (newStatus === "ready") orderStatus = "completed";
@@ -533,7 +538,7 @@ const KitchenDisplay = () => {
         await supabase
           .from("orders")
           .update({ status: orderStatus })
-          .eq("id", kitchenOrder.order_id);
+          .eq("id", existingOrder.order_id);
       }
 
       toast({
@@ -586,7 +591,7 @@ const KitchenDisplay = () => {
   const handleItemComplete = async (
     orderId: string,
     itemIndex: number,
-    completed: boolean
+    completed: boolean,
   ) => {
     try {
       const order = orders.find((o) => o.id === orderId);
@@ -610,8 +615,8 @@ const KitchenDisplay = () => {
         prev.map((o) =>
           o.id === orderId
             ? { ...o, item_completion_status: newCompletionStatus }
-            : o
-        )
+            : o,
+        ),
       );
     } catch (error) {
       console.error("Error updating item completion:", error);
@@ -621,7 +626,7 @@ const KitchenDisplay = () => {
   // Filter orders by status, excluding bumped
   const filterOrdersByStatus = (status: KitchenOrder["status"]) => {
     return orders.filter(
-      (order) => order.status === status && !order.bumped_at
+      (order) => order.status === status && !order.bumped_at,
     );
   };
 
@@ -630,7 +635,7 @@ const KitchenDisplay = () => {
     if (order.status === "ready" || order.bumped_at) return false;
     const minutesSinceCreation = differenceInMinutes(
       new Date(),
-      new Date(order.created_at)
+      new Date(order.created_at),
     );
     return (
       minutesSinceCreation > (order.estimated_prep_time || LATE_ORDER_THRESHOLD)
