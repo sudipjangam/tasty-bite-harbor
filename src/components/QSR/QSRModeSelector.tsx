@@ -13,6 +13,7 @@ const modes: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   color: string;
+  tooltip?: string;
 }[] = [
   {
     value: "dine_in",
@@ -37,6 +38,7 @@ const modes: {
     label: "NC",
     icon: Gift,
     color: "from-amber-500 to-orange-600",
+    tooltip: "Non Chargeable",
   },
 ];
 
@@ -54,18 +56,19 @@ export const QSRModeSelector: React.FC<QSRModeSelectorProps> = ({
           <button
             key={mode.value}
             onClick={() => onModeChange(mode.value)}
+            title={mode.tooltip || mode.label}
             className={cn(
               "flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all duration-200 whitespace-nowrap touch-manipulation",
               "min-w-[100px] justify-center",
               isActive
                 ? `bg-gradient-to-r ${mode.color} text-white shadow-lg`
-                : "bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600"
+                : "bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600",
             )}
           >
             <Icon
               className={cn(
                 "w-4 h-4",
-                isActive ? "text-white" : "text-gray-500"
+                isActive ? "text-white" : "text-gray-500",
               )}
             />
             <span className="text-sm">{mode.label}</span>

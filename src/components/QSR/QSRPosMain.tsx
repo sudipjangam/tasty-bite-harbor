@@ -476,7 +476,7 @@ export const QSRPosMain: React.FC = () => {
           dine_in: "dine_in",
           takeaway: "takeaway",
           delivery: "delivery",
-          nc: "takeaway", // NC treated as takeaway in KDS
+          nc: "nc", // NC stored as 'nc' for proper recall
         };
 
         // Create new kitchen order with all required fields
@@ -707,23 +707,40 @@ export const QSRPosMain: React.FC = () => {
       setItemCompletionStatus(order.itemCompletionStatus || []);
       setShowActiveOrders(false);
 
-      // Try to extract table from source
-      const sourceMatch = order.source.match(/table\s+(\w+)/i);
-      if (sourceMatch && orderMode === "dine_in") {
-        const table = tables.find(
-          (t) => t.name.toLowerCase() === sourceMatch[1].toLowerCase(),
-        );
-        if (table) {
-          setSelectedTable(table);
+      // Automatically switch mode based on recalled order's type
+      if (order.orderType) {
+        setOrderMode(order.orderType);
+      }
+
+      // Try to extract and select table for dine-in orders
+      if (order.orderType === "dine_in") {
+        const sourceMatch = order.source.match(/table\s+(\w+)/i);
+        if (sourceMatch) {
+          const table = tables.find(
+            (t) => t.name.toLowerCase() === sourceMatch[1].toLowerCase(),
+          );
+          if (table) {
+            setSelectedTable(table);
+          }
         }
+      } else {
+        // Clear table selection for non-dine-in orders
+        setSelectedTable(null);
       }
 
       toast({
         title: "Order Recalled",
-        description: `Recalled order from ${order.source}`,
+        description: `Recalled order from ${order.source} - Mode: ${order.orderType || "unknown"}`,
       });
     },
-    [orderItems.length, menuItems, tables, orderMode, toast],
+    [
+      orderItems.length,
+      menuItems,
+      tables,
+      setOrderMode,
+      setSelectedTable,
+      toast,
+    ],
   );
 
   // Handle proceed to payment directly from active orders
