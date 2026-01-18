@@ -198,13 +198,24 @@ export const QSRPosMain: React.FC = () => {
     return counts;
   }, [orderItems]);
 
-  // Mode change handler - clear table when switching away from dine_in
-  const handleModeChange = useCallback((mode: QSROrderMode) => {
-    setOrderMode(mode);
-    if (mode !== "dine_in") {
-      setSelectedTable(null);
-    }
-  }, []);
+  // Mode change handler - clear table and cart when switching modes
+  const handleModeChange = useCallback(
+    (mode: QSROrderMode) => {
+      setOrderMode(mode);
+      if (mode !== "dine_in") {
+        setSelectedTable(null);
+      }
+      // Clear cart when switching modes (only if no pending/recalled order)
+      if (
+        orderItems.length > 0 &&
+        !pendingKitchenOrderId &&
+        !recalledKitchenOrderId
+      ) {
+        setOrderItems([]);
+      }
+    },
+    [orderItems.length, pendingKitchenOrderId, recalledKitchenOrderId],
+  );
 
   // Table selection handler
   const handleSelectTable = useCallback(
@@ -642,6 +653,7 @@ export const QSRPosMain: React.FC = () => {
             items: kitchenItems,
             server_name: attendantName,
             order_id: createdOrder?.id, // Link to orders record
+            order_type: orderMode, // Save order type for recall
           });
 
         if (kitchenError) throw kitchenError;
