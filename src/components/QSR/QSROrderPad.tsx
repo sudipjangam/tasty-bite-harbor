@@ -108,7 +108,7 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
               onClick={onChangeTable}
               className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm transition-colors"
             >
-              <span>Back to {selectedTable.name}</span>
+              <span>{selectedTable.name}</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           )}
