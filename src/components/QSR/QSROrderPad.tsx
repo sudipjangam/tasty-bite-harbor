@@ -324,12 +324,29 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
         <div className="space-y-1 text-sm">
           <div className="flex justify-between text-gray-500 dark:text-gray-400">
             <span>Subtotal:</span>
-            <CurrencyDisplay amount={subtotal} showTooltip={false} />
+            {mode === "nc" ? (
+              <span className="line-through opacity-60">
+                <CurrencyDisplay amount={subtotal} showTooltip={false} />
+              </span>
+            ) : (
+              <CurrencyDisplay amount={subtotal} showTooltip={false} />
+            )}
           </div>
           {/* No tax in QSR POS */}
           <div className="flex justify-between text-xl font-bold text-gray-800 dark:text-gray-200 pt-2 border-t border-gray-200 dark:border-gray-700">
-            <span>Total:</span>
-            <CurrencyDisplay amount={total} showTooltip={false} />
+            <span>{mode === "nc" ? "NC Total:" : "Total:"}</span>
+            {mode === "nc" ? (
+              <div className="flex items-center gap-2">
+                <span className="line-through opacity-50 text-base">
+                  <CurrencyDisplay amount={total} showTooltip={false} />
+                </span>
+                <span className="text-purple-600 dark:text-purple-400">
+                  <CurrencyDisplay amount={0} showTooltip={false} />
+                </span>
+              </div>
+            ) : (
+              <CurrencyDisplay amount={total} showTooltip={false} />
+            )}
           </div>
         </div>
 
