@@ -244,7 +244,9 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
 
   if (!isOpen) return null;
 
-  const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
+  const totalRevenue = orders
+    .filter((order) => order.orderType !== "non-chargeable")
+    .reduce((sum, order) => sum + order.total, 0);
 
   // Map selected order items for PaymentDialog
   const paymentDialogOrderItems = selectedOrderForPayment
@@ -515,9 +517,15 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                               <h3 className="font-bold text-gray-800 dark:text-gray-100 text-base truncate">
                                 {order.source.replace("QSR-", "")}
                               </h3>
-                              <span className="px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wide bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-300/50">
-                                ✓ Paid
-                              </span>
+                              {order.orderType === "non-chargeable" ? (
+                                <span className="px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wide bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-300/50">
+                                  🎁 Non-Chargeable
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wide bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-300/50">
+                                  ✓ Paid
+                                </span>
+                              )}
                             </div>
                             {/* Time Info */}
                             <div className="flex items-center gap-3 mt-2">
@@ -544,23 +552,43 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                           </div>
                           {/* Total Amount */}
                           <div className="text-right shrink-0 ml-3">
-                            <div className="text-xl font-extrabold bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent">
-                              <CurrencyDisplay
-                                amount={order.total}
-                                showTooltip={false}
-                              />
-                            </div>
+                            {order.orderType === "non-chargeable" ? (
+                              <>
+                                {/* NC Order: Show strikethrough original and ₹0 */}
+                                <div className="text-sm text-gray-400 line-through">
+                                  <CurrencyDisplay
+                                    amount={order.subtotal}
+                                    showTooltip={false}
+                                  />
+                                </div>
+                                <div className="text-xl font-extrabold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
+                                  {currencySymbol}0
+                                </div>
+                                <div className="text-xs text-purple-500 dark:text-purple-400 font-medium mt-0.5 bg-purple-50 dark:bg-purple-900/30 px-1.5 py-0.5 rounded-full inline-block">
+                                  100% off
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="text-xl font-extrabold bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent">
+                                  <CurrencyDisplay
+                                    amount={order.total}
+                                    showTooltip={false}
+                                  />
+                                </div>
+                                {/* Discount Badge */}
+                                {order.discount && order.discount > 0 && (
+                                  <div className="text-xs text-green-600 dark:text-green-400 font-medium mt-0.5 bg-green-50 dark:bg-green-900/30 px-1.5 py-0.5 rounded-full inline-block">
+                                    {order.discountType === "percentage"
+                                      ? `${order.discount}% off`
+                                      : `${currencySymbol}${order.discount} off`}
+                                  </div>
+                                )}
+                              </>
+                            )}
                             <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                               {totalItems} item{totalItems !== 1 ? "s" : ""}
                             </div>
-                            {/* Discount Badge */}
-                            {order.discount && order.discount > 0 && (
-                              <div className="text-xs text-green-600 dark:text-green-400 font-medium mt-0.5 bg-green-50 dark:bg-green-900/30 px-1.5 py-0.5 rounded-full inline-block">
-                                {order.discountType === "percentage"
-                                  ? `${order.discount}% off`
-                                  : `${currencySymbol}${order.discount} off`}
-                              </div>
-                            )}
                           </div>
                         </div>
 

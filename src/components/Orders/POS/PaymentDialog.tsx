@@ -2114,7 +2114,7 @@ const PaymentDialog = ({
                         {currencySymbol}0.00
                       </span>
                       <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 px-2 py-0.5 rounded-full font-medium">
-                        🎁 NC
+                        🎁 Non-Chargeable
                       </span>
                     </div>
                   ) : (
@@ -2527,7 +2527,7 @@ const PaymentDialog = ({
                 Completing...
               </>
             ) : (
-              "🎁 Complete NC Order"
+              "🎁 Complete Non-Chargeable Order"
             )}
           </Button>
         ) : (
@@ -2602,7 +2602,7 @@ const PaymentDialog = ({
             </div>
           </Card>
 
-          {/* Complete NC Order Button */}
+          {/* Complete Non-Chargeable Order Button */}
           <Button
             onClick={() => handleMethodSelect("nc")}
             className="w-full h-16 text-lg bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 hover:from-purple-600 hover:via-pink-600 hover:to-rose-600 text-white shadow-lg shadow-purple-300/50 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
@@ -2616,7 +2616,7 @@ const PaymentDialog = ({
             ) : (
               <>
                 <Check className="w-5 h-5 mr-3" />
-                Complete NC Order
+                Complete Non-Chargeable Order
               </>
             )}
           </Button>
