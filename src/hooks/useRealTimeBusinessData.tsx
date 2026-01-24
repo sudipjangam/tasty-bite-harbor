@@ -84,10 +84,13 @@ export const useRealTimeBusinessData = () => {
               hour < 12
                 ? `${hour} AM`
                 : hour === 12
-                ? `${hour} PM`
-                : `${hour - 12} PM`;
+                  ? `${hour} PM`
+                  : `${hour - 12} PM`;
             hourCounts[hourLabel].customers += 1;
-            hourCounts[hourLabel].revenue += order.total || 0;
+            // Only count revenue if not a non-chargeable order
+            if (order.order_type !== "non-chargeable") {
+              hourCounts[hourLabel].revenue += order.total || 0;
+            }
           }
         });
       }
@@ -98,7 +101,7 @@ export const useRealTimeBusinessData = () => {
           hour,
           customers: data.customers,
           revenue: data.revenue,
-        })
+        }),
       );
 
       // Identify busy and slow hours
@@ -130,8 +133,11 @@ export const useRealTimeBusinessData = () => {
           const dayOfWeek = format(new Date(order.created_at), "EEE");
           if (dayOfWeekData[dayOfWeek]) {
             dayOfWeekData[dayOfWeek].orders += 1;
-            // Only count revenue from completed orders
-            if (order.status === "completed") {
+            // Only count revenue from completed orders that are not non-chargeable
+            if (
+              order.status === "completed" &&
+              order.order_type !== "non-chargeable"
+            ) {
               dayOfWeekData[dayOfWeek].revenue += order.total || 0;
             }
           }
@@ -143,16 +149,20 @@ export const useRealTimeBusinessData = () => {
           day,
           orders: data.orders,
           revenue: data.revenue,
-        })
+        }),
       );
 
-      // Calculate today's metrics - ONLY COUNT COMPLETED ORDERS FOR REVENUE
+      // Calculate today's metrics - ONLY COUNT COMPLETED, CHARGEABLE ORDERS FOR REVENUE
       const totalDailyOrders = todayOrders?.length || 0;
       const completedTodayOrders =
-        todayOrders?.filter((order) => order.status === "completed") || [];
+        todayOrders?.filter(
+          (order) =>
+            order.status === "completed" &&
+            order.order_type !== "non-chargeable",
+        ) || [];
       const todayRevenue = completedTodayOrders.reduce(
         (sum, order) => sum + (order.total || 0),
-        0
+        0,
       );
 
       // Estimate average wait time based on order volume and hour
@@ -161,8 +171,8 @@ export const useRealTimeBusinessData = () => {
         currentHour < 12
           ? `${currentHour} AM`
           : currentHour === 12
-          ? `${currentHour} PM`
-          : `${currentHour - 12} PM`;
+            ? `${currentHour} PM`
+            : `${currentHour - 12} PM`;
       const currentHourOrders = hourCounts[currentHourLabel]?.customers || 0;
 
       // Basic wait time calculation: more orders = longer wait

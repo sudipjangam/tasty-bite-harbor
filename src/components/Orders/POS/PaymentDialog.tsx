@@ -62,6 +62,7 @@ const PaymentDialog = ({
   orderId,
   onOrderUpdated,
   itemCompletionStatus: initialItemCompletionStatus,
+  isNonChargeable = false,
 }: PaymentDialogProps) => {
   const [currentStep, setCurrentStep] = useState<
     "confirm" | "method" | "qr" | "success" | "edit"
@@ -88,7 +89,7 @@ const PaymentDialog = ({
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemCompletionStatus, setItemCompletionStatus] = useState<boolean[]>(
-    initialItemCompletionStatus || []
+    initialItemCompletionStatus || [],
   );
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -247,9 +248,9 @@ const PaymentDialog = ({
       const upiUrl = `upi://pay?pa=${
         paymentSettings.upi_id
       }&pn=${encodeURIComponent(
-        restaurantInfo?.name || "Restaurant"
+        restaurantInfo?.name || "Restaurant",
       )}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(
-        `Order ${tableNumber || "POS"}`
+        `Order ${tableNumber || "POS"}`,
       )}`;
 
       QRCode.toDataURL(upiUrl, { width: 300, margin: 2 })
@@ -274,7 +275,7 @@ const PaymentDialog = ({
             const { data: order } = await supabase
               .from("orders")
               .select(
-                "Customer_Name, Customer_MobileNumber, customer_name, customer_phone, discount_percentage, discount_amount"
+                "Customer_Name, Customer_MobileNumber, customer_name, customer_phone, discount_percentage, discount_amount",
               )
               .eq("id", kitchenOrder.order_id)
               .maybeSingle();
@@ -454,7 +455,7 @@ const PaymentDialog = ({
   const handleAddMenuItem = (item: any) => {
     // Check if item already exists in buffer
     const existingIndex = newItemsBuffer.findIndex(
-      (bufferItem) => bufferItem.name === item.name
+      (bufferItem) => bufferItem.name === item.name,
     );
 
     if (existingIndex >= 0) {
@@ -463,8 +464,8 @@ const PaymentDialog = ({
         prev.map((bufferItem, idx) =>
           idx === existingIndex
             ? { ...bufferItem, quantity: bufferItem.quantity + 1 }
-            : bufferItem
-        )
+            : bufferItem,
+        ),
       );
       toast({
         title: "Quantity Increased",
@@ -597,14 +598,14 @@ const PaymentDialog = ({
     }
     setNewItemsBuffer((prev) =>
       prev.map((item) =>
-        item.id === itemId ? { ...item, quantity: newQuantity } : item
-      )
+        item.id === itemId ? { ...item, quantity: newQuantity } : item,
+      ),
     );
   };
 
   const handleUpdateExistingItemQuantity = async (
     itemIndex: number,
-    newQuantity: number
+    newQuantity: number,
   ) => {
     if (!orderId) return;
 
@@ -849,7 +850,7 @@ const PaymentDialog = ({
     (item) =>
       item.name.toLowerCase().includes(menuSearchQuery.toLowerCase()) ||
       (item.category &&
-        item.category.toLowerCase().includes(menuSearchQuery.toLowerCase()))
+        item.category.toLowerCase().includes(menuSearchQuery.toLowerCase())),
   );
 
   const saveCustomerDetails = async (): Promise<boolean> => {
@@ -946,7 +947,7 @@ const PaymentDialog = ({
         });
       } else {
         console.warn(
-          "⚠️ No linked order found. Saving name on kitchen order and proceeding."
+          "⚠️ No linked order found. Saving name on kitchen order and proceeding.",
         );
         // Fallback: store the customer name on the kitchen order so it is visible to staff
         try {
@@ -961,7 +962,7 @@ const PaymentDialog = ({
           if (koUpdateError) {
             console.error(
               "⚠️ Failed to save on kitchen_orders:",
-              koUpdateError
+              koUpdateError,
             );
             toast({
               title: "Proceeding without DB save",
@@ -1038,7 +1039,7 @@ const PaymentDialog = ({
             promotionName: appliedPromotion?.name || undefined,
             includeEnrollment: true, // Enable loyalty program enrollment invitation
           },
-        }
+        },
       );
 
       console.log("📧 Edge function response:", { data, error });
@@ -1103,7 +1104,7 @@ const PaymentDialog = ({
             orderDate: new Date().toLocaleString("en-IN"),
             messageType: "bill",
           },
-        }
+        },
       );
 
       console.log("📱 WhatsApp Edge function response:", { data, error });
@@ -1166,7 +1167,7 @@ const PaymentDialog = ({
       if (restaurantInfo?.address) {
         const addressLines = doc.splitTextToSize(
           restaurantInfo.address,
-          contentWidth
+          contentWidth,
         );
         doc.text(addressLines, pageWidth / 2, yPos, { align: "center" });
         yPos += addressLines.length * 4;
@@ -1284,7 +1285,7 @@ const PaymentDialog = ({
           (item.price * item.quantity).toFixed(0),
           pageWidth - margin,
           yPos,
-          { align: "right" }
+          { align: "right" },
         );
         yPos += Math.max(itemName.length * 4, 4);
         // Add space between items for better readability
@@ -1331,7 +1332,7 @@ const PaymentDialog = ({
           `-${promotionDiscountAmount.toFixed(2)}`,
           pageWidth - margin,
           yPos,
-          { align: "right" }
+          { align: "right" },
         );
         yPos += 4;
         if (appliedPromotion.promotion_code) {
@@ -1350,7 +1351,7 @@ const PaymentDialog = ({
           `-${manualDiscountAmount.toFixed(2)}`,
           pageWidth - margin,
           yPos,
-          { align: "right" }
+          { align: "right" },
         );
         yPos += 4;
       }
@@ -1363,7 +1364,7 @@ const PaymentDialog = ({
           `-${totalDiscountAmount.toFixed(2)}`,
           pageWidth - margin,
           yPos,
-          { align: "right" }
+          { align: "right" },
         );
         yPos += 4;
       }
@@ -1397,7 +1398,7 @@ const PaymentDialog = ({
           (pageWidth - qrSize) / 2,
           yPos,
           qrSize,
-          qrSize
+          qrSize,
         );
         yPos += qrSize + 3;
 
@@ -1509,7 +1510,7 @@ const PaymentDialog = ({
             orderSubtotal: subtotal,
             restaurantId: restaurantIdToUse,
           },
-        }
+        },
       );
 
       if (error) throw error;
@@ -1571,14 +1572,14 @@ const PaymentDialog = ({
     try {
       console.log(
         "🔍 Checking for active reservation with sanitized mobile:",
-        sanitizedMobile
+        sanitizedMobile,
       );
 
       const { data, error } = await supabase.functions.invoke(
         "find-active-reservation",
         {
           body: { mobileNumber: sanitizedMobile },
-        }
+        },
       );
 
       if (error) {
@@ -1604,7 +1605,7 @@ const PaymentDialog = ({
       } else {
         console.log(
           "ℹ️ No active reservation found for mobile:",
-          sanitizedMobile
+          sanitizedMobile,
         );
         setDetectedReservation(null);
       }
@@ -1734,6 +1735,11 @@ const PaymentDialog = ({
       const restaurantIdToUse =
         restaurantInfo?.restaurantId || restaurantInfo?.id;
 
+      // For NC orders, the total is 0 and order_type is non-chargeable
+      const finalTotal = isNonChargeable ? 0 : total;
+      const finalOrderType = isNonChargeable ? "non-chargeable" : undefined;
+      const finalPaymentMethod = isNonChargeable ? "nc" : paymentMethod;
+
       // Get current user for staff_id
       const {
         data: { user },
@@ -1768,14 +1774,16 @@ const PaymentDialog = ({
           const { error: orderError } = await supabase
             .from("orders")
             .update({
-              payment_status: "paid",
+              payment_status: isNonChargeable ? "nc" : "paid",
               status: "completed",
-              total: total, // Save final amount after discount
-              discount_amount: totalDiscountAmount,
-              discount_percentage:
-                manualDiscountPercent > 0
+              total: finalTotal, // Save final amount (0 for NC orders)
+              discount_amount: isNonChargeable ? subtotal : totalDiscountAmount, // For NC, discount is the full subtotal
+              discount_percentage: isNonChargeable
+                ? 100
+                : manualDiscountPercent > 0
                   ? manualDiscountPercent
                   : appliedPromotion?.discount_percentage || 0,
+              ...(finalOrderType && { order_type: finalOrderType }),
             })
             .eq("id", kitchenOrder.order_id);
 
@@ -1797,14 +1805,17 @@ const PaymentDialog = ({
                 restaurant_id: restaurantIdToUse,
                 customer_name: tableNumber || "QSR-Order",
                 items: formattedItems,
-                total: total,
+                total: finalTotal,
                 status: "completed",
-                payment_status: "paid",
+                payment_status: isNonChargeable ? "nc" : "paid",
                 source: "qsr",
-                order_type: "dine-in",
-                discount_amount: totalDiscountAmount,
-                discount_percentage:
-                  manualDiscountPercent > 0
+                order_type: finalOrderType || "dine-in",
+                discount_amount: isNonChargeable
+                  ? subtotal
+                  : totalDiscountAmount,
+                discount_percentage: isNonChargeable
+                  ? 100
+                  : manualDiscountPercent > 0
                     ? manualDiscountPercent
                     : appliedPromotion?.discount_percentage || 0,
               })
@@ -1846,34 +1857,36 @@ const PaymentDialog = ({
           }
         }
 
-        // Log transaction to pos_transactions table
-        try {
-          await supabase.from("pos_transactions").insert({
-            restaurant_id: restaurantIdToUse,
-            order_id: kitchenOrder?.order_id || null,
-            kitchen_order_id: orderId,
-            amount: total,
-            payment_method: paymentMethod,
-            status: "completed",
-            customer_name: customerName || null,
-            customer_phone: customerMobile || null,
-            staff_id: user?.id || null,
-            discount_amount: totalDiscountAmount,
-            promotion_id: appliedPromotion?.id || null,
-          });
-        } catch (transactionError) {
-          console.error("Error logging transaction:", transactionError);
-          // Don't fail the payment if transaction logging fails
+        // Log transaction to pos_transactions table (skip for NC orders as they have no payment)
+        if (!isNonChargeable) {
+          try {
+            await supabase.from("pos_transactions").insert({
+              restaurant_id: restaurantIdToUse,
+              order_id: kitchenOrder?.order_id || null,
+              kitchen_order_id: orderId,
+              amount: finalTotal,
+              payment_method: finalPaymentMethod,
+              status: "completed",
+              customer_name: customerName || null,
+              customer_phone: customerMobile || null,
+              staff_id: user?.id || null,
+              discount_amount: totalDiscountAmount,
+              promotion_id: appliedPromotion?.id || null,
+            });
+          } catch (transactionError) {
+            console.error("Error logging transaction:", transactionError);
+            // Don't fail the payment if transaction logging fails
+          }
         }
       }
 
       setCurrentStep("success");
 
       toast({
-        title: "Payment Successful",
-        description: `Order payment of ₹${total.toFixed(
-          2
-        )} received via ${paymentMethod}.`,
+        title: isNonChargeable ? "NC Order Completed" : "Payment Successful",
+        description: isNonChargeable
+          ? "Complimentary order has been completed successfully."
+          : `Order payment of ₹${finalTotal.toFixed(2)} received via ${finalPaymentMethod}.`,
       });
 
       // Auto-close after 2 seconds
@@ -2089,12 +2102,27 @@ const PaymentDialog = ({
               <div className="border-t border-gray-200 dark:border-gray-600 pt-3 mt-3">
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-bold text-gray-800 dark:text-white">
-                    Total Due
+                    {isNonChargeable ? "NC Total" : "Total Due"}
                   </span>
-                  <span className="text-2xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                    {currencySymbol}
-                    {total.toFixed(2)}
-                  </span>
+                  {isNonChargeable ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-gray-400 line-through">
+                        {currencySymbol}
+                        {subtotal.toFixed(2)}
+                      </span>
+                      <span className="text-2xl font-extrabold text-purple-600 dark:text-purple-400">
+                        {currencySymbol}0.00
+                      </span>
+                      <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 px-2 py-0.5 rounded-full font-medium">
+                        🎁 NC
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-2xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                      {currencySymbol}
+                      {total.toFixed(2)}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -2483,21 +2511,43 @@ const PaymentDialog = ({
 
       {/* Sticky Footer - Always visible */}
       <div className="sticky bottom-0 bg-gradient-to-t from-white via-white to-white/80 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900/80 pt-4 pb-3 px-4 border-t border-gray-200/50 dark:border-gray-700/50">
-        <Button
-          onClick={async () => {
-            const saved = await saveCustomerDetails();
-            if (saved) {
-              // Check for active reservation before proceeding to payment
-              await checkForActiveReservation();
-              setCurrentStep("method");
-            }
-          }}
-          className="w-full bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-green-300/50 dark:shadow-green-900/30 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] font-semibold"
-          size="lg"
-          disabled={isSaving}
-        >
-          {isSaving ? "Saving Details..." : "Proceed to Payment Methods →"}
-        </Button>
+        {isNonChargeable ? (
+          /* NC Order - Complete directly without payment */
+          <Button
+            onClick={async () => {
+              await handleMarkAsPaid("nc");
+            }}
+            className="w-full bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 hover:from-purple-600 hover:via-pink-600 hover:to-rose-600 text-white shadow-lg shadow-purple-300/50 dark:shadow-purple-900/30 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] font-semibold"
+            size="lg"
+            disabled={isProcessingPayment}
+          >
+            {isProcessingPayment ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Completing...
+              </>
+            ) : (
+              "🎁 Complete NC Order"
+            )}
+          </Button>
+        ) : (
+          /* Regular Order - Proceed to payment methods */
+          <Button
+            onClick={async () => {
+              const saved = await saveCustomerDetails();
+              if (saved) {
+                // Check for active reservation before proceeding to payment
+                await checkForActiveReservation();
+                setCurrentStep("method");
+              }
+            }}
+            className="w-full bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-green-300/50 dark:shadow-green-900/30 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] font-semibold"
+            size="lg"
+            disabled={isSaving}
+          >
+            {isSaving ? "Saving Details..." : "Proceed to Payment Methods →"}
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -2514,103 +2564,164 @@ const PaymentDialog = ({
         Back to Order
       </Button>
 
-      {/* Vibrant Header */}
-      <div className="text-center py-6 px-8 rounded-2xl bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 shadow-lg shadow-green-200/50 dark:shadow-green-900/30">
-        <h2 className="text-2xl font-bold text-white mb-2 drop-shadow-sm">
-          Select Payment Method
-        </h2>
-        <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
-          <span className="text-white/80 text-sm">Total Amount:</span>
-          <span className="text-xl font-extrabold text-white">
-            {currencySymbol}
-            {total.toFixed(2)}
-          </span>
-        </div>
-      </div>
-
-      {/* Show room charge option if guest is detected */}
-      {detectedReservation && (
-        <Card className="p-4 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/30 dark:to-green-900/30 border-2 border-emerald-400 dark:border-emerald-600 shadow-lg shadow-emerald-200/50 dark:shadow-emerald-900/30">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-300/50">
-              <Check className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <p className="font-bold text-emerald-700 dark:text-emerald-300">
-                In-House Guest Detected
-              </p>
-              <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                {detectedReservation.customerName} -{" "}
-                {detectedReservation.roomName}
-              </p>
+      {/* NC Order - Complimentary View */}
+      {isNonChargeable ? (
+        <>
+          {/* NC Header */}
+          <div className="text-center py-6 px-8 rounded-2xl bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 shadow-lg shadow-purple-200/50 dark:shadow-purple-900/30">
+            <h2 className="text-2xl font-bold text-white mb-2 drop-shadow-sm">
+              🎁 Complimentary Order
+            </h2>
+            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
+              <span className="text-white/80 text-sm">Amount:</span>
+              <span className="text-xl font-extrabold text-white line-through opacity-60">
+                {currencySymbol}
+                {subtotal.toFixed(2)}
+              </span>
+              <span className="text-2xl font-extrabold text-white">
+                {currencySymbol}0.00
+              </span>
             </div>
           </div>
+
+          {/* NC Explanation */}
+          <Card className="p-4 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/30 border-2 border-amber-300 dark:border-amber-600">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-amber-400 to-yellow-400 rounded-full flex items-center justify-center shadow-md flex-shrink-0">
+                <span className="text-lg">🎁</span>
+              </div>
+              <div>
+                <p className="font-semibold text-amber-800 dark:text-amber-300">
+                  Non-Chargeable Order
+                </p>
+                <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                  This order will be marked as complimentary. No payment will be
+                  collected and the amount will not be added to revenue.
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Complete NC Order Button */}
           <Button
-            onClick={() => handleMethodSelect("room")}
-            className="w-full h-14 text-lg bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-lg shadow-emerald-300/50 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
+            onClick={() => handleMethodSelect("nc")}
+            className="w-full h-16 text-lg bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 hover:from-purple-600 hover:via-pink-600 hover:to-rose-600 text-white shadow-lg shadow-purple-300/50 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
+            disabled={isProcessingPayment}
           >
-            <Receipt className="w-5 h-5 mr-3" />
-            Charge to {detectedReservation.roomName}
+            {isProcessingPayment ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <Check className="w-5 h-5 mr-3" />
+                Complete NC Order
+              </>
+            )}
           </Button>
-        </Card>
+        </>
+      ) : (
+        <>
+          {/* Vibrant Header - Normal Orders */}
+          <div className="text-center py-6 px-8 rounded-2xl bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 shadow-lg shadow-green-200/50 dark:shadow-green-900/30">
+            <h2 className="text-2xl font-bold text-white mb-2 drop-shadow-sm">
+              Select Payment Method
+            </h2>
+            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
+              <span className="text-white/80 text-sm">Total Amount:</span>
+              <span className="text-xl font-extrabold text-white">
+                {currencySymbol}
+                {total.toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          {/* Show room charge option if guest is detected */}
+          {detectedReservation && (
+            <Card className="p-4 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/30 dark:to-green-900/30 border-2 border-emerald-400 dark:border-emerald-600 shadow-lg shadow-emerald-200/50 dark:shadow-emerald-900/30">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-300/50">
+                  <Check className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <p className="font-bold text-emerald-700 dark:text-emerald-300">
+                    In-House Guest Detected
+                  </p>
+                  <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                    {detectedReservation.customerName} -{" "}
+                    {detectedReservation.roomName}
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => handleMethodSelect("room")}
+                className="w-full h-14 text-lg bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-lg shadow-emerald-300/50 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
+              >
+                <Receipt className="w-5 h-5 mr-3" />
+                Charge to {detectedReservation.roomName}
+              </Button>
+            </Card>
+          )}
+
+          {/* Payment Methods Grid */}
+          <div className="space-y-3">
+            {/* Cash - Green gradient */}
+            <button
+              onClick={() => handleMethodSelect("cash")}
+              className="w-full h-20 rounded-2xl flex items-center px-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border-2 border-green-200 dark:border-green-700 hover:border-green-400 dark:hover:border-green-500 group"
+            >
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-green-300/50 group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
+                <Wallet className="w-7 h-7 text-white" />
+              </div>
+              <div className="ml-4 text-left">
+                <span className="text-xl font-bold text-gray-800 dark:text-white">
+                  Cash
+                </span>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Pay with cash
+                </p>
+              </div>
+            </button>
+
+            {/* Card - Blue/Indigo gradient */}
+            <button
+              onClick={() => handleMethodSelect("card")}
+              className="w-full h-20 rounded-2xl flex items-center px-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border-2 border-blue-200 dark:border-blue-700 hover:border-blue-400 dark:hover:border-blue-500 group"
+            >
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-300/50 group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
+                <CreditCard className="w-7 h-7 text-white" />
+              </div>
+              <div className="ml-4 text-left">
+                <span className="text-xl font-bold text-gray-800 dark:text-white">
+                  Card
+                </span>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Credit or Debit card
+                </p>
+              </div>
+            </button>
+
+            {/* UPI - Purple/Violet gradient */}
+            <button
+              onClick={() => handleMethodSelect("upi")}
+              className="w-full h-20 rounded-2xl flex items-center px-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/30 dark:to-violet-900/30 border-2 border-purple-300 dark:border-purple-600 hover:border-purple-400 dark:hover:border-purple-500 group"
+            >
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-r from-purple-500 to-violet-500 flex items-center justify-center shadow-lg shadow-purple-300/50 group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
+                <QrCode className="w-7 h-7 text-white" />
+              </div>
+              <div className="ml-4 text-left">
+                <span className="text-xl font-bold text-gray-800 dark:text-white">
+                  UPI / QR Code
+                </span>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Scan QR to pay instantly
+                </p>
+              </div>
+            </button>
+          </div>
+        </>
       )}
-
-      {/* Payment Methods Grid */}
-      <div className="space-y-3">
-        {/* Cash - Green gradient */}
-        <button
-          onClick={() => handleMethodSelect("cash")}
-          className="w-full h-20 rounded-2xl flex items-center px-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border-2 border-green-200 dark:border-green-700 hover:border-green-400 dark:hover:border-green-500 group"
-        >
-          <div className="w-14 h-14 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-green-300/50 group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
-            <Wallet className="w-7 h-7 text-white" />
-          </div>
-          <div className="ml-4 text-left">
-            <span className="text-xl font-bold text-gray-800 dark:text-white">
-              Cash
-            </span>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Pay with cash
-            </p>
-          </div>
-        </button>
-
-        {/* Card - Blue/Indigo gradient */}
-        <button
-          onClick={() => handleMethodSelect("card")}
-          className="w-full h-20 rounded-2xl flex items-center px-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border-2 border-blue-200 dark:border-blue-700 hover:border-blue-400 dark:hover:border-blue-500 group"
-        >
-          <div className="w-14 h-14 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-300/50 group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
-            <CreditCard className="w-7 h-7 text-white" />
-          </div>
-          <div className="ml-4 text-left">
-            <span className="text-xl font-bold text-gray-800 dark:text-white">
-              Card
-            </span>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Credit or Debit card
-            </p>
-          </div>
-        </button>
-
-        {/* UPI - Purple/Violet gradient */}
-        <button
-          onClick={() => handleMethodSelect("upi")}
-          className="w-full h-20 rounded-2xl flex items-center px-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/30 dark:to-violet-900/30 border-2 border-purple-300 dark:border-purple-600 hover:border-purple-400 dark:hover:border-purple-500 group"
-        >
-          <div className="w-14 h-14 rounded-xl bg-gradient-to-r from-purple-500 to-violet-500 flex items-center justify-center shadow-lg shadow-purple-300/50 group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
-            <QrCode className="w-7 h-7 text-white" />
-          </div>
-          <div className="ml-4 text-left">
-            <span className="text-xl font-bold text-gray-800 dark:text-white">
-              UPI / QR Code
-            </span>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Scan QR to pay instantly
-            </p>
-          </div>
-        </button>
-      </div>
     </div>
   );
 
@@ -2855,7 +2966,7 @@ const PaymentDialog = ({
                         onClick={() =>
                           handleUpdateNewItemQuantity(
                             item.id,
-                            item.quantity - 1
+                            item.quantity - 1,
                           )
                         }
                         className="h-7 w-7 p-0 rounded-none"
@@ -2871,7 +2982,7 @@ const PaymentDialog = ({
                         onClick={() =>
                           handleUpdateNewItemQuantity(
                             item.id,
-                            item.quantity + 1
+                            item.quantity + 1,
                           )
                         }
                         className="h-7 w-7 p-0 rounded-none"

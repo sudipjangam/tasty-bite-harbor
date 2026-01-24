@@ -104,7 +104,7 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
       .filter(
         (item) =>
           item.name.toLowerCase().includes(query) ||
-          item.category.toLowerCase().includes(query)
+          item.category.toLowerCase().includes(query),
       )
       .slice(0, 20);
   }, [menuItems, searchQuery]);
@@ -142,7 +142,7 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
           "bg-white dark:bg-gray-900 rounded-t-3xl shadow-2xl",
           "transition-transform duration-300 ease-out",
           "h-[90vh] flex flex-col",
-          isOpen ? "translate-y-0" : "translate-y-full"
+          isOpen ? "translate-y-0" : "translate-y-full",
         )}
       >
         {/* Drag Handle */}
@@ -409,12 +409,29 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
           <div className="space-y-1 text-sm">
             <div className="flex justify-between text-gray-500 dark:text-gray-400">
               <span>Subtotal:</span>
-              <CurrencyDisplay amount={subtotal} showTooltip={false} />
+              {mode === "nc" ? (
+                <span className="line-through opacity-60">
+                  <CurrencyDisplay amount={subtotal} showTooltip={false} />
+                </span>
+              ) : (
+                <CurrencyDisplay amount={subtotal} showTooltip={false} />
+              )}
             </div>
             {/* No tax in QSR POS */}
             <div className="flex justify-between text-xl font-bold text-gray-800 dark:text-gray-200 pt-2 border-t border-gray-200 dark:border-gray-700">
-              <span>Total:</span>
-              <CurrencyDisplay amount={total} showTooltip={false} />
+              <span>{mode === "nc" ? "NC Total:" : "Total:"}</span>
+              {mode === "nc" ? (
+                <div className="flex items-center gap-2">
+                  <span className="line-through opacity-50 text-base">
+                    <CurrencyDisplay amount={total} showTooltip={false} />
+                  </span>
+                  <span className="text-purple-600 dark:text-purple-400">
+                    <CurrencyDisplay amount={0} showTooltip={false} />
+                  </span>
+                </div>
+              ) : (
+                <CurrencyDisplay amount={total} showTooltip={false} />
+              )}
             </div>
           </div>
 
@@ -489,7 +506,7 @@ export const QSRCartFAB: React.FC<QSRCartFABProps> = ({
         "bg-gradient-to-r from-indigo-500 to-purple-600 text-white",
         "rounded-2xl shadow-2xl shadow-indigo-500/30",
         "flex items-center justify-between p-4",
-        "transition-all duration-300 active:scale-95"
+        "transition-all duration-300 active:scale-95",
       )}
     >
       <div className="flex items-center gap-3">

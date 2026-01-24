@@ -14,6 +14,7 @@ export interface PaymentDialogProps {
   orderId?: string;
   itemCompletionStatus?: boolean[];
   onOrderUpdated?: () => void;
+  isNonChargeable?: boolean; // NC orders - no charge required
 }
 
 // Applied promotion state

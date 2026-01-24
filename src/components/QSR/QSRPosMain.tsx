@@ -523,7 +523,10 @@ export const QSRPosMain: React.FC = () => {
             total: total,
             status: "pending",
             source: "pos",
-            order_type: orderMode.replace("_", "-"),
+            order_type:
+              orderMode === "nc"
+                ? "non-chargeable"
+                : orderMode.replace("_", "-"),
             attendant: attendantName,
           })
           .select()
@@ -635,7 +638,10 @@ export const QSRPosMain: React.FC = () => {
             total: total,
             status: "held",
             source: "pos",
-            order_type: orderMode.replace("_", "-"),
+            order_type:
+              orderMode === "nc"
+                ? "non-chargeable"
+                : orderMode.replace("_", "-"),
             attendant: attendantName,
           })
           .select()
@@ -888,7 +894,7 @@ export const QSRPosMain: React.FC = () => {
               (sum, item) => sum + item.price * item.quantity,
               0,
             ),
-            order_type: currentMode,
+            order_type: currentMode === "nc" ? "non-chargeable" : currentMode,
             table_number:
               currentMode === "dine_in" && currentTable
                 ? currentTable.name
@@ -1327,6 +1333,7 @@ export const QSRPosMain: React.FC = () => {
         tableNumber={selectedTable?.name || ""}
         onEditOrder={handlePaymentDialogClose}
         orderId={pendingKitchenOrderId || recalledKitchenOrderId || undefined}
+        isNonChargeable={orderMode === "nc"}
       />
     </div>
   );
