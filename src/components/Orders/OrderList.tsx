@@ -6,9 +6,19 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Order } from "@/types/orders";
 import AddOrderForm from "./AddOrderForm";
 import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Trash2 } from "lucide-react";
 import { StandardizedCard } from "@/components/ui/standardized-card";
 import PaymentDialog from "@/components/Orders/POS/PaymentDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface OrderListProps {
   orders: Order[];
@@ -28,6 +38,7 @@ const OrderList: React.FC<OrderListProps> = ({
   const [showEditForm, setShowEditForm] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [printBillOrder, setPrintBillOrder] = useState<Order | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
   const filteredOrders = orders.filter((order) => {
@@ -65,29 +76,28 @@ const OrderList: React.FC<OrderListProps> = ({
     setShowEditForm(true);
   };
 
-  const handleDeleteOrder = async (orderId: string) => {
-    if (!confirm("Are you sure you want to delete this order?")) {
-      return;
-    }
+  const initiateDeleteOrder = (orderId: string) => {
+    setOrderToDelete(orderId);
+  };
+
+  const executeDeleteOrder = async () => {
+    if (!orderToDelete) return;
 
     try {
       // First delete related kitchen_orders to satisfy foreign key constraints
       const { error: kitchenError } = await supabase
         .from("kitchen_orders" as any)
         .delete()
-        .eq("order_id", orderId);
+        .eq("order_id", orderToDelete);
 
       if (kitchenError) {
         console.error("Error deleting kitchen orders:", kitchenError);
-        // Continue to try deleting items if kitchen_orders delete failed?
-        // Or throw? If strict constraint, order delete will fail anyway.
-        // Let's log it but proceed to try order delete, which will catch the actual error if it persists.
       }
 
       const { error } = await supabase
         .from("orders")
         .delete()
-        .eq("id", orderId);
+        .eq("id", orderToDelete);
 
       if (error) throw error;
 
@@ -104,6 +114,8 @@ const OrderList: React.FC<OrderListProps> = ({
         title: "Delete Failed",
         description: "Could not delete the order. Please try again.",
       });
+    } finally {
+      setOrderToDelete(null);
     }
   };
 
@@ -180,7 +192,7 @@ const OrderList: React.FC<OrderListProps> = ({
               order={order}
               onStatusChange={handleStatusChange}
               onEdit={() => handleEditOrder(order)}
-              onDelete={handleDeleteOrder}
+              onDelete={initiateDeleteOrder}
               onPrintBill={handlePrintBill}
             />
           ))}
@@ -233,6 +245,36 @@ const OrderList: React.FC<OrderListProps> = ({
           orderId={printBillOrder.id}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={orderToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setOrderToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-red-500" />
+              Delete Order
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this order? This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeDeleteOrder}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Delete Order
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

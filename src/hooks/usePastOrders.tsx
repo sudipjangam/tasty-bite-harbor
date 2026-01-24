@@ -24,6 +24,7 @@ export interface PastOrder {
   discountType?: string;
   customerName?: string;
   attendant?: string;
+  orderType?: string; // To identify NC (non-chargeable) orders
 }
 
 interface UsePastOrdersOptions {
@@ -38,13 +39,13 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState(options.searchQuery || "");
   const [dateFilter, setDateFilter] = useState<DateFilter>(
-    options.dateFilter || "today"
+    options.dateFilter || "today",
   );
   const [customStartDate, setCustomStartDate] = useState<Date | null>(
-    options.customStartDate || null
+    options.customStartDate || null,
   );
   const [customEndDate, setCustomEndDate] = useState<Date | null>(
-    options.customEndDate || null
+    options.customEndDate || null,
   );
 
   // Calculate date range based on filter (using UTC to match database timestamps)
@@ -58,8 +59,8 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
         now.getUTCDate(),
         0,
         0,
-        0
-      )
+        0,
+      ),
     );
     const todayEnd = new Date(
       Date.UTC(
@@ -69,8 +70,8 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
         23,
         59,
         59,
-        999
-      )
+        999,
+      ),
     );
 
     switch (dateFilter) {
@@ -94,7 +95,7 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
         };
       case "thisMonth":
         const monthStart = new Date(
-          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0)
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0),
         );
         return { start: monthStart.toISOString(), end: todayEnd.toISOString() };
       case "custom":
@@ -106,8 +107,8 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
               customStartDate.getDate(),
               0,
               0,
-              0
-            )
+              0,
+            ),
           );
           const customEnd = new Date(
             Date.UTC(
@@ -117,8 +118,8 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
               23,
               59,
               59,
-              999
-            )
+              999,
+            ),
           );
           return {
             start: customStart.toISOString(),
@@ -154,7 +155,7 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
       const { data: kitchenData, error: kitchenError } = await supabase
         .from("kitchen_orders")
         .select(
-          "id, source, items, status, created_at, bumped_at, order_id, server_name, customer_name"
+          "id, source, items, status, created_at, bumped_at, order_id, server_name, customer_name",
         )
         .eq("restaurant_id", restaurantId)
         .eq("status", "completed")
@@ -179,23 +180,27 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
           total?: string | number;
           discount_amount?: string | number;
           discount_percentage?: string | number;
+          order_type?: string;
         }
       > = {};
 
       if (orderIds.length > 0) {
         const { data: ordersData, error: ordersError } = await supabase
           .from("orders")
-          .select("id, total, discount_amount, discount_percentage")
+          .select("id, total, discount_amount, discount_percentage, order_type")
           .in("id", orderIds);
 
         console.log("[usePastOrders] Fetched orders data:", ordersData);
         console.log("[usePastOrders] Orders error:", ordersError);
 
         if (!ordersError && ordersData) {
-          ordersMap = ordersData.reduce((acc, order) => {
-            acc[order.id] = order;
-            return acc;
-          }, {} as typeof ordersMap);
+          ordersMap = ordersData.reduce(
+            (acc, order) => {
+              acc[order.id] = order;
+              return acc;
+            },
+            {} as typeof ordersMap,
+          );
         }
       }
 
@@ -218,7 +223,7 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
           // Calculate subtotal from items
           const subtotal = items.reduce(
             (sum, item) => sum + item.price * item.quantity,
-            0
+            0,
           );
 
           // Get linked order data (if available) for actual total with discount
@@ -241,8 +246,8 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
           const discountType = discountPercentage
             ? "percentage"
             : discountAmount
-            ? "amount"
-            : undefined;
+              ? "amount"
+              : undefined;
 
           return {
             id: order.id,
@@ -258,6 +263,7 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
             discountType,
             customerName: order.customer_name || undefined,
             attendant: order.server_name || undefined,
+            orderType: linkedOrder?.order_type || undefined,
           };
         })
         .filter((order) => {
@@ -266,7 +272,7 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
           return (
             order.source.toLowerCase().includes(query) ||
             order.items.some((item) =>
-              item.name.toLowerCase().includes(query)
+              item.name.toLowerCase().includes(query),
             ) ||
             (order.customerName?.toLowerCase().includes(query) ?? false)
           );
@@ -300,7 +306,7 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
               queryKey: ["past-orders", restaurantId],
             });
           }
-        }
+        },
       )
       .subscribe();
 
@@ -314,7 +320,7 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
     const { data, error } = await supabase
       .from("kitchen_orders")
       .select(
-        `*, orders:order_id (total, discount_amount, discount_percentage)`
+        `*, orders:order_id (total, discount_amount, discount_percentage)`,
       )
       .eq("id", orderId)
       .single();
@@ -331,7 +337,7 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
 
     const subtotal = items.reduce(
       (sum, item) => sum + item.price * item.quantity,
-      0
+      0,
     );
 
     // Get linked order data (if available) for actual total with discount
@@ -358,8 +364,8 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
     const discountType = discountPercentage
       ? "percentage"
       : discountAmount
-      ? "amount"
-      : undefined;
+        ? "amount"
+        : undefined;
 
     return {
       id: data.id,

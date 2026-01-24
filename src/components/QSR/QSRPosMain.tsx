@@ -34,8 +34,19 @@ import {
   RefreshCw,
   TrendingUp,
   Receipt,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import PaymentDialog from "@/components/Orders/POS/PaymentDialog";
 
 const TAX_RATE = 0.05; // 5% tax
@@ -67,6 +78,11 @@ export const QSRPosMain: React.FC = () => {
   const [itemCompletionStatus, setItemCompletionStatus] = useState<boolean[]>(
     [],
   );
+  // Delete confirmation state
+  const [orderToDelete, setOrderToDelete] = useState<{
+    order: ActiveKitchenOrder | PastOrder | null;
+    type: "active" | "past" | null;
+  }>({ order: null, type: null });
 
   // Hooks
   const { restaurantId } = useRestaurantId();
@@ -953,107 +969,68 @@ export const QSRPosMain: React.FC = () => {
     toast,
   ]);
 
-  // Delete active order handler
-  const handleDeleteActiveOrder = useCallback(
-    async (order: ActiveKitchenOrder) => {
-      const confirmed = window.confirm(
-        `Are you sure you want to delete this order from ${order.source}? This action cannot be undone.`,
-      );
+  // Delete active order handler - initiates confirmation
+  const handleDeleteActiveOrder = useCallback((order: ActiveKitchenOrder) => {
+    setOrderToDelete({ order, type: "active" });
+  }, []);
 
-      if (!confirmed) return;
+  // Delete past order handler - initiates confirmation
+  const handleDeletePastOrder = useCallback((order: PastOrder) => {
+    setOrderToDelete({ order, type: "past" });
+  }, []);
 
-      try {
-        // Delete from kitchen_orders
-        const { error: kitchenError } = await supabase
-          .from("kitchen_orders")
+  // Execute the actual deletion after confirmation
+  const executeDeleteOrder = useCallback(async () => {
+    const { order, type } = orderToDelete;
+    if (!order) return;
+
+    try {
+      // Delete from kitchen_orders
+      const { error: kitchenError } = await supabase
+        .from("kitchen_orders")
+        .delete()
+        .eq("id", order.id);
+
+      if (kitchenError) throw kitchenError;
+
+      // If there's a linked order in orders table, delete it too
+      if (order.orderId) {
+        const { error: orderError } = await supabase
+          .from("orders")
           .delete()
-          .eq("id", order.id);
+          .eq("id", order.orderId);
 
-        if (kitchenError) throw kitchenError;
-
-        // If there's a linked order in orders table, delete it too
-        if (order.orderId) {
-          const { error: orderError } = await supabase
-            .from("orders")
-            .delete()
-            .eq("id", order.orderId);
-
-          if (orderError) {
-            console.error("Error deleting linked order:", orderError);
-          }
+        if (orderError) {
+          console.error("Error deleting linked order:", orderError);
         }
+      }
 
-        // Invalidate queries to refresh data
+      // Invalidate queries to refresh data
+      if (type === "active") {
         queryClient.invalidateQueries({
           queryKey: ["active-kitchen-orders", restaurantId],
         });
-
-        toast({
-          title: "Order Deleted",
-          description: `Order from ${order.source} has been deleted`,
-        });
-      } catch (error) {
-        console.error("Error deleting order:", error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to delete order",
-        });
-      }
-    },
-    [restaurantId, queryClient, toast],
-  );
-
-  // Delete past order handler
-  const handleDeletePastOrder = useCallback(
-    async (order: PastOrder) => {
-      const confirmed = window.confirm(
-        `Are you sure you want to delete this completed order from ${order.source}? This action cannot be undone.`,
-      );
-
-      if (!confirmed) return;
-
-      try {
-        // Delete from kitchen_orders
-        const { error: kitchenError } = await supabase
-          .from("kitchen_orders")
-          .delete()
-          .eq("id", order.id);
-
-        if (kitchenError) throw kitchenError;
-
-        // If there's a linked order in orders table, delete it too
-        if (order.orderId) {
-          const { error: orderError } = await supabase
-            .from("orders")
-            .delete()
-            .eq("id", order.orderId);
-
-          if (orderError) {
-            console.error("Error deleting linked order:", orderError);
-          }
-        }
-
-        // Invalidate queries to refresh data
+      } else {
         queryClient.invalidateQueries({
           queryKey: ["past-orders", restaurantId],
         });
-
-        toast({
-          title: "Order Deleted",
-          description: `Completed order from ${order.source} has been deleted`,
-        });
-      } catch (error) {
-        console.error("Error deleting order:", error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to delete order",
-        });
       }
-    },
-    [restaurantId, queryClient, toast],
-  );
+
+      toast({
+        title: "Order Deleted",
+        description: `Order from ${order.source} has been deleted`,
+      });
+    } catch (error) {
+      console.error("Error deleting order:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete order",
+      });
+    } finally {
+      setOrderToDelete({ order: null, type: null });
+    }
+  }, [orderToDelete, restaurantId, queryClient, toast]);
 
   // Determine what to show in main area
   const showTableSelection = orderMode === "dine_in" && !selectedTable;
@@ -1335,6 +1312,42 @@ export const QSRPosMain: React.FC = () => {
         orderId={pendingKitchenOrderId || recalledKitchenOrderId || undefined}
         isNonChargeable={orderMode === "nc"}
       />
+
+      {/* Delete Order Confirmation Dialog */}
+      <AlertDialog
+        open={orderToDelete.order !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setOrderToDelete({ order: null, type: null });
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-red-500" />
+              Delete Order
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this{" "}
+              {orderToDelete.type === "past" ? "completed " : ""}order from{" "}
+              <span className="font-semibold">
+                {orderToDelete.order?.source}
+              </span>
+              ? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeDeleteOrder}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Delete Order
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -124,6 +124,11 @@ const OrderItem: React.FC<OrderItemProps> = ({
     };
 
     const sourceText = sourceLabels[source] || source;
+    // Don't append "Non-Chargeable" to label since we show a separate badge
+    if (orderType === "non-chargeable") {
+      return sourceText;
+    }
+
     const typeText = orderType
       ? ` - ${orderTypeLabels[orderType] || orderType}`
       : "";
@@ -135,10 +140,33 @@ const OrderItem: React.FC<OrderItemProps> = ({
   const StatusIcon = statusConfig.icon;
   const sourceLabel = getSourceLabel(order.source, order.order_type);
 
+  // Calculate subtotal from items if it's an NC order
+  const calculateSubtotal = () => {
+    return order.items.reduce((sum, itemStr) => {
+      // Parse item string format: "2x ItemName @100" or simple string
+      const match = itemStr.match(/^(\d+)x\s+(.+?)(?:\s+@(\d+(?:\.\d+)?))?$/);
+      if (match && match[3]) {
+        return sum + parseInt(match[1]) * parseFloat(match[3]);
+      }
+      return sum;
+    }, 0);
+  };
+
+  const isNCOrder = order.order_type === "non-chargeable";
+  const displayTotal = isNCOrder ? calculateSubtotal() : order.total;
+
+  // Render NC badge
+  const renderNCBadge = () => (
+    <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-300/50 border-0 flex items-center gap-1.5 px-3">
+      <span>🎁</span>
+      Non-Chargeable
+    </Badge>
+  );
+
   return (
     <Card
       className={`overflow-hidden hover:scale-[1.01] transition-all duration-200 rounded-xl ${getCardBackground(
-        order.status
+        order.status,
       )}`}
     >
       <CardContent className="p-0">
@@ -162,15 +190,7 @@ const OrderItem: React.FC<OrderItemProps> = ({
                     {sourceLabel}
                   </Badge>
                 )}
-                {order.order_type === "non-chargeable" && (
-                  <Badge
-                    variant="destructive"
-                    className="bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 flex items-center gap-1"
-                  >
-                    <Ban className="w-3 h-3" />
-                    Non-Chargeable
-                  </Badge>
-                )}
+                {isNCOrder && renderNCBadge()}
               </div>
 
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -207,18 +227,38 @@ const OrderItem: React.FC<OrderItemProps> = ({
                 <p className="text-sm text-muted-foreground mb-1">
                   Total Amount
                 </p>
-                <CurrencyDisplay
-                  amount={order.total}
-                  className="text-2xl font-bold text-emerald-600 dark:text-emerald-400"
-                />
-                {order.discount_amount &&
-                order.discount_amount > 0 &&
-                order.discount_percentage &&
-                order.discount_percentage > 0 ? (
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
-                    {order.discount_percentage}% discount applied
-                  </p>
-                ) : null}
+
+                {isNCOrder ? (
+                  <div className="flex flex-col items-end">
+                    <span className="text-sm text-muted-foreground line-through decoration-muted-foreground/50">
+                      <CurrencyDisplay
+                        amount={displayTotal}
+                        showTooltip={false}
+                      />
+                    </span>
+                    <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                      <CurrencyDisplay amount={0} showTooltip={false} />
+                    </span>
+                    <span className="text-xs font-medium text-pink-600 dark:text-pink-400 mt-0.5">
+                      100% off
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <CurrencyDisplay
+                      amount={order.total}
+                      className="text-2xl font-bold text-emerald-600 dark:text-emerald-400"
+                    />
+                    {order.discount_amount &&
+                    order.discount_amount > 0 &&
+                    order.discount_percentage &&
+                    order.discount_percentage > 0 ? (
+                      <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
+                        {order.discount_percentage}% discount applied
+                      </p>
+                    ) : null}
+                  </>
+                )}
               </div>
 
               <OrderActions
