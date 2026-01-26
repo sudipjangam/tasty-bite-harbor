@@ -23,6 +23,14 @@ import { QSRMenuItem } from "@/hooks/useQSRMenuItems";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { NC_REASON_OPTIONS } from "@/constants/ncReasons";
 
 interface QSRCartBottomSheetProps {
   isOpen: boolean;
@@ -47,6 +55,9 @@ interface QSRCartBottomSheetProps {
   // New props for menu search
   menuItems?: QSRMenuItem[];
   onAddMenuItem?: (item: QSRMenuItem) => void;
+  // NC reason tracking
+  ncReason?: string;
+  onNcReasonChange?: (reason: string) => void;
 }
 
 const modeIcons: Record<
@@ -88,6 +99,8 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
   isLoading = false,
   menuItems = [],
   onAddMenuItem,
+  ncReason = "",
+  onNcReasonChange,
 }) => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
@@ -460,12 +473,35 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
             </Button>
           </div>
 
+          {/* NC Reason Selector - Only shown in NC mode */}
+          {mode === "nc" && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                NC Reason <span className="text-red-500">*</span>
+              </label>
+              <Select value={ncReason} onValueChange={onNcReasonChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select reason for non-chargeable order" />
+                </SelectTrigger>
+                <SelectContent>
+                  {NC_REASON_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <Button
             onClick={() => {
               onProceedToPayment();
               onClose();
             }}
-            disabled={items.length === 0 || isLoading}
+            disabled={
+              items.length === 0 || isLoading || (mode === "nc" && !ncReason)
+            }
             className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-500/30 text-lg touch-manipulation"
           >
             💳 Proceed to Payment

@@ -84,6 +84,9 @@ export const QSRPosMain: React.FC = () => {
     type: "active" | "past" | null;
   }>({ order: null, type: null });
 
+  // NC (Non-Chargeable) Reason state
+  const [ncReason, setNcReason] = useState<string>("");
+
   // Hooks
   const { restaurantId } = useRestaurantId();
   const { user } = useAuth();
@@ -901,16 +904,33 @@ export const QSRPosMain: React.FC = () => {
         );
 
         // Create order record as completed
+        const orderTotal = orderItems.reduce(
+          (sum, item) => sum + item.price * item.quantity,
+          0,
+        );
+        const isNC = currentMode === "nc";
+
+        // Prepare items array for orders table
+        const orderItemsFormatted = orderItems.map(
+          (item) => `${item.quantity}x ${item.name} @${item.price}`,
+        );
+
         const { data: createdOrder, error: orderError } = await supabase
           .from("orders")
           .insert({
             restaurant_id: restaurantId,
+            customer_name: orderSource, // Required field
+            items: orderItemsFormatted, // Required field - array of strings
             status: "completed", // Already completed since paid
-            total: orderItems.reduce(
-              (sum, item) => sum + item.price * item.quantity,
-              0,
-            ),
-            order_type: currentMode === "nc" ? "non-chargeable" : currentMode,
+            total: isNC ? 0 : orderTotal,
+            original_subtotal: isNC ? orderTotal : null, // Track original value for NC orders
+            order_type: isNC ? "non-chargeable" : currentMode,
+            nc_reason: isNC ? ncReason || null : null, // Save NC reason if provided
+            source: "pos",
+            payment_status: isNC ? "nc" : "paid",
+            discount_amount: isNC ? orderTotal : 0,
+            discount_percentage: isNC ? 100 : 0,
+            attendant: attendantName,
             table_number:
               currentMode === "dine_in" && currentTable
                 ? currentTable.name
