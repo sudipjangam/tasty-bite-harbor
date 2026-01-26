@@ -95,6 +95,9 @@ const PaymentDialog = ({
   const queryClient = useQueryClient();
   const { symbol: currencySymbol } = useCurrencyContext();
 
+  // NC (Non-Chargeable) Reason State
+  const [ncReason, setNcReason] = useState<string>("");
+
   // Custom Item State
   const [showCustomItemDialog, setShowCustomItemDialog] = useState(false);
 

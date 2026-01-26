@@ -5,6 +5,7 @@ import { formatIndianCurrency } from "@/utils/formatters";
 import { Skeleton } from "@/components/ui/skeleton";
 import StatCard from "./StatCard";
 import StatDetails from "./StatDetails";
+import { NCStatsCard } from "./NCStatsCard";
 
 const Stats = () => {
   const [selectedStat, setSelectedStat] = useState<string | null>(null);
@@ -40,11 +41,11 @@ const Stats = () => {
       (item.status === "completed" ||
         item.status === "paid" ||
         item.status === "ready") &&
-      item.order_type !== "non-chargeable" // Exclude non-chargeable orders from revenue
+      item.order_type !== "non-chargeable", // Exclude non-chargeable orders from revenue
   );
   const totalSales = completedRevenue.reduce(
     (sum, item) => sum + getActualRevenue(item),
-    0
+    0,
   );
 
   // Define today first so it can be used for filtering
@@ -53,7 +54,7 @@ const Stats = () => {
   const activeOrdersList = orders.filter((order) => {
     const isToday = new Date(order.created_at).toDateString() === today;
     const isActive = ["pending", "preparing", "ready", "held"].includes(
-      order.status
+      order.status,
     );
     return isToday && isActive;
   });
@@ -93,7 +94,7 @@ const Stats = () => {
     }, {});
 
     return Object.values(grouped).sort(
-      (a: any, b: any) => a.timestamp - b.timestamp
+      (a: any, b: any) => a.timestamp - b.timestamp,
     );
   };
 
@@ -124,8 +125,8 @@ const Stats = () => {
     lastMonthSales > 0
       ? (((thisMonthSales - lastMonthSales) / lastMonthSales) * 100).toFixed(1)
       : thisMonthSales > 0
-      ? "+100"
-      : "0";
+        ? "+100"
+        : "0";
   const salesTrend = `${
     Number(salesTrendPercent) >= 0 ? "+" : ""
   }${salesTrendPercent}%`;
@@ -135,7 +136,7 @@ const Stats = () => {
     const isYesterday =
       new Date(order.created_at).toDateString() === yesterdayStr;
     const isActive = ["pending", "preparing", "ready", "held"].includes(
-      order.status
+      order.status,
     );
     return isYesterday && isActive;
   }).length;
@@ -148,7 +149,7 @@ const Stats = () => {
     orders
       .filter((order) => new Date(order.created_at) >= currentMonthStart)
       .map((order) => order.customer_name)
-      .filter(Boolean)
+      .filter(Boolean),
   ).size;
 
   const lastMonthCustomers = new Set(
@@ -158,7 +159,7 @@ const Stats = () => {
         return date >= previousMonthStart && date <= previousMonthEnd;
       })
       .map((order) => order.customer_name)
-      .filter(Boolean)
+      .filter(Boolean),
   ).size;
 
   const customersDiff = thisMonthCustomers - lastMonthCustomers;
@@ -176,8 +177,8 @@ const Stats = () => {
           100
         ).toFixed(1)
       : todaysRevenue > 0
-      ? "+100"
-      : "0";
+        ? "+100"
+        : "0";
   const revenueTrend = `${
     Number(revenueTrendPercent) >= 0 ? "+" : ""
   }${revenueTrendPercent}%`;
@@ -259,6 +260,11 @@ const Stats = () => {
             onClick={() => setSelectedStat(stat.title)}
           />
         ))}
+      </div>
+
+      {/* NC Orders Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <NCStatsCard />
       </div>
 
       {selectedStatData && (

@@ -32,6 +32,7 @@ import {
   CalendarClock,
   Key,
   Building2,
+  Ban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,7 @@ const hrefToComponentMap: Record<string, string> = {
   "/financial": "financial",
   "/reports": "reports",
   "/expenses": "expenses",
+  "/nc-orders": "nc-orders", // NC Orders has its own subscription component
   "/rooms": "rooms",
   "/reservations": "reservations",
   "/housekeeping": "housekeeping",
@@ -269,6 +271,13 @@ const navigationGroups: NavigationGroup[] = [
         description: "Track business expenses",
         requiredPermissions: ["financial.view"],
       },
+      {
+        title: "NC Orders",
+        icon: Ban,
+        href: "/nc-orders",
+        description: "Non-chargeable order tracking",
+        // No permissions required - accessible to all users
+      },
     ],
   },
 ];
@@ -322,7 +331,7 @@ export const ImprovedSidebarNavigation = ({
   const { toast } = useToast();
   const { restaurantName } = useRestaurantId();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set(["Dashboard", "Operations"])
+    new Set(["Dashboard", "Operations"]),
   );
 
   // Dynamic sidebar title - use restaurant name if available
@@ -405,7 +414,7 @@ export const ImprovedSidebarNavigation = ({
         "flex flex-col h-full transition-all duration-300",
         isSidebarCollapsed
           ? "opacity-0 invisible w-0"
-          : "opacity-100 visible w-64"
+          : "opacity-100 visible w-64",
       )}
     >
       {/* Header Section */}
@@ -478,7 +487,7 @@ export const ImprovedSidebarNavigation = ({
                             "w-full flex items-center gap-3 px-3 py-2 text-left rounded-lg transition-all duration-200 group",
                             active
                               ? "bg-white text-sidebar-purple font-medium shadow-sm"
-                              : "text-white hover:bg-white/10 hover:text-white"
+                              : "text-white hover:bg-white/10 hover:text-white",
                           )}
                         >
                           <Icon
@@ -486,7 +495,7 @@ export const ImprovedSidebarNavigation = ({
                               "h-4 w-4 transition-colors",
                               active
                                 ? "text-sidebar-purple"
-                                : "text-white/80 group-hover:text-white"
+                                : "text-white/80 group-hover:text-white",
                             )}
                           />
                           <div className="flex-1 min-w-0">
@@ -499,7 +508,7 @@ export const ImprovedSidebarNavigation = ({
                                   "text-xs truncate block",
                                   active
                                     ? "text-sidebar-purple/70"
-                                    : "text-white/60"
+                                    : "text-white/60",
                                 )}
                               >
                                 {item.description}
@@ -530,7 +539,7 @@ export const ImprovedSidebarNavigation = ({
                       "w-full flex items-center gap-3 px-3 py-2 text-left rounded-lg transition-all duration-200 group",
                       active
                         ? "bg-white text-sidebar-purple font-medium shadow-sm"
-                        : "text-white hover:bg-white/10 hover:text-white"
+                        : "text-white hover:bg-white/10 hover:text-white",
                     )}
                   >
                     <Icon
@@ -538,7 +547,7 @@ export const ImprovedSidebarNavigation = ({
                         "h-4 w-4 transition-colors",
                         active
                           ? "text-sidebar-purple"
-                          : "text-white/80 group-hover:text-white"
+                          : "text-white/80 group-hover:text-white",
                       )}
                     />
                     <div className="flex-1 min-w-0">
@@ -549,7 +558,7 @@ export const ImprovedSidebarNavigation = ({
                         <span
                           className={cn(
                             "text-xs truncate block",
-                            active ? "text-sidebar-purple/70" : "text-white/60"
+                            active ? "text-sidebar-purple/70" : "text-white/60",
                           )}
                         >
                           {item.description}

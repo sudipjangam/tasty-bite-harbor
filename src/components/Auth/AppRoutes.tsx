@@ -17,7 +17,7 @@ import { PermissionGuard } from "./PermissionGuard";
 // Dashboard & Landing
 const Index = lazy(() => import("@/pages/Index"));
 const StaffLandingPage = lazy(
-  () => import("@/components/Dashboard/StaffLandingPage")
+  () => import("@/components/Dashboard/StaffLandingPage"),
 );
 
 // Operations
@@ -52,6 +52,7 @@ const Analytics = lazy(() => import("@/pages/Analytics"));
 const Financial = lazy(() => import("@/pages/Financial"));
 const Expenses = lazy(() => import("@/pages/Expenses"));
 const Reports = lazy(() => import("@/pages/Reports"));
+const NCOrders = lazy(() => import("@/pages/NCOrders"));
 
 // Customers & Marketing
 const Customers = lazy(() => import("@/pages/Customers"));
@@ -71,17 +72,17 @@ const EmailTester = lazy(() => import("@/components/Email/EmailTester"));
 // Platform Admin
 const PlatformLayout = lazy(() => import("@/pages/Platform/PlatformLayout"));
 const PlatformDashboard = lazy(
-  () => import("@/pages/Platform/PlatformDashboard")
+  () => import("@/pages/Platform/PlatformDashboard"),
 );
 const RestaurantManagement = lazy(
-  () => import("@/pages/Platform/RestaurantManagement")
+  () => import("@/pages/Platform/RestaurantManagement"),
 );
 const SubscriptionManager = lazy(
-  () => import("@/pages/Platform/SubscriptionManager")
+  () => import("@/pages/Platform/SubscriptionManager"),
 );
 const AllUsers = lazy(() => import("@/pages/Platform/AllUsers"));
 const PlatformAnalytics = lazy(
-  () => import("@/pages/Platform/PlatformAnalytics")
+  () => import("@/pages/Platform/PlatformAnalytics"),
 );
 
 // ============================================================================
@@ -117,7 +118,7 @@ export const AppRoutes = () => {
       <div
         className={cn(
           "bg-sidebar-purple transition-all duration-300 ease-in-out relative hidden md:block",
-          isSidebarCollapsed ? "w-16" : "w-64"
+          isSidebarCollapsed ? "w-16" : "w-64",
         )}
       >
         {isSidebarCollapsed && (
@@ -436,6 +437,14 @@ export const AppRoutes = () => {
                   <Reports />
                 </LazyRoute>
               </PermissionGuard>
+            }
+          />
+          <Route
+            path="/nc-orders"
+            element={
+              <LazyRoute>
+                <NCOrders />
+              </LazyRoute>
             }
           />
 
