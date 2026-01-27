@@ -9,6 +9,7 @@ import LandingWebsite from "@/pages/LandingWebsite";
 import PublicEnrollmentPage from "@/pages/PublicEnrollmentPage";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import DeleteAccount from "@/pages/DeleteAccount";
+import CustomerOrder from "@/pages/CustomerOrder";
 
 const Routes = () => {
   const { user, loading } = useAuth();
@@ -31,6 +32,7 @@ const Routes = () => {
         <Route path="/enroll/:slug" element={<PublicEnrollmentPage />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/delete-account" element={<DeleteAccount />} />
+        <Route path="/order/:encodedData" element={<CustomerOrder />} />
         <Route path="*" element={<LandingWebsite />} />
       </RouterRoutes>
     );
@@ -45,6 +47,7 @@ const Routes = () => {
       <Route path="/enroll/:slug" element={<PublicEnrollmentPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/delete-account" element={<DeleteAccount />} />
+      <Route path="/order/:encodedData" element={<CustomerOrder />} />
       <Route path="/dashboard/*" element={<AppRoutes />} />
       <Route path="/*" element={<AppRoutes />} />
       <Route path="*" element={<NotFound />} />
