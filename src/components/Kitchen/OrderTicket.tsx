@@ -17,6 +17,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { KitchenOrder } from "./KitchenDisplay";
 
 interface OrderTicketProps {
@@ -26,7 +33,11 @@ interface OrderTicketProps {
   onItemComplete: (
     orderId: string,
     itemIndex: number,
-    completed: boolean
+    completed: boolean,
+  ) => void;
+  onPriorityChange?: (
+    orderId: string,
+    priority: KitchenOrder["priority"],
   ) => void;
   isLate: boolean;
   isCompact?: boolean;
@@ -39,6 +50,7 @@ const OrderTicket = ({
   onStatusUpdate,
   onBumpOrder,
   onItemComplete,
+  onPriorityChange,
   isLate,
   isCompact = false,
   isExpanded = true,
@@ -48,7 +60,7 @@ const OrderTicket = ({
   const completedItems = new Set(
     (order.item_completion_status || [])
       .map((completed, idx) => (completed ? idx : -1))
-      .filter((idx) => idx !== -1)
+      .filter((idx) => idx !== -1),
   );
 
   const orderAge = formatDistanceToNow(new Date(order.created_at), {
@@ -56,7 +68,7 @@ const OrderTicket = ({
   });
   const minutesSinceCreation = differenceInMinutes(
     new Date(),
-    new Date(order.created_at)
+    new Date(order.created_at),
   );
 
   const getNextStatus = (): KitchenOrder["status"] => {
@@ -269,6 +281,40 @@ const OrderTicket = ({
                 </div>
               </Button>
             )}
+
+            {/* Priority Selector */}
+            {onPriorityChange && (
+              <Select
+                value={order.priority}
+                onValueChange={(value) =>
+                  onPriorityChange(order.id, value as KitchenOrder["priority"])
+                }
+              >
+                <SelectTrigger className="rounded-xl border-2 bg-white/80 dark:bg-gray-700/80">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="vip">
+                    <div className="flex items-center gap-2">
+                      <Star className="w-4 h-4 text-purple-600 fill-current" />
+                      <span className="font-semibold">VIP</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="rush">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-orange-600" />
+                      <span className="font-semibold">RUSH</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="normal">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-600" />
+                      <span>Normal</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
 
@@ -306,7 +352,7 @@ const OrderTicket = ({
                 item.has_allergy ||
                 (item.notes &&
                   item.notes.some((note) =>
-                    /allerg|gluten|dairy|nut|vegan|vegetarian/i.test(note)
+                    /allerg|gluten|dairy|nut|vegan|vegetarian/i.test(note),
                   ));
 
               return (
@@ -316,8 +362,8 @@ const OrderTicket = ({
                     isCompleted
                       ? "bg-green-50 dark:bg-green-900/30 border-2 border-green-200 dark:border-green-700"
                       : hasAllergy
-                      ? "bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 border-2 border-red-300 dark:border-red-700"
-                      : "bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 border-2 border-transparent hover:border-gray-200 dark:hover:border-gray-600"
+                        ? "bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 border-2 border-red-300 dark:border-red-700"
+                        : "bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 border-2 border-transparent hover:border-gray-200 dark:hover:border-gray-600"
                   }`}
                   onClick={() => toggleItemComplete(index)}
                 >
@@ -342,7 +388,7 @@ const OrderTicket = ({
                         {item.notes.map((note, noteIndex) => {
                           const isAllergyNote =
                             /allerg|gluten|dairy|nut|vegan|vegetarian/i.test(
-                              note
+                              note,
                             );
                           return (
                             <div
@@ -351,8 +397,8 @@ const OrderTicket = ({
                                 isCompleted
                                   ? "text-gray-400 dark:text-gray-500 bg-green-100 dark:bg-green-900/50"
                                   : isAllergyNote
-                                  ? "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-600 font-semibold"
-                                  : "text-gray-600 dark:text-gray-300 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700"
+                                    ? "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-600 font-semibold"
+                                    : "text-gray-600 dark:text-gray-300 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700"
                               }`}
                             >
                               <span className="font-medium">

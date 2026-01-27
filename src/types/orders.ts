@@ -1,10 +1,12 @@
 
+
 export interface Order {
   id: string;
   customer_name: string;
   items: string[];
   total: number;
   status: 'completed' | 'pending' | 'preparing' | 'ready' | 'cancelled' | 'held';
+  priority?: 'normal' | 'rush' | 'vip';
   created_at: string;
   restaurant_id: string;
   updated_at: string;
