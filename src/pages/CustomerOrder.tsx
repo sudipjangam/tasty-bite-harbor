@@ -35,7 +35,13 @@ interface CustomerInfo {
   specialInstructions?: string;
 }
 
-const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
+const CustomerOrderContent = ({
+  orderData,
+  encodedData,
+}: {
+  orderData: OrderData;
+  encodedData: string;
+}) => {
   const [currentStep, setCurrentStep] = useState<OrderStep>("menu");
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [restaurantName, setRestaurantName] = useState("");
@@ -51,28 +57,43 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
   useEffect(() => {
     const fetchMenuData = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke(
-          "customer-menu-api",
+        // Call edge function with QR token as URL parameter
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        const response = await fetch(
+          `${supabaseUrl}/functions/v1/customer-menu-api?token=${encodedData}`,
           {
-            body: { restaurantId: orderData.restaurantId },
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${supabaseAnonKey}`,
+              apikey: supabaseAnonKey,
+            },
           },
         );
 
-        if (error) throw error;
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to fetch menu");
+        }
 
-        setMenuItems(data.menuItems || []);
-        setRestaurantName(data.restaurantName || "Restaurant");
-        setServiceChargePercent(data.serviceChargePercent || 0);
+        const data = await response.json();
+
+        setMenuItems(data.menu?.items || []);
+        setRestaurantName(data.restaurant?.name || "Restaurant");
+        setServiceChargePercent(
+          data.restaurant?.qr_service_charge_percent || 0,
+        );
         setLoading(false);
       } catch (err: any) {
         console.error("Error fetching menu:", err);
-        setError("Failed to load menu. Please try again.");
+        setError(err.message || "Failed to load menu. Please try again.");
         setLoading(false);
       }
     };
 
     fetchMenuData();
-  }, [orderData.restaurantId]);
+  }, [encodedData]);
 
   const handleCheckout = () => {
     setCurrentStep("checkout");
@@ -80,8 +101,6 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
 
   const handleSubmitOrder = async (customerInfo: CustomerInfo) => {
     try {
-      const { items, total } = useCart();
-
       // Submit order to backend
       const { data, error } = await supabase.functions.invoke(
         "submit-qr-order",
@@ -273,7 +292,7 @@ const CustomerOrder = () => {
 
   return (
     <CartProvider serviceChargePercent={0}>
-      <CustomerOrderContent orderData={orderData} />
+      <CustomerOrderContent orderData={orderData} encodedData={encodedData!} />
     </CartProvider>
   );
 };
