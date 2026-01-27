@@ -104,13 +104,26 @@ serve(async (req) => {
       timestamp: Date.now(),
     });
 
-    // Generate QR code URL (will be scanned to open customer ordering page)
-    // Use the request origin to support both localhost and production
-    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/') || 'http://localhost:8080';
+    // Generate QR code URL dynamically - intelligently detect environment
+    // Priority: APP_URL env var > request origin
+    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/') || 'http://localhost:5173';
+    const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const isProductionDB = !supabaseUrl.includes('localhost') && !supabaseUrl.includes('127.0.0.1');
+    
+    // Warn if generating localhost QRs while connected to production database
+    if (isLocalhost && isProductionDB) {
+      console.warn('⚠️  WARNING: Generating QR with localhost URL on PRODUCTION database!');
+      console.warn('   These QR codes will contain localhost URLs and will NOT work on mobile devices.');
+      console.warn('   Solution: Generate QR codes from your production app URL or set APP_URL environment variable.');
+    }
+    
     const baseUrl = Deno.env.get('APP_URL') || origin;
     const dataBytes = new TextEncoder().encode(qrCodeData);
-    const base64String = encode(dataBytes); // encode() returns a base64 string directly
+    const base64String = encode(dataBytes);
     const qrUrl = `${baseUrl}/order/${base64String}`;
+
+    console.log(`🔗 Generated QR URL: ${qrUrl}`);
 
     // Note: QR code image will be generated on the frontend using the qrUrl
     // Server-side QR generation doesn't work in Deno edge runtime (no canvas)
@@ -124,7 +137,7 @@ serve(async (req) => {
           entity_type: entityType,
           entity_id: entityId,
           qr_code_data: qrCodeData,
-          qr_code_url: qrUrl, // Store the URL to be encoded as QR on frontend
+          qr_code_url: qrUrl,
           is_active: true,
           updated_at: new Date().toISOString(),
         },

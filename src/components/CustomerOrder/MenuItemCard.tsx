@@ -93,7 +93,7 @@ export const MenuItemCard = ({ item }: MenuItemCardProps) => {
         {/* Name & Price */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-gray-900 text-base leading-tight line-clamp-1">
+            <h3 className="font-bold text-gray-900 text-sm leading-snug">
               {item.name}
             </h3>
             {item.description && (
