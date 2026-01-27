@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, Calendar, Users, Utensils } from "lucide-react";
+import { Plus, Calendar, Users, Utensils, QrCode } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TableCard, { TableData } from "@/components/Tables/TableCard";
@@ -11,12 +11,14 @@ import UnifiedReservationDialog from "@/components/UnifiedReservationDialog";
 import ReservationsList from "@/components/Tables/ReservationsList";
 import { useReservations } from "@/hooks/useReservations";
 import { ReservationFormData } from "@/types/reservations";
+import QRCodeManagement from "@/components/QR/QRCodeManagement";
 
 const Tables = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isReservationDialogOpen, setIsReservationDialogOpen] = useState(false);
   const [editingTable, setEditingTable] = useState<TableData | null>(null);
-  const [selectedTableForReservation, setSelectedTableForReservation] = useState<TableData | null>(null);
+  const [selectedTableForReservation, setSelectedTableForReservation] =
+    useState<TableData | null>(null);
   const { toast } = useToast();
   const [userName, setUserName] = useState<string>("");
 
@@ -32,7 +34,9 @@ const Tables = () => {
   useQuery({
     queryKey: ["user-profile"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error("No user found");
 
       const { data, error } = await supabase
@@ -53,7 +57,9 @@ const Tables = () => {
     queryKey: ["tables"],
     queryFn: async () => {
       console.log("Fetching tables...");
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error("No user found");
 
       const { data: userProfile } = await supabase
@@ -86,11 +92,13 @@ const Tables = () => {
     const tableData = {
       name: formData.get("name") as string,
       capacity: parseInt(formData.get("capacity") as string),
-      status: formData.get("status") as string || "available",
+      status: (formData.get("status") as string) || "available",
     };
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error("No user found");
 
       const { data: userProfile } = await supabase
@@ -173,7 +181,7 @@ const Tables = () => {
 
   const handleCreateReservation = async (data: ReservationFormData) => {
     if (!selectedTableForReservation) return;
-    
+
     await createReservation.mutateAsync({
       ...data,
       table_id: selectedTableForReservation.id,
@@ -206,12 +214,12 @@ const Tables = () => {
               </p>
             </div>
           </div>
-          
-          <Button 
+
+          <Button
             onClick={() => {
               setEditingTable(null);
               setIsAddDialogOpen(true);
-            }} 
+            }}
             className="w-full sm:w-auto bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-semibold px-4 sm:px-6 py-2 sm:py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -225,39 +233,52 @@ const Tables = () => {
       <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-2xl sm:rounded-3xl shadow-xl overflow-hidden">
         <Tabs defaultValue="tables" className="w-full">
           <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 p-1 sm:p-2">
-            <TabsList className="grid w-full grid-cols-2 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl">
-              <TabsTrigger 
-                value="tables" 
+            <TabsList className="grid w-full grid-cols-3 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl">
+              <TabsTrigger
+                value="tables"
                 className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white rounded-lg sm:rounded-xl font-semibold text-sm sm:text-base py-2 sm:py-2.5"
               >
                 <Utensils className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="hidden xs:inline">Tables</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="reservations" 
+              <TabsTrigger
+                value="reservations"
                 className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white rounded-lg sm:rounded-xl font-semibold text-sm sm:text-base py-2 sm:py-2.5"
               >
                 <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="hidden xs:inline">Reservations</span>
               </TabsTrigger>
+              <TabsTrigger
+                value="qr-codes"
+                className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white rounded-lg sm:rounded-xl font-semibold text-sm sm:text-base py-2 sm:py-2.5"
+              >
+                <QrCode className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">QR Codes</span>
+              </TabsTrigger>
             </TabsList>
           </div>
-          
-          <TabsContent value="tables" className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-4 sm:space-y-6">
+
+          <TabsContent
+            value="tables"
+            className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-4 sm:space-y-6"
+          >
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
               {tables.map((table) => (
-                <TableCard 
-                  key={table.id} 
-                  table={table} 
-                  onEdit={handleEditTable} 
+                <TableCard
+                  key={table.id}
+                  table={table}
+                  onEdit={handleEditTable}
                   onDelete={handleDelete}
                   onReserve={handleReserveTable}
                 />
               ))}
             </div>
           </TabsContent>
-          
-          <TabsContent value="reservations" className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-4 sm:space-y-6">
+
+          <TabsContent
+            value="reservations"
+            className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-4 sm:space-y-6"
+          >
             {reservationsLoading ? (
               <div className="flex items-center justify-center h-64">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
@@ -270,10 +291,19 @@ const Tables = () => {
               />
             )}
           </TabsContent>
+
+          <TabsContent value="qr-codes" className="p-3 sm:p-4 md:p-6 lg:p-8">
+            {userName && (
+              <QRCodeManagement
+                entityType="table"
+                restaurantId={tables[0]?.restaurant_id || ""}
+              />
+            )}
+          </TabsContent>
         </Tabs>
       </div>
 
-      <TableDialog 
+      <TableDialog
         isOpen={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
         editingTable={editingTable}
