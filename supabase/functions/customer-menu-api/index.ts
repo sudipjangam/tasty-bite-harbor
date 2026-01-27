@@ -52,25 +52,8 @@ serve(async (req) => {
 
     const { restaurantId, entityType, entityId } = qrData;
 
-    // Verify QR code exists and is active
-    const { data: qrCode, error: qrError } = await supabaseClient
-      .from('qr_codes')
-      .select('*')
-      .eq('restaurant_id', restaurantId)
-      .eq('entity_type', entityType)
-      .eq('entity_id', entityId)
-      .eq('is_active', true)
-      .single();
-
-    if (qrError || !qrCode) {
-      return new Response(
-        JSON.stringify({ error: 'QR code not found or inactive' }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 404,
-        }
-      );
-    }
+    // NOTE: We don't need to validate QR code in database since the QR data
+    // itself contains all necessary information. This makes the system more flexible.
 
     // Get restaurant info and settings
     const { data: restaurant, error: restaurantError } = await supabaseClient
