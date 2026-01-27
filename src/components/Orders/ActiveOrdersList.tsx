@@ -5,6 +5,9 @@ import {
   Filter,
   Calendar as CalendarIcon,
   Download,
+  Star,
+  Zap,
+  CheckCircle,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -51,6 +54,7 @@ interface ActiveOrder {
   id: string;
   source: string;
   status: "new" | "preparing" | "ready" | "completed" | "held";
+  priority?: "normal" | "rush" | "vip";
   items: LocalOrderItem[];
   created_at: string;
   discount_amount?: number;
@@ -114,7 +118,7 @@ const ActiveOrdersList = ({
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("today");
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>(
-    undefined
+    undefined,
   );
   const [showCalendar, setShowCalendar] = useState(false);
   const [restaurantName, setRestaurantName] = useState("Restaurant");
@@ -159,7 +163,7 @@ const ActiveOrdersList = ({
             discount_amount,
             discount_percentage
           )
-        `
+        `,
         )
         .eq("restaurant_id", profile.restaurant_id);
 
@@ -237,7 +241,7 @@ const ActiveOrdersList = ({
                   discount_amount: orderData?.discount_amount || 0,
                   discount_percentage: orderData?.discount_percentage || 0,
                   item_completion_status: Array.isArray(
-                    newOrder.item_completion_status
+                    newOrder.item_completion_status,
                   )
                     ? newOrder.item_completion_status
                     : [],
@@ -272,12 +276,12 @@ const ActiveOrdersList = ({
                             discount_percentage:
                               orderData?.discount_percentage || 0,
                             item_completion_status: Array.isArray(
-                              updatedOrder.item_completion_status
+                              updatedOrder.item_completion_status,
                             )
                               ? updatedOrder.item_completion_status
                               : [],
                           }
-                        : order
+                        : order,
                     );
 
                     // If status filter is not "all" and not "completed", filter out completed orders
@@ -286,7 +290,7 @@ const ActiveOrdersList = ({
                       statusFilter !== "completed"
                     ) {
                       return updatedOrders.filter(
-                        (order) => order.status !== "completed"
+                        (order) => order.status !== "completed",
                       );
                     }
 
@@ -309,18 +313,18 @@ const ActiveOrdersList = ({
                           | "held",
                         items: parseOrderItems(updatedOrder.items),
                         item_completion_status: Array.isArray(
-                          updatedOrder.item_completion_status
+                          updatedOrder.item_completion_status,
                         )
                           ? updatedOrder.item_completion_status
                           : [],
                       }
-                    : order
+                    : order,
                 );
 
                 // If status filter is not "all" and not "completed", filter out completed orders
                 if (statusFilter !== "all" && statusFilter !== "completed") {
                   return updatedOrders.filter(
-                    (order) => order.status !== "completed"
+                    (order) => order.status !== "completed",
                   );
                 }
 
@@ -340,10 +344,10 @@ const ActiveOrdersList = ({
             // Remove deleted order from UI immediately
             const deletedOrderId = payload.old.id;
             setActiveOrders((prev) =>
-              prev.filter((order) => order.id !== deletedOrderId)
+              prev.filter((order) => order.id !== deletedOrderId),
             );
           }
-        }
+        },
       )
       .subscribe();
 
@@ -359,18 +363,18 @@ const ActiveOrdersList = ({
     switch (dateFilter) {
       case "today":
         return orders.filter(
-          (order) => new Date(order.created_at) >= startOfDay(today)
+          (order) => new Date(order.created_at) >= startOfDay(today),
         );
       case "yesterday":
         return orders.filter((order) =>
           isWithinInterval(new Date(order.created_at), {
             start: startOfDay(subDays(today, 1)),
             end: startOfDay(today),
-          })
+          }),
         );
       case "last7days":
         return orders.filter(
-          (order) => new Date(order.created_at) >= subDays(today, 7)
+          (order) => new Date(order.created_at) >= subDays(today, 7),
         );
       case "thisMonth":
         return orders.filter((order) => {
@@ -386,7 +390,7 @@ const ActiveOrdersList = ({
             isWithinInterval(new Date(order.created_at), {
               start: startOfDay(customDateRange.from!),
               end: endOfDay(customDateRange.to!),
-            })
+            }),
           );
         }
         return orders;
@@ -406,7 +410,7 @@ const ActiveOrdersList = ({
       }
       // Search in items
       return order.items.some((item) =>
-        item.name.toLowerCase().includes(searchLower)
+        item.name.toLowerCase().includes(searchLower),
       );
     }
 
@@ -424,7 +428,7 @@ const ActiveOrdersList = ({
   // Calculate final total after discount
   const calculateFinalTotal = (
     items: LocalOrderItem[],
-    discountAmount?: number
+    discountAmount?: number,
   ): number => {
     const subtotal = calculateOrderTotal(items);
     const discount = discountAmount || 0;
@@ -444,7 +448,7 @@ const ActiveOrdersList = ({
 
   const getCardStyleByStatus = (
     status: string,
-    allDelivered: boolean = false
+    allDelivered: boolean = false,
   ) => {
     // Purple for all items delivered (ready for payment) - takes priority
     if (allDelivered && status !== "completed") {
@@ -502,11 +506,11 @@ const ActiveOrdersList = ({
       const totalRevenue = filteredOrders.reduce(
         (sum, order) =>
           sum + calculateFinalTotal(order.items, order.discount_amount),
-        0
+        0,
       );
       const totalDiscount = filteredOrders.reduce(
         (sum, order) => sum + (order.discount_amount || 0),
-        0
+        0,
       );
 
       // Prepare data for export
@@ -515,7 +519,7 @@ const ActiveOrdersList = ({
         Source: order.source,
         Items: order.items.map((i) => `${i.quantity}x ${i.name}`).join(", "),
         [`Gross Total (${currencySymbol})`]: parseFloat(
-          calculateOrderTotal(order.items).toFixed(2)
+          calculateOrderTotal(order.items).toFixed(2),
         ),
         [`Discount (${currencySymbol})`]: order.discount_amount
           ? `${order.discount_amount.toFixed(2)} (${
@@ -523,7 +527,7 @@ const ActiveOrdersList = ({
             }%)`
           : "-",
         [`Net Total (${currencySymbol})`]: parseFloat(
-          calculateFinalTotal(order.items, order.discount_amount).toFixed(2)
+          calculateFinalTotal(order.items, order.discount_amount).toFixed(2),
         ),
         Status: order.status as string,
         "Created Date": format(new Date(order.created_at), "yyyy-MM-dd"),
@@ -559,7 +563,7 @@ const ActiveOrdersList = ({
       // Generate filename: RestaurantName_POS_Orders_YYYY-MM-DD
       const sanitizedRestaurantName = restaurantName.replace(
         /[^a-zA-Z0-9]/g,
-        "_"
+        "_",
       );
       const dateStr = format(new Date(), "yyyy-MM-dd");
       const filename = `${sanitizedRestaurantName}_POS_Orders_${dateStr}`;
@@ -723,7 +727,7 @@ const ActiveOrdersList = ({
                   key={order.id}
                   className={`p-4 rounded-xl cursor-pointer overflow-hidden ${getCardStyleByStatus(
                     order.status,
-                    allDelivered
+                    allDelivered,
                   )}`}
                   onClick={() => setSelectedOrder(order)}
                 >
@@ -774,7 +778,7 @@ const ActiveOrdersList = ({
                         Total: {currencySymbol}
                         {calculateFinalTotal(
                           order.items,
-                          order.discount_amount
+                          order.discount_amount,
                         ).toFixed(2)}
                       </div>
                       <div className="flex gap-1">
@@ -806,7 +810,7 @@ const ActiveOrdersList = ({
                                   price: item.price || 0,
                                   quantity: item.quantity,
                                   modifiers: item.notes || [],
-                                })
+                                }),
                               );
 
                               // Do NOT delete the held order; send its ID back so POS can update it
@@ -869,7 +873,7 @@ const ActiveOrdersList = ({
           const { data: updatedOrder } = await supabase
             .from("kitchen_orders")
             .select(
-              "*, orders!kitchen_orders_order_id_fkey(discount_amount, discount_percentage)"
+              "*, orders!kitchen_orders_order_id_fkey(discount_amount, discount_percentage)",
             )
             .eq("id", selectedOrder.id)
             .single();
@@ -885,7 +889,7 @@ const ActiveOrdersList = ({
               discount_amount: orderData?.discount_amount || 0,
               discount_percentage: orderData?.discount_percentage || 0,
               item_completion_status: Array.isArray(
-                updatedOrder.item_completion_status
+                updatedOrder.item_completion_status,
               )
                 ? updatedOrder.item_completion_status
                 : [],
@@ -893,7 +897,9 @@ const ActiveOrdersList = ({
 
             // Update both the list and the selected item
             setActiveOrders((prev) =>
-              prev.map((o) => (o.id === formattedOrder.id ? formattedOrder : o))
+              prev.map((o) =>
+                o.id === formattedOrder.id ? formattedOrder : o,
+              ),
             );
             setSelectedOrder(formattedOrder);
           }

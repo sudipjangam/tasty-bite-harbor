@@ -71,6 +71,34 @@ const OrderList: React.FC<OrderListProps> = ({
     }
   };
 
+  const handlePriorityChange = async (
+    orderId: string,
+    priority: "normal" | "rush" | "vip",
+  ) => {
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .update({ priority })
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Priority Updated",
+        description: `Order priority changed to ${priority.toUpperCase()}`,
+      });
+
+      onOrdersChange();
+    } catch (error) {
+      console.error("Error updating order priority:", error);
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: "Could not update order priority",
+      });
+    }
+  };
+
   const handleEditOrder = (order: Order) => {
     setSelectedOrder(order);
     setShowEditForm(true);
@@ -194,6 +222,7 @@ const OrderList: React.FC<OrderListProps> = ({
               onEdit={() => handleEditOrder(order)}
               onDelete={initiateDeleteOrder}
               onPrintBill={handlePrintBill}
+              onPriorityChange={handlePriorityChange}
             />
           ))}
         </div>

@@ -106,7 +106,7 @@ export const useActiveKitchenOrders = (
       let query = supabase
         .from("kitchen_orders")
         .select(
-          "id, source, items, status, created_at, order_id, item_completion_status, order_type",
+          "id, source, items, status, priority, created_at, order_id, item_completion_status, order_type",
         )
         .eq("restaurant_id", restaurantId)
         .gte("created_at", start)
@@ -145,6 +145,7 @@ export const useActiveKitchenOrders = (
             source: order.source || "Unknown",
             items,
             status: order.status as ActiveKitchenOrder["status"],
+            priority: order.priority as ActiveKitchenOrder["priority"],
             createdAt: order.created_at,
             total,
             itemCompletionStatus:
@@ -220,6 +221,7 @@ export const useActiveKitchenOrders = (
       source: data.source || "Unknown",
       items,
       status: data.status as ActiveKitchenOrder["status"],
+      priority: data.priority as ActiveKitchenOrder["priority"],
       createdAt: data.created_at,
       total,
       itemCompletionStatus: (data.item_completion_status as boolean[]) || [],
@@ -264,6 +266,27 @@ export const useActiveKitchenOrders = (
     }
   };
 
+  // Update order priority
+  const handlePriorityChange = async (
+    orderId: string,
+    priority: "normal" | "rush" | "vip",
+  ) => {
+    try {
+      const { error } = await supabase
+        .from("kitchen_orders")
+        .update({ priority })
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      // Refetch to update the list
+      await refetch();
+    } catch (error) {
+      console.error("Error updating priority:", error);
+      throw error;
+    }
+  };
+
   return {
     orders,
     isLoading,
@@ -276,5 +299,6 @@ export const useActiveKitchenOrders = (
     setStatusFilter,
     getOrderById,
     toggleItemCompletion,
+    handlePriorityChange,
   };
 };
