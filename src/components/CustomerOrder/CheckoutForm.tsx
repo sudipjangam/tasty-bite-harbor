@@ -86,16 +86,43 @@ export const CheckoutForm = ({
       </div>
 
       {/* Order Location Info */}
-      <Card>
+      <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Order Details</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2">
+            <div className="p-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg">
+              <svg
+                className="w-4 h-4 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+            </div>
+            Order Location
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-600">
-              {orderData.entityType === "table" ? "Table" : "Room"}:
-            </span>
-            <span className="font-semibold">{orderData.entityName}</span>
+          <div className="bg-white rounded-lg p-4 border border-purple-200">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600 font-medium">
+                {orderData.entityType === "table" ? "Table" : "Room"}:
+              </span>
+              <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
+                {orderData.entityName}
+              </span>
+            </div>
           </div>
         </CardContent>
       </Card>

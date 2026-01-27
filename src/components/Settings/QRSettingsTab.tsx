@@ -177,7 +177,6 @@ const QRSettingsTab = () => {
                     qrOrderingEnabled: checked,
                   }))
                 }
-                disabled={!isPaymentConfigured}
               />
             </div>
           </div>
@@ -248,9 +247,7 @@ const QRSettingsTab = () => {
           <div className="flex justify-end pt-4">
             <Button
               onClick={handleSave}
-              disabled={
-                loading || saveMutation.isPending || !isPaymentConfigured
-              }
+              disabled={loading || saveMutation.isPending}
               className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700"
             >
               {loading || saveMutation.isPending ? (
