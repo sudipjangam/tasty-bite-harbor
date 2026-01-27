@@ -27,6 +27,7 @@ import {
   Sparkles,
   Star,
   Smartphone,
+  QrCode,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -37,6 +38,7 @@ import { format } from "date-fns";
 import PaymentSettingsTab from "@/components/Settings/PaymentSettingsTab";
 import { SystemConfigurationTab } from "@/components/Settings/SystemConfigurationTab";
 import { AuditLogTab } from "@/components/Settings/AuditLogTab";
+import QRSettingsTab from "@/components/Settings/QRSettingsTab";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 const Settings = () => {
@@ -176,7 +178,7 @@ const Settings = () => {
       <div className="max-w-7xl mx-auto">
         <Tabs defaultValue="account" className="w-full">
           <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-2xl p-2 mb-8 shadow-lg overflow-x-auto">
-            <TabsList className="w-full bg-transparent flex md:grid md:grid-cols-6 gap-1 md:gap-2 min-w-max md:min-w-0">
+            <TabsList className="w-full bg-transparent flex md:grid md:grid-cols-7 gap-1 md:gap-2 min-w-max md:min-w-0">
               <TabsTrigger
                 value="account"
                 className="flex items-center justify-center gap-2 md:gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-3 md:py-4 px-3 md:px-6 transition-all duration-300 whitespace-nowrap"
@@ -222,6 +224,15 @@ const Settings = () => {
               >
                 <Clock className="h-5 w-5 flex-shrink-0" />
                 <span className="font-semibold hidden sm:inline">Audit</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="qr"
+                className="flex items-center justify-center gap-2 md:gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-3 md:py-4 px-3 md:px-6 transition-all duration-300 whitespace-nowrap"
+              >
+                <QrCode className="h-5 w-5 flex-shrink-0" />
+                <span className="font-semibold hidden sm:inline">
+                  QR Settings
+                </span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -468,7 +479,7 @@ const Settings = () => {
                         {restaurant?.established_date
                           ? format(
                               new Date(restaurant.established_date),
-                              "PPPP"
+                              "PPPP",
                             )
                           : "Not Set"}
                       </p>
@@ -591,7 +602,7 @@ const Settings = () => {
                           {subscription?.current_period_start
                             ? format(
                                 new Date(subscription.current_period_start),
-                                "PPP"
+                                "PPP",
                               )
                             : "N/A"}
                         </p>
@@ -605,7 +616,7 @@ const Settings = () => {
                           {subscription?.current_period_end
                             ? format(
                                 new Date(subscription.current_period_end),
-                                "PPP"
+                                "PPP",
                               )
                             : "N/A"}
                         </p>
@@ -620,7 +631,7 @@ const Settings = () => {
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {Array.isArray(
-                            subscription.subscription_plans.features
+                            subscription.subscription_plans.features,
                           ) &&
                             subscription.subscription_plans.features.map(
                               (feature: string, index: number) => (
@@ -633,7 +644,7 @@ const Settings = () => {
                                     {feature}
                                   </span>
                                 </div>
-                              )
+                              ),
                             )}
                         </div>
                       </div>
@@ -688,6 +699,10 @@ const Settings = () => {
 
           <TabsContent value="audit">
             <AuditLogTab />
+          </TabsContent>
+
+          <TabsContent value="qr">
+            <QRSettingsTab />
           </TabsContent>
         </Tabs>
       </div>

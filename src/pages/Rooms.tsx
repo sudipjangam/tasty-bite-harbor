@@ -15,7 +15,9 @@ import {
   Percent,
   Sparkles,
   TrendingUp,
+  QrCode,
 } from "lucide-react";
+import QRCodeManagement from "@/components/QR/QRCodeManagement";
 
 const Rooms = () => {
   const [activeTab, setActiveTab] = useState("rooms");
@@ -131,6 +133,14 @@ const Rooms = () => {
                 <Percent className="h-4 w-4" />
                 Promotions
               </TabsTrigger>
+              <TabsTrigger
+                value="qr-codes"
+                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
+                disabled={!hasRestaurantId}
+              >
+                <QrCode className="h-4 w-4" />
+                QR Codes
+              </TabsTrigger>
             </TabsList>
           </div>
         </div>
@@ -169,6 +179,20 @@ const Rooms = () => {
           <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-xl p-8">
             {restaurantId ? (
               <PromotionsManager restaurantId={restaurantId} />
+            ) : (
+              <div className="flex justify-center items-center min-h-[200px]">
+                <p className="text-muted-foreground">
+                  Restaurant ID not available. Please refresh the page.
+                </p>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="qr-codes" className="mt-2 animate-in fade-in">
+          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-xl p-8">
+            {restaurantId ? (
+              <QRCodeManagement entityType="room" restaurantId={restaurantId} />
             ) : (
               <div className="flex justify-center items-center min-h-[200px]">
                 <p className="text-muted-foreground">

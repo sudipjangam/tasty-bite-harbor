@@ -12,7 +12,19 @@ import {
   XCircle,
   Loader2,
   Ban,
+  Star,
+  Zap,
+  CheckCircle,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface OrderItemProps {
   order: Order;
@@ -20,6 +32,10 @@ interface OrderItemProps {
   onEdit?: () => void;
   onDelete?: (orderId: string) => void;
   onPrintBill?: (order: Order) => void;
+  onPriorityChange?: (
+    orderId: string,
+    priority: "normal" | "rush" | "vip",
+  ) => void;
 }
 
 const OrderItem: React.FC<OrderItemProps> = ({
@@ -28,10 +44,39 @@ const OrderItem: React.FC<OrderItemProps> = ({
   onEdit,
   onDelete,
   onPrintBill,
+  onPriorityChange,
 }) => {
+  const { toast } = useToast();
   const formattedDate = formatDistanceToNow(new Date(order.created_at), {
     addSuffix: true,
   });
+
+  const handlePriorityChange = async (priority: "normal" | "rush" | "vip") => {
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .update({ priority })
+        .eq("id", order.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Priority Updated",
+        description: `Order priority changed to ${priority.toUpperCase()}`,
+      });
+
+      if (onPriorityChange) {
+        onPriorityChange(order.id, priority);
+      }
+    } catch (error) {
+      console.error("Error updating priority:", error);
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: "Could not update order priority",
+      });
+    }
+  };
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -191,6 +236,19 @@ const OrderItem: React.FC<OrderItemProps> = ({
                   </Badge>
                 )}
                 {isNCOrder && renderNCBadge()}
+                {/* Priority Badge */}
+                {order.priority === "vip" && (
+                  <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-md flex items-center gap-1">
+                    <Star className="w-3 h-3" />
+                    VIP
+                  </Badge>
+                )}
+                {order.priority === "rush" && (
+                  <Badge className="bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-md flex items-center gap-1">
+                    <Zap className="w-3 h-3" />
+                    RUSH
+                  </Badge>
+                )}
               </div>
 
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -260,6 +318,42 @@ const OrderItem: React.FC<OrderItemProps> = ({
                   </>
                 )}
               </div>
+
+              {/* Priority Selector */}
+              {onPriorityChange && (
+                <div className="mt-2">
+                  <Select
+                    value={order.priority || "normal"}
+                    onValueChange={(value: "normal" | "rush" | "vip") => {
+                      handlePriorityChange(value);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs border-gray-300 dark:border-gray-600 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="vip">
+                        <div className="flex items-center gap-1.5">
+                          <Star className="w-3 h-3 text-yellow-500" />
+                          <span className="font-medium">VIP Priority</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="rush">
+                        <div className="flex items-center gap-1.5">
+                          <Zap className="w-3 h-3 text-red-500" />
+                          <span className="font-medium">Rush Order</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="normal">
+                        <div className="flex items-center gap-1.5">
+                          <CheckCircle className="w-3 h-3 text-gray-500" />
+                          <span className="font-medium">Normal</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <OrderActions
                 order={order}
