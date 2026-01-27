@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useEffect, useState } from "react";
 import { ActiveKitchenOrder } from "@/types/qsr";
+import { useToast } from "@/hooks/use-toast";
 
 export type DateFilter =
   | "today"
@@ -271,6 +272,8 @@ export const useActiveKitchenOrders = (
     orderId: string,
     priority: "normal" | "rush" | "vip",
   ) => {
+    const { toast } = useToast();
+
     try {
       const { error } = await supabase
         .from("kitchen_orders")
@@ -279,10 +282,20 @@ export const useActiveKitchenOrders = (
 
       if (error) throw error;
 
+      toast({
+        title: "Priority Updated",
+        description: `Order priority changed to ${priority.toUpperCase()}`,
+      });
+
       // Refetch to update the list
       await refetch();
     } catch (error) {
       console.error("Error updating priority:", error);
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: "Could not update order priority",
+      });
       throw error;
     }
   };
