@@ -189,6 +189,7 @@ const ActiveOrdersList = ({
               | "ready"
               | "completed"
               | "held",
+            priority: (order.priority as "normal" | "rush" | "vip") || "normal",
             items: parseOrderItems(order.items),
             created_at: order.created_at,
             discount_amount: orderData?.discount_amount || 0,
@@ -236,6 +237,9 @@ const ActiveOrdersList = ({
                     | "ready"
                     | "completed"
                     | "held",
+                  priority:
+                    (newOrder.priority as "normal" | "rush" | "vip") ||
+                    "normal",
                   items: parseOrderItems(newOrder.items),
                   created_at: newOrder.created_at,
                   discount_amount: orderData?.discount_amount || 0,
@@ -272,6 +276,11 @@ const ActiveOrdersList = ({
                               | "ready"
                               | "completed"
                               | "held",
+                            priority:
+                              (updatedOrder.priority as
+                                | "normal"
+                                | "rush"
+                                | "vip") || "normal",
                             discount_amount: orderData?.discount_amount || 0,
                             discount_percentage:
                               orderData?.discount_percentage || 0,
@@ -311,6 +320,11 @@ const ActiveOrdersList = ({
                           | "ready"
                           | "completed"
                           | "held",
+                        priority:
+                          (updatedOrder.priority as
+                            | "normal"
+                            | "rush"
+                            | "vip") || "normal",
                         items: parseOrderItems(updatedOrder.items),
                         item_completion_status: Array.isArray(
                           updatedOrder.item_completion_status,
@@ -589,6 +603,40 @@ const ActiveOrdersList = ({
     }
   };
 
+  // Handle priority change
+  const handlePriorityChange = async (
+    orderId: string,
+    priority: "normal" | "rush" | "vip",
+  ) => {
+    try {
+      const { error } = await supabase
+        .from("kitchen_orders")
+        .update({ priority })
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Priority Updated",
+        description: `Order priority changed to ${priority.toUpperCase()}`,
+      });
+
+      // Update local state optimistically
+      setActiveOrders((prev) =>
+        prev.map((order) =>
+          order.id === orderId ? { ...order, priority } : order,
+        ),
+      );
+    } catch (error) {
+      console.error("Error updating priority:", error);
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: "Could not update order priority",
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 mb-4">
@@ -733,9 +781,26 @@ const ActiveOrdersList = ({
                 >
                   <div className="flex flex-col h-full">
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-semibold text-sm truncate mr-2 flex-1 text-gray-800">
-                        {order.source}
-                      </h3>
+                      <div className="flex-1 mr-2">
+                        <h3 className="font-semibold text-sm truncate text-gray-800">
+                          {order.source}
+                        </h3>
+                        {/* Priority Badge */}
+                        <div className="flex gap-1 mt-1">
+                          {order.priority === "vip" && (
+                            <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-sm flex items-center gap-1">
+                              <Star className="w-3 h-3" />
+                              VIP
+                            </span>
+                          )}
+                          {order.priority === "rush" && (
+                            <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-sm flex items-center gap-1">
+                              <Zap className="w-3 h-3" />
+                              RUSH
+                            </span>
+                          )}
+                        </div>
+                      </div>
                       <span
                         className={`text-xs px-3 py-1 rounded-full font-medium ${
                           allDelivered && order.status !== "completed"
@@ -781,7 +846,41 @@ const ActiveOrdersList = ({
                           order.discount_amount,
                         ).toFixed(2)}
                       </div>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1 flex-wrap">
+                        {/* Priority Selector */}
+                        <Select
+                          value={order.priority || "normal"}
+                          onValueChange={(value: "normal" | "rush" | "vip") => {
+                            handlePriorityChange(order.id, value);
+                          }}
+                        >
+                          <SelectTrigger
+                            className="h-7 text-xs w-[90px]"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="vip">
+                              <div className="flex items-center gap-1">
+                                <Star className="w-3 h-3 text-yellow-500" />
+                                <span className="text-xs">VIP</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="rush">
+                              <div className="flex items-center gap-1">
+                                <Zap className="w-3 h-3 text-red-500" />
+                                <span className="text-xs">RUSH</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="normal">
+                              <div className="flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3 text-gray-500" />
+                                <span className="text-xs">Normal</span>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
                         <Button
                           variant="outline"
                           size="sm"
