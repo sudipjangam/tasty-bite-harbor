@@ -623,6 +623,58 @@ const KitchenDisplay = () => {
     }
   };
 
+  // Handle priority change
+  const handlePriorityChange = async (
+    orderId: string,
+    newPriority: KitchenOrder["priority"],
+  ) => {
+    try {
+      const { error } = await supabase
+        .from("kitchen_orders")
+        .update({ priority: newPriority })
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      // Update local state and re-sort by priority
+      setOrders((prev) => {
+        const updated = prev.map((o) =>
+          o.id === orderId ? { ...o, priority: newPriority } : o,
+        );
+
+        // Sort by priority: vip (0) -> rush (1) -> normal (2), then by created_at
+        return updated.sort((a, b) => {
+          const priorityOrder = { vip: 0, rush: 1, normal: 2 };
+          const aPriority =
+            priorityOrder[a.priority as keyof typeof priorityOrder] ?? 2;
+          const bPriority =
+            priorityOrder[b.priority as keyof typeof priorityOrder] ?? 2;
+
+          if (aPriority !== bPriority) {
+            return aPriority - bPriority;
+          }
+
+          // If same priority, sort by created_at (newest first)
+          return (
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+        });
+      });
+
+      toast({
+        title: "Priority Updated",
+        description: `Order priority changed to ${newPriority.toUpperCase()}`,
+      });
+    } catch (error) {
+      console.error("Error updating priority:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update order priority",
+      });
+    }
+  };
+
   // Filter orders by status, excluding bumped
   const filterOrdersByStatus = (status: KitchenOrder["status"]) => {
     return orders.filter(
@@ -818,6 +870,7 @@ const KitchenDisplay = () => {
           onStatusUpdate={handleStatusUpdate}
           onBumpOrder={handleBumpOrder}
           onItemComplete={handleItemComplete}
+          onPriorityChange={handlePriorityChange}
           variant="new"
           isOrderLate={isOrderLate}
           isCompact={viewMode === "compact"}
@@ -830,6 +883,7 @@ const KitchenDisplay = () => {
           onStatusUpdate={handleStatusUpdate}
           onBumpOrder={handleBumpOrder}
           onItemComplete={handleItemComplete}
+          onPriorityChange={handlePriorityChange}
           variant="preparing"
           isOrderLate={isOrderLate}
           isCompact={viewMode === "compact"}

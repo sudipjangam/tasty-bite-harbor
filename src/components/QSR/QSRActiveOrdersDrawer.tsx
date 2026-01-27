@@ -11,6 +11,9 @@ import {
   ChevronUp,
   CreditCard,
   Trash2,
+  Star,
+  Zap,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ActiveKitchenOrder } from "@/types/qsr";
@@ -24,6 +27,14 @@ import { exportToExcel } from "@/utils/exportUtils";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
 
 interface QSRActiveOrdersDrawerProps {
   isOpen: boolean;
@@ -41,9 +52,13 @@ interface QSRActiveOrdersDrawerProps {
   onToggleItemCompletion?: (
     orderId: string,
     itemIndex: number,
-    currentStatus: boolean[]
+    currentStatus: boolean[],
   ) => Promise<boolean>;
   onDeleteOrder?: (order: ActiveKitchenOrder) => void;
+  onPriorityChange?: (
+    orderId: string,
+    priority: "normal" | "rush" | "vip",
+  ) => void;
   restaurantName?: string;
 }
 
@@ -90,6 +105,7 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
   onProceedToPayment,
   onToggleItemCompletion,
   onDeleteOrder,
+  onPriorityChange,
   restaurantName = "Restaurant",
 }) => {
   const [showStatusFilter, setShowStatusFilter] = useState(false);
@@ -171,7 +187,7 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
       // Generate filename: RestaurantName_QSR_Orders_YYYY-MM-DD
       const sanitizedRestaurantName = restaurantName.replace(
         /[^a-zA-Z0-9]/g,
-        "_"
+        "_",
       );
       const dateStr = format(new Date(), "yyyy-MM-dd");
       const filename = `${sanitizedRestaurantName}_QSR_Orders_${dateStr}`;
@@ -248,7 +264,7 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                   "px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all touch-manipulation",
                   dateFilter === filter.value
                     ? "bg-indigo-500 text-white"
-                    : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                    : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300",
                 )}
               >
                 {filter.label}
@@ -304,7 +320,7 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                     "px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all",
                     statusFilter === filter.value
                       ? "bg-indigo-500 text-white"
-                      : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700",
                   )}
                 >
                   <span className={cn("w-2 h-2 rounded-full", filter.color)} />
@@ -400,14 +416,14 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                       key={order.id}
                       className={cn(
                         "rounded-2xl overflow-hidden backdrop-blur-sm transition-all duration-300 hover:shadow-xl flex flex-col h-[360px]",
-                        style.card
+                        style.card,
                       )}
                     >
                       {/* Gradient Top Bar */}
                       <div
                         className={cn(
                           "h-1.5 bg-gradient-to-r shrink-0",
-                          style.accent
+                          style.accent,
                         )}
                       ></div>
 
@@ -423,13 +439,26 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                               <span
                                 className={cn(
                                   "px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wide",
-                                  style.badge
+                                  style.badge,
                                 )}
                               >
                                 {allDelivered && order.status !== "completed"
                                   ? "✓ Served"
                                   : order.status}
                               </span>
+                              {/* Priority Badge */}
+                              {order.priority === "vip" && (
+                                <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-md flex items-center gap-1">
+                                  <Star className="w-3 h-3" />
+                                  VIP
+                                </span>
+                              )}
+                              {order.priority === "rush" && (
+                                <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-md flex items-center gap-1">
+                                  <Zap className="w-3 h-3" />
+                                  RUSH
+                                </span>
+                              )}
                             </div>
                             {/* Time & Progress */}
                             <div className="flex items-center gap-3 mt-2">
@@ -438,7 +467,7 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                                 <span className="font-medium">
                                   {formatDistanceToNow(
                                     new Date(order.createdAt),
-                                    { addSuffix: true }
+                                    { addSuffix: true },
                                   )}
                                 </span>
                               </div>
@@ -448,7 +477,7 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                                     <div
                                       className={cn(
                                         "h-full rounded-full bg-gradient-to-r transition-all duration-500",
-                                        style.accent
+                                        style.accent,
                                       )}
                                       style={{
                                         width: `${
@@ -469,7 +498,7 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                             <div
                               className={cn(
                                 "text-xl font-extrabold bg-gradient-to-r bg-clip-text text-transparent",
-                                style.accent
+                                style.accent,
                               )}
                             >
                               <CurrencyDisplay
@@ -499,7 +528,7 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                               {/* Scrollable items container */}
                               <div
                                 className={cn(
-                                  "space-y-1.5 flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600"
+                                  "space-y-1.5 flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600",
                                 )}
                               >
                                 {visibleItems.map((item, idx) => {
@@ -514,14 +543,14 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                                         onToggleItemCompletion?.(
                                           order.id,
                                           actualIdx,
-                                          order.itemCompletionStatus || []
+                                          order.itemCompletionStatus || [],
                                         )
                                       }
                                       className={cn(
                                         "flex items-center justify-between py-2 px-3 rounded-xl transition-all duration-200 cursor-pointer group",
                                         isCompleted
                                           ? "bg-gradient-to-r from-green-100 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/20 border border-green-200 dark:border-green-700"
-                                          : "bg-white/60 dark:bg-gray-800/60 hover:bg-white dark:hover:bg-gray-700 border border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-600 hover:shadow-md"
+                                          : "bg-white/60 dark:bg-gray-800/60 hover:bg-white dark:hover:bg-gray-700 border border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-600 hover:shadow-md",
                                       )}
                                     >
                                       <div className="flex items-center gap-2.5 flex-1 min-w-0">
@@ -531,7 +560,7 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                                             "w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all duration-200",
                                             isCompleted
                                               ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-md shadow-green-300/50"
-                                              : "border-2 border-gray-300 dark:border-gray-500 group-hover:border-indigo-400 dark:group-hover:border-indigo-500 group-hover:scale-110"
+                                              : "border-2 border-gray-300 dark:border-gray-500 group-hover:border-indigo-400 dark:group-hover:border-indigo-500 group-hover:scale-110",
                                           )}
                                         >
                                           {isCompleted && (
@@ -548,7 +577,7 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                                               "inline-flex items-center justify-center w-5 h-5 rounded-md text-xs font-bold shrink-0",
                                               isCompleted
                                                 ? "bg-green-200 dark:bg-green-800 text-green-700 dark:text-green-300"
-                                                : "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400"
+                                                : "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400",
                                             )}
                                           >
                                             {item.quantity}x
@@ -558,7 +587,7 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                                               "font-medium truncate text-sm transition-all",
                                               isCompleted
                                                 ? "line-through text-gray-400 dark:text-gray-500"
-                                                : "text-gray-700 dark:text-gray-200"
+                                                : "text-gray-700 dark:text-gray-200",
                                             )}
                                           >
                                             {item.name}
@@ -571,7 +600,7 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                                           "font-semibold text-sm shrink-0 ml-2 transition-all",
                                           isCompleted
                                             ? "line-through text-gray-400 dark:text-gray-500"
-                                            : "text-gray-600 dark:text-gray-300"
+                                            : "text-gray-600 dark:text-gray-300",
                                         )}
                                       >
                                         <CurrencyDisplay
@@ -596,7 +625,7 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                                     "bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700",
                                     "hover:from-indigo-50 hover:to-purple-50 dark:hover:from-indigo-900/30 dark:hover:to-purple-900/30",
                                     "border border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-600",
-                                    "text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400"
+                                    "text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400",
                                   )}
                                 >
                                   {isExpanded ? (
@@ -616,6 +645,48 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                             </div>
                           );
                         })()}
+
+                        {/* Priority Selector - Above Action Buttons */}
+                        {onPriorityChange && (
+                          <div className="mt-2 mb-1 shrink-0">
+                            <Select
+                              value={order.priority || "normal"}
+                              onValueChange={(
+                                value: "normal" | "rush" | "vip",
+                              ) => {
+                                onPriorityChange(order.id, value);
+                              }}
+                            >
+                              <SelectTrigger className="h-8 text-xs border-gray-300 dark:border-gray-600">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="vip">
+                                  <div className="flex items-center gap-1.5">
+                                    <Star className="w-3 h-3 text-yellow-500" />
+                                    <span className="font-medium">
+                                      VIP Priority
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="rush">
+                                  <div className="flex items-center gap-1.5">
+                                    <Zap className="w-3 h-3 text-red-500" />
+                                    <span className="font-medium">
+                                      Rush Order
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="normal">
+                                  <div className="flex items-center gap-1.5">
+                                    <CheckCircle2 className="w-3 h-3 text-gray-500" />
+                                    <span className="font-medium">Normal</span>
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
 
                         {/* Action Buttons - Pinned at bottom */}
                         <div className="flex gap-2 mt-auto shrink-0">
@@ -649,7 +720,7 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                               className={cn(
                                 "flex-1 flex items-center justify-center gap-1.5 font-semibold transition-all duration-300",
                                 "bg-gradient-to-r hover:shadow-lg from-emerald-500 to-green-600",
-                                "text-white border-0"
+                                "text-white border-0",
                               )}
                             >
                               <CreditCard className="w-3.5 h-3.5" />

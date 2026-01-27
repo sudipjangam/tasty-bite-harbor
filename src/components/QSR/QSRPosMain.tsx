@@ -108,6 +108,7 @@ export const QSRPosMain: React.FC = () => {
     statusFilter,
     setStatusFilter,
     toggleItemCompletion,
+    handlePriorityChange,
   } = useActiveKitchenOrders();
   const {
     orders: pastOrders,
@@ -1282,6 +1283,7 @@ export const QSRPosMain: React.FC = () => {
         onProceedToPayment={handleProceedToPayment}
         onToggleItemCompletion={toggleItemCompletion}
         onDeleteOrder={handleDeleteActiveOrder}
+        onPriorityChange={handlePriorityChange}
         restaurantName={restaurantName}
       />
 

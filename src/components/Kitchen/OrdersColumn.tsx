@@ -16,7 +16,11 @@ interface OrdersColumnProps {
   onItemComplete: (
     orderId: string,
     itemIndex: number,
-    completed: boolean
+    completed: boolean,
+  ) => void;
+  onPriorityChange?: (
+    orderId: string,
+    priority: KitchenOrder["priority"],
   ) => void;
   variant: "new" | "preparing" | "ready";
   isOrderLate: (order: KitchenOrder) => boolean;
@@ -31,6 +35,7 @@ const OrdersColumn = ({
   onStatusUpdate,
   onBumpOrder,
   onItemComplete,
+  onPriorityChange,
   variant,
   isOrderLate,
   isCompact = false,
@@ -140,6 +145,7 @@ const OrdersColumn = ({
                 onStatusUpdate={onStatusUpdate}
                 onBumpOrder={onBumpOrder}
                 onItemComplete={onItemComplete}
+                onPriorityChange={onPriorityChange}
                 isLate={isOrderLate(order)}
                 isCompact={isCompact}
                 isExpanded={!isCompact || expandedOrders.has(order.id)}

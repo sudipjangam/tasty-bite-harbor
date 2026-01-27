@@ -40,6 +40,7 @@ export interface ActiveKitchenOrder {
   source: string;
   items: { name: string; quantity: number; price: number }[];
   status: 'new' | 'preparing' | 'ready' | 'held' | 'completed';
+  priority?: 'normal' | 'rush' | 'vip';
   createdAt: string;
   total: number;
   itemCompletionStatus?: boolean[];
