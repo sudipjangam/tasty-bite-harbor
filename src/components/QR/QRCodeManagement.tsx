@@ -20,20 +20,24 @@ import { useToast } from "@/hooks/use-toast";
 import { QrCode, Download, RefreshCw, Loader2, Eye } from "lucide-react";
 import { QRCode as QRCodeType, QREntityType } from "@/types/qrOrdering";
 import { downloadQRCode, generateQRCodeImage } from "@/utils/qrCodeUtils";
+import { generateBrandedQRCard } from "@/utils/qrTemplateGenerator";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 interface QRCodeManagementProps {
   entityType: QREntityType;
-  restaurantId: string;
 }
 
-const QRCodeManagement: React.FC<QRCodeManagementProps> = ({
-  entityType,
-  restaurantId,
-}) => {
+const QRCodeManagement: React.FC<QRCodeManagementProps> = ({ entityType }) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedQR, setSelectedQR] = useState<QRCodeType | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  const {
+    restaurantId,
+    restaurantName,
+    isLoading: restaurantLoading,
+  } = useRestaurantId();
 
   // Fetch entities (tables or rooms)
   const tableName =
@@ -149,20 +153,70 @@ const QRCodeManagement: React.FC<QRCodeManagementProps> = ({
     },
   });
 
-  const handleDownload = (qr: QRCodeType, entity: any) => {
+  const handleDownload = async (qr: QRCodeType, entity: any) => {
     if (qr.qr_code_url) {
-      const filename = `${entityType}-${entity.name}-qr-code.png`;
-      downloadQRCode(qr.qr_code_url, filename);
-      toast({
-        title: "Downloaded",
-        description: `QR code for ${entity.name} downloaded`,
-      });
+      try {
+        // Ensure restaurant data is loaded
+        if (!restaurantName) {
+          toast({
+            title: "Loading...",
+            description: "Please wait while restaurant data loads",
+          });
+          return;
+        }
+
+        // Generate branded QR card
+        const brandedCard = await generateBrandedQRCard({
+          qrCodeDataUrl: qr.qr_code_url,
+          tableName: entity.name || entity.table_number || entity.room_number,
+          restaurantName: restaurantName,
+          // TODO: Add primary_color and secondary_color to useRestaurantId
+          primaryColor: undefined,
+          secondaryColor: undefined,
+        });
+
+        const filename = `${entityType}-${entity.name}-qr-card.png`;
+        downloadQRCode(brandedCard, filename);
+        toast({
+          title: "Downloaded",
+          description: `Branded QR code card for ${entity.name} downloaded`,
+        });
+      } catch (error) {
+        console.error("Error generating branded QR:", error);
+        toast({
+          title: "Download Failed",
+          description: "Could not generate branded QR code",
+          variant: "destructive",
+        });
+      }
     }
   };
 
-  const handlePreview = (qr: QRCodeType) => {
-    setSelectedQR(qr);
-    setPreviewOpen(true);
+  const handlePreview = async (qr: QRCodeType, entity: any) => {
+    if (qr.qr_code_url && restaurantName) {
+      try {
+        // Generate branded QR card for preview
+        const brandedCard = await generateBrandedQRCard({
+          qrCodeDataUrl: qr.qr_code_url,
+          tableName: entity.name || entity.table_number || entity.room_number,
+          restaurantName: restaurantName,
+          primaryColor: undefined,
+          secondaryColor: undefined,
+        });
+
+        // Create a temporary QR object with the branded card
+        setSelectedQR({ ...qr, qr_code_url: brandedCard });
+        setPreviewOpen(true);
+      } catch (error) {
+        console.error("Error generating preview:", error);
+        // Fallback to plain QR code if branded generation fails
+        setSelectedQR(qr);
+        setPreviewOpen(true);
+      }
+    } else {
+      setSelectedQR(qr);
+      setPreviewOpen(true);
+    }
   };
 
   const getEntityById = (entityId: string) => {
@@ -197,20 +251,18 @@ const QRCodeManagement: React.FC<QRCodeManagementProps> = ({
           </p>
         </div>
         <div className="flex gap-2">
-          {entitiesWithoutQR.length > 0 && (
-            <Button
-              onClick={() => generateAllMutation.mutate()}
-              disabled={generateAllMutation.isPending}
-              className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
-            >
-              {generateAllMutation.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <QrCode className="w-4 h-4 mr-2" />
-              )}
-              Generate All QR Codes
-            </Button>
-          )}
+          <Button
+            onClick={() => generateAllMutation.mutate()}
+            disabled={generateAllMutation.isPending}
+            className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
+          >
+            {generateAllMutation.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <QrCode className="w-4 h-4 mr-2" />
+            )}
+            Generate All QR Codes
+          </Button>
         </div>
       </div>
 
@@ -287,7 +339,7 @@ const QRCodeManagement: React.FC<QRCodeManagementProps> = ({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handlePreview(qr)}
+                        onClick={() => handlePreview(qr, entity)}
                         className="flex-1"
                       >
                         <Eye className="w-3 h-3 mr-1" />
