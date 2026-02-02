@@ -13,8 +13,14 @@ import {
   MessageSquare,
   CreditCard,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import {
+  validateName,
+  validatePhone,
+  handlePhoneInput,
+} from "@/utils/formValidation";
 
 interface CustomerInfo {
   name: string;
@@ -41,22 +47,36 @@ export const CheckoutForm = ({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string;
+    phone?: string;
+  }>({});
+
+  const validateForm = (): boolean => {
+    const errors: { name?: string; phone?: string } = {};
+
+    // Validate name
+    const nameValidation = validateName(customerInfo.name, true, 2);
+    if (!nameValidation.isValid) {
+      errors.name = nameValidation.error;
+    }
+
+    // Validate phone
+    const phoneValidation = validatePhone(customerInfo.phone, true);
+    if (!phoneValidation.isValid) {
+      errors.phone = phoneValidation.error;
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    // Validation
-    if (!customerInfo.name.trim()) {
-      setError("Please enter your name");
-      return;
-    }
-    if (!customerInfo.phone.trim()) {
-      setError("Please enter your phone number");
-      return;
-    }
-    if (!/^\d{10}$/.test(customerInfo.phone.replace(/\s/g, ""))) {
-      setError("Please enter a valid 10-digit phone number");
+    if (!validateForm()) {
+      setError("Please fix the errors above before continuing");
       return;
     }
 
@@ -145,12 +165,30 @@ export const CheckoutForm = ({
                 type="text"
                 placeholder="Enter your name"
                 value={customerInfo.name}
-                onChange={(e) =>
-                  setCustomerInfo({ ...customerInfo, name: e.target.value })
-                }
+                onChange={(e) => {
+                  setCustomerInfo({ ...customerInfo, name: e.target.value });
+                  // Clear error when user starts typing
+                  if (fieldErrors.name) {
+                    setFieldErrors({ ...fieldErrors, name: undefined });
+                  }
+                }}
+                onBlur={() => {
+                  // Validate on blur
+                  const validation = validateName(customerInfo.name, true, 2);
+                  if (!validation.isValid) {
+                    setFieldErrors({ ...fieldErrors, name: validation.error });
+                  }
+                }}
                 disabled={isSubmitting}
                 required
+                className={fieldErrors.name ? "border-red-500" : ""}
               />
+              {fieldErrors.name && (
+                <p className="text-xs text-red-500 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {fieldErrors.name}
+                </p>
+              )}
             </div>
 
             {/* Phone */}
@@ -164,12 +202,32 @@ export const CheckoutForm = ({
                 type="tel"
                 placeholder="10-digit mobile number"
                 value={customerInfo.phone}
-                onChange={(e) =>
-                  setCustomerInfo({ ...customerInfo, phone: e.target.value })
-                }
+                onChange={(e) => {
+                  const sanitized = handlePhoneInput(e.target.value);
+                  setCustomerInfo({ ...customerInfo, phone: sanitized });
+                  // Clear error when user starts typing
+                  if (fieldErrors.phone) {
+                    setFieldErrors({ ...fieldErrors, phone: undefined });
+                  }
+                }}
+                onBlur={() => {
+                  // Validate on blur
+                  const validation = validatePhone(customerInfo.phone, true);
+                  if (!validation.isValid) {
+                    setFieldErrors({ ...fieldErrors, phone: validation.error });
+                  }
+                }}
                 disabled={isSubmitting}
                 required
+                maxLength={10}
+                className={fieldErrors.phone ? "border-red-500" : ""}
               />
+              {fieldErrors.phone && (
+                <p className="text-xs text-red-500 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {fieldErrors.phone}
+                </p>
+              )}
             </div>
 
             {/* Special Instructions */}
