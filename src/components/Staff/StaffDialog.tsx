@@ -5,14 +5,32 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
 import { Camera, User, UserPlus, Loader2, FileText } from "lucide-react";
 import type { StaffMember, StaffRole, Document } from "@/types/staff";
 import DocumentUpload from "./DocumentUpload";
+import {
+  validatePhone,
+  validateEmail,
+  handlePhoneInput,
+} from "@/utils/formValidation";
 
 interface StaffDialogProps {
   isOpen: boolean;
@@ -33,7 +51,7 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
 }) => {
   const isEditMode = !!staff;
   const { toast } = useToast();
-  
+
   // Form state
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -67,7 +85,7 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
       setPhotoUrl(staff.photo_url || "");
       setEmergencyContactName(staff.emergency_contact_name || "");
       setEmergencyContactPhone(staff.emergency_contact_phone || "");
-      setStartDate(staff.start_date ? staff.start_date.split('T')[0] : "");
+      setStartDate(staff.start_date ? staff.start_date.split("T")[0] : "");
       setAvailabilityNotes(staff.availability_notes || "");
       setRoleIds(staff.role_ids || []);
       setSalary(staff.salary?.toString() || "");
@@ -106,7 +124,7 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
       setFile(selectedFile);
-      
+
       // Create preview
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -119,18 +137,19 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
   // Upload photo if provided
   const uploadPhoto = async () => {
     if (!file) return null;
-    
+
     try {
-      const { uploadImage } = await import('@/utils/imageUpload');
+      const { uploadImage } = await import("@/utils/imageUpload");
       const imageUrl = await uploadImage(file, (progress) => {
         console.log(`Upload progress: ${progress}%`);
       });
-      
+
       toast({
         title: "Photo uploaded successfully",
-        description: "Staff photo has been uploaded and resized to passport size.",
+        description:
+          "Staff photo has been uploaded and resized to passport size.",
       });
-      
+
       return imageUrl;
     } catch (error: any) {
       toast({
@@ -147,7 +166,7 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
     mutationFn: async (staffData: any) => {
       try {
         let photoURL = photoUrl;
-        
+
         // Upload photo if a file is selected
         if (file) {
           const uploadedUrl = await uploadPhoto();
@@ -155,23 +174,23 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
             photoURL = uploadedUrl;
           }
         }
-        
+
         // Prepare staff data
         const staffWithPhoto = {
           ...staffData,
           photo_url: photoURL,
           documents: documents,
         };
-        
+
         let staffId = staff?.id;
-        
+
         if (isEditMode && staff) {
           // Update existing staff
           const { error } = await supabase
             .from("staff")
             .update(staffWithPhoto)
             .eq("id", staff.id);
-          
+
           if (error) throw error;
           staffId = staff.id;
         } else {
@@ -179,13 +198,13 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
           const { data: newStaff, error } = await supabase
             .from("staff")
             .insert([{ ...staffWithPhoto, restaurant_id: restaurantId }])
-            .select('id')
+            .select("id")
             .single();
-          
+
           if (error) throw error;
           staffId = newStaff.id;
         }
-        
+
         return { success: true };
       } catch (error: any) {
         console.error("Error saving staff:", error);
@@ -212,10 +231,9 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
     },
   });
 
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate required fields
     if (!firstName || !lastName) {
       toast({
@@ -228,11 +246,11 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
 
     // Validate phone number if provided
     if (phone) {
-      const phoneRegex = /^\d{10}$/;
-      if (!phoneRegex.test(phone.replace(/\D/g, ''))) {
+      const phoneValidation = validatePhone(phone, false);
+      if (!phoneValidation.isValid) {
         toast({
           title: "Invalid phone number",
-          description: "Phone number must be exactly 10 digits.",
+          description: phoneValidation.error,
           variant: "destructive",
         });
         return;
@@ -241,17 +259,30 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
 
     // Validate email if provided
     if (email) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
+      const emailValidation = validateEmail(email, false);
+      if (!emailValidation.isValid) {
         toast({
           title: "Invalid email",
-          description: "Please enter a valid email address.",
+          description: emailValidation.error,
           variant: "destructive",
         });
         return;
       }
     }
-    
+
+    // Validate emergency contact phone if provided
+    if (emergencyContactPhone) {
+      const phoneValidation = validatePhone(emergencyContactPhone, false);
+      if (!phoneValidation.isValid) {
+        toast({
+          title: "Invalid emergency contact phone",
+          description: phoneValidation.error,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     const staffData = {
       first_name: firstName,
       last_name: lastName,
@@ -269,12 +300,12 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
       salary_type: salaryType,
       documents: documents,
     };
-    
+
     saveStaffMutation.mutate(staffData);
   };
 
   const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
+    return `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase();
   };
 
   return (
@@ -283,12 +314,18 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
         <DialogHeader className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 dark:from-purple-500/20 dark:to-indigo-500/20 rounded-2xl p-6 mb-6">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-gradient-to-br from-purple-500 via-indigo-500 to-pink-500 rounded-2xl shadow-lg shadow-purple-500/30">
-              {isEditMode ? <User className="h-6 w-6 text-white drop-shadow-sm" /> : <UserPlus className="h-6 w-6 text-white drop-shadow-sm" />}
+              {isEditMode ? (
+                <User className="h-6 w-6 text-white drop-shadow-sm" />
+              ) : (
+                <UserPlus className="h-6 w-6 text-white drop-shadow-sm" />
+              )}
             </div>
 
             <div>
               <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                {isEditMode ? `Edit ${staff?.first_name} ${staff?.last_name}` : "Add New Staff Member"}
+                {isEditMode
+                  ? `Edit ${staff?.first_name} ${staff?.last_name}`
+                  : "Add New Staff Member"}
               </DialogTitle>
               <DialogDescription className="text-gray-600 dark:text-gray-400 mt-1">
                 {isEditMode
@@ -309,7 +346,11 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
                     <AvatarImage src={photoPreview} className="object-cover" />
                   ) : (
                     <AvatarFallback className="text-2xl bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
-                      {firstName && lastName ? getInitials(firstName, lastName) : <Camera className="h-8 w-8" />}
+                      {firstName && lastName ? (
+                        getInitials(firstName, lastName)
+                      ) : (
+                        <Camera className="h-8 w-8" />
+                      )}
                     </AvatarFallback>
                   )}
                 </Avatar>
@@ -320,7 +361,7 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
               <div className="mt-3 text-center">
                 <span className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 shadow-md shadow-purple-500/30 transition-all duration-300">
                   <Camera className="h-4 w-4 mr-2" />
-                  {photoPreview ? 'Change Photo' : 'Upload Photo'}
+                  {photoPreview ? "Change Photo" : "Upload Photo"}
                 </span>
               </div>
             </Label>
@@ -343,7 +384,12 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="firstName" className="text-sm font-medium text-gray-700 dark:text-gray-300">First Name *</Label>
+                <Label
+                  htmlFor="firstName"
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  First Name *
+                </Label>
                 <Input
                   id="firstName"
                   value={firstName}
@@ -353,7 +399,12 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
                 />
               </div>
               <div>
-                <Label htmlFor="lastName" className="text-sm font-medium text-gray-700 dark:text-gray-300">Last Name *</Label>
+                <Label
+                  htmlFor="lastName"
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Last Name *
+                </Label>
                 <Input
                   id="lastName"
                   value={lastName}
@@ -367,10 +418,17 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
 
           {/* Job Information */}
           <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Job Information</h3>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+              Job Information
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="position" className="text-sm font-medium text-gray-700 dark:text-gray-300">Position</Label>
+                <Label
+                  htmlFor="position"
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Position
+                </Label>
                 <Input
                   id="position"
                   value={position}
@@ -379,7 +437,12 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
                 />
               </div>
               <div>
-                <Label htmlFor="status" className="text-sm font-medium text-gray-700 dark:text-gray-300">Status</Label>
+                <Label
+                  htmlFor="status"
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Status
+                </Label>
                 <Select value={status} onValueChange={setStatus}>
                   <SelectTrigger className="mt-1 bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 text-gray-900 dark:text-gray-100">
                     <SelectValue placeholder="Select status" />
@@ -396,10 +459,17 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
 
           {/* Contact Information */}
           <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Contact Information</h3>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+              Contact Information
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</Label>
+                <Label
+                  htmlFor="email"
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Email
+                </Label>
                 <Input
                   id="email"
                   type="email"
@@ -409,13 +479,18 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
                 />
               </div>
               <div>
-                <Label htmlFor="phone" className="text-sm font-medium text-gray-700 dark:text-gray-300">Phone</Label>
+                <Label
+                  htmlFor="phone"
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Phone
+                </Label>
                 <Input
                   id="phone"
                   type="tel"
                   value={phone}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '');
+                    const value = e.target.value.replace(/\D/g, "");
                     if (value.length <= 10) {
                       setPhone(value);
                     }
@@ -430,10 +505,17 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
 
           {/* Emergency Contact */}
           <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Emergency Contact</h3>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+              Emergency Contact
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="emergencyContactName" className="text-sm font-medium text-gray-700 dark:text-gray-300">Emergency Contact Name</Label>
+                <Label
+                  htmlFor="emergencyContactName"
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Emergency Contact Name
+                </Label>
                 <Input
                   id="emergencyContactName"
                   value={emergencyContactName}
@@ -442,12 +524,22 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
                 />
               </div>
               <div>
-                <Label htmlFor="emergencyContactPhone" className="text-sm font-medium text-gray-700 dark:text-gray-300">Emergency Contact Phone</Label>
+                <Label
+                  htmlFor="emergencyContactPhone"
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Emergency Contact Phone
+                </Label>
                 <Input
                   id="emergencyContactPhone"
+                  type="tel"
                   value={emergencyContactPhone}
-                  onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                  onChange={(e) =>
+                    setEmergencyContactPhone(handlePhoneInput(e.target.value))
+                  }
                   className="mt-1 bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200 text-gray-900 dark:text-gray-100"
+                  placeholder="10-digit phone number"
+                  maxLength={10}
                 />
               </div>
             </div>
@@ -455,10 +547,17 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
 
           {/* Salary Information */}
           <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Salary Information</h3>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+              Salary Information
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="salary" className="text-sm font-medium text-gray-700 dark:text-gray-300">Salary Amount</Label>
+                <Label
+                  htmlFor="salary"
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Salary Amount
+                </Label>
                 <Input
                   id="salary"
                   type="number"
@@ -469,7 +568,12 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
                 />
               </div>
               <div>
-                <Label htmlFor="salaryType" className="text-sm font-medium text-gray-700 dark:text-gray-300">Salary Type</Label>
+                <Label
+                  htmlFor="salaryType"
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Salary Type
+                </Label>
                 <Select value={salaryType} onValueChange={setSalaryType}>
                   <SelectTrigger className="mt-1 bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 text-gray-900 dark:text-gray-100">
                     <SelectValue placeholder="Select salary type" />
@@ -488,10 +592,17 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
 
           {/* Work Schedule */}
           <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Work Schedule</h3>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+              Work Schedule
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="startDate" className="text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</Label>
+                <Label
+                  htmlFor="startDate"
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Start Date
+                </Label>
                 <Input
                   id="startDate"
                   type="date"
@@ -502,7 +613,12 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
                 />
               </div>
               <div>
-                <Label htmlFor="shift" className="text-sm font-medium text-gray-700 dark:text-gray-300">Shift</Label>
+                <Label
+                  htmlFor="shift"
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Shift
+                </Label>
                 <Select value={shift} onValueChange={setShift}>
                   <SelectTrigger className="mt-1 bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 text-gray-900 dark:text-gray-100">
                     <SelectValue placeholder="Select shift" />
@@ -520,9 +636,16 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
 
           {/* Availability Notes */}
           <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Additional Information</h3>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+              Additional Information
+            </h3>
             <div>
-              <Label htmlFor="availabilityNotes" className="text-sm font-medium text-gray-700 dark:text-gray-300">Availability Notes</Label>
+              <Label
+                htmlFor="availabilityNotes"
+                className="text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Availability Notes
+              </Label>
               <Textarea
                 id="availabilityNotes"
                 value={availabilityNotes}
@@ -549,16 +672,16 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
           </div>
 
           <DialogFooter className="flex gap-3 pt-6">
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={onClose}
               className="bg-white/80 dark:bg-gray-800/80 border-2 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold px-6 py-3 rounded-xl transition-all duration-300"
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={saveStaffMutation.isPending}
               className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:transform-none"
             >
@@ -567,8 +690,10 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
                   <Loader2 className="animate-spin h-4 w-4 mr-2" />
                   Saving...
                 </>
+              ) : isEditMode ? (
+                "Update Staff"
               ) : (
-                isEditMode ? "Update Staff" : "Add Staff"
+                "Add Staff"
               )}
             </Button>
           </DialogFooter>

@@ -38,7 +38,12 @@ export interface ActiveKitchenOrder {
   id: string;
   orderId?: string;
   source: string;
-  items: { name: string; quantity: number; price: number }[];
+  items: { 
+    name: string; 
+    quantity: number; 
+    price: number;
+    notes?: string | string[];  // Notes can be a string or array of strings
+  }[];
   status: 'new' | 'preparing' | 'ready' | 'held' | 'completed';
   priority?: 'normal' | 'rush' | 'vip';
   createdAt: string;
