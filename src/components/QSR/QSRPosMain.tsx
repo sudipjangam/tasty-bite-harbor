@@ -87,6 +87,9 @@ export const QSRPosMain: React.FC = () => {
   // NC (Non-Chargeable) Reason state
   const [ncReason, setNcReason] = useState<string>("");
 
+  // Customer name state for takeaway, delivery, and NC orders
+  const [customerName, setCustomerName] = useState<string>("");
+
   // Hooks
   const { restaurantId } = useRestaurantId();
   const { user } = useAuth();
@@ -232,6 +235,8 @@ export const QSRPosMain: React.FC = () => {
         !recalledKitchenOrderId
       ) {
         setOrderItems([]);
+        setCustomerName(""); // Clear customer name when switching modes
+        setNcReason(""); // Clear NC reason when switching modes
       }
     },
     [orderItems.length, pendingKitchenOrderId, recalledKitchenOrderId],
@@ -409,6 +414,8 @@ export const QSRPosMain: React.FC = () => {
     setOrderItems([]);
     setRecalledKitchenOrderId(null);
     setItemCompletionStatus([]);
+    setCustomerName(""); // Clear customer name
+    setNcReason(""); // Clear NC reason
     toast({
       title: "Order Cleared",
       description: "All items removed from order",
@@ -467,12 +474,16 @@ export const QSRPosMain: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // Determine order source
+      // Determine order source/customer name
+      // Use actual customer name for takeaway/delivery/NC, fallback to mode-based defaults
       let orderSource =
         orderMode === "dine_in" && selectedTable
           ? `Table ${selectedTable.name}`
           : orderMode.charAt(0).toUpperCase() +
             orderMode.slice(1).replace("_", " ");
+
+      // Use customer name if provided (for takeaway/delivery/NC)
+      const finalCustomerName = customerName.trim() || orderSource;
 
       const kitchenItems = orderItems.map((item) => ({
         name: item.name,
@@ -519,7 +530,7 @@ export const QSRPosMain: React.FC = () => {
             status: "new",
             items: kitchenItems,
             order_type: orderTypeMap[orderMode],
-            customer_name: orderSource,
+            customer_name: finalCustomerName, // Use actual customer name
             server_name: attendantName,
             priority: "normal",
           })
@@ -535,7 +546,7 @@ export const QSRPosMain: React.FC = () => {
           .from("orders")
           .insert({
             restaurant_id: restaurantId,
-            customer_name: orderSource,
+            customer_name: finalCustomerName, // Use actual customer name
             items: orderItems.map((item) => {
               const notes = item.notes ? ` (${item.notes})` : "";
               return `${item.quantity}x ${item.name}${notes} @${item.price}`;
@@ -547,6 +558,7 @@ export const QSRPosMain: React.FC = () => {
               orderMode === "nc"
                 ? "non-chargeable"
                 : orderMode.replace("_", "-"),
+            nc_reason: orderMode === "nc" ? ncReason : null, // Store NC reason
             attendant: attendantName,
           })
           .select()
@@ -615,11 +627,15 @@ export const QSRPosMain: React.FC = () => {
 
     setIsLoading(true);
     try {
+      // Determine order source/customer name
       let orderSource =
         orderMode === "dine_in" && selectedTable
           ? `Table ${selectedTable.name}`
           : orderMode.charAt(0).toUpperCase() +
             orderMode.slice(1).replace("_", " ");
+
+      // Use customer name if provided (for takeaway/delivery/NC)
+      const finalCustomerName = customerName.trim() || orderSource;
 
       const kitchenItems = orderItems.map((item) => ({
         name: item.name,
@@ -650,7 +666,7 @@ export const QSRPosMain: React.FC = () => {
           .from("orders")
           .insert({
             restaurant_id: restaurantId,
-            customer_name: orderSource,
+            customer_name: finalCustomerName, // Use actual customer name
             items: orderItems.map((item) => {
               const notes = item.notes ? ` (${item.notes})` : "";
               return `${item.quantity}x ${item.name}${notes} @${item.price}`;
@@ -662,6 +678,7 @@ export const QSRPosMain: React.FC = () => {
               orderMode === "nc"
                 ? "non-chargeable"
                 : orderMode.replace("_", "-"),
+            nc_reason: orderMode === "nc" ? ncReason : null, // Store NC reason
             attendant: attendantName,
           })
           .select()
@@ -1265,6 +1282,10 @@ export const QSRPosMain: React.FC = () => {
         isLoading={isLoading}
         menuItems={menuItems}
         onAddMenuItem={handleAddItem}
+        ncReason={ncReason}
+        onNcReasonChange={setNcReason}
+        customerName={customerName}
+        onCustomerNameChange={setCustomerName}
       />
 
       {/* Active Orders Drawer */}

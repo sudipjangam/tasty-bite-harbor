@@ -98,6 +98,9 @@ const PaymentDialog = ({
   // NC (Non-Chargeable) Reason State
   const [ncReason, setNcReason] = useState<string>("");
 
+  // Order Type State - to determine if customer name is mandatory
+  const [orderType, setOrderType] = useState<string | null>(null);
+
   // Custom Item State
   const [showCustomItemDialog, setShowCustomItemDialog] = useState(false);
 
@@ -269,9 +272,14 @@ const PaymentDialog = ({
         try {
           const { data: kitchenOrder } = await supabase
             .from("kitchen_orders")
-            .select("order_id, customer_name, customer_phone")
+            .select("order_id, customer_name, customer_phone, order_type")
             .eq("id", orderId)
             .single();
+
+          // Set order type for conditional validation
+          if (kitchenOrder) {
+            setOrderType(kitchenOrder.order_type || null);
+          }
 
           if (kitchenOrder?.order_id) {
             // Try fetching from orders with both naming conventions AND discount fields
@@ -289,7 +297,23 @@ const PaymentDialog = ({
               const phone =
                 (order as any).Customer_MobileNumber ||
                 (order as any).customer_phone;
-              if (name) setCustomerName(name);
+
+              // Only set customer name if it's not a generic value
+              // Skip: Nc, NC, Delivery, Takeaway, Dine-in, etc.
+              const genericNames = [
+                "nc",
+                "delivery",
+                "takeaway",
+                "dine-in",
+                "dine in",
+                "pos order",
+                "qsr order",
+                "qsr-order",
+              ];
+              if (name && !genericNames.includes(name.toLowerCase().trim())) {
+                setCustomerName(name);
+              }
+
               if (phone) {
                 setCustomerMobile(String(phone));
                 setSendBillToEmail(true);
@@ -313,8 +337,24 @@ const PaymentDialog = ({
             }
           } else {
             // Fall back to details stored on the kitchen order
-            if (kitchenOrder?.customer_name)
+            const genericNames = [
+              "nc",
+              "delivery",
+              "takeaway",
+              "dine-in",
+              "dine in",
+              "pos order",
+              "qsr order",
+              "qsr-order",
+            ];
+            if (
+              kitchenOrder?.customer_name &&
+              !genericNames.includes(
+                kitchenOrder.customer_name.toLowerCase().trim(),
+              )
+            ) {
               setCustomerName(kitchenOrder.customer_name);
+            }
             if ((kitchenOrder as any)?.customer_phone) {
               setCustomerMobile(String((kitchenOrder as any).customer_phone));
               setSendBillToEmail(true);
@@ -391,6 +431,7 @@ const PaymentDialog = ({
       setAppliedPromotion(null);
       setPromotionCode("");
       setItemCompletionStatus([]);
+      setOrderType(null); // Reset order type
     }
   }, [isOpen]);
 
@@ -1760,7 +1801,11 @@ const PaymentDialog = ({
         // Update kitchen order status
         const { error } = await supabase
           .from("kitchen_orders")
-          .update({ status: "completed" })
+          .update({
+            status: "completed",
+            ...(customerName.trim() && { customer_name: customerName.trim() }),
+            ...(customerMobile && { customer_phone: customerMobile }),
+          })
           .eq("id", orderId);
 
         if (error) {
@@ -1787,6 +1832,11 @@ const PaymentDialog = ({
                   ? manualDiscountPercent
                   : appliedPromotion?.discount_percentage || 0,
               ...(finalOrderType && { order_type: finalOrderType }),
+              // Update customer details if provided
+              ...(customerName.trim() && {
+                customer_name: customerName.trim(),
+              }),
+              ...(customerMobile && { customer_phone: customerMobile }),
             })
             .eq("id", kitchenOrder.order_id);
 
@@ -1955,6 +2005,15 @@ const PaymentDialog = ({
           Review the details for{" "}
           <span className="font-semibold text-white">
             {tableNumber ? `Table ${tableNumber}` : "POS Order"}
+            {orderType && orderType !== "dine-in" && (
+              <span className="ml-1">
+                (
+                {orderType === "nc"
+                  ? "Non-Chargeable"
+                  : orderType.charAt(0).toUpperCase() + orderType.slice(1)}
+                )
+              </span>
+            )}
           </span>
         </p>
       </div>
@@ -2134,6 +2193,66 @@ const PaymentDialog = ({
 
         {/* RIGHT COLUMN - Payment Controls */}
         <div className="p-4 space-y-4 overflow-y-auto max-h-[60vh] bg-white dark:bg-gray-900">
+          {/* Customer Details Section - Required for Takeaway/Delivery/NC */}
+          {(orderType === "takeaway" ||
+            orderType === "delivery" ||
+            orderType === "nc") && (
+            <Card className="p-4 border-2 border-purple-200 dark:border-purple-700 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 shadow-lg">
+              <div className="space-y-3">
+                <h3 className="font-semibold text-base flex items-center gap-2">
+                  <span className="text-purple-600 dark:text-purple-400">
+                    👤
+                  </span>
+                  Customer Details
+                  <span className="text-red-500 text-lg">*</span>
+                </h3>
+                <div className="space-y-3">
+                  <div>
+                    <Label
+                      htmlFor="customer-name"
+                      className="text-sm font-medium"
+                    >
+                      Customer Name <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="customer-name"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Enter customer name"
+                      className={`mt-1 ${
+                        !customerName.trim()
+                          ? "border-red-300 focus-visible:ring-red-500"
+                          : "border-green-300 focus-visible:ring-green-500"
+                      }`}
+                    />
+                    {!customerName.trim() && (
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                        ⚠️ Customer name is required
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="customer-phone"
+                      className="text-sm font-medium"
+                    >
+                      Customer Phone{" "}
+                      <span className="text-gray-400">(Optional)</span>
+                    </Label>
+                    <Input
+                      id="customer-phone"
+                      value={customerMobile}
+                      onChange={(e) => setCustomerMobile(e.target.value)}
+                      placeholder="Enter phone number"
+                      className="mt-1"
+                      type="tel"
+                    />
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
+
           {/* Promotion Code Section */}
           <Card className="p-4 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border border-emerald-200 dark:border-emerald-700">
             <div className="space-y-3">
@@ -2537,6 +2656,21 @@ const PaymentDialog = ({
           /* Regular Order - Proceed to payment methods */
           <Button
             onClick={async () => {
+              // Validate customer name for takeaway/delivery/NC
+              if (
+                (orderType === "takeaway" ||
+                  orderType === "delivery" ||
+                  orderType === "nc") &&
+                !customerName.trim()
+              ) {
+                toast({
+                  title: "Customer Name Required",
+                  description:
+                    "Please enter customer name before proceeding to payment.",
+                  variant: "destructive",
+                });
+                return;
+              }
               const saved = await saveCustomerDetails();
               if (saved) {
                 // Check for active reservation before proceeding to payment
@@ -2546,7 +2680,13 @@ const PaymentDialog = ({
             }}
             className="w-full bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-green-300/50 dark:shadow-green-900/30 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] font-semibold"
             size="lg"
-            disabled={isSaving}
+            disabled={
+              isSaving ||
+              ((orderType === "takeaway" ||
+                orderType === "delivery" ||
+                orderType === "nc") &&
+                !customerName.trim())
+            }
           >
             {isSaving ? "Saving Details..." : "Proceed to Payment Methods →"}
           </Button>

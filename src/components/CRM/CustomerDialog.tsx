@@ -43,6 +43,11 @@ import {
   AlertCircle,
 } from "lucide-react";
 import LoyaltyBadge from "@/components/Customers/LoyaltyBadge";
+import {
+  validateEmail,
+  validatePhone,
+  handlePhoneInput,
+} from "@/utils/formValidation";
 
 interface CustomerDialogProps {
   open: boolean;
@@ -53,12 +58,6 @@ interface CustomerDialogProps {
   isLoading?: boolean;
   isDeleting?: boolean;
 }
-
-// Email validation regex
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// Phone validation - allows various formats with optional country code
-const PHONE_REGEX =
-  /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,4}[-\s\.]?[0-9]{1,9}$/;
 
 const CustomerDialog: React.FC<CustomerDialogProps> = ({
   open,
@@ -117,16 +116,19 @@ const CustomerDialog: React.FC<CustomerDialogProps> = ({
     const newErrors: { email?: string; phone?: string } = {};
 
     // Validate email if provided
-    if (formData.email && !EMAIL_REGEX.test(formData.email)) {
-      newErrors.email = "Please enter a valid email address";
+    if (formData.email) {
+      const emailValidation = validateEmail(formData.email, false);
+      if (!emailValidation.isValid) {
+        newErrors.email = emailValidation.error;
+      }
     }
 
-    // Validate phone if provided
-    if (
-      formData.phone &&
-      !PHONE_REGEX.test(formData.phone.replace(/\s/g, ""))
-    ) {
-      newErrors.phone = "Please enter a valid phone number";
+    // Validate phone if provided - using 10-digit requirement
+    if (formData.phone) {
+      const phoneValidation = validatePhone(formData.phone, false);
+      if (!phoneValidation.isValid) {
+        newErrors.phone = phoneValidation.error;
+      }
     }
 
     setErrors(newErrors);
@@ -278,13 +280,18 @@ const CustomerDialog: React.FC<CustomerDialogProps> = ({
               </Label>
               <Input
                 id="phone"
+                type="tel"
                 value={formData.phone}
                 onChange={(e) => {
-                  setFormData({ ...formData, phone: e.target.value });
+                  setFormData({
+                    ...formData,
+                    phone: handlePhoneInput(e.target.value),
+                  });
                   if (errors.phone) setErrors({ ...errors, phone: undefined });
                 }}
-                placeholder="+91 98765 43210"
-                className={`bg-white/50 dark:bg-gray-800/50 border-white/30 dark:border-gray-600 rounded-xl focus:bg-white dark:focus:bg-gray-800 focus:border-purple-300 transition-all duration-200 ${
+                placeholder="10-digit phone number"
+                maxLength={10}
+                className={`bg-white/50 dark:bg-gray-800/50 border-white/30 dark:border-gray-600  rounded-xl focus:bg-white dark:focus:bg-gray-800 focus:border-purple-300 transition-all duration-200 ${
                   errors.phone ? "border-red-500" : ""
                 }`}
               />

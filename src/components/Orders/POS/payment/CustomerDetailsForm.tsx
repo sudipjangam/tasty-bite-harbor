@@ -6,6 +6,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { handlePhoneInput } from "@/utils/formValidation";
 
 interface CustomerDetailsFormProps {
   customerName: string;
@@ -68,10 +69,11 @@ const CustomerDetailsForm = ({
             <Input
               id="customerMobile"
               value={customerMobile}
-              onChange={(e) => onMobileChange(e.target.value)}
-              placeholder="Enter mobile number"
+              onChange={(e) => onMobileChange(handlePhoneInput(e.target.value))}
+              placeholder="10-digit mobile number"
               type="tel"
               className="bg-white dark:bg-gray-900"
+              maxLength={10}
             />
           </div>
 
