@@ -1,3 +1,11 @@
+# Service Worker - never cache, always check for updates
+/sw.js
+  Cache-Control: max-age=0, no-cache, no-store, must-revalidate
+
+# Version info - never cache
+/version.json
+  Cache-Control: max-age=0, no-cache, no-store, must-revalidate
+
 # Cache static assets with hashes in their names for 1 year
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
