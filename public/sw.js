@@ -27,6 +27,14 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
+// Message event - handle skip waiting requests from client
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('[SW] Received SKIP_WAITING message');
+    self.skipWaiting();
+  }
+});
+
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
   console.log('[SW] Activating and cleaning old caches');
