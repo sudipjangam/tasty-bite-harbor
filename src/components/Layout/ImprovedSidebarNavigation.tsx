@@ -262,7 +262,7 @@ const navigationGroups: NavigationGroup[] = [
         icon: FileText,
         href: "/reports",
         description: "Business reports",
-        requiredPermissions: ["analytics.view"],
+        requiredPermissions: ["financial.view"],
       },
       {
         title: "Expenses",
