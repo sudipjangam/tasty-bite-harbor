@@ -58,6 +58,9 @@ interface QSRCartBottomSheetProps {
   // NC reason tracking
   ncReason?: string;
   onNcReasonChange?: (reason: string) => void;
+  // Customer name tracking
+  customerName?: string;
+  onCustomerNameChange?: (name: string) => void;
 }
 
 const modeIcons: Record<
@@ -101,6 +104,8 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
   onAddMenuItem,
   ncReason = "",
   onNcReasonChange,
+  customerName = "",
+  onCustomerNameChange,
 }) => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
@@ -473,6 +478,22 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
             </Button>
           </div>
 
+          {/* Customer Name Input - Required for takeaway, delivery, and NC */}
+          {(mode === "takeaway" || mode === "delivery" || mode === "nc") && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Customer Name <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="text"
+                placeholder="Enter customer name"
+                value={customerName}
+                onChange={(e) => onCustomerNameChange?.(e.target.value)}
+                className="w-full"
+              />
+            </div>
+          )}
+
           {/* NC Reason Selector - Only shown in NC mode */}
           {mode === "nc" && (
             <div className="space-y-2">
@@ -500,7 +521,11 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
               onClose();
             }}
             disabled={
-              items.length === 0 || isLoading || (mode === "nc" && !ncReason)
+              items.length === 0 ||
+              isLoading ||
+              (mode === "nc" && !ncReason) ||
+              ((mode === "takeaway" || mode === "delivery" || mode === "nc") &&
+                !customerName?.trim())
             }
             className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-500/30 text-lg touch-manipulation"
           >
