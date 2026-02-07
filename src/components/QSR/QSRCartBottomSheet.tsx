@@ -77,7 +77,7 @@ const modeLabels: Record<QSROrderMode, string> = {
   dine_in: "Dine In",
   takeaway: "Takeaway",
   delivery: "Delivery",
-  nc: "NC",
+  nc: "Non-Chargeable",
 };
 
 export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
@@ -437,7 +437,7 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
             </div>
             {/* No tax in QSR POS */}
             <div className="flex justify-between text-xl font-bold text-gray-800 dark:text-gray-200 pt-2 border-t border-gray-200 dark:border-gray-700">
-              <span>{mode === "nc" ? "NC Total:" : "Total:"}</span>
+              <span>{mode === "nc" ? "Non-Chargeable Total:" : "Total:"}</span>
               {mode === "nc" ? (
                 <div className="flex items-center gap-2">
                   <span className="line-through opacity-50 text-base">
@@ -498,7 +498,7 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
           {mode === "nc" && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                NC Reason <span className="text-red-500">*</span>
+                Non-Chargeable Reason <span className="text-red-500">*</span>
               </label>
               <Select value={ncReason} onValueChange={onNcReasonChange}>
                 <SelectTrigger className="w-full">

@@ -1832,6 +1832,8 @@ const PaymentDialog = ({
                   ? manualDiscountPercent
                   : appliedPromotion?.discount_percentage || 0,
               ...(finalOrderType && { order_type: finalOrderType }),
+              // Save NC reason for non-chargeable orders
+              ...(isNonChargeable && ncReason && { nc_reason: ncReason }),
               // Update customer details if provided
               ...(customerName.trim() && {
                 customer_name: customerName.trim(),
@@ -1856,7 +1858,8 @@ const PaymentDialog = ({
               .from("orders")
               .insert({
                 restaurant_id: restaurantIdToUse,
-                customer_name: tableNumber || "QSR-Order",
+                customer_name:
+                  customerName.trim() || tableNumber || "QSR-Order",
                 items: formattedItems,
                 total: finalTotal,
                 status: "completed",
@@ -1871,6 +1874,10 @@ const PaymentDialog = ({
                   : manualDiscountPercent > 0
                     ? manualDiscountPercent
                     : appliedPromotion?.discount_percentage || 0,
+                // Save NC reason for non-chargeable orders
+                ...(isNonChargeable && ncReason && { nc_reason: ncReason }),
+                // Save customer phone if provided
+                ...(customerMobile && { customer_phone: customerMobile }),
               })
               .select()
               .single();
@@ -2248,6 +2255,61 @@ const PaymentDialog = ({
                       type="tel"
                     />
                   </div>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* NC Reason Section - Required for Non-Chargeable Orders */}
+          {(isNonChargeable || orderType === "nc") && (
+            <Card className="p-4 border-2 border-amber-200 dark:border-amber-700 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 shadow-lg">
+              <div className="space-y-3">
+                <h3 className="font-semibold text-base flex items-center gap-2">
+                  <span className="text-amber-600 dark:text-amber-400">🎁</span>
+                  Non-Chargeable Reason
+                  <span className="text-red-500 text-lg">*</span>
+                </h3>
+                <div>
+                  <Label htmlFor="nc-reason" className="text-sm font-medium">
+                    Select Reason <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={ncReason}
+                    onValueChange={(value) => setNcReason(value)}
+                  >
+                    <SelectTrigger
+                      id="nc-reason"
+                      className={`mt-1 ${
+                        !ncReason
+                          ? "border-red-300 focus-visible:ring-red-500"
+                          : "border-green-300 focus-visible:ring-green-500"
+                      }`}
+                    >
+                      <SelectValue placeholder="Select reason..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="staff_meal">Staff Meal</SelectItem>
+                      <SelectItem value="owner_complimentary">
+                        Owner Complimentary
+                      </SelectItem>
+                      <SelectItem value="customer_complaint">
+                        Customer Complaint
+                      </SelectItem>
+                      <SelectItem value="promotional_giveaway">
+                        Promotional Giveaway
+                      </SelectItem>
+                      <SelectItem value="wastage">Wastage/Spoilage</SelectItem>
+                      <SelectItem value="testing">
+                        Testing/Quality Check
+                      </SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {!ncReason && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      ⚠️ Please select a reason for this Non-Chargeable order
+                    </p>
+                  )}
                 </div>
               </div>
             </Card>
@@ -2637,17 +2699,43 @@ const PaymentDialog = ({
           /* NC Order - Complete directly without payment */
           <Button
             onClick={async () => {
+              // Validate customer name for NC orders
+              if (!customerName.trim()) {
+                toast({
+                  title: "Customer name required",
+                  description: "Please enter a customer name for this NC order",
+                  variant: "destructive",
+                });
+                return;
+              }
+              // Validate NC reason
+              if (!ncReason) {
+                toast({
+                  title: "NC reason required",
+                  description: "Please select a reason for this NC order",
+                  variant: "destructive",
+                });
+                return;
+              }
               await handleMarkAsPaid("nc");
             }}
-            className="w-full bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 hover:from-purple-600 hover:via-pink-600 hover:to-rose-600 text-white shadow-lg shadow-purple-300/50 dark:shadow-purple-900/30 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] font-semibold"
+            className={`w-full bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 hover:from-purple-600 hover:via-pink-600 hover:to-rose-600 text-white shadow-lg shadow-purple-300/50 dark:shadow-purple-900/30 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] font-semibold ${
+              !customerName.trim() || !ncReason
+                ? "opacity-60 cursor-not-allowed"
+                : ""
+            }`}
             size="lg"
-            disabled={isProcessingPayment}
+            disabled={isProcessingPayment || !customerName.trim() || !ncReason}
           >
             {isProcessingPayment ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Completing...
               </>
+            ) : !customerName.trim() ? (
+              "⚠️ Enter Customer Name First"
+            ) : !ncReason ? (
+              "⚠️ Select NC Reason First"
             ) : (
               "🎁 Complete Non-Chargeable Order"
             )}

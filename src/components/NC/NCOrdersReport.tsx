@@ -223,7 +223,7 @@ export const NCOrdersReport = () => {
         <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-purple-200 dark:border-purple-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Total NC Value
+              Total Non-Chargeable Value
             </CardTitle>
             <Ban className="h-4 w-4 text-purple-600 dark:text-purple-400" />
           </CardHeader>
@@ -240,7 +240,9 @@ export const NCOrdersReport = () => {
         {/* NC Order Count */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">NC Orders</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Non-Chargeable Orders
+            </CardTitle>
             <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           </CardHeader>
           <CardContent>
@@ -260,7 +262,7 @@ export const NCOrdersReport = () => {
           <CardContent>
             <div className="text-2xl font-bold">{ncPercentage.toFixed(1)}%</div>
             <p className="text-xs text-muted-foreground mt-1">
-              NC value as % of total
+              Non-Chargeable value as % of total
             </p>
           </CardContent>
         </Card>
@@ -269,17 +271,17 @@ export const NCOrdersReport = () => {
       {/* Breakdown by Reason */}
       <Card>
         <CardHeader>
-          <CardTitle>NC Orders by Reason</CardTitle>
+          <CardTitle>Non-Chargeable Orders by Reason</CardTitle>
         </CardHeader>
         <CardContent>
           {reasonBreakdown.length === 0 ? (
             <div className="text-center py-8">
               <Ban className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
               <p className="text-muted-foreground">
-                No NC orders in this period
+                No Non-Chargeable orders in this period
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                NC orders will appear here once created
+                Non-Chargeable orders will appear here once created
               </p>
             </div>
           ) : (
@@ -323,7 +325,7 @@ export const NCOrdersReport = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ClipboardList className="h-5 w-5" />
-            All NC Orders
+            All Non-Chargeable Orders
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -331,7 +333,7 @@ export const NCOrdersReport = () => {
             <div className="text-center py-8">
               <Ban className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
               <p className="text-muted-foreground">
-                No NC orders in this period
+                No Non-Chargeable orders in this period
               </p>
             </div>
           ) : (
@@ -405,7 +407,7 @@ export const NCOrdersReport = () => {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
-              <span>NC Order Details</span>
+              <span>Non-Chargeable Order Details</span>
               <Button
                 variant="ghost"
                 size="icon"
