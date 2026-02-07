@@ -888,7 +888,7 @@ export const QSRPosMain: React.FC = () => {
               ? "Takeaway"
               : currentMode === "delivery"
                 ? "Delivery"
-                : "NC";
+                : "Non-Chargeable";
 
         // Prepare kitchen items
         const kitchenItems = orderItems.map((item) => ({

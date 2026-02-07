@@ -202,7 +202,7 @@ const OrderDetailsDialog = ({
         0,
         0,
         imgWidth,
-        imgHeight
+        imgHeight,
       );
       pdf.save(`order-bill-${order.id}.pdf`);
 
@@ -221,7 +221,7 @@ const OrderDetailsDialog = ({
   };
 
   const handleUpdateStatus = async (
-    newStatus: "completed" | "pending" | "preparing" | "ready" | "cancelled"
+    newStatus: "completed" | "pending" | "preparing" | "ready" | "cancelled",
   ) => {
     try {
       const { error } = await supabase
@@ -273,7 +273,7 @@ const OrderDetailsDialog = ({
         id: order.id,
         customer_name: order.source,
         items: order.items.map(
-          (item) => `${item.quantity}x ${item.name} @${item.price}`
+          (item) => `${item.quantity}x ${item.name} @${item.price}`,
         ),
         total: subtotal,
         status: order.status as
@@ -439,34 +439,61 @@ const OrderDetailsDialog = ({
           </DialogHeader>
 
           <div className="space-y-6 pt-4">
-            {/* Customer Information */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="customerName" className="text-sm font-medium">
-                  Customer Name*
-                </Label>
-                <Input
-                  id="customerName"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Enter customer name"
-                  className="focus:ring-2 focus:ring-purple-500"
-                  required
-                />
+            {/* Customer Details Section - Styled to match POS Dialog */}
+            <Card className="p-4 border-2 border-purple-200 dark:border-purple-700 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 shadow-lg">
+              <div className="space-y-3">
+                <h3 className="font-semibold text-base flex items-center gap-2">
+                  <span className="text-purple-600 dark:text-purple-400">
+                    👤
+                  </span>
+                  Customer Details
+                  <span className="text-red-500 text-lg">*</span>
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="customerName"
+                      className="text-sm font-medium"
+                    >
+                      Customer Name <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="customerName"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Enter customer name"
+                      className={`${
+                        !customerName.trim()
+                          ? "border-red-300 focus-visible:ring-red-500"
+                          : "border-green-300 focus-visible:ring-green-500"
+                      }`}
+                      required
+                    />
+                    {!customerName.trim() && (
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                        ⚠️ Customer name is required
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="customerPhone"
+                      className="text-sm font-medium"
+                    >
+                      Customer Phone{" "}
+                      <span className="text-gray-400">(Optional)</span>
+                    </Label>
+                    <Input
+                      id="customerPhone"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="Enter phone number"
+                      type="tel"
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="customerPhone" className="text-sm font-medium">
-                  Customer Phone
-                </Label>
-                <Input
-                  id="customerPhone"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="Enter phone number"
-                  className="focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-            </div>
+            </Card>
 
             {/* Order Summary Card */}
             <Card className="p-4 bg-gray-50 dark:bg-gray-800">
@@ -674,10 +701,10 @@ const OrderDetailsDialog = ({
                         order.status === "completed"
                           ? "bg-green-100 text-green-800"
                           : order.status === "preparing"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : order.status === "ready"
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-gray-100 text-gray-800"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : order.status === "ready"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-gray-100 text-gray-800"
                       }`}
                     >
                       {order.status}

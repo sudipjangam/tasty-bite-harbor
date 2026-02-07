@@ -35,7 +35,8 @@ const modes: {
   },
   {
     value: "nc",
-    label: "NC",
+    label: "Non-Chargeable",
+    shortLabel: "N-C",
     icon: Gift,
     color: "from-amber-500 to-orange-600",
     tooltip: "Non Chargeable",
