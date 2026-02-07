@@ -74,7 +74,7 @@ const FinancialDashboard = () => {
           "ml-1 text-[10px] px-1.5 py-0 font-medium",
           isGrowth
             ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-            : "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
+            : "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
         )}
       >
         {isGrowth ? (
@@ -123,7 +123,7 @@ const FinancialDashboard = () => {
           "flex items-center justify-center gap-1 md:gap-2 rounded-xl transition-all duration-300 py-2 md:py-3 px-2 md:px-4 min-w-[44px] whitespace-nowrap",
           `data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:border ${borderColor}`,
           !hasAccess && "opacity-70 hover:opacity-90",
-          disabled && "opacity-50 cursor-not-allowed"
+          disabled && "opacity-50 cursor-not-allowed",
         )}
       >
         {disabled && (
@@ -159,33 +159,33 @@ const FinancialDashboard = () => {
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
-      {/* Modern Header */}
-      <div className="mb-8 bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-4 md:p-8 transform hover:scale-[1.01] transition-all duration-300">
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-4">
-          <div className="p-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl shadow-xl">
-            <Calculator className="h-6 w-6 md:h-8 md:w-8 text-white" />
+      {/* Modern Header with Glass Effect */}
+      <div className="mb-8 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-orange-500/20 rounded-3xl shadow-xl dark:shadow-orange-500/10 p-4 md:p-8">
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+          <div className="p-4 bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 rounded-2xl shadow-lg shadow-orange-500/30 dark:shadow-orange-500/50">
+            <Calculator className="h-6 w-6 md:h-8 md:w-8 text-white drop-shadow-lg" />
           </div>
           <div className="flex-1">
-            <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 bg-clip-text text-transparent">
               Financial Management
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1 md:mt-2 text-sm md:text-lg">
+            <p className="text-gray-600 dark:text-gray-300 mt-1 md:mt-2 text-sm md:text-lg">
               Comprehensive financial management for your restaurant and hotel
               operations
             </p>
           </div>
 
-          {/* Quick status indicators */}
+          {/* Colorful Status Badges */}
           <div className="flex flex-wrap items-center gap-2 md:gap-4">
-            <div className="flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-green-100 dark:bg-green-900/30 rounded-xl">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-xs md:text-sm font-medium text-green-700 dark:text-green-300">
+            <div className="flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl shadow-lg shadow-emerald-500/30">
+              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+              <span className="text-xs md:text-sm font-semibold">
                 Real-time
               </span>
             </div>
-            <div className="flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
-              <BarChart3 className="h-3 w-3 md:h-4 md:w-4 text-blue-600" />
-              <span className="text-xs md:text-sm font-medium text-blue-700 dark:text-blue-300">
+            <div className="flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-xl shadow-lg shadow-violet-500/30">
+              <BarChart3 className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="text-xs md:text-sm font-semibold">
                 {currentPlanDisplay} Plan
               </span>
             </div>
@@ -193,60 +193,62 @@ const FinancialDashboard = () => {
         </div>
       </div>
 
-      {/* Enhanced Tabs Container */}
-      <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-3 md:p-6 transform hover:scale-[1.01] transition-all duration-300">
+      {/* Tabs Container with Glass Effect */}
+      <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-orange-500/20 rounded-3xl shadow-xl dark:shadow-orange-500/10 p-3 md:p-6">
         <Tabs
           value={activeTab}
           onValueChange={handleTabClick}
           className="w-full"
         >
-          <div className="mb-4 md:mb-6 overflow-x-auto">
-            <TabsList className="flex md:grid md:grid-cols-7 w-max md:w-full bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-1.5 md:p-2 border border-gray-200/50 dark:border-gray-700/50 gap-1">
-              <RestrictedTabTrigger
-                value="overview"
-                icon={TrendingUp}
-                label="Overview"
-                borderColor="data-[state=active]:border-blue-200"
-              />
-              <RestrictedTabTrigger
-                value="revenue"
-                icon={Hotel}
-                label="Revenue"
-                borderColor="data-[state=active]:border-purple-200"
-                disabled={true}
-                disabledTooltip="Hotel Revenue Management - Coming Soon"
-              />
-              <RestrictedTabTrigger
-                value="profit-loss"
-                icon={Calculator}
-                label="P&L"
-                borderColor="data-[state=active]:border-emerald-200"
-              />
-              <RestrictedTabTrigger
-                value="cash-flow"
-                icon={PieChart}
-                label="Cash Flow"
-                borderColor="data-[state=active]:border-cyan-200"
-              />
-              <RestrictedTabTrigger
-                value="invoices"
-                icon={Receipt}
-                label="Invoices"
-                borderColor="data-[state=active]:border-orange-200"
-              />
-              <RestrictedTabTrigger
-                value="budgets"
-                icon={Target}
-                label="Budgets"
-                borderColor="data-[state=active]:border-pink-200"
-              />
-              <RestrictedTabTrigger
-                value="reports"
-                icon={FileText}
-                label="Reports"
-                borderColor="data-[state=active]:border-indigo-200"
-              />
-            </TabsList>
+          <div className="overflow-x-auto pb-2 mb-4 md:mb-6 scrollbar-hide">
+            <div className="bg-gray-100/80 dark:bg-gray-800/80 rounded-2xl p-1.5 md:p-2">
+              <TabsList className="inline-flex w-auto min-w-full md:w-auto space-x-1 p-1 bg-transparent rounded-2xl">
+                <RestrictedTabTrigger
+                  value="overview"
+                  icon={TrendingUp}
+                  label="Overview"
+                  borderColor="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/30"
+                />
+                <RestrictedTabTrigger
+                  value="revenue"
+                  icon={Hotel}
+                  label="Revenue"
+                  borderColor="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/30"
+                  disabled={true}
+                  disabledTooltip="Hotel Revenue Management - Coming Soon"
+                />
+                <RestrictedTabTrigger
+                  value="profit-loss"
+                  icon={Calculator}
+                  label="P&L"
+                  borderColor="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/30"
+                />
+                <RestrictedTabTrigger
+                  value="cash-flow"
+                  icon={PieChart}
+                  label="Cash Flow"
+                  borderColor="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-500/30"
+                />
+                <RestrictedTabTrigger
+                  value="invoices"
+                  icon={Receipt}
+                  label="Invoices"
+                  borderColor="data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-rose-500/30"
+                />
+                <RestrictedTabTrigger
+                  value="budgets"
+                  icon={Target}
+                  label="Budgets"
+                  borderColor="data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-violet-500/30"
+                />
+                <RestrictedTabTrigger
+                  value="reports"
+                  icon={FileText}
+                  label="Reports"
+                  borderColor="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-500/30"
+                />
+              </TabsList>
+            </div>
           </div>
 
           <TabsContent value="overview" className="mt-6">

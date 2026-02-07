@@ -22,6 +22,34 @@ export const TAB_REQUIRED_PLAN: Record<string, string> = {
   'reports': 'Professional',
 };
 
+// Plan type detection - determines what business modules are included
+export type PlanType = 'restaurant' | 'hotel' | 'combined' | 'all_in_one';
+
+const getPlanType = (planName: string): PlanType => {
+  const name = planName.toLowerCase();
+  
+  // Check for combined plans first (order matters)
+  if (name.includes('restaurant + hotel') || name.includes('restaurant+hotel')) {
+    return 'combined';
+  }
+  if (name.includes('all-in-one') || name.includes('all in one') || name.includes('allinone')) {
+    return 'all_in_one';
+  }
+  if (name.includes('hotel') && !name.includes('restaurant')) {
+    return 'hotel';
+  }
+  // Default to restaurant (most common case)
+  return 'restaurant';
+};
+
+const checkRestaurantAccess = (planType: PlanType): boolean => {
+  return ['restaurant', 'combined', 'all_in_one'].includes(planType);
+};
+
+const checkHotelAccess = (planType: PlanType): boolean => {
+  return ['hotel', 'combined', 'all_in_one'].includes(planType);
+};
+
 // Tab display info for upgrade prompts
 export const TAB_INFO: Record<string, { name: string; description: string }> = {
   'overview': { name: 'Overview', description: 'Financial overview and reports' },
@@ -117,6 +145,10 @@ export const useFinancialTabAccess = () => {
     }));
   };
 
+  // Calculate plan type from the raw plan name
+  const rawPlanName = planData?.planName || 'restaurant starter';
+  const planType = getPlanType(rawPlanName);
+
   return {
     hasTabAccess,
     getRequiredPlan,
@@ -124,6 +156,10 @@ export const useFinancialTabAccess = () => {
     getTabsWithAccess,
     currentPlan,
     currentPlanDisplay,
-    isLoading
+    isLoading,
+    // Plan type access helpers
+    planType,
+    hasRestaurantAccess: checkRestaurantAccess(planType),
+    hasHotelAccess: checkHotelAccess(planType),
   };
 };
