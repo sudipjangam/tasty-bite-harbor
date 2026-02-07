@@ -57,7 +57,7 @@ export const useNCMetrics = (options: UseNCMetricsOptions = {}) => {
       //Fetch NC orders
       const { data: ncOrders, error: ncError } = await supabase
         .from("orders")
-        .select("original_subtotal, nc_reason, created_at, total")
+        .select("discount_amount, nc_reason, created_at, total")
         .eq("restaurant_id", restaurantId)
         .eq("order_type", "non-chargeable")
         .gte("created_at", startDate.toISOString())
@@ -83,10 +83,12 @@ export const useNCMetrics = (options: UseNCMetricsOptions = {}) => {
       }
 
       // Calculate total NC value
-      // For legacy NC orders, fall back to 'total' if original_subtotal is null
+      // For NC orders, the original value is stored in discount_amount
+      // (since total is 0 and the full amount becomes the "discount")
+      // Fall back to total for any legacy orders that might have been saved differently
       const totalNCValue = (ncOrders || []).reduce(
         (sum, order) => {
-          const value = Number(order.original_subtotal) || Number(order.total) || 0;
+          const value = Number(order.discount_amount) || Number(order.total) || 0;
           return sum + value;
         },
         0
@@ -107,7 +109,7 @@ export const useNCMetrics = (options: UseNCMetricsOptions = {}) => {
       (ncOrders || []).forEach((order) => {
         const reason = order.nc_reason || "unknown";
         const existing = byReasonMap.get(reason) || { value: 0, count: 0 };
-        const value = Number(order.original_subtotal) || Number(order.total) || 0;
+        const value = Number(order.discount_amount) || Number(order.total) || 0;
         byReasonMap.set(reason, {
           value: existing.value + value,
           count: existing.count + 1,
@@ -124,7 +126,7 @@ export const useNCMetrics = (options: UseNCMetricsOptions = {}) => {
       (ncOrders || []).forEach((order) => {
         const date = formatDate(new Date(order.created_at));
         const existing = trendMap.get(date) || { value: 0, count: 0 };
-        const value = Number(order.original_subtotal) || Number(order.total) || 0;
+        const value = Number(order.discount_amount) || Number(order.total) || 0;
         trendMap.set(date, {
           value: existing.value + value,
           count: existing.count + 1,

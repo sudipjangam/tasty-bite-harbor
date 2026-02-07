@@ -63,7 +63,7 @@ export const CashFlowManagement = () => {
             (invoice) =>
               invoice.status !== "paid" &&
               invoice.status !== "cancelled" &&
-              !overdueInvoices.find((o) => o.id === invoice.id)
+              !overdueInvoices.find((o) => o.id === invoice.id),
           )
           .map((invoice) => [
             format(new Date(invoice.due_date), "yyyy-MM-dd"),
@@ -90,7 +90,7 @@ export const CashFlowManagement = () => {
       link.setAttribute("href", url);
       link.setAttribute(
         "download",
-        `cash-flow-report-${format(new Date(), "yyyy-MM-dd")}.csv`
+        `cash-flow-report-${format(new Date(), "yyyy-MM-dd")}.csv`,
       );
       link.style.visibility = "hidden";
       document.body.appendChild(link);
@@ -117,7 +117,7 @@ export const CashFlowManagement = () => {
       (invoice) =>
         new Date(invoice.due_date) < today &&
         invoice.status !== "paid" &&
-        invoice.status !== "cancelled"
+        invoice.status !== "cancelled",
     );
   };
 
@@ -125,11 +125,12 @@ export const CashFlowManagement = () => {
     if (!financialData?.invoices) return 0;
     return financialData.invoices
       .filter(
-        (invoice) => invoice.status !== "paid" && invoice.status !== "cancelled"
+        (invoice) =>
+          invoice.status !== "paid" && invoice.status !== "cancelled",
       )
       .reduce(
         (sum, invoice) => sum + (invoice.total_amount - invoice.paid_amount),
-        0
+        0,
       );
   };
 
@@ -150,7 +151,7 @@ export const CashFlowManagement = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold">
+          <h2 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 bg-clip-text text-transparent">
             Cash Flow Management
           </h2>
           <p className="text-sm md:text-base text-muted-foreground">
@@ -159,26 +160,30 @@ export const CashFlowManagement = () => {
         </div>
         <Button
           onClick={() => handleGenerateCashFlowReport()}
-          className="w-full sm:w-auto text-sm"
+          className="w-full sm:w-auto text-sm bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
         >
           Generate Cash Flow Report
         </Button>
       </div>
 
-      {/* Cash Flow Summary Cards */}
+      {/* Cash Flow Summary Cards with 3D Effects */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+        {/* Total Receivables Card */}
+        <Card className="bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 dark:from-sky-950/30 dark:to-blue-950/30 border border-sky-200/50 dark:border-sky-700/30 shadow-[0_8px_25px_rgba(14,165,233,0.15)] hover:shadow-[0_12px_35px_rgba(14,165,233,0.25)] transition-all duration-500 hover:scale-[1.02] overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-white/40 to-transparent rounded-bl-full" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+            <CardTitle className="text-sm font-semibold text-gray-600 dark:text-gray-300">
               Total Receivables
             </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 bg-gradient-to-br from-sky-500 to-blue-600 rounded-xl shadow-lg">
+              <DollarSign className="h-4 w-4 text-white" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent className="relative z-10">
+            <div className="text-2xl font-bold text-sky-700 dark:text-sky-300">
               <CurrencyDisplay amount={totalReceivables} />
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-1">
               From{" "}
               {financialData?.invoices?.filter((i) => i.status !== "paid")
                 .length || 0}{" "}
@@ -187,46 +192,54 @@ export const CashFlowManagement = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+        {/* Overdue Amount Card */}
+        <Card className="bg-gradient-to-br from-rose-50 via-red-50 to-pink-50 dark:from-rose-950/30 dark:to-red-950/30 border border-rose-200/50 dark:border-rose-700/30 shadow-[0_8px_25px_rgba(239,68,68,0.15)] hover:shadow-[0_12px_35px_rgba(239,68,68,0.25)] transition-all duration-500 hover:scale-[1.02] overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-white/40 to-transparent rounded-bl-full" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+            <CardTitle className="text-sm font-semibold text-gray-600 dark:text-gray-300">
               Overdue Amount
             </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-500" />
+            <div className="p-2 bg-gradient-to-br from-rose-500 to-red-600 rounded-xl shadow-lg">
+              <AlertTriangle className="h-4 w-4 text-white" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+          <CardContent className="relative z-10">
+            <div className="text-2xl font-bold text-rose-700 dark:text-rose-300">
               <CurrencyDisplay
                 amount={overdueInvoices.reduce(
                   (sum, invoice) =>
                     sum + (invoice.total_amount - invoice.paid_amount),
-                  0
+                  0,
                 )}
               />
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-1">
               From {overdueInvoices.length} overdue invoices
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+        {/* This Month Payments Card */}
+        <Card className="bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 dark:from-emerald-950/30 dark:to-green-950/30 border border-emerald-200/50 dark:border-emerald-700/30 shadow-[0_8px_25px_rgba(16,185,129,0.15)] hover:shadow-[0_12px_35px_rgba(16,185,129,0.25)] transition-all duration-500 hover:scale-[1.02] overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-white/40 to-transparent rounded-bl-full" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+            <CardTitle className="text-sm font-semibold text-gray-600 dark:text-gray-300">
               This Month Payments
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-500" />
+            <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg">
+              <TrendingUp className="h-4 w-4 text-white" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+          <CardContent className="relative z-10">
+            <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
               <CurrencyDisplay
                 amount={recentPayments.reduce(
                   (sum, payment) => sum + payment.amount,
-                  0
+                  0,
                 )}
               />
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-1">
               From {recentPayments.length} payments received
             </p>
           </CardContent>
@@ -235,22 +248,22 @@ export const CashFlowManagement = () => {
 
       <Tabs defaultValue="receivables" className="w-full">
         <div className="overflow-x-auto">
-          <TabsList className="flex md:grid md:grid-cols-3 w-max md:w-full gap-1">
+          <TabsList className="flex md:grid md:grid-cols-3 w-max md:w-full gap-1 bg-gradient-to-r from-cyan-100/80 via-blue-50/80 to-indigo-100/80 dark:from-gray-700/80 dark:via-gray-800/80 dark:to-gray-700/80 rounded-xl p-1 shadow-inner">
             <TabsTrigger
               value="receivables"
-              className="text-xs md:text-sm px-3 md:px-4 whitespace-nowrap"
+              className="text-xs md:text-sm px-3 md:px-4 whitespace-nowrap data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:border-cyan-300"
             >
               Receivables
             </TabsTrigger>
             <TabsTrigger
               value="payments"
-              className="text-xs md:text-sm px-3 md:px-4 whitespace-nowrap"
+              className="text-xs md:text-sm px-3 md:px-4 whitespace-nowrap data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:border-emerald-300"
             >
               Recent Payments
             </TabsTrigger>
             <TabsTrigger
               value="forecast"
-              className="text-xs md:text-sm px-3 md:px-4 whitespace-nowrap"
+              className="text-xs md:text-sm px-3 md:px-4 whitespace-nowrap data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:border-violet-300"
             >
               Cash Forecast
             </TabsTrigger>
@@ -271,7 +284,7 @@ export const CashFlowManagement = () => {
                   ?.filter(
                     (invoice) =>
                       invoice.status !== "paid" &&
-                      invoice.status !== "cancelled"
+                      invoice.status !== "cancelled",
                   )
                   .map((invoice) => {
                     const isOverdue = new Date(invoice.due_date) < new Date();

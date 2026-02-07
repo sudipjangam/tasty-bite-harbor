@@ -19,15 +19,17 @@ import { fetchAllowedComponents } from "@/utils/subscriptionUtils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TrendingUp, BarChart3, Sparkles, Building2 } from "lucide-react";
+import { useFinancialTabAccess } from "@/hooks/useFinancialTabAccess";
 
 const Analytics = () => {
   const { toast } = useToast();
   const { data, isLoading } = useAnalyticsData();
+  const { hasHotelAccess } = useFinancialTabAccess();
 
   const [expandedChart, setExpandedChart] = useState<string | null>(null);
   const [showDataTable, setShowDataTable] = useState(false);
   const [analyticsView, setAnalyticsView] = useState<"charts" | "business">(
-    "charts"
+    "charts",
   );
 
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
@@ -120,7 +122,7 @@ const Analytics = () => {
   const hotelRevenue = data.consolidatedRevenue?.totalHotelRevenue || 0;
   const totalOrders = data.revenueStats.reduce(
     (sum, stat) => sum + stat.order_count,
-    0
+    0,
   );
   const averageOrderValue =
     totalOrders > 0 ? restaurantRevenue / totalOrders : 0;
@@ -129,7 +131,7 @@ const Analytics = () => {
   const today = format(new Date(), "yyyy-MM-dd");
   const ordersToday =
     data.revenueStats.find(
-      (stat) => format(new Date(stat.date), "yyyy-MM-dd") === today
+      (stat) => format(new Date(stat.date), "yyyy-MM-dd") === today,
     )?.order_count || 0;
 
   const exportToExcel = () => {
@@ -172,7 +174,7 @@ const Analytics = () => {
 
       const fileName = `Analytics_Report_${format(
         new Date(),
-        "yyyy-MM-dd"
+        "yyyy-MM-dd",
       )}.xlsx`;
 
       XLSX.writeFile(wb, fileName);
@@ -376,7 +378,7 @@ const Analytics = () => {
 
       const fileName = `Analytics_Report_${format(
         new Date(),
-        "yyyy-MM-dd"
+        "yyyy-MM-dd",
       )}.pdf`;
       doc.save(fileName);
 
@@ -395,34 +397,34 @@ const Analytics = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950 animate-fade-in">
-      {/* Modern Header */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-950 dark:via-purple-950/50 dark:to-indigo-950 animate-fade-in">
+      {/* Modern Header with Glass Effect */}
       <div className="p-4 md:p-6">
-        <div className="mb-8 bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 rounded-2xl shadow-xl">
-              <BarChart3 className="h-8 w-8 text-white" />
+        <div className="mb-8 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-3xl shadow-xl dark:shadow-purple-500/10 p-8">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div className="p-4 bg-gradient-to-br from-purple-500 via-indigo-500 to-pink-500 rounded-2xl shadow-lg shadow-purple-500/30 dark:shadow-purple-500/50">
+              <BarChart3 className="h-8 w-8 text-white drop-shadow-lg" />
             </div>
             <div className="flex-1">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 bg-clip-text text-transparent">
                 Analytics & Reports
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2 text-base md:text-lg">
+              <p className="text-gray-600 dark:text-gray-300 mt-2 text-base md:text-lg">
                 Comprehensive insights into your restaurant's performance
               </p>
             </div>
 
-            {/* Quick status indicators */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-4 py-2 bg-green-100 dark:bg-green-900/30 rounded-xl">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-green-700 dark:text-green-300">
+            {/* Colorful Status Badges */}
+            <div className="flex flex-wrap items-center gap-2 md:gap-4">
+              <div className="flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl shadow-lg shadow-emerald-500/30">
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                <span className="text-xs md:text-sm font-semibold">
                   Live Data
                 </span>
               </div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
-                <TrendingUp className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+              <div className="flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-xl shadow-lg shadow-blue-500/30">
+                <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
+                <span className="text-xs md:text-sm font-semibold">
                   Auto-Refresh
                 </span>
               </div>
@@ -431,7 +433,7 @@ const Analytics = () => {
         </div>
 
         {/* Enhanced Analytics Header */}
-        <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-6 mb-8 transform hover:scale-[1.01] transition-all duration-300">
+        <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-3xl shadow-xl dark:shadow-purple-500/10 p-6 mb-8">
           <AnalyticsHeader
             analyticsView={analyticsView}
             setAnalyticsView={setAnalyticsView}
@@ -445,29 +447,34 @@ const Analytics = () => {
       <div className="px-4 md:px-6 pb-6 space-y-8">
         {analyticsView === "charts" ? (
           <>
-            {/* Hotel Metrics Section */}
-            {data.hotelMetrics && data.hotelMetrics.totalRooms > 0 && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-lg">
-                    <Building2 className="h-6 w-6 text-white" />
+            {/* Hotel Performance Section - Only for plans with hotel access */}
+            {hasHotelAccess &&
+              data.hotelMetrics &&
+              data.hotelMetrics.totalRooms > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-lg">
+                      <Building2 className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
+                        Hotel Performance
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        Key hospitality metrics
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
-                      Hotel Performance
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      Key hospitality metrics
-                    </p>
-                  </div>
+                  <HotelMetricsCards metrics={data.hotelMetrics} />
                 </div>
-                <HotelMetricsCards metrics={data.hotelMetrics} />
-              </div>
-            )}
+              )}
 
-            {/* Consolidated Revenue Chart */}
+            {/* Consolidated Revenue Chart - Pass hasHotelAccess to filter hotel data */}
             {data.consolidatedRevenue && (
-              <ConsolidatedRevenueChart data={data.consolidatedRevenue} />
+              <ConsolidatedRevenueChart
+                data={data.consolidatedRevenue}
+                showHotelData={hasHotelAccess}
+              />
             )}
 
             {/* Enhanced Stats Section */}
@@ -491,7 +498,7 @@ const Analytics = () => {
                 ordersToday={ordersToday}
                 averageOrderValue={averageOrderValue}
                 restaurantRevenue={restaurantRevenue}
-                hotelRevenue={hotelRevenue}
+                hotelRevenue={hasHotelAccess ? hotelRevenue : undefined}
               />
             </div>
 

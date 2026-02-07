@@ -941,12 +941,12 @@ export const QSRPosMain: React.FC = () => {
             items: orderItemsFormatted, // Required field - array of strings
             status: "completed", // Already completed since paid
             total: isNC ? 0 : orderTotal,
-            original_subtotal: isNC ? orderTotal : null, // Track original value for NC orders
+            // For NC orders, store original value in discount_amount (100% discount)
             order_type: isNC ? "non-chargeable" : currentMode,
             nc_reason: isNC ? ncReason || null : null, // Save NC reason if provided
             source: "pos",
             payment_status: isNC ? "nc" : "paid",
-            discount_amount: isNC ? orderTotal : 0,
+            discount_amount: isNC ? orderTotal : 0, // Original value for NC orders
             discount_percentage: isNC ? 100 : 0,
             attendant: attendantName,
             table_number:
