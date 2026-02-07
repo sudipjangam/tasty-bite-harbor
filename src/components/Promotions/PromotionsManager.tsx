@@ -1,14 +1,13 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase, PromotionCampaign } from "@/integrations/supabase/client";
-import { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription, 
-  CardContent, 
-  CardFooter 
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,32 +21,41 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { format, isAfter, isBefore, parseISO } from "date-fns";
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import { format, isAfter, isBefore, parseISO } from 'date-fns';
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Send, Tag, Gift, Trash2, Edit, Plus } from 'lucide-react';
+import {
+  CalendarIcon,
+  Send,
+  Tag,
+  Gift,
+  Trash2,
+  Edit,
+  Plus,
+} from "lucide-react";
 
 interface PromotionsManagerProps {
   restaurantId: string;
 }
 
-const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) => {
+const PromotionsManager: React.FC<PromotionsManagerProps> = ({
+  restaurantId,
+}) => {
   const { toast } = useToast();
   const [promotions, setPromotions] = useState<PromotionCampaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +63,8 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
   const [openEditPromotion, setOpenEditPromotion] = useState(false);
   const [openSendPromotion, setOpenSendPromotion] = useState(false);
   const [activeTab, setActiveTab] = useState("active");
-  const [selectedPromotion, setSelectedPromotion] = useState<PromotionCampaign | null>(null);
+  const [selectedPromotion, setSelectedPromotion] =
+    useState<PromotionCampaign | null>(null);
   const [newPromotion, setNewPromotion] = useState({
     name: "",
     description: "",
@@ -77,10 +86,10 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('promotion_campaigns')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .order('created_at', { ascending: false });
+        .from("promotion_campaigns")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setPromotions(data as PromotionCampaign[]);
@@ -99,11 +108,12 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
   const handleAddPromotion = async () => {
     try {
       // Generate random promotion code if not provided
-      const promotionCode = newPromotion.promotion_code || 
+      const promotionCode =
+        newPromotion.promotion_code ||
         `PROMO_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-      
+
       const { data, error } = await supabase
-        .from('promotion_campaigns')
+        .from("promotion_campaigns")
         .insert({
           restaurant_id: restaurantId,
           name: newPromotion.name,
@@ -146,10 +156,10 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
 
   const handleEditPromotion = async () => {
     if (!selectedPromotion) return;
-    
+
     try {
       const { error } = await supabase
-        .from('promotion_campaigns')
+        .from("promotion_campaigns")
         .update({
           name: selectedPromotion.name,
           description: selectedPromotion.description,
@@ -159,14 +169,16 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
           discount_amount: selectedPromotion.discount_amount,
           promotion_code: selectedPromotion.promotion_code,
         })
-        .eq('id', selectedPromotion.id);
+        .eq("id", selectedPromotion.id);
 
       if (error) throw error;
 
       setPromotions(
         promotions.map((promo) =>
-          promo.id === selectedPromotion.id ? { ...promo, ...selectedPromotion } : promo
-        )
+          promo.id === selectedPromotion.id
+            ? { ...promo, ...selectedPromotion }
+            : promo,
+        ),
       );
       setOpenEditPromotion(false);
 
@@ -187,9 +199,9 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
   const handleDeletePromotion = async (id: string) => {
     try {
       const { error } = await supabase
-        .from('promotion_campaigns')
+        .from("promotion_campaigns")
         .delete()
-        .eq('id', id);
+        .eq("id", id);
 
       if (error) throw error;
 
@@ -227,44 +239,47 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
 
   const handleSendPromotion = async () => {
     if (!selectedPromotion || !recipientPhone) return;
-    
+
     setSendingPromotion(true);
     try {
       // First record the sent promotion
       const { data, error } = await supabase
-        .from('sent_promotions')
+        .from("sent_promotions")
         .insert({
           promotion_id: selectedPromotion.id,
           customer_name: recipientName,
           customer_phone: recipientPhone,
           restaurant_id: restaurantId,
-          sent_method: 'whatsapp',
-          sent_status: 'sent'
+          sent_method: "whatsapp",
+          sent_status: "sent",
         })
         .select();
 
       if (error) throw error;
-      
+
       // Create promotion message
-      const promotionMessage = generatePromotionMessage(selectedPromotion, recipientName);
-      
+      const promotionMessage = generatePromotionMessage(
+        selectedPromotion,
+        recipientName,
+      );
+
       // Send the WhatsApp message
-      const response = await supabase.functions.invoke('send-whatsapp', {
+      const response = await supabase.functions.invoke("send-whatsapp", {
         body: {
-          phone: recipientPhone.replace(/\D/g, ''),
-          message: promotionMessage
-        }
+          phone: recipientPhone.replace(/\D/g, ""),
+          message: promotionMessage,
+        },
       });
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       toast({
         title: "Promotion Sent",
         description: "The promotion has been sent successfully.",
       });
-      
+
       setOpenSendPromotion(false);
     } catch (error) {
       console.error("Error sending promotion:", error);
@@ -277,15 +292,18 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
       setSendingPromotion(false);
     }
   };
-  
-  const generatePromotionMessage = (promotion: PromotionCampaign, recipientName: string) => {
+
+  const generatePromotionMessage = (
+    promotion: PromotionCampaign,
+    recipientName: string,
+  ) => {
     let message = `*Special Offer for ${recipientName || "You"}*\n\n`;
     message += `${promotion.name}\n\n`;
-    
+
     if (promotion.description) {
       message += `${promotion.description}\n\n`;
     }
-    
+
     message += `*Offer Details:*\n`;
     if (promotion.discount_percentage > 0) {
       message += `- ${promotion.discount_percentage}% discount\n`;
@@ -293,13 +311,13 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
     if (promotion.discount_amount > 0) {
       message += `- ₹${promotion.discount_amount} off\n`;
     }
-    
-    message += `\nValid from ${format(parseISO(promotion.start_date), 'dd MMM yyyy')} to ${format(parseISO(promotion.end_date), 'dd MMM yyyy')}\n\n`;
-    
+
+    message += `\nValid from ${format(parseISO(promotion.start_date), "dd MMM yyyy")} to ${format(parseISO(promotion.end_date), "dd MMM yyyy")}\n\n`;
+
     if (promotion.promotion_code) {
       message += `Use Code: *${promotion.promotion_code}*\n\n`;
     }
-    
+
     message += "Book now to avail this special offer!";
     return message;
   };
@@ -308,7 +326,7 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
     const now = new Date();
     const startDate = parseISO(promotion.start_date);
     const endDate = parseISO(promotion.end_date);
-    
+
     if (isBefore(now, startDate)) {
       return "upcoming";
     } else if (isAfter(now, endDate)) {
@@ -324,7 +342,44 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
   });
 
   if (loading) {
-    return <div className="flex justify-center items-center h-64">Loading...</div>;
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div className="h-8 w-64 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          <div className="h-10 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        </div>
+        <div className="flex gap-2">
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="h-10 w-24 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"
+            />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="overflow-hidden">
+              <CardHeader className="space-y-2">
+                <div className="h-6 w-3/4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                <div className="h-4 w-1/2 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                <div className="h-6 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                <div className="h-8 w-full bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              </CardContent>
+              <CardFooter className="flex justify-between">
+                <div className="flex gap-2">
+                  <div className="h-9 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                  <div className="h-9 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                </div>
+                <div className="h-9 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -352,7 +407,10 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
                 <div className="text-center space-y-3">
                   <Gift className="mx-auto h-12 w-12 text-muted-foreground" />
                   <p className="text-lg">No {activeTab} promotions found</p>
-                  <Button variant="outline" onClick={() => setOpenAddPromotion(true)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setOpenAddPromotion(true)}
+                  >
                     Create Your First Promotion
                   </Button>
                 </div>
@@ -368,7 +426,8 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
                       <Tag className="h-5 w-5 text-primary" />
                     </CardTitle>
                     <CardDescription>
-                      {format(parseISO(promotion.start_date), 'dd MMM yyyy')} - {format(parseISO(promotion.end_date), 'dd MMM yyyy')}
+                      {format(parseISO(promotion.start_date), "dd MMM yyyy")} -{" "}
+                      {format(parseISO(promotion.end_date), "dd MMM yyyy")}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -386,24 +445,26 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
                       </div>
                       {promotion.promotion_code && (
                         <div className="p-2 bg-secondary rounded flex justify-between items-center">
-                          <span className="font-mono text-sm">Code: {promotion.promotion_code}</span>
+                          <span className="font-mono text-sm">
+                            Code: {promotion.promotion_code}
+                          </span>
                         </div>
                       )}
                     </div>
                   </CardContent>
                   <CardFooter className="flex justify-between">
                     <div className="flex space-x-2">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => openEditDialog(promotion)}
                       >
                         <Edit className="h-4 w-4 mr-1" />
                         Edit
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="text-destructive"
                         onClick={() => handleDeletePromotion(promotion.id)}
                       >
@@ -411,7 +472,7 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
                         Delete
                       </Button>
                     </div>
-                    <Button 
+                    <Button
                       size="sm"
                       onClick={() => openSendDialog(promotion)}
                       disabled={getPromotionStatus(promotion) === "expired"}
@@ -442,7 +503,9 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
               <Input
                 id="promo-name"
                 value={newPromotion.name}
-                onChange={(e) => setNewPromotion({ ...newPromotion, name: e.target.value })}
+                onChange={(e) =>
+                  setNewPromotion({ ...newPromotion, name: e.target.value })
+                }
               />
             </div>
 
@@ -451,7 +514,12 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
               <Textarea
                 id="promo-description"
                 value={newPromotion.description}
-                onChange={(e) => setNewPromotion({ ...newPromotion, description: e.target.value })}
+                onChange={(e) =>
+                  setNewPromotion({
+                    ...newPromotion,
+                    description: e.target.value,
+                  })
+                }
                 rows={3}
               />
             </div>
@@ -465,18 +533,25 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
                       variant="outline"
                       className={cn(
                         "w-full justify-start text-left font-normal",
-                        !newPromotion.start_date && "text-muted-foreground"
+                        !newPromotion.start_date && "text-muted-foreground",
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newPromotion.start_date ? format(newPromotion.start_date, "PPP") : <span>Pick a date</span>}
+                      {newPromotion.start_date ? (
+                        format(newPromotion.start_date, "PPP")
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
                     <Calendar
                       mode="single"
                       selected={newPromotion.start_date}
-                      onSelect={(date) => date && setNewPromotion({ ...newPromotion, start_date: date })}
+                      onSelect={(date) =>
+                        date &&
+                        setNewPromotion({ ...newPromotion, start_date: date })
+                      }
                       initialFocus
                     />
                   </PopoverContent>
@@ -490,18 +565,25 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
                       variant="outline"
                       className={cn(
                         "w-full justify-start text-left font-normal",
-                        !newPromotion.end_date && "text-muted-foreground"
+                        !newPromotion.end_date && "text-muted-foreground",
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newPromotion.end_date ? format(newPromotion.end_date, "PPP") : <span>Pick a date</span>}
+                      {newPromotion.end_date ? (
+                        format(newPromotion.end_date, "PPP")
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
                     <Calendar
                       mode="single"
                       selected={newPromotion.end_date}
-                      onSelect={(date) => date && setNewPromotion({ ...newPromotion, end_date: date })}
+                      onSelect={(date) =>
+                        date &&
+                        setNewPromotion({ ...newPromotion, end_date: date })
+                      }
                       disabled={(date) => date < newPromotion.start_date}
                       initialFocus
                     />
@@ -512,14 +594,21 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
 
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="discount-percentage">Discount Percentage (%)</Label>
+                <Label htmlFor="discount-percentage">
+                  Discount Percentage (%)
+                </Label>
                 <Input
                   id="discount-percentage"
                   type="number"
                   min="0"
                   max="100"
                   value={newPromotion.discount_percentage}
-                  onChange={(e) => setNewPromotion({ ...newPromotion, discount_percentage: parseInt(e.target.value) || 0 })}
+                  onChange={(e) =>
+                    setNewPromotion({
+                      ...newPromotion,
+                      discount_percentage: parseInt(e.target.value) || 0,
+                    })
+                  }
                 />
               </div>
               <div className="grid gap-2">
@@ -529,7 +618,12 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
                   type="number"
                   min="0"
                   value={newPromotion.discount_amount}
-                  onChange={(e) => setNewPromotion({ ...newPromotion, discount_amount: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) =>
+                    setNewPromotion({
+                      ...newPromotion,
+                      discount_amount: parseFloat(e.target.value) || 0,
+                    })
+                  }
                 />
               </div>
             </div>
@@ -540,18 +634,32 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
                 id="promo-code"
                 placeholder="e.g., SUMMER2023"
                 value={newPromotion.promotion_code}
-                onChange={(e) => setNewPromotion({ ...newPromotion, promotion_code: e.target.value.toUpperCase() })}
+                onChange={(e) =>
+                  setNewPromotion({
+                    ...newPromotion,
+                    promotion_code: e.target.value.toUpperCase(),
+                  })
+                }
               />
-              <p className="text-xs text-muted-foreground">Leave blank to auto-generate a code</p>
+              <p className="text-xs text-muted-foreground">
+                Leave blank to auto-generate a code
+              </p>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenAddPromotion(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setOpenAddPromotion(false)}
+            >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleAddPromotion}
-              disabled={!newPromotion.name || !newPromotion.start_date || !newPromotion.end_date}
+              disabled={
+                !newPromotion.name ||
+                !newPromotion.start_date ||
+                !newPromotion.end_date
+              }
             >
               Create Promotion
             </Button>
@@ -575,7 +683,12 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
                 <Input
                   id="edit-promo-name"
                   value={selectedPromotion.name}
-                  onChange={(e) => setSelectedPromotion({ ...selectedPromotion, name: e.target.value })}
+                  onChange={(e) =>
+                    setSelectedPromotion({
+                      ...selectedPromotion,
+                      name: e.target.value,
+                    })
+                  }
                 />
               </div>
 
@@ -583,8 +696,13 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
                 <Label htmlFor="edit-promo-description">Description</Label>
                 <Textarea
                   id="edit-promo-description"
-                  value={selectedPromotion.description || ''}
-                  onChange={(e) => setSelectedPromotion({ ...selectedPromotion, description: e.target.value })}
+                  value={selectedPromotion.description || ""}
+                  onChange={(e) =>
+                    setSelectedPromotion({
+                      ...selectedPromotion,
+                      description: e.target.value,
+                    })
+                  }
                   rows={3}
                 />
               </div>
@@ -606,7 +724,13 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
                       <Calendar
                         mode="single"
                         selected={new Date(selectedPromotion.start_date)}
-                        onSelect={(date) => date && setSelectedPromotion({ ...selectedPromotion, start_date: date.toISOString() })}
+                        onSelect={(date) =>
+                          date &&
+                          setSelectedPromotion({
+                            ...selectedPromotion,
+                            start_date: date.toISOString(),
+                          })
+                        }
                         initialFocus
                       />
                     </PopoverContent>
@@ -628,8 +752,16 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
                       <Calendar
                         mode="single"
                         selected={new Date(selectedPromotion.end_date)}
-                        onSelect={(date) => date && setSelectedPromotion({ ...selectedPromotion, end_date: date.toISOString() })}
-                        disabled={(date) => date < new Date(selectedPromotion.start_date)}
+                        onSelect={(date) =>
+                          date &&
+                          setSelectedPromotion({
+                            ...selectedPromotion,
+                            end_date: date.toISOString(),
+                          })
+                        }
+                        disabled={(date) =>
+                          date < new Date(selectedPromotion.start_date)
+                        }
                         initialFocus
                       />
                     </PopoverContent>
@@ -639,24 +771,38 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="edit-discount-percentage">Discount Percentage (%)</Label>
+                  <Label htmlFor="edit-discount-percentage">
+                    Discount Percentage (%)
+                  </Label>
                   <Input
                     id="edit-discount-percentage"
                     type="number"
                     min="0"
                     max="100"
                     value={selectedPromotion.discount_percentage}
-                    onChange={(e) => setSelectedPromotion({ ...selectedPromotion, discount_percentage: parseInt(e.target.value) || 0 })}
+                    onChange={(e) =>
+                      setSelectedPromotion({
+                        ...selectedPromotion,
+                        discount_percentage: parseInt(e.target.value) || 0,
+                      })
+                    }
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="edit-discount-amount">Discount Amount (₹)</Label>
+                  <Label htmlFor="edit-discount-amount">
+                    Discount Amount (₹)
+                  </Label>
                   <Input
                     id="edit-discount-amount"
                     type="number"
                     min="0"
                     value={selectedPromotion.discount_amount}
-                    onChange={(e) => setSelectedPromotion({ ...selectedPromotion, discount_amount: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) =>
+                      setSelectedPromotion({
+                        ...selectedPromotion,
+                        discount_amount: parseFloat(e.target.value) || 0,
+                      })
+                    }
                   />
                 </div>
               </div>
@@ -665,17 +811,25 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
                 <Label htmlFor="edit-promo-code">Promotion Code</Label>
                 <Input
                   id="edit-promo-code"
-                  value={selectedPromotion.promotion_code || ''}
-                  onChange={(e) => setSelectedPromotion({ ...selectedPromotion, promotion_code: e.target.value.toUpperCase() })}
+                  value={selectedPromotion.promotion_code || ""}
+                  onChange={(e) =>
+                    setSelectedPromotion({
+                      ...selectedPromotion,
+                      promotion_code: e.target.value.toUpperCase(),
+                    })
+                  }
                 />
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenEditPromotion(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setOpenEditPromotion(false)}
+            >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleEditPromotion}
               disabled={!selectedPromotion?.name}
             >
@@ -699,20 +853,33 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
               <div className="p-3 bg-secondary rounded-md">
                 <p className="font-medium">{selectedPromotion.name}</p>
                 {selectedPromotion.description && (
-                  <p className="text-sm mt-1">{selectedPromotion.description}</p>
+                  <p className="text-sm mt-1">
+                    {selectedPromotion.description}
+                  </p>
                 )}
                 <div className="mt-2 text-sm">
                   <p>
-                    {selectedPromotion.discount_percentage > 0 && 
+                    {selectedPromotion.discount_percentage > 0 &&
                       `${selectedPromotion.discount_percentage}% Discount`}
-                    {selectedPromotion.discount_amount > 0 && 
-                      `${selectedPromotion.discount_percentage > 0 ? ' or ' : ''}₹${selectedPromotion.discount_amount} Off`}
+                    {selectedPromotion.discount_amount > 0 &&
+                      `${selectedPromotion.discount_percentage > 0 ? " or " : ""}₹${selectedPromotion.discount_amount} Off`}
                   </p>
                   <p className="mt-1">
-                    Valid: {format(parseISO(selectedPromotion.start_date), 'dd MMM yyyy')} - {format(parseISO(selectedPromotion.end_date), 'dd MMM yyyy')}
+                    Valid:{" "}
+                    {format(
+                      parseISO(selectedPromotion.start_date),
+                      "dd MMM yyyy",
+                    )}{" "}
+                    -{" "}
+                    {format(
+                      parseISO(selectedPromotion.end_date),
+                      "dd MMM yyyy",
+                    )}
                   </p>
                   {selectedPromotion.promotion_code && (
-                    <p className="mt-1 font-mono">Code: {selectedPromotion.promotion_code}</p>
+                    <p className="mt-1 font-mono">
+                      Code: {selectedPromotion.promotion_code}
+                    </p>
                   )}
                 </div>
               </div>
@@ -728,7 +895,9 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="recipient-phone">Recipient Phone Number *</Label>
+                <Label htmlFor="recipient-phone">
+                  Recipient Phone Number *
+                </Label>
                 <Input
                   id="recipient-phone"
                   placeholder="WhatsApp number"
@@ -736,15 +905,20 @@ const PromotionsManager: React.FC<PromotionsManagerProps> = ({ restaurantId }) =
                   onChange={(e) => setRecipientPhone(e.target.value)}
                   required
                 />
-                <p className="text-xs text-muted-foreground">Include country code (e.g., +91)</p>
+                <p className="text-xs text-muted-foreground">
+                  Include country code (e.g., +91)
+                </p>
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenSendPromotion(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setOpenSendPromotion(false)}
+            >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleSendPromotion}
               disabled={!recipientPhone || sendingPromotion}
             >
