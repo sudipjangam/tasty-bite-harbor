@@ -29,3 +29,15 @@ export interface CreatePromotionData {
   promotion_code?: string;
   status: PromotionStatus;
 }
+
+export interface SentPromotion {
+  id: string;
+  promotion_campaign_id: string;
+  customer_name: string;
+  customer_phone?: string;
+  customer_email?: string;
+  sent_date: string;
+  sent_status: string;
+  sent_method: string;
+  restaurant_id: string;
+}
