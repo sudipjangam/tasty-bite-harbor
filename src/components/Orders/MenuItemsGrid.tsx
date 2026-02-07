@@ -1,4 +1,3 @@
-
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, Plus } from "lucide-react";
@@ -6,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useCurrencyContext } from '@/contexts/CurrencyContext';
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { LazyImage } from "@/components/ui/lazy-image";
 
 interface MenuItem {
   id: string;
@@ -17,7 +17,7 @@ interface MenuItem {
   image_url?: string;
   is_available?: boolean;
   is_veg?: boolean;
-  pricing_type?: 'fixed' | 'weight' | 'volume' | 'unit';
+  pricing_type?: "fixed" | "weight" | "volume" | "unit";
   pricing_unit?: string;
   base_unit_quantity?: number;
 }
@@ -27,15 +27,18 @@ interface MenuItemsGridProps {
   onSelectItem: (item: MenuItem) => void;
 }
 
-const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) => {
+const MenuItemsGrid = ({
+  selectedCategory,
+  onSelectItem,
+}: MenuItemsGridProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const { symbol: currencySymbol } = useCurrencyContext();
-  
+
   const { data: items, isLoading } = useQuery({
-    queryKey: ['menu-items', selectedCategory],
+    queryKey: ["menu-items", selectedCategory],
     queryFn: async () => {
       if (!selectedCategory) return [];
-      
+
       const { data: profile } = await supabase
         .from("profiles")
         .select("restaurant_id")
@@ -47,13 +50,13 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
       }
 
       let query = supabase
-        .from('menu_items')
-        .select('*')
-        .eq('restaurant_id', profile.restaurant_id);
+        .from("menu_items")
+        .select("*")
+        .eq("restaurant_id", profile.restaurant_id);
 
       // If category is "All", don't filter by category
       if (selectedCategory !== "All") {
-        query = query.eq('category', selectedCategory);
+        query = query.eq("category", selectedCategory);
       }
 
       const { data, error } = await query;
@@ -65,9 +68,11 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
   });
 
   // Filter items based on search query
-  const filteredItems = items?.filter(item => 
-    item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredItems = items?.filter(
+    (item) =>
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.description &&
+        item.description.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
   if (isLoading) {
@@ -75,10 +80,10 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
       <div className="space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-indigo-400 h-4 w-4" />
-          <Input 
-            className="pl-10 rounded-xl border-2 border-indigo-100 dark:border-indigo-800 bg-gradient-to-r from-white to-indigo-50/50 dark:from-gray-800 dark:to-indigo-900/20" 
-            placeholder="Search menu items..." 
-            disabled 
+          <Input
+            className="pl-10 rounded-xl border-2 border-indigo-100 dark:border-indigo-800 bg-gradient-to-r from-white to-indigo-50/50 dark:from-gray-800 dark:to-indigo-900/20"
+            placeholder="Search menu items..."
+            disabled
           />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -99,19 +104,21 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
       {/* Compact Search Bar */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-indigo-500 h-4 w-4" />
-        <Input 
-          className="pl-10 h-10 rounded-xl border-2 border-indigo-100 dark:border-indigo-800 bg-gradient-to-r from-white to-indigo-50/50 dark:from-gray-800 dark:to-indigo-900/20 focus:border-indigo-400 focus:ring-indigo-200" 
-          placeholder="🔍 Quick search..." 
+        <Input
+          className="pl-10 h-10 rounded-xl border-2 border-indigo-100 dark:border-indigo-800 bg-gradient-to-r from-white to-indigo-50/50 dark:from-gray-800 dark:to-indigo-900/20 focus:border-indigo-400 focus:ring-indigo-200"
+          placeholder="🔍 Quick search..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
-      
+
       {!selectedCategory ? (
         <div className="text-center py-8">
           <div className="inline-block p-4 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-2xl">
             <span className="text-3xl mb-2 block">🍽️</span>
-            <p className="text-gray-600 dark:text-gray-400 font-medium">Select a category to browse</p>
+            <p className="text-gray-600 dark:text-gray-400 font-medium">
+              Select a category to browse
+            </p>
           </div>
         </div>
       ) : filteredItems?.length === 0 ? (
@@ -119,22 +126,25 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
           <div className="inline-block p-4 bg-gradient-to-br from-gray-100 to-slate-100 dark:from-gray-800 dark:to-slate-800 rounded-2xl">
             <span className="text-3xl mb-2 block">🔍</span>
             <p className="text-gray-500 dark:text-gray-400">
-              {items?.length === 0 ? "No items in this category" : "No items match your search"}
+              {items?.length === 0
+                ? "No items in this category"
+                : "No items match your search"}
             </p>
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {filteredItems?.map((item) => {
-            const isWeightBased = item.pricing_type && item.pricing_type !== 'fixed';
-            
+            const isWeightBased =
+              item.pricing_type && item.pricing_type !== "fixed";
+
             return (
               <Card
                 key={item.id}
                 className={`group relative p-3 cursor-pointer transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] overflow-hidden rounded-2xl border-2 ${
-                  isWeightBased 
-                    ? 'border-blue-200 dark:border-blue-700 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20' 
-                    : 'border-gray-100 dark:border-gray-700 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900'
+                  isWeightBased
+                    ? "border-blue-200 dark:border-blue-700 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20"
+                    : "border-gray-100 dark:border-gray-700 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900"
                 }`}
                 onClick={() => onSelectItem(item)}
               >
@@ -148,14 +158,18 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
                 {/* Veg/Non-Veg Indicator */}
                 {item.is_veg !== undefined && (
                   <div className="absolute top-2 left-2 z-10">
-                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                      item.is_veg 
-                        ? 'border-green-500 bg-white' 
-                        : 'border-red-500 bg-white'
-                    }`}>
-                      <div className={`w-2 h-2 rounded-full ${
-                        item.is_veg ? 'bg-green-500' : 'bg-red-500'
-                      }`}></div>
+                    <div
+                      className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                        item.is_veg
+                          ? "border-green-500 bg-white"
+                          : "border-red-500 bg-white"
+                      }`}
+                    >
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          item.is_veg ? "bg-green-500" : "bg-red-500"
+                        }`}
+                      ></div>
                     </div>
                   </div>
                 )}
@@ -163,15 +177,18 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
                 {/* Image Area - Compact */}
                 <div className="h-14 w-14 mx-auto mb-2 rounded-xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center relative shadow-inner">
                   {item.image_url ? (
-                    <img 
-                      src={item.image_url} 
-                      alt={item.name} 
-                      className="w-full h-full object-cover" 
+                    <LazyImage
+                      src={item.image_url}
+                      alt={item.name}
+                      className="w-full h-full object-cover"
+                      containerClassName="w-full h-full"
                     />
                   ) : (
-                    <span className="text-2xl">{item.is_veg ? "🥗" : "🍖"}</span>
+                    <span className="text-2xl">
+                      {item.is_veg ? "🥗" : "🍖"}
+                    </span>
                   )}
-                  
+
                   {/* Weight Badge */}
                   {isWeightBased && (
                     <div className="absolute -bottom-1 -right-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold shadow-lg">
@@ -188,9 +205,12 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
                 {/* Price - Prominent */}
                 <div className="text-center">
                   <span className="inline-block px-2.5 py-1 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm rounded-full shadow-md">
-                    {currencySymbol}{item.price.toFixed(0)}
+                    {currencySymbol}
+                    {item.price.toFixed(0)}
                     {isWeightBased && item.pricing_unit && (
-                      <span className="text-xs font-normal opacity-80">/{item.pricing_unit}</span>
+                      <span className="text-xs font-normal opacity-80">
+                        /{item.pricing_unit}
+                      </span>
                     )}
                   </span>
                 </div>
@@ -199,7 +219,11 @@ const MenuItemsGrid = ({ selectedCategory, onSelectItem }: MenuItemsGridProps) =
                 {isWeightBased && (
                   <div className="text-center mt-1">
                     <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                      {item.pricing_type === 'weight' ? '📊 By Weight' : item.pricing_type === 'volume' ? '💧 By Volume' : '📦 Per Unit'}
+                      {item.pricing_type === "weight"
+                        ? "📊 By Weight"
+                        : item.pricing_type === "volume"
+                          ? "💧 By Volume"
+                          : "📦 Per Unit"}
                     </span>
                   </div>
                 )}

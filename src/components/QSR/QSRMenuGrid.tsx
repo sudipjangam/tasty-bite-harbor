@@ -5,6 +5,7 @@ import { QSRMenuItem } from "@/hooks/useQSRMenuItems";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LazyImage } from "@/components/ui/lazy-image";
 
 interface QSRMenuGridProps {
   menuItems: QSRMenuItem[];
@@ -32,7 +33,7 @@ export const QSRMenuGrid: React.FC<QSRMenuGridProps> = ({
     if (selectedCategory) {
       items = items.filter(
         (item) =>
-          item.category.toLowerCase().replace(/\s+/g, "-") === selectedCategory
+          item.category.toLowerCase().replace(/\s+/g, "-") === selectedCategory,
       );
     }
 
@@ -42,7 +43,7 @@ export const QSRMenuGrid: React.FC<QSRMenuGridProps> = ({
       items = items.filter(
         (item) =>
           item.name.toLowerCase().includes(query) ||
-          item.category.toLowerCase().includes(query)
+          item.category.toLowerCase().includes(query),
       );
     }
 
@@ -103,7 +104,7 @@ export const QSRMenuGrid: React.FC<QSRMenuGridProps> = ({
               "px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all touch-manipulation",
               selectedCategory === ""
                 ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md"
-                : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700",
             )}
           >
             All
@@ -116,7 +117,7 @@ export const QSRMenuGrid: React.FC<QSRMenuGridProps> = ({
                 "px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all touch-manipulation uppercase",
                 selectedCategory === category.id
                   ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md"
-                  : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                  : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700",
               )}
             >
               {category.name}
@@ -147,7 +148,7 @@ export const QSRMenuGrid: React.FC<QSRMenuGridProps> = ({
                   "flex flex-col items-center text-center",
                   "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700",
                   "hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-600",
-                  "active:scale-95"
+                  "active:scale-95",
                 )}
               >
                 {/* Cart count badge */}
@@ -159,10 +160,11 @@ export const QSRMenuGrid: React.FC<QSRMenuGridProps> = ({
 
                 {/* Item image or emoji */}
                 {item.image_url ? (
-                  <img
+                  <LazyImage
                     src={item.image_url}
                     alt={item.name}
-                    className="w-12 h-12 object-cover rounded-lg mb-2"
+                    className="w-12 h-12 object-cover"
+                    containerClassName="w-12 h-12 rounded-lg mb-2 overflow-hidden"
                   />
                 ) : (
                   <div className="text-3xl mb-2">
@@ -189,7 +191,7 @@ export const QSRMenuGrid: React.FC<QSRMenuGridProps> = ({
                       "mt-1.5 px-2 py-0.5 text-[10px] font-medium rounded-full",
                       item.is_veg
                         ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400"
-                        : "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400"
+                        : "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400",
                     )}
                   >
                     {item.is_veg ? "Veg" : "Non-Veg"}
