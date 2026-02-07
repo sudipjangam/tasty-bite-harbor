@@ -201,13 +201,41 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-8 text-center">
-            <Loader2 className="w-12 h-12 animate-spin text-purple-600 mx-auto mb-4" />
-            <p className="text-gray-600">Loading menu...</p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-4">
+        <div className="max-w-2xl mx-auto space-y-6">
+          {/* Header skeleton */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse" />
+              <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
+            </div>
+            <div className="h-10 w-10 bg-gray-200 rounded-full animate-pulse" />
+          </div>
+
+          {/* Categories skeleton */}
+          <div className="flex gap-2 overflow-hidden">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="h-10 w-24 bg-gray-200 rounded-full animate-pulse flex-shrink-0"
+              />
+            ))}
+          </div>
+
+          {/* Menu items grid skeleton */}
+          <div className="grid grid-cols-2 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Card key={i} className="overflow-hidden">
+                <div className="h-32 bg-gray-200 animate-pulse" />
+                <CardContent className="p-3 space-y-2">
+                  <div className="h-5 w-3/4 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-4 w-1/2 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-6 w-16 bg-gray-200 rounded-full animate-pulse" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -528,13 +556,26 @@ const CustomerOrder = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-8 text-center">
-            <Loader2 className="w-12 h-12 animate-spin text-purple-600 mx-auto mb-4" />
-            <p className="text-gray-600">Loading...</p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-4">
+        <div className="max-w-2xl mx-auto space-y-6">
+          {/* Header skeleton */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse" />
+              <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
+            </div>
+          </div>
+
+          {/* Loading cards */}
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-24 bg-gray-200 rounded-xl animate-pulse"
+              />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
