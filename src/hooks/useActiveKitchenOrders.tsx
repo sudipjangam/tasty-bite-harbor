@@ -4,13 +4,9 @@ import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useEffect, useState } from "react";
 import { ActiveKitchenOrder } from "@/types/qsr";
 import { useToast } from "@/hooks/use-toast";
+import { getDateRange, DateFilter } from "@/utils/dateRangeUtils";
 
-export type DateFilter =
-  | "today"
-  | "yesterday"
-  | "last7days"
-  | "thisMonth"
-  | "custom";
+export type { DateFilter } from "@/utils/dateRangeUtils";
 export type StatusFilter = "all" | "new" | "preparing" | "ready" | "held";
 
 interface UseActiveKitchenOrdersOptions {
@@ -24,6 +20,7 @@ export const useActiveKitchenOrders = (
 ) => {
   const { restaurantId } = useRestaurantId();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState(options.searchQuery || "");
   const [dateFilter, setDateFilter] = useState<DateFilter>(
     options.dateFilter || "today",
@@ -31,61 +28,6 @@ export const useActiveKitchenOrders = (
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     options.statusFilter || "all",
   );
-
-  // Calculate date range based on filter (using UTC to match database timestamps)
-  const getDateRange = () => {
-    const now = new Date();
-    // Use UTC dates to match database timestamps
-    const todayStart = new Date(
-      Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate(),
-        0,
-        0,
-        0,
-      ),
-    );
-    const todayEnd = new Date(
-      Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate(),
-        23,
-        59,
-        59,
-        999,
-      ),
-    );
-
-    switch (dateFilter) {
-      case "today":
-        return { start: todayStart.toISOString(), end: todayEnd.toISOString() };
-      case "yesterday":
-        const yesterdayStart = new Date(todayStart);
-        yesterdayStart.setUTCDate(yesterdayStart.getUTCDate() - 1);
-        const yesterdayEnd = new Date(todayStart);
-        yesterdayEnd.setUTCMilliseconds(-1); // End of yesterday
-        return {
-          start: yesterdayStart.toISOString(),
-          end: yesterdayEnd.toISOString(),
-        };
-      case "last7days":
-        const weekAgoStart = new Date(todayStart);
-        weekAgoStart.setUTCDate(weekAgoStart.getUTCDate() - 7);
-        return {
-          start: weekAgoStart.toISOString(),
-          end: todayEnd.toISOString(),
-        };
-      case "thisMonth":
-        const monthStart = new Date(
-          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0),
-        );
-        return { start: monthStart.toISOString(), end: todayEnd.toISOString() };
-      default:
-        return { start: todayStart.toISOString(), end: todayEnd.toISOString() };
-    }
-  };
 
   const {
     data: orders = [],
@@ -102,7 +44,7 @@ export const useActiveKitchenOrders = (
     queryFn: async () => {
       if (!restaurantId) return [];
 
-      const { start, end } = getDateRange();
+      const { start, end } = getDateRange(dateFilter);
 
       let query = supabase
         .from("kitchen_orders")
@@ -272,8 +214,6 @@ export const useActiveKitchenOrders = (
     orderId: string,
     priority: "normal" | "rush" | "vip",
   ) => {
-    const { toast } = useToast();
-
     try {
       const { error } = await supabase
         .from("kitchen_orders")

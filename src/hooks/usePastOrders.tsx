@@ -2,13 +2,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useEffect, useState } from "react";
+import { getDateRange, DateFilter } from "@/utils/dateRangeUtils";
 
-export type DateFilter =
-  | "today"
-  | "yesterday"
-  | "last7days"
-  | "thisMonth"
-  | "custom";
+export type { DateFilter } from "@/utils/dateRangeUtils";
 
 export interface PastOrder {
   id: string;
@@ -48,91 +44,6 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
     options.customEndDate || null,
   );
 
-  // Calculate date range based on filter (using UTC to match database timestamps)
-  const getDateRange = () => {
-    const now = new Date();
-    // Use UTC dates to match database timestamps
-    const todayStart = new Date(
-      Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate(),
-        0,
-        0,
-        0,
-      ),
-    );
-    const todayEnd = new Date(
-      Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate(),
-        23,
-        59,
-        59,
-        999,
-      ),
-    );
-
-    switch (dateFilter) {
-      case "today":
-        return { start: todayStart.toISOString(), end: todayEnd.toISOString() };
-      case "yesterday":
-        const yesterdayStart = new Date(todayStart);
-        yesterdayStart.setUTCDate(yesterdayStart.getUTCDate() - 1);
-        const yesterdayEnd = new Date(todayStart);
-        yesterdayEnd.setUTCMilliseconds(-1);
-        return {
-          start: yesterdayStart.toISOString(),
-          end: yesterdayEnd.toISOString(),
-        };
-      case "last7days":
-        const weekAgoStart = new Date(todayStart);
-        weekAgoStart.setUTCDate(weekAgoStart.getUTCDate() - 7);
-        return {
-          start: weekAgoStart.toISOString(),
-          end: todayEnd.toISOString(),
-        };
-      case "thisMonth":
-        const monthStart = new Date(
-          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0),
-        );
-        return { start: monthStart.toISOString(), end: todayEnd.toISOString() };
-      case "custom":
-        if (customStartDate && customEndDate) {
-          const customStart = new Date(
-            Date.UTC(
-              customStartDate.getFullYear(),
-              customStartDate.getMonth(),
-              customStartDate.getDate(),
-              0,
-              0,
-              0,
-            ),
-          );
-          const customEnd = new Date(
-            Date.UTC(
-              customEndDate.getFullYear(),
-              customEndDate.getMonth(),
-              customEndDate.getDate(),
-              23,
-              59,
-              59,
-              999,
-            ),
-          );
-          return {
-            start: customStart.toISOString(),
-            end: customEnd.toISOString(),
-          };
-        }
-        // Fallback to today if custom dates not set
-        return { start: todayStart.toISOString(), end: todayEnd.toISOString() };
-      default:
-        return { start: todayStart.toISOString(), end: todayEnd.toISOString() };
-    }
-  };
-
   const {
     data: orders = [],
     isLoading,
@@ -149,7 +60,11 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
     queryFn: async () => {
       if (!restaurantId) return [];
 
-      const { start, end } = getDateRange();
+      const { start, end } = getDateRange(
+        dateFilter,
+        customStartDate,
+        customEndDate,
+      );
 
       // Fetch completed kitchen orders
       const { data: kitchenData, error: kitchenError } = await supabase

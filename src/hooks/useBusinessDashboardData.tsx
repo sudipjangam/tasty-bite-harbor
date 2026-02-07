@@ -85,29 +85,64 @@ export const useBusinessDashboardData = () => {
         throw new Error("No restaurant found for user");
       }
 
-      // Fetch promotional campaigns from database
-      const { data: promotionCampaigns } = await supabase
-        .from("promotion_campaigns")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .order("created_at", { ascending: false });
-
-      // Fetch orders data with date range
+      // Fetch all data in parallel for better performance
       const thirtyDaysAgo = subDays(new Date(), 30);
       const formattedDate = thirtyDaysAgo.toISOString();
 
-      const { data: orderData } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .gte("created_at", formattedDate)
-        .order("created_at", { ascending: false });
+      const [
+        promotionCampaignsResult,
+        orderDataResult,
+        menuItemsResult,
+        inventoryDataResult,
+        staffDataResult,
+        revenueStatsResult,
+      ] = await Promise.all([
+        // Promotional campaigns
+        supabase
+          .from("promotion_campaigns")
+          .select("*")
+          .eq("restaurant_id", restaurantId)
+          .order("created_at", { ascending: false }),
 
-      // Fetch menu items to get category information
-      const { data: menuItems } = await supabase
-        .from("menu_items")
-        .select("name, category")
-        .eq("restaurant_id", restaurantId);
+        // Orders data with date range
+        supabase
+          .from("orders")
+          .select("*")
+          .eq("restaurant_id", restaurantId)
+          .gte("created_at", formattedDate)
+          .order("created_at", { ascending: false }),
+
+        // Menu items for category information
+        supabase
+          .from("menu_items")
+          .select("name, category")
+          .eq("restaurant_id", restaurantId),
+
+        // Inventory data
+        supabase
+          .from("inventory_items")
+          .select("*")
+          .eq("restaurant_id", restaurantId),
+
+        // Staffing data
+        supabase.from("staff").select("*").eq("restaurant_id", restaurantId),
+
+        // Revenue stats data
+        supabase
+          .from("daily_revenue_stats")
+          .select("*")
+          .eq("restaurant_id", restaurantId)
+          .gte("date", formattedDate)
+          .order("date", { ascending: true }),
+      ]);
+
+      // Extract data from results
+      const promotionCampaigns = promotionCampaignsResult.data;
+      const orderData = orderDataResult.data;
+      const menuItems = menuItemsResult.data;
+      const inventoryData = inventoryDataResult.data;
+      const staffData = staffDataResult.data;
+      const revenueStats = revenueStatsResult.data;
 
       // Create a map of item names to categories
       const itemCategoryMap: Record<string, string> = {};
@@ -116,26 +151,6 @@ export const useBusinessDashboardData = () => {
           itemCategoryMap[item.name] = item.category || "Uncategorized";
         });
       }
-
-      // Fetch inventory data
-      const { data: inventoryData } = await supabase
-        .from("inventory_items")
-        .select("*")
-        .eq("restaurant_id", restaurantId);
-
-      // Fetch staffing data
-      const { data: staffData } = await supabase
-        .from("staff")
-        .select("*")
-        .eq("restaurant_id", restaurantId);
-
-      // Fetch revenue stats data
-      const { data: revenueStats } = await supabase
-        .from("daily_revenue_stats")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .gte("date", formattedDate)
-        .order("date", { ascending: true });
 
       // Cast data to proper types and handle the items properly
       const typedOrderData: Order[] = orderData
@@ -248,21 +263,21 @@ export const useBusinessDashboardData = () => {
                 name: "Ingredients",
                 value: Math.round(ingredientsCost),
                 percentage: Math.round(
-                  (ingredientsCost / totalOperationalCost) * 100
+                  (ingredientsCost / totalOperationalCost) * 100,
                 ),
               },
               {
                 name: "Utilities",
                 value: Math.round(utilitiesCost),
                 percentage: Math.round(
-                  (utilitiesCost / totalOperationalCost) * 100
+                  (utilitiesCost / totalOperationalCost) * 100,
                 ),
               },
               {
                 name: "Staff",
                 value: Math.round(staffCost),
                 percentage: Math.round(
-                  (staffCost / totalOperationalCost) * 100
+                  (staffCost / totalOperationalCost) * 100,
                 ),
               },
               {
@@ -274,7 +289,7 @@ export const useBusinessDashboardData = () => {
                 name: "Other",
                 value: Math.round(otherCost),
                 percentage: Math.round(
-                  (otherCost / totalOperationalCost) * 100
+                  (otherCost / totalOperationalCost) * 100,
                 ),
               },
             ];
@@ -304,8 +319,8 @@ export const useBusinessDashboardData = () => {
                   hour < 12
                     ? `${hour} AM`
                     : hour === 12
-                    ? `${hour} PM`
-                    : `${hour - 12} PM`;
+                      ? `${hour} PM`
+                      : `${hour - 12} PM`;
                 hourCounts[hourLabel] = (hourCounts[hourLabel] || 0) + 1;
               }
             });
@@ -406,14 +421,14 @@ export const useBusinessDashboardData = () => {
             campaign.time_period ||
             `${format(new Date(campaign.start_date), "MMM dd")} - ${format(
               new Date(campaign.end_date),
-              "MMM dd"
+              "MMM dd",
             )}`,
           potentialIncrease:
             campaign.potential_increase ||
             `${campaign.discount_percentage || campaign.discount_amount}%`,
           status: campaign.status || (campaign.is_active ? "active" : "paused"),
           description: campaign.description || undefined,
-        })
+        }),
       );
 
       // If no promotional campaigns exist, create some suggested ones based on data analysis
@@ -462,7 +477,7 @@ export const useBusinessDashboardData = () => {
 
         // Find the slowest weekday by order count
         const weekdayEntries = Object.entries(dayOfWeekCounts).filter(
-          ([day]) => !["Sat", "Sun"].includes(day)
+          ([day]) => !["Sat", "Sun"].includes(day),
         );
 
         const slowestWeekday =
@@ -472,7 +487,7 @@ export const useBusinessDashboardData = () => {
 
         // Find the lowest performing day part
         const lowestDayPart = Object.entries(dayPartCounts).sort(
-          (a, b) => a[1] - b[1]
+          (a, b) => a[1] - b[1],
         )[0][0];
 
         // Create promotional suggestions based on data analysis
@@ -513,7 +528,7 @@ export const useBusinessDashboardData = () => {
             potentialIncrease: "30%",
             status: lowestDayPart === "lunch" ? "suggested" : "active",
             description: "Target office workers with quick lunch deals",
-          }
+          },
         );
       }
 
@@ -538,7 +553,7 @@ export const useBusinessDashboardData = () => {
       // Find low inventory items
       const lowStockItems =
         typedInventoryData.filter(
-          (item) => item.quantity <= (item.reorder_level || 0)
+          (item) => item.quantity <= (item.reorder_level || 0),
         ) || [];
 
       // For document analysis, use actual order data
@@ -570,7 +585,7 @@ export const useBusinessDashboardData = () => {
         expenseDataFromHook?.totalMonthlyExpenses || 0;
       if (totalMonthlyExpenses > 0) {
         const highestExpenseCategory = expenseData.reduce((max, current) =>
-          current.value > max.value ? current : max
+          current.value > max.value ? current : max,
         );
 
         insights.push({
@@ -645,7 +660,7 @@ export const useBusinessDashboardData = () => {
         ([role, count]) => ({
           role,
           count,
-        })
+        }),
       );
 
       // Get inventory by category
@@ -665,7 +680,7 @@ export const useBusinessDashboardData = () => {
         ([category, count]) => ({
           category,
           count,
-        })
+        }),
       );
 
       // Revenue trend data
