@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { usePaymentStatus } from "@/hooks/usePaymentStatus";
+import { useSpeechAnnouncement } from "@/hooks/useSpeechAnnouncement";
+import { usePaymentNotification } from "@/hooks/usePaymentNotification";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
@@ -73,6 +76,12 @@ const PaymentDialog = ({
   const [sendBillToEmail, setSendBillToEmail] = useState(false);
   const [sendBillToMobile, setSendBillToMobile] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
+  // Paytm Integration State
+  const [paytmOrderId, setPaytmOrderId] = useState<string | null>(null);
+  const [isPaytmQR, setIsPaytmQR] = useState(false);
+  const [qrExpiresAt, setQrExpiresAt] = useState<string | null>(null);
+  const [isGeneratingQR, setIsGeneratingQR] = useState(false);
+  const [paymentAutoDetected, setPaymentAutoDetected] = useState(false);
   const [menuSearchQuery, setMenuSearchQuery] = useState("");
   const [newItemsBuffer, setNewItemsBuffer] = useState<OrderItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -92,6 +101,16 @@ const PaymentDialog = ({
     initialItemCompletionStatus || [],
   );
   const { toast } = useToast();
+
+  // Paytm hooks
+  const { announcePayment } = useSpeechAnnouncement();
+  const { notifyPaymentSuccess, notifyPaymentFailure, requestPermission } =
+    usePaymentNotification();
+
+  // Request browser notification permission on mount
+  useEffect(() => {
+    requestPermission();
+  }, [requestPermission]);
   const queryClient = useQueryClient();
   const { symbol: currencySymbol } = useCurrencyContext();
 
@@ -249,21 +268,160 @@ const PaymentDialog = ({
   const total = totalAfterDiscount;
 
   // Generate QR code when UPI method is selected
-  useEffect(() => {
-    if (paymentSettings?.upi_id) {
-      const upiUrl = `upi://pay?pa=${
-        paymentSettings.upi_id
-      }&pn=${encodeURIComponent(
-        restaurantInfo?.name || "Restaurant",
-      )}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(
-        `Order ${tableNumber || "POS"}`,
-      )}`;
+  // Paytm Dynamic QR (if configured) or Static UPI QR (fallback)
+  const generatePaytmDynamicQR = useCallback(async () => {
+    const restaurantId = restaurantInfo?.restaurantId || restaurantInfo?.id;
+    if (!restaurantId || !total || total <= 0) return;
 
-      QRCode.toDataURL(upiUrl, { width: 300, margin: 2 })
-        .then((url) => setQrCodeUrl(url))
-        .catch((err) => console.error("QR generation error:", err));
+    setIsGeneratingQR(true);
+    setQrCodeUrl("");
+    setPaymentAutoDetected(false);
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "create-paytm-qr",
+        {
+          body: {
+            restaurantId,
+            orderId: orderId || undefined,
+            amount: total,
+            tableNumber: tableNumber || undefined,
+            orderDescription: `Table ${tableNumber || "POS"} Order`,
+          },
+        },
+      );
+
+      if (error) throw error;
+
+      if (data?.success && data?.payment) {
+        const payment = data.payment;
+        if (payment.isPaytm) {
+          // Paytm Dynamic QR
+          setQrCodeUrl(
+            payment.qrImage ? `data:image/png;base64,${payment.qrImage}` : "",
+          );
+          setPaytmOrderId(payment.paytmOrderId);
+          setIsPaytmQR(true);
+          setQrExpiresAt(payment.expiresAt);
+        } else {
+          // Static UPI QR fallback
+          setQrCodeUrl(payment.qrImage || "");
+          setIsPaytmQR(false);
+          setPaytmOrderId(null);
+        }
+      }
+    } catch (err) {
+      console.error("Error generating Paytm QR:", err);
+      // Fallback to static UPI QR
+      if (paymentSettings?.upi_id) {
+        const upiUrl = `upi://pay?pa=${paymentSettings.upi_id}&pn=${encodeURIComponent(
+          restaurantInfo?.name || "Restaurant",
+        )}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(
+          `Order ${tableNumber || "POS"}`,
+        )}`;
+        const url = await QRCode.toDataURL(upiUrl, { width: 300, margin: 2 });
+        setQrCodeUrl(url);
+        setIsPaytmQR(false);
+      }
+    } finally {
+      setIsGeneratingQR(false);
     }
-  }, [currentStep, paymentSettings, total, restaurantInfo, tableNumber]);
+  }, [restaurantInfo, total, orderId, tableNumber, paymentSettings]);
+
+  useEffect(() => {
+    if (currentStep === "qr") {
+      // Check if Paytm is configured
+      if (
+        paymentSettings?.gateway_type === "paytm" &&
+        paymentSettings?.paytm_mid
+      ) {
+        generatePaytmDynamicQR();
+      } else if (paymentSettings?.upi_id) {
+        // Static UPI QR fallback
+        const upiUrl = `upi://pay?pa=${
+          paymentSettings.upi_id
+        }&pn=${encodeURIComponent(
+          restaurantInfo?.name || "Restaurant",
+        )}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(
+          `Order ${tableNumber || "POS"}`,
+        )}`;
+        QRCode.toDataURL(upiUrl, { width: 300, margin: 2 })
+          .then((url) => setQrCodeUrl(url))
+          .catch((err) => console.error("QR generation error:", err));
+        setIsPaytmQR(false);
+      }
+    }
+  }, [
+    currentStep,
+    paymentSettings,
+    total,
+    restaurantInfo,
+    tableNumber,
+    generatePaytmDynamicQR,
+  ]);
+
+  // Paytm real-time payment detection
+  const handlePaytmSuccess = useCallback(
+    (transaction: any) => {
+      console.log("Payment SUCCESS detected:", transaction);
+      setPaymentAutoDetected(true);
+
+      // Voice announcement
+      announcePayment({
+        amount: total,
+        tableNumber: tableNumber || undefined,
+        language:
+          (paymentSettings as any)?.voice_announcement_language === "hi"
+            ? "hi"
+            : "en",
+        template:
+          ((paymentSettings as any)?.voice_announcement_template as
+            | "simple"
+            | "detailed") || "detailed",
+      });
+
+      // Popup notification
+      notifyPaymentSuccess({
+        amount: total,
+        tableNumber: tableNumber || undefined,
+        currencySymbol,
+      });
+
+      // Auto-mark as paid after a brief delay for the user to see the success state
+      setTimeout(() => {
+        handleMarkAsPaid("upi");
+      }, 2000);
+    },
+    [
+      total,
+      tableNumber,
+      currencySymbol,
+      paymentSettings,
+      announcePayment,
+      notifyPaymentSuccess,
+    ],
+  );
+
+  const handlePaytmFailure = useCallback(
+    (transaction: any) => {
+      console.log("Payment FAILED:", transaction);
+      notifyPaymentFailure({
+        amount: total,
+        tableNumber: tableNumber || undefined,
+        currencySymbol,
+      });
+    },
+    [total, tableNumber, currencySymbol, notifyPaymentFailure],
+  );
+
+  // Real-time payment status listener (only active when Paytm QR is showing)
+  const { status: paymentStatus } = usePaymentStatus({
+    paytmOrderId: isPaytmQR ? paytmOrderId : null,
+    restaurantId: restaurantInfo?.restaurantId || restaurantInfo?.id || "",
+    onSuccess: handlePaytmSuccess,
+    onFailure: handlePaytmFailure,
+    enablePolling: isPaytmQR && currentStep === "qr",
+  });
 
   // Fetch existing customer details and discount if orderId exists
   useEffect(() => {
@@ -432,6 +590,12 @@ const PaymentDialog = ({
       setPromotionCode("");
       setItemCompletionStatus([]);
       setOrderType(null); // Reset order type
+      // Reset Paytm state
+      setPaytmOrderId(null);
+      setIsPaytmQR(false);
+      setQrExpiresAt(null);
+      setIsGeneratingQR(false);
+      setPaymentAutoDetected(false);
     }
   }, [isOpen]);
 
@@ -1661,11 +1825,17 @@ const PaymentDialog = ({
 
   const handleMethodSelect = (method: string) => {
     if (method === "upi") {
-      if (!paymentSettings?.upi_id) {
+      // Check if Paytm is configured OR static UPI is configured
+      const hasPaytm =
+        (paymentSettings as any)?.gateway_type === "paytm" &&
+        (paymentSettings as any)?.paytm_mid;
+      const hasUPI = paymentSettings?.upi_id;
+
+      if (!hasPaytm && !hasUPI) {
         toast({
-          title: "UPI Not Configured",
+          title: "Payment Not Configured",
           description:
-            "Please configure UPI settings in the Payment Settings tab first.",
+            "Please configure Paytm or UPI settings in the Payment Settings tab first.",
           variant: "destructive",
         });
         return;
@@ -2962,7 +3132,12 @@ const PaymentDialog = ({
       <div className="flex-1 overflow-y-auto space-y-6 p-2 pb-4">
         <Button
           variant="ghost"
-          onClick={() => setCurrentStep("method")}
+          onClick={() => {
+            setCurrentStep("method");
+            setPaytmOrderId(null);
+            setIsPaytmQR(false);
+            setPaymentAutoDetected(false);
+          }}
           className="mb-2"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -2970,55 +3145,165 @@ const PaymentDialog = ({
         </Button>
 
         <div className="text-center space-y-4">
-          <h2 className="text-2xl font-bold text-foreground">Scan to Pay</h2>
-          <p className="text-muted-foreground">
-            Ask the customer to scan the QR code using any UPI app
-            <br />
-            (Google Pay, PhonePe, etc.)
-          </p>
-
-          {qrCodeUrl ? (
-            <div className="flex justify-center my-6">
-              <div className="bg-white p-4 rounded-lg shadow-lg border-4 border-gray-200">
-                <img src={qrCodeUrl} alt="UPI QR Code" className="w-64 h-64" />
+          {/* Success State */}
+          {paymentAutoDetected ? (
+            <>
+              <div className="w-20 h-20 mx-auto bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-green-300/50 animate-bounce">
+                <Check className="w-10 h-10 text-white" />
               </div>
-            </div>
+              <h2 className="text-2xl font-bold text-green-600">
+                Payment Received!
+              </h2>
+              <p className="text-muted-foreground">
+                {currencySymbol}
+                {total.toFixed(2)} received successfully
+                {tableNumber ? ` from Table ${tableNumber}` : ""}
+              </p>
+              <div className="text-sm text-muted-foreground animate-pulse">
+                Completing order automatically...
+              </div>
+            </>
           ) : (
-            <div className="flex justify-center my-6">
-              <div className="bg-muted p-4 rounded-lg w-64 h-64 flex items-center justify-center">
-                <p className="text-muted-foreground">Generating QR code...</p>
-              </div>
-            </div>
-          )}
+            <>
+              <h2 className="text-2xl font-bold text-foreground">
+                Scan to Pay
+              </h2>
+              <p className="text-muted-foreground">
+                {isPaytmQR ? (
+                  <>
+                    Ask the customer to scan the QR code using any UPI app
+                    <br />
+                    <span className="text-xs text-purple-500 font-medium">
+                      ⚡ Powered by Paytm • Auto-detection enabled
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    Ask the customer to scan the QR code using any UPI app
+                    <br />
+                    (Google Pay, PhonePe, etc.)
+                  </>
+                )}
+              </p>
 
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Amount to be Paid:</p>
-            <p className="text-4xl font-bold text-blue-600">
-              {currencySymbol}
-              {total.toFixed(2)}
-            </p>
-          </div>
+              {/* QR Code Display */}
+              {isGeneratingQR ? (
+                <div className="flex justify-center my-6">
+                  <div className="bg-muted p-4 rounded-lg w-64 h-64 flex flex-col items-center justify-center gap-3">
+                    <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+                    <p className="text-muted-foreground text-sm">
+                      Generating Dynamic QR...
+                    </p>
+                  </div>
+                </div>
+              ) : qrCodeUrl ? (
+                <div className="flex justify-center my-6">
+                  <div
+                    className={`bg-white p-4 rounded-lg shadow-lg border-4 ${
+                      paymentStatus === "waiting"
+                        ? "border-purple-300 animate-pulse"
+                        : "border-gray-200"
+                    }`}
+                  >
+                    <img
+                      src={qrCodeUrl}
+                      alt="Payment QR Code"
+                      className="w-64 h-64"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-center my-6">
+                  <div className="bg-muted p-4 rounded-lg w-64 h-64 flex items-center justify-center">
+                    <p className="text-muted-foreground">
+                      Generating QR code...
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Waiting Indicator (Paytm only) */}
+              {isPaytmQR && paymentStatus === "waiting" && (
+                <div className="flex items-center justify-center gap-2 text-purple-600">
+                  <div className="flex gap-1">
+                    <div
+                      className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"
+                      style={{ animationDelay: "0ms" }}
+                    />
+                    <div
+                      className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"
+                      style={{ animationDelay: "150ms" }}
+                    />
+                    <div
+                      className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"
+                      style={{ animationDelay: "300ms" }}
+                    />
+                  </div>
+                  <span className="text-sm font-medium">
+                    Waiting for payment...
+                  </span>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Amount to be Paid:
+                </p>
+                <p className="text-4xl font-bold text-blue-600">
+                  {currencySymbol}
+                  {total.toFixed(2)}
+                </p>
+              </div>
+
+              {/* Paytm badge */}
+              {isPaytmQR && (
+                <div className="flex items-center justify-center gap-2 mt-2">
+                  <Badge
+                    variant="secondary"
+                    className="bg-blue-50 text-blue-700 border-blue-200"
+                  >
+                    🔒 Secure Paytm Payment
+                  </Badge>
+                  {qrExpiresAt && (
+                    <Badge variant="outline" className="text-xs">
+                      Expires in 10 min
+                    </Badge>
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
       {/* Sticky Footer */}
-      <div className="sticky bottom-0 bg-background pt-3 pb-2 px-2 border-t shadow-lg">
-        <Button
-          onClick={() => handleMarkAsPaid("upi")}
-          className="w-full bg-green-600 hover:bg-green-700 text-white"
-          size="lg"
-          disabled={isProcessingPayment}
-        >
-          {isProcessingPayment ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Processing Payment...
-            </>
-          ) : (
-            "Mark as Paid"
+      {!paymentAutoDetected && (
+        <div className="sticky bottom-0 bg-background pt-3 pb-2 px-2 border-t shadow-lg">
+          <Button
+            onClick={() => handleMarkAsPaid("upi")}
+            className="w-full bg-green-600 hover:bg-green-700 text-white"
+            size="lg"
+            disabled={isProcessingPayment}
+          >
+            {isProcessingPayment ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Processing Payment...
+              </>
+            ) : isPaytmQR ? (
+              "Manual Override: Mark as Paid"
+            ) : (
+              "Mark as Paid"
+            )}
+          </Button>
+          {isPaytmQR && (
+            <p className="text-xs text-center text-muted-foreground mt-2">
+              Payment will be auto-detected. Use manual override only if
+              auto-detection fails.
+            </p>
           )}
-        </Button>
-      </div>
+        </div>
+      )}
     </div>
   );
 
