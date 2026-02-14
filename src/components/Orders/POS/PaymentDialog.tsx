@@ -30,6 +30,7 @@ import {
   MessageSquare,
   Smartphone,
   Copy,
+  Mail,
 } from "lucide-react";
 import QRCode from "qrcode";
 import jsPDF from "jspdf";
@@ -119,10 +120,12 @@ const PaymentDialog = ({
   const queryClient = useQueryClient();
   const { symbol: currencySymbol } = useCurrencyContext();
 
-  // Free bill sharing hook (wa.me links, Web Share API)
+  // Free bill sharing hook (wa.me links, Web Share API, Email)
   const {
+    isMobileDevice,
     shareViaWhatsApp,
     shareViaSms,
+    shareViaEmail,
     shareViaWebShareAPI,
     getBillText,
     isWebShareSupported,
@@ -1279,6 +1282,13 @@ const PaymentDialog = ({
       restaurantInfo?.name || restaurantInfo?.restaurantName || "Restaurant";
     await shareViaWebShareAPI(currentBillText, restaurantName);
   }, [currentBillText, restaurantInfo, shareViaWebShareAPI]);
+
+  // Share bill via Email (mailto: link — works great on desktop)
+  const handleShareEmail = useCallback(() => {
+    const restaurantName =
+      restaurantInfo?.name || restaurantInfo?.restaurantName || "Restaurant";
+    shareViaEmail(customerEmail || "", currentBillText, restaurantName);
+  }, [customerEmail, currentBillText, restaurantInfo, shareViaEmail]);
 
   const handlePrintBill = async (navigateAfter: boolean = false) => {
     // Save customer details first
@@ -3290,10 +3300,10 @@ const PaymentDialog = ({
         {/* Share Bill Section — FREE (no API keys, works for all restaurants) */}
         <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-3">
           <p className="text-sm text-muted-foreground mb-2 font-medium">
-            Share Bill
+            {isMobileDevice ? "Share Bill" : "💻 Share Bill from Desktop"}
           </p>
           <div className="grid grid-cols-2 gap-2">
-            {/* WhatsApp Share */}
+            {/* WhatsApp Share — works on both mobile (WhatsApp app) and desktop (WhatsApp Web) */}
             <Button
               variant="outline"
               onClick={handleShareWhatsApp}
@@ -3301,19 +3311,30 @@ const PaymentDialog = ({
               className="border-2 border-green-200 dark:border-green-800 hover:border-green-400 dark:hover:border-green-600 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 dark:hover:from-green-900/20 dark:hover:to-emerald-900/20 transition-all duration-300 text-green-700 dark:text-green-400"
             >
               <MessageSquare className="w-4 h-4 mr-1.5" />
-              WhatsApp
+              {isMobileDevice ? "WhatsApp" : "WhatsApp Web"}
             </Button>
 
-            {/* SMS Share */}
-            <Button
-              variant="outline"
-              onClick={handleShareSms}
-              disabled={!customerMobile}
-              className="border-2 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 transition-all duration-300 text-blue-700 dark:text-blue-400"
-            >
-              <Smartphone className="w-4 h-4 mr-1.5" />
-              SMS
-            </Button>
+            {/* Mobile: SMS button | Desktop: Email button */}
+            {isMobileDevice ? (
+              <Button
+                variant="outline"
+                onClick={handleShareSms}
+                disabled={!customerMobile}
+                className="border-2 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 transition-all duration-300 text-blue-700 dark:text-blue-400"
+              >
+                <Smartphone className="w-4 h-4 mr-1.5" />
+                SMS
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={handleShareEmail}
+                className="border-2 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 transition-all duration-300 text-blue-700 dark:text-blue-400"
+              >
+                <Mail className="w-4 h-4 mr-1.5" />
+                Email
+              </Button>
+            )}
 
             {/* Generic Share / Copy */}
             <Button
@@ -3334,7 +3355,14 @@ const PaymentDialog = ({
           </div>
           {!customerMobile && (
             <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-              💡 Add customer mobile number to enable WhatsApp & SMS sharing
+              💡 Add customer mobile number to enable WhatsApp{" "}
+              {isMobileDevice ? "& SMS" : "Web"} sharing
+            </p>
+          )}
+          {!isMobileDevice && (
+            <p className="text-xs text-muted-foreground mt-1.5">
+              📌 WhatsApp Web opens in browser. Make sure you're logged in at
+              web.whatsapp.com
             </p>
           )}
         </div>

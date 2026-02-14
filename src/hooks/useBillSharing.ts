@@ -1,8 +1,9 @@
 /**
  * useBillSharing Hook
  * Provides methods to share bills via WhatsApp (wa.me links),
- * SMS (sms: URI), and Web Share API.
+ * SMS (sms: URI), Email (mailto:), and Web Share API.
  * 100% free — uses device-native sharing.
+ * Detects desktop vs mobile to show appropriate options.
  */
 
 import { useCallback, useMemo } from "react";
@@ -17,6 +18,14 @@ import {
 export function useBillSharing() {
   const { toast } = useToast();
 
+  /** Detect if the device is mobile/tablet */
+  const isMobileDevice = useMemo(() => {
+    if (typeof navigator === "undefined") return false;
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    );
+  }, []);
+
   /** Whether the browser supports Web Share API */
   const isWebShareSupported = useMemo(
     () => typeof navigator !== "undefined" && !!navigator.share,
@@ -28,15 +37,19 @@ export function useBillSharing() {
     return formatBillText(params);
   }, []);
 
-  /** Share bill via WhatsApp (opens wa.me link in new tab) */
+  /** Share bill via WhatsApp (opens wa.me link — works on both mobile AND desktop via WhatsApp Web) */
   const shareViaWhatsApp = useCallback(
     (phone: string, billText: string) => {
       try {
         const url = generateWhatsAppUrl(phone, billText);
         window.open(url, "_blank", "noopener,noreferrer");
         toast({
-          title: "WhatsApp Opened",
-          description: `Bill ready to send to ${phone} via WhatsApp.`,
+          title: isMobileDevice
+            ? "WhatsApp Opened"
+            : "WhatsApp Web Opening",
+          description: isMobileDevice
+            ? `Bill ready to send to ${phone} via WhatsApp.`
+            : `Opening WhatsApp Web to send bill to ${phone}. Make sure you're logged into WhatsApp Web.`,
         });
         return true;
       } catch (error) {
@@ -49,10 +62,10 @@ export function useBillSharing() {
         return false;
       }
     },
-    [toast]
+    [toast, isMobileDevice]
   );
 
-  /** Share bill via SMS (opens device messaging app) */
+  /** Share bill via SMS (opens device messaging app — mobile only) */
   const shareViaSms = useCallback(
     (phone: string, billText: string) => {
       try {
@@ -76,7 +89,36 @@ export function useBillSharing() {
     [toast]
   );
 
-  /** Share bill via Web Share API (shows native share dialog) */
+  /** Share bill via Email (mailto: link — works great on desktop) */
+  const shareViaEmail = useCallback(
+    (email: string, billText: string, restaurantName: string) => {
+      try {
+        const subject = encodeURIComponent(
+          `Your Bill from ${restaurantName}`
+        );
+        // Convert bill text line breaks to %0A for mailto body
+        const body = encodeURIComponent(billText);
+        const mailtoUrl = `mailto:${email}?subject=${subject}&body=${body}`;
+        window.open(mailtoUrl, "_self");
+        toast({
+          title: "Email App Opened",
+          description: `Email with bill ready to send to ${email}.`,
+        });
+        return true;
+      } catch (error) {
+        console.error("Error opening email:", error);
+        toast({
+          title: "Email Error",
+          description: "Could not open email app. Please try again.",
+          variant: "destructive",
+        });
+        return false;
+      }
+    },
+    [toast]
+  );
+
+  /** Share bill via Web Share API (shows native share dialog) or copy to clipboard */
   const shareViaWebShareAPI = useCallback(
     async (billText: string, restaurantName: string) => {
       if (isWebShareSupported) {
@@ -105,14 +147,14 @@ export function useBillSharing() {
         toast({
           title: "Bill Copied!",
           description:
-            "Bill text copied to clipboard. You can paste it in any messaging app.",
+            "Bill text copied to clipboard. You can paste it in WhatsApp Web, Email, or any messaging app.",
         });
         return true;
       } catch (error) {
         console.error("Clipboard error:", error);
         toast({
           title: "Could Not Copy",
-          description: "Please try sharing via WhatsApp or SMS instead.",
+          description: "Please try sharing via WhatsApp or Email instead.",
           variant: "destructive",
         });
         return false;
@@ -122,10 +164,12 @@ export function useBillSharing() {
   );
 
   return {
+    isMobileDevice,
     isWebShareSupported,
     getBillText,
     shareViaWhatsApp,
     shareViaSms,
+    shareViaEmail,
     shareViaWebShareAPI,
   };
 }
