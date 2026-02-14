@@ -6,13 +6,13 @@
 
 -- Step 1: Add Paytm gateway columns to existing payment_settings table
 ALTER TABLE public.payment_settings
-ADD COLUMN IF NOT EXISTS gateway_type TEXT DEFAULT 'static_upi' CHECK (gateway_type IN ('static_upi', 'paytm', 'razorpay')),
+ADD COLUMN IF NOT EXISTS gateway_type TEXT DEFAULT 'upi' CHECK (gateway_type IN ('upi', 'paytm', 'razorpay')),
 ADD COLUMN IF NOT EXISTS paytm_mid TEXT,
 ADD COLUMN IF NOT EXISTS paytm_merchant_key TEXT,
 ADD COLUMN IF NOT EXISTS paytm_website TEXT DEFAULT 'DEFAULT',
-ADD COLUMN IF NOT EXISTS paytm_is_test_mode BOOLEAN DEFAULT true,
+ADD COLUMN IF NOT EXISTS paytm_test_mode BOOLEAN DEFAULT true,
 ADD COLUMN IF NOT EXISTS paytm_webhook_secret TEXT,
-ADD COLUMN IF NOT EXISTS soundbox_linked BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS soundbox_enabled BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS voice_announcement_enabled BOOLEAN DEFAULT true,
 ADD COLUMN IF NOT EXISTS voice_announcement_template TEXT DEFAULT 'detailed',
 ADD COLUMN IF NOT EXISTS voice_announcement_language TEXT DEFAULT 'en';
@@ -65,7 +65,6 @@ ON public.payment_transactions(order_id);
 ALTER TABLE public.payment_transactions ENABLE ROW LEVEL SECURITY;
 
 -- Step 5: RLS policies for payment_transactions
--- Authenticated users can view their restaurant's transactions
 CREATE POLICY "payment_transactions_select_own"
 ON public.payment_transactions
 FOR SELECT
@@ -73,7 +72,6 @@ USING (restaurant_id IN (
   SELECT restaurant_id FROM profiles WHERE id = auth.uid()
 ));
 
--- Authenticated users can insert for their restaurant
 CREATE POLICY "payment_transactions_insert_own"
 ON public.payment_transactions
 FOR INSERT
@@ -81,7 +79,6 @@ WITH CHECK (restaurant_id IN (
   SELECT restaurant_id FROM profiles WHERE id = auth.uid()
 ));
 
--- Authenticated users can update their restaurant's transactions
 CREATE POLICY "payment_transactions_update_own"
 ON public.payment_transactions
 FOR UPDATE
@@ -89,14 +86,12 @@ USING (restaurant_id IN (
   SELECT restaurant_id FROM profiles WHERE id = auth.uid()
 ));
 
--- Service role can do everything (for Edge Functions / webhooks)
 CREATE POLICY "payment_transactions_service_role"
 ON public.payment_transactions
 FOR ALL
 USING (auth.role() = 'service_role')
 WITH CHECK (auth.role() = 'service_role');
 
--- Anonymous access for webhook Edge Function
 CREATE POLICY "payment_transactions_anon_insert"
 ON public.payment_transactions
 FOR INSERT
@@ -108,7 +103,6 @@ FOR UPDATE
 USING (true);
 
 -- Step 6: Enable realtime for payment_transactions
--- This allows POS to detect payment changes instantly
 ALTER PUBLICATION supabase_realtime ADD TABLE public.payment_transactions;
 
 -- Step 7: Create trigger for updated_at timestamp

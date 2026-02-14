@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useBillSharing } from "@/hooks/useBillSharing";
 import { usePaymentStatus } from "@/hooks/usePaymentStatus";
 import { useSpeechAnnouncement } from "@/hooks/useSpeechAnnouncement";
 import { usePaymentNotification } from "@/hooks/usePaymentNotification";
@@ -25,6 +26,10 @@ import {
   X,
   Search,
   Loader2,
+  Share2,
+  MessageSquare,
+  Smartphone,
+  Copy,
 } from "lucide-react";
 import QRCode from "qrcode";
 import jsPDF from "jspdf";
@@ -113,6 +118,15 @@ const PaymentDialog = ({
   }, [requestPermission]);
   const queryClient = useQueryClient();
   const { symbol: currencySymbol } = useCurrencyContext();
+
+  // Free bill sharing hook (wa.me links, Web Share API)
+  const {
+    shareViaWhatsApp,
+    shareViaSms,
+    shareViaWebShareAPI,
+    getBillText,
+    isWebShareSupported,
+  } = useBillSharing();
 
   // NC (Non-Chargeable) Reason State
   const [ncReason, setNcReason] = useState<string>("");
@@ -1205,140 +1219,66 @@ const PaymentDialog = ({
     }
   };
 
-  // Email bill sending function (using Resend)
-  const sendBillViaEmail = async () => {
-    console.log("📧 sendBillViaEmail called", {
-      sendBillToEmail,
-      customerEmail,
+  // Build bill text for sharing (free — no API keys needed)
+  const currentBillText = useMemo(() => {
+    return getBillText({
+      restaurantName:
+        restaurantInfo?.name || restaurantInfo?.restaurantName || "Restaurant",
+      restaurantAddress: restaurantInfo?.address,
+      restaurantPhone: restaurantInfo?.phone,
+      gstin: restaurantInfo?.gstin,
+      items: orderItems.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+      subtotal,
+      total,
+      discount: totalDiscountAmount > 0 ? totalDiscountAmount : undefined,
+      promotionName: appliedPromotion?.name,
+      manualDiscountPercent:
+        manualDiscountPercent > 0 ? manualDiscountPercent : undefined,
+      tableNumber: tableNumber || undefined,
+      customerName: customerName || undefined,
+      orderDate: new Date().toLocaleString("en-IN"),
+      currencySymbol,
+      isNonChargeable,
     });
-    if (!sendBillToEmail || !customerEmail) {
-      console.log("⚠️ sendBillViaEmail skipped - missing data", {
-        sendBillToEmail,
-        customerEmail,
-      });
-      return;
+  }, [
+    restaurantInfo,
+    orderItems,
+    subtotal,
+    total,
+    totalDiscountAmount,
+    appliedPromotion,
+    manualDiscountPercent,
+    tableNumber,
+    customerName,
+    currencySymbol,
+    isNonChargeable,
+    getBillText,
+  ]);
+
+  // Share bill via WhatsApp (free — uses wa.me link)
+  const handleShareWhatsApp = useCallback(() => {
+    if (customerMobile) {
+      shareViaWhatsApp(customerMobile, currentBillText);
     }
+  }, [customerMobile, currentBillText, shareViaWhatsApp]);
 
-    try {
-      console.log("📧 restaurantInfo data:", restaurantInfo);
-      const restaurantId =
-        restaurantInfo?.restaurantId || restaurantInfo?.id || "";
-
-      const { data, error } = await supabase.functions.invoke(
-        "send-email-bill",
-        {
-          body: {
-            orderId: orderId || "",
-            email: customerEmail,
-            customerName: customerName || "Valued Customer",
-            restaurantName: restaurantInfo?.name || "",
-            restaurantId: restaurantId, // Pass ID so edge function can fetch name if needed
-            restaurantAddress: restaurantInfo?.address || "",
-            restaurantPhone: restaurantInfo?.phone || "",
-            total: total,
-            items: orderItems.map((item) => ({
-              name: item.name,
-              quantity: item.quantity,
-              price: item.price,
-            })),
-            tableNumber: tableNumber || "POS",
-            orderDate: new Date().toLocaleString("en-IN"),
-            discount: totalDiscountAmount > 0 ? totalDiscountAmount : undefined,
-            promotionName: appliedPromotion?.name || undefined,
-            includeEnrollment: true, // Enable loyalty program enrollment invitation
-          },
-        },
-      );
-
-      console.log("📧 Edge function response:", { data, error });
-      if (error) throw error;
-
-      if (data?.success) {
-        toast({
-          title: "Bill Sent Successfully",
-          description: `Bill has been sent to ${customerEmail} via Email.`,
-        });
-      } else {
-        toast({
-          title: "Failed to Send Bill",
-          description: data?.error || "There was an error sending the bill.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error sending Email bill:", error);
-      toast({
-        title: "Email Send Failed",
-        description: "Failed to send bill via Email. Please try again.",
-        variant: "destructive",
-      });
+  // Share bill via SMS (free — uses sms: URI)
+  const handleShareSms = useCallback(() => {
+    if (customerMobile) {
+      shareViaSms(customerMobile, currentBillText);
     }
-  };
+  }, [customerMobile, currentBillText, shareViaSms]);
 
-  // WhatsApp bill sending function (using WhatsApp Cloud API)
-  const sendBillViaWhatsApp = async () => {
-    console.log("📱 sendBillViaWhatsApp called", {
-      sendBillToMobile,
-      customerMobile,
-    });
-    if (!sendBillToMobile || !customerMobile) {
-      console.log("⚠️ sendBillViaWhatsApp skipped - missing data", {
-        sendBillToMobile,
-        customerMobile,
-      });
-      return;
-    }
-
-    try {
-      const restaurantId =
-        restaurantInfo?.restaurantId || restaurantInfo?.id || "";
-
-      const { data, error } = await supabase.functions.invoke(
-        "send-whatsapp-cloud",
-        {
-          body: {
-            phone: customerMobile,
-            orderId: orderId || "",
-            customerName: customerName || "Valued Customer",
-            restaurantName: restaurantInfo?.name || "Restaurant",
-            restaurantId: restaurantId,
-            total: total,
-            items: orderItems.map((item) => ({
-              name: item.name,
-              quantity: item.quantity,
-              price: item.price,
-            })),
-            tableNumber: tableNumber || "POS",
-            orderDate: new Date().toLocaleString("en-IN"),
-            messageType: "bill",
-          },
-        },
-      );
-
-      console.log("📱 WhatsApp Edge function response:", { data, error });
-      if (error) throw error;
-
-      if (data?.success) {
-        toast({
-          title: "Bill Sent via WhatsApp",
-          description: `Bill has been sent to ${customerMobile} via WhatsApp.`,
-        });
-      } else {
-        toast({
-          title: "Failed to Send WhatsApp Bill",
-          description: data?.error || "There was an error sending the bill.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error sending WhatsApp bill:", error);
-      toast({
-        title: "WhatsApp Send Failed",
-        description: "Failed to send bill via WhatsApp. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
+  // Share bill via Web Share API or clipboard (free)
+  const handleShareGeneric = useCallback(async () => {
+    const restaurantName =
+      restaurantInfo?.name || restaurantInfo?.restaurantName || "Restaurant";
+    await shareViaWebShareAPI(currentBillText, restaurantName);
+  }, [currentBillText, restaurantInfo, shareViaWebShareAPI]);
 
   const handlePrintBill = async (navigateAfter: boolean = false) => {
     // Save customer details first
@@ -1592,28 +1532,41 @@ const PaymentDialog = ({
       });
       yPos += 6;
 
-      // Add QR code if UPI is configured and we're in QR step
-      if (qrCodeUrl && paymentSettings?.upi_id) {
-        for (let i = margin; i < pageWidth - margin; i += 2) {
-          doc.line(i, yPos, i + 1, yPos);
+      // Add QR code if UPI is configured — always generate fresh for print
+      if (paymentSettings?.upi_id) {
+        try {
+          const upiUrl = `upi://pay?pa=${paymentSettings.upi_id}&pn=${encodeURIComponent(
+            restaurantInfo?.name || "Restaurant",
+          )}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(
+            `Order ${tableNumber || "POS"}`,
+          )}`;
+          const printQrUrl =
+            qrCodeUrl ||
+            (await QRCode.toDataURL(upiUrl, { width: 300, margin: 2 }));
+
+          for (let i = margin; i < pageWidth - margin; i += 2) {
+            doc.line(i, yPos, i + 1, yPos);
+          }
+          yPos += 3;
+
+          const qrSize = 32;
+          doc.addImage(
+            printQrUrl,
+            "PNG",
+            (pageWidth - qrSize) / 2,
+            yPos,
+            qrSize,
+            qrSize,
+          );
+          yPos += qrSize + 3;
+
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          doc.text("Scan QR to pay", pageWidth / 2, yPos, { align: "center" });
+          yPos += 4;
+        } catch (qrErr) {
+          console.error("QR code generation for print failed:", qrErr);
         }
-        yPos += 3;
-
-        const qrSize = 32; // Slightly larger QR code
-        doc.addImage(
-          qrCodeUrl,
-          "PNG",
-          (pageWidth - qrSize) / 2,
-          yPos,
-          qrSize,
-          qrSize,
-        );
-        yPos += qrSize + 3;
-
-        doc.setFontSize(9); // Increased from 8
-        doc.setFont("helvetica", "normal");
-        doc.text("Scan QR to pay", pageWidth / 2, yPos, { align: "center" });
-        yPos += 4;
       }
 
       // Dashed line
@@ -1642,43 +1595,21 @@ const PaymentDialog = ({
         };
       }
 
-      // Send bill via Email if checkbox is checked
-      if (sendBillToEmail && customerEmail) {
-        console.log("📧 Sending bill via Email");
-        await sendBillViaEmail();
-      } else {
-        console.log("ℹ️ Skipping Email send", {
-          sendBillToEmail,
-          customerEmail,
-        });
-      }
-
-      // Send bill via WhatsApp if checkbox is checked
+      // Auto-share bill via WhatsApp if checkbox is checked (free — wa.me link)
       if (sendBillToMobile && customerMobile) {
-        console.log("📱 Sending bill via WhatsApp");
-        await sendBillViaWhatsApp();
-      } else {
-        console.log("ℹ️ Skipping WhatsApp send", {
-          sendBillToMobile,
-          customerMobile,
-        });
+        console.log("📱 Sharing bill via WhatsApp (free wa.me link)");
+        handleShareWhatsApp();
       }
 
-      // Build toast description based on what was sent
-      let toastDescription = "The bill has been generated and sent to printer.";
-      if (sendBillToEmail && sendBillToMobile) {
-        toastDescription = "Bill sent to customer's email and WhatsApp.";
-      } else if (sendBillToEmail) {
-        toastDescription =
-          "Bill has been generated and sent to customer's email.";
-      } else if (sendBillToMobile) {
-        toastDescription =
-          "Bill has been generated and sent to customer's WhatsApp.";
+      // Auto-share via generic share if email checkbox is checked (free)
+      if (sendBillToEmail && customerEmail) {
+        console.log("📤 Sharing bill via generic share API");
+        await handleShareGeneric();
       }
 
       toast({
         title: "Bill Generated",
-        description: toastDescription,
+        description: "The bill has been generated and sent to printer.",
       });
 
       if (navigateAfter) {
@@ -3355,6 +3286,58 @@ const PaymentDialog = ({
           <Printer className="w-4 h-4 mr-2" />
           Print Bill
         </Button>
+
+        {/* Share Bill Section — FREE (no API keys, works for all restaurants) */}
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-3">
+          <p className="text-sm text-muted-foreground mb-2 font-medium">
+            Share Bill
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {/* WhatsApp Share */}
+            <Button
+              variant="outline"
+              onClick={handleShareWhatsApp}
+              disabled={!customerMobile}
+              className="border-2 border-green-200 dark:border-green-800 hover:border-green-400 dark:hover:border-green-600 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 dark:hover:from-green-900/20 dark:hover:to-emerald-900/20 transition-all duration-300 text-green-700 dark:text-green-400"
+            >
+              <MessageSquare className="w-4 h-4 mr-1.5" />
+              WhatsApp
+            </Button>
+
+            {/* SMS Share */}
+            <Button
+              variant="outline"
+              onClick={handleShareSms}
+              disabled={!customerMobile}
+              className="border-2 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 transition-all duration-300 text-blue-700 dark:text-blue-400"
+            >
+              <Smartphone className="w-4 h-4 mr-1.5" />
+              SMS
+            </Button>
+
+            {/* Generic Share / Copy */}
+            <Button
+              variant="outline"
+              onClick={handleShareGeneric}
+              className="col-span-2 border-2 border-purple-200 dark:border-purple-800 hover:border-purple-400 dark:hover:border-purple-600 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 dark:hover:from-purple-900/20 dark:hover:to-pink-900/20 transition-all duration-300 text-purple-700 dark:text-purple-400"
+            >
+              {isWebShareSupported ? (
+                <>
+                  <Share2 className="w-4 h-4 mr-1.5" /> Share via App
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4 mr-1.5" /> Copy Bill Text
+                </>
+              )}
+            </Button>
+          </div>
+          {!customerMobile && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+              💡 Add customer mobile number to enable WhatsApp & SMS sharing
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
