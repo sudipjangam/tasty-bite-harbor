@@ -11,7 +11,10 @@ import {
 } from "@/components/QuickServe/QSOrderPanel";
 import { QSCustomerInput } from "@/components/QuickServe/QSCustomerInput";
 import { QSPaymentSheet } from "@/components/QuickServe/QSPaymentSheet";
-import { QSOrderHistory } from "@/components/QuickServe/QSOrderHistory";
+import {
+  QSOrderHistory,
+  RecalledOrderItem,
+} from "@/components/QuickServe/QSOrderHistory";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
 import { History, ShoppingBag } from "lucide-react";
@@ -157,6 +160,29 @@ const QuickServePOS: React.FC = () => {
     setShowPayment(false);
     setShowMobileCart(false);
   }, []);
+
+  // Recall order from history into active cart
+  const handleRecallOrder = useCallback(
+    (items: RecalledOrderItem[], name: string, phone: string) => {
+      const newOrderItems: QSOrderItem[] = items.map((item) => ({
+        id: crypto.randomUUID(),
+        menuItemId: "",
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        isCustom: true,
+      }));
+      setOrderItems(newOrderItems);
+      if (name) setCustomerName(name);
+      if (phone) setCustomerPhone(phone);
+      toast({
+        title: "Order Recalled",
+        description: `${items.length} items loaded — you can now edit or add more`,
+        duration: 2500,
+      });
+    },
+    [toast],
+  );
 
   const itemCount = orderItems.reduce((sum, item) => sum + item.quantity, 0);
   const orderTotal = orderItems.reduce(
@@ -312,6 +338,7 @@ const QuickServePOS: React.FC = () => {
       <QSOrderHistory
         isOpen={showHistory}
         onClose={() => setShowHistory(false)}
+        onRecallOrder={handleRecallOrder}
       />
     </div>
   );
