@@ -1,0 +1,284 @@
+import React, { useState } from "react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Banknote,
+  CreditCard,
+  Smartphone,
+  CheckCircle2,
+  Loader2,
+  Gift,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { QSOrderItem } from "./QSOrderPanel";
+import { supabase } from "@/integrations/supabase/client";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { useAuth } from "@/hooks/useAuth";
+import { useCRMSync } from "@/hooks/useCRMSync";
+import { useToast } from "@/hooks/use-toast";
+
+interface QSPaymentSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  items: QSOrderItem[];
+  customerName: string;
+  customerPhone: string;
+  onSuccess: () => void;
+}
+
+const paymentMethods = [
+  {
+    id: "cash",
+    label: "Cash",
+    icon: Banknote,
+    color: "from-green-500 to-emerald-600",
+  },
+  {
+    id: "upi",
+    label: "UPI",
+    icon: Smartphone,
+    color: "from-purple-500 to-indigo-600",
+  },
+  {
+    id: "card",
+    label: "Card",
+    icon: CreditCard,
+    color: "from-blue-500 to-cyan-600",
+  },
+];
+
+export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
+  isOpen,
+  onClose,
+  items,
+  customerName,
+  customerPhone,
+  onSuccess,
+}) => {
+  const [status, setStatus] = useState<"idle" | "processing" | "success">(
+    "idle",
+  );
+  const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+  const { symbol: currencySymbol } = useCurrencyContext();
+  const { restaurantId } = useRestaurantId();
+  const { user } = useAuth();
+  const { syncCustomerToCRM } = useCRMSync();
+  const { toast } = useToast();
+
+  const subtotal = items.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
+
+  const handlePay = async (method: string) => {
+    setSelectedMethod(method);
+    setStatus("processing");
+
+    try {
+      if (!restaurantId) throw new Error("No restaurant ID");
+
+      const attendantName = user
+        ? `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
+          user.email
+        : "Staff";
+
+      const finalCustomerName = customerName.trim() || "Walk-in Customer";
+
+      // Format items for orders table
+      const formattedItems = items.map(
+        (item) => `${item.quantity}x ${item.name} @${item.price}`,
+      );
+
+      const kitchenItems = items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        notes: [],
+      }));
+
+      // 1. Create kitchen order
+      const { data: kitchenOrder, error: kitchenError } = await supabase
+        .from("kitchen_orders")
+        .insert({
+          restaurant_id: restaurantId,
+          source: `QuickServe`,
+          status: "completed",
+          items: kitchenItems,
+          order_type: "takeaway",
+          customer_name: finalCustomerName,
+          server_name: attendantName,
+          priority: "normal",
+        })
+        .select()
+        .single();
+
+      if (kitchenError) throw kitchenError;
+
+      // 2. Create order record
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          restaurant_id: restaurantId,
+          customer_name: finalCustomerName,
+          items: formattedItems,
+          total: subtotal,
+          status: "completed",
+          payment_status: "paid",
+          source: "pos",
+          order_type: "takeaway",
+          attendant: attendantName,
+          ...(customerPhone && { customer_phone: customerPhone }),
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // 3. Link kitchen order to order
+      if (order?.id && kitchenOrder?.id) {
+        await supabase
+          .from("kitchen_orders")
+          .update({ order_id: order.id })
+          .eq("id", kitchenOrder.id);
+      }
+
+      // 4. Log POS transaction
+      await supabase.from("pos_transactions").insert({
+        restaurant_id: restaurantId,
+        order_id: order?.id || null,
+        kitchen_order_id: kitchenOrder?.id || null,
+        amount: subtotal,
+        payment_method: method,
+        status: "completed",
+        customer_name: finalCustomerName || null,
+        customer_phone: customerPhone || null,
+        staff_id: user?.id || null,
+        discount_amount: 0,
+      });
+
+      // 5. CRM auto-sync
+      if (customerName.trim()) {
+        try {
+          await syncCustomerToCRM({
+            customerName: finalCustomerName,
+            customerPhone: customerPhone || undefined,
+            orderTotal: subtotal,
+            orderId: kitchenOrder?.id || undefined,
+            source: "quickserve",
+          });
+        } catch (crmErr) {
+          console.error("CRM sync error (non-blocking):", crmErr);
+        }
+      }
+
+      setStatus("success");
+      toast({
+        title: "Payment Successful",
+        description: `${currencySymbol}${subtotal.toFixed(2)} received via ${method}`,
+      });
+
+      // Auto-close after 1.5s
+      setTimeout(() => {
+        setStatus("idle");
+        setSelectedMethod(null);
+        onSuccess();
+        onClose();
+      }, 1500);
+    } catch (error) {
+      console.error("Payment error:", error);
+      toast({
+        title: "Payment Failed",
+        description: "Could not complete payment. Please try again.",
+        variant: "destructive",
+      });
+      setStatus("idle");
+      setSelectedMethod(null);
+    }
+  };
+
+  return (
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open && status === "idle") onClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-md bg-gray-900 border-white/10 text-white p-0 overflow-hidden">
+        <DialogTitle className="sr-only">Payment</DialogTitle>
+
+        {status === "success" ? (
+          <div className="flex flex-col items-center justify-center py-16 px-6">
+            <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mb-4 animate-in zoom-in-50 duration-300">
+              <CheckCircle2 className="h-10 w-10 text-green-400" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-1">
+              Payment Complete!
+            </h3>
+            <p className="text-white/60 text-sm">
+              {currencySymbol}
+              {subtotal.toFixed(2)} via {selectedMethod?.toUpperCase()}
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Header */}
+            <div className="text-center py-6 px-6 bg-gradient-to-r from-orange-500/20 to-pink-500/20 border-b border-white/10">
+              <p className="text-white/50 text-xs uppercase tracking-wider mb-1">
+                Amount Due
+              </p>
+              <p className="text-4xl font-extrabold bg-gradient-to-r from-orange-400 to-pink-400 bg-clip-text text-transparent">
+                {currencySymbol}
+                {subtotal.toFixed(2)}
+              </p>
+              <p className="text-white/40 text-xs mt-1">
+                {items.reduce((s, i) => s + i.quantity, 0)} items
+              </p>
+            </div>
+
+            {/* Payment Methods */}
+            <div className="p-6 space-y-3">
+              <p className="text-xs uppercase tracking-wider text-white/40 font-medium mb-2">
+                Select Payment Method
+              </p>
+              {paymentMethods.map((pm) => {
+                const Icon = pm.icon;
+                const isSelected = selectedMethod === pm.id;
+                const isProcessing = status === "processing" && isSelected;
+
+                return (
+                  <button
+                    key={pm.id}
+                    onClick={() => handlePay(pm.id)}
+                    disabled={status === "processing"}
+                    className={cn(
+                      "w-full flex items-center gap-4 p-4 rounded-xl border transition-all duration-200 active:scale-[0.98]",
+                      isProcessing
+                        ? "border-white/20 bg-white/10"
+                        : "border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/15",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "w-12 h-12 rounded-xl bg-gradient-to-r flex items-center justify-center shrink-0",
+                        pm.color,
+                      )}
+                    >
+                      <Icon className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="text-base font-semibold text-white">
+                      {pm.label}
+                    </span>
+                    {isProcessing && (
+                      <Loader2 className="h-4 w-4 text-white/60 animate-spin ml-auto" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};
