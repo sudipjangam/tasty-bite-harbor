@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useBillSharing } from "@/hooks/useBillSharing";
 import { usePaymentStatus } from "@/hooks/usePaymentStatus";
+import { useCRMSync } from "@/hooks/useCRMSync";
 import { useSpeechAnnouncement } from "@/hooks/useSpeechAnnouncement";
 import { usePaymentNotification } from "@/hooks/usePaymentNotification";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -120,6 +121,9 @@ const PaymentDialog = ({
   }, [requestPermission]);
   const queryClient = useQueryClient();
   const { symbol: currencySymbol } = useCurrencyContext();
+
+  // CRM auto-sync hook - upserts customer & awards loyalty points on payment
+  const { syncCustomerToCRM } = useCRMSync();
 
   // Free bill sharing hook (wa.me links, Web Share API, Email, Bill Link)
   const {
@@ -2113,6 +2117,22 @@ const PaymentDialog = ({
             console.error("Error logging transaction:", transactionError);
             // Don't fail the payment if transaction logging fails
           }
+        }
+      }
+
+      // --- CRM Auto-Sync: upsert customer & award loyalty points ---
+      if (customerName.trim()) {
+        try {
+          await syncCustomerToCRM({
+            customerName: customerName.trim(),
+            customerPhone: customerMobile || undefined,
+            orderTotal: finalTotal,
+            orderId: orderId || undefined,
+            source: tableNumber ? "pos" : "qsr",
+          });
+        } catch (crmError) {
+          console.error("CRM sync error (non-blocking):", crmError);
+          // CRM sync is best-effort, don't fail payment
         }
       }
 

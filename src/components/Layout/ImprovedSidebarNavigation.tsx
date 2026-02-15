@@ -33,6 +33,7 @@ import {
   Key,
   Building2,
   Ban,
+  Store,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ const hrefToComponentMap: Record<string, string> = {
   "/": "dashboard",
   "/pos": "pos",
   "/qsr-pos": "qsr-pos",
+  "/quickserve-pos": "quickserve-pos",
   "/orders": "orders",
   "/kitchen": "kitchen",
   "/recipes": "recipes",
@@ -126,6 +128,13 @@ const navigationGroups: NavigationGroup[] = [
         icon: Zap,
         href: "/qsr-pos",
         description: "Quick service restaurant POS",
+        requiredPermissions: ["orders.view"],
+      },
+      {
+        title: "QuickServe POS",
+        icon: Store,
+        href: "/quickserve-pos",
+        description: "Counter & takeaway POS",
         requiredPermissions: ["orders.view"],
       },
       {
