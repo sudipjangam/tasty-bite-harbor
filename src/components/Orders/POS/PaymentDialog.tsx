@@ -410,7 +410,7 @@ const PaymentDialog = ({
       // Auto-mark as paid after a brief delay for the user to see the success state
       setTimeout(() => {
         handleMarkAsPaid("upi");
-      }, 2000);
+      }, 6000);
     },
     [
       total,
@@ -1927,11 +1927,11 @@ const PaymentDialog = ({
 
       setCurrentStep("success");
 
-      // Auto-close after 2 seconds
+      // Auto-close after 6 seconds (gives user time to share bill)
       setTimeout(() => {
         onSuccess();
         onClose();
-      }, 2000);
+      }, 6000);
     } catch (error) {
       console.error("Error charging to room:", error);
       toast({
@@ -2124,11 +2124,11 @@ const PaymentDialog = ({
           : `Order payment of ₹${finalTotal.toFixed(2)} received via ${finalPaymentMethod}.`,
       });
 
-      // Auto-close after 2 seconds
+      // Auto-close after 6 seconds (gives user time to share bill)
       setTimeout(() => {
         onSuccess();
         onClose();
-      }, 2000);
+      }, 6000);
     } catch (error) {
       toast({
         title: "Payment Failed",

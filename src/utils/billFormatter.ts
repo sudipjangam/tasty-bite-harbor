@@ -181,18 +181,89 @@ export function generateSmsUrl(phone: string, billText: string): string {
 }
 
 /**
+ * Compact key mapping — long key → short key (saves ~60% URL length).
+ * These short keys are only used inside the URL; decoded back to full keys.
+ */
+const COMPACT_KEYS: Record<string, string> = {
+  restaurantName: "rn",
+  restaurantAddress: "ra",
+  restaurantPhone: "rp",
+  gstin: "g",
+  items: "i",
+  subtotal: "st",
+  total: "t",
+  discount: "d",
+  promotionName: "pn",
+  manualDiscountPercent: "md",
+  tableNumber: "tn",
+  customerName: "cn",
+  orderDate: "od",
+  currencySymbol: "cs",
+  paymentMethod: "pm",
+  isNonChargeable: "nc",
+  // Item sub-keys
+  name: "n",
+  quantity: "q",
+  price: "p",
+};
+
+// Reverse mapping: short key → long key
+const EXPAND_KEYS: Record<string, string> = Object.fromEntries(
+  Object.entries(COMPACT_KEYS).map(([long, short]) => [short, long])
+);
+
+/** Compact an object by replacing long keys with short ones and stripping empty values. */
+function compactObj(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined || value === null || value === "") continue;
+    const shortKey = COMPACT_KEYS[key] || key;
+    if (Array.isArray(value)) {
+      result[shortKey] = value.map((item) =>
+        typeof item === "object" && item !== null
+          ? compactObj(item as Record<string, unknown>)
+          : item
+      );
+    } else {
+      result[shortKey] = value;
+    }
+  }
+  return result;
+}
+
+/** Expand an object by replacing short keys back to long ones. */
+function expandObj(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const longKey = EXPAND_KEYS[key] || key;
+    if (Array.isArray(value)) {
+      result[longKey] = value.map((item) =>
+        typeof item === "object" && item !== null
+          ? expandObj(item as Record<string, unknown>)
+          : item
+      );
+    } else {
+      result[longKey] = value;
+    }
+  }
+  return result;
+}
+
+/**
  * Encode bill data into a URL-safe base64 string.
- * Used to create shareable bill links without database storage.
+ * Uses compact keys & strips empty values to minimize URL length.
  */
 export function encodeBillData(params: BillFormatParams): string {
-  const json = JSON.stringify(params);
+  const compact = compactObj(params as unknown as Record<string, unknown>);
+  const json = JSON.stringify(compact);
   // btoa for base64, then make URL-safe: + → -, / → _, remove =
   const base64 = btoa(unescape(encodeURIComponent(json)));
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 /**
  * Decode a URL-safe base64 string back into BillFormatParams.
+ * Expands compact keys back to full names.
  */
 export function decodeBillData(encoded: string): BillFormatParams {
   // Restore standard base64: - → +, _ → /
@@ -202,7 +273,14 @@ export function decodeBillData(encoded: string): BillFormatParams {
     base64 += "=";
   }
   const json = decodeURIComponent(escape(atob(base64)));
-  return JSON.parse(json) as BillFormatParams;
+  const compact = JSON.parse(json);
+
+  // Support both compact and full-key formats (backwards compatible)
+  const hasFullKeys = "restaurantName" in compact;
+  if (hasFullKeys) {
+    return compact as BillFormatParams;
+  }
+  return expandObj(compact) as unknown as BillFormatParams;
 }
 
 /**
@@ -221,4 +299,5 @@ export function generateBillUrl(params: BillFormatParams): string {
   const path = generateBillPath(params);
   return `${window.location.origin}${path}`;
 }
+
 
