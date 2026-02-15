@@ -4,17 +4,42 @@
  * SMS (sms: URI), Email (mailto:), and Web Share API.
  * 100% free — uses device-native sharing.
  * Detects desktop vs mobile to show appropriate options.
+ * Bill links stored in Supabase for short, clickable URLs.
  */
 
 import { useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import {
   formatBillText,
   generateWhatsAppUrl,
   generateSmsUrl,
-  generateBillUrl,
   type BillFormatParams,
 } from "@/utils/billFormatter";
+
+/** Generate an 8-char short ID from a UUID */
+function generateShortId(): string {
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+}
+
+/** Store bill data in Supabase and get the short URL back */
+async function storeBillAndGetUrl(
+  billParams: BillFormatParams
+): Promise<string> {
+  const shortId = generateShortId();
+
+  const { error } = await supabase.from("shared_bills" as any).insert({
+    short_id: shortId,
+    bill_data: billParams,
+  } as any);
+
+  if (error) {
+    console.error("Error storing bill:", error);
+    throw new Error("Could not store bill");
+  }
+
+  return `${window.location.origin}/bill/${shortId}`;
+}
 
 export function useBillSharing() {
   const { toast } = useToast();
@@ -164,25 +189,25 @@ export function useBillSharing() {
     [isWebShareSupported, toast]
   );
 
-  /** Share bill via a shareable link (short WhatsApp message + bill URL) */
+  /** Share bill via a short shareable link (stores in Supabase, opens WhatsApp) */
   const shareViaLink = useCallback(
-    (phone: string, billParams: BillFormatParams) => {
+    async (phone: string, billParams: BillFormatParams) => {
       try {
-        const billUrl = generateBillUrl(billParams);
+        const billUrl = await storeBillAndGetUrl(billParams);
         const restaurantName = billParams.restaurantName;
         const shortMessage = `🧾 Thanks for dining at *${restaurantName}*! 🍽️\n\nView your bill here:\n${billUrl}`;
         const waUrl = generateWhatsAppUrl(phone, shortMessage);
         window.open(waUrl, "_blank", "noopener,noreferrer");
         toast({
           title: isMobileDevice ? "WhatsApp Opened" : "WhatsApp Web Opening",
-          description: `Bill link ready to send to ${phone}.`,
+          description: `Short bill link ready to send to ${phone}.`,
         });
         return billUrl;
       } catch (error) {
         console.error("Error sharing bill link:", error);
         toast({
           title: "Share Error",
-          description: "Could not generate bill link.",
+          description: "Could not generate bill link. Please try again.",
           variant: "destructive",
         });
         return null;
@@ -191,10 +216,23 @@ export function useBillSharing() {
     [toast, isMobileDevice]
   );
 
-  /** Generate a shareable bill URL (for copy/display) */
-  const getBillUrl = useCallback((billParams: BillFormatParams) => {
-    return generateBillUrl(billParams);
-  }, []);
+  /** Generate a short shareable bill URL (stores in Supabase, returns URL) */
+  const getBillUrl = useCallback(
+    async (billParams: BillFormatParams) => {
+      try {
+        return await storeBillAndGetUrl(billParams);
+      } catch (error) {
+        console.error("Error generating bill URL:", error);
+        toast({
+          title: "Link Error",
+          description: "Could not generate bill link.",
+          variant: "destructive",
+        });
+        return null;
+      }
+    },
+    [toast]
+  );
 
   return {
     isMobileDevice,
@@ -208,3 +246,4 @@ export function useBillSharing() {
     shareViaWebShareAPI,
   };
 }
+
