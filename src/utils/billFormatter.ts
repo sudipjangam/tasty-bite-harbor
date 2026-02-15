@@ -179,3 +179,46 @@ export function generateSmsUrl(phone: string, billText: string): string {
   const encodedText = encodeURIComponent(billText);
   return `sms:${cleaned}?body=${encodedText}`;
 }
+
+/**
+ * Encode bill data into a URL-safe base64 string.
+ * Used to create shareable bill links without database storage.
+ */
+export function encodeBillData(params: BillFormatParams): string {
+  const json = JSON.stringify(params);
+  // btoa for base64, then make URL-safe: + → -, / → _, remove =
+  const base64 = btoa(unescape(encodeURIComponent(json)));
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/**
+ * Decode a URL-safe base64 string back into BillFormatParams.
+ */
+export function decodeBillData(encoded: string): BillFormatParams {
+  // Restore standard base64: - → +, _ → /
+  let base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
+  // Add back padding
+  while (base64.length % 4 !== 0) {
+    base64 += "=";
+  }
+  const json = decodeURIComponent(escape(atob(base64)));
+  return JSON.parse(json) as BillFormatParams;
+}
+
+/**
+ * Generate a full shareable bill URL.
+ * Returns just the path — the caller should prepend the domain.
+ */
+export function generateBillPath(params: BillFormatParams): string {
+  const encoded = encodeBillData(params);
+  return `/bill/${encoded}`;
+}
+
+/**
+ * Generate a full shareable bill URL including current domain.
+ */
+export function generateBillUrl(params: BillFormatParams): string {
+  const path = generateBillPath(params);
+  return `${window.location.origin}${path}`;
+}
+

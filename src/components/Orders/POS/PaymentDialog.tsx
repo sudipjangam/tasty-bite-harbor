@@ -31,6 +31,7 @@ import {
   Smartphone,
   Copy,
   Mail,
+  Link,
 } from "lucide-react";
 import QRCode from "qrcode";
 import jsPDF from "jspdf";
@@ -120,12 +121,14 @@ const PaymentDialog = ({
   const queryClient = useQueryClient();
   const { symbol: currencySymbol } = useCurrencyContext();
 
-  // Free bill sharing hook (wa.me links, Web Share API, Email)
+  // Free bill sharing hook (wa.me links, Web Share API, Email, Bill Link)
   const {
     isMobileDevice,
     shareViaWhatsApp,
     shareViaSms,
     shareViaEmail,
+    shareViaLink,
+    getBillUrl,
     shareViaWebShareAPI,
     getBillText,
     isWebShareSupported,
@@ -1289,6 +1292,67 @@ const PaymentDialog = ({
       restaurantInfo?.name || restaurantInfo?.restaurantName || "Restaurant";
     shareViaEmail(customerEmail || "", currentBillText, restaurantName);
   }, [customerEmail, currentBillText, restaurantInfo, shareViaEmail]);
+
+  // Bill params for generating shareable link
+  const currentBillParams = useMemo(
+    () => ({
+      restaurantName:
+        restaurantInfo?.name || restaurantInfo?.restaurantName || "Restaurant",
+      restaurantAddress: restaurantInfo?.address,
+      restaurantPhone: restaurantInfo?.phone,
+      gstin: restaurantInfo?.gstin,
+      items: orderItems.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+      subtotal,
+      total,
+      discount: totalDiscountAmount > 0 ? totalDiscountAmount : undefined,
+      promotionName: appliedPromotion?.name,
+      manualDiscountPercent:
+        manualDiscountPercent > 0 ? manualDiscountPercent : undefined,
+      tableNumber: tableNumber || undefined,
+      customerName: customerName || undefined,
+      orderDate: new Date().toLocaleString("en-IN"),
+      currencySymbol,
+      isNonChargeable,
+    }),
+    [
+      restaurantInfo,
+      orderItems,
+      subtotal,
+      total,
+      totalDiscountAmount,
+      appliedPromotion,
+      manualDiscountPercent,
+      tableNumber,
+      customerName,
+      currencySymbol,
+      isNonChargeable,
+    ],
+  );
+
+  // Share bill via link (sends short WhatsApp message with premium bill page URL)
+  const handleShareBillLink = useCallback(() => {
+    if (customerMobile) {
+      shareViaLink(customerMobile, currentBillParams);
+    }
+  }, [customerMobile, currentBillParams, shareViaLink]);
+
+  // Copy bill link to clipboard
+  const handleCopyBillLink = useCallback(async () => {
+    const url = getBillUrl(currentBillParams);
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({
+        title: "Bill Link Copied!",
+        description: "Paste this link in any messaging app.",
+      });
+    } catch {
+      toast({ title: "Could Not Copy", variant: "destructive" });
+    }
+  }, [currentBillParams, getBillUrl, toast]);
 
   const handlePrintBill = async (navigateAfter: boolean = false) => {
     // Save customer details first
@@ -3352,6 +3416,35 @@ const PaymentDialog = ({
                 </>
               )}
             </Button>
+          </div>
+
+          {/* ⭐ Share Bill Link — Premium (sends short link to beautiful bill page) */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-2">
+            <p className="text-sm text-muted-foreground mb-2 font-medium">
+              ⭐ Share Bill Link
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                onClick={handleShareBillLink}
+                disabled={!customerMobile}
+                className="border-2 border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 dark:hover:from-amber-900/20 dark:hover:to-orange-900/20 transition-all duration-300 text-amber-700 dark:text-amber-400"
+              >
+                <Link className="w-4 h-4 mr-1.5" />
+                {isMobileDevice ? "WhatsApp Link" : "WhatsApp Web Link"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleCopyBillLink}
+                className="border-2 border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 hover:bg-gradient-to-r hover:from-gray-50 hover:to-slate-50 dark:hover:from-gray-900/20 dark:hover:to-slate-900/20 transition-all duration-300 text-gray-700 dark:text-gray-400"
+              >
+                <Copy className="w-4 h-4 mr-1.5" />
+                Copy Link
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1.5">
+              📎 Sends a short link to a premium bill page instead of full text
+            </p>
           </div>
           {!customerMobile && (
             <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
