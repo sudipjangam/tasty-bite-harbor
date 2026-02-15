@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   Banknote,
@@ -6,6 +6,8 @@ import {
   Smartphone,
   CheckCircle2,
   Loader2,
+  MessageCircle,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
@@ -15,6 +17,9 @@ import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useAuth } from "@/hooks/useAuth";
 import { useCRMSync } from "@/hooks/useCRMSync";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { formatBillText, generateWhatsAppUrl } from "@/utils/billFormatter";
+import { Button } from "@/components/ui/button";
 
 interface QSPaymentSheetProps {
   isOpen: boolean;
@@ -58,16 +63,75 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     "idle",
   );
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+  const [billSent, setBillSent] = useState(false);
+  const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { symbol: currencySymbol } = useCurrencyContext();
   const { restaurantId } = useRestaurantId();
   const { user } = useAuth();
   const { syncCustomerToCRM } = useCRMSync();
   const { toast } = useToast();
 
+  // Fetch restaurant name for bill header
+  const { data: restaurantName = "Restaurant" } = useQuery({
+    queryKey: ["restaurant-name", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return "Restaurant";
+      const { data } = await supabase
+        .from("restaurants")
+        .select("name")
+        .eq("id", restaurantId)
+        .single();
+      return data?.name || "Restaurant";
+    },
+    enabled: !!restaurantId,
+    staleTime: 1000 * 60 * 60,
+  });
+
   const subtotal = items.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
+
+  // Build bill text for WhatsApp sharing
+  const getBillTextForOrder = () => {
+    return formatBillText({
+      restaurantName,
+      items: items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+      subtotal,
+      total: subtotal,
+      paymentMethod: selectedMethod || "cash",
+      customerName: customerName.trim() || undefined,
+      currencySymbol,
+    });
+  };
+
+  const handleSendWhatsApp = () => {
+    if (!customerPhone) return;
+    const billText = getBillTextForOrder();
+    const url = generateWhatsAppUrl(customerPhone, billText);
+    window.open(url, "_blank", "noopener,noreferrer");
+    setBillSent(true);
+    toast({
+      title: "WhatsApp Opened",
+      description: `Bill ready to send to ${customerPhone}`,
+    });
+  };
+
+  const handleCloseSuccess = () => {
+    if (autoCloseTimerRef.current) {
+      clearTimeout(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = null;
+    }
+    setStatus("idle");
+    setSelectedMethod(null);
+    setBillSent(false);
+    onSuccess();
+    onClose();
+  };
 
   const handlePay = async (method: string) => {
     setSelectedMethod(method);
@@ -175,13 +239,13 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         description: `${currencySymbol}${subtotal.toFixed(2)} received via ${method}`,
       });
 
-      // Auto-close after 1.5s
-      setTimeout(() => {
-        setStatus("idle");
-        setSelectedMethod(null);
-        onSuccess();
-        onClose();
-      }, 1500);
+      // Auto-close after 6s (longer to allow WhatsApp sharing)
+      autoCloseTimerRef.current = setTimeout(
+        () => {
+          handleCloseSuccess();
+        },
+        customerPhone ? 6000 : 2000,
+      );
     } catch (error) {
       console.error("Payment error:", error);
       toast({
@@ -199,23 +263,50 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       open={isOpen}
       onOpenChange={(open) => {
         if (!open && status === "idle") onClose();
+        if (!open && status === "success") handleCloseSuccess();
       }}
     >
       <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white p-0 overflow-hidden">
         <DialogTitle className="sr-only">Payment</DialogTitle>
 
         {status === "success" ? (
-          <div className="flex flex-col items-center justify-center py-16 px-6">
+          <div className="flex flex-col items-center justify-center py-10 px-6">
             <div className="w-20 h-20 bg-green-100 dark:bg-green-500/20 rounded-full flex items-center justify-center mb-4 animate-in zoom-in-50 duration-300">
               <CheckCircle2 className="h-10 w-10 text-green-500 dark:text-green-400" />
             </div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
               Payment Complete!
             </h3>
-            <p className="text-gray-500 dark:text-white/60 text-sm">
+            <p className="text-gray-500 dark:text-white/60 text-sm mb-5">
               {currencySymbol}
               {subtotal.toFixed(2)} via {selectedMethod?.toUpperCase()}
             </p>
+
+            {/* WhatsApp Share Button — only when phone is provided */}
+            {customerPhone && (
+              <Button
+                onClick={handleSendWhatsApp}
+                className={cn(
+                  "w-full max-w-xs h-12 rounded-xl font-semibold text-sm transition-all active:scale-95",
+                  billSent
+                    ? "bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-white/50 border border-gray-200 dark:border-white/10"
+                    : "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg shadow-green-500/25",
+                )}
+              >
+                <MessageCircle className="h-4.5 w-4.5 mr-2" />
+                {billSent
+                  ? "✓ Bill Sent — Tap to Resend"
+                  : `Send Bill via WhatsApp`}
+              </Button>
+            )}
+
+            {/* Done button */}
+            <button
+              onClick={handleCloseSuccess}
+              className="mt-3 text-xs text-gray-400 dark:text-white/40 hover:text-gray-600 dark:hover:text-white/60 underline underline-offset-2"
+            >
+              Close
+            </button>
           </div>
         ) : (
           <>
