@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   Banknote,
@@ -7,7 +7,7 @@ import {
   CheckCircle2,
   Loader2,
   MessageCircle,
-  X,
+  QrCode,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { formatBillText, generateWhatsAppUrl } from "@/utils/billFormatter";
 import { Button } from "@/components/ui/button";
+import QRCodeLib from "qrcode";
 
 interface QSPaymentSheetProps {
   isOpen: boolean;
@@ -64,6 +65,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   );
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [billSent, setBillSent] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
   const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { symbol: currencySymbol } = useCurrencyContext();
   const { restaurantId } = useRestaurantId();
@@ -87,14 +89,59 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     staleTime: 1000 * 60 * 60,
   });
 
+  // Fetch payment settings for UPI ID
+  const { data: paymentSettings } = useQuery({
+    queryKey: ["payment-settings", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return null;
+      const { data, error } = await supabase
+        .from("payment_settings")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (error) return null;
+      return data;
+    },
+    enabled: !!restaurantId,
+    staleTime: 1000 * 60 * 30,
+  });
+
   const subtotal = items.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
 
+  const upiId = paymentSettings?.upi_id || null;
+  const upiName = (paymentSettings as any)?.upi_name || restaurantName;
+
+  // Build UPI deep link
+  const getUpiLink = () => {
+    if (!upiId) return null;
+    const formattedAmount = parseFloat(subtotal.toFixed(2));
+    return `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(`Order payment - ${restaurantName}`)}`;
+  };
+
+  // Generate UPI QR code when payment succeeds
+  useEffect(() => {
+    if (status === "success" && upiId && selectedMethod !== "upi") {
+      const upiLink = getUpiLink();
+      if (!upiLink) return;
+
+      QRCodeLib.toDataURL(upiLink, {
+        width: 200,
+        margin: 2,
+        color: { dark: "#000000", light: "#FFFFFF" },
+      })
+        .then((url) => setQrCodeUrl(url))
+        .catch((err) => console.error("QR generation error:", err));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, upiId]);
+
   // Build bill text for WhatsApp sharing
   const getBillTextForOrder = () => {
-    return formatBillText({
+    let billText = formatBillText({
       restaurantName,
       items: items.map((item) => ({
         name: item.name,
@@ -107,6 +154,14 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       customerName: customerName.trim() || undefined,
       currencySymbol,
     });
+
+    // Append UPI payment link if configured and payment isn't already via UPI
+    const upiLink = getUpiLink();
+    if (upiLink && selectedMethod !== "upi") {
+      billText += `\n\n💳 *Pay via UPI* (tap below):\n${upiLink}`;
+    }
+
+    return billText;
   };
 
   const handleSendWhatsApp = () => {
@@ -129,6 +184,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     setStatus("idle");
     setSelectedMethod(null);
     setBillSent(false);
+    setQrCodeUrl("");
     onSuccess();
     onClose();
   };
@@ -239,12 +295,12 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         description: `${currencySymbol}${subtotal.toFixed(2)} received via ${method}`,
       });
 
-      // Auto-close after 6s (longer to allow WhatsApp sharing)
+      // Auto-close after 8s (longer to allow QR scanning & WhatsApp sharing)
       autoCloseTimerRef.current = setTimeout(
         () => {
           handleCloseSuccess();
         },
-        customerPhone ? 6000 : 2000,
+        customerPhone || upiId ? 8000 : 2000,
       );
     } catch (error) {
       console.error("Payment error:", error);
@@ -266,37 +322,85 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         if (!open && status === "success") handleCloseSuccess();
       }}
     >
-      <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
         <DialogTitle className="sr-only">Payment</DialogTitle>
 
         {status === "success" ? (
-          <div className="flex flex-col items-center justify-center py-10 px-6">
-            <div className="w-20 h-20 bg-green-100 dark:bg-green-500/20 rounded-full flex items-center justify-center mb-4 animate-in zoom-in-50 duration-300">
-              <CheckCircle2 className="h-10 w-10 text-green-500 dark:text-green-400" />
+          <div className="flex flex-col items-center justify-center py-8 px-6">
+            {/* Success icon + amount */}
+            <div className="w-16 h-16 bg-green-100 dark:bg-green-500/20 rounded-full flex items-center justify-center mb-3 animate-in zoom-in-50 duration-300">
+              <CheckCircle2 className="h-8 w-8 text-green-500 dark:text-green-400" />
             </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-0.5">
               Payment Complete!
             </h3>
-            <p className="text-gray-500 dark:text-white/60 text-sm mb-5">
+            <p className="text-gray-500 dark:text-white/60 text-sm mb-4">
               {currencySymbol}
               {subtotal.toFixed(2)} via {selectedMethod?.toUpperCase()}
             </p>
+
+            {/* UPI QR Code — show when UPI is configured and payment wasn't via UPI */}
+            {upiId && selectedMethod !== "upi" && (
+              <div className="w-full bg-gradient-to-b from-purple-50 to-white dark:from-purple-500/10 dark:to-gray-900 border border-purple-200 dark:border-purple-500/20 rounded-xl p-4 mb-4">
+                <p className="text-xs font-semibold text-purple-700 dark:text-purple-300 text-center uppercase tracking-wider mb-3">
+                  Customer can scan to pay
+                </p>
+                {qrCodeUrl ? (
+                  <div className="w-40 h-40 mx-auto bg-white rounded-lg p-2 shadow-sm mb-2">
+                    <img
+                      src={qrCodeUrl}
+                      alt="UPI Payment QR"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-40 h-40 mx-auto bg-white rounded-lg flex items-center justify-center mb-2">
+                    <QrCode className="h-16 w-16 text-gray-300 animate-pulse" />
+                  </div>
+                )}
+                <div className="flex items-center justify-center gap-1.5 mt-2">
+                  <span className="text-[10px] text-gray-400 dark:text-white/40">
+                    GPay
+                  </span>
+                  <span className="text-[10px] text-gray-300 dark:text-white/20">
+                    •
+                  </span>
+                  <span className="text-[10px] text-gray-400 dark:text-white/40">
+                    PhonePe
+                  </span>
+                  <span className="text-[10px] text-gray-300 dark:text-white/20">
+                    •
+                  </span>
+                  <span className="text-[10px] text-gray-400 dark:text-white/40">
+                    Paytm
+                  </span>
+                  <span className="text-[10px] text-gray-300 dark:text-white/20">
+                    •
+                  </span>
+                  <span className="text-[10px] text-gray-400 dark:text-white/40">
+                    Any UPI
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* WhatsApp Share Button — only when phone is provided */}
             {customerPhone && (
               <Button
                 onClick={handleSendWhatsApp}
                 className={cn(
-                  "w-full max-w-xs h-12 rounded-xl font-semibold text-sm transition-all active:scale-95",
+                  "w-full max-w-xs h-11 rounded-xl font-semibold text-sm transition-all active:scale-95",
                   billSent
                     ? "bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-white/50 border border-gray-200 dark:border-white/10"
                     : "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg shadow-green-500/25",
                 )}
               >
-                <MessageCircle className="h-4.5 w-4.5 mr-2" />
+                <MessageCircle className="h-4 w-4 mr-2" />
                 {billSent
                   ? "✓ Bill Sent — Tap to Resend"
-                  : `Send Bill via WhatsApp`}
+                  : upiId && selectedMethod !== "upi"
+                    ? "Send Bill + Pay Link via WhatsApp"
+                    : "Send Bill via WhatsApp"}
               </Button>
             )}
 
