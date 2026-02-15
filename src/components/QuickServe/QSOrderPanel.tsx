@@ -40,7 +40,7 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-white/30 px-4">
+      <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-white/30 px-4">
         <ShoppingBag className="h-12 w-12 mb-3 opacity-50" />
         <p className="text-sm font-medium">No items yet</p>
         <p className="text-xs mt-1">Tap items to add to order</p>
@@ -51,10 +51,10 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-white/10">
         <div className="flex items-center gap-2">
-          <ShoppingBag className="h-4 w-4 text-orange-400" />
-          <span className="text-sm font-semibold text-white">
+          <ShoppingBag className="h-4 w-4 text-orange-500" />
+          <span className="text-sm font-semibold text-gray-900 dark:text-white">
             Order ({itemCount})
           </span>
         </div>
@@ -62,7 +62,7 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
           variant="ghost"
           size="sm"
           onClick={onClear}
-          className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-7 px-2 text-xs"
+          className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 h-7 px-2 text-xs"
         >
           <Trash2 className="h-3 w-3 mr-1" />
           Clear
@@ -74,13 +74,13 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
         {items.map((item) => (
           <div
             key={item.id}
-            className="flex items-center gap-2 p-2 rounded-lg bg-white/5 border border-white/5"
+            className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5"
           >
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white/90 truncate">
+              <p className="text-sm font-medium text-gray-800 dark:text-white/90 truncate">
                 {item.name}
               </p>
-              <p className="text-xs text-orange-400 font-semibold">
+              <p className="text-xs text-orange-500 dark:text-orange-400 font-semibold">
                 {currencySymbol}
                 {(item.price * item.quantity).toFixed(2)}
               </p>
@@ -91,7 +91,7 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
                 onClick={() =>
                   item.quantity === 1 ? onRemove(item.id) : onDecrement(item.id)
                 }
-                className="w-6 h-6 rounded-full bg-white/10 hover:bg-red-500/20 flex items-center justify-center text-white/70 hover:text-red-400 transition-colors"
+                className="w-6 h-6 rounded-full bg-gray-200 dark:bg-white/10 hover:bg-red-100 dark:hover:bg-red-500/20 flex items-center justify-center text-gray-600 dark:text-white/70 hover:text-red-500 dark:hover:text-red-400 transition-colors"
               >
                 {item.quantity === 1 ? (
                   <Trash2 className="h-3 w-3" />
@@ -99,12 +99,12 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
                   <Minus className="h-3 w-3" />
                 )}
               </button>
-              <span className="w-6 text-center text-sm font-bold text-white">
+              <span className="w-6 text-center text-sm font-bold text-gray-900 dark:text-white">
                 {item.quantity}
               </span>
               <button
                 onClick={() => onIncrement(item.id)}
-                className="w-6 h-6 rounded-full bg-orange-500/20 hover:bg-orange-500/30 flex items-center justify-center text-orange-400 transition-colors"
+                className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-500/20 hover:bg-orange-200 dark:hover:bg-orange-500/30 flex items-center justify-center text-orange-500 dark:text-orange-400 transition-colors"
               >
                 <Plus className="h-3 w-3" />
               </button>
@@ -114,10 +114,12 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
       </div>
 
       {/* Footer: Total + Pay */}
-      <div className="p-3 border-t border-white/10 space-y-2">
+      <div className="p-3 border-t border-gray-200 dark:border-white/10 space-y-2">
         <div className="flex justify-between items-center">
-          <span className="text-sm text-white/60">Total</span>
-          <span className="text-xl font-extrabold bg-gradient-to-r from-orange-400 to-pink-400 bg-clip-text text-transparent">
+          <span className="text-sm text-gray-500 dark:text-white/60">
+            Total
+          </span>
+          <span className="text-xl font-extrabold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent">
             {currencySymbol}
             {subtotal.toFixed(2)}
           </span>

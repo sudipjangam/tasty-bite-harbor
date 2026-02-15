@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { QSRMenuItem, QSRCategory } from "@/hooks/useQSRMenuItems";
 import { cn } from "@/lib/utils";
-import { Search, Leaf } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
@@ -46,7 +46,9 @@ export const QSMenuGrid: React.FC<QSMenuGridProps> = ({
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="animate-pulse text-white/60">Loading menu...</div>
+        <div className="animate-pulse text-gray-400 dark:text-white/60">
+          Loading menu...
+        </div>
       </div>
     );
   }
@@ -56,12 +58,12 @@ export const QSMenuGrid: React.FC<QSMenuGridProps> = ({
       {/* Search Bar */}
       <div className="px-3 py-2">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-white/40" />
           <Input
             placeholder="Search menu..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-white/30 h-9 rounded-xl text-sm"
+            className="pl-9 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/30 h-9 rounded-xl text-sm"
           />
         </div>
       </div>
@@ -75,7 +77,7 @@ export const QSMenuGrid: React.FC<QSMenuGridProps> = ({
               "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0",
               selectedCategory === "all"
                 ? "bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/25"
-                : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80",
+                : "bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-white/60 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white/80",
             )}
           >
             🍽️ All
@@ -88,7 +90,7 @@ export const QSMenuGrid: React.FC<QSMenuGridProps> = ({
                 "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0",
                 selectedCategory === cat.id
                   ? "bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/25"
-                  : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80",
+                  : "bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-white/60 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white/80",
               )}
             >
               {cat.emoji} {cat.name}
@@ -108,9 +110,10 @@ export const QSMenuGrid: React.FC<QSMenuGridProps> = ({
                 onClick={() => onAddItem(item)}
                 className={cn(
                   "relative p-3 rounded-xl text-left transition-all duration-150 active:scale-95 group",
-                  "bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/15",
+                  "bg-white dark:bg-white/5 hover:bg-gray-50 dark:hover:bg-white/10 border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/15",
+                  "shadow-sm hover:shadow-md",
                   cartCount > 0 &&
-                    "ring-2 ring-orange-500/50 bg-orange-500/10 border-orange-500/30",
+                    "ring-2 ring-orange-500/50 bg-orange-50 dark:bg-orange-500/10 border-orange-300 dark:border-orange-500/30",
                 )}
               >
                 {/* Cart Badge */}
@@ -140,10 +143,10 @@ export const QSMenuGrid: React.FC<QSMenuGridProps> = ({
                 )}
 
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-white/90 line-clamp-2 pr-5">
+                  <p className="text-sm font-medium text-gray-800 dark:text-white/90 line-clamp-2 pr-5">
                     {item.name}
                   </p>
-                  <p className="text-base font-bold bg-gradient-to-r from-orange-400 to-pink-400 bg-clip-text text-transparent">
+                  <p className="text-base font-bold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent">
                     {currencySymbol}
                     {item.price}
                   </p>
@@ -154,7 +157,7 @@ export const QSMenuGrid: React.FC<QSMenuGridProps> = ({
         </div>
 
         {filteredItems.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-12 text-white/40">
+          <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-white/40">
             <Search className="h-8 w-8 mb-2" />
             <p className="text-sm">No items found</p>
           </div>

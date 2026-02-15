@@ -27,6 +27,7 @@ import {
   MessageSquare,
   Receipt,
   Zap,
+  Store,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -68,6 +69,16 @@ const mobileNavItems: MobileNavItem[] = [
     gradient: "from-amber-500 to-orange-600",
     shadowColor: "shadow-amber-500/30",
     textColor: "text-amber-600",
+  },
+  {
+    id: "quickserve-pos",
+    label: "QuickServe",
+    path: "/quickserve-pos",
+    icon: Store,
+    requiredPermissions: ["orders.view"],
+    gradient: "from-orange-500 to-pink-500",
+    shadowColor: "shadow-orange-500/30",
+    textColor: "text-orange-600",
   },
 
   {
@@ -371,7 +382,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
         className={cn(
           "lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border-t border-gray-200 dark:border-gray-700 px-2 z-50 shadow-2xl shadow-black/10",
           "pb-[env(safe-area-inset-bottom,8px)] pt-2",
-          className
+          className,
         )}
       >
         <div className="flex items-center justify-around max-w-screen-xl mx-auto">
@@ -384,7 +395,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
                 onClick={() => handleNavigate(item.path)}
                 className={cn(
                   "flex flex-col items-center gap-1 p-2 rounded-xl transition-all min-w-[60px]",
-                  active ? "scale-110" : "hover:scale-105"
+                  active ? "scale-110" : "hover:scale-105",
                 )}
               >
                 <div
@@ -392,7 +403,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
                     "p-2.5 rounded-xl transition-all",
                     active
                       ? `bg-gradient-to-br ${item.gradient} shadow-lg ${item.shadowColor}`
-                      : "bg-gray-100 dark:bg-gray-700"
+                      : "bg-gray-100 dark:bg-gray-700",
                   )}
                 >
                   <Icon
@@ -400,14 +411,16 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
                       "h-5 w-5",
                       active
                         ? "text-white"
-                        : `${item.textColor} dark:text-gray-300`
+                        : `${item.textColor} dark:text-gray-300`,
                     )}
                   />
                 </div>
                 <span
                   className={cn(
                     "text-[10px] font-medium truncate w-full text-center",
-                    active ? item.textColor : "text-gray-500 dark:text-gray-400"
+                    active
+                      ? item.textColor
+                      : "text-gray-500 dark:text-gray-400",
                   )}
                 >
                   {item.label}
@@ -479,7 +492,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
                         "flex flex-col items-center gap-2.5 p-3 rounded-2xl transition-all transform bg-white dark:bg-gray-800",
                         active
                           ? "scale-105 shadow-lg ring-2 ring-purple-200 dark:ring-purple-700"
-                          : "hover:scale-105 hover:shadow-md shadow-sm"
+                          : "hover:scale-105 hover:shadow-md shadow-sm",
                       )}
                     >
                       {/* Gradient Icon Container */}
@@ -487,7 +500,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
                         className={cn(
                           "p-3 rounded-2xl bg-gradient-to-br shadow-lg transition-all",
                           item.gradient,
-                          item.shadowColor
+                          item.shadowColor,
                         )}
                       >
                         <Icon className="h-5 w-5 text-white drop-shadow-sm" />
@@ -497,7 +510,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
                           "font-semibold text-[10px] text-center leading-tight",
                           active
                             ? item.textColor
-                            : "text-gray-600 dark:text-gray-300"
+                            : "text-gray-600 dark:text-gray-300",
                         )}
                       >
                         {item.label}
