@@ -1,13 +1,11 @@
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import {
   Banknote,
   CreditCard,
   Smartphone,
   CheckCircle2,
   Loader2,
-  Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
@@ -85,7 +83,6 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
 
       const finalCustomerName = customerName.trim() || "Walk-in Customer";
 
-      // Format items for orders table
       const formattedItems = items.map(
         (item) => `${item.quantity}x ${item.name} @${item.price}`,
       );
@@ -157,7 +154,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         discount_amount: 0,
       });
 
-      // 5. CRM auto-sync
+      // 5. CRM auto-sync (only when customer name is explicitly provided)
       if (customerName.trim()) {
         try {
           await syncCustomerToCRM({
@@ -204,18 +201,18 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         if (!open && status === "idle") onClose();
       }}
     >
-      <DialogContent className="sm:max-w-md bg-gray-900 border-white/10 text-white p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white p-0 overflow-hidden">
         <DialogTitle className="sr-only">Payment</DialogTitle>
 
         {status === "success" ? (
           <div className="flex flex-col items-center justify-center py-16 px-6">
-            <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mb-4 animate-in zoom-in-50 duration-300">
-              <CheckCircle2 className="h-10 w-10 text-green-400" />
+            <div className="w-20 h-20 bg-green-100 dark:bg-green-500/20 rounded-full flex items-center justify-center mb-4 animate-in zoom-in-50 duration-300">
+              <CheckCircle2 className="h-10 w-10 text-green-500 dark:text-green-400" />
             </div>
-            <h3 className="text-xl font-bold text-white mb-1">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
               Payment Complete!
             </h3>
-            <p className="text-white/60 text-sm">
+            <p className="text-gray-500 dark:text-white/60 text-sm">
               {currencySymbol}
               {subtotal.toFixed(2)} via {selectedMethod?.toUpperCase()}
             </p>
@@ -223,22 +220,22 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         ) : (
           <>
             {/* Header */}
-            <div className="text-center py-6 px-6 bg-gradient-to-r from-orange-500/20 to-pink-500/20 border-b border-white/10">
-              <p className="text-white/50 text-xs uppercase tracking-wider mb-1">
+            <div className="text-center py-6 px-6 bg-gradient-to-r from-orange-500/10 to-pink-500/10 dark:from-orange-500/20 dark:to-pink-500/20 border-b border-gray-200 dark:border-white/10">
+              <p className="text-gray-500 dark:text-white/50 text-xs uppercase tracking-wider mb-1">
                 Amount Due
               </p>
-              <p className="text-4xl font-extrabold bg-gradient-to-r from-orange-400 to-pink-400 bg-clip-text text-transparent">
+              <p className="text-4xl font-extrabold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent">
                 {currencySymbol}
                 {subtotal.toFixed(2)}
               </p>
-              <p className="text-white/40 text-xs mt-1">
+              <p className="text-gray-400 dark:text-white/40 text-xs mt-1">
                 {items.reduce((s, i) => s + i.quantity, 0)} items
               </p>
             </div>
 
             {/* Payment Methods */}
             <div className="p-6 space-y-3">
-              <p className="text-xs uppercase tracking-wider text-white/40 font-medium mb-2">
+              <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-white/40 font-medium mb-2">
                 Select Payment Method
               </p>
               {paymentMethods.map((pm) => {
@@ -254,8 +251,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                     className={cn(
                       "w-full flex items-center gap-4 p-4 rounded-xl border transition-all duration-200 active:scale-[0.98]",
                       isProcessing
-                        ? "border-white/20 bg-white/10"
-                        : "border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/15",
+                        ? "border-gray-300 dark:border-white/20 bg-gray-100 dark:bg-white/10"
+                        : "border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 hover:border-gray-300 dark:hover:border-white/15",
                     )}
                   >
                     <div
@@ -266,11 +263,11 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                     >
                       <Icon className="h-5 w-5 text-white" />
                     </div>
-                    <span className="text-base font-semibold text-white">
+                    <span className="text-base font-semibold text-gray-900 dark:text-white">
                       {pm.label}
                     </span>
                     {isProcessing && (
-                      <Loader2 className="h-4 w-4 text-white/60 animate-spin ml-auto" />
+                      <Loader2 className="h-4 w-4 text-gray-400 dark:text-white/60 animate-spin ml-auto" />
                     )}
                   </button>
                 );
