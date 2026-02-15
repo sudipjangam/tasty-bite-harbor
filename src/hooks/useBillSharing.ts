@@ -12,6 +12,7 @@ import {
   formatBillText,
   generateWhatsAppUrl,
   generateSmsUrl,
+  generateBillUrl,
   type BillFormatParams,
 } from "@/utils/billFormatter";
 
@@ -163,13 +164,47 @@ export function useBillSharing() {
     [isWebShareSupported, toast]
   );
 
+  /** Share bill via a shareable link (short WhatsApp message + bill URL) */
+  const shareViaLink = useCallback(
+    (phone: string, billParams: BillFormatParams) => {
+      try {
+        const billUrl = generateBillUrl(billParams);
+        const restaurantName = billParams.restaurantName;
+        const shortMessage = `🧾 Thanks for dining at *${restaurantName}*! 🍽️\n\nView your bill here:\n${billUrl}`;
+        const waUrl = generateWhatsAppUrl(phone, shortMessage);
+        window.open(waUrl, "_blank", "noopener,noreferrer");
+        toast({
+          title: isMobileDevice ? "WhatsApp Opened" : "WhatsApp Web Opening",
+          description: `Bill link ready to send to ${phone}.`,
+        });
+        return billUrl;
+      } catch (error) {
+        console.error("Error sharing bill link:", error);
+        toast({
+          title: "Share Error",
+          description: "Could not generate bill link.",
+          variant: "destructive",
+        });
+        return null;
+      }
+    },
+    [toast, isMobileDevice]
+  );
+
+  /** Generate a shareable bill URL (for copy/display) */
+  const getBillUrl = useCallback((billParams: BillFormatParams) => {
+    return generateBillUrl(billParams);
+  }, []);
+
   return {
     isMobileDevice,
     isWebShareSupported,
     getBillText,
+    getBillUrl,
     shareViaWhatsApp,
     shareViaSms,
     shareViaEmail,
+    shareViaLink,
     shareViaWebShareAPI,
   };
 }
