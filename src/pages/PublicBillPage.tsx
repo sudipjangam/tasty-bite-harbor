@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { decodeBillData, type BillFormatParams } from "@/utils/billFormatter";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   Download,
@@ -13,7 +14,7 @@ import {
 /**
  * PublicBillPage — Premium, luxury-styled public bill page.
  * Accessible at /bill/:encodedData — no login required.
- * Data is self-contained in the URL (base64 encoded).
+ * Supports both short IDs (Supabase fetch) and legacy base64 URLs.
  */
 const PublicBillPage = () => {
   const { encodedData } = useParams<{ encodedData: string }>();
@@ -24,14 +25,36 @@ const PublicBillPage = () => {
   const billRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    try {
-      if (!encodedData) throw new Error("No bill data provided");
-      const data = decodeBillData(encodedData);
-      setBillData(data);
-    } catch (err) {
-      console.error("Error decoding bill data:", err);
-      setError("This bill link is invalid or has expired.");
-    }
+    const loadBillData = async () => {
+      try {
+        if (!encodedData) throw new Error("No bill data provided");
+
+        // Short IDs are 8 hex chars — fetch from Supabase
+        // Legacy base64 URLs are much longer
+        if (encodedData.length <= 12) {
+          const { data, error: fetchError } = await (supabase as any)
+            .from("shared_bills")
+            .select("bill_data")
+            .eq("short_id", encodedData)
+            .single();
+
+          if (fetchError || !data) {
+            throw new Error("Bill not found");
+          }
+
+          setBillData(data.bill_data as BillFormatParams);
+        } else {
+          // Legacy: decode base64 from URL
+          const data = decodeBillData(encodedData);
+          setBillData(data);
+        }
+      } catch (err) {
+        console.error("Error loading bill data:", err);
+        setError("This bill link is invalid or has expired.");
+      }
+    };
+
+    loadBillData();
   }, [encodedData]);
 
   const currencySymbol = billData?.currencySymbol || "₹";

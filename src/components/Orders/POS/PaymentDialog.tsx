@@ -1334,15 +1334,16 @@ const PaymentDialog = ({
   );
 
   // Share bill via link (sends short WhatsApp message with premium bill page URL)
-  const handleShareBillLink = useCallback(() => {
+  const handleShareBillLink = useCallback(async () => {
     if (customerMobile) {
-      shareViaLink(customerMobile, currentBillParams);
+      await shareViaLink(customerMobile, currentBillParams);
     }
   }, [customerMobile, currentBillParams, shareViaLink]);
 
   // Copy bill link to clipboard
   const handleCopyBillLink = useCallback(async () => {
-    const url = getBillUrl(currentBillParams);
+    const url = await getBillUrl(currentBillParams);
+    if (!url) return;
     try {
       await navigator.clipboard.writeText(url);
       toast({
