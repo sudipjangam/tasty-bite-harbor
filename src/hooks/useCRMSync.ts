@@ -88,25 +88,31 @@ export const useCRMSync = () => {
 
         if (trimmedPhone) {
           // Use .limit(1) instead of .maybeSingle() to handle existing duplicates safely
-          const { data } = await supabase
+          const { data, error: lookupErr } = await supabase
             .from("customers")
-            .select("id, name, phone, loyalty_points, loyalty_tier, visit_count, total_spent")
+            .select("id, name, phone, loyalty_points, loyalty_tier_id, visit_count, total_spent")
             .eq("restaurant_id", restaurantId)
             .eq("phone", trimmedPhone)
             .order("created_at", { ascending: true })
             .limit(1);
+          if (lookupErr) {
+            console.error("❌ CRM Sync - Phone lookup error:", lookupErr);
+          }
           existingCustomer = data?.[0] || null;
         }
 
         // Fallback: try case-insensitive name match if no phone match found
         if (!existingCustomer) {
-          const { data } = await supabase
+          const { data, error: nameLookupErr } = await supabase
             .from("customers")
-            .select("id, name, phone, loyalty_points, loyalty_tier, visit_count, total_spent")
+            .select("id, name, phone, loyalty_points, loyalty_tier_id, visit_count, total_spent")
             .eq("restaurant_id", restaurantId)
             .ilike("name", trimmedName)
             .order("created_at", { ascending: true })
             .limit(1);
+          if (nameLookupErr) {
+            console.error("❌ CRM Sync - Name lookup error:", nameLookupErr);
+          }
           existingCustomer = data?.[0] || null;
         }
 
@@ -201,13 +207,12 @@ export const useCRMSync = () => {
             // Fetch customer's current tier to get multiplier
             let multiplier = 1;
             if (!isNewCustomer && existingCustomer) {
-              const tierName = existingCustomer.loyalty_tier;
-              if (tierName && tierName !== "None") {
+              const tierId = existingCustomer.loyalty_tier_id;
+              if (tierId) {
                 const { data: tier } = await supabase
                   .from("loyalty_tiers")
                   .select("points_multiplier")
-                  .eq("restaurant_id", restaurantId)
-                  .eq("name", tierName)
+                  .eq("id", tierId)
                   .maybeSingle();
 
                 if (tier?.points_multiplier) {

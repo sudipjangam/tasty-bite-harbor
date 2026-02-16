@@ -2241,7 +2241,10 @@ export type Database = {
           discount_amount: number | null
           discount_percentage: number | null
           id: string
+          item_completion_status: boolean[] | null
           items: string[]
+          nc_reason: string | null
+          order_number: number | null
           order_type: string | null
           payment_status: string | null
           reservation_id: string | null
@@ -2261,7 +2264,10 @@ export type Database = {
           discount_amount?: number | null
           discount_percentage?: number | null
           id?: string
+          item_completion_status?: boolean[] | null
           items: string[]
+          nc_reason?: string | null
+          order_number?: number | null
           order_type?: string | null
           payment_status?: string | null
           reservation_id?: string | null
@@ -2281,7 +2287,10 @@ export type Database = {
           discount_amount?: number | null
           discount_percentage?: number | null
           id?: string
+          item_completion_status?: boolean[] | null
           items?: string[]
+          nc_reason?: string | null
+          order_number?: number | null
           order_type?: string | null
           payment_status?: string | null
           reservation_id?: string | null

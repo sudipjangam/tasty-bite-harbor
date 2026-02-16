@@ -8,6 +8,7 @@ import {
   Loader2,
   MessageCircle,
   QrCode,
+  Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
@@ -28,7 +29,9 @@ interface QSPaymentSheetProps {
   items: QSOrderItem[];
   customerName: string;
   customerPhone: string;
-  onSuccess: () => void;
+  onSuccess: (orderNumber?: number) => void;
+  discountAmount?: number;
+  discountPercentage?: number;
 }
 
 const paymentMethods = [
@@ -50,6 +53,12 @@ const paymentMethods = [
     icon: CreditCard,
     color: "from-blue-500 to-cyan-600",
   },
+  {
+    id: "nc",
+    label: "Non-Chargeable",
+    icon: Gift,
+    color: "from-pink-500 to-rose-600",
+  },
 ];
 
 export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
@@ -59,6 +68,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   customerName,
   customerPhone,
   onSuccess,
+  discountAmount = 0,
+  discountPercentage = 0,
 }) => {
   const [status, setStatus] = useState<"idle" | "processing" | "success">(
     "idle",
@@ -66,6 +77,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [billSent, setBillSent] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const [orderNumber, setOrderNumber] = useState<number | null>(null);
   const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { symbol: currencySymbol } = useCurrencyContext();
   const { restaurantId } = useRestaurantId();
@@ -107,10 +119,17 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     staleTime: 1000 * 60 * 30,
   });
 
-  const subtotal = items.reduce(
+  const itemsSubtotal = items.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
+
+  // Apply discount
+  const discountValue =
+    discountPercentage > 0
+      ? (itemsSubtotal * discountPercentage) / 100
+      : discountAmount;
+  const subtotal = Math.max(0, itemsSubtotal - discountValue);
 
   const upiId = paymentSettings?.upi_id || null;
   const upiName = (paymentSettings as any)?.upi_name || restaurantName;
@@ -128,9 +147,12 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       const upiLink = getUpiLink();
       if (!upiLink) return;
 
+      console.log("🔍 UPI QR Link:", upiLink);
+
       QRCodeLib.toDataURL(upiLink, {
-        width: 200,
-        margin: 2,
+        width: 300,
+        margin: 3,
+        errorCorrectionLevel: "H",
         color: { dark: "#000000", light: "#FFFFFF" },
       })
         .then((url) => setQrCodeUrl(url))
@@ -181,20 +203,34 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       clearTimeout(autoCloseTimerRef.current);
       autoCloseTimerRef.current = null;
     }
+    const savedOrderNum = orderNumber;
     setStatus("idle");
     setSelectedMethod(null);
     setBillSent(false);
     setQrCodeUrl("");
-    onSuccess();
+    setOrderNumber(null);
+    onSuccess(savedOrderNum || undefined);
     onClose();
   };
 
   const handlePay = async (method: string) => {
+    // For NC, prompt for reason first
+    let ncReason: string | null = null;
+    if (method === "nc") {
+      ncReason = window.prompt(
+        "Reason for Non-Chargeable order (e.g., Owner treat, staff meal, tasting):",
+      );
+      if (!ncReason) return; // cancelled
+    }
+
     setSelectedMethod(method);
     setStatus("processing");
 
     try {
       if (!restaurantId) throw new Error("No restaurant ID");
+
+      const isNC = method === "nc";
+      const orderTotal = isNC ? 0 : subtotal;
 
       const attendantName = user
         ? `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
@@ -214,43 +250,79 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         notes: [],
       }));
 
+      // 0. Generate daily sequential order token
+      const today = new Date();
+      const todayStart = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+      ).toISOString();
+      const todayEnd = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() + 1,
+      ).toISOString();
+      const { data: maxOrderRow } = await supabase
+        .from("orders")
+        .select("order_number")
+        .eq("restaurant_id", restaurantId)
+        .gte("created_at", todayStart)
+        .lt("created_at", todayEnd)
+        .not("order_number", "is", null)
+        .order("order_number", { ascending: false })
+        .limit(1);
+      const nextOrderNumber =
+        ((maxOrderRow?.[0]?.order_number as number) || 0) + 1;
+
+      // Initialize item completion status (all false)
+      const initialCompletionStatus = items.map(() => false);
+
       // 1. Create kitchen order
       const { data: kitchenOrder, error: kitchenError } = await supabase
         .from("kitchen_orders")
         .insert({
           restaurant_id: restaurantId,
           source: `QuickServe`,
-          status: "completed",
+          status: "preparing",
           items: kitchenItems,
-          order_type: "takeaway",
+          order_type: isNC ? "non-chargeable" : "takeaway",
           customer_name: finalCustomerName,
           server_name: attendantName,
           priority: "normal",
+          ...(ncReason && { nc_reason: ncReason }),
         })
         .select()
         .single();
 
       if (kitchenError) throw kitchenError;
 
-      // 2. Create order record
+      // 2. Create order record with token and completion tracking
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
           restaurant_id: restaurantId,
           customer_name: finalCustomerName,
           items: formattedItems,
-          total: subtotal,
-          status: "completed",
-          payment_status: "paid",
-          source: "pos",
-          order_type: "takeaway",
+          total: orderTotal,
+          status: "preparing",
+          payment_status: isNC ? "nc" : "paid",
+          source: "quickserve",
+          order_type: isNC ? "non-chargeable" : "takeaway",
           attendant: attendantName,
+          order_number: nextOrderNumber,
+          item_completion_status: initialCompletionStatus,
+          ...(discountAmount > 0 && { discount_amount: discountAmount }),
+          ...(discountPercentage > 0 && {
+            discount_percentage: discountPercentage,
+          }),
+          ...(ncReason && { nc_reason: ncReason }),
           ...(customerPhone && { customer_phone: customerPhone }),
         })
         .select()
         .single();
 
       if (orderError) throw orderError;
+      setOrderNumber(nextOrderNumber);
 
       // 3. Link kitchen order to order
       if (order?.id && kitchenOrder?.id) {
@@ -334,10 +406,22 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-0.5">
               Payment Complete!
             </h3>
-            <p className="text-gray-500 dark:text-white/60 text-sm mb-4">
+            <p className="text-gray-500 dark:text-white/60 text-sm mb-1">
               {currencySymbol}
               {subtotal.toFixed(2)} via {selectedMethod?.toUpperCase()}
             </p>
+
+            {/* Order Token Number */}
+            {orderNumber && (
+              <div className="bg-gradient-to-r from-orange-500 to-pink-500 text-white px-6 py-2.5 rounded-xl mb-4 animate-in zoom-in-75 duration-500">
+                <p className="text-[10px] uppercase tracking-widest text-white/70 text-center">
+                  Token Number
+                </p>
+                <p className="text-3xl font-black text-center tracking-wider">
+                  #{String(orderNumber).padStart(3, "0")}
+                </p>
+              </div>
+            )}
 
             {/* UPI QR Code — show when UPI is configured and payment wasn't via UPI */}
             {upiId && selectedMethod !== "upi" && (
@@ -346,7 +430,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                   Customer can scan to pay
                 </p>
                 {qrCodeUrl ? (
-                  <div className="w-40 h-40 mx-auto bg-white rounded-lg p-2 shadow-sm mb-2">
+                  <div className="w-56 h-56 mx-auto bg-white rounded-lg p-2 shadow-sm mb-2">
                     <img
                       src={qrCodeUrl}
                       alt="UPI Payment QR"
@@ -354,10 +438,14 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                     />
                   </div>
                 ) : (
-                  <div className="w-40 h-40 mx-auto bg-white rounded-lg flex items-center justify-center mb-2">
+                  <div className="w-56 h-56 mx-auto bg-white rounded-lg flex items-center justify-center mb-2">
                     <QrCode className="h-16 w-16 text-gray-300 animate-pulse" />
                   </div>
                 )}
+                <p className="text-center text-sm font-bold text-gray-700 dark:text-white/80 mt-2">
+                  {currencySymbol}
+                  {subtotal.toFixed(2)}
+                </p>
                 <div className="flex items-center justify-center gap-1.5 mt-2">
                   <span className="text-[10px] text-gray-400 dark:text-white/40">
                     GPay
