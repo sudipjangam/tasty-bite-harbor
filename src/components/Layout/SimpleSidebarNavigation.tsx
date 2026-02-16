@@ -1,10 +1,9 @@
-
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAccessControl } from "@/hooks/useAccessControl";
-import { 
-  LayoutDashboard, 
-  Users, 
+import {
+  LayoutDashboard,
+  Users,
   ShoppingCart,
   Menu as MenuIcon,
   UserCheck,
@@ -17,7 +16,9 @@ import {
   Settings,
   DollarSign,
   Calculator,
-  Sparkles
+  Sparkles,
+  Zap,
+  Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,11 @@ const navigationItems = [
     title: "Dashboard",
     icon: LayoutDashboard,
     href: "/",
+  },
+  {
+    title: "QuickServe POS",
+    icon: Zap,
+    href: "/quickserve-pos",
   },
   {
     title: "Orders",
@@ -83,6 +89,11 @@ const navigationItems = [
     href: "/financial",
   },
   {
+    title: "Marketing",
+    icon: Megaphone,
+    href: "/marketing",
+  },
+  {
     title: "AI Assistant",
     icon: MessageSquare,
     href: "/ai",
@@ -101,24 +112,25 @@ export const SimpleSidebarNavigation = () => {
 
   // Map routes to component names
   const routeToComponentMap: Record<string, string> = {
-    '/': 'dashboard',
-    '/orders': 'orders',
-    '/menu': 'menu',
-    '/staff': 'staff',
-    '/customers': 'customers',
-    '/rooms': 'rooms',
-    '/housekeeping': 'housekeeping',
-    '/tables': 'tables',
-    '/reservations': 'reservations',
-    '/inventory': 'inventory',
-    '/analytics': 'analytics',
-    '/financial': 'financial',
-    '/ai': 'ai',
-    '/settings': 'settings',
-    '/pos': 'pos',
-    // '/qsr-pos': 'qsr-pos',
-    '/kitchen': 'kitchen',
-    '/recipes': 'recipes',
+    "/": "dashboard",
+    "/orders": "orders",
+    "/menu": "menu",
+    "/staff": "staff",
+    "/customers": "customers",
+    "/rooms": "rooms",
+    "/housekeeping": "housekeeping",
+    "/tables": "tables",
+    "/reservations": "reservations",
+    "/inventory": "inventory",
+    "/analytics": "analytics",
+    "/financial": "financial",
+    "/ai": "ai",
+    "/settings": "settings",
+    "/pos": "pos",
+    "/quickserve-pos": "quickserve-pos",
+    "/marketing": "marketing",
+    "/kitchen": "kitchen",
+    "/recipes": "recipes",
   };
 
   if (loading) {
@@ -127,29 +139,31 @@ export const SimpleSidebarNavigation = () => {
 
   return (
     <nav className="space-y-2">
-      {navigationItems.filter(item => {
-        const componentName = routeToComponentMap[item.href];
-        return componentName ? hasAccess(componentName) : true;
-      }).map((item) => {
-        const Icon = item.icon;
-        const isActive = location.pathname === item.href;
-        
-        return (
-          <button
-            key={item.href}
-            onClick={() => navigate(item.href)}
-            className={cn(
-              "w-full flex items-center gap-3 px-3 py-2 text-left rounded-lg transition-colors",
-              isActive
-                ? "bg-white text-sidebar-purple font-medium"
-                : "text-white hover:bg-sidebar-purple-dark"
-            )}
-          >
-            <Icon className="h-5 w-5" />
-            <span>{item.title}</span>
-          </button>
-        );
-      })}
+      {navigationItems
+        .filter((item) => {
+          const componentName = routeToComponentMap[item.href];
+          return componentName ? hasAccess(componentName) : true;
+        })
+        .map((item) => {
+          const Icon = item.icon;
+          const isActive = location.pathname === item.href;
+
+          return (
+            <button
+              key={item.href}
+              onClick={() => navigate(item.href)}
+              className={cn(
+                "w-full flex items-center gap-3 px-3 py-2 text-left rounded-lg transition-colors",
+                isActive
+                  ? "bg-white text-sidebar-purple font-medium"
+                  : "text-white hover:bg-sidebar-purple-dark",
+              )}
+            >
+              <Icon className="h-5 w-5" />
+              <span>{item.title}</span>
+            </button>
+          );
+        })}
     </nav>
   );
 };
