@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from "react";
 import { useQSRMenuItems, QSRMenuItem } from "@/hooks/useQSRMenuItems";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { startOfDay, endOfDay } from "date-fns";
 import { QSMenuGrid } from "@/components/QuickServe/QSMenuGrid";
@@ -15,9 +15,11 @@ import {
   QSOrderHistory,
   RecalledOrderItem,
 } from "@/components/QuickServe/QSOrderHistory";
+import { QSActiveOrders } from "@/components/QuickServe/QSActiveOrders";
+import { QSCustomItemDialog } from "@/components/QuickServe/QSCustomItemDialog";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
-import { History, ShoppingBag } from "lucide-react";
+import { History, ShoppingBag, ChefHat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -32,9 +34,14 @@ const QuickServePOS: React.FC = () => {
   const [customerPhone, setCustomerPhone] = useState("");
   const [showPayment, setShowPayment] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showActiveOrders, setShowActiveOrders] = useState(false);
+  const [showCustomItem, setShowCustomItem] = useState(false);
   const [showMobileCart, setShowMobileCart] = useState(false);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [discountPercentage, setDiscountPercentage] = useState(0);
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
+  const queryClient = useQueryClient();
 
   // Menu data
   const { menuItems, categories, isLoading: menuLoading } = useQSRMenuItems();
@@ -159,7 +166,45 @@ const QuickServePOS: React.FC = () => {
     setCustomerPhone("");
     setShowPayment(false);
     setShowMobileCart(false);
-  }, []);
+    setDiscountAmount(0);
+    setDiscountPercentage(0);
+    // Refresh active orders and stats
+    queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+    queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
+    queryClient.invalidateQueries({ queryKey: ["quickserve-todays-revenue"] });
+  }, [queryClient]);
+
+  // Add custom item
+  const handleAddCustomItem = useCallback(
+    (name: string, price: number) => {
+      setOrderItems((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          menuItemId: `custom-${Date.now()}`,
+          name,
+          price,
+          quantity: 1,
+          isCustom: true,
+        },
+      ]);
+      toast({
+        title: "Custom Item Added",
+        description: `${name} — ₹${price}`,
+        duration: 1500,
+      });
+    },
+    [toast],
+  );
+
+  // Handle discount change
+  const handleDiscountChange = useCallback(
+    (amount: number, percentage: number) => {
+      setDiscountAmount(amount);
+      setDiscountPercentage(percentage);
+    },
+    [],
+  );
 
   // Recall order from history into active cart
   const handleRecallOrder = useCallback(
@@ -234,6 +279,16 @@ const QuickServePOS: React.FC = () => {
           <Button
             variant="ghost"
             size="sm"
+            onClick={() => setShowActiveOrders(true)}
+            className="relative text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-500/10 h-8 font-semibold"
+          >
+            <ChefHat className="h-4 w-4 mr-1.5" />
+            <span className="hidden sm:inline">Orders</span>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setShowHistory(true)}
             className="text-gray-500 dark:text-white/60 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 h-8"
           >
@@ -271,6 +326,10 @@ const QuickServePOS: React.FC = () => {
             onRemove={handleRemove}
             onClear={handleClear}
             onProceedToPayment={() => setShowPayment(true)}
+            discountAmount={discountAmount}
+            discountPercentage={discountPercentage}
+            onDiscountChange={handleDiscountChange}
+            onAddCustomItem={() => setShowCustomItem(true)}
           />
         </div>
       </div>
@@ -319,6 +378,10 @@ const QuickServePOS: React.FC = () => {
                 setShowMobileCart(false);
                 setShowPayment(true);
               }}
+              discountAmount={discountAmount}
+              discountPercentage={discountPercentage}
+              onDiscountChange={handleDiscountChange}
+              onAddCustomItem={() => setShowCustomItem(true)}
             />
           </div>
         </SheetContent>
@@ -332,6 +395,15 @@ const QuickServePOS: React.FC = () => {
         customerName={customerName}
         customerPhone={customerPhone}
         onSuccess={handlePaymentSuccess}
+        discountAmount={discountAmount}
+        discountPercentage={discountPercentage}
+      />
+
+      {/* Custom Item Dialog */}
+      <QSCustomItemDialog
+        isOpen={showCustomItem}
+        onClose={() => setShowCustomItem(false)}
+        onAdd={handleAddCustomItem}
       />
 
       {/* Order History */}
@@ -339,6 +411,12 @@ const QuickServePOS: React.FC = () => {
         isOpen={showHistory}
         onClose={() => setShowHistory(false)}
         onRecallOrder={handleRecallOrder}
+      />
+
+      {/* Active Orders Panel */}
+      <QSActiveOrders
+        isOpen={showActiveOrders}
+        onClose={() => setShowActiveOrders(false)}
       />
     </div>
   );
