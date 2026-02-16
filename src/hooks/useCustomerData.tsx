@@ -65,7 +65,7 @@ export const useCustomerData = () => {
   const calculateLoyaltyTierFromDB = (
     totalSpent: number,
     visitCount: number,
-    loyaltyPoints: number
+    loyaltyPoints: number,
   ): CustomerLoyaltyTier => {
     // Use database tiers if available, otherwise use defaults
     const tiers =
@@ -144,9 +144,9 @@ export const useCustomerData = () => {
         Array<{ created_at: string }>
       >();
 
-      // Populate orders map
+      // Populate orders map (case-insensitive keys)
       (ordersResult.data || []).forEach((order) => {
-        const name = order.customer_name || "";
+        const name = (order.customer_name || "").toLowerCase();
         if (!ordersByCustomer.has(name)) {
           ordersByCustomer.set(name, []);
         }
@@ -156,9 +156,9 @@ export const useCustomerData = () => {
         });
       });
 
-      // Populate room orders map
+      // Populate room orders map (case-insensitive keys)
       (roomOrdersResult.data || []).forEach((order) => {
-        const name = order.customer_name || "";
+        const name = (order.customer_name || "").toLowerCase();
         if (!roomOrdersByCustomer.has(name)) {
           roomOrdersByCustomer.set(name, []);
         }
@@ -168,9 +168,9 @@ export const useCustomerData = () => {
         });
       });
 
-      // Populate reservations map
+      // Populate reservations map (case-insensitive keys)
       (reservationsResult.data || []).forEach((res) => {
-        const name = res.customer_name || "";
+        const name = (res.customer_name || "").toLowerCase();
         if (!reservationsByCustomer.has(name)) {
           reservationsByCustomer.set(name, []);
         }
@@ -181,11 +181,10 @@ export const useCustomerData = () => {
 
       // STEP 3: Enrich customers using the pre-fetched data (in-memory processing)
       const enrichedCustomers = customersData.map((customer) => {
-        const customerOrders = ordersByCustomer.get(customer.name) || [];
-        const customerRoomOrders =
-          roomOrdersByCustomer.get(customer.name) || [];
-        const customerReservations =
-          reservationsByCustomer.get(customer.name) || [];
+        const nameKey = customer.name.toLowerCase();
+        const customerOrders = ordersByCustomer.get(nameKey) || [];
+        const customerRoomOrders = roomOrdersByCustomer.get(nameKey) || [];
+        const customerReservations = reservationsByCustomer.get(nameKey) || [];
 
         // Combine all orders
         const allOrders = [
@@ -202,7 +201,7 @@ export const useCustomerData = () => {
         // Calculate metrics
         const totalSpent = allOrders.reduce(
           (sum, order) => sum + order.total,
-          0
+          0,
         );
         const visitCount = allOrders.length + customerReservations.length;
         const averageOrderValue = visitCount > 0 ? totalSpent / visitCount : 0;
@@ -231,7 +230,7 @@ export const useCustomerData = () => {
           loyalty_tier: calculateLoyaltyTierFromDB(
             totalSpent,
             visitCount,
-            customer.loyalty_points || 0
+            customer.loyalty_points || 0,
           ),
           tags: customer.tags || [],
           preferences: customer.preferences || null,
@@ -241,6 +240,23 @@ export const useCustomerData = () => {
           average_order_value: averageOrderValue,
         };
       });
+
+      // STEP 4: Batch-persist any changed loyalty tiers back to DB
+      const tierUpdates = enrichedCustomers.filter(
+        (enriched, i) =>
+          enriched.loyalty_tier !== (customersData[i].loyalty_tier || "None"),
+      );
+      if (tierUpdates.length > 0) {
+        // Fire-and-forget batch update — don't block the UI
+        Promise.all(
+          tierUpdates.map((c) =>
+            supabase
+              .from("customers")
+              .update({ loyalty_tier: c.loyalty_tier })
+              .eq("id", c.id),
+          ),
+        ).catch((err) => console.error("Tier sync error:", err));
+      }
 
       return enrichedCustomers;
     },
@@ -332,7 +348,7 @@ export const useCustomerData = () => {
 
     // Sort by date, most recent first
     return allOrders.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
     );
   };
 
@@ -368,7 +384,7 @@ export const useCustomerData = () => {
         `
         *,
         rooms:room_id (name)
-      `
+      `,
       )
       .eq("restaurant_id", restaurantId)
       .ilike("customer_name", customerName) // Case-insensitive match
@@ -378,8 +394,6 @@ export const useCustomerData = () => {
       console.error("Error fetching room billings:", error);
       return [];
     }
-
-    console.log("Room billings found for", customerName, ":", data);
 
     return (data || []).map((billing) => ({
       id: billing.id,
@@ -405,7 +419,7 @@ export const useCustomerData = () => {
         `
         *,
         rooms:room_id (name)
-      `
+      `,
       )
       .eq("restaurant_id", restaurantId)
       .ilike("customer_name", customerName)
@@ -461,15 +475,15 @@ export const useCustomerData = () => {
 
     const totalPosSpend = posOrdersOnly.reduce(
       (sum, o) => sum + (o.amount || 0),
-      0
+      0,
     );
     const totalRoomFoodSpend = roomFoodOrders.reduce(
       (sum, o) => sum + (o.amount || 0),
-      0
+      0,
     );
     const totalRoomSpend = roomBillings.reduce(
       (sum, b) => sum + (b.totalAmount || 0),
-      0
+      0,
     );
     const totalLifetimeValue = totalPosSpend + totalRoomSpend;
 
@@ -616,6 +630,22 @@ export const useCustomerData = () => {
       }
       // If creating new customer
       else {
+        // Check for duplicate phone before inserting
+        if (customer.phone) {
+          const { data: existing } = await supabase
+            .from("customers")
+            .select("id, name")
+            .eq("restaurant_id", restaurantId)
+            .eq("phone", customer.phone)
+            .maybeSingle();
+
+          if (existing) {
+            throw new Error(
+              `A customer with phone ${customer.phone} already exists (${existing.name}). Please update the existing record instead.`,
+            );
+          }
+        }
+
         const { data, error } = await supabase
           .from("customers")
           .insert([
