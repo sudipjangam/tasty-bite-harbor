@@ -67,7 +67,11 @@ export const useCRMSync = () => {
         "qsr-order",
         "walk-in",
         "walk in",
+        "walkin",
+        "walk-in customer",
+        "walkin customer",
         "guest",
+        "customer",
       ];
       if (genericNames.includes(trimmedName.toLowerCase())) {
         return null;
@@ -85,7 +89,7 @@ export const useCRMSync = () => {
         if (trimmedPhone) {
           const { data } = await supabase
             .from("customers")
-            .select("id, name, loyalty_points, loyalty_tier, visit_count, total_spent")
+            .select("id, name, phone, loyalty_points, loyalty_tier, visit_count, total_spent")
             .eq("restaurant_id", restaurantId)
             .eq("phone", trimmedPhone)
             .maybeSingle();
@@ -96,7 +100,7 @@ export const useCRMSync = () => {
         if (!existingCustomer && !trimmedPhone) {
           const { data } = await supabase
             .from("customers")
-            .select("id, name, loyalty_points, loyalty_tier, visit_count, total_spent")
+            .select("id, name, phone, loyalty_points, loyalty_tier, visit_count, total_spent")
             .eq("restaurant_id", restaurantId)
             .eq("name", trimmedName)
             .maybeSingle();
@@ -122,8 +126,8 @@ export const useCRMSync = () => {
             updates.name = trimmedName;
           }
 
-          // Update phone if newly provided
-          if (trimmedPhone) {
+          // Update phone only if newly provided (never overwrite with null)
+          if (trimmedPhone && trimmedPhone !== existingCustomer.phone) {
             updates.phone = trimmedPhone;
           }
 
@@ -179,15 +183,15 @@ export const useCRMSync = () => {
         // --- Step 3: Award loyalty points ---
         let pointsEarned = 0;
 
+        // Fetch loyalty program settings once (used for points + free order check)
+        const { data: loyaltyProgram } = await supabase
+          .from("loyalty_programs")
+          .select("is_enabled, points_per_amount, free_order_interval")
+          .eq("restaurant_id", restaurantId)
+          .maybeSingle();
+
         // Skip loyalty for non-chargeable orders
         if (orderTotal > 0) {
-          // Fetch loyalty program settings
-          const { data: loyaltyProgram } = await supabase
-            .from("loyalty_programs")
-            .select("is_enabled, points_per_amount, free_order_interval")
-            .eq("restaurant_id", restaurantId)
-            .maybeSingle();
-
           if (loyaltyProgram?.is_enabled !== false) {
             const pointsPerAmount = loyaltyProgram?.points_per_amount ?? 1;
 
@@ -246,14 +250,8 @@ export const useCRMSync = () => {
         const newOrderCount = existingOrderCount + 1;
         let isFreeOrder = false;
 
-        // Fetch free_order_interval if it exists
-        const { data: programForInterval } = await supabase
-          .from("loyalty_programs")
-          .select("free_order_interval")
-          .eq("restaurant_id", restaurantId)
-          .maybeSingle();
-
-        const freeInterval = (programForInterval as any)?.free_order_interval;
+        // Reuse the loyalty program data fetched earlier (no duplicate query)
+        const freeInterval = (loyaltyProgram as any)?.free_order_interval;
         if (freeInterval && freeInterval > 0 && newOrderCount % (freeInterval + 1) === 0) {
           isFreeOrder = true;
         }
