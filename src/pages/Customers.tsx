@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import CustomerList from "@/components/CRM/CustomerList";
@@ -8,16 +8,38 @@ import CustomerDialog from "@/components/CRM/CustomerDialog";
 import RealtimeCustomers from "@/components/CRM/RealtimeCustomers";
 import QRCodeGenerator from "@/components/CRM/QRCodeGenerator";
 import { Customer } from "@/types/customer";
-import { User, Users, TrendingUp, Heart, QrCode, Merge } from "lucide-react";
+import { LoyaltyProgramDB, LoyaltyTierDB } from "@/types/loyalty";
+import {
+  User,
+  Users,
+  TrendingUp,
+  Heart,
+  QrCode,
+  Merge,
+  Settings,
+  Crown,
+  Plus,
+  Edit2,
+  Trash2,
+  GripVertical,
+} from "lucide-react";
 import { useCustomerData } from "@/hooks/useCustomerData";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { supabase } from "@/integrations/supabase/client";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 
 const Customers = () => {
@@ -29,6 +51,11 @@ const Customers = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
   const [showQRGenerator, setShowQRGenerator] = useState(false);
+  const [showPointsSettings, setShowPointsSettings] = useState(false);
+  const [showTierManager, setShowTierManager] = useState(false);
+  const [editingTier, setEditingTier] = useState<LoyaltyTierDB | null>(null);
+  const { restaurantId } = useRestaurantId();
+  const queryClient = useQueryClient();
 
   const {
     customers,
@@ -43,6 +70,149 @@ const Customers = () => {
     getAllRoomBillings,
     mergeDuplicateCustomers,
   } = useCustomerData();
+
+  // Fetch loyalty program settings
+  const { data: loyaltyProgram } = useQuery({
+    queryKey: ["loyalty-program", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return null;
+      const { data, error } = await supabase
+        .from("loyalty_programs")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .single();
+      if (error && error.code !== "PGRST116") return null;
+      return data as LoyaltyProgramDB | null;
+    },
+    enabled: !!restaurantId,
+  });
+
+  // Fetch loyalty tiers
+  const { data: loyaltyTiers = [] } = useQuery({
+    queryKey: ["loyalty-tiers", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return [];
+      const { data, error } = await supabase
+        .from("loyalty_tiers")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .order("display_order");
+      if (error) return [];
+      return (data || []).map((t) => ({
+        ...t,
+        min_spent: t.min_spent ?? 0,
+        min_visits: t.min_visits ?? 0,
+        points_multiplier: t.points_multiplier ?? 1,
+        color: t.color ?? "bg-gray-500",
+        benefits: Array.isArray(t.benefits) ? t.benefits : [],
+      })) as LoyaltyTierDB[];
+    },
+    enabled: !!restaurantId,
+  });
+
+  // Points settings state
+  const [pointsPerAmount, setPointsPerAmount] = useState(1);
+  const [amountPerPoint, setAmountPerPoint] = useState(1);
+  const [pointsExpiryDays, setPointsExpiryDays] = useState<number | null>(null);
+  const [loyaltyEnabled, setLoyaltyEnabled] = useState(true);
+
+  useEffect(() => {
+    if (loyaltyProgram) {
+      setPointsPerAmount(loyaltyProgram.points_per_amount ?? 1);
+      setAmountPerPoint(loyaltyProgram.amount_per_point ?? 1);
+      setPointsExpiryDays(loyaltyProgram.points_expiry_days ?? null);
+      setLoyaltyEnabled(loyaltyProgram.is_enabled ?? true);
+    }
+  }, [loyaltyProgram]);
+
+  // Save program settings
+  const saveProgramSettings = async () => {
+    if (!restaurantId) return;
+    const settings = {
+      is_enabled: loyaltyEnabled,
+      points_per_amount: pointsPerAmount,
+      amount_per_point: amountPerPoint,
+      points_expiry_days: pointsExpiryDays,
+    };
+    try {
+      if (loyaltyProgram) {
+        await supabase
+          .from("loyalty_programs")
+          .update(settings)
+          .eq("id", loyaltyProgram.id);
+      } else {
+        await supabase
+          .from("loyalty_programs")
+          .insert([{ ...settings, restaurant_id: restaurantId }]);
+      }
+      queryClient.invalidateQueries({ queryKey: ["loyalty-program"] });
+      setShowPointsSettings(false);
+      toast({ title: "Loyalty settings saved!" });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Save tier mutation
+  const saveTierMutation = useMutation({
+    mutationFn: async (tier: Partial<LoyaltyTierDB> & { id?: string }) => {
+      if (!restaurantId) throw new Error("No restaurant ID");
+      const tierData = {
+        name: tier.name,
+        points_required: tier.points_required || 0,
+        min_spent: tier.min_spent || 0,
+        min_visits: tier.min_visits || 0,
+        points_multiplier: tier.points_multiplier || 1,
+        benefits: tier.benefits || [],
+        color: tier.color || "bg-gray-500",
+        display_order: tier.display_order ?? loyaltyTiers.length,
+        restaurant_id: restaurantId,
+      };
+      if (tier.id && !tier.id.startsWith("default-")) {
+        const { error } = await supabase
+          .from("loyalty_tiers")
+          .update(tierData)
+          .eq("id", tier.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("loyalty_tiers")
+          .insert([tierData]);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["loyalty-tiers"] });
+      setEditingTier(null);
+      toast({ title: "Tier saved successfully" });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete tier mutation
+  const deleteTierMutation = useMutation({
+    mutationFn: async (tierId: string) => {
+      const { error } = await supabase
+        .from("loyalty_tiers")
+        .delete()
+        .eq("id", tierId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["loyalty-tiers"] });
+      toast({ title: "Tier deleted" });
+    },
+  });
 
   // State for enriched customers with comprehensive data
   const [enrichedCustomers, setEnrichedCustomers] = useState<Customer[]>([]);
@@ -296,6 +466,321 @@ const Customers = () => {
               ? "Merging..."
               : "Merge Duplicates"}
           </Button>
+
+          {/* Loyalty Points Settings */}
+          <Dialog
+            open={showPointsSettings}
+            onOpenChange={setShowPointsSettings}
+          >
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="ml-2 mt-3 gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
+              >
+                <Settings className="h-4 w-4" />
+                Loyalty Settings
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[520px]">
+              <DialogHeader>
+                <DialogTitle>Loyalty Program Settings</DialogTitle>
+                <DialogDescription>
+                  Configure how customers earn and redeem loyalty points
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-5 py-2">
+                <div className="flex items-center justify-between">
+                  <Label>Enable Loyalty Program</Label>
+                  <Button
+                    type="button"
+                    variant={loyaltyEnabled ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setLoyaltyEnabled(!loyaltyEnabled)}
+                  >
+                    {loyaltyEnabled ? "Enabled" : "Disabled"}
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Points per ₹100 Spent</Label>
+                    <Input
+                      type="number"
+                      value={pointsPerAmount}
+                      onChange={(e) =>
+                        setPointsPerAmount(Number(e.target.value))
+                      }
+                      min="0"
+                      step="1"
+                    />
+                    <p className="text-xs text-gray-500">
+                      e.g. "10" means customer earns 10 points for every ₹100
+                      spent
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>₹ Value per Point</Label>
+                    <Input
+                      type="number"
+                      value={amountPerPoint}
+                      onChange={(e) =>
+                        setAmountPerPoint(Number(e.target.value))
+                      }
+                      min="0.01"
+                      step="0.01"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Rupee value of each point for redemption
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Points Expiry (Days)</Label>
+                  <Input
+                    type="number"
+                    value={pointsExpiryDays || ""}
+                    onChange={(e) =>
+                      setPointsExpiryDays(
+                        e.target.value ? Number(e.target.value) : null,
+                      )
+                    }
+                    placeholder="Leave empty for no expiry"
+                    min="1"
+                  />
+                </div>
+                {loyaltyProgram && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-sm">
+                    <p className="font-medium text-blue-800 dark:text-blue-300">
+                      Current Config:
+                    </p>
+                    <p className="text-blue-700 dark:text-blue-400">
+                      Earn <strong>{loyaltyProgram.points_per_amount}</strong>{" "}
+                      pts per ₹100 spent · Each point ={" "}
+                      <strong>₹{loyaltyProgram.amount_per_point}</strong>
+                    </p>
+                  </div>
+                )}
+                <Button className="w-full" onClick={saveProgramSettings}>
+                  Save Settings
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Manage Tiers */}
+          <Dialog
+            open={showTierManager}
+            onOpenChange={(open) => {
+              setShowTierManager(open);
+              if (!open) setEditingTier(null);
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="ml-2 mt-3 gap-2 border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-400 dark:hover:bg-purple-900/20"
+              >
+                <Crown className="h-4 w-4" />
+                Manage Tiers
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[650px] max-h-[85vh]">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingTier
+                    ? `${editingTier.id ? "Edit" : "Create"} Tier`
+                    : "Manage Loyalty Tiers"}
+                </DialogTitle>
+                <DialogDescription>
+                  {editingTier
+                    ? "Set spending thresholds, visit requirements, and benefits for this tier"
+                    : "Customize your loyalty tiers — set different levels based on spending and visits"}
+                </DialogDescription>
+              </DialogHeader>
+
+              {editingTier ? (
+                /* Tier Edit Form */
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Tier Name</Label>
+                      <Input
+                        value={editingTier.name}
+                        onChange={(e) =>
+                          setEditingTier({
+                            ...editingTier,
+                            name: e.target.value,
+                          })
+                        }
+                        placeholder="e.g. Gold, VIP"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Points Required</Label>
+                      <Input
+                        type="number"
+                        value={editingTier.points_required}
+                        onChange={(e) =>
+                          setEditingTier({
+                            ...editingTier,
+                            points_required: Number(e.target.value),
+                          })
+                        }
+                        min="0"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Min Total Spend (₹)</Label>
+                      <Input
+                        type="number"
+                        value={editingTier.min_spent}
+                        onChange={(e) =>
+                          setEditingTier({
+                            ...editingTier,
+                            min_spent: Number(e.target.value),
+                          })
+                        }
+                        min="0"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Min Visits</Label>
+                      <Input
+                        type="number"
+                        value={editingTier.min_visits}
+                        onChange={(e) =>
+                          setEditingTier({
+                            ...editingTier,
+                            min_visits: Number(e.target.value),
+                          })
+                        }
+                        min="0"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Points Multiplier</Label>
+                      <Input
+                        type="number"
+                        value={editingTier.points_multiplier}
+                        onChange={(e) =>
+                          setEditingTier({
+                            ...editingTier,
+                            points_multiplier: Number(e.target.value),
+                          })
+                        }
+                        min="1"
+                        step="0.1"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Higher-tier customers earn more points per order
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Display Order</Label>
+                      <Input
+                        type="number"
+                        value={editingTier.display_order}
+                        onChange={(e) =>
+                          setEditingTier({
+                            ...editingTier,
+                            display_order: Number(e.target.value),
+                          })
+                        }
+                        min="0"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter className="gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setEditingTier(null)}
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      onClick={() => saveTierMutation.mutate(editingTier)}
+                      disabled={!editingTier.name || saveTierMutation.isPending}
+                    >
+                      {saveTierMutation.isPending
+                        ? "Saving..."
+                        : editingTier.id
+                          ? "Update Tier"
+                          : "Create Tier"}
+                    </Button>
+                  </DialogFooter>
+                </div>
+              ) : (
+                /* Tier List */
+                <ScrollArea className="max-h-[55vh]">
+                  <div className="space-y-3">
+                    {loyaltyTiers.length === 0 && (
+                      <p className="text-center text-gray-500 py-6">
+                        No tiers configured yet. Add your first tier below.
+                      </p>
+                    )}
+                    {loyaltyTiers.map((tier) => (
+                      <div
+                        key={tier.id}
+                        className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-xl border shadow-sm"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-3 h-3 rounded-full ${tier.color}`}
+                          />
+                          <div>
+                            <p className="font-semibold">{tier.name}</p>
+                            <p className="text-xs text-gray-500">
+                              ₹{tier.min_spent} min spend · {tier.min_visits}{" "}
+                              visits · {tier.points_multiplier}× points
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingTier(tier)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700"
+                            onClick={() => deleteTierMutation.mutate(tier.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2 border-dashed"
+                      onClick={() =>
+                        setEditingTier({
+                          id: "",
+                          restaurant_id: restaurantId || "",
+                          name: "",
+                          points_required: 0,
+                          min_spent: 0,
+                          min_visits: 0,
+                          points_multiplier: 1,
+                          benefits: [],
+                          color: "bg-gray-500",
+                          display_order: loyaltyTiers.length,
+                          created_at: "",
+                          updated_at: "",
+                        })
+                      }
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add New Tier
+                    </Button>
+                  </div>
+                </ScrollArea>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Quick Stats Cards */}
