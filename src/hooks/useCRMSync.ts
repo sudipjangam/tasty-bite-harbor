@@ -84,27 +84,30 @@ export const useCRMSync = () => {
         let existingOrderCount = 0;
 
         // Try to find existing customer by phone first (most reliable), then by name
-        let existingCustomer = null;
+        let existingCustomer: any = null;
 
         if (trimmedPhone) {
+          // Use .limit(1) instead of .maybeSingle() to handle existing duplicates safely
           const { data } = await supabase
             .from("customers")
             .select("id, name, phone, loyalty_points, loyalty_tier, visit_count, total_spent")
             .eq("restaurant_id", restaurantId)
             .eq("phone", trimmedPhone)
-            .maybeSingle();
-          existingCustomer = data;
+            .order("created_at", { ascending: true })
+            .limit(1);
+          existingCustomer = data?.[0] || null;
         }
 
-        // Fallback: try matching by exact name if no phone match
-        if (!existingCustomer && !trimmedPhone) {
+        // Fallback: try case-insensitive name match if no phone match found
+        if (!existingCustomer) {
           const { data } = await supabase
             .from("customers")
             .select("id, name, phone, loyalty_points, loyalty_tier, visit_count, total_spent")
             .eq("restaurant_id", restaurantId)
-            .eq("name", trimmedName)
-            .maybeSingle();
-          existingCustomer = data;
+            .ilike("name", trimmedName)
+            .order("created_at", { ascending: true })
+            .limit(1);
+          existingCustomer = data?.[0] || null;
         }
 
         if (existingCustomer) {
