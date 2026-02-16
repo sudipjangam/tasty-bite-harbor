@@ -8,7 +8,7 @@ import CustomerDialog from "@/components/CRM/CustomerDialog";
 import RealtimeCustomers from "@/components/CRM/RealtimeCustomers";
 import QRCodeGenerator from "@/components/CRM/QRCodeGenerator";
 import { Customer } from "@/types/customer";
-import { User, Users, TrendingUp, Heart, QrCode } from "lucide-react";
+import { User, Users, TrendingUp, Heart, QrCode, Merge } from "lucide-react";
 import { useCustomerData } from "@/hooks/useCustomerData";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ const Customers = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null
+    null,
   );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
@@ -41,6 +41,7 @@ const Customers = () => {
     addNote,
     updateTags,
     getAllRoomBillings,
+    mergeDuplicateCustomers,
   } = useCustomerData();
 
   // State for enriched customers with comprehensive data
@@ -130,7 +131,7 @@ const Customers = () => {
   useEffect(() => {
     if (selectedCustomer && displayCustomers.length > 0) {
       const updatedCustomer = displayCustomers.find(
-        (c) => c.id === selectedCustomer.id
+        (c) => c.id === selectedCustomer.id,
       );
       if (updatedCustomer) {
         // Only update if data actually changed to avoid infinite loops
@@ -188,7 +189,7 @@ const Customers = () => {
             refetchNotes();
             refetchActivities();
           },
-        }
+        },
       );
     }
   };
@@ -219,7 +220,7 @@ const Customers = () => {
   // Handle customer updates
   const handleUpdateCustomer = (
     customer: Customer,
-    updates: Partial<Customer>
+    updates: Partial<Customer>,
   ) => {
     const updatedCustomer = { ...customer, ...updates };
     setSelectedCustomer(updatedCustomer);
@@ -229,13 +230,13 @@ const Customers = () => {
   // Total spent from all sources (POS + Room) - using enriched data
   const totalSpent = displayCustomers.reduce(
     (sum, customer) => sum + customer.total_spent,
-    0
+    0,
   );
 
   // Average order value calculation
   const totalVisits = displayCustomers.reduce(
     (sum, customer) => sum + customer.visit_count,
-    0
+    0,
   );
   const averageOrderValue = totalVisits > 0 ? totalSpent / totalVisits : 0;
 
@@ -244,7 +245,7 @@ const Customers = () => {
     (customer) =>
       customer.loyalty_tier === "Diamond" ||
       customer.loyalty_tier === "Platinum" ||
-      customer.loyalty_tier === "Gold"
+      customer.loyalty_tier === "Gold",
   ).length;
 
   return (
@@ -282,6 +283,19 @@ const Customers = () => {
               <QRCodeGenerator />
             </DialogContent>
           </Dialog>
+
+          {/* Merge Duplicates Button */}
+          <Button
+            variant="outline"
+            className="ml-2 mt-3 gap-2 border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-900/20"
+            onClick={() => mergeDuplicateCustomers.mutate()}
+            disabled={mergeDuplicateCustomers.isPending}
+          >
+            <Merge className="h-4 w-4" />
+            {mergeDuplicateCustomers.isPending
+              ? "Merging..."
+              : "Merge Duplicates"}
+          </Button>
         </div>
 
         {/* Quick Stats Cards */}

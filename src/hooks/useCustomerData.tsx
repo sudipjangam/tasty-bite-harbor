@@ -769,6 +769,170 @@ export const useCustomerData = () => {
     },
   });
 
+  // Merge duplicate customers — groups by phone, keeps oldest record, merges data
+  const mergeDuplicateCustomers = useMutation({
+    mutationFn: async () => {
+      if (!restaurantId) throw new Error("No restaurant ID");
+
+      // Fetch all customers for this restaurant
+      const { data: allCustomers, error } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      if (!allCustomers || allCustomers.length === 0) return { merged: 0 };
+
+      // Group by phone number (case-insensitive, trimmed)
+      const phoneGroups = new Map<string, typeof allCustomers>();
+      const nameOnlyGroups = new Map<string, typeof allCustomers>();
+
+      for (const c of allCustomers) {
+        const phone = c.phone?.trim();
+        if (phone) {
+          const key = phone;
+          if (!phoneGroups.has(key)) phoneGroups.set(key, []);
+          phoneGroups.get(key)!.push(c);
+        } else {
+          // Group by name (case-insensitive) for customers without phone
+          const nameKey = (c.name || "").trim().toLowerCase();
+          if (nameKey) {
+            if (!nameOnlyGroups.has(nameKey)) nameOnlyGroups.set(nameKey, []);
+            nameOnlyGroups.get(nameKey)!.push(c);
+          }
+        }
+      }
+
+      let mergedCount = 0;
+
+      // Merge function for a group of duplicates
+      const mergeGroup = async (group: typeof allCustomers) => {
+        if (group.length <= 1) return;
+
+        // Keep the first (oldest) record as primary
+        const primary = group[0];
+        const duplicates = group.slice(1);
+
+        // Merge data into primary
+        const mergedPoints = group.reduce(
+          (sum, c) => sum + (c.loyalty_points || 0),
+          0,
+        );
+        const mergedVisits = group.reduce(
+          (sum, c) => sum + (c.visit_count || 0),
+          0,
+        );
+        const mergedSpent = group.reduce(
+          (sum, c) => sum + (Number(c.total_spent) || 0),
+          0,
+        );
+
+        // Pick the best data: prefer non-null email, phone, name (longest name variant)
+        const bestEmail = group.find((c) => c.email)?.email || primary.email;
+        const bestPhone = group.find((c) => c.phone)?.phone || primary.phone;
+        const bestName = group.reduce(
+          (best, c) =>
+            (c.name || "").length > (best || "").length ? c.name : best,
+          primary.name,
+        );
+        const bestAddress =
+          group.find((c) => c.address)?.address || primary.address;
+        const bestBirthday =
+          group.find((c) => c.birthday)?.birthday || primary.birthday;
+        const bestPreferences =
+          group.find((c) => c.preferences)?.preferences || primary.preferences;
+
+        // Merge tags (unique)
+        const allTags = new Set<string>();
+        group.forEach((c) =>
+          (c.tags || []).forEach((t: string) => allTags.add(t)),
+        );
+
+        // Update primary record
+        await supabase
+          .from("customers")
+          .update({
+            name: bestName,
+            email: bestEmail,
+            phone: bestPhone,
+            address: bestAddress,
+            birthday: bestBirthday,
+            preferences: bestPreferences,
+            loyalty_points: mergedPoints,
+            visit_count: mergedVisits,
+            total_spent: mergedSpent,
+            average_order_value:
+              mergedVisits > 0 ? mergedSpent / mergedVisits : 0,
+            tags: Array.from(allTags),
+          })
+          .eq("id", primary.id);
+
+        // Re-assign related records from duplicates to primary
+        const dupIds = duplicates.map((d) => d.id);
+
+        // Re-assign customer_notes
+        await supabase
+          .from("customer_notes")
+          .update({ customer_id: primary.id })
+          .in("customer_id", dupIds);
+
+        // Re-assign customer_activities
+        await supabase
+          .from("customer_activities")
+          .update({ customer_id: primary.id })
+          .in("customer_id", dupIds);
+
+        // Re-assign loyalty_transactions
+        await supabase
+          .from("loyalty_transactions")
+          .update({ customer_id: primary.id })
+          .in("customer_id", dupIds);
+
+        // Delete duplicate records
+        for (const dup of duplicates) {
+          await supabase.from("customers").delete().eq("id", dup.id);
+        }
+
+        mergedCount += duplicates.length;
+      };
+
+      // Process phone groups
+      for (const group of phoneGroups.values()) {
+        await mergeGroup(group);
+      }
+
+      // Process name-only groups
+      for (const group of nameOnlyGroups.values()) {
+        await mergeGroup(group);
+      }
+
+      return { merged: mergedCount };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      if (result && result.merged > 0) {
+        toast({
+          title: "Duplicates Merged",
+          description: `${result.merged} duplicate customer record(s) merged successfully.`,
+        });
+      } else {
+        toast({
+          title: "No Duplicates Found",
+          description: "All customer records are unique.",
+        });
+      }
+    },
+    onError: (error) => {
+      console.error("Error merging duplicates:", error);
+      toast({
+        title: "Merge Failed",
+        description: "There was an error merging duplicate customers.",
+        variant: "destructive",
+      });
+    },
+  });
+
   return {
     customers,
     isLoadingCustomers,
@@ -785,6 +949,7 @@ export const useCustomerData = () => {
     saveCustomer,
     updateTags,
     deleteCustomer,
+    mergeDuplicateCustomers,
     refetchCustomers,
   };
 };
