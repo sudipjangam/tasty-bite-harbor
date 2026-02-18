@@ -1,7 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import React from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
+import { useToast } from "@/hooks/use-toast";
 
 export interface QSRMenuItem {
   id: string;
@@ -22,8 +24,10 @@ export interface QSRCategory {
 
 export const useQSRMenuItems = () => {
   const { restaurantId } = useRestaurantId();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  // Fetch menu items with real-time updates
+  // Fetch ALL menu items (including sold-out) with real-time updates
   const { data: menuItems = [], isLoading } = useQuery({
     queryKey: ["qsr-menu-items", restaurantId],
     queryFn: async () => {
@@ -32,18 +36,110 @@ export const useQSRMenuItems = () => {
       const { data, error } = await supabase
         .from("menu_items")
         .select(
-          "id, name, price, description, category, image_url, is_available, is_veg"
+          "id, name, price, description, category, image_url, is_available, is_veg",
         )
         .eq("restaurant_id", restaurantId)
-        .eq("is_available", true)
         .order("category", { ascending: true });
 
       if (error) throw error;
       return data as QSRMenuItem[];
     },
     enabled: !!restaurantId,
-    staleTime: 1000 * 60 * 5, // 5 min cache - real-time overrides when data changes
-    gcTime: 1000 * 60 * 30, // 30 min garbage collection
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+  });
+
+  // Toggle item availability (sold-out toggle)
+  const toggleAvailability = useMutation({
+    mutationFn: async ({
+      itemId,
+      isAvailable,
+    }: {
+      itemId: string;
+      isAvailable: boolean;
+    }) => {
+      const { error } = await supabase
+        .from("menu_items")
+        .update({ is_available: isAvailable })
+        .eq("id", itemId);
+
+      if (error) throw error;
+      return { itemId, isAvailable };
+    },
+    onMutate: async ({ itemId, isAvailable }) => {
+      // Optimistic update for instant UI feedback
+      await queryClient.cancelQueries({
+        queryKey: ["qsr-menu-items", restaurantId],
+      });
+      const previousItems = queryClient.getQueryData<QSRMenuItem[]>([
+        "qsr-menu-items",
+        restaurantId,
+      ]);
+
+      queryClient.setQueryData<QSRMenuItem[]>(
+        ["qsr-menu-items", restaurantId],
+        (old) =>
+          old?.map((item) =>
+            item.id === itemId ? { ...item, is_available: isAvailable } : item,
+          ) ?? [],
+      );
+
+      return { previousItems };
+    },
+    onSuccess: (data) => {
+      toast({
+        title: data.isAvailable ? "Item Available" : "Marked Sold Out",
+        description: data.isAvailable
+          ? "Item is now available for ordering"
+          : "Item marked as sold out",
+        variant: data.isAvailable ? "default" : "destructive",
+      });
+    },
+    onError: (error, _, context) => {
+      // Rollback on error
+      if (context?.previousItems) {
+        queryClient.setQueryData(
+          ["qsr-menu-items", restaurantId],
+          context.previousItems,
+        );
+      }
+      toast({
+        title: "Failed to update",
+        description: "Could not update item availability",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Bulk restore all items (reset for new day)
+  const restoreAllItems = useMutation({
+    mutationFn: async () => {
+      if (!restaurantId) throw new Error("No restaurant ID");
+
+      const { error } = await supabase
+        .from("menu_items")
+        .update({ is_available: true })
+        .eq("restaurant_id", restaurantId)
+        .eq("is_available", false);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["qsr-menu-items", restaurantId],
+      });
+      toast({
+        title: "All Items Restored",
+        description: "All sold-out items are now available again",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Failed to restore",
+        description: "Could not restore items",
+        variant: "destructive",
+      });
+    },
   });
 
   // Set up real-time subscription
@@ -63,7 +159,6 @@ export const useQSRMenuItems = () => {
 
     menuItems.forEach((item) => {
       if (!categoryMap.has(item.category)) {
-        // Generate emoji based on category name
         const emoji = getCategoryEmoji(item.category);
         categoryMap.set(item.category, {
           id: item.category.toLowerCase().replace(/\s+/g, "-"),
@@ -76,10 +171,21 @@ export const useQSRMenuItems = () => {
     return Array.from(categoryMap.values());
   }, [menuItems]);
 
+  // Count of sold-out items
+  const soldOutCount = React.useMemo(
+    () => menuItems.filter((item) => !item.is_available).length,
+    [menuItems],
+  );
+
   return {
     menuItems,
     categories,
     isLoading,
+    soldOutCount,
+    toggleAvailability: toggleAvailability.mutate,
+    restoreAllItems: restoreAllItems.mutate,
+    isToggling: toggleAvailability.isPending,
+    isRestoring: restoreAllItems.isPending,
   };
 };
 
@@ -110,21 +216,15 @@ const getCategoryEmoji = (category: string): string => {
     curries: "🍲",
   };
 
-  // Try exact match first
   if (emojiMap[categoryLower]) {
     return emojiMap[categoryLower];
   }
 
-  // Try partial match
   for (const [key, emoji] of Object.entries(emojiMap)) {
     if (categoryLower.includes(key) || key.includes(categoryLower)) {
       return emoji;
     }
   }
 
-  // Default emoji
   return "🍽️";
 };
-
-// Export React for useMemo
-import React from "react";

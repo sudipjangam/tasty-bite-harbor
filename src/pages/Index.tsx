@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentStaff } from "@/hooks/useCurrentStaff";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
@@ -29,6 +30,8 @@ import { useRefetchOnNavigation } from "@/hooks/useRefetchOnNavigation";
 import { useAutoClockOut } from "@/hooks/useAutoClockOut";
 import type { StaffMember } from "@/types/staff";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import FoodTruckDashboard from "@/components/Dashboard/FoodTruckDashboard";
 
 const Index = () => {
   const { user, hasPermission } = useAuth();
@@ -38,6 +41,21 @@ const Index = () => {
 
   // Refetch dashboard data when navigating to this page
   useRefetchOnNavigation(["dashboard-orders"]);
+
+  // Detect food truck mode
+  const { data: locationType } = useQuery({
+    queryKey: ["restaurant-location-type", restaurantId],
+    enabled: !!restaurantId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("restaurants")
+        .select("location_type")
+        .eq("id", restaurantId)
+        .single();
+      return data?.location_type || "fixed";
+    },
+    staleTime: 1000 * 60 * 10,
+  });
 
   const [permissionDialog, setPermissionDialog] = useState<{
     open: boolean;
@@ -135,7 +153,7 @@ const Index = () => {
   const handleNavigationWithPermission = (
     path: string,
     permission: string,
-    featureName: string
+    featureName: string,
   ) => {
     if (hasPermission(permission as any)) {
       navigate(path);
@@ -153,8 +171,13 @@ const Index = () => {
     currentHour < 12
       ? "Good morning"
       : currentHour < 18
-      ? "Good afternoon"
-      : "Good evening";
+        ? "Good afternoon"
+        : "Good evening";
+
+  // If food truck mode, render specialized dashboard
+  if (locationType === "mobile") {
+    return <FoodTruckDashboard />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950 pb-20">

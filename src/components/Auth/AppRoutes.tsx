@@ -85,6 +85,7 @@ const AllUsers = lazy(() => import("@/pages/Platform/AllUsers"));
 const PlatformAnalytics = lazy(
   () => import("@/pages/Platform/PlatformAnalytics"),
 );
+const DailySummaryHistory = lazy(() => import("@/pages/DailySummaryHistory"));
 
 // ============================================================================
 
@@ -524,6 +525,16 @@ export const AppRoutes = () => {
               }
             />
           </Route>
+
+          {/* Daily Summary History */}
+          <Route
+            path="/daily-summary-history"
+            element={
+              <Suspense fallback={<PageLoader />}>
+                <DailySummaryHistory />
+              </Suspense>
+            }
+          />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

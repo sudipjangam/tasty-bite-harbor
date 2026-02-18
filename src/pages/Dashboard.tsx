@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/Layout/PageHeader";
 import { PermissionDeniedDialog } from "@/components/Auth/PermissionDeniedDialog";
@@ -22,6 +23,7 @@ import {
   Activity,
   Clock,
   Package,
+  Truck,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Stats from "@/components/Dashboard/Stats";
@@ -29,10 +31,36 @@ import WeeklySalesChart from "@/components/Dashboard/WeeklySalesChart";
 import { LiveOrderStatus } from "@/components/Dashboard/LiveOrderStatus";
 import RoomStatusWidget from "@/components/Dashboard/RoomStatusWidget";
 import StaffAttendanceWidget from "@/components/Dashboard/StaffAttendanceWidget";
+import LocationTodayWidget from "@/components/Dashboard/LocationTodayWidget";
+import FoodTruckDashboard from "@/components/Dashboard/FoodTruckDashboard";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { supabase } from "@/integrations/supabase/client";
 
 const Dashboard = () => {
   const { user, hasPermission } = useAuth();
   const navigate = useNavigate();
+  const { restaurantId } = useRestaurantId();
+
+  // Detect food truck mode
+  const { data: locationType } = useQuery({
+    queryKey: ["restaurant-location-type", restaurantId],
+    enabled: !!restaurantId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("restaurants")
+        .select("location_type")
+        .eq("id", restaurantId)
+        .single();
+      return data?.location_type || "fixed";
+    },
+    staleTime: 1000 * 60 * 10,
+  });
+
+  // If food truck mode, render specialized dashboard
+  if (locationType === "mobile") {
+    return <FoodTruckDashboard />;
+  }
+
   const [permissionDialog, setPermissionDialog] = useState<{
     open: boolean;
     featureName: string;
@@ -46,7 +74,7 @@ const Dashboard = () => {
   const handleNavigationWithPermission = (
     path: string,
     permission: string,
-    featureName: string
+    featureName: string,
   ) => {
     if (hasPermission(permission as any)) {
       navigate(path);
@@ -68,7 +96,7 @@ const Dashboard = () => {
         handleNavigationWithPermission(
           "/orders",
           "orders.create",
-          "Order Management"
+          "Order Management",
         ),
       gradient: "from-emerald-500 to-teal-600",
       shadowColor: "shadow-emerald-500/30",
@@ -102,7 +130,7 @@ const Dashboard = () => {
         handleNavigationWithPermission(
           "/kitchen",
           "orders.update",
-          "Kitchen Display"
+          "Kitchen Display",
         ),
       gradient: "from-purple-500 to-pink-600",
       shadowColor: "shadow-purple-500/30",
@@ -116,7 +144,7 @@ const Dashboard = () => {
         handleNavigationWithPermission(
           "/rooms",
           "rooms.view",
-          "Room Management"
+          "Room Management",
         ),
       gradient: "from-cyan-500 to-blue-600",
       shadowColor: "shadow-cyan-500/30",
@@ -130,7 +158,7 @@ const Dashboard = () => {
         handleNavigationWithPermission(
           "/staff",
           "staff.view",
-          "Staff Management"
+          "Staff Management",
         ),
       gradient: "from-violet-500 to-purple-600",
       shadowColor: "shadow-violet-500/30",
@@ -144,7 +172,7 @@ const Dashboard = () => {
         handleNavigationWithPermission(
           "/inventory",
           "inventory.view",
-          "Inventory"
+          "Inventory",
         ),
       gradient: "from-amber-500 to-orange-600",
       shadowColor: "shadow-amber-500/30",
@@ -158,7 +186,7 @@ const Dashboard = () => {
         handleNavigationWithPermission(
           "/analytics",
           "analytics.view",
-          "Analytics"
+          "Analytics",
         ),
       gradient: "from-pink-500 to-rose-600",
       shadowColor: "shadow-pink-500/30",
@@ -168,7 +196,7 @@ const Dashboard = () => {
 
   // Filter quick actions based on user permissions
   const filteredQuickActions = quickActions.filter((action) =>
-    hasPermission(action.permission)
+    hasPermission(action.permission),
   );
 
   const currentHour = new Date().getHours();
@@ -176,8 +204,8 @@ const Dashboard = () => {
     currentHour < 12
       ? "Good morning"
       : currentHour < 18
-      ? "Good afternoon"
-      : "Good evening";
+        ? "Good afternoon"
+        : "Good evening";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950">
@@ -314,6 +342,23 @@ const Dashboard = () => {
               </CardContent>
             </Card>
           )}
+
+          {/* Location Today Widget - Food Truck */}
+          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-0 shadow-xl shadow-gray-200/50 dark:shadow-gray-900/50 rounded-3xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-orange-500/10 to-red-500/10 dark:from-orange-500/20 dark:to-red-500/20 border-b border-gray-100 dark:border-gray-700">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <div className="p-2 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl shadow-lg shadow-orange-500/30">
+                  <Truck className="h-5 w-5 text-white" />
+                </div>
+                <span className="bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                  Your Location Today
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6">
+              <LocationTodayWidget />
+            </CardContent>
+          </Card>
         </div>
 
         {/* Staff Attendance - Full Width */}

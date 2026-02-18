@@ -19,7 +19,7 @@ import { QSActiveOrders } from "@/components/QuickServe/QSActiveOrders";
 import { QSCustomItemDialog } from "@/components/QuickServe/QSCustomItemDialog";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
-import { History, ShoppingBag, ChefHat } from "lucide-react";
+import { History, ShoppingBag, ChefHat, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -27,6 +27,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { DailySummaryDialog } from "@/components/QuickServe/DailySummaryDialog";
 
 const QuickServePOS: React.FC = () => {
   const [orderItems, setOrderItems] = useState<QSOrderItem[]>([]);
@@ -37,6 +38,7 @@ const QuickServePOS: React.FC = () => {
   const [showActiveOrders, setShowActiveOrders] = useState(false);
   const [showCustomItem, setShowCustomItem] = useState(false);
   const [showMobileCart, setShowMobileCart] = useState(false);
+  const [showDailySummary, setShowDailySummary] = useState(false);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [discountPercentage, setDiscountPercentage] = useState(0);
   const { toast } = useToast();
@@ -44,7 +46,16 @@ const QuickServePOS: React.FC = () => {
   const queryClient = useQueryClient();
 
   // Menu data
-  const { menuItems, categories, isLoading: menuLoading } = useQSRMenuItems();
+  const {
+    menuItems,
+    categories,
+    isLoading: menuLoading,
+    soldOutCount,
+    toggleAvailability,
+    restoreAllItems,
+    isToggling,
+    isRestoring,
+  } = useQSRMenuItems();
   const { restaurantId } = useRestaurantId();
 
   // Today's revenue
@@ -295,6 +306,16 @@ const QuickServePOS: React.FC = () => {
             <History className="h-4 w-4 mr-1.5" />
             <span className="hidden sm:inline">History</span>
           </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowDailySummary(true)}
+            className="text-pink-600 dark:text-pink-400 hover:text-pink-700 dark:hover:text-pink-300 hover:bg-pink-50 dark:hover:bg-pink-500/10 h-8 font-semibold"
+          >
+            <FileText className="h-4 w-4 mr-1.5" />
+            <span className="hidden sm:inline">End Day</span>
+          </Button>
         </div>
       </header>
 
@@ -308,6 +329,11 @@ const QuickServePOS: React.FC = () => {
             isLoading={menuLoading}
             cartItemCounts={cartItemCounts}
             onAddItem={handleAddItem}
+            onToggleAvailability={toggleAvailability}
+            onRestoreAll={restoreAllItems}
+            soldOutCount={soldOutCount}
+            isToggling={isToggling}
+            isRestoring={isRestoring}
           />
         </div>
 
@@ -417,6 +443,12 @@ const QuickServePOS: React.FC = () => {
       <QSActiveOrders
         isOpen={showActiveOrders}
         onClose={() => setShowActiveOrders(false)}
+      />
+
+      {/* Daily Summary */}
+      <DailySummaryDialog
+        isOpen={showDailySummary}
+        onClose={() => setShowDailySummary(false)}
       />
     </div>
   );
