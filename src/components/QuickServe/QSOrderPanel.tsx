@@ -78,9 +78,9 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-white/10">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-white/10 shrink-0">
         <div className="flex items-center gap-2">
           <ShoppingBag className="h-4 w-4 text-orange-500" />
           <span className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -112,7 +112,7 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
       </div>
 
       {/* Items List */}
-      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
+      <div className="flex-1 overflow-y-auto min-h-0 px-3 py-2 space-y-1.5">
         {items.map((item) => (
           <div
             key={item.id}
@@ -164,7 +164,7 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
       </div>
 
       {/* Footer: Discount + Total + Pay */}
-      <div className="p-3 border-t border-gray-200 dark:border-white/10 space-y-2">
+      <div className="p-3 border-t border-gray-200 dark:border-white/10 space-y-2 shrink-0">
         {/* Discount toggle */}
         {onDiscountChange && (
           <>
