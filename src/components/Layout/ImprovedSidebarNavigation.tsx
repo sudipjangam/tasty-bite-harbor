@@ -54,7 +54,7 @@ const hrefToComponentMap: Record<string, string> = {
   "/quickserve-pos": "quickserve-pos",
   "/orders": "orders",
   "/kitchen": "kitchen",
-  "/recipes": "recipes",
+  "/recipes": "menu", // Recipes fall under menu
   "/menu": "menu",
   "/tables": "tables",
   "/inventory": "inventory",
@@ -65,12 +65,12 @@ const hrefToComponentMap: Record<string, string> = {
   "/user-management": "user-management",
   "/role-management": "role-management",
   "/permission-management": "permission-management",
-  "/channel-management": "channel-management",
+  "/channel-management": "analytics", // Channels fall under analytics
   "/analytics": "analytics",
   "/financial": "financial",
   "/reports": "reports",
-  "/expenses": "expenses",
-  "/nc-orders": "nc-orders", // NC Orders has its own subscription component
+  "/expenses": "financial", // Expenses fall under financial
+  "/nc-orders": "orders", // NC Orders fall under orders
   "/rooms": "rooms",
   "/reservations": "reservations",
   "/housekeeping": "housekeeping",

@@ -11,6 +11,7 @@ import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import DeleteAccount from "@/pages/DeleteAccount";
 import CustomerOrder from "@/pages/CustomerOrder";
 import PublicBillPage from "@/pages/PublicBillPage";
+import PublicTruckPage from "@/pages/PublicTruckPage";
 
 const Routes = () => {
   const { user, loading } = useAuth();
@@ -35,6 +36,7 @@ const Routes = () => {
         <Route path="/delete-account" element={<DeleteAccount />} />
         <Route path="/order/:encodedData" element={<CustomerOrder />} />
         <Route path="/bill/:encodedData" element={<PublicBillPage />} />
+        <Route path="/truck/:slug" element={<PublicTruckPage />} />
         <Route path="*" element={<LandingWebsite />} />
       </RouterRoutes>
     );
@@ -51,6 +53,7 @@ const Routes = () => {
       <Route path="/delete-account" element={<DeleteAccount />} />
       <Route path="/order/:encodedData" element={<CustomerOrder />} />
       <Route path="/bill/:encodedData" element={<PublicBillPage />} />
+      <Route path="/truck/:slug" element={<PublicTruckPage />} />
       <Route path="/dashboard/*" element={<AppRoutes />} />
       <Route path="/*" element={<AppRoutes />} />
       <Route path="*" element={<NotFound />} />

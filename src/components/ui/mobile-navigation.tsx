@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useAccessControl } from "@/hooks/useAccessControl";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { Permission } from "@/types/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -293,9 +294,10 @@ const mobileNavItems: MobileNavItem[] = [
   },
 ];
 
-// Priority items for bottom bar
-const priorityItemIds = [
+// Priority items for bottom bar - dynamically selected from accessible items
+const defaultPriorityItemIds = [
   "dashboard",
+  "quickserve-pos",
   "qsr-pos",
   "orders",
   "kitchen",
@@ -317,21 +319,59 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const { user, hasAnyPermission } = useAuth();
+  const { hasAccess: hasSubscriptionAccess } = useAccessControl();
   const { restaurantName } = useRestaurantId();
   const { toast } = useToast();
 
-  // Filter items based on user permissions
+  // Map item id to subscription component key
+  const itemToComponentMap: Record<string, string> = {
+    dashboard: "dashboard",
+    "qsr-pos": "qsr-pos",
+    "quickserve-pos": "quickserve-pos",
+    orders: "orders",
+    kitchen: "kitchen",
+    pos: "pos",
+    menu: "menu",
+    recipes: "recipes",
+    tables: "tables",
+    inventory: "inventory",
+    rooms: "rooms",
+    reservations: "reservations",
+    housekeeping: "housekeeping",
+    customers: "customers",
+    marketing: "marketing",
+    staff: "staff",
+    analytics: "analytics",
+    financial: "financial",
+    reports: "reports",
+    expenses: "financial", // expenses falls under financial
+    "user-management": "user management",
+    "role-management": "role management",
+    ai: "ai",
+    settings: "settings",
+  };
+
+  // Filter items based on BOTH role permissions AND subscription access
   const hasPermissionForItem = (item: MobileNavItem): boolean => {
     if (!user) return false;
-    if (!item.requiredPermissions || item.requiredPermissions.length === 0)
-      return true;
-    return hasAnyPermission(item.requiredPermissions);
+
+    // Check role-based permission
+    if (item.requiredPermissions && item.requiredPermissions.length > 0) {
+      if (!hasAnyPermission(item.requiredPermissions)) return false;
+    }
+
+    // Check subscription-based access
+    const componentKey = itemToComponentMap[item.id];
+    if (componentKey && !hasSubscriptionAccess(componentKey)) return false;
+
+    return true;
   };
 
   const accessibleItems = mobileNavItems.filter(hasPermissionForItem);
 
   // Get bottom bar items
-  const bottomBarItems = priorityItemIds
+  // Build bottom bar from accessible items, preferring priority order
+  const bottomBarItems = defaultPriorityItemIds
     .map((id) => accessibleItems.find((item) => item.id === id))
     .filter(Boolean)
     .slice(0, 4) as MobileNavItem[];
