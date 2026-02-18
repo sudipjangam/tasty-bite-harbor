@@ -338,7 +338,7 @@ const QuickServePOS: React.FC = () => {
         </div>
 
         {/* Right: Order Panel (desktop only) */}
-        <div className="hidden md:flex flex-col w-80 lg:w-96 bg-gray-100 dark:bg-gray-900/50">
+        <div className="hidden md:flex flex-col w-80 lg:w-96 bg-gray-100 dark:bg-gray-900/50 min-h-0 overflow-hidden">
           <QSCustomerInput
             customerName={customerName}
             customerPhone={customerPhone}
