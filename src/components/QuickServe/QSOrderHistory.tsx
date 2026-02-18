@@ -58,7 +58,8 @@ export const QSOrderHistory: React.FC<QSOrderHistoryProps> = ({
           "id, customer_name, customer_phone, items, total, status, payment_status, created_at",
         )
         .eq("restaurant_id", restaurantId)
-        .eq("status", "completed")
+        .eq("source", "quickserve")
+        .in("payment_status", ["paid", "nc"])
         .gte("created_at", startOfDay(today).toISOString())
         .lte("created_at", endOfDay(today).toISOString())
         .order("created_at", { ascending: false })
