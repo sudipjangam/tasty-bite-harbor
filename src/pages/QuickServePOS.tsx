@@ -183,6 +183,7 @@ const QuickServePOS: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
     queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
     queryClient.invalidateQueries({ queryKey: ["quickserve-todays-revenue"] });
+    queryClient.invalidateQueries({ queryKey: ["food-truck-today-stats"] });
   }, [queryClient]);
 
   // Add custom item

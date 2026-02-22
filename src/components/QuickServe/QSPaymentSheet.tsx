@@ -562,13 +562,13 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       // Initialize item completion status (all false)
       const initialCompletionStatus = items.map(() => false);
 
-      // 1. Create kitchen order
+      // 1. Create kitchen order (with total_amount + payment_method for dashboard)
       const { data: kitchenOrder, error: kitchenError } = await supabase
         .from("kitchen_orders")
         .insert({
           restaurant_id: restaurantId,
           source: `QuickServe`,
-          status: "preparing",
+          status: "completed",
           items: kitchenItems,
           order_type: isNC ? "non-chargeable" : "takeaway",
           customer_name: finalCustomerName,
@@ -589,7 +589,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           customer_name: finalCustomerName,
           items: formattedItems,
           total: orderTotal,
-          status: "preparing",
+          status: "completed",
           payment_status: isNC ? "nc" : "paid",
           source: "quickserve",
           order_type: isNC ? "non-chargeable" : "takeaway",
