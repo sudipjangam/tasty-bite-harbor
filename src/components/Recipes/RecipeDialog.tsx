@@ -70,7 +70,7 @@ const UNIT_CONVERSIONS: Record<string, { base: string; factor: number }> = {
 const convertUnits = (
   quantity: number,
   fromUnit: string,
-  toUnit: string
+  toUnit: string,
 ): number => {
   const from = UNIT_CONVERSIONS[fromUnit] || { base: fromUnit, factor: 1 };
   const to = UNIT_CONVERSIONS[toUnit] || { base: toUnit, factor: 1 };
@@ -137,13 +137,13 @@ export const RecipeDialog = ({
     queryFn: async () => {
       if (!restaurantId?.restaurantId) {
         console.log(
-          "RecipeDialog: No restaurant ID available for menu items query"
+          "RecipeDialog: No restaurant ID available for menu items query",
         );
         return [];
       }
       console.log(
         "RecipeDialog: Fetching menu items for restaurant:",
-        restaurantId.restaurantId
+        restaurantId.restaurantId,
       );
       const { data, error } = await supabase
         .from("menu_items")
@@ -158,7 +158,7 @@ export const RecipeDialog = ({
       console.log(
         "RecipeDialog: Fetched menu items:",
         data?.length || 0,
-        "items"
+        "items",
       );
       return data || [];
     },
@@ -244,7 +244,7 @@ export const RecipeDialog = ({
           quantity: ing.quantity,
           unit: ing.unit,
           notes: ing.notes || "",
-        }))
+        })),
       );
     }
   }, [recipeIngredients, recipe, open]);
@@ -252,7 +252,7 @@ export const RecipeDialog = ({
   // Calculate ingredient cost with unit conversion
   const calculateIngredientCost = (ingredient: RecipeIngredient): number => {
     const inventoryItem = inventoryItems.find(
-      (item: any) => item.id === ingredient.inventory_item_id
+      (item: any) => item.id === ingredient.inventory_item_id,
     );
     if (!inventoryItem || !inventoryItem.cost_per_unit) return 0;
 
@@ -264,7 +264,7 @@ export const RecipeDialog = ({
     const convertedQuantity = convertUnits(
       recipeQuantity,
       recipeUnit,
-      inventoryUnit
+      inventoryUnit,
     );
 
     return convertedQuantity * (inventoryItem.cost_per_unit || 0);
@@ -273,7 +273,7 @@ export const RecipeDialog = ({
   // Total ingredient cost
   const totalIngredientCost = ingredients.reduce(
     (sum, ing) => sum + calculateIngredientCost(ing),
-    0
+    0,
   );
 
   const handleSubmit = async () => {
@@ -347,7 +347,7 @@ export const RecipeDialog = ({
                 cost_per_unit: cost / (ing.quantity || 1),
                 total_cost: cost,
               });
-            })
+            }),
           );
         }
       } else {
@@ -367,7 +367,7 @@ export const RecipeDialog = ({
                 cost_per_unit: cost / (ing.quantity || 1),
                 total_cost: cost,
               });
-            })
+            }),
           );
         }
       }
@@ -398,7 +398,7 @@ export const RecipeDialog = ({
   const updateIngredient = (
     index: number,
     field: keyof RecipeIngredient,
-    value: any
+    value: any,
   ) => {
     const updated = [...ingredients];
     updated[index] = { ...updated[index], [field]: value };
@@ -451,7 +451,7 @@ Make the description mouth-watering and professional. Be accurate with cooking t
             messages: [{ role: "user", content: prompt }],
             restaurantId: restaurantId?.restaurantId,
           },
-        }
+        },
       );
 
       if (error) throw error;
@@ -568,7 +568,7 @@ Make the description mouth-watering and professional. Be accurate with cooking t
                   value={formData.menu_item_id}
                   onValueChange={(value) => {
                     const selectedItem = menuItems.find(
-                      (item: any) => item.id === value
+                      (item: any) => item.id === value,
                     );
                     handleInputChange("menu_item_id", value);
                     if (selectedItem) {
@@ -938,7 +938,7 @@ Make the description mouth-watering and professional. Be accurate with cooking t
               <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
                 {ingredients.map((ingredient, index) => {
                   const inventoryItem = inventoryItems.find(
-                    (item: any) => item.id === ingredient.inventory_item_id
+                    (item: any) => item.id === ingredient.inventory_item_id,
                   );
                   const ingredientCost = calculateIngredientCost(ingredient);
 
@@ -968,7 +968,8 @@ Make the description mouth-watering and professional. Be accurate with cooking t
                                 className="rounded-lg"
                               >
                                 {item.name} ({currencySymbol}
-                                {item.cost_per_unit || 0}/{item.unit})
+                                {item.cost_per_unit || 0}/{item.unit}) - Stock:{" "}
+                                {item.quantity || 0} {item.unit}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -987,7 +988,7 @@ Make the description mouth-watering and professional. Be accurate with cooking t
                             updateIngredient(
                               index,
                               "quantity",
-                              parseFloat(e.target.value) || 0
+                              parseFloat(e.target.value) || 0,
                             )
                           }
                           className="bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 text-gray-900 dark:text-gray-100"

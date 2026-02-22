@@ -617,6 +617,39 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           .eq("id", kitchenOrder.id);
       }
 
+      // 3.5 Deduct inventory based on recipe ingredients (non-blocking)
+      if (kitchenOrder?.id) {
+        try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+
+          const { data: deductResult, error: deductError } =
+            await supabase.functions.invoke("deduct-inventory-on-prep", {
+              body: { order_id: kitchenOrder.id },
+              headers: {
+                Authorization: `Bearer ${session?.access_token}`,
+              },
+            });
+
+          if (deductError) {
+            console.error("Inventory deduction error:", deductError.message);
+          } else if (!deductResult?.success && deductResult?.errors) {
+            console.warn("Inventory deduction warnings:", deductResult.errors);
+            toast({
+              variant: "destructive",
+              title: "Inventory Warning",
+              description: deductResult.errors.join("\n"),
+              duration: 6000,
+            });
+          } else {
+            console.log("Inventory deducted successfully for QuickServe order");
+          }
+        } catch (invErr) {
+          console.error("Inventory deduction failed (non-blocking):", invErr);
+        }
+      }
+
       // 4. Log POS transaction
       await supabase.from("pos_transactions").insert({
         restaurant_id: restaurantId,

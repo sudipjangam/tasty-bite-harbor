@@ -967,6 +967,44 @@ export const QSRPosMain: React.FC = () => {
             .eq("id", kitchenOrder.id);
         }
 
+        // Deduct inventory based on recipe ingredients (non-blocking)
+        if (kitchenOrder?.id) {
+          try {
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+
+            const { data: deductResult, error: deductError } =
+              await supabase.functions.invoke("deduct-inventory-on-prep", {
+                body: { order_id: kitchenOrder.id },
+                headers: {
+                  Authorization: `Bearer ${session?.access_token}`,
+                },
+              });
+
+            if (deductError) {
+              console.error("Inventory deduction error:", deductError.message);
+            } else if (!deductResult?.success && deductResult?.errors) {
+              console.warn(
+                "Inventory deduction warnings:",
+                deductResult.errors,
+              );
+              toast({
+                variant: "destructive",
+                title: "Inventory Warning",
+                description: deductResult.errors.join("\n"),
+                duration: 6000,
+              });
+            } else {
+              console.log(
+                "Inventory deducted successfully for QSR pre-pay order",
+              );
+            }
+          } catch (invErr) {
+            console.error("Inventory deduction failed (non-blocking):", invErr);
+          }
+        }
+
         // Clear cart
         setOrderItems([]);
         setRecalledKitchenOrderId(null);
