@@ -19,7 +19,15 @@ import { QSActiveOrders } from "@/components/QuickServe/QSActiveOrders";
 import { QSCustomItemDialog } from "@/components/QuickServe/QSCustomItemDialog";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
-import { History, ShoppingBag, ChefHat, FileText } from "lucide-react";
+import {
+  History,
+  ShoppingBag,
+  ChefHat,
+  FileText,
+  TrendingUp,
+  Hash,
+  Zap,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -248,82 +256,79 @@ const QuickServePOS: React.FC = () => {
   );
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white overflow-hidden">
-      {/* Top Bar */}
-      <header className="flex items-center justify-between px-4 py-2.5 bg-white dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-200 dark:border-white/5 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-pink-500 rounded-lg flex items-center justify-center">
-            <ShoppingBag className="h-4 w-4 text-white" />
+    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 via-orange-50/30 to-pink-50/20 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 text-gray-900 dark:text-white overflow-hidden">
+      {/* ─── Premium Header ─── */}
+      <header className="relative shrink-0 overflow-hidden">
+        {/* Gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-r from-orange-500 via-rose-500 to-pink-600" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.15),transparent_60%)]" />
+
+        <div className="relative flex items-center justify-between px-4 py-3">
+          {/* Logo & Title */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-lg shadow-black/10 border border-white/20">
+              <Zap className="h-5 w-5 text-white drop-shadow-sm" />
+            </div>
+            <div>
+              <h1 className="text-base font-extrabold text-white tracking-tight">
+                QuickServe
+              </h1>
+              <p className="text-[10px] text-white/60 font-medium tracking-wider uppercase">
+                Counter & Takeaway
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-base font-bold text-gray-900 dark:text-white">
-              QuickServe POS
-            </h1>
-            <p className="text-[10px] text-gray-500 dark:text-white/40">
-              Counter & Takeaway
-            </p>
+
+          {/* Live Stats Pills */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-md rounded-xl px-2.5 py-1.5 border border-white/10">
+              <Hash className="h-3 w-3 text-white/70" />
+              <span className="text-xs font-bold text-white">
+                {todaysOrderCount}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-md rounded-xl px-2.5 py-1.5 border border-white/10">
+              <TrendingUp className="h-3 w-3 text-emerald-300" />
+              <span className="text-xs font-bold text-white">
+                {currencySymbol}
+                {todaysRevenue.toFixed(0)}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Today Stats */}
-          <div className="hidden sm:flex items-center gap-4 px-3 py-1.5 bg-gray-100 dark:bg-white/5 rounded-xl">
-            <div className="text-center">
-              <p className="text-[10px] text-gray-500 dark:text-white/40">
-                Orders
-              </p>
-              <p className="text-sm font-bold text-gray-900 dark:text-white">
-                {todaysOrderCount}
-              </p>
-            </div>
-            <div className="w-px h-6 bg-gray-200 dark:bg-white/10" />
-            <div className="text-center">
-              <p className="text-[10px] text-gray-500 dark:text-white/40">
-                Revenue
-              </p>
-              <p className="text-sm font-bold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent">
-                {currencySymbol}
-                {todaysRevenue.toFixed(0)}
-              </p>
-            </div>
-          </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
+        {/* Action Buttons Row */}
+        <div className="relative flex items-center gap-1.5 px-4 pb-3">
+          <button
             onClick={() => setShowActiveOrders(true)}
-            className="relative text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-500/10 h-8 font-semibold"
+            className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-md rounded-xl px-3 py-2 border border-white/10 transition-all active:scale-95"
           >
-            <ChefHat className="h-4 w-4 mr-1.5" />
-            <span className="hidden sm:inline">Orders</span>
-          </Button>
+            <ChefHat className="h-3.5 w-3.5 text-amber-200" />
+            <span className="text-xs font-semibold text-white">Active</span>
+          </button>
 
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={() => setShowHistory(true)}
-            className="text-gray-500 dark:text-white/60 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 h-8"
+            className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-md rounded-xl px-3 py-2 border border-white/10 transition-all active:scale-95"
           >
-            <History className="h-4 w-4 mr-1.5" />
-            <span className="hidden sm:inline">History</span>
-          </Button>
+            <History className="h-3.5 w-3.5 text-white/80" />
+            <span className="text-xs font-semibold text-white">History</span>
+          </button>
 
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={() => setShowDailySummary(true)}
-            className="text-pink-600 dark:text-pink-400 hover:text-pink-700 dark:hover:text-pink-300 hover:bg-pink-50 dark:hover:bg-pink-500/10 h-8 font-semibold"
+            className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-md rounded-xl px-3 py-2 border border-white/10 transition-all active:scale-95 ml-auto"
           >
-            <FileText className="h-4 w-4 mr-1.5" />
-            <span className="hidden sm:inline">End Day</span>
-          </Button>
+            <FileText className="h-3.5 w-3.5 text-pink-200" />
+            <span className="text-xs font-semibold text-white">End Day</span>
+          </button>
         </div>
       </header>
 
-      {/* Main Content: Menu + Order Panel */}
+      {/* ─── Main Content: Menu + Order Panel ─── */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Left: Menu Grid */}
-        <div className="flex-1 flex flex-col min-w-0 border-r border-gray-200 dark:border-white/5">
+        <div className="flex-1 flex flex-col min-w-0">
           <QSMenuGrid
             menuItems={menuItems}
             categories={categories}
@@ -339,7 +344,7 @@ const QuickServePOS: React.FC = () => {
         </div>
 
         {/* Right: Order Panel (desktop only) */}
-        <div className="hidden md:flex flex-col w-80 lg:w-96 bg-gray-100 dark:bg-gray-900/50 min-h-0 overflow-hidden">
+        <div className="hidden md:flex flex-col w-80 lg:w-96 bg-white/60 dark:bg-white/5 backdrop-blur-xl border-l border-white/20 dark:border-white/5 min-h-0 overflow-hidden">
           <QSCustomerInput
             customerName={customerName}
             customerPhone={customerPhone}
@@ -361,12 +366,16 @@ const QuickServePOS: React.FC = () => {
         </div>
       </div>
 
-      {/* Mobile: Floating Cart Button */}
+      {/* ─── Mobile: Floating Cart Button ─── */}
       {itemCount > 0 && (
         <div className="md:hidden fixed bottom-20 left-4 right-4 z-40">
           <Button
             onClick={() => setShowMobileCart(true)}
-            className="w-full h-14 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white font-bold text-base rounded-2xl shadow-2xl shadow-orange-500/30 active:scale-95 transition-all"
+            className="w-full h-14 bg-gradient-to-r from-orange-500 via-rose-500 to-pink-600 hover:from-orange-600 hover:via-rose-600 hover:to-pink-700 text-white font-bold text-base rounded-2xl shadow-2xl shadow-orange-500/40 active:scale-[0.97] transition-all border border-white/10"
+            style={{
+              boxShadow:
+                "0 8px 32px rgba(249, 115, 22, 0.4), 0 0 0 1px rgba(255,255,255,0.1) inset",
+            }}
           >
             <ShoppingBag className="h-5 w-5 mr-2" />
             View Order • {itemCount} items • {currencySymbol}
@@ -375,11 +384,11 @@ const QuickServePOS: React.FC = () => {
         </div>
       )}
 
-      {/* Mobile: Order Cart Sheet */}
+      {/* ─── Mobile: Order Cart Sheet ─── */}
       <Sheet open={showMobileCart} onOpenChange={setShowMobileCart}>
         <SheetContent
           side="bottom"
-          className="h-[85vh] rounded-t-3xl bg-white dark:bg-gray-900 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white p-0"
+          className="h-[85vh] rounded-t-3xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl border-gray-200 dark:border-white/10 text-gray-900 dark:text-white p-0"
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Your Order</SheetTitle>
@@ -387,7 +396,7 @@ const QuickServePOS: React.FC = () => {
           <div className="flex flex-col h-full">
             {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 bg-gray-300 dark:bg-white/20 rounded-full" />
+              <div className="w-12 h-1.5 bg-gradient-to-r from-orange-400 to-pink-400 rounded-full opacity-60" />
             </div>
             <QSCustomerInput
               customerName={customerName}
