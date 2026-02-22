@@ -27,6 +27,9 @@ import {
 import { formatDistanceToNow, format, startOfDay, endOfDay } from "date-fns";
 import LocationTodayWidget from "@/components/Dashboard/LocationTodayWidget";
 import { DailySummaryDialog } from "@/components/QuickServe/DailySummaryDialog";
+import { WidgetPickerDialog } from "@/components/Dashboard/widgets/WidgetPickerDialog";
+import { WidgetRenderer } from "@/components/Dashboard/widgets/WidgetRenderer";
+import { useWidgetPreferences } from "@/hooks/useWidgetPreferences";
 
 interface DaySchedule {
   location: string;
@@ -53,7 +56,12 @@ const FoodTruckDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { symbol: currencySymbol } = useCurrencyContext();
   const [showDailySummary, setShowDailySummary] = useState(false);
+  const [showWidgetPicker, setShowWidgetPicker] = useState(false);
   const queryClient = useQueryClient();
+  const { selectedWidgets, saveWidgets } = useWidgetPreferences(
+    restaurantId,
+    "food-truck",
+  );
 
   // Realtime subscription for instant dashboard updates
   useEffect(() => {
@@ -350,100 +358,95 @@ const FoodTruckDashboard: React.FC = () => {
           </Card>
         </div>
 
-        {/* Main Grid: Location + Schedule */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Location Today */}
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-0 shadow-xl rounded-3xl overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-orange-500/10 to-red-500/10 dark:from-orange-500/20 dark:to-red-500/20 border-b border-gray-100 dark:border-gray-700">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <div className="p-2 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl shadow-lg shadow-orange-500/30">
-                  <Navigation className="h-5 w-5 text-white" />
-                </div>
-                <span className="bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-                  Your Location Today
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6">
-              <LocationTodayWidget />
-            </CardContent>
-          </Card>
+        {/* Customize Button */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-indigo-500" />
+            Dashboard Widgets
+          </h2>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowWidgetPicker(true)}
+            className="rounded-xl border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-semibold gap-1.5"
+          >
+            <Zap className="h-3.5 w-3.5" />
+            Customize
+          </Button>
+        </div>
 
-          {/* Weekly Schedule Overview */}
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-0 shadow-xl rounded-3xl overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 dark:from-purple-500/20 dark:to-pink-500/20 border-b border-gray-100 dark:border-gray-700">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl shadow-lg shadow-purple-500/30">
-                  <Calendar className="h-5 w-5 text-white" />
-                </div>
-                <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  This Week
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6">
-              <div className="space-y-2">
-                {DAYS.map((day) => {
-                  const dayData = schedule[day];
-                  const isToday = day === todayDay;
-                  return (
-                    <div
-                      key={day}
-                      className={`flex items-center justify-between p-3 rounded-xl transition-all ${
-                        isToday
-                          ? "bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border-2 border-orange-300 dark:border-orange-700"
-                          : "bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <span
-                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+        {/* Dynamic Widget Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {selectedWidgets.map((widgetId) => (
+            <WidgetRenderer
+              key={widgetId}
+              widgetId={widgetId}
+              scheduleComponent={
+                widgetId === "this-week" ? (
+                  <div className="space-y-2">
+                    {DAYS.map((day) => {
+                      const dayData = schedule[day];
+                      const isToday = day === todayDay;
+                      return (
+                        <div
+                          key={day}
+                          className={`flex items-center justify-between p-3 rounded-xl transition-all ${
                             isToday
-                              ? "bg-gradient-to-r from-orange-500 to-red-500 text-white"
-                              : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                              ? "bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border-2 border-orange-300 dark:border-orange-700"
+                              : "bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700"
                           }`}
                         >
-                          {day.charAt(0)}
-                        </span>
-                        <div>
-                          <p
-                            className={`text-sm font-semibold ${
-                              isToday
-                                ? "text-orange-700 dark:text-orange-400"
-                                : "text-gray-600 dark:text-gray-400"
-                            }`}
-                          >
-                            {day.slice(0, 3)}
-                            {isToday && (
-                              <span className="ml-1.5 text-[10px] bg-orange-500 text-white px-1.5 py-0.5 rounded-full">
-                                TODAY
-                              </span>
+                          <div className="flex items-center gap-2.5">
+                            <span
+                              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                                isToday
+                                  ? "bg-gradient-to-r from-orange-500 to-red-500 text-white"
+                                  : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                              }`}
+                            >
+                              {day.charAt(0)}
+                            </span>
+                            <div>
+                              <p
+                                className={`text-sm font-semibold ${
+                                  isToday
+                                    ? "text-orange-700 dark:text-orange-400"
+                                    : "text-gray-600 dark:text-gray-400"
+                                }`}
+                              >
+                                {day.slice(0, 3)}
+                                {isToday && (
+                                  <span className="ml-1.5 text-[10px] bg-orange-500 text-white px-1.5 py-0.5 rounded-full">
+                                    TODAY
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            {dayData && dayData.location ? (
+                              <>
+                                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate max-w-[140px]">
+                                  {dayData.location}
+                                </p>
+                                <p className="text-[10px] text-gray-400">
+                                  {dayData.startTime} – {dayData.endTime}
+                                </p>
+                              </>
+                            ) : (
+                              <p className="text-xs text-gray-400 italic">
+                                Not set
+                              </p>
                             )}
-                          </p>
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        {dayData && dayData.location ? (
-                          <>
-                            <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate max-w-[140px]">
-                              {dayData.location}
-                            </p>
-                            <p className="text-[10px] text-gray-400">
-                              {dayData.startTime} – {dayData.endTime}
-                            </p>
-                          </>
-                        ) : (
-                          <p className="text-xs text-gray-400 italic">
-                            Not set
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+                      );
+                    })}
+                  </div>
+                ) : undefined
+              }
+            />
+          ))}
         </div>
 
         {/* Share & Quick Links */}
@@ -539,6 +542,14 @@ const FoodTruckDashboard: React.FC = () => {
       <DailySummaryDialog
         isOpen={showDailySummary}
         onClose={() => setShowDailySummary(false)}
+      />
+
+      {/* Widget Picker Dialog */}
+      <WidgetPickerDialog
+        isOpen={showWidgetPicker}
+        onClose={() => setShowWidgetPicker(false)}
+        selectedWidgets={selectedWidgets}
+        onSave={saveWidgets}
       />
     </div>
   );
