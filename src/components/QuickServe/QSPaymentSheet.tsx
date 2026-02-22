@@ -143,7 +143,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
 
   // Generate UPI QR code when payment succeeds
   useEffect(() => {
-    if (status === "success" && upiId && selectedMethod !== "upi") {
+    if (status === "success" && upiId) {
       const upiLink = getUpiLink();
       if (!upiLink) return;
 
@@ -177,9 +177,9 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       currencySymbol,
     });
 
-    // Append UPI payment link if configured and payment isn't already via UPI
+    // Append UPI payment link if configured
     const upiLink = getUpiLink();
-    if (upiLink && selectedMethod !== "upi") {
+    if (upiLink) {
       billText += `\n\n💳 *Pay via UPI* (tap below):\n${upiLink}`;
     }
 
@@ -423,8 +423,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               </div>
             )}
 
-            {/* UPI QR Code — show when UPI is configured and payment wasn't via UPI */}
-            {upiId && selectedMethod !== "upi" && (
+            {/* UPI QR Code — show when UPI is configured */}
+            {upiId && (
               <div className="w-full bg-gradient-to-b from-purple-50 to-white dark:from-purple-500/10 dark:to-gray-900 border border-purple-200 dark:border-purple-500/20 rounded-xl p-4 mb-4">
                 <p className="text-xs font-semibold text-purple-700 dark:text-purple-300 text-center uppercase tracking-wider mb-3">
                   Customer can scan to pay
