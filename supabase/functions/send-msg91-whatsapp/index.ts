@@ -43,8 +43,14 @@ serve(async (req) => {
 
     console.log(`Sending MSG91 WhatsApp to ${phoneNumber} with PDF: ${pdfUrl}`);
 
-    // Clean phone number (remove +, spaces, dashes)
-    const cleanPhone = phoneNumber.replace(/[\+\-\s]/g, "");
+    // Clean phone number (remove +, spaces, dashes) and ensure country code
+    let cleanPhone = phoneNumber.replace(/[\+\-\s]/g, "");
+    // Auto-prepend India country code if the number is 10 digits
+    if (cleanPhone.length === 10) {
+      cleanPhone = "91" + cleanPhone;
+    }
+
+    console.log(`Cleaned phone number for MSG91: ${cleanPhone}`);
 
     // MSG91 API Payload based on documentation
     const msg91Payload = {
@@ -98,6 +104,8 @@ serve(async (req) => {
       },
     };
 
+    console.log("Full MSG91 payload:", JSON.stringify(msg91Payload, null, 2));
+
     const response = await fetch(
       "https://control.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
       {
@@ -111,7 +119,15 @@ serve(async (req) => {
       }
     );
 
-    const data = await response.json();
+    const rawText = await response.text();
+    console.log("MSG91 raw response status:", response.status, "body:", rawText);
+    
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      throw new Error(`MSG91 returned non-JSON: ${rawText}`);
+    }
 
     if (!response.ok) {
       console.error("MSG91 API error:", data);

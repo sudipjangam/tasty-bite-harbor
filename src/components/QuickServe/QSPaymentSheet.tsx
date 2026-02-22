@@ -440,16 +440,21 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       // Extract just the short ID from the URL since Meta requires a static base URL in the template
       const billId = billUrl ? billUrl.split("/bill/")[1] : undefined;
 
-      // 6. Call MSG91 Edge Function
+      // 6. Call MSG91 Edge Function — ensure 12-digit international format
+      const phoneWithCountryCode =
+        customerPhone.replace(/[\+\-\s]/g, "").length === 10
+          ? "91" + customerPhone.replace(/[\+\-\s]/g, "")
+          : customerPhone.replace(/[\+\-\s]/g, "");
+
       const { data: msg91Response, error: msg91Error } =
         await supabase.functions.invoke("send-msg91-whatsapp", {
           body: {
-            phoneNumber: customerPhone,
+            phoneNumber: phoneWithCountryCode,
             pdfUrl: publicUrl,
             customerName: customerName || "Customer",
             restaurantName: restaurantNameForPdf,
-            templateName: "payment_receipt_v2", // Replace with actual approved MSG91 template name
-            orderDetailsUrl: billId || undefined, // Pass ONLY the short ID
+            templateName: "payment_receipt_v2",
+            orderDetailsUrl: billId || undefined,
           },
         });
 
