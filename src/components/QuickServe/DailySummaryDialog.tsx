@@ -92,7 +92,7 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
       const dayStart = startOfDay(displayDate).toISOString();
       const dayEnd = endOfDay(displayDate).toISOString();
 
-      // Fetch kitchen_orders for today
+      // Fetch kitchen_orders for items, order types, peak hour
       const { data: orders, error } = await supabase
         .from("kitchen_orders")
         .select("*")
@@ -102,45 +102,55 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
 
       if (error) throw error;
 
+      // Fetch pos_transactions for revenue & payment breakdown
+      const { data: transactions, error: txnError } = await supabase
+        .from("pos_transactions")
+        .select("amount, payment_method, status, discount_amount, created_at")
+        .eq("restaurant_id", restaurantId)
+        .gte("created_at", dayStart)
+        .lte("created_at", dayEnd);
+
+      if (txnError) throw txnError;
+
       const allOrders = orders || [];
+      const allTxns = (transactions || []).filter(
+        (t) => t.status === "completed",
+      );
 
       // Calculate summary
       const totalOrders = allOrders.length;
-      const paidOrders = allOrders.filter(
-        (o) => o.status === "completed" || o.status === "paid",
+      const ncOrders = allOrders.filter(
+        (o) => o.order_type === "nc" || o.order_type === "non-chargeable",
       );
-      const ncOrders = allOrders.filter((o) => o.order_type === "nc");
 
-      const totalRevenue = paidOrders.reduce(
-        (sum, o) => sum + (Number(o.total_amount) || 0),
+      // Revenue from pos_transactions (accurate source)
+      const totalRevenue = allTxns.reduce(
+        (sum, t) => sum + (Number(t.amount) || 0),
         0,
       );
-      const ncAmount = ncOrders.reduce(
-        (sum, o) => sum + (Number(o.total_amount) || 0),
-        0,
-      );
-      const discountAmount = paidOrders.reduce(
-        (sum, o) => sum + (Number(o.discount_amount) || 0),
+      const ncAmount = 0; // NC orders have ₹0 in pos_transactions
+      const discountAmount = allTxns.reduce(
+        (sum, t) => sum + (Number(t.discount_amount) || 0),
         0,
       );
 
-      // Payment breakdown
+      // Payment breakdown from pos_transactions
       const paymentBreakdown: PaymentBreakdown = {
         cash: 0,
         upi: 0,
         card: 0,
         other: 0,
       };
-      paidOrders.forEach((o) => {
-        const method = (o.payment_method || "cash").toLowerCase();
-        const amt = Number(o.total_amount) || 0;
+      allTxns.forEach((t) => {
+        const method = (t.payment_method || "cash").toLowerCase();
+        const amt = Number(t.amount) || 0;
         if (method.includes("cash")) paymentBreakdown.cash += amt;
         else if (method.includes("upi")) paymentBreakdown.upi += amt;
         else if (method.includes("card")) paymentBreakdown.card += amt;
         else paymentBreakdown.other += amt;
       });
 
-      // Order type breakdown
+      // Order type breakdown (from kitchen_orders)
       const orderTypeBreakdown: OrderTypeBreakdown = {
         counter: 0,
         takeaway: 0,
@@ -156,7 +166,7 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         else orderTypeBreakdown.counter++;
       });
 
-      // Top items
+      // Top items (from kitchen_orders items array)
       const itemMap = new Map<string, { quantity: number; revenue: number }>();
       allOrders.forEach((o) => {
         const items = (o.items as any[]) || [];
@@ -200,8 +210,11 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         }
       });
 
+      const paidTxnCount = allTxns.filter(
+        (t) => (t.payment_method || "").toLowerCase() !== "nc",
+      ).length;
       const averageOrderValue =
-        paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0;
+        paidTxnCount > 0 ? totalRevenue / paidTxnCount : 0;
 
       return {
         totalOrders,

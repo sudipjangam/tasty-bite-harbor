@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useNavigate } from "react-router-dom";
@@ -53,6 +53,32 @@ const FoodTruckDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { symbol: currencySymbol } = useCurrencyContext();
   const [showDailySummary, setShowDailySummary] = useState(false);
+  const queryClient = useQueryClient();
+
+  // Realtime subscription for instant dashboard updates
+  useEffect(() => {
+    if (!restaurantId) return;
+    const channel = supabase
+      .channel("dashboard-orders")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "pos_transactions",
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({
+            queryKey: ["food-truck-today-stats"],
+          });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [restaurantId, queryClient]);
 
   // Fetch restaurant data
   const { data: restaurant } = useQuery({
@@ -71,7 +97,7 @@ const FoodTruckDashboard: React.FC = () => {
     },
   });
 
-  // Today's stats from kitchen_orders
+  // Today's stats from pos_transactions (populated at payment time)
   const today = new Date();
   const { data: todayStats } = useQuery({
     queryKey: [
@@ -84,39 +110,39 @@ const FoodTruckDashboard: React.FC = () => {
       const dayStart = startOfDay(today).toISOString();
       const dayEnd = endOfDay(today).toISOString();
 
-      const { data: orders, error } = await supabase
-        .from("kitchen_orders")
-        .select("total_amount, status, payment_method, created_at")
+      const { data: transactions, error } = await supabase
+        .from("pos_transactions")
+        .select("amount, status, payment_method, created_at")
         .eq("restaurant_id", restaurantId)
         .gte("created_at", dayStart)
         .lte("created_at", dayEnd);
 
       if (error) throw error;
 
-      const allOrders = orders || [];
-      const paidOrders = allOrders.filter(
-        (o) => o.status === "completed" || o.status === "paid",
+      const allTransactions = transactions || [];
+      const completedTxns = allTransactions.filter(
+        (t) => t.status === "completed",
       );
-      const totalRevenue = paidOrders.reduce(
-        (sum, o) => sum + (Number(o.total_amount) || 0),
+      const totalRevenue = completedTxns.reduce(
+        (sum, t) => sum + (Number(t.amount) || 0),
         0,
       );
-      const cashRevenue = paidOrders
-        .filter((o) =>
-          (o.payment_method || "cash").toLowerCase().includes("cash"),
+      const cashRevenue = completedTxns
+        .filter((t) =>
+          (t.payment_method || "cash").toLowerCase().includes("cash"),
         )
-        .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
-      const upiRevenue = paidOrders
-        .filter((o) => (o.payment_method || "").toLowerCase().includes("upi"))
-        .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+        .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+      const upiRevenue = completedTxns
+        .filter((t) => (t.payment_method || "").toLowerCase().includes("upi"))
+        .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
       return {
-        totalOrders: allOrders.length,
+        totalOrders: allTransactions.length,
         totalRevenue,
         cashRevenue,
         upiRevenue,
         avgOrderValue:
-          paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0,
+          completedTxns.length > 0 ? totalRevenue / completedTxns.length : 0,
       };
     },
     refetchInterval: 30000, // Refresh every 30 seconds
