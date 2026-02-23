@@ -29,6 +29,9 @@ import {
   Smartphone,
   QrCode,
   Truck,
+  ImagePlus,
+  Upload,
+  Trash2,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -50,6 +53,84 @@ const Settings = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const { symbol: currencySymbol } = useCurrencyContext();
+
+  // Logo state
+  const [logoUrl, setLogoUrl] = useState(() => {
+    try {
+      return localStorage.getItem("restaurant_logo_url") || "";
+    } catch {
+      return "";
+    }
+  });
+  const [logoUploading, setLogoUploading] = useState(false);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file",
+        description: "Please select an image file",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Logo must be under 2MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLogoUploading(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const fileName = `logos/${profile?.restaurant_id || "default"}/logo.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("restaurant-assets")
+        .upload(fileName, file, { upsert: true, contentType: file.type });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("restaurant-assets")
+        .getPublicUrl(fileName);
+
+      const url = urlData.publicUrl + "?t=" + Date.now();
+      setLogoUrl(url);
+      try {
+        localStorage.setItem("restaurant_logo_url", url);
+      } catch {}
+
+      toast({
+        title: "Logo uploaded! ✅",
+        description: "Your restaurant logo has been saved",
+      });
+    } catch (error: any) {
+      console.error("Logo upload error:", error);
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to upload logo",
+        variant: "destructive",
+      });
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const handleLogoRemove = () => {
+    setLogoUrl("");
+    try {
+      localStorage.removeItem("restaurant_logo_url");
+    } catch {}
+    toast({
+      title: "Logo removed",
+      description: "Restaurant logo has been removed",
+    });
+  };
 
   // Fetch user and profile data
   const { data: profile, isLoading: profileLoading } = useQuery({
@@ -342,6 +423,64 @@ const Settings = () => {
                 </div>
               </CardHeader>
               <CardContent className="p-8">
+                {/* Restaurant Logo */}
+                <div className="mb-10">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+                    <ImagePlus className="h-5 w-5 text-rose-600" />
+                    Restaurant Logo
+                  </h3>
+                  <div className="p-6 bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-900/20 dark:to-pink-900/20 rounded-2xl border border-rose-100 dark:border-rose-800">
+                    <div className="flex items-center gap-6">
+                      {/* Logo Preview */}
+                      <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-rose-200 dark:border-rose-700 flex items-center justify-center overflow-hidden bg-white dark:bg-gray-800">
+                        {logoUrl ? (
+                          <img
+                            src={logoUrl}
+                            alt="Restaurant Logo"
+                            className="w-full h-full object-contain p-1"
+                          />
+                        ) : (
+                          <ImagePlus className="h-8 w-8 text-rose-300" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-rose-700 dark:text-rose-300 mb-1">
+                          {logoUrl ? "Logo uploaded" : "No logo uploaded"}
+                        </p>
+                        <p className="text-xs text-rose-500 dark:text-rose-400 mb-3">
+                          PNG, JPG or SVG. Max 2MB. Used on bills and receipts.
+                        </p>
+                        <div className="flex gap-2">
+                          <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-lg hover:from-rose-600 hover:to-pink-600 transition-all shadow-md">
+                            {logoUploading ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Upload className="h-3.5 w-3.5" />
+                            )}
+                            {logoUrl ? "Change" : "Upload"}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleLogoUpload}
+                              disabled={logoUploading}
+                            />
+                          </label>
+                          {logoUrl && (
+                            <button
+                              onClick={handleLogoRemove}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-all"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Basic Information */}
                 <div className="mb-10">
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">

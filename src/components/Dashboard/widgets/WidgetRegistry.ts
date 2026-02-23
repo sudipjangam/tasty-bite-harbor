@@ -11,6 +11,9 @@ import {
   MapPin,
   LineChart,
   Activity,
+  Trophy,
+  DollarSign,
+  CloudSun,
 } from "lucide-react";
 
 export const MAX_WIDGETS = 8;
@@ -119,6 +122,30 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     description: "7-day schedule with locations and timings",
     icon: CalendarIcon,
     gradient: "from-fuchsia-500 to-pink-600",
+    category: "info",
+  },
+  {
+    id: "location-performance",
+    name: "Location Performance",
+    description: "Revenue by location — find your best spots",
+    icon: Trophy,
+    gradient: "from-amber-500 to-orange-600",
+    category: "stats",
+  },
+  {
+    id: "menu-margins",
+    name: "Menu Item Margins",
+    description: "Profit margin per dish based on ingredient costs",
+    icon: DollarSign,
+    gradient: "from-emerald-500 to-green-600",
+    category: "stats",
+  },
+  {
+    id: "weather-forecast",
+    name: "Weather Forecast",
+    description: "Current weather + 3-day forecast with food truck tips",
+    icon: CloudSun,
+    gradient: "from-sky-400 to-blue-600",
     category: "info",
   },
 ];

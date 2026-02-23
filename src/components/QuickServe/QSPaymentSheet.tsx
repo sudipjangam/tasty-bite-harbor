@@ -252,6 +252,32 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       const printSymbol = currencySymbol === "₹" ? "Rs." : currencySymbol;
       let yPos = 5;
 
+      // Restaurant Logo
+      try {
+        const savedLogo = localStorage.getItem("restaurant_logo_url");
+        if (savedLogo) {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          await new Promise<void>((resolve) => {
+            img.onload = () => {
+              const logoSize = 12;
+              doc.addImage(
+                img,
+                "PNG",
+                (pageWidth - logoSize) / 2,
+                yPos,
+                logoSize,
+                logoSize,
+              );
+              yPos += logoSize + 2;
+              resolve();
+            };
+            img.onerror = () => resolve();
+            img.src = savedLogo;
+          });
+        }
+      } catch {}
+
       // Restaurant Header
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
