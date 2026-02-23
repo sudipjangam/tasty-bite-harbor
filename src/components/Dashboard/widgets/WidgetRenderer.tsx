@@ -28,6 +28,11 @@ const HourlySalesWidget = lazy(() => import("./HourlySalesWidget"));
 const PaymentSplitWidget = lazy(() => import("./PaymentSplitWidget"));
 const DailyOrdersWidget = lazy(() => import("./DailyOrdersWidget"));
 const AvgOrderTrendWidget = lazy(() => import("./AvgOrderTrendWidget"));
+const LocationPerformanceWidget = lazy(
+  () => import("./LocationPerformanceWidget"),
+);
+const MenuMarginsWidget = lazy(() => import("./MenuMarginsWidget"));
+const WeatherWidget = lazy(() => import("./WeatherWidget"));
 
 // Import NC Stats (named export)
 import { NCStatsCard } from "@/components/Dashboard/NCStatsCard";
@@ -68,6 +73,12 @@ const WidgetContent: React.FC<{
       return <AvgOrderTrendWidget />;
     case "location-today":
       return <LocationTodayWidget />;
+    case "location-performance":
+      return <LocationPerformanceWidget />;
+    case "menu-margins":
+      return <MenuMarginsWidget />;
+    case "weather-forecast":
+      return <WeatherWidget />;
     case "this-week":
       return (
         scheduleComponent || (

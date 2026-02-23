@@ -1380,6 +1380,32 @@ const PaymentDialog = ({
       const contentWidth = pageWidth - margin * 2;
       let yPos = 5; // Increased top margin to prevent cutting
 
+      // Restaurant Logo
+      try {
+        const savedLogo = localStorage.getItem("restaurant_logo_url");
+        if (savedLogo) {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          await new Promise<void>((resolve) => {
+            img.onload = () => {
+              const logoSize = 12;
+              doc.addImage(
+                img,
+                "PNG",
+                (pageWidth - logoSize) / 2,
+                yPos,
+                logoSize,
+                logoSize,
+              );
+              yPos += logoSize + 2;
+              resolve();
+            };
+            img.onerror = () => resolve();
+            img.src = savedLogo;
+          });
+        }
+      } catch {}
+
       // Restaurant Header - Larger and prominent
       doc.setFontSize(16); // Increased from 14
       doc.setFont("helvetica", "bold");

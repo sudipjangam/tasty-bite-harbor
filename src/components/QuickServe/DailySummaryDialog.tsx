@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import {
   BarChart3,
   TrendingUp,
+  TrendingDown,
   ShoppingCart,
   CreditCard,
   Clock,
@@ -25,6 +26,10 @@ import {
   FileText,
   Download,
   Ban,
+  Wallet,
+  PiggyBank,
+  MessageCircle,
+  Phone,
 } from "lucide-react";
 
 export interface PaymentBreakdown {
@@ -47,6 +52,10 @@ export interface OrderTypeBreakdown {
   dine_in: number;
 }
 
+export interface ExpenseBreakdown {
+  [category: string]: number;
+}
+
 export interface DailySummaryData {
   totalOrders: number;
   totalRevenue: number;
@@ -59,6 +68,9 @@ export interface DailySummaryData {
   discountAmount: number;
   averageOrderValue: number;
   peakHour: string;
+  totalExpenses: number;
+  expenseBreakdown: ExpenseBreakdown;
+  netProfit: number;
 }
 
 interface DailySummaryDialogProps {
@@ -80,6 +92,14 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(!!initialData); // If viewing historical, assume saved
   const [notes, setNotes] = useState("");
+  const [ownerPhone, setOwnerPhone] = useState(() => {
+    try {
+      return localStorage.getItem("qs_owner_whatsapp") || "";
+    } catch {
+      return "";
+    }
+  });
+  const [showOwnerInput, setShowOwnerInput] = useState(false);
   const displayDate = reportDate || new Date();
   const dateStr = format(displayDate, "yyyy-MM-dd");
 
@@ -112,6 +132,14 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
 
       if (txnError) throw txnError;
 
+      // Fetch today's expenses
+      const { data: expensesData } = await supabase
+        .from("expenses")
+        .select("amount, category")
+        .eq("restaurant_id", restaurantId)
+        .gte("date", dayStart.split("T")[0])
+        .lte("date", dayEnd.split("T")[0]);
+
       const allOrders = orders || [];
       const allTxns = (transactions || []).filter(
         (t) => t.status === "completed",
@@ -133,6 +161,17 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         (sum, t) => sum + (Number(t.discount_amount) || 0),
         0,
       );
+
+      // Expenses breakdown by category
+      const expenseBreakdown: ExpenseBreakdown = {};
+      let totalExpenses = 0;
+      (expensesData || []).forEach((e) => {
+        const cat = e.category || "Other";
+        const amt = Number(e.amount) || 0;
+        expenseBreakdown[cat] = (expenseBreakdown[cat] || 0) + amt;
+        totalExpenses += amt;
+      });
+      const netProfit = totalRevenue - totalExpenses;
 
       // Payment breakdown from pos_transactions
       const paymentBreakdown: PaymentBreakdown = {
@@ -228,6 +267,9 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         discountAmount,
         averageOrderValue,
         peakHour,
+        totalExpenses,
+        expenseBreakdown,
+        netProfit,
       };
     },
   });
@@ -338,6 +380,16 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         ? `\n------------------------------\n${extras.join("\n")}`
         : "";
 
+    // Build P&L section
+    const expenseLines = Object.entries(summary.expenseBreakdown || {})
+      .filter(([, v]) => v > 0)
+      .map(([cat, amt]) => `   • ${cat}: ${currencySymbol}${amt.toFixed(0)}`)
+      .join("\n");
+    const plSection =
+      summary.totalExpenses > 0 || summary.netProfit !== summary.totalRevenue
+        ? `\n💸 *PROFIT & LOSS*\n──────────────────────────────\n💰 Revenue: ${currencySymbol}${summary.totalRevenue.toFixed(2)}\n💸 Expenses: ${currencySymbol}${(summary.totalExpenses || 0).toFixed(2)}${expenseLines ? "\n" + expenseLines : ""}\n${(summary.netProfit || 0) >= 0 ? "✅" : "🔻"} *Net ${(summary.netProfit || 0) >= 0 ? "Profit" : "Loss"}: ${currencySymbol}${Math.abs(summary.netProfit || 0).toFixed(2)}*`
+        : "";
+
     // Build notes section
     const notesSection = notes.trim()
       ? `\n------------------------------\n*Notes:* ${notes.trim()}`
@@ -363,13 +415,80 @@ ${summary.paymentBreakdown.other > 0 ? `💴 Other: ${currencySymbol}${summary.p
 🏆 *TOP ITEMS*
 ──────────────────────────────
 ${topItemsText}
-${extrasSection}${notesSection}
+${extrasSection}${plSection}${notesSection}
 ══════════════════════════════
 ✨ Powered by *Swadeshi Solutions*
 ══════════════════════════════`;
 
     const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
     window.open(url, "_blank");
+  };
+
+  const buildWhatsAppMessage = () => {
+    if (!summary) return "";
+    const truckName = restaurantName || "Our Food Truck";
+    const reportDateFormatted = format(displayDate, "dd MMM yyyy");
+    const topItemsText =
+      summary.topItems.length > 0
+        ? summary.topItems
+            .map(
+              (i, idx) =>
+                `   ${idx + 1}. ${i.name} x${i.quantity} = ${currencySymbol}${i.revenue.toFixed(0)}`,
+            )
+            .join("\n")
+        : "   No items today";
+    const extras: string[] = [];
+    if (summary.ncOrders > 0)
+      extras.push(
+        `NC Orders: ${summary.ncOrders} (${currencySymbol}${summary.ncAmount.toFixed(2)})`,
+      );
+    if (summary.discountAmount > 0)
+      extras.push(
+        `Discounts Given: ${currencySymbol}${summary.discountAmount.toFixed(2)}`,
+      );
+    const extrasSection =
+      extras.length > 0
+        ? `\n------------------------------\n${extras.join("\n")}`
+        : "";
+    const expenseLines = Object.entries(summary.expenseBreakdown || {})
+      .filter(([, v]) => v > 0)
+      .map(([cat, amt]) => `   • ${cat}: ${currencySymbol}${amt.toFixed(0)}`)
+      .join("\n");
+    const plSection =
+      summary.totalExpenses > 0 || summary.netProfit !== summary.totalRevenue
+        ? `\n💸 *PROFIT & LOSS*\n──────────────────────────────\n💰 Revenue: ${currencySymbol}${summary.totalRevenue.toFixed(2)}\n💸 Expenses: ${currencySymbol}${(summary.totalExpenses || 0).toFixed(2)}${expenseLines ? "\n" + expenseLines : ""}\n${(summary.netProfit || 0) >= 0 ? "✅" : "🔻"} *Net ${(summary.netProfit || 0) >= 0 ? "Profit" : "Loss"}: ${currencySymbol}${Math.abs(summary.netProfit || 0).toFixed(2)}*`
+        : "";
+    const notesSection = notes.trim()
+      ? `\n------------------------------\n*Notes:* ${notes.trim()}`
+      : "";
+
+    return `⭐ *${truckName}* ⭐\n📊 Daily Sales Report\n📅 ${reportDateFormatted}\n══════════════════════════════\n\n🛒 Total Orders: *${summary.totalOrders}*\n💰 Total Revenue: *${currencySymbol}${summary.totalRevenue.toFixed(2)}*\n📦 Items Sold: *${summary.totalItemsSold}*\n🧾 Avg Order: *${currencySymbol}${summary.averageOrderValue.toFixed(2)}*\n⏰ Peak Hour: *${summary.peakHour || "N/A"}*\n\n💳 *PAYMENTS*\n──────────────────────────────\n💵 Cash: ${currencySymbol}${summary.paymentBreakdown.cash.toFixed(2)}\n📱 UPI: ${currencySymbol}${summary.paymentBreakdown.upi.toFixed(2)}\n💳 Card: ${currencySymbol}${summary.paymentBreakdown.card.toFixed(2)}\n${summary.paymentBreakdown.other > 0 ? `💴 Other: ${currencySymbol}${summary.paymentBreakdown.other.toFixed(2)}\n` : ""}\n🏆 *TOP ITEMS*\n──────────────────────────────\n${topItemsText}\n${extrasSection}${plSection}${notesSection}\n══════════════════════════════\n✨ Powered by *Swadeshi Solutions*\n══════════════════════════════`;
+  };
+
+  const handleSendToOwner = () => {
+    if (!ownerPhone.trim()) {
+      setShowOwnerInput(true);
+      toast({
+        title: "Enter owner's WhatsApp number",
+        description: "Please enter the owner's phone number first.",
+      });
+      return;
+    }
+    // Save for future use
+    try {
+      localStorage.setItem("qs_owner_whatsapp", ownerPhone.trim());
+    } catch {}
+
+    let cleanPhone = ownerPhone.trim().replace(/[\+\-\s]/g, "");
+    if (cleanPhone.length === 10) cleanPhone = "91" + cleanPhone;
+
+    const msg = buildWhatsAppMessage();
+    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank");
+    toast({
+      title: "Report sent! ✅",
+      description: `Daily report sent to ${ownerPhone}`,
+    });
   };
 
   return (
@@ -421,6 +540,71 @@ ${extrasSection}${notesSection}
                 value={summary.peakHour || "N/A"}
                 gradient="from-orange-500 to-red-500"
               />
+            </div>
+
+            {/* P&L Summary */}
+            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl p-4 border border-indigo-200/50 dark:border-indigo-700/30">
+              <h3 className="text-sm font-bold text-indigo-700 dark:text-indigo-300 mb-3 flex items-center gap-2">
+                <PiggyBank className="h-4 w-4" /> Profit & Loss
+              </h3>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
+                    <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />{" "}
+                    Revenue
+                  </span>
+                  <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                    +{currencySymbol}
+                    {summary.totalRevenue.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
+                    <Wallet className="h-3.5 w-3.5 text-red-500" /> Expenses
+                  </span>
+                  <span className="text-sm font-bold text-red-500 dark:text-red-400">
+                    -{currencySymbol}
+                    {(summary.totalExpenses || 0).toFixed(2)}
+                  </span>
+                </div>
+                {/* Expense category breakdown */}
+                {Object.entries(summary.expenseBreakdown || {})
+                  .filter(([, v]) => v > 0)
+                  .map(([cat, amt]) => (
+                    <div
+                      key={cat}
+                      className="flex items-center justify-between pl-6"
+                    >
+                      <span className="text-xs text-gray-400 dark:text-gray-500 capitalize">
+                        {cat}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {currencySymbol}
+                        {amt.toFixed(0)}
+                      </span>
+                    </div>
+                  ))}
+                <div className="border-t border-indigo-200 dark:border-indigo-700/30 pt-2 mt-1">
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`text-sm font-bold flex items-center gap-1.5 ${(summary.netProfit || 0) >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}
+                    >
+                      {(summary.netProfit || 0) >= 0 ? (
+                        <TrendingUp className="h-4 w-4" />
+                      ) : (
+                        <TrendingDown className="h-4 w-4" />
+                      )}
+                      Net {(summary.netProfit || 0) >= 0 ? "Profit" : "Loss"}
+                    </span>
+                    <span
+                      className={`text-lg font-black ${(summary.netProfit || 0) >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}
+                    >
+                      {currencySymbol}
+                      {Math.abs(summary.netProfit || 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Payment Breakdown */}
@@ -524,6 +708,25 @@ ${extrasSection}${notesSection}
                 className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm resize-none h-20"
               />
             </div>
+
+            {/* Owner WhatsApp Number */}
+            {(showOwnerInput || !ownerPhone) && (
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-3 border border-green-200 dark:border-green-800">
+                <label className="text-xs font-semibold text-green-700 dark:text-green-400 mb-1.5 block flex items-center gap-1.5">
+                  <Phone className="h-3.5 w-3.5" /> Owner's WhatsApp Number
+                </label>
+                <input
+                  type="tel"
+                  value={ownerPhone}
+                  onChange={(e) => setOwnerPhone(e.target.value)}
+                  placeholder="e.g. 9876543210"
+                  className="w-full rounded-lg border border-green-200 dark:border-green-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                />
+                <p className="text-xs text-green-600 dark:text-green-500 mt-1">
+                  Saved for future reports
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           <div className="py-12 text-center text-gray-500">
@@ -531,16 +734,27 @@ ${extrasSection}${notesSection}
           </div>
         )}
 
-        <DialogFooter className="flex flex-col sm:flex-row gap-2">
-          <Button
-            variant="outline"
-            onClick={handleShareWhatsApp}
-            disabled={!summary}
-            className="flex-1 text-green-600 border-green-200 hover:bg-green-50"
-          >
-            <Send className="h-4 w-4 mr-2" />
-            WhatsApp
-          </Button>
+        <DialogFooter className="flex flex-col gap-2">
+          <div className="flex gap-2 w-full">
+            <Button
+              variant="outline"
+              onClick={handleShareWhatsApp}
+              disabled={!summary}
+              className="flex-1 text-green-600 border-green-200 hover:bg-green-50"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              Share
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleSendToOwner}
+              disabled={!summary}
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white border-green-600"
+            >
+              <MessageCircle className="h-4 w-4 mr-2" />
+              {ownerPhone ? "Send to Owner" : "Set Owner"}
+            </Button>
+          </div>
           <Button
             onClick={handleSaveReport}
             disabled={!summary || saving || saved || !!initialData}

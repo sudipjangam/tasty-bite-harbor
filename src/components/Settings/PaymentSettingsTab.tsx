@@ -228,28 +228,19 @@ const PaymentSettingsTab = () => {
             </button>
             <button
               type="button"
-              onClick={() =>
-                setFormData((prev) => ({ ...prev, gatewayType: "paytm" }))
-              }
-              className={`p-6 rounded-2xl border-2 transition-all duration-300 relative ${
-                formData.gatewayType === "paytm"
-                  ? "border-purple-500 bg-purple-50 dark:bg-purple-900/30 shadow-lg shadow-purple-200/50"
-                  : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
-              }`}
+              onClick={() => {}}
+              disabled
+              className={`p-6 rounded-2xl border-2 transition-all duration-300 relative opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700`}
             >
-              <Badge className="absolute -top-2 -right-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs">
-                Recommended
+              <Badge className="absolute -top-2 -right-2 bg-gradient-to-r from-gray-400 to-gray-500 text-white text-xs">
+                Coming Soon
               </Badge>
-              <Zap
-                className={`h-8 w-8 mx-auto mb-2 ${formData.gatewayType === "paytm" ? "text-purple-600" : "text-gray-400"}`}
-              />
-              <p
-                className={`font-bold text-lg ${formData.gatewayType === "paytm" ? "text-purple-700 dark:text-purple-300" : "text-gray-600 dark:text-gray-400"}`}
-              >
+              <Zap className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+              <p className="font-bold text-lg text-gray-400 dark:text-gray-500">
                 Paytm Gateway
               </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Dynamic QR + auto-detection + Soundbox
+              <p className="text-xs text-gray-400 mt-1">
+                Merchant account setup in progress
               </p>
             </button>
           </div>

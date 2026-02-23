@@ -115,6 +115,7 @@ export const RecipeDialog = ({
   });
 
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
+  const [missingIngredients, setMissingIngredients] = useState<string[]>([]);
 
   // Fetch inventory items for ingredient selection
   const { data: inventoryItems = [] } = useQuery({
@@ -422,6 +423,7 @@ export const RecipeDialog = ({
     }
 
     setIsGeneratingAI(true);
+    setMissingIngredients([]);
     try {
       const {
         data: { session },
@@ -431,7 +433,14 @@ export const RecipeDialog = ({
         throw new Error("Not authenticated");
       }
 
+      // Build inventory context for smart matching
+      const inventoryNames = inventoryItems
+        .map((item: any) => `${item.name} (${item.unit})`)
+        .join(", ");
+
       const prompt = `You are a professional chef and recipe writer. Generate detailed recipe information for "${formData.name}".
+
+Here is the restaurant's current inventory: [${inventoryNames}]
 
 Please respond ONLY with a valid JSON object (no markdown, no explanation) in this exact format:
 {
@@ -439,10 +448,13 @@ Please respond ONLY with a valid JSON object (no markdown, no explanation) in th
   "prep_time_minutes": <number>,
   "cook_time_minutes": <number>,
   "difficulty": "<easy|medium|hard>",
-  "instructions": "Detailed step-by-step cooking instructions with numbered steps"
+  "instructions": "Detailed step-by-step cooking instructions with numbered steps",
+  "ingredients": [
+    { "name": "ingredient name (use exact inventory names where possible)", "quantity": <number>, "unit": "kg|g|l|ml|piece|cup|tbsp|tsp" }
+  ]
 }
 
-Make the description mouth-watering and professional. Be accurate with cooking times. Instructions should be clear and complete.`;
+IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to the inventory list above. If an ingredient is not in the inventory, still include it but use a common name. Include all ingredients needed for the recipe. Be accurate with quantities for a single serving.`;
 
       const { data, error } = await supabase.functions.invoke(
         "chat-with-gemini",
@@ -480,10 +492,83 @@ Make the description mouth-watering and professional. Be accurate with cooking t
           instructions: recipeData.instructions || prev.instructions,
         }));
 
+        // Process AI-suggested ingredients — match against inventory
+        if (recipeData.ingredients && Array.isArray(recipeData.ingredients)) {
+          const matched: RecipeIngredient[] = [];
+          const missing: string[] = [];
+
+          for (const aiIng of recipeData.ingredients) {
+            const aiName = (aiIng.name || "").toLowerCase().trim();
+            if (!aiName) continue;
+
+            // Try exact match first, then fuzzy match
+            let bestMatch: any = null;
+            let bestScore = 0;
+
+            for (const invItem of inventoryItems) {
+              const invName = (invItem.name || "").toLowerCase().trim();
+              // Exact match
+              if (invName === aiName) {
+                bestMatch = invItem;
+                bestScore = 100;
+                break;
+              }
+              // Contains match (one contains the other)
+              if (invName.includes(aiName) || aiName.includes(invName)) {
+                const score =
+                  (Math.min(invName.length, aiName.length) /
+                    Math.max(invName.length, aiName.length)) *
+                  80;
+                if (score > bestScore) {
+                  bestMatch = invItem;
+                  bestScore = score;
+                }
+              }
+              // Word overlap match
+              const invWords = invName.split(/\s+/);
+              const aiWords = aiName.split(/\s+/);
+              const overlap = invWords.filter((w: string) =>
+                aiWords.some((aw: string) => aw.includes(w) || w.includes(aw)),
+              );
+              if (overlap.length > 0) {
+                const score =
+                  (overlap.length / Math.max(invWords.length, aiWords.length)) *
+                  60;
+                if (score > bestScore) {
+                  bestMatch = invItem;
+                  bestScore = score;
+                }
+              }
+            }
+
+            if (bestMatch && bestScore >= 30) {
+              matched.push({
+                inventory_item_id: bestMatch.id,
+                quantity: aiIng.quantity || 1,
+                unit: aiIng.unit || bestMatch.unit || "g",
+                notes:
+                  bestScore < 80 ? `AI matched from: ${aiIng.name}` : undefined,
+              });
+            } else {
+              missing.push(
+                `${aiIng.name} (${aiIng.quantity || ""} ${aiIng.unit || ""})`.trim(),
+              );
+            }
+          }
+
+          if (matched.length > 0) {
+            setIngredients(matched);
+          }
+          if (missing.length > 0) {
+            setMissingIngredients(missing);
+          }
+        }
+
+        const ingredientCount = recipeData.ingredients?.length || 0;
+        const matchedCount = ingredients.length;
         toast({
-          title: "✨ Recipe Generated!",
-          description:
-            "AI has filled in the recipe details. Feel free to customize.",
+          title: "\u2728 Recipe Generated!",
+          description: `AI filled recipe details${ingredientCount > 0 ? ` with ${ingredientCount} ingredients` : ""}. Check the Ingredients tab.`,
         });
       } catch (parseError) {
         console.error("Failed to parse AI response:", aiContent);
@@ -896,6 +981,42 @@ Make the description mouth-watering and professional. Be accurate with cooking t
             </TabsContent>
 
             <TabsContent value="ingredients" className="space-y-4 mt-6">
+              {/* Missing Ingredients Alert */}
+              {missingIngredients.length > 0 && (
+                <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-2">
+                      <span className="text-amber-600 text-lg mt-0.5">⚠️</span>
+                      <div>
+                        <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-1">
+                          {missingIngredients.length} ingredient
+                          {missingIngredients.length > 1 ? "s" : ""} not in
+                          inventory
+                        </p>
+                        <ul className="text-xs text-amber-700 dark:text-amber-300 space-y-0.5">
+                          {missingIngredients.map((item, i) => (
+                            <li key={i} className="flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                          Add these to Inventory first, then re-run AI Generate
+                          to auto-link them.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setMissingIngredients([])}
+                      className="text-amber-400 hover:text-amber-600 text-xs font-bold ml-2"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 p-4 rounded-2xl border border-purple-100 dark:border-purple-500/30">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg shadow-purple-500/30">
