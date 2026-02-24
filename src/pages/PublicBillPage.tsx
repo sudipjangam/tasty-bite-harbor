@@ -9,6 +9,11 @@ import {
   Copy,
   CheckCircle2,
   AlertTriangle,
+  Phone,
+  User,
+  Calendar,
+  Hash,
+  ShoppingBag,
 } from "lucide-react";
 
 /**
@@ -78,6 +83,14 @@ const PublicBillPage = () => {
     lines.push(
       `Total: ${currencySymbol}${billData.total.toFixed(2)}${billData.isNonChargeable ? " (Non-Chargeable)" : ""}`,
     );
+    if (billData.paymentMethod) {
+      lines.push(`Paid via: ${billData.paymentMethod}`);
+    }
+    lines.push("");
+    lines.push("Thank you for dining with us! 🙏");
+    lines.push(`— ${billData.restaurantName}`);
+    lines.push("");
+    lines.push("Billed by Swadeshi Solutions");
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
       setCopied(true);
@@ -118,6 +131,9 @@ const PublicBillPage = () => {
       unit: "mm",
       format: "a5",
     });
+
+    // Use Rs. for PDF since jsPDF cannot render Unicode ₹
+    const pdfCurrency = currencySymbol === "₹" ? "Rs." : currencySymbol;
 
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 14;
@@ -160,6 +176,14 @@ const PublicBillPage = () => {
     // Order details
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
+    if (billData.orderNumber) {
+      doc.text(`Order #${billData.orderNumber}`, margin, y);
+      y += 5;
+    }
+    if (billData.orderType) {
+      doc.text(`Type: ${billData.orderType}`, margin, y);
+      y += 5;
+    }
     if (billData.orderDate) {
       doc.text(`Date: ${billData.orderDate}`, margin, y);
       y += 5;
@@ -170,6 +194,10 @@ const PublicBillPage = () => {
     }
     if (billData.customerName) {
       doc.text(`Customer: ${billData.customerName}`, margin, y);
+      y += 5;
+    }
+    if (billData.customerPhone) {
+      doc.text(`Phone: ${billData.customerPhone}`, margin, y);
       y += 5;
     }
 
@@ -196,14 +224,9 @@ const PublicBillPage = () => {
       doc.text(`${item.quantity}`, pageWidth - margin - 30, y, {
         align: "right",
       });
-      doc.text(
-        `${currencySymbol}${itemTotal.toFixed(2)}`,
-        pageWidth - margin,
-        y,
-        {
-          align: "right",
-        },
-      );
+      doc.text(`${pdfCurrency}${itemTotal.toFixed(2)}`, pageWidth - margin, y, {
+        align: "right",
+      });
       y += 5;
     });
 
@@ -214,7 +237,7 @@ const PublicBillPage = () => {
     // Subtotal
     doc.setFontSize(9);
     doc.text(
-      `Subtotal: ${currencySymbol}${billData.subtotal.toFixed(2)}`,
+      `Subtotal: ${pdfCurrency}${billData.subtotal.toFixed(2)}`,
       pageWidth - margin,
       y,
       { align: "right" },
@@ -229,7 +252,7 @@ const PublicBillPage = () => {
           ? `Discount (${billData.manualDiscountPercent}%)`
           : "Discount";
       doc.text(
-        `${label}: -${currencySymbol}${billData.discount.toFixed(2)}`,
+        `${label}: -${pdfCurrency}${billData.discount.toFixed(2)}`,
         pageWidth - margin,
         y,
         { align: "right" },
@@ -241,8 +264,8 @@ const PublicBillPage = () => {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
     const totalText = billData.isNonChargeable
-      ? `Total: ${currencySymbol}0.00 (NC)`
-      : `Total: ${currencySymbol}${billData.total.toFixed(2)}`;
+      ? `Total: ${pdfCurrency}0.00 (NC)`
+      : `Total: ${pdfCurrency}${billData.total.toFixed(2)}`;
     doc.text(totalText, pageWidth - margin, y, { align: "right" });
     y += 8;
 
@@ -259,10 +282,19 @@ const PublicBillPage = () => {
       y += 8;
     }
 
-    // Footer
+    // Thank you line
     doc.setFont("helvetica", "italic");
     doc.setFontSize(9);
     doc.text("Thank you for dining with us!", pageWidth / 2, y, {
+      align: "center",
+    });
+    y += 10;
+
+    // Billed by footer
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(150, 150, 150);
+    doc.text("Billed by Swadeshi Solutions", pageWidth / 2, y, {
       align: "center",
     });
 
@@ -321,6 +353,30 @@ const PublicBillPage = () => {
       }[billData.paymentMethod.toLowerCase()] || billData.paymentMethod
     : null;
 
+  const orderTypeLabel = billData.orderType
+    ? {
+        quickserve: "Quick Serve",
+        dine_in: "Dine In",
+        "dine-in": "Dine In",
+        delivery: "Delivery",
+        takeaway: "Takeaway",
+        room_service: "Room Service",
+      }[billData.orderType.toLowerCase()] || billData.orderType
+    : null;
+
+  // Check if we have any order info data to show the grid
+  const hasOrderInfo =
+    billData.orderNumber ||
+    orderTypeLabel ||
+    billData.orderDate ||
+    billData.total;
+  const hasCustomerInfo = billData.customerName || billData.customerPhone;
+
+  const totalItems = billData.items.reduce(
+    (sum, item) => sum + item.quantity,
+    0,
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-zinc-900 relative overflow-hidden">
       {/* Decorative background elements */}
@@ -340,19 +396,20 @@ const PublicBillPage = () => {
           <div className="bg-white/[0.06] backdrop-blur-xl border border-white/[0.08] rounded-3xl shadow-2xl overflow-hidden">
             {/* Gradient header */}
             <div className="relative bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 px-6 py-8 text-center overflow-hidden">
-              {/* Header decorative circles */}
+              {/* Header decorative shapes */}
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
+              <div className="absolute top-1/2 right-0 w-16 h-16 bg-white/5 rounded-full translate-x-1/3 -translate-y-1/2" />
 
               <div className="relative z-10">
-                <div className="w-14 h-14 mx-auto mb-3 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center rotate-3">
+                <div className="w-14 h-14 mx-auto mb-3 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center rotate-3 shadow-lg">
                   <span className="text-2xl">🧾</span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight drop-shadow-sm">
                   {billData.restaurantName}
                 </h1>
                 {billData.restaurantAddress && (
-                  <p className="text-white/80 text-sm mt-2 max-w-xs mx-auto">
+                  <p className="text-white/80 text-sm mt-2 max-w-xs mx-auto leading-relaxed">
                     📍 {billData.restaurantAddress}
                   </p>
                 )}
@@ -362,51 +419,132 @@ const PublicBillPage = () => {
                   </p>
                 )}
                 {billData.gstin && (
-                  <p className="text-white/60 text-xs mt-1 font-mono">
+                  <p className="text-white/60 text-[10px] mt-1.5 font-mono bg-white/10 px-3 py-0.5 rounded-full inline-block">
                     GSTIN: {billData.gstin}
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Order meta */}
-            <div className="px-6 pt-5 pb-3">
-              <div className="flex flex-wrap gap-2">
-                {billData.orderDate && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.06] rounded-full text-xs text-gray-300 border border-white/[0.06]">
-                    📅 {billData.orderDate}
-                  </span>
-                )}
-                {billData.tableNumber && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.06] rounded-full text-xs text-gray-300 border border-white/[0.06]">
-                    🪑 Table {billData.tableNumber}
-                  </span>
-                )}
-                {billData.customerName && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.06] rounded-full text-xs text-gray-300 border border-white/[0.06]">
-                    👤 {billData.customerName}
-                  </span>
-                )}
+            {/* Order Info Grid — like Petpooja */}
+            {hasOrderInfo && (
+              <div className="px-5 pt-5 pb-3">
+                <div className="grid grid-cols-2 gap-2.5">
+                  {/* Order Number */}
+                  {billData.orderNumber && (
+                    <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-3.5 py-2.5">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <Hash className="w-3 h-3 text-amber-400/70" />
+                        <span className="text-[10px] uppercase tracking-wider text-gray-500 font-medium">
+                          Order Number
+                        </span>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-200">
+                        {billData.orderNumber}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Order Type */}
+                  {orderTypeLabel && (
+                    <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-3.5 py-2.5">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <ShoppingBag className="w-3 h-3 text-blue-400/70" />
+                        <span className="text-[10px] uppercase tracking-wider text-gray-500 font-medium">
+                          Order Type
+                        </span>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-200">
+                        {orderTypeLabel}
+                        {billData.tableNumber && ` · T${billData.tableNumber}`}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Order Amount */}
+                  <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-3.5 py-2.5">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-[10px] text-amber-400/70">💰</span>
+                      <span className="text-[10px] uppercase tracking-wider text-gray-500 font-medium">
+                        Order Amount
+                      </span>
+                    </div>
+                    <p className="text-sm font-bold text-amber-400">
+                      {billData.isNonChargeable
+                        ? `${currencySymbol}0.00`
+                        : `${currencySymbol} ${billData.total.toFixed(2)}`}
+                    </p>
+                  </div>
+
+                  {/* Date & Time */}
+                  {billData.orderDate && (
+                    <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-3.5 py-2.5">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <Calendar className="w-3 h-3 text-green-400/70" />
+                        <span className="text-[10px] uppercase tracking-wider text-gray-500 font-medium">
+                          Date
+                        </span>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-200">
+                        {billData.orderDate}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Customer Details */}
+            {hasCustomerInfo && (
+              <div className="px-5 pb-3">
+                <div className="bg-gradient-to-r from-blue-500/[0.06] to-purple-500/[0.06] border border-white/[0.06] rounded-xl px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-500 font-medium mb-1.5">
+                    Customer Details
+                  </p>
+                  <div className="flex items-center gap-4">
+                    {billData.customerName && (
+                      <div className="flex items-center gap-2">
+                        <User className="w-3.5 h-3.5 text-blue-400/70" />
+                        <span className="text-sm font-medium text-gray-200">
+                          {billData.customerName}
+                        </span>
+                      </div>
+                    )}
+                    {billData.customerPhone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 text-green-400/70" />
+                        <span className="text-sm text-gray-300">
+                          {billData.customerPhone}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Divider */}
-            <div className="px-6">
+            <div className="px-5">
               <div className="border-t border-dashed border-white/10" />
             </div>
 
             {/* Items */}
-            <div className="px-6 py-4">
-              <h2 className="text-xs font-semibold text-amber-400/80 uppercase tracking-widest mb-3">
-                Order Details
-              </h2>
-              <div className="space-y-2.5">
+            <div className="px-5 py-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xs font-semibold text-amber-400/80 uppercase tracking-widest">
+                  Order Details
+                </h2>
+                <span className="text-[10px] text-gray-500 font-medium">
+                  {totalItems} {totalItems === 1 ? "item" : "items"}
+                </span>
+              </div>
+              <div className="space-y-1">
                 {billData.items.map((item, idx) => {
                   const itemTotal = item.price * item.quantity;
                   return (
                     <div
                       key={idx}
-                      className="flex items-center justify-between group"
+                      className="flex items-center justify-between py-1.5 group"
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-xs font-bold text-amber-400">
@@ -427,12 +565,12 @@ const PublicBillPage = () => {
             </div>
 
             {/* Divider */}
-            <div className="px-6">
+            <div className="px-5">
               <div className="border-t border-dashed border-white/10" />
             </div>
 
             {/* Totals */}
-            <div className="px-6 py-4 space-y-2">
+            <div className="px-5 py-4 space-y-2">
               {/* Subtotal */}
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Subtotal</span>
@@ -496,7 +634,7 @@ const PublicBillPage = () => {
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-5 bg-gradient-to-b from-transparent to-white/[0.03]">
+            <div className="px-5 py-5 bg-gradient-to-b from-transparent to-white/[0.03]">
               <div className="text-center mb-5">
                 <p className="text-sm text-gray-400">
                   Thank you for dining with us! 🙏
@@ -510,7 +648,7 @@ const PublicBillPage = () => {
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={handleDownloadPdf}
-                  className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.06] hover:border-amber-500/30 transition-all duration-300 group"
+                  className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.06] hover:border-amber-500/30 transition-all duration-300 group active:scale-95"
                 >
                   <Download className="w-4 h-4 text-gray-400 group-hover:text-amber-400 transition-colors" />
                   <span className="text-[10px] font-medium text-gray-400 group-hover:text-gray-300 transition-colors">
@@ -519,7 +657,7 @@ const PublicBillPage = () => {
                 </button>
                 <button
                   onClick={handleShare}
-                  className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.06] hover:border-blue-500/30 transition-all duration-300 group"
+                  className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.06] hover:border-blue-500/30 transition-all duration-300 group active:scale-95"
                 >
                   {shareSuccess ? (
                     <CheckCircle2 className="w-4 h-4 text-green-400" />
@@ -532,7 +670,7 @@ const PublicBillPage = () => {
                 </button>
                 <button
                   onClick={handleCopyBill}
-                  className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.06] hover:border-purple-500/30 transition-all duration-300 group"
+                  className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.06] hover:border-purple-500/30 transition-all duration-300 group active:scale-95"
                 >
                   {copied ? (
                     <CheckCircle2 className="w-4 h-4 text-green-400" />
