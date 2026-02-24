@@ -108,6 +108,7 @@ const PaymentDialog = ({
   const [itemCompletionStatus, setItemCompletionStatus] = useState<boolean[]>(
     initialItemCompletionStatus || [],
   );
+  const [isSendingWhatsAppBill, setIsSendingWhatsAppBill] = useState(false);
   const { toast } = useToast();
 
   // Paytm hooks
@@ -1358,6 +1359,74 @@ const PaymentDialog = ({
       toast({ title: "Could Not Copy", variant: "destructive" });
     }
   }, [currentBillParams, getBillUrl, toast]);
+
+  // Send bill via MSG91 WhatsApp API (automated — text-only template with amount, date & URL)
+  const handleSendWhatsAppBill = useCallback(async () => {
+    if (!customerMobile || !restaurantInfo) return;
+    setIsSendingWhatsAppBill(true);
+    try {
+      const restaurantName =
+        restaurantInfo?.name || restaurantInfo?.restaurantName || "Restaurant";
+
+      // 1. Generate bill URL
+      const billUrl = await getBillUrl(currentBillParams);
+
+      // 2. Format amount and date
+      const formattedAmount = `${currencySymbol === "₹" ? "Rs." : currencySymbol}${total.toFixed(2)}`;
+      const now = new Date();
+      const formattedDate = `${now.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })} ${now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
+
+      // 3. Call MSG91 edge function (text-only template)
+      const cleanPhone = customerMobile.replace(/[\+\-\s]/g, "");
+      const phoneWithCountryCode =
+        cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone;
+
+      const { data: msg91Response, error: msg91Error } =
+        await supabase.functions.invoke("send-msg91-whatsapp", {
+          body: {
+            phoneNumber: phoneWithCountryCode,
+            customerName: customerName || "Customer",
+            restaurantName,
+            templateName: "payment_receipt",
+            amount: formattedAmount,
+            billDate: formattedDate,
+            billUrl: billUrl || undefined,
+          },
+        });
+
+      if (msg91Error || !msg91Response?.success) {
+        throw new Error(
+          msg91Error?.message || msg91Response?.error || "MSG91 API failure",
+        );
+      }
+
+      toast({
+        title: "Bill Sent!",
+        description: `Bill sent to ${customerMobile} via WhatsApp.`,
+      });
+    } catch (error) {
+      console.error("Failed to send WhatsApp bill:", error);
+      toast({
+        title: "Failed to Send Bill",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingWhatsAppBill(false);
+    }
+  }, [
+    customerMobile,
+    customerName,
+    restaurantInfo,
+    currentBillParams,
+    total,
+    currencySymbol,
+    getBillUrl,
+    toast,
+  ]);
 
   const handlePrintBill = async (navigateAfter: boolean = false) => {
     // Save customer details first
@@ -3407,6 +3476,25 @@ const PaymentDialog = ({
           <Printer className="w-4 h-4 mr-2" />
           Print Bill
         </Button>
+
+        {/* MSG91 WhatsApp Bill (automated — sends via API, no browser needed) */}
+        {customerMobile && (
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-3">
+            <Button
+              onClick={handleSendWhatsAppBill}
+              disabled={isSendingWhatsAppBill}
+              className="w-full h-12 bg-[#25D366] hover:bg-[#1DA851] text-white font-semibold text-sm rounded-xl shadow-md transition-all duration-300 hover:shadow-lg hover:scale-[1.02] active:scale-95"
+            >
+              <MessageSquare className="w-4 h-4 mr-2" />
+              {isSendingWhatsAppBill
+                ? "Sending via WhatsApp..."
+                : "Send Bill via WhatsApp"}
+            </Button>
+            <p className="text-xs text-muted-foreground mt-1 text-center">
+              📲 Sends bill with amount, date & invoice link automatically
+            </p>
+          </div>
+        )}
 
         {/* Share Bill Section — FREE (no API keys, works for all restaurants) */}
         <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-3">
