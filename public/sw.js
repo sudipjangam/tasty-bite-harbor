@@ -106,10 +106,18 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Background sync for offline actions (future enhancement)
+// Background Sync — triggered by the browser when connectivity returns
+// (works even if the tab is backgrounded or was reopened)
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-orders') {
-    console.log('[SW] Syncing offline orders');
+    console.log('[SW] Background sync: syncing offline orders');
+    event.waitUntil(
+      self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({ type: 'FLUSH_QUEUE' });
+        });
+      })
+    );
   }
 });
 
