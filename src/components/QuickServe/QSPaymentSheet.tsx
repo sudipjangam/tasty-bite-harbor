@@ -28,8 +28,6 @@ import {
 } from "@/utils/billFormatter";
 import { Button } from "@/components/ui/button";
 import QRCodeLib from "qrcode";
-import jsPDF from "jspdf";
-import QRCode from "qrcode";
 import { useBillSharing } from "@/hooks/useBillSharing";
 
 interface QSPaymentSheetProps {
@@ -227,7 +225,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     });
   };
 
-  /** Send beautiful PDF bill via MSG91 WhatsApp API */
+  /** Send bill via MSG91 WhatsApp API (text-only template with amount, date & bill URL) */
   const handleSendWhatsAppBill = async () => {
     if (!customerPhone || !restaurantDetails) {
       toast({
@@ -241,207 +239,12 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     setIsSendingBill(true);
 
     try {
-      // 1. Generate the PDF
-      const doc = new jsPDF({
-        format: [58, 297], // Thermal printer width
-        unit: "mm",
-      });
+      const restaurantNameForMsg = restaurantDetails?.name || "Restaurant";
 
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 0.5;
-      const printSymbol = currencySymbol === "₹" ? "Rs." : currencySymbol;
-      let yPos = 5;
-
-      // Restaurant Logo
-      try {
-        const savedLogo = localStorage.getItem("restaurant_logo_url");
-        if (savedLogo) {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          await new Promise<void>((resolve) => {
-            img.onload = () => {
-              const logoSize = 12;
-              doc.addImage(
-                img,
-                "PNG",
-                (pageWidth - logoSize) / 2,
-                yPos,
-                logoSize,
-                logoSize,
-              );
-              yPos += logoSize + 2;
-              resolve();
-            };
-            img.onerror = () => resolve();
-            img.src = savedLogo;
-          });
-        }
-      } catch {}
-
-      // Restaurant Header
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      const restaurantNameForPdf = restaurantDetails?.name || "Restaurant";
-      const nameLines = doc.splitTextToSize(
-        restaurantNameForPdf,
-        pageWidth - margin * 2,
-      );
-      doc.text(nameLines, pageWidth / 2, yPos, { align: "center" });
-      yPos += nameLines.length * 5 + 2;
-
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      if (restaurantDetails?.address) {
-        const addressLines = doc.splitTextToSize(
-          restaurantDetails.address,
-          pageWidth - margin * 2,
-        );
-        doc.text(addressLines, pageWidth / 2, yPos, { align: "center" });
-        yPos += addressLines.length * 4;
-      }
-      if (restaurantDetails?.phone) {
-        doc.text(`Ph: ${restaurantDetails.phone}`, pageWidth / 2, yPos, {
-          align: "center",
-        });
-        yPos += 4;
-      }
-      if (restaurantDetails?.gstin) {
-        doc.text(`GSTIN: ${restaurantDetails.gstin}`, pageWidth / 2, yPos, {
-          align: "center",
-        });
-        yPos += 4;
-      }
-
-      for (let i = margin; i < pageWidth - margin; i += 2)
-        doc.line(i, yPos, i + 1, yPos);
-      yPos += 4;
-
-      // Bill details
-      const billNumber = `#${orderNumber ? String(orderNumber).padStart(3, "0") : Date.now().toString().slice(-6)}`;
-      const currentDate = new Date().toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
-      const currentTime = new Date().toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-
-      doc.setFontSize(10);
-      doc.text(`Bill: ${billNumber}`, margin, yPos);
-      yPos += 4;
-      doc.text(`To: ${customerName || "Customer"}`, margin, yPos);
-      yPos += 4;
-      doc.text(`Date: ${currentDate} ${currentTime}`, margin, yPos);
-      yPos += 4;
-
-      for (let i = margin; i < pageWidth - margin; i += 2)
-        doc.line(i, yPos, i + 1, yPos);
-      yPos += 4;
-
-      // Items
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.text("Particulars", pageWidth / 2, yPos, { align: "center" });
-      yPos += 4;
-
-      doc.setFontSize(9.5);
-      doc.text("Item", margin, yPos);
-      doc.text("Qty", pageWidth - 32, yPos, { align: "right" });
-      doc.text("Rate", pageWidth - 18, yPos, { align: "right" });
-      doc.text("Amt", pageWidth - margin, yPos, { align: "right" });
-      yPos += 3.5;
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      items.forEach((item, index) => {
-        // Changed orderItems to items
-        const itemName = doc.splitTextToSize(item.name, 22);
-        doc.text(itemName, margin, yPos);
-        doc.text(item.quantity.toString(), pageWidth - 32, yPos, {
-          align: "right",
-        });
-        doc.text(item.price.toFixed(0), pageWidth - 18, yPos, {
-          align: "right",
-        });
-        doc.text(
-          (item.price * item.quantity).toFixed(0),
-          pageWidth - margin,
-          yPos,
-          { align: "right" },
-        );
-        yPos += Math.max(itemName.length * 4, 4);
-        if (index < items.length - 1) yPos += 2; // Changed orderItems to items
-      });
-
-      yPos += 1;
-      for (let i = margin; i < pageWidth - margin; i += 2)
-        doc.line(i, yPos, i + 1, yPos);
-      yPos += 4;
-
-      // Totals
-      if (discountValue > 0) {
-        // Changed discount to discountValue
-        doc.text("Sub Total:", margin, yPos);
-        doc.text(itemsSubtotal.toFixed(2), pageWidth - margin, yPos, {
-          align: "right",
-        }); // Changed (subtotal + discount) to itemsSubtotal
-        yPos += 4;
-        doc.text("Discount:", margin, yPos);
-        doc.text(`-${discountValue.toFixed(2)}`, pageWidth - margin, yPos, {
-          align: "right",
-        }); // Changed discount to discountValue
-        yPos += 4;
-      }
-
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("Net Amount:", margin, yPos);
-      doc.text(
-        `${printSymbol}${subtotal.toFixed(2)}`,
-        pageWidth - margin,
-        yPos,
-        { align: "right" },
-      );
-      yPos += 6;
-
-      for (let i = margin; i < pageWidth - margin; i += 2)
-        doc.line(i, yPos, i + 1, yPos);
-      yPos += 4;
-
-      doc.setFontSize(12);
-      doc.text("Thank You!", pageWidth / 2, yPos, { align: "center" });
-      yPos += 4;
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text("Please visit again", pageWidth / 2, yPos, { align: "center" });
-
-      // 2. Generate Blob
-      const pdfBlob = doc.output("blob");
-
-      // 3. Upload to Supabase Storage
-      const fileName = `QS_Bill_${Date.now()}_${Math.random().toString(36).substring(7)}.pdf`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("receipts")
-        .upload(fileName, pdfBlob, {
-          contentType: "application/pdf",
-          upsert: false,
-        });
-
-      if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
-
-      // 4. Get Public URL
-      const { data: urlData } = supabase.storage
-        .from("receipts")
-        .getPublicUrl(fileName);
-
-      const publicUrl = urlData.publicUrl;
-
-      // 5. Generate Short URL for the Button
+      // 1. Generate bill URL for the "View Invoice" link
       const billParams = {
         restaurantId,
-        restaurantName: restaurantNameForPdf,
+        restaurantName: restaurantNameForMsg,
         restaurantAddress: restaurantDetails?.address,
         restaurantPhone: restaurantDetails?.phone,
         items: items.map((item) => ({
@@ -463,10 +266,12 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
 
       const billUrl = await getBillUrl(billParams as any);
 
-      // Extract just the short ID from the URL since Meta requires a static base URL in the template
-      const billId = billUrl ? billUrl.split("/bill/")[1] : undefined;
+      // 2. Format amount and date
+      const formattedAmount = `${currencySymbol === "₹" ? "Rs." : currencySymbol}${subtotal.toFixed(2)}`;
+      const now = new Date();
+      const formattedDate = `${now.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })} ${now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
 
-      // 6. Call MSG91 Edge Function — ensure 12-digit international format
+      // 3. Call MSG91 Edge Function (text-only mode — no PDF)
       const phoneWithCountryCode =
         customerPhone.replace(/[\+\-\s]/g, "").length === 10
           ? "91" + customerPhone.replace(/[\+\-\s]/g, "")
@@ -476,11 +281,12 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         await supabase.functions.invoke("send-msg91-whatsapp", {
           body: {
             phoneNumber: phoneWithCountryCode,
-            pdfUrl: publicUrl,
             customerName: customerName || "Customer",
-            restaurantName: restaurantNameForPdf,
-            templateName: "payment_receipt_v2",
-            orderDetailsUrl: billId || undefined,
+            restaurantName: restaurantNameForMsg,
+            templateName: "payment_receipt",
+            amount: formattedAmount,
+            billDate: formattedDate,
+            billUrl: billUrl || undefined,
           },
         });
 
@@ -492,10 +298,10 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
 
       toast({
         title: "Bill Sent!",
-        description: `PDF bill successfully sent to ${customerPhone} via WhatsApp.`,
+        description: `Bill sent to ${customerPhone} via WhatsApp.`,
       });
     } catch (error) {
-      console.error("Failed to send PDF bill:", error);
+      console.error("Failed to send WhatsApp bill:", error);
       toast({
         title: "Failed to Send Bill",
         description:
@@ -830,8 +636,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                 >
                   <MessageSquare className="mr-2 h-4 w-4" />
                   {isSendingBill
-                    ? "Sending PDF via WhatsApp..."
-                    : "Send Bill via WhatsApp (PDF)"}
+                    ? "Sending via WhatsApp..."
+                    : "Send Bill via WhatsApp"}
                 </Button>
 
                 {/* Free Share Link */}

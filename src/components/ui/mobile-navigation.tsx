@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import { useAccessControl } from "@/hooks/useAccessControl";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { Permission } from "@/types/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -319,11 +319,11 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const { user, hasAnyPermission } = useAuth();
-  const { hasAccess: hasSubscriptionAccess } = useAccessControl();
+  const { hasSubscriptionAccess } = useSubscriptionAccess();
   const { restaurantName } = useRestaurantId();
   const { toast } = useToast();
 
-  // Map item id to subscription component key
+  // Map item id to subscription component key (matches sidebar's hrefToComponentMap)
   const itemToComponentMap: Record<string, string> = {
     dashboard: "dashboard",
     "qsr-pos": "qsr-pos",
@@ -332,7 +332,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     kitchen: "kitchen",
     pos: "pos",
     menu: "menu",
-    recipes: "recipes",
+    recipes: "menu", // Recipes fall under menu (matches sidebar)
     tables: "tables",
     inventory: "inventory",
     rooms: "rooms",
@@ -345,24 +345,46 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     financial: "financial",
     reports: "reports",
     expenses: "financial", // expenses falls under financial
-    "user-management": "user management",
-    "role-management": "role management",
+    "user-management": "user-management",
+    "role-management": "role-management",
     ai: "ai",
     settings: "settings",
   };
 
+  // System components bypass subscription check (controlled by role permissions only)
+  // Must match sidebar's systemComponents list
+  const systemComponents = [
+    "user-management",
+    "role-management",
+    "permission-management",
+    "settings",
+    "security",
+  ];
+
   // Filter items based on BOTH role permissions AND subscription access
+  // Logic matches ImprovedSidebarNavigation.hasPermissionForItem
   const hasPermissionForItem = (item: MobileNavItem): boolean => {
     if (!user) return false;
 
-    // Check role-based permission
-    if (item.requiredPermissions && item.requiredPermissions.length > 0) {
-      if (!hasAnyPermission(item.requiredPermissions)) return false;
+    const componentKey = itemToComponentMap[item.id];
+
+    // System components bypass subscription check (they're controlled by role permissions)
+    const isSystemComponent =
+      componentKey && systemComponents.includes(componentKey);
+
+    // Check subscription-based access for non-system components
+    if (
+      componentKey &&
+      !isSystemComponent &&
+      !hasSubscriptionAccess(componentKey)
+    ) {
+      return false; // Component not in subscription plan
     }
 
-    // Check subscription-based access
-    const componentKey = itemToComponentMap[item.id];
-    if (componentKey && !hasSubscriptionAccess(componentKey)) return false;
+    // Check role-based permission
+    if (item.requiredPermissions && item.requiredPermissions.length > 0) {
+      return hasAnyPermission(item.requiredPermissions);
+    }
 
     return true;
   };
