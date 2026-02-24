@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   Banknote,
@@ -85,7 +85,6 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   const [billSent, setBillSent] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [orderNumber, setOrderNumber] = useState<number | null>(null);
-  const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { symbol: currencySymbol } = useCurrencyContext();
   const { restaurantId } = useRestaurantId(); // Destructure directly
 
@@ -225,8 +224,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     });
   };
 
-  /** Send bill via MSG91 WhatsApp API (text-only template with amount, date & bill URL) */
-  const handleSendWhatsAppBill = async () => {
+  /** Send bill via MSG91 WhatsApp API — fire-and-forget for instant UI */
+  const handleSendWhatsAppBill = () => {
     if (!customerPhone || !restaurantDetails) {
       toast({
         title: "Missing Information",
@@ -236,90 +235,89 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       return;
     }
 
-    setIsSendingBill(true);
+    // Instant UI feedback — button shows "Sent" immediately
+    setBillSent(true);
+    toast({
+      title: "Sending Bill...",
+      description: `Bill is being sent to ${customerPhone} via WhatsApp.`,
+    });
 
-    try {
-      const restaurantNameForMsg = restaurantDetails?.name || "Restaurant";
+    // Fire-and-forget: run API call in background
+    (async () => {
+      try {
+        const restaurantNameForMsg = restaurantDetails?.name || "Restaurant";
 
-      // 1. Generate bill URL for the "View Invoice" link
-      const billParams = {
-        restaurantId,
-        restaurantName: restaurantNameForMsg,
-        restaurantAddress: restaurantDetails?.address,
-        restaurantPhone: restaurantDetails?.phone,
-        items: items.map((item) => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-        })),
-        subtotal: itemsSubtotal,
-        discount: discountValue,
-        cgst: 0,
-        sgst: 0,
-        total: subtotal,
-        paymentMethod: selectedMethod || "cash",
-        orderType: "quickserve",
-        customerName: customerName.trim() || undefined,
-        customerPhone,
-        currencySymbol,
-      };
+        const billParams = {
+          restaurantId,
+          restaurantName: restaurantNameForMsg,
+          restaurantAddress: restaurantDetails?.address,
+          restaurantPhone: restaurantDetails?.phone,
+          items: items.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          subtotal: itemsSubtotal,
+          discount: discountValue,
+          cgst: 0,
+          sgst: 0,
+          total: subtotal,
+          paymentMethod: selectedMethod || "cash",
+          orderType: "quickserve",
+          customerName: customerName.trim() || undefined,
+          customerPhone,
+          currencySymbol,
+        };
 
-      const billUrl = await getBillUrl(billParams as any);
+        const billUrl = await getBillUrl(billParams as any);
 
-      // 2. Format amount and date
-      const formattedAmount = `${currencySymbol === "₹" ? "Rs." : currencySymbol}${subtotal.toFixed(2)}`;
-      const now = new Date();
-      const formattedDate = `${now.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })} ${now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
+        const formattedAmount = `${currencySymbol === "₹" ? "Rs." : currencySymbol}${subtotal.toFixed(2)}`;
+        const now = new Date();
+        const formattedDate = `${now.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })} ${now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
 
-      // 3. Call MSG91 Edge Function (text-only mode — no PDF)
-      const phoneWithCountryCode =
-        customerPhone.replace(/[\+\-\s]/g, "").length === 10
-          ? "91" + customerPhone.replace(/[\+\-\s]/g, "")
-          : customerPhone.replace(/[\+\-\s]/g, "");
+        const phoneWithCountryCode =
+          customerPhone.replace(/[\+\-\s]/g, "").length === 10
+            ? "91" + customerPhone.replace(/[\+\-\s]/g, "")
+            : customerPhone.replace(/[\+\-\s]/g, "");
 
-      const { data: msg91Response, error: msg91Error } =
-        await supabase.functions.invoke("send-msg91-whatsapp", {
-          body: {
-            phoneNumber: phoneWithCountryCode,
-            customerName: customerName || "Customer",
-            restaurantName: restaurantNameForMsg,
-            templateName: "payment_receipt",
-            amount: formattedAmount,
-            billDate: formattedDate,
-            billUrl: billUrl || undefined,
-          },
+        const { data: msg91Response, error: msg91Error } =
+          await supabase.functions.invoke("send-msg91-whatsapp", {
+            body: {
+              phoneNumber: phoneWithCountryCode,
+              customerName: customerName || "Customer",
+              restaurantName: restaurantNameForMsg,
+              templateName: "payment_receipt",
+              amount: formattedAmount,
+              billDate: formattedDate,
+              billUrl: billUrl || undefined,
+            },
+          });
+
+        if (msg91Error || !msg91Response.success) {
+          throw new Error(
+            msg91Error?.message || msg91Response?.error || "MSG91 API failure",
+          );
+        }
+
+        toast({
+          title: "Bill Sent!",
+          description: `Bill sent to ${customerPhone} via WhatsApp.`,
         });
-
-      if (msg91Error || !msg91Response.success) {
-        throw new Error(
-          msg91Error?.message || msg91Response?.error || "MSG91 API failure",
-        );
+      } catch (error) {
+        console.error("Failed to send WhatsApp bill:", error);
+        toast({
+          title: "Failed to Send Bill",
+          description:
+            error instanceof Error
+              ? error.message
+              : "An unexpected error occurred",
+          variant: "destructive",
+        });
       }
-
-      toast({
-        title: "Bill Sent!",
-        description: `Bill sent to ${customerPhone} via WhatsApp.`,
-      });
-    } catch (error) {
-      console.error("Failed to send WhatsApp bill:", error);
-      toast({
-        title: "Failed to Send Bill",
-        description:
-          error instanceof Error
-            ? error.message
-            : "An unexpected error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSendingBill(false);
-    }
+    })();
   };
 
   const handleCloseSuccess = () => {
-    if (autoCloseTimerRef.current) {
-      clearTimeout(autoCloseTimerRef.current);
-      autoCloseTimerRef.current = null;
-    }
     const savedOrderNum = orderNumber;
     setStatus("idle");
     setSelectedMethod(null);
@@ -441,89 +439,121 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       if (orderError) throw orderError;
       setOrderNumber(nextOrderNumber);
 
-      // 3. Link kitchen order to order
-      if (order?.id && kitchenOrder?.id) {
-        await supabase
-          .from("kitchen_orders")
-          .update({ order_id: order.id })
-          .eq("id", kitchenOrder.id);
-      }
-
-      // 3.5 Deduct inventory based on recipe ingredients (non-blocking)
-      if (kitchenOrder?.id) {
-        try {
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
-
-          const { data: deductResult, error: deductError } =
-            await supabase.functions.invoke("deduct-inventory-on-prep", {
-              body: { order_id: kitchenOrder.id },
-              headers: {
-                Authorization: `Bearer ${session?.access_token}`,
-              },
-            });
-
-          if (deductError) {
-            console.error("Inventory deduction error:", deductError.message);
-          } else if (!deductResult?.success && deductResult?.errors) {
-            console.warn("Inventory deduction warnings:", deductResult.errors);
-            toast({
-              variant: "destructive",
-              title: "Inventory Warning",
-              description: deductResult.errors.join("\n"),
-              duration: 6000,
-            });
-          } else {
-            console.log("Inventory deducted successfully for QuickServe order");
-          }
-        } catch (invErr) {
-          console.error("Inventory deduction failed (non-blocking):", invErr);
-        }
-      }
-
-      // 4. Log POS transaction
-      await supabase.from("pos_transactions").insert({
-        restaurant_id: restaurantId,
-        order_id: order?.id || null,
-        kitchen_order_id: kitchenOrder?.id || null,
-        amount: subtotal,
-        payment_method: method,
-        status: "completed",
-        customer_name: finalCustomerName || null,
-        customer_phone: customerPhone || null,
-        staff_id: user?.id || null,
-        discount_amount: 0,
-      });
-
-      // 5. CRM auto-sync (only when customer name is explicitly provided)
-      if (customerName.trim()) {
-        try {
-          await syncCustomerToCRM({
-            customerName: finalCustomerName,
-            customerPhone: customerPhone || undefined,
-            orderTotal: subtotal,
-            orderId: kitchenOrder?.id || undefined,
-            source: "quickserve",
-          });
-        } catch (crmErr) {
-          console.error("CRM sync error (non-blocking):", crmErr);
-        }
-      }
-
+      // ✅ Show success IMMEDIATELY after critical writes
       setStatus("success");
       toast({
         title: "Payment Successful",
         description: `${currencySymbol}${subtotal.toFixed(2)} received via ${method}`,
       });
 
-      // Auto-close after 8s (longer to allow QR scanning & WhatsApp sharing)
-      autoCloseTimerRef.current = setTimeout(
-        () => {
-          handleCloseSuccess();
-        },
-        customerPhone || upiId ? 8000 : 2000,
+      // 🔥 Fire-and-forget: non-critical tasks run in background
+      // Errors are logged but never block the UI
+      const bgTasks: Promise<void>[] = [];
+
+      // Link kitchen order → order
+      if (order?.id && kitchenOrder?.id) {
+        bgTasks.push(
+          (async () => {
+            try {
+              await supabase
+                .from("kitchen_orders")
+                .update({ order_id: order.id })
+                .eq("id", kitchenOrder.id);
+            } catch (err) {
+              console.error("Link kitchen→order error:", err);
+            }
+          })(),
+        );
+      }
+
+      // Deduct inventory
+      if (kitchenOrder?.id) {
+        bgTasks.push(
+          (async () => {
+            try {
+              const {
+                data: { session },
+              } = await supabase.auth.getSession();
+              const { data: deductResult, error: deductError } =
+                await supabase.functions.invoke("deduct-inventory-on-prep", {
+                  body: { order_id: kitchenOrder.id },
+                  headers: { Authorization: `Bearer ${session?.access_token}` },
+                });
+              if (deductError) {
+                console.error(
+                  "Inventory deduction error:",
+                  deductError.message,
+                );
+              } else if (!deductResult?.success && deductResult?.errors) {
+                console.warn(
+                  "Inventory deduction warnings:",
+                  deductResult.errors,
+                );
+                toast({
+                  variant: "destructive",
+                  title: "Inventory Warning",
+                  description: deductResult.errors.join("\n"),
+                  duration: 6000,
+                });
+              } else {
+                console.log("✅ Inventory deducted (background)");
+              }
+            } catch (invErr) {
+              console.error("Inventory deduction failed (background):", invErr);
+            }
+          })(),
+        );
+      }
+
+      // Log POS transaction
+      bgTasks.push(
+        (async () => {
+          try {
+            await supabase.from("pos_transactions").insert({
+              restaurant_id: restaurantId,
+              order_id: order?.id || null,
+              kitchen_order_id: kitchenOrder?.id || null,
+              amount: subtotal,
+              payment_method: method,
+              status: "completed",
+              customer_name: finalCustomerName || null,
+              customer_phone: customerPhone || null,
+              staff_id: user?.id || null,
+              discount_amount: 0,
+            });
+            console.log("✅ POS transaction logged (background)");
+          } catch (err) {
+            console.error("POS transaction error:", err);
+          }
+        })(),
       );
+
+      // CRM sync
+      if (customerName.trim()) {
+        bgTasks.push(
+          (async () => {
+            try {
+              await syncCustomerToCRM({
+                customerName: finalCustomerName,
+                customerPhone: customerPhone || undefined,
+                orderTotal: subtotal,
+                orderId: kitchenOrder?.id || undefined,
+                source: "quickserve",
+              });
+            } catch (crmErr) {
+              console.error("CRM sync error (background):", crmErr);
+            }
+          })(),
+        );
+      }
+
+      // Let all background tasks run — don't await them
+      Promise.allSettled(bgTasks).then((results) => {
+        const failed = results.filter((r) => r.status === "rejected");
+        if (failed.length > 0) {
+          console.warn(`${failed.length} background tasks had issues`);
+        }
+      });
     } catch (error) {
       console.error("Payment error:", error);
       toast({
