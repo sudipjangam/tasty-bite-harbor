@@ -549,7 +549,7 @@ const PublicBillPage = () => {
 
           {/* Powered by footer */}
           <p className="text-center text-[10px] text-gray-600 mt-4">
-            Powered by Swadeshi Software
+            Billed by Swadeshi Solutions
           </p>
         </div>
       </div>
