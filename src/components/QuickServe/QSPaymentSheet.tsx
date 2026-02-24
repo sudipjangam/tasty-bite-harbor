@@ -11,6 +11,7 @@ import {
   Gift,
   MessageSquare,
   Share2,
+  WifiOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
@@ -29,6 +30,8 @@ import {
 import { Button } from "@/components/ui/button";
 import QRCodeLib from "qrcode";
 import { useBillSharing } from "@/hooks/useBillSharing";
+import { useNetworkStatus } from "@/contexts/NetworkStatusContext";
+import { enqueueWrite, generateOfflineOrderNumber } from "@/utils/syncManager";
 
 interface QSPaymentSheetProps {
   isOpen: boolean;
@@ -68,6 +71,38 @@ const paymentMethods = [
   },
 ];
 
+// Payment methods available to ALL users
+const allPaymentMethods = [
+  {
+    id: "cash",
+    label: "Cash",
+    icon: Banknote,
+    color: "from-green-500 to-emerald-600",
+    offlineOk: true,
+  },
+  {
+    id: "upi",
+    label: "UPI",
+    icon: Smartphone,
+    color: "from-purple-500 to-indigo-600",
+    offlineOk: false, // deep-link requires network
+  },
+  {
+    id: "card",
+    label: "Card",
+    icon: CreditCard,
+    color: "from-blue-500 to-cyan-600",
+    offlineOk: false,
+  },
+  {
+    id: "nc",
+    label: "Non-Chargeable",
+    icon: Gift,
+    color: "from-pink-500 to-rose-600",
+    offlineOk: true, // NC can be queued offline
+  },
+];
+
 export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   isOpen,
   onClose,
@@ -84,9 +119,16 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [billSent, setBillSent] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
-  const [orderNumber, setOrderNumber] = useState<number | null>(null);
+  const [orderNumber, setOrderNumber] = useState<number | string | null>(null);
+  const [isOfflineOrder, setIsOfflineOrder] = useState(false);
   const { symbol: currencySymbol } = useCurrencyContext();
-  const { restaurantId } = useRestaurantId(); // Destructure directly
+  const { restaurantId } = useRestaurantId();
+  const { isOnline } = useNetworkStatus();
+
+  // When offline, only show offline-capable payment methods
+  const paymentMethods = isOnline
+    ? allPaymentMethods
+    : allPaymentMethods.filter((m) => m.offlineOk);
 
   // Fetch restaurant details for the PDF bill
   const { data: restaurantDetails } = useQuery({
@@ -324,7 +366,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     setBillSent(false);
     setQrCodeUrl("");
     setOrderNumber(null);
-    onSuccess(savedOrderNum || undefined);
+    setIsOfflineOrder(false);
+    onSuccess(typeof savedOrderNum === "number" ? savedOrderNum : undefined);
     onClose();
   };
 
@@ -340,6 +383,91 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
 
     setSelectedMethod(method);
     setStatus("processing");
+
+    // ─── OFFLINE PATH ───────────────────────────────────────────────────────
+    if (!isOnline) {
+      try {
+        const isNC = method === "nc";
+        const orderTotal = isNC ? 0 : subtotal;
+        const attendantName = user
+          ? `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
+            user.email
+          : "Staff";
+        const finalCustomerName = customerName.trim() || "Walk-in Customer";
+        const kitchenItems = items.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          notes: [],
+        }));
+        const formattedItems = items.map(
+          (item) => `${item.quantity}x ${item.name} @${item.price}`,
+        );
+
+        const offlineToken = generateOfflineOrderNumber();
+        const sharedPayload = {
+          restaurant_id: restaurantId,
+          customer_name: finalCustomerName,
+          server_name: attendantName,
+          order_type: isNC ? "non-chargeable" : "takeaway",
+          source: "QuickServe",
+          items: kitchenItems,
+          ...(ncReason && { nc_reason: ncReason }),
+          ...(customerPhone && { customer_phone: customerPhone }),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        // Enqueue kitchen order
+        await enqueueWrite("kitchen_order", {
+          ...sharedPayload,
+          status: "completed",
+          priority: "normal",
+        });
+
+        // Enqueue POS order
+        await enqueueWrite("order", {
+          restaurant_id: restaurantId,
+          customer_name: finalCustomerName,
+          items: formattedItems,
+          total: orderTotal,
+          status: "completed",
+          payment_status: isNC ? "nc" : "paid",
+          source: "quickserve",
+          order_type: isNC ? "non-chargeable" : "takeaway",
+          attendant: attendantName,
+          ...(discountAmount > 0 && { discount_amount: discountAmount }),
+          ...(discountPercentage > 0 && {
+            discount_percentage: discountPercentage,
+          }),
+          ...(ncReason && { nc_reason: ncReason }),
+          ...(customerPhone && { customer_phone: customerPhone }),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+
+        setIsOfflineOrder(true);
+        setOrderNumber(offlineToken);
+        setStatus("success");
+        toast({
+          title: "Order Saved Locally ✓",
+          description:
+            "No internet — order queued and will sync automatically when online.",
+        });
+        return;
+      } catch (offlineErr) {
+        console.error("Offline enqueue error:", offlineErr);
+        toast({
+          title: "Failed to Save Order",
+          description: "Could not save order locally. Please try again.",
+          variant: "destructive",
+        });
+        setStatus("idle");
+        setSelectedMethod(null);
+        return;
+      }
+    }
+    // ─── END OFFLINE PATH ────────────────────────────────────────────────────
 
     try {
       if (!restaurantId) throw new Error("No restaurant ID");
@@ -580,26 +708,52 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         {status === "success" ? (
           <div className="flex flex-col items-center justify-center py-8 px-6">
             {/* Success icon + amount */}
-            <div className="w-16 h-16 bg-green-100 dark:bg-green-500/20 rounded-full flex items-center justify-center mb-3 animate-in zoom-in-50 duration-300">
-              <CheckCircle2 className="h-8 w-8 text-green-500 dark:text-green-400" />
+            <div
+              className={cn(
+                "w-16 h-16 rounded-full flex items-center justify-center mb-3 animate-in zoom-in-50 duration-300",
+                isOfflineOrder
+                  ? "bg-amber-100 dark:bg-amber-500/20"
+                  : "bg-green-100 dark:bg-green-500/20",
+              )}
+            >
+              {isOfflineOrder ? (
+                <WifiOff className="h-8 w-8 text-amber-500" />
+              ) : (
+                <CheckCircle2 className="h-8 w-8 text-green-500 dark:text-green-400" />
+              )}
             </div>
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-0.5">
-              Payment Complete!
+              {isOfflineOrder ? "Order Saved Locally!" : "Payment Complete!"}
             </h3>
-            <p className="text-gray-500 dark:text-white/60 text-sm mb-1">
-              {currencySymbol}
-              {subtotal.toFixed(2)} via {selectedMethod?.toUpperCase()}
+            <p className="text-gray-500 dark:text-white/60 text-sm mb-1 text-center">
+              {isOfflineOrder
+                ? "Will sync to server when internet is restored"
+                : `${currencySymbol}${subtotal.toFixed(2)} via ${selectedMethod?.toUpperCase()}`}
             </p>
 
             {/* Order Token Number */}
             {orderNumber && (
-              <div className="bg-gradient-to-r from-orange-500 to-pink-500 text-white px-6 py-2.5 rounded-xl mb-4 animate-in zoom-in-75 duration-500">
+              <div
+                className={cn(
+                  "text-white px-6 py-2.5 rounded-xl mb-4 animate-in zoom-in-75 duration-500",
+                  isOfflineOrder
+                    ? "bg-gradient-to-r from-amber-500 to-orange-500"
+                    : "bg-gradient-to-r from-orange-500 to-pink-500",
+                )}
+              >
                 <p className="text-[10px] uppercase tracking-widest text-white/70 text-center">
-                  Token Number
+                  {isOfflineOrder ? "Offline Token" : "Token Number"}
                 </p>
                 <p className="text-3xl font-black text-center tracking-wider">
-                  #{String(orderNumber).padStart(3, "0")}
+                  {isOfflineOrder
+                    ? `#${String(orderNumber).slice(-4)}`
+                    : `#${String(orderNumber).padStart(3, "0")}`}
                 </p>
+                {isOfflineOrder && (
+                  <p className="text-[10px] text-white/60 text-center mt-0.5">
+                    Syncs automatically when online
+                  </p>
+                )}
               </div>
             )}
 
@@ -653,7 +807,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             )}
 
             {/* Actions Container - Updated for MSG91 Integration */}
-            {customerPhone && (
+            {customerPhone && !isOfflineOrder && (
               <div className="w-full max-w-xs space-y-2 mt-2">
                 {/* Automated PDF WhatsApp (MSG91) */}
                 <Button

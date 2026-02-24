@@ -9,11 +9,14 @@ import { ThemeProvider } from "@/components/ui/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AccessProvider } from "@/contexts/AccessContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
+import { NetworkStatusProvider } from "@/contexts/NetworkStatusContext";
 import { useRealtimeAnalytics } from "@/hooks/useRealtimeAnalytics";
+import { useOfflineCache } from "@/hooks/useOfflineCache";
 import Routes from "./components/Auth/Routes";
 import NotificationListener from "@/components/Notifications/NotificationListener";
 import { UpdateNotification } from "@/components/UpdateNotification";
 import { registerServiceWorker } from "@/utils/serviceWorkerUtils";
+import { OfflineBanner } from "@/components/ui/OfflineBanner";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -29,6 +32,7 @@ const queryClient = new QueryClient({
 // Real-time analytics wrapper component
 function AppWithRealtime() {
   useRealtimeAnalytics(); // Initialize real-time subscriptions
+  useOfflineCache(); // Pre-populate IDB for offline use
   const [updateAvailable, setUpdateAvailable] = useState(false);
 
   useEffect(() => {
@@ -43,6 +47,8 @@ function AppWithRealtime() {
 
   return (
     <div className="min-h-screen w-full overflow-auto bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
+      {/* Global offline indicator */}
+      <OfflineBanner />
       <NotificationListener />
       <Routes />
       <Toaster />
@@ -61,11 +67,14 @@ function App() {
           <AuthProvider>
             <AccessProvider>
               <CurrencyProvider>
-                <ErrorBoundary>
-                  <Router>
-                    <AppWithRealtime />
-                  </Router>
-                </ErrorBoundary>
+                {/* NetworkStatusProvider must be inside AuthProvider to allow sync with auth context */}
+                <NetworkStatusProvider>
+                  <ErrorBoundary>
+                    <Router>
+                      <AppWithRealtime />
+                    </Router>
+                  </ErrorBoundary>
+                </NetworkStatusProvider>
               </CurrencyProvider>
             </AccessProvider>
           </AuthProvider>
