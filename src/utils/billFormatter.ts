@@ -19,6 +19,9 @@ export interface BillFormatParams {
   paymentMethod?: string;
   tableNumber?: string;
   customerName?: string;
+  customerPhone?: string;
+  orderNumber?: string;
+  orderType?: string;
   orderDate?: string;
   currencySymbol?: string;
   isNonChargeable?: boolean;
@@ -197,6 +200,9 @@ const COMPACT_KEYS: Record<string, string> = {
   manualDiscountPercent: "md",
   tableNumber: "tn",
   customerName: "cn",
+  customerPhone: "cp",
+  orderNumber: "on",
+  orderType: "ot",
   orderDate: "od",
   currencySymbol: "cs",
   paymentMethod: "pm",
