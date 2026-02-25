@@ -472,6 +472,7 @@ const RestaurantManagement = () => {
       established_date: string;
       seating_capacity: string;
       description: string;
+      location_type: string;
       owner_name: string;
       owner_email: string;
       owner_phone: string;
@@ -503,6 +504,7 @@ const RestaurantManagement = () => {
             ? parseInt(data.seating_capacity)
             : null,
           description: data.description || null,
+          location_type: data.location_type || "fixed",
           owner_name: data.owner_name || null,
           owner_email: data.owner_email || null,
           owner_phone: data.owner_phone || null,
@@ -532,9 +534,32 @@ const RestaurantManagement = () => {
     },
   });
 
-  // Delete restaurant
+  // Delete restaurant (cascade: clean up auth users first)
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      // Step 1: Get all users associated with this restaurant
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("restaurant_id", id);
+
+      // Step 2: Delete each user from auth via edge function
+      if (profiles && profiles.length > 0) {
+        for (const profile of profiles) {
+          try {
+            await supabase.functions.invoke("user-management", {
+              body: {
+                action: "delete_user",
+                userData: { id: profile.id },
+              },
+            });
+          } catch (e) {
+            console.warn("Failed to delete user:", profile.id, e);
+          }
+        }
+      }
+
+      // Step 3: Delete the restaurant
       const { error } = await supabase
         .from("restaurants")
         .delete()
@@ -544,7 +569,8 @@ const RestaurantManagement = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["platform-restaurants"] });
       queryClient.invalidateQueries({ queryKey: ["platform-stats"] });
-      toast.success("Restaurant deleted");
+      queryClient.invalidateQueries({ queryKey: ["platform-all-users"] });
+      toast.success("Restaurant and all associated users deleted");
       setIsDeleteOpen(false);
       setSelectedRestaurant(null);
     },

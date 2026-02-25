@@ -54,7 +54,21 @@ import {
   Phone,
   ChevronDown,
   ChevronUp,
+  UserPlus,
+  Trash2,
+  Key,
+  ArrowRight,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Profile {
   id: string;
@@ -77,7 +91,19 @@ const AllUsers = () => {
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isReassignOpen, setIsReassignOpen] = useState(false);
   const [editRole, setEditRole] = useState("");
+  const [reassignRestaurantId, setReassignRestaurantId] = useState("");
+  const [newUserData, setNewUserData] = useState({
+    email: "",
+    password: "",
+    first_name: "",
+    last_name: "",
+    role: "staff" as string,
+    restaurant_id: "",
+  });
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     new Set(["all"]),
   );
@@ -113,6 +139,20 @@ const AllUsers = () => {
       const { data, error } = await query;
       if (error) throw error;
       return data as Profile[];
+    },
+  });
+
+  // Fetch restaurants for dropdown
+  const { data: restaurants = [] } = useQuery({
+    queryKey: ["platform-restaurants-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("restaurants")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
     },
   });
 
@@ -174,6 +214,137 @@ const AllUsers = () => {
     },
   });
 
+  // Create user via Edge Function
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: typeof newUserData) => {
+      if (!userData.email || !userData.password) {
+        throw new Error("Email and password are required");
+      }
+      if (userData.password.length < 8) {
+        throw new Error("Password must be at least 8 characters");
+      }
+      if (!userData.restaurant_id) {
+        throw new Error("Please select a restaurant");
+      }
+
+      const { data, error } = await supabase.functions.invoke(
+        "user-management",
+        {
+          body: {
+            action: "create_user",
+            userData: {
+              email: userData.email,
+              password: userData.password,
+              first_name: userData.first_name || "User",
+              last_name: userData.last_name || "",
+              role: userData.role,
+              restaurant_id: userData.restaurant_id,
+            },
+          },
+        },
+      );
+
+      if (error) throw new Error(error.message || "Failed to create user");
+      if (!data?.success)
+        throw new Error(data?.error || "Failed to create user");
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["platform-all-users"] });
+      toast.success("User created successfully! They can sign in immediately.");
+      setIsAddOpen(false);
+      setNewUserData({
+        email: "",
+        password: "",
+        first_name: "",
+        last_name: "",
+        role: "staff",
+        restaurant_id: "",
+      });
+    },
+    onError: (error: any) => {
+      toast.error(`Failed: ${error.message}`);
+    },
+  });
+
+  // Delete user via Edge Function (removes auth + profile)
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.functions.invoke(
+        "user-management",
+        {
+          body: {
+            action: "delete_user",
+            userData: { id: userId },
+          },
+        },
+      );
+      if (error) throw new Error(error.message || "Failed to delete user");
+      if (!data?.success)
+        throw new Error(data?.error || "Failed to delete user");
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["platform-all-users"] });
+      toast.success("User completely deleted (auth + profile)");
+      setIsDeleteOpen(false);
+      setSelectedUser(null);
+    },
+    onError: (error: any) => {
+      toast.error(`Failed: ${error.message}`);
+    },
+  });
+
+  // Reassign user to a different restaurant
+  const reassignMutation = useMutation({
+    mutationFn: async ({
+      userId,
+      restaurantId,
+    }: {
+      userId: string;
+      restaurantId: string;
+    }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ restaurant_id: restaurantId || null })
+        .eq("id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["platform-all-users"] });
+      toast.success("User reassigned to new restaurant");
+      setIsReassignOpen(false);
+      setSelectedUser(null);
+    },
+    onError: (error: any) => {
+      toast.error(`Failed: ${error.message}`);
+    },
+  });
+
+  // Reset password via Edge Function
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (email: string) => {
+      const { data, error } = await supabase.functions.invoke(
+        "user-management",
+        {
+          body: {
+            action: "reset_password",
+            userData: { email },
+          },
+        },
+      );
+      if (error) throw new Error(error.message || "Failed to send reset");
+      if (!data?.success) throw new Error(data?.error || "Failed");
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Password reset email sent!");
+    },
+    onError: (error: any) => {
+      toast.error(`Failed: ${error.message}`);
+    },
+  });
+
   const getRoleBadge = (role: string) => {
     const styles: Record<string, string> = {
       admin:
@@ -215,9 +386,16 @@ const AllUsers = () => {
             All Users
           </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1">
-            View and manage platform users across all restaurants
+            Manage platform users — create, edit, delete, reassign
           </p>
         </div>
+        <Button
+          onClick={() => setIsAddOpen(true)}
+          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg"
+        >
+          <UserPlus className="h-4 w-4 mr-2" />
+          Add User
+        </Button>
       </div>
 
       {/* Filters */}
@@ -399,6 +577,44 @@ const AllUsers = () => {
                                       <Edit className="h-4 w-4 mr-2" /> Change
                                       Role
                                     </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setSelectedUser(user);
+                                        setReassignRestaurantId(
+                                          user.restaurant_id || "",
+                                        );
+                                        setIsReassignOpen(true);
+                                      }}
+                                    >
+                                      <ArrowRight className="h-4 w-4 mr-2" />{" "}
+                                      Reassign Restaurant
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        if (user.email) {
+                                          resetPasswordMutation.mutate(
+                                            user.email,
+                                          );
+                                        } else {
+                                          toast.error(
+                                            "No email found for this user",
+                                          );
+                                        }
+                                      }}
+                                    >
+                                      <Key className="h-4 w-4 mr-2" /> Reset
+                                      Password
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      className="text-red-600 focus:text-red-700"
+                                      onClick={() => {
+                                        setSelectedUser(user);
+                                        setIsDeleteOpen(true);
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                      User
+                                    </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </TableCell>
@@ -528,6 +744,228 @@ const AllUsers = () => {
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}
               Update Role
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add User Dialog */}
+      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-purple-600" />
+              Add New User
+            </DialogTitle>
+            <DialogDescription>
+              Create a new user account — no manual Supabase setup needed
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">First Name</Label>
+                <Input
+                  value={newUserData.first_name}
+                  onChange={(e) =>
+                    setNewUserData({
+                      ...newUserData,
+                      first_name: e.target.value,
+                    })
+                  }
+                  placeholder="John"
+                  className="mt-1 h-9 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Last Name</Label>
+                <Input
+                  value={newUserData.last_name}
+                  onChange={(e) =>
+                    setNewUserData({
+                      ...newUserData,
+                      last_name: e.target.value,
+                    })
+                  }
+                  placeholder="Doe"
+                  className="mt-1 h-9 text-sm"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">
+                Email <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                type="email"
+                value={newUserData.email}
+                onChange={(e) =>
+                  setNewUserData({ ...newUserData, email: e.target.value })
+                }
+                placeholder="user@example.com"
+                className="mt-1 h-9 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">
+                Password <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                type="password"
+                value={newUserData.password}
+                onChange={(e) =>
+                  setNewUserData({ ...newUserData, password: e.target.value })
+                }
+                placeholder="Min 8 characters"
+                className="mt-1 h-9 text-sm"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Role</Label>
+                <Select
+                  value={newUserData.role}
+                  onValueChange={(v) =>
+                    setNewUserData({ ...newUserData, role: v })
+                  }
+                >
+                  <SelectTrigger className="mt-1 h-9 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {role.charAt(0).toUpperCase() + role.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">
+                  Restaurant <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={newUserData.restaurant_id}
+                  onValueChange={(v) =>
+                    setNewUserData({ ...newUserData, restaurant_id: v })
+                  }
+                >
+                  <SelectTrigger className="mt-1 h-9 text-sm">
+                    <SelectValue placeholder="Select restaurant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {restaurants.map((r: any) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => createUserMutation.mutate(newUserData)}
+              disabled={createUserMutation.isPending}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {createUserMutation.isPending && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              Create User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Dialog */}
+      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User Permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete{" "}
+              <strong>
+                {selectedUser?.first_name || selectedUser?.email || "this user"}
+              </strong>{" "}
+              from both the application and Supabase authentication. This action
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                selectedUser && deleteUserMutation.mutate(selectedUser.id)
+              }
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteUserMutation.isPending && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              Delete Permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reassign Restaurant Dialog */}
+      <Dialog open={isReassignOpen} onOpenChange={setIsReassignOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reassign User to Restaurant</DialogTitle>
+            <DialogDescription>
+              Move <strong>{selectedUser?.first_name || "this user"}</strong> to
+              a different restaurant
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label>Select Restaurant</Label>
+            <Select
+              value={reassignRestaurantId}
+              onValueChange={setReassignRestaurantId}
+            >
+              <SelectTrigger className="mt-2">
+                <SelectValue placeholder="Select restaurant" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">— Unassigned —</SelectItem>
+                {restaurants.map((r: any) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsReassignOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedUser) {
+                  reassignMutation.mutate({
+                    userId: selectedUser.id,
+                    restaurantId:
+                      reassignRestaurantId === "unassigned"
+                        ? ""
+                        : reassignRestaurantId,
+                  });
+                }
+              }}
+              disabled={reassignMutation.isPending}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {reassignMutation.isPending && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              Reassign
             </Button>
           </DialogFooter>
         </DialogContent>
