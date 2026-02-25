@@ -50,6 +50,17 @@ export default defineConfig(({ mode }) => {
   server: {
     host: "::",
     port: 8080,
+    proxy: {
+      // Proxy /api/supabase to the real Supabase URL during local development.
+      // In production, Vercel/Netlify rewrites handle this instead.
+      // This bypasses Jio and other ISP blocks on *.supabase.co domains.
+      '/api/supabase': {
+        target: 'https://clmsoetktmvhazctlans.supabase.co',
+        changeOrigin: true,
+        rewrite: (path: string) => path.replace(/^\/api\/supabase/, ''),
+        secure: true,
+      },
+    },
   },
   plugins: [
     react(),
