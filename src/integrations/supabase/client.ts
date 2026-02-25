@@ -19,6 +19,12 @@ const supabaseUrl = rawSupabaseUrl.startsWith('http')
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Direct Supabase URL for OAuth flows.
+// Google OAuth requires the browser to redirect through Supabase's actual domain
+// for the callback (Google → supabase.co/auth/v1/callback → your app).
+// This step cannot be proxied, so we use the direct URL for OAuth initiation.
+export const SUPABASE_DIRECT_URL = 'https://clmsoetktmvhazctlans.supabase.co';
+
 // Re-export types from their proper locations for backwards compatibility
 export type { RoomFoodOrder, ReservationWithSpecialOccasion } from '@/types/rooms';
 export type { PromotionCampaign, SentPromotion } from '@/types/promotions';
