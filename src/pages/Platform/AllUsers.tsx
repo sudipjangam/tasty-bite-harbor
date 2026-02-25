@@ -79,7 +79,7 @@ const AllUsers = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editRole, setEditRole] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set(["all"])
+    new Set(["all"]),
   );
 
   // Fetch all users
@@ -96,13 +96,13 @@ const AllUsers = () => {
           `
           *,
           restaurants (name)
-        `
+        `,
         )
         .order("created_at", { ascending: false });
 
       if (searchQuery) {
         query = query.or(
-          `first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%`
+          `first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%`,
         );
       }
 
@@ -128,7 +128,7 @@ const AllUsers = () => {
       groups[restaurantId].users.push(user);
     });
     return Object.entries(groups).sort((a, b) =>
-      a[1].name.localeCompare(b[1].name)
+      a[1].name.localeCompare(b[1].name),
     );
   }, [users]);
 
@@ -155,9 +155,11 @@ const AllUsers = () => {
   // Update user role
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      // Capitalize the role for display (e.g., "staff" → "Staff", "owner" → "Owner")
+      const roleNameText = role.charAt(0).toUpperCase() + role.slice(1);
       const { error } = await supabase
         .from("profiles")
-        .update({ role })
+        .update({ role, role_name_text: roleNameText })
         .eq("id", userId);
       if (error) throw error;
     },
