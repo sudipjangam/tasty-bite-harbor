@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_DIRECT_URL } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import {
@@ -164,13 +164,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
           onClick={async () => {
             setLoading(true);
             try {
-              const { error } = await supabase.auth.signInWithOAuth({
-                provider: "google",
-                options: {
-                  redirectTo: `${window.location.origin}/auth/callback`,
-                },
-              });
-              if (error) throw error;
+              // Google OAuth requires direct browser navigation to Supabase's actual domain.
+              // The OAuth callback from Google goes directly to supabase.co (not through our proxy),
+              // so we must initiate the flow from the direct URL as well.
+              const redirectTo = `${window.location.origin}/auth/callback`;
+              window.location.href = `${SUPABASE_DIRECT_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
             } catch (error: any) {
               console.error("Google login error:", error);
               toast({
