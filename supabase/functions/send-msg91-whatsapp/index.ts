@@ -1,4 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  RATE_LIMITS,
+  getRequestIdentifier,
+} from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,6 +28,43 @@ serve(async (req) => {
   }
 
   try {
+    // ── SECURITY: JWT Authentication ─────────────────────────────────────
+    // Verify that the caller has a valid Supabase session.
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Missing Authorization header" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+      );
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      console.error("Auth validation failed:", authError?.message);
+      return new Response(
+        JSON.stringify({ success: false, error: "Unauthorized: Invalid or expired token" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+      );
+    }
+
+    console.log(`Authenticated user: ${user.id}`);
+
+    // ── SECURITY: Rate Limiting ──────────────────────────────────────────
+    const identifier = getRequestIdentifier(req, authHeader);
+    const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.WHATSAPP);
+
+    if (!rateLimitResult.allowed) {
+      console.log(`MSG91 rate limit exceeded for ${identifier}`);
+      return createRateLimitResponse(rateLimitResult, corsHeaders);
+    }
+
+    // ── Business Logic ───────────────────────────────────────────────────
     const MSG91_AUTH_KEY = Deno.env.get("MSG91_AUTH_KEY");
     const MSG91_INTEGRATED_NUMBER = Deno.env.get("MSG91_INTEGRATED_NUMBER");
 

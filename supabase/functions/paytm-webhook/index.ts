@@ -1,6 +1,12 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { verifyPaytmChecksum } from '../_shared/paytm-checksum.ts';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  RATE_LIMITS,
+  getRequestIdentifier,
+} from '../_shared/rate-limit.ts';
 
 /**
  * Paytm Webhook Handler
@@ -35,6 +41,14 @@ serve(async (req) => {
       JSON.stringify({ error: 'Method not allowed' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 405 }
     );
+  }
+
+  // Rate limiting — 50 webhook calls per minute per IP
+  const identifier = getRequestIdentifier(req, null);
+  const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.SENSITIVE);
+  if (!rateLimitResult.allowed) {
+    console.log(`Paytm webhook rate limit exceeded for ${identifier}`);
+    return createRateLimitResponse(rateLimitResult, corsHeaders);
   }
 
   try {
