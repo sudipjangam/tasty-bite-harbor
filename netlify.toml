@@ -1,0 +1,12 @@
+# Proxy Supabase API requests through Netlify to bypass ISP blocks (e.g., Jio)
+[[redirects]]
+  from = "/api/supabase/*"
+  to = "https://clmsoetktmvhazctlans.supabase.co/:splat"
+  status = 200
+  force = true
+
+# SPA fallback - serve index.html for all client-side routes
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

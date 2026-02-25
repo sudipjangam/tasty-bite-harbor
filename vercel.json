@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/supabase/:match*",
+      "destination": "https://clmsoetktmvhazctlans.supabase.co/:match*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
