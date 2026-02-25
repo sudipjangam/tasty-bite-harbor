@@ -83,6 +83,8 @@ import {
   UserPlus,
   UserX,
   Key,
+  Truck,
+  Lock,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -200,6 +202,8 @@ const RestaurantManagement = () => {
     }
   };
 
+  const [isCreating, setIsCreating] = useState(false);
+
   // Form state
   const [formData, setFormData] = useState({
     name: "",
@@ -213,12 +217,14 @@ const RestaurantManagement = () => {
     established_date: "",
     seating_capacity: "",
     description: "",
+    location_type: "fixed",
     owner_name: "",
     owner_email: "",
     owner_phone: "",
     owner_address: "",
     owner_id_type: "aadhar",
     owner_id_number: "",
+    owner_password: "",
     emergency_contact_name: "",
     emergency_contact_phone: "",
     bank_name: "",
@@ -229,6 +235,23 @@ const RestaurantManagement = () => {
     payment_gateway_enabled: false,
     planId: "",
   });
+
+  // Helper: compute subscription end date based on plan interval
+  const getSubscriptionEndDate = (interval: string): string => {
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    switch (interval) {
+      case "yearly":
+        return new Date(now + 365 * dayMs).toISOString();
+      case "half_yearly":
+        return new Date(now + 182 * dayMs).toISOString();
+      case "quarterly":
+        return new Date(now + 90 * dayMs).toISOString();
+      case "monthly":
+      default:
+        return new Date(now + 30 * dayMs).toISOString();
+    }
+  };
 
   // Fetch restaurants
   const {
@@ -251,7 +274,7 @@ const RestaurantManagement = () => {
             subscription_plans:plan_id (id, name, price)
           ),
           profiles (id, first_name, last_name, role)
-        `
+        `,
         )
         .order("created_at", { ascending: false });
 
@@ -296,7 +319,9 @@ const RestaurantManagement = () => {
   // Create restaurant
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      // Create restaurant
+      setIsCreating(true);
+
+      // Step 1: Create restaurant
       const { data: restaurant, error: restError } = await supabase
         .from("restaurants")
         .insert({
@@ -313,6 +338,7 @@ const RestaurantManagement = () => {
             ? parseInt(data.seating_capacity)
             : null,
           description: data.description || null,
+          location_type: data.location_type || "fixed",
           owner_name: data.owner_name || null,
           owner_email: data.owner_email || null,
           owner_phone: data.owner_phone || null,
@@ -335,8 +361,12 @@ const RestaurantManagement = () => {
 
       if (restError) throw restError;
 
-      // Create subscription if plan selected
+      // Step 2: Create subscription if plan selected (with correct period)
       if (data.planId) {
+        const selectedPlan = plans.find((p) => p.id === data.planId);
+        const endDate = getSubscriptionEndDate(
+          selectedPlan?.interval || "monthly",
+        );
         const { error: subError } = await supabase
           .from("restaurant_subscriptions")
           .insert({
@@ -344,23 +374,85 @@ const RestaurantManagement = () => {
             plan_id: data.planId,
             status: "active",
             current_period_start: new Date().toISOString(),
-            current_period_end: new Date(
-              Date.now() + 30 * 24 * 60 * 60 * 1000
-            ).toISOString(),
+            current_period_end: endDate,
           });
-        if (subError) throw subError;
+        if (subError) {
+          console.error("Subscription creation failed:", subError);
+          toast.error(
+            "Restaurant created but subscription failed. Please add it manually.",
+          );
+        }
+      }
+
+      // Step 3: Seed system roles for this restaurant
+      try {
+        const { error: seedError } = await supabase.rpc("seed_system_roles", {
+          p_restaurant_id: restaurant.id,
+        });
+        if (seedError) {
+          console.error("Role seeding failed:", seedError);
+        }
+      } catch (e) {
+        console.error("Role seeding exception:", e);
+      }
+
+      // Step 4: Create owner auth user if email + password provided
+      if (data.owner_email && data.owner_password) {
+        try {
+          const ownerFirstName = data.owner_name?.split(" ")[0] || "Owner";
+          const ownerLastName =
+            data.owner_name?.split(" ").slice(1).join(" ") || "";
+
+          const { data: fnData, error: fnError } =
+            await supabase.functions.invoke("user-management", {
+              body: {
+                action: "create_user",
+                userData: {
+                  email: data.owner_email,
+                  password: data.owner_password,
+                  first_name: ownerFirstName,
+                  last_name: ownerLastName,
+                  role: "owner",
+                  restaurant_id: restaurant.id,
+                },
+              },
+            });
+
+          if (fnError) {
+            console.error("Owner user creation failed:", fnError);
+            toast.error(
+              "Restaurant created but owner login setup failed: " +
+                (fnError.message || "Unknown error"),
+            );
+          } else if (!fnData?.success) {
+            console.error("Owner creation returned failure:", fnData);
+            toast.error(
+              "Restaurant created but owner login failed: " +
+                (fnData?.error || "Unknown error"),
+            );
+          } else {
+            toast.success(
+              "Owner login account created! They can sign in immediately.",
+            );
+          }
+        } catch (e: any) {
+          console.error("Owner creation exception:", e);
+          toast.error("Restaurant created but owner user failed: " + e.message);
+        }
       }
 
       return restaurant;
     },
     onSuccess: () => {
+      setIsCreating(false);
       queryClient.invalidateQueries({ queryKey: ["platform-restaurants"] });
       queryClient.invalidateQueries({ queryKey: ["platform-stats"] });
-      toast.success("Restaurant created successfully");
+      toast.success("Restaurant onboarded successfully!");
       setIsAddOpen(false);
       resetForm();
     },
     onError: (error: any) => {
+      setIsCreating(false);
       toast.error(`Failed to create: ${error.message}`);
     },
   });
@@ -476,7 +568,7 @@ const RestaurantManagement = () => {
             plan_id: data.planId,
             current_period_start: new Date().toISOString(),
             current_period_end: new Date(
-              Date.now() + 30 * 24 * 60 * 60 * 1000
+              Date.now() + 30 * 24 * 60 * 60 * 1000,
             ).toISOString(),
           })
           .eq("id", data.existingSubId);
@@ -491,7 +583,7 @@ const RestaurantManagement = () => {
             status: "active",
             current_period_start: new Date().toISOString(),
             current_period_end: new Date(
-              Date.now() + 30 * 24 * 60 * 60 * 1000
+              Date.now() + 30 * 24 * 60 * 60 * 1000,
             ).toISOString(),
           });
         if (error) throw error;
@@ -522,12 +614,14 @@ const RestaurantManagement = () => {
       established_date: "",
       seating_capacity: "",
       description: "",
+      location_type: "fixed",
       owner_name: "",
       owner_email: "",
       owner_phone: "",
       owner_address: "",
       owner_id_type: "aadhar",
       owner_id_number: "",
+      owner_password: "",
       emergency_contact_name: "",
       emergency_contact_phone: "",
       bank_name: "",
@@ -922,8 +1016,8 @@ const RestaurantManagement = () => {
                           isActive
                             ? "bg-purple-600 border-purple-100 dark:border-purple-900/30 text-white shadow-lg shadow-purple-500/30 scale-110"
                             : isCompleted
-                            ? "bg-emerald-500 border-emerald-100 dark:border-emerald-900/30 text-white"
-                            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 group-hover:border-purple-200 dark:group-hover:border-purple-800"
+                              ? "bg-emerald-500 border-emerald-100 dark:border-emerald-900/30 text-white"
+                              : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 group-hover:border-purple-200 dark:group-hover:border-purple-800"
                         }`}
                       >
                         {isCompleted ? (
@@ -937,8 +1031,8 @@ const RestaurantManagement = () => {
                           isActive
                             ? "text-purple-600 dark:text-purple-400"
                             : isCompleted
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-slate-400"
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-slate-400"
                         }`}
                       >
                         {step.label}
@@ -1072,6 +1166,31 @@ const RestaurantManagement = () => {
                       className="mt-1.5 bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 min-h-[80px]"
                     />
                   </div>
+                  <div className="col-span-2">
+                    <Label className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                      <Truck className="h-3.5 w-3.5 text-orange-500" />
+                      Business Location Type
+                    </Label>
+                    <Select
+                      value={formData.location_type}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, location_type: v })
+                      }
+                    >
+                      <SelectTrigger className="mt-1.5 h-11 bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fixed">
+                          🏢 Fixed Location — Restaurant with a permanent
+                          address
+                        </SelectItem>
+                        <SelectItem value="mobile">
+                          🚚 Mobile / Food Truck — Changes location regularly
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </TabsContent>
 
@@ -1134,6 +1253,54 @@ const RestaurantManagement = () => {
               </TabsContent>
 
               <TabsContent value="owner" className="space-y-4">
+                {/* Owner Login Account Section */}
+                <div className="p-4 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800/30 mb-2">
+                  <h4 className="font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-2 mb-1">
+                    <Key className="h-4 w-4" />
+                    Owner Login Account
+                  </h4>
+                  <p className="text-xs text-amber-600/80 dark:text-amber-400/60 mb-3">
+                    Set a password so the owner can log in immediately — no
+                    manual Supabase setup needed.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">
+                        Owner Email (= login email)
+                      </Label>
+                      <Input
+                        type="email"
+                        value={formData.owner_email}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            owner_email: e.target.value,
+                          })
+                        }
+                        placeholder="owner@restaurant.com"
+                        className="mt-1 h-9 text-sm bg-white dark:bg-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs flex items-center gap-1">
+                        <Lock className="h-3 w-3" /> Login Password
+                      </Label>
+                      <Input
+                        type="password"
+                        value={formData.owner_password}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            owner_password: e.target.value,
+                          })
+                        }
+                        placeholder="Min 8 characters"
+                        className="mt-1 h-9 text-sm bg-white dark:bg-slate-900"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Owner Name</Label>
@@ -1143,20 +1310,6 @@ const RestaurantManagement = () => {
                         setFormData({ ...formData, owner_name: e.target.value })
                       }
                       placeholder="Full Name"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label>Owner Email</Label>
-                    <Input
-                      value={formData.owner_email}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          owner_email: e.target.value,
-                        })
-                      }
-                      placeholder="email@example.com"
                       className="mt-1"
                     />
                   </div>
@@ -1921,7 +2074,7 @@ const RestaurantManagement = () => {
                       <span className="ml-2 font-medium">
                         {selectedRestaurant?.created_at
                           ? new Date(
-                              selectedRestaurant.created_at
+                              selectedRestaurant.created_at,
                             ).toLocaleDateString()
                           : "N/A"}
                       </span>
@@ -1955,13 +2108,14 @@ const RestaurantManagement = () => {
                           </p>
                         </div>
                         {getStatusBadge(
-                          selectedRestaurant.restaurant_subscriptions.status
+                          selectedRestaurant.restaurant_subscriptions.status,
                         )}
                       </div>
                       <p className="text-sm text-slate-500 mt-2">
                         Expires:{" "}
                         {new Date(
-                          selectedRestaurant.restaurant_subscriptions.current_period_end
+                          selectedRestaurant.restaurant_subscriptions
+                            .current_period_end,
                         ).toLocaleDateString()}
                       </p>
                     </div>
@@ -2444,7 +2598,7 @@ const RestaurantManagement = () => {
                                 restaurant_id: selectedRestaurant.id,
                               },
                             },
-                          }
+                          },
                         );
 
                         console.log("Edge Function response:", { data, error });
@@ -2458,7 +2612,7 @@ const RestaurantManagement = () => {
                         if (!data?.success) {
                           console.error(
                             "Edge Function returned failure:",
-                            data
+                            data,
                           );
                           toast.error(data?.error || "Failed to create user");
                           return;
@@ -2508,12 +2662,12 @@ const RestaurantManagement = () => {
                               user.role === "owner"
                                 ? "bg-gradient-to-br from-amber-500 to-orange-600"
                                 : user.role === "manager"
-                                ? "bg-gradient-to-br from-purple-500 to-indigo-600"
-                                : user.role === "chef"
-                                ? "bg-gradient-to-br from-red-500 to-rose-600"
-                                : user.role === "waiter"
-                                ? "bg-gradient-to-br from-emerald-500 to-teal-600"
-                                : "bg-gradient-to-br from-slate-500 to-slate-600"
+                                  ? "bg-gradient-to-br from-purple-500 to-indigo-600"
+                                  : user.role === "chef"
+                                    ? "bg-gradient-to-br from-red-500 to-rose-600"
+                                    : user.role === "waiter"
+                                      ? "bg-gradient-to-br from-emerald-500 to-teal-600"
+                                      : "bg-gradient-to-br from-slate-500 to-slate-600"
                             }`}
                           >
                             {(user.first_name?.[0] || "U").toUpperCase()}
@@ -2535,12 +2689,12 @@ const RestaurantManagement = () => {
                               user.role === "owner"
                                 ? "border-amber-300 text-amber-700 bg-amber-50 dark:border-amber-600 dark:text-amber-400 dark:bg-amber-900/20"
                                 : user.role === "manager"
-                                ? "border-purple-300 text-purple-700 bg-purple-50 dark:border-purple-600 dark:text-purple-400 dark:bg-purple-900/20"
-                                : user.role === "chef"
-                                ? "border-red-300 text-red-700 bg-red-50 dark:border-red-600 dark:text-red-400 dark:bg-red-900/20"
-                                : user.role === "waiter"
-                                ? "border-emerald-300 text-emerald-700 bg-emerald-50 dark:border-emerald-600 dark:text-emerald-400 dark:bg-emerald-900/20"
-                                : "border-slate-300 text-slate-600 bg-slate-50"
+                                  ? "border-purple-300 text-purple-700 bg-purple-50 dark:border-purple-600 dark:text-purple-400 dark:bg-purple-900/20"
+                                  : user.role === "chef"
+                                    ? "border-red-300 text-red-700 bg-red-50 dark:border-red-600 dark:text-red-400 dark:bg-red-900/20"
+                                    : user.role === "waiter"
+                                      ? "border-emerald-300 text-emerald-700 bg-emerald-50 dark:border-emerald-600 dark:text-emerald-400 dark:bg-emerald-900/20"
+                                      : "border-slate-300 text-slate-600 bg-slate-50"
                             }`}
                           >
                             {user.role}
@@ -2554,7 +2708,7 @@ const RestaurantManagement = () => {
                                 !confirm(
                                   `Remove ${
                                     user.first_name || "this user"
-                                  } from the restaurant?`
+                                  } from the restaurant?`,
                                 )
                               )
                                 return;
