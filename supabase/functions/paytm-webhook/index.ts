@@ -96,33 +96,45 @@ serve(async (req) => {
     }
 
     // Step 2: Verify checksum using merchant key
-    if (receivedChecksum && mid) {
-      const { data: settings } = await supabaseClient
-        .from('payment_settings')
-        .select('paytm_merchant_key')
-        .eq('restaurant_id', transaction.restaurant_id)
-        .maybeSingle();
+    if (!receivedChecksum || !mid) {
+      console.error('Webhook missing checksum or MID for orderId:', orderId);
+      return new Response(
+        JSON.stringify({ error: 'Missing checksum or MID' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
 
-      if (settings?.paytm_merchant_key) {
-        // Remove checksum from body before verification
-        const bodyForVerification = { ...body };
-        delete bodyForVerification.CHECKSUMHASH;
-        
-        const isValid = await verifyPaytmChecksum(
-          bodyForVerification,
-          receivedChecksum,
-          settings.paytm_merchant_key
+    const { data: settings } = await supabaseClient
+      .from('payment_settings')
+      .select('paytm_merchant_key')
+      .eq('restaurant_id', transaction.restaurant_id)
+      .maybeSingle();
+
+    if (settings?.paytm_merchant_key) {
+      // Remove checksum from body before verification
+      const bodyForVerification = { ...body };
+      delete bodyForVerification.CHECKSUMHASH;
+      
+      const isValid = await verifyPaytmChecksum(
+        bodyForVerification,
+        receivedChecksum,
+        settings.paytm_merchant_key
+      );
+
+      if (!isValid) {
+        console.error(`Checksum verification FAILED for orderId: ${orderId}`);
+        return new Response(
+          JSON.stringify({ error: 'Checksum verification failed' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
         );
-
-        if (!isValid) {
-          console.error(`Checksum verification FAILED for orderId: ${orderId}`);
-          return new Response(
-            JSON.stringify({ error: 'Checksum verification failed' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
-          );
-        }
-        console.log(`Checksum verified for orderId: ${orderId}`);
       }
+      console.log(`Checksum verified for orderId: ${orderId}`);
+    } else {
+      console.error(`Paytm merchant key not found for restaurant: ${transaction.restaurant_id}`);
+      return new Response(
+        JSON.stringify({ error: 'Payment gateway configuration missing' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
     }
 
     // Step 3: Determine new status
