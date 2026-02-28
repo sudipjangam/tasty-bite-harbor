@@ -58,7 +58,12 @@ export default defineConfig(({ mode }) => {
         target: 'https://clmsoetktmvhazctlans.supabase.co',
         changeOrigin: true,
         rewrite: (path: string) => path.replace(/^\/api\/supabase/, ''),
-        secure: true,
+        secure: false,
+        configure: (proxy: any) => {
+          proxy.on('error', (err: any) => {
+            console.error('[Proxy Error]', err.message);
+          });
+        },
       },
     },
   },

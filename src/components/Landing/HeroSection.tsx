@@ -1,7 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Play, CheckCircle, Star, Utensils, ChefHat, Receipt } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import {
+  ArrowRight,
+  Play,
+  CheckCircle,
+  Star,
+  Utensils,
+  ChefHat,
+  Receipt,
+  Flame,
+  Users,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export const HeroSection: React.FC = () => {
   const navigate = useNavigate();
@@ -13,21 +23,24 @@ export const HeroSection: React.FC = () => {
 
   // Stats with animated counting
   const stats = [
-    { number: '500+', label: 'Happy Restaurants', delay: 0 },
-    { number: '1M+', label: 'Orders Processed', delay: 100 },
-    { number: '99.9%', label: 'Uptime Guarantee', delay: 200 },
-    { number: '4.9★', label: 'Customer Rating', delay: 300 },
+    { number: "500+", label: "Happy Restaurants", delay: 0 },
+    { number: "1M+", label: "Orders Processed", delay: 100 },
+    { number: "99.9%", label: "Uptime Guarantee", delay: 200 },
+    { number: "4.9★", label: "Customer Rating", delay: 300 },
   ];
 
   return (
-    <section id="hero" className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
+    <section
+      id="hero"
+      className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20"
+    >
       {/* Animated Background */}
       <div className="absolute inset-0 landing-hero-bg">
         {/* Decorative blobs */}
         <div className="absolute top-20 right-10 w-72 h-72 landing-blob-1 rounded-full blur-3xl opacity-60" />
         <div className="absolute bottom-20 left-10 w-96 h-96 landing-blob-2 rounded-full blur-3xl opacity-50" />
         <div className="absolute top-1/2 left-1/3 w-64 h-64 landing-blob-3 rounded-full blur-3xl opacity-40" />
-        
+
         {/* Floating decorative elements */}
         <div className="absolute top-32 left-20 animate-float-slow animation-delay-500">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF6B6B] to-[#FF8E8E] flex items-center justify-center shadow-lg">
@@ -54,7 +67,9 @@ export const HeroSection: React.FC = () => {
       <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           {/* Left Content */}
-          <div className={`space-y-8 ${isVisible ? 'animate-fade-in-left' : 'opacity-0'}`}>
+          <div
+            className={`space-y-8 ${isVisible ? "animate-fade-in-left" : "opacity-0"}`}
+          >
             {/* Badge */}
             <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/80 dark:bg-[#2D3A5F]/80 backdrop-blur-sm rounded-full shadow-md border border-[#FF6B6B]/20">
               <span className="flex h-3 w-3">
@@ -73,12 +88,28 @@ export const HeroSection: React.FC = () => {
                 <br />
                 <span className="landing-gradient-text">Restaurant</span>
                 <br />
-                <span className="text-[#2D3A5F] dark:text-white">Like a Pro</span>
+                <span className="text-[#2D3A5F] dark:text-white">
+                  Like a Pro
+                </span>
               </h1>
               <p className="text-xl text-gray-600 dark:text-gray-300 max-w-lg leading-relaxed">
-                All-in-one platform to manage orders, inventory, staff, and analytics. 
-                Trusted by <span className="font-semibold text-[#FF6B6B]">500+ restaurants</span> across India.
+                All-in-one platform to manage orders, inventory, staff, and
+                analytics. Trusted by{" "}
+                <span className="font-semibold text-[#FF6B6B]">
+                  500+ restaurants
+                </span>{" "}
+                across India.
               </p>
+
+              {/* Anchoring Bias — Value Proposition */}
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6BCB77]/10 to-[#FFD93D]/10 rounded-xl border border-[#6BCB77]/20">
+                <span className="text-sm font-bold text-[#2D3A5F] dark:text-white">
+                  Worth ₹50,000+ in features.
+                </span>
+                <span className="text-sm font-bold text-[#FF6B6B]">
+                  Starts at just ₹22/day.
+                </span>
+              </div>
             </div>
 
             {/* CTA Buttons */}
@@ -86,9 +117,9 @@ export const HeroSection: React.FC = () => {
               <Button
                 size="lg"
                 className="landing-btn-primary text-lg px-8 py-6 rounded-2xl font-semibold group"
-                onClick={() => navigate('/auth')}
+                onClick={() => navigate("/auth")}
               >
-                Start Free Trial
+                Start Your Free 14-Day Experience
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
               <Button
@@ -101,19 +132,44 @@ export const HeroSection: React.FC = () => {
               </Button>
             </div>
 
-            {/* Trust Badges */}
-            <div className="flex flex-wrap gap-6 pt-4">
-              {['No credit card required', '14-day free trial', 'Cancel anytime'].map((item, index) => (
-                <div key={index} className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+            {/* Trust Badges — Endowment Effect micro-copy */}
+            <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
+              No credit card. No commitment. Just results.
+            </p>
+            <div className="flex flex-wrap gap-6 pt-2">
+              {[
+                "No credit card required",
+                "14-day free trial",
+                "Cancel anytime",
+              ].map((item, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 text-gray-600 dark:text-gray-400"
+                >
                   <CheckCircle className="w-5 h-5 text-[#6BCB77]" />
                   <span className="text-sm font-medium">{item}</span>
                 </div>
               ))}
             </div>
+
+            {/* Social Proof — Live counter */}
+            <div className="landing-social-proof-counter inline-flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-[#2D3A5F]/50 rounded-full shadow-sm border border-gray-200 dark:border-gray-700">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-[#6BCB77] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#6BCB77]"></span>
+              </span>
+              <Users className="w-4 h-4 text-[#FF6B6B]" />
+              <span className="text-xs text-[#2D3A5F] dark:text-gray-200 font-medium">
+                <span className="font-bold text-[#FF6B6B]">12 restaurants</span>{" "}
+                joined today
+              </span>
+            </div>
           </div>
 
           {/* Right Content - Dashboard Preview */}
-          <div className={`relative ${isVisible ? 'animate-fade-in-right animation-delay-300' : 'opacity-0'}`}>
+          <div
+            className={`relative ${isVisible ? "animate-fade-in-right animation-delay-300" : "opacity-0"}`}
+          >
             {/* Dashboard Mockup */}
             <div className="relative">
               {/* Main Dashboard Card */}
@@ -125,8 +181,12 @@ export const HeroSection: React.FC = () => {
                       <Utensils className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-[#2D3A5F] dark:text-white">RMS Pro Dashboard</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Real-time Overview</p>
+                      <h3 className="font-bold text-[#2D3A5F] dark:text-white">
+                        RMS Pro Dashboard
+                      </h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Real-time Overview
+                      </p>
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -139,20 +199,47 @@ export const HeroSection: React.FC = () => {
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   {[
-                    { label: "Today's Sales", value: '₹45,230', change: '+12%', color: '#6BCB77' },
-                    { label: 'Active Orders', value: '24', change: 'Live', color: '#FF6B6B' },
-                    { label: 'Tables Occupied', value: '18/25', change: '72%', color: '#FFD93D' },
-                    { label: 'Staff Online', value: '12', change: 'Active', color: '#2D3A5F' },
+                    {
+                      label: "Today's Sales",
+                      value: "₹45,230",
+                      change: "+12%",
+                      color: "#6BCB77",
+                    },
+                    {
+                      label: "Active Orders",
+                      value: "24",
+                      change: "Live",
+                      color: "#FF6B6B",
+                    },
+                    {
+                      label: "Tables Occupied",
+                      value: "18/25",
+                      change: "72%",
+                      color: "#FFD93D",
+                    },
+                    {
+                      label: "Staff Online",
+                      value: "12",
+                      change: "Active",
+                      color: "#2D3A5F",
+                    },
                   ].map((stat, index) => (
-                    <div 
+                    <div
                       key={index}
                       className="bg-white/60 dark:bg-[#2D3A5F]/40 rounded-xl p-4 border border-gray-100 dark:border-gray-700"
                     >
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{stat.label}</p>
-                      <p className="text-2xl font-bold text-[#2D3A5F] dark:text-white">{stat.value}</p>
-                      <span 
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                        {stat.label}
+                      </p>
+                      <p className="text-2xl font-bold text-[#2D3A5F] dark:text-white">
+                        {stat.value}
+                      </p>
+                      <span
                         className="text-xs font-medium px-2 py-0.5 rounded-full"
-                        style={{ backgroundColor: `${stat.color}20`, color: stat.color }}
+                        style={{
+                          backgroundColor: `${stat.color}20`,
+                          color: stat.color,
+                        }}
                       >
                         {stat.change}
                       </span>
@@ -163,12 +250,16 @@ export const HeroSection: React.FC = () => {
                 {/* Mini Chart Placeholder */}
                 <div className="bg-gradient-to-r from-[#FF6B6B]/10 to-[#6BCB77]/10 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-[#2D3A5F] dark:text-gray-200">Revenue Trend</span>
-                    <span className="text-xs text-[#6BCB77] font-medium">↑ 23% this week</span>
+                    <span className="text-sm font-medium text-[#2D3A5F] dark:text-gray-200">
+                      Revenue Trend
+                    </span>
+                    <span className="text-xs text-[#6BCB77] font-medium">
+                      ↑ 23% this week
+                    </span>
                   </div>
                   <div className="flex items-end gap-2 h-16">
                     {[40, 65, 45, 80, 55, 90, 75].map((height, i) => (
-                      <div 
+                      <div
                         key={i}
                         className="flex-1 rounded-t-md landing-coral-gradient opacity-80 hover:opacity-100 transition-opacity"
                         style={{ height: `${height}%` }}
@@ -186,8 +277,12 @@ export const HeroSection: React.FC = () => {
                       <CheckCircle className="w-4 h-4 text-[#6BCB77]" />
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-[#2D3A5F] dark:text-white">New Order #1234</p>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400">Just now</p>
+                      <p className="text-xs font-medium text-[#2D3A5F] dark:text-white">
+                        New Order #1234
+                      </p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                        Just now
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -200,8 +295,12 @@ export const HeroSection: React.FC = () => {
                       <Star className="w-4 h-4 text-[#FFD93D]" />
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-[#2D3A5F] dark:text-white">5-star Review!</p>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400">From Table 7</p>
+                      <p className="text-xs font-medium text-[#2D3A5F] dark:text-white">
+                        5-star Review!
+                      </p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                        From Table 7
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -211,16 +310,22 @@ export const HeroSection: React.FC = () => {
         </div>
 
         {/* Stats Section */}
-        <div className={`mt-20 ${isVisible ? 'animate-fade-in-up animation-delay-500' : 'opacity-0'}`}>
+        <div
+          className={`mt-20 ${isVisible ? "animate-fade-in-up animation-delay-500" : "opacity-0"}`}
+        >
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
             {stats.map((stat, index) => (
-              <div 
+              <div
                 key={index}
                 className="text-center p-6 landing-glass-card rounded-2xl landing-card-hover"
                 style={{ animationDelay: `${stat.delay}ms` }}
               >
-                <div className="text-4xl font-bold landing-stat-number mb-2">{stat.number}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">{stat.label}</div>
+                <div className="text-4xl font-bold landing-stat-number mb-2">
+                  {stat.number}
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  {stat.label}
+                </div>
               </div>
             ))}
           </div>
@@ -229,8 +334,8 @@ export const HeroSection: React.FC = () => {
 
       {/* Wave Divider */}
       <div className="landing-wave-divider">
-        <svg 
-          viewBox="0 0 1200 120" 
+        <svg
+          viewBox="0 0 1200 120"
           preserveAspectRatio="none"
           className="fill-white dark:fill-[#1A1A2E]"
         >

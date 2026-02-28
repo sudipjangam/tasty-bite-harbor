@@ -133,7 +133,8 @@ body:has(.landing-page-wrapper) {
     box-shadow: 0 0 20px rgba(255, 107, 107, 0.4);
   }
   50% {
-    box-shadow: 0 0 40px rgba(255, 107, 107, 0.6),
+    box-shadow:
+      0 0 40px rgba(255, 107, 107, 0.6),
       0 0 60px rgba(255, 107, 107, 0.3);
   }
 }
@@ -413,7 +414,8 @@ body:has(.landing-page-wrapper) {
     rgba(255, 107, 107, 0.3) 0%,
     rgba(255, 142, 142, 0.2) 100%
   );
-  animation: morphBlob 8s ease-in-out infinite,
+  animation:
+    morphBlob 8s ease-in-out infinite,
     floatSlow 10s ease-in-out infinite;
 }
 
@@ -423,7 +425,8 @@ body:has(.landing-page-wrapper) {
     rgba(45, 58, 95, 0.2) 0%,
     rgba(107, 203, 119, 0.2) 100%
   );
-  animation: morphBlob 10s ease-in-out infinite reverse,
+  animation:
+    morphBlob 10s ease-in-out infinite reverse,
     floatSlow 12s ease-in-out infinite;
 }
 
@@ -433,7 +436,8 @@ body:has(.landing-page-wrapper) {
     rgba(255, 217, 61, 0.2) 0%,
     rgba(255, 107, 107, 0.2) 100%
   );
-  animation: morphBlob 12s ease-in-out infinite,
+  animation:
+    morphBlob 12s ease-in-out infinite,
     floatSlow 8s ease-in-out infinite;
 }
 
@@ -528,4 +532,167 @@ body:has(.landing-page-wrapper) {
   background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bcb77);
   height: 3px;
   transform-origin: left;
+}
+
+/* ============================================
+   PSYCHOLOGICAL PRICING STYLES
+   ============================================ */
+
+/* Anchoring Bias: Struck-through original price */
+@keyframes priceSlash {
+  0% {
+    width: 0;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.landing-price-original {
+  position: relative;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+.landing-price-original::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 2px;
+  width: 100%;
+  background: #ef4444;
+  animation: priceSlash 0.6s ease-out 0.3s both;
+}
+
+/* Urgency banner pulse */
+@keyframes urgencyPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.4);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 0 8px rgba(255, 107, 107, 0);
+  }
+}
+
+.landing-urgency-pulse {
+  animation: urgencyPulse 2s ease-in-out infinite;
+}
+
+/* Popular card enhanced glow */
+@keyframes popularGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 20px rgba(255, 107, 107, 0.2),
+      0 0 60px rgba(255, 107, 107, 0.05),
+      0 20px 40px rgba(0, 0, 0, 0.08);
+  }
+  50% {
+    box-shadow:
+      0 0 30px rgba(255, 107, 107, 0.35),
+      0 0 80px rgba(255, 107, 107, 0.1),
+      0 25px 50px rgba(0, 0, 0, 0.12);
+  }
+}
+
+.landing-popular-card-glow {
+  animation: popularGlow 3s ease-in-out infinite;
+  transform: scale(1.04);
+  z-index: 10;
+}
+
+/* Free bonus badge */
+.landing-free-badge {
+  background: linear-gradient(135deg, #6bcb77 0%, #4caf50 100%);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  animation: bounceIn 0.5s ease-out both;
+}
+
+/* Per-day affordability text */
+.landing-perday-price {
+  background: linear-gradient(135deg, #6bcb77 0%, #2d3a5f 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+/* Savings percentage badge */
+@keyframes savingsBounce {
+  0%,
+  100% {
+    transform: rotate(-2deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
+}
+
+.landing-savings-badge {
+  background: linear-gradient(135deg, #ff6b6b 0%, #e85555 100%);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-block;
+  animation: savingsBounce 2s ease-in-out infinite;
+}
+
+/* Social proof counter */
+@keyframes counterFade {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.landing-social-proof-counter {
+  animation: counterFade 3s ease-in-out infinite;
+}
+
+/* Recommended ribbon */
+.landing-recommended-ribbon {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  overflow: hidden;
+  width: 120px;
+  height: 120px;
+  z-index: 20;
+}
+
+.landing-recommended-ribbon span {
+  position: absolute;
+  display: block;
+  width: 200px;
+  padding: 8px 0;
+  background: linear-gradient(135deg, #ff6b6b, #e85555);
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.15);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-align: center;
+  letter-spacing: 1px;
+  right: -45px;
+  top: 30px;
+  transform: rotate(45deg);
 }
