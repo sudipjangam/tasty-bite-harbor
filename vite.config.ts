@@ -55,10 +55,12 @@ export default defineConfig(({ mode }) => {
       // In production, Vercel/Netlify rewrites handle this instead.
       // This bypasses Jio and other ISP blocks on *.supabase.co domains.
       '/api/supabase': {
-        target: 'https://clmsoetktmvhazctlans.supabase.co',
+        target: 'https://tasty-bite-harbor.vercel.app',
         changeOrigin: true,
-        rewrite: (path: string) => path.replace(/^\/api\/supabase/, ''),
-        secure: false,
+        // When proxying to Vercel, we actually DON'T want to rewrite the path 
+        // because Vercel handles the /api/supabase -> real supabase routing.
+        // We just want to forward the request as-is to the Vercel app.
+        secure: true,
         configure: (proxy: any) => {
           proxy.on('error', (err: any) => {
             console.error('[Proxy Error]', err.message);
