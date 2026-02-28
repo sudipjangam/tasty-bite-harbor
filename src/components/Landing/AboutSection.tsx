@@ -35,18 +35,18 @@ export const AboutSection: React.FC = () => {
       name: "Rohan Jadhav",
       role: "Founder & CEO",
       bio: "Visionary entrepreneur with a passion for transforming the Indian hospitality industry through technology. Leading Swadeshi Solutions towards becoming India's #1 restaurant tech platform.",
-      avatar: "SJ",
+      avatar: "RJ",
       color: "#FF6B6B",
-      linkedin: "#",
+      linkedin: "https://www.linkedin.com/in/rohan-jadhav-8806957143/",
       twitter: "#",
     },
     {
       name: "Sudip Jangam",
       role: "Co-Founder & CTO",
       bio: "Tech innovator driving the cutting-edge development of RMS Pro. Expert in scalable cloud architectures and AI-driven solutions for the hospitality sector.",
-      avatar: "RJ",
+      avatar: "SJ",
       color: "#2D3A5F",
-      linkedin: "#",
+      linkedin: "https://www.linkedin.com/in/sudipjangam/",
       twitter: "#",
     },
   ];
@@ -168,12 +168,12 @@ export const AboutSection: React.FC = () => {
                     >
                       <Twitter className="w-5 h-5" />
                     </a>
-                    <a
+                    {/* <a
                       href={`mailto:${founder.name.toLowerCase().replace(" ", ".")}@swadeshisolutions.com`}
                       className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-[#FF6B6B] hover:text-white text-gray-600 dark:text-gray-400 transition-all duration-300"
                     >
                       <Mail className="w-5 h-5" />
-                    </a>
+                    </a> */}
                   </div>
                 </div>
               </div>

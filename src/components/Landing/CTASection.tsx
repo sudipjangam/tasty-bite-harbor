@@ -1,12 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { ArrowRight, Sparkles, Mail } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { ArrowRight, Sparkles, Mail, Gift, Check, Flame } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export const CTASection: React.FC = () => {
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const sectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -16,7 +16,7 @@ export const CTASection: React.FC = () => {
           setIsVisible(true);
         }
       },
-      { threshold: 0.2 }
+      { threshold: 0.2 },
     );
 
     if (sectionRef.current) {
@@ -29,15 +29,12 @@ export const CTASection: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (email) {
-      navigate('/auth');
+      navigate("/auth");
     }
   };
 
   return (
-    <section 
-      ref={sectionRef}
-      className="py-24 relative overflow-hidden"
-    >
+    <section ref={sectionRef} className="py-24 relative overflow-hidden">
       {/* Gradient Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#FF6B6B] via-[#e85555] to-[#2D3A5F]" />
 
@@ -58,27 +55,69 @@ export const CTASection: React.FC = () => {
       </div>
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className={`max-w-4xl mx-auto text-center ${isVisible ? 'animate-fade-in-up' : 'opacity-0'}`}>
+        <div
+          className={`max-w-4xl mx-auto text-center ${isVisible ? "animate-fade-in-up" : "opacity-0"}`}
+        >
           {/* Badge */}
-          <span className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm font-medium mb-8">
+          <span className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm font-medium mb-4">
             <Sparkles className="w-4 h-4" />
             Join 500+ Successful Restaurants
           </span>
 
-          {/* Headline */}
+          {/* Urgency Banner */}
+          <div className="landing-urgency-pulse inline-flex items-center gap-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-[#FFD93D] rounded-full text-sm font-bold mb-6 border border-[#FFD93D]/30">
+            <Flame className="w-4 h-4" />
+            Special Offer: First 100 signups get 3 months FREE
+            <Flame className="w-4 h-4" />
+          </div>
+
+          {/* Headline — Endowment Effect */}
           <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
-            Ready to Transform Your
+            Your Free Trial is Waiting —
             <br />
-            <span className="text-[#FFD93D]">Restaurant Business?</span>
+            <span className="text-[#FFD93D]">Claim It Now</span>
           </h2>
 
-          <p className="text-xl text-white/80 mb-10 max-w-2xl mx-auto">
-            Start your 14-day free trial today. No credit card required. 
-            Join thousands of restaurants already growing with Swadeshi Solutions.
+          <p className="text-xl text-white/80 mb-6 max-w-2xl mx-auto">
+            Experience the full platform free for 14 days. No credit card. No
+            commitment. You’ll love it — or simply walk away.
           </p>
 
+          {/* Power of Free — Bonus Stack */}
+          <div className="flex flex-wrap justify-center gap-3 mb-8">
+            {[
+              {
+                icon: <Gift className="w-4 h-4" />,
+                text: "Free Setup & Onboarding",
+              },
+              {
+                icon: <Gift className="w-4 h-4" />,
+                text: "Free Staff Training",
+              },
+              {
+                icon: <Gift className="w-4 h-4" />,
+                text: "Free Data Migration",
+              },
+              {
+                icon: <Gift className="w-4 h-4" />,
+                text: "24/7 Priority Support",
+              },
+            ].map((item, index) => (
+              <span
+                key={index}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white/15 backdrop-blur-sm rounded-full text-white text-sm font-medium border border-white/10"
+              >
+                {item.icon}
+                {item.text}
+              </span>
+            ))}
+          </div>
+
           {/* Email Capture Form */}
-          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4 max-w-xl mx-auto mb-8">
+          <form
+            onSubmit={handleSubmit}
+            className="flex flex-col sm:flex-row gap-4 max-w-xl mx-auto mb-8"
+          >
             <div className="relative flex-1">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
@@ -95,7 +134,7 @@ export const CTASection: React.FC = () => {
               size="lg"
               className="px-8 py-4 bg-[#2D3A5F] hover:bg-[#3d4d7a] text-white rounded-2xl font-semibold group whitespace-nowrap"
             >
-              Get Started Free
+              Claim Your Free Trial
               <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Button>
           </form>
@@ -104,25 +143,41 @@ export const CTASection: React.FC = () => {
           <div className="flex flex-wrap justify-center gap-6 text-white/70 text-sm">
             <span className="flex items-center gap-2">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
               </svg>
               Free 14-day trial
             </span>
             <span className="flex items-center gap-2">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
               </svg>
               No credit card required
             </span>
             <span className="flex items-center gap-2">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
               </svg>
               Cancel anytime
             </span>
             <span className="flex items-center gap-2">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
               </svg>
               24/7 support
             </span>

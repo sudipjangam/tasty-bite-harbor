@@ -1,18 +1,19 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { 
-  MessageSquare, 
-  Brain, 
-  IndianRupee, 
-  Shield, 
-  Zap, 
-  Clock, 
-  Smartphone, 
+import React, { useEffect, useRef, useState } from "react";
+import {
+  MessageSquare,
+  Brain,
+  IndianRupee,
+  Shield,
+  Zap,
+  Clock,
+  Smartphone,
   Cloud,
   HeadphonesIcon,
   TrendingUp,
   RefreshCw,
-  Globe
-} from 'lucide-react';
+  Globe,
+  Trophy,
+} from "lucide-react";
 
 export const WhyChooseUsSection: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -25,7 +26,7 @@ export const WhyChooseUsSection: React.FC = () => {
           setIsVisible(true);
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
 
     if (sectionRef.current) {
@@ -38,103 +39,164 @@ export const WhyChooseUsSection: React.FC = () => {
   const advantages = [
     {
       icon: <MessageSquare className="w-8 h-8" />,
-      title: 'WhatsApp Integration',
-      description: 'Native WhatsApp for order updates, customer engagement, and marketing campaigns. No extra apps needed.',
-      highlight: 'Unique Feature',
-      color: '#25D366',
+      title: "WhatsApp Integration",
+      description:
+        "Native WhatsApp for order updates, customer engagement, and marketing campaigns. No extra apps needed.",
+      highlight: "Unique Feature",
+      color: "#25D366",
     },
     {
       icon: <Brain className="w-8 h-8" />,
-      title: 'AI-Powered Insights',
-      description: 'Smart analytics predict demand, optimize inventory, and suggest menu improvements. Reduce waste by up to 30%.',
-      highlight: 'AI Inside',
-      color: '#FF6B6B',
+      title: "AI-Powered Insights",
+      description:
+        "Smart analytics predict demand, optimize inventory, and suggest menu improvements. Reduce waste by up to 30%.",
+      highlight: "AI Inside",
+      color: "#FF6B6B",
     },
     {
       icon: <IndianRupee className="w-8 h-8" />,
-      title: '50% Lower Cost',
-      description: 'Premium features at half the price of Petpooja, Restroworks, and Square. No hidden fees, ever.',
-      highlight: 'Best Value',
-      color: '#6BCB77',
+      title: "50% Lower Cost",
+      description:
+        "Premium features at half the price of Petpooja, Restroworks, and Square. No hidden fees, ever.",
+      highlight: "Best Value",
+      color: "#6BCB77",
     },
     {
       icon: <Shield className="w-8 h-8" />,
-      title: 'Made in India',
-      description: 'Built by Indians for Indian businesses. GST-ready, UPI integrated, local payment gateways supported.',
-      highlight: 'Local First',
-      color: '#FF9933',
+      title: "Made in India",
+      description:
+        "Built by Indians for Indian businesses. GST-ready, UPI integrated, local payment gateways supported.",
+      highlight: "Local First",
+      color: "#FF9933",
     },
     {
       icon: <Cloud className="w-8 h-8" />,
-      title: '100% Cloud-Based',
-      description: 'Access from anywhere, any device. No hardware requirements. Automatic backups and updates.',
-      highlight: 'Zero Maintenance',
-      color: '#2D3A5F',
+      title: "100% Cloud-Based",
+      description:
+        "Access from anywhere, any device. No hardware requirements. Automatic backups and updates.",
+      highlight: "Zero Maintenance",
+      color: "#2D3A5F",
     },
     {
       icon: <Zap className="w-8 h-8" />,
-      title: 'Lightning Fast',
-      description: 'Modern React-based interface loads instantly. Process orders in seconds, not minutes.',
-      highlight: 'Blazing Speed',
-      color: '#FFD93D',
+      title: "Lightning Fast",
+      description:
+        "Modern React-based interface loads instantly. Process orders in seconds, not minutes.",
+      highlight: "Blazing Speed",
+      color: "#FFD93D",
     },
     {
       icon: <HeadphonesIcon className="w-8 h-8" />,
-      title: '24/7 Indian Support',
-      description: 'Real humans in your timezone. Call, chat, or WhatsApp. Average response time under 5 minutes.',
-      highlight: 'Always Available',
-      color: '#FF6B6B',
+      title: "24/7 Indian Support",
+      description:
+        "Real humans in your timezone. Call, chat, or WhatsApp. Average response time under 5 minutes.",
+      highlight: "Always Available",
+      color: "#FF6B6B",
     },
     {
       icon: <Smartphone className="w-8 h-8" />,
-      title: 'Works on Any Device',
-      description: 'Use your existing tablets, phones, or laptops. No expensive proprietary hardware needed.',
-      highlight: 'BYOD Friendly',
-      color: '#6BCB77',
+      title: "Works on Any Device",
+      description:
+        "Use your existing tablets, phones, or laptops. No expensive proprietary hardware needed.",
+      highlight: "BYOD Friendly",
+      color: "#6BCB77",
     },
     {
       icon: <Globe className="w-8 h-8" />,
-      title: 'Zomato/Swiggy Ready',
-      description: 'Direct integration with food aggregators, ONDC, and all major platforms. Orders sync automatically.',
-      highlight: 'All Channels',
-      color: '#E23744',
+      title: "Zomato/Swiggy Ready",
+      description:
+        "Direct integration with food aggregators, ONDC, and all major platforms. Orders sync automatically.",
+      highlight: "All Channels",
+      color: "#E23744",
     },
     {
       icon: <TrendingUp className="w-8 h-8" />,
-      title: 'Revenue Optimization',
-      description: 'Dynamic pricing, table turnover analytics, and upsell suggestions to boost your bottom line.',
-      highlight: 'Grow Revenue',
-      color: '#2D3A5F',
+      title: "Revenue Optimization",
+      description:
+        "Dynamic pricing, table turnover analytics, and upsell suggestions to boost your bottom line.",
+      highlight: "Grow Revenue",
+      color: "#2D3A5F",
     },
     {
       icon: <RefreshCw className="w-8 h-8" />,
-      title: 'Free Lifetime Updates',
-      description: 'New features added monthly at no extra cost. Your software always stays current.',
-      highlight: 'Always Fresh',
-      color: '#FFD93D',
+      title: "Free Lifetime Updates",
+      description:
+        "New features added monthly at no extra cost. Your software always stays current.",
+      highlight: "Always Fresh",
+      color: "#FFD93D",
     },
     {
       icon: <Clock className="w-8 h-8" />,
-      title: 'Setup in 24 Hours',
-      description: 'Go live in a single day. Free onboarding, data migration, and staff training included.',
-      highlight: 'Quick Start',
-      color: '#FF6B6B',
+      title: "Setup in 24 Hours",
+      description:
+        "Go live in a single day. Free onboarding, data migration, and staff training included.",
+      highlight: "Quick Start",
+      color: "#FF6B6B",
     },
   ];
 
   const competitorComparison = [
-    { feature: 'Annual Cost (Starter)', us: '₹7,999', petpooja: '₹10,000+', restroworks: '₹25,000+', square: '₹48,000+' },
-    { feature: 'WhatsApp Integration', us: '✓ Native', petpooja: '✓ Limited', restroworks: '✗', square: '✗' },
-    { feature: 'AI Analytics', us: '✓ Included', petpooja: '✓ Basic', restroworks: '✓ Extra cost', square: '✗' },
-    { feature: 'Hardware Required', us: '✗ Use any device', petpooja: '✓ Android tablet', restroworks: '✓ KDS screens', square: '✓ Square kit' },
-    { feature: 'Setup Fee', us: '₹0 Free', petpooja: '₹2,000-5,000', restroworks: '₹5,000-10,000', square: 'Included' },
-    { feature: '24/7 Phone Support', us: '✓ Free', petpooja: '✓ Paid', restroworks: '✓ Enterprise only', square: '✓' },
-    { feature: 'Multi-location', us: '✓ From Growth', petpooja: 'Extra cost', restroworks: '✓', square: '✓' },
+    {
+      feature: "Annual Cost (Starter)",
+      us: "₹7,999",
+      petpooja: "₹10,000+",
+      restroworks: "₹25,000+",
+      square: "₹48,000+",
+      usWins: true,
+    },
+    {
+      feature: "WhatsApp Integration",
+      us: "✓ Native",
+      petpooja: "✓ Limited",
+      restroworks: "✗",
+      square: "✗",
+      usWins: true,
+    },
+    {
+      feature: "AI Analytics",
+      us: "✓ Included",
+      petpooja: "✓ Basic",
+      restroworks: "✓ Extra cost",
+      square: "✗",
+      usWins: true,
+    },
+    {
+      feature: "Hardware Required",
+      us: "✗ Any device",
+      petpooja: "✓ Android tablet",
+      restroworks: "✓ KDS screens",
+      square: "✓ Square kit",
+      usWins: true,
+    },
+    {
+      feature: "Setup Fee",
+      us: "₹0 Free",
+      petpooja: "₹2,000-5,000",
+      restroworks: "₹5,000-10,000",
+      square: "Included",
+      usWins: true,
+    },
+    {
+      feature: "24/7 Phone Support",
+      us: "✓ Free",
+      petpooja: "✓ Paid",
+      restroworks: "✓ Enterprise only",
+      square: "✓",
+      usWins: true,
+    },
+    {
+      feature: "Multi-location",
+      us: "✓ From Growth",
+      petpooja: "Extra cost",
+      restroworks: "✓",
+      square: "✓",
+      usWins: false,
+    },
   ];
 
   return (
-    <section 
-      id="why-choose-us" 
+    <section
+      id="why-choose-us"
       ref={sectionRef}
       className="py-24 bg-white dark:bg-[#1A1A2E] relative overflow-hidden"
     >
@@ -144,7 +206,9 @@ export const WhyChooseUsSection: React.FC = () => {
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Section Header */}
-        <div className={`text-center max-w-3xl mx-auto mb-16 ${isVisible ? 'animate-fade-in-up' : 'opacity-0'}`}>
+        <div
+          className={`text-center max-w-3xl mx-auto mb-16 ${isVisible ? "animate-fade-in-up" : "opacity-0"}`}
+        >
           <span className="inline-flex items-center gap-2 px-4 py-2 bg-[#FF9933]/10 text-[#FF9933] text-sm font-semibold rounded-full mb-4">
             <span className="w-2 h-3 bg-[#FF9933]" />
             <span className="w-2 h-3 bg-white border border-gray-300" />
@@ -152,10 +216,12 @@ export const WhyChooseUsSection: React.FC = () => {
             PROUDLY MADE IN INDIA
           </span>
           <h2 className="text-4xl md:text-5xl font-bold text-[#2D3A5F] dark:text-white mb-6">
-            Why Restaurants <span className="landing-gradient-text">Choose Us</span>
+            Why Restaurants{" "}
+            <span className="landing-gradient-text">Choose Us</span>
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-300">
-            We're not just another POS system. We're your technology partner built for Indian hospitality.
+            We're not just another POS system. We're your technology partner
+            built for Indian hospitality.
           </p>
         </div>
 
@@ -165,12 +231,12 @@ export const WhyChooseUsSection: React.FC = () => {
             <div
               key={index}
               className={`group relative bg-white dark:bg-[#2D3A5F]/30 rounded-2xl p-6 border border-gray-100 dark:border-gray-700 hover:border-transparent transition-all duration-500 hover:shadow-xl hover:-translate-y-2 ${
-                isVisible ? 'animate-fade-in-up' : 'opacity-0'
+                isVisible ? "animate-fade-in-up" : "opacity-0"
               }`}
               style={{ animationDelay: `${index * 50}ms` }}
             >
               {/* Highlight badge */}
-              <span 
+              <span
                 className="absolute -top-3 right-4 px-3 py-1 text-xs font-bold text-white rounded-full shadow-md"
                 style={{ backgroundColor: advantage.color }}
               >
@@ -178,9 +244,11 @@ export const WhyChooseUsSection: React.FC = () => {
               </span>
 
               {/* Icon */}
-              <div 
+              <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center text-white mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300"
-                style={{ background: `linear-gradient(135deg, ${advantage.color}, ${advantage.color}cc)` }}
+                style={{
+                  background: `linear-gradient(135deg, ${advantage.color}, ${advantage.color}cc)`,
+                }}
               >
                 {advantage.icon}
               </div>
@@ -197,11 +265,13 @@ export const WhyChooseUsSection: React.FC = () => {
         </div>
 
         {/* Competitor Comparison Table */}
-        <div className={`${isVisible ? 'animate-fade-in-up animation-delay-500' : 'opacity-0'}`}>
+        <div
+          className={`${isVisible ? "animate-fade-in-up animation-delay-500" : "opacity-0"}`}
+        >
           <h3 className="text-2xl font-bold text-center text-[#2D3A5F] dark:text-white mb-8">
             See How We Compare
           </h3>
-          
+
           <div className="overflow-x-auto">
             <table className="w-full max-w-5xl mx-auto bg-white dark:bg-[#2D3A5F]/30 rounded-2xl shadow-xl overflow-hidden">
               <thead>
@@ -211,40 +281,112 @@ export const WhyChooseUsSection: React.FC = () => {
                     <div className="flex flex-col items-center">
                       <span className="text-xs opacity-75">OUR</span>
                       <span>Swadeshi</span>
+                      <Trophy className="w-4 h-4 mt-1" />
                     </div>
                   </th>
-                  <th className="px-6 py-4 text-center font-semibold opacity-75">Petpooja</th>
-                  <th className="px-6 py-4 text-center font-semibold opacity-75">Restroworks</th>
-                  <th className="px-6 py-4 text-center font-semibold opacity-75">Square</th>
+                  <th className="px-6 py-4 text-center font-semibold opacity-75">
+                    Petpooja
+                  </th>
+                  <th className="px-6 py-4 text-center font-semibold opacity-75">
+                    Restroworks
+                  </th>
+                  <th className="px-6 py-4 text-center font-semibold opacity-75">
+                    Square
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {competitorComparison.map((row, index) => (
-                  <tr 
+                  <tr
                     key={index}
                     className={`border-b border-gray-100 dark:border-gray-700 ${
-                      index % 2 === 0 ? 'bg-gray-50 dark:bg-[#2D3A5F]/20' : ''
+                      index % 2 === 0 ? "bg-gray-50 dark:bg-[#2D3A5F]/20" : ""
                     }`}
                   >
                     <td className="px-6 py-4 font-medium text-[#2D3A5F] dark:text-white">
                       {row.feature}
                     </td>
-                    <td className="px-6 py-4 text-center font-bold text-[#6BCB77] bg-[#6BCB77]/5">
+                    <td className="px-6 py-4 text-center font-bold text-[#6BCB77] bg-[#6BCB77]/10">
                       {row.us}
                     </td>
-                    <td className="px-6 py-4 text-center text-gray-600 dark:text-gray-400">
-                      {row.petpooja}
+                    <td className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                      <span
+                        className={
+                          row.petpooja.startsWith("✗") ||
+                          row.petpooja.includes("+")
+                            ? "text-red-400"
+                            : ""
+                        }
+                      >
+                        {row.petpooja}
+                      </span>
                     </td>
-                    <td className="px-6 py-4 text-center text-gray-600 dark:text-gray-400">
-                      {row.restroworks}
+                    <td className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                      <span
+                        className={
+                          row.restroworks.startsWith("✗") ||
+                          row.restroworks.includes("+")
+                            ? "text-red-400"
+                            : ""
+                        }
+                      >
+                        {row.restroworks}
+                      </span>
                     </td>
-                    <td className="px-6 py-4 text-center text-gray-600 dark:text-gray-400">
-                      {row.square}
+                    <td className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                      <span
+                        className={
+                          row.square.startsWith("✗") || row.square.includes("+")
+                            ? "text-red-400"
+                            : ""
+                        }
+                      >
+                        {row.square}
+                      </span>
                     </td>
                   </tr>
                 ))}
+                {/* Value Score Row */}
+                <tr className="bg-gradient-to-r from-[#6BCB77]/10 to-[#6BCB77]/5 border-t-2 border-[#6BCB77]">
+                  <td className="px-6 py-4 font-bold text-[#2D3A5F] dark:text-white">
+                    Overall Value Score
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#6BCB77] text-white font-bold rounded-full text-sm">
+                      <Trophy className="w-4 h-4" /> 10/10
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-center text-gray-500 font-medium">
+                    6/10
+                  </td>
+                  <td className="px-6 py-4 text-center text-gray-500 font-medium">
+                    5/10
+                  </td>
+                  <td className="px-6 py-4 text-center text-gray-500 font-medium">
+                    4/10
+                  </td>
+                </tr>
               </tbody>
             </table>
+
+            {/* Savings Callout — Contrast Effect */}
+            <div className="flex flex-wrap justify-center gap-4 mt-6">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#6BCB77]/10 rounded-full border border-[#6BCB77]/20">
+                <span className="text-sm font-bold text-[#6BCB77]">
+                  Save ₹2,000+ vs Petpooja
+                </span>
+              </div>
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#6BCB77]/10 rounded-full border border-[#6BCB77]/20">
+                <span className="text-sm font-bold text-[#6BCB77]">
+                  Save ₹17,000+ vs Restroworks
+                </span>
+              </div>
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#6BCB77]/10 rounded-full border border-[#6BCB77]/20">
+                <span className="text-sm font-bold text-[#6BCB77]">
+                  Save ₹40,000+ vs Square
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
