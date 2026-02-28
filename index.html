@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -14,6 +14,12 @@
       content="black-translucent"
     />
     <meta name="theme-color" content="#1e3a8a" />
+
+    <!-- Security: Content Security Policy -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://control.msg91.com https://generativelanguage.googleapis.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+    />
 
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
@@ -41,27 +47,24 @@
       content="A comprehensive restaurant management system for managing orders, menu, tables, staff, and more."
     />
     <!-- <meta property="og:image" content="/og-image.png" /> -->
-    <script
-      defer
-      src="//freeimage.host/sdk/pup.js"
-      data-url="https://freeimage.host/upload"
-    ></script>
+    <!-- Removed: freeimage SDK (XSS vector — use server-side upload instead) -->
   </head>
   <body>
     <div id="root"></div>
-    <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
+    <!-- Removed: gptengineer.js (untrusted third-party script — XSS vector) -->
     <script type="module" src="/src/main.tsx"></script>
-    
+
     <!-- Service Worker Registration -->
     <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("/sw.js")
             .then((registration) => {
-              console.log('SW registered:', registration.scope);
+              console.log("SW registered:", registration.scope);
             })
             .catch((error) => {
-              console.log('SW registration failed:', error);
+              console.log("SW registration failed:", error);
             });
         });
       }

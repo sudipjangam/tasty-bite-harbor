@@ -11,7 +11,6 @@ import {
   Permission,
   UserProfile,
   UserRole,
-  rolePermissions,
   AuthContextType,
 } from "@/types/auth";
 
@@ -72,7 +71,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             is_system,
             has_full_access
           )
-        `
+        `,
         )
         .eq("id", userId)
         .single();
@@ -115,7 +114,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             "get_user_permissions",
             {
               p_user_id: userId,
-            }
+            },
           );
 
           if (!permError && permissions) {
@@ -126,7 +125,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             // If RPC doesn't exist or fails, we'll use fallback
             console.warn(
               "Could not fetch permissions from DB, using fallback:",
-              permError
+              permError,
             );
             setPermissionsLoaded(false);
           }
@@ -163,96 +162,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  /**
-   * @deprecated This hardcoded mapping is kept only as a fallback.
-   * Primary permissions now come from get_user_permissions() RPC which reads from component_permissions table.
-   * This fallback is only used if the DB RPC fails to load.
-   */
-  const componentToPermissions: Record<string, Permission[]> = {
-    Dashboard: ["dashboard.view", "dashboard.analytics"],
-    Orders: ["orders.view", "orders.create", "orders.update", "orders.delete"],
-    POS: ["pos.access"],
-    Menu: ["menu.view", "menu.create", "menu.update", "menu.delete"],
-    Inventory: [
-      "inventory.view",
-      "inventory.create",
-      "inventory.update",
-      "inventory.delete",
-    ],
-    Staff: [
-      "staff.view",
-      "staff.create",
-      "staff.update",
-      "staff.delete",
-      "staff.manage_roles",
-    ],
-    Customers: [
-      "customers.view",
-      "customers.create",
-      "customers.update",
-      "customers.delete",
-    ],
-    Rooms: [
-      "rooms.view",
-      "rooms.create",
-      "rooms.update",
-      "rooms.delete",
-      "rooms.checkout",
-    ],
-    Reservations: [
-      "reservations.view",
-      "reservations.create",
-      "reservations.update",
-      "reservations.delete",
-    ],
-    Analytics: ["analytics.view", "analytics.export"],
-    Financial: [
-      "financial.view",
-      "financial.create",
-      "financial.update",
-      "financial.delete",
-      "financial.reports",
-    ],
-    Settings: [
-      "settings.view",
-      "settings.update",
-      "settings.manage_users",
-      "users.manage",
-    ],
-    Kitchen: ["kitchen.view", "kitchen.update"],
-    Tables: ["tables.view", "tables.create", "tables.update", "tables.delete"],
-    Housekeeping: [
-      "housekeeping.view",
-      "housekeeping.create",
-      "housekeeping.update",
-      "housekeeping.delete",
-    ],
-    Audit: ["audit.view", "audit.export"],
-    Backup: ["backup.create", "backup.restore", "backup.view"],
-    GDPR: ["gdpr.view", "gdpr.export", "gdpr.delete"],
-    Marketing: ["customers.view", "customers.create", "customers.update"],
-    Expenses: [
-      "financial.view",
-      "financial.create",
-      "financial.update",
-      "financial.delete",
-    ],
-    Reports: ["analytics.view", "analytics.export", "financial.reports"],
-    "AI Assistant": ["dashboard.view"],
-    CRM: [
-      "customers.view",
-      "customers.create",
-      "customers.update",
-      "customers.delete",
-    ],
-    Suppliers: ["inventory.view", "inventory.create", "inventory.update"],
-    Recipes: ["menu.view", "menu.create", "menu.update", "inventory.view"],
-    "Channel Management": ["rooms.view", "rooms.update", "reservations.view"],
-    Security: ["audit.view", "backup.view", "gdpr.view"],
-    "User Management": ["settings.manage_users", "users.manage"],
-    "Role Management": ["settings.manage_users", "staff.manage_roles"],
-  };
-
   const hasPermission = (permission: Permission): boolean => {
     if (!user) return false;
 
@@ -266,19 +175,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return userPermissions.includes(permission);
     }
 
-    // Fallback: Use component-based mapping when DB permissions not loaded
-    // This is a safety net in case the DB RPC fails or hasn't been run yet
-    for (const component of userComponents) {
-      const permissions = componentToPermissions[component] || [];
-      if (permissions.includes(permission)) {
-        return true;
-      }
+    // SECURITY: No client-side fallback. If DB permissions are not loaded,
+    // deny access and log a warning. This prevents privilege escalation
+    // via client-side state manipulation.
+    if (!permissionsLoaded) {
+      console.warn(
+        `[Security] Permission check for "${permission}" denied — DB permissions not loaded yet.`,
+      );
     }
-
-    // Emergency fallback: Use hardcoded rolePermissions only when DB fetch completely fails
-    const roleKey = user.role?.toString().toLowerCase() || "";
-    const hardcodedPermissions = rolePermissions[roleKey as UserRole] || [];
-    return hardcodedPermissions.includes(permission);
+    return false;
   };
 
   const hasAnyPermission = (permissions: Permission[]): boolean => {
