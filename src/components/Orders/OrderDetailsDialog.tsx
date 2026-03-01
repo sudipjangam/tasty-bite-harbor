@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Printer, Edit, DollarSign, Check, Percent, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import AddOrderForm from "./AddOrderForm";
@@ -67,6 +67,7 @@ const OrderDetailsDialog = ({
 }: OrderDetailsDialogProps) => {
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
+  const queryClient = useQueryClient();
   const [showEditForm, setShowEditForm] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [promotionCode, setPromotionCode] = useState("");
@@ -234,6 +235,14 @@ const OrderDetailsDialog = ({
       toast({
         title: "Order Updated",
         description: `Order status updated to ${newStatus}`,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
+      queryClient.invalidateQueries({
+        queryKey: ["quickserve-todays-revenue"],
       });
 
       onClose();

@@ -139,6 +139,36 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
   const readyCount = orders.filter((o) => o.status === "ready").length;
   const completedCount = orders.filter((o) => o.status === "completed").length;
 
+  // Real-time subscription for immediate updates
+  useEffect(() => {
+    if (!restaurantId || !isOpen) return;
+
+    const channel = supabase
+      .channel("qs-active-orders-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+          queryClient.invalidateQueries({
+            queryKey: ["quickserve-todays-count"],
+          });
+          queryClient.invalidateQueries({
+            queryKey: ["quickserve-todays-revenue"],
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [restaurantId, isOpen, queryClient]);
+
   // Toggle item completion
   const toggleItemMutation = useMutation({
     mutationFn: async ({
