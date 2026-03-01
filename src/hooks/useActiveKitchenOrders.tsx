@@ -124,11 +124,10 @@ export const useActiveKitchenOrders = (
           event: "*",
           schema: "public",
           table: "kitchen_orders",
-          filter: `restaurant_id=eq.${restaurantId}`,
         },
         () => {
           queryClient.invalidateQueries({
-            queryKey: ["active-kitchen-orders", restaurantId],
+            queryKey: ["active-kitchen-orders"],
           });
         },
       )

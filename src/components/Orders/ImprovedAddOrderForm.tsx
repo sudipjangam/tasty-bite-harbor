@@ -34,6 +34,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { Order } from "@/types/orders";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { useAuth } from "@/hooks/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ImprovedAddOrderFormProps {
   onSuccess: () => void;
@@ -68,6 +69,7 @@ const ImprovedAddOrderForm = ({
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   // Get attendant name from logged-in user
   const attendantName = user
@@ -187,14 +189,14 @@ const ImprovedAddOrderForm = ({
           item.name === itemName ||
           item.name.toLowerCase() === itemName.toLowerCase() ||
           item.name.toLowerCase().includes(itemName.toLowerCase()) ||
-          itemName.toLowerCase().includes(item.name.toLowerCase())
+          itemName.toLowerCase().includes(item.name.toLowerCase()),
       );
 
       // Priority: parsed price > menu item price > 0
       const finalPrice = unitPrice > 0 ? unitPrice : menuItem?.price || 0;
 
       console.log(
-        `Parsed item: "${itemName}" qty=${quantity} price=${finalPrice} (from string: ${unitPrice}, from menu: ${menuItem?.price})`
+        `Parsed item: "${itemName}" qty=${quantity} price=${finalPrice} (from string: ${unitPrice}, from menu: ${menuItem?.price})`,
       );
 
       return {
@@ -298,7 +300,7 @@ const ImprovedAddOrderForm = ({
         "Form reset with parsed items:",
         parsedItems,
         "Has prices:",
-        hasPrices
+        hasPrices,
       );
     }
   }, [editingOrder, menuItems]);
@@ -311,7 +313,7 @@ const ImprovedAddOrderForm = ({
   const watchedItems = form.watch("orderItems");
   const subtotal = watchedItems.reduce(
     (sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0),
-    0
+    0,
   );
 
   const discountType = form.watch("discountType");
@@ -446,6 +448,14 @@ const ImprovedAddOrderForm = ({
         });
       }
 
+      queryClient.invalidateQueries({ queryKey: ["active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
+      queryClient.invalidateQueries({
+        queryKey: ["quickserve-todays-revenue"],
+      });
+
       onSuccess();
     } catch (error) {
       console.error("Error saving order:", error);
@@ -460,7 +470,7 @@ const ImprovedAddOrderForm = ({
   };
 
   const categories = Array.from(
-    new Set(menuItems?.map((item) => item.category) || [])
+    new Set(menuItems?.map((item) => item.category) || []),
   );
   const watchedOrderType = form.watch("orderType");
 
@@ -670,7 +680,7 @@ const ImprovedAddOrderForm = ({
                                   <Badge className="ml-auto bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
                                     {currencySymbol}
                                     {form.watch(
-                                      `orderItems.${index}.unitPrice`
+                                      `orderItems.${index}.unitPrice`,
                                     ) || 0}
                                   </Badge>
                                 </div>
@@ -705,16 +715,16 @@ const ImprovedAddOrderForm = ({
                                   <Select
                                     onValueChange={(value) => {
                                       const menuItem = menuItems?.find(
-                                        (item) => item.name === value
+                                        (item) => item.name === value,
                                       );
                                       if (menuItem) {
                                         form.setValue(
                                           `orderItems.${index}.unitPrice`,
-                                          menuItem.price
+                                          menuItem.price,
                                         );
                                         form.setValue(
                                           `orderItems.${index}.category`,
-                                          menuItem.category
+                                          menuItem.category,
                                         );
                                       }
                                       field.onChange(value);
@@ -729,12 +739,12 @@ const ImprovedAddOrderForm = ({
                                         ?.filter(
                                           (item) =>
                                             !form.watch(
-                                              `orderItems.${index}.category`
+                                              `orderItems.${index}.category`,
                                             ) ||
                                             item.category ===
                                               form.watch(
-                                                `orderItems.${index}.category`
-                                              )
+                                                `orderItems.${index}.category`,
+                                              ),
                                         )
                                         .map((item) => (
                                           <SelectItem
@@ -770,7 +780,7 @@ const ImprovedAddOrderForm = ({
                                   type="button"
                                   onClick={() =>
                                     field.onChange(
-                                      Math.max(1, (field.value || 1) - 1)
+                                      Math.max(1, (field.value || 1) - 1),
                                     )
                                   }
                                   className="w-9 bg-gray-100 dark:bg-gray-700 rounded-l-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 font-bold"
@@ -782,7 +792,7 @@ const ImprovedAddOrderForm = ({
                                   value={field.value}
                                   onChange={(e) =>
                                     field.onChange(
-                                      parseInt(e.target.value) || 1
+                                      parseInt(e.target.value) || 1,
                                     )
                                   }
                                   className="w-10 text-center text-sm font-bold border-y border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800"

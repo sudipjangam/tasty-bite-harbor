@@ -598,6 +598,11 @@ export const QSRPosMain: React.FC = () => {
         setSelectedTable(null);
       }
       refetchTables();
+
+      // Invalidate active orders query immediately
+      queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["active-orders"] });
     } catch (error) {
       console.error("Error sending to kitchen:", error);
       toast({
@@ -709,6 +714,11 @@ export const QSRPosMain: React.FC = () => {
 
       setOrderItems([]);
       setRecalledKitchenOrderId(null);
+
+      // Invalidate active orders query immediately
+      queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["active-orders"] });
     } catch (error) {
       console.error("Error holding order:", error);
       toast({
@@ -1024,6 +1034,11 @@ export const QSRPosMain: React.FC = () => {
 
       setShowPaymentDialog(false);
       setShowActiveOrders(false); // Close Active Orders drawer after successful payment
+
+      // Invalidate active orders queries to reflect completed payment
+      queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["active-orders"] });
     } catch (error) {
       console.error("Error completing payment:", error);
       toast({
