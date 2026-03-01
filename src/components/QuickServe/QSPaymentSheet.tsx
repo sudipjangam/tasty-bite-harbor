@@ -206,15 +206,18 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     return `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(`Order payment - ${restaurantName}`)}`;
   };
 
-  // Generate UPI QR code when payment succeeds
+  // Generate UPI QR code when payment succeeds — always show QR
   useEffect(() => {
-    if (status === "success" && upiId) {
+    if (status === "success") {
       const upiLink = getUpiLink();
-      if (!upiLink) return;
+      // If UPI ID configured, use UPI deep link; otherwise generate a basic payment info QR
+      const qrContent =
+        upiLink ||
+        `Pay ${currencySymbol}${subtotal.toFixed(2)} to ${restaurantName}`;
 
-      console.log("🔍 UPI QR Link:", upiLink);
+      console.log("🔍 QR Content:", qrContent);
 
-      QRCodeLib.toDataURL(upiLink, {
+      QRCodeLib.toDataURL(qrContent, {
         width: 300,
         margin: 3,
         errorCorrectionLevel: "H",
@@ -757,11 +760,11 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               </div>
             )}
 
-            {/* UPI QR Code — show when UPI is configured */}
-            {upiId && (
+            {/* UPI QR Code — always show on success */}
+            {!isOfflineOrder && (
               <div className="w-full bg-gradient-to-b from-purple-50 to-white dark:from-purple-500/10 dark:to-gray-900 border border-purple-200 dark:border-purple-500/20 rounded-xl p-4 mb-4">
                 <p className="text-xs font-semibold text-purple-700 dark:text-purple-300 text-center uppercase tracking-wider mb-3">
-                  Customer can scan to pay
+                  {upiId ? "Customer can scan to pay" : "Payment QR Code"}
                 </p>
                 {qrCodeUrl ? (
                   <div className="w-56 h-56 mx-auto bg-white rounded-lg p-2 shadow-sm mb-2">
