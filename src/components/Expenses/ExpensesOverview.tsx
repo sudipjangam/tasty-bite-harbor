@@ -1,6 +1,9 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useExpenseData } from "@/hooks/useExpenseData";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import {
   DollarSign,
   TrendingUp,
@@ -11,7 +14,7 @@ import {
   ArrowDownRight,
   Wallet,
 } from "lucide-react";
-import { format, subDays } from "date-fns";
+import { format, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import Highcharts from "highcharts";
 import HighchartsReact from "highcharts-react-official";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
@@ -30,6 +33,26 @@ const COLORS = [
 const ExpensesOverview = () => {
   const { data: expenseData, isLoading } = useExpenseData();
   const { symbol: currencySymbol } = useCurrencyContext();
+  const { restaurantId } = useRestaurantId();
+
+  // Fetch previous month total for real trend comparison
+  const { data: prevMonthTotal = 0 } = useQuery({
+    queryKey: ["prev-month-expenses", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return 0;
+      const prevMonth = subMonths(new Date(), 1);
+      const start = format(startOfMonth(prevMonth), "yyyy-MM-dd");
+      const end = format(endOfMonth(prevMonth), "yyyy-MM-dd");
+      const { data } = await supabase
+        .from("expenses")
+        .select("amount")
+        .eq("restaurant_id", restaurantId)
+        .gte("expense_date", start)
+        .lte("expense_date", end);
+      return (data || []).reduce((sum, e) => sum + (e.amount || 0), 0);
+    },
+    enabled: !!restaurantId,
+  });
 
   // Check dark mode
   const isDark = document.documentElement.classList.contains("dark");
@@ -54,12 +77,18 @@ const ExpensesOverview = () => {
   const avgDaily = monthlyExpenses / 30;
   const topCategory = expenseData?.expenseBreakdown?.reduce(
     (max, curr) => (curr.value > max.value ? curr : max),
-    { name: "None", value: 0 }
+    { name: "None", value: 0 },
   );
 
-  // Calculate trend (mock comparison with previous period)
-  const trendPercentage = 12.5; // In real implementation, compare with previous month
+  // Real month-over-month trend
+  const trendPercentage =
+    prevMonthTotal > 0
+      ? Math.round(
+          ((monthlyExpenses - prevMonthTotal) / prevMonthTotal) * 100 * 10,
+        ) / 10
+      : 0;
   const isPositiveTrend = trendPercentage > 0;
+  const hasPreviousData = prevMonthTotal > 0;
 
   // Area chart options for Expense Trend
   const areaChartOptions: Highcharts.Options = {
@@ -73,7 +102,7 @@ const ExpensesOverview = () => {
     credits: { enabled: false },
     xAxis: {
       categories: (expenseData?.expenseTrendData || []).map((d: any) =>
-        format(new Date(d.date), "MMM dd")
+        format(new Date(d.date), "MMM dd"),
       ),
       labels: {
         style: { color: isDark ? "#9ca3af" : "#6b7280", fontSize: "11px" },
@@ -102,9 +131,9 @@ const ExpensesOverview = () => {
       borderRadius: 12,
       shadow: true,
       useHTML: true,
-      formatter: function () {
+      formatter: function (this: any) {
         const trendData = expenseData?.expenseTrendData || [];
-        const idx = this.point.index;
+        const idx = this.point?.index ?? 0;
         const d = trendData[idx];
         return `
           <div style="padding: 8px;">
@@ -115,8 +144,8 @@ const ExpensesOverview = () => {
             </p>
             <p style="margin: 0; color: ${isDark ? "#9ca3af" : "#6b7280"};">
               Amount: <span style="font-weight: 600; color: #8b5cf6;">${currencySymbol}${Number(
-          this.y
-        ).toLocaleString()}</span>
+                this.y,
+              ).toLocaleString()}</span>
             </p>
           </div>
         `;
@@ -167,13 +196,13 @@ const ExpensesOverview = () => {
       borderRadius: 12,
       shadow: true,
       useHTML: true,
-      formatter: function () {
+      formatter: function (this: any) {
         return `
           <div style="padding: 8px;">
             <p style="font-weight: 600; color: ${
               isDark ? "#e5e7eb" : "#1f2937"
             }; margin: 0 0 4px 0;">
-              ${this.point.name}
+              ${this.point?.name || ""}
             </p>
             <p style="margin: 0; color: ${isDark ? "#9ca3af" : "#6b7280"};">
               ${currencySymbol}${Number(this.y).toLocaleString()}
@@ -202,7 +231,7 @@ const ExpensesOverview = () => {
             name: item.name,
             y: item.value,
             color: COLORS[index % COLORS.length],
-          })
+          }),
         ),
       },
     ],
@@ -224,18 +253,26 @@ const ExpensesOverview = () => {
                 {totalExpenses.toLocaleString()}
               </p>
               <div className="flex items-center gap-1 mt-2">
-                {isPositiveTrend ? (
-                  <ArrowUpRight className="h-4 w-4 text-red-300" />
+                {hasPreviousData ? (
+                  <>
+                    {isPositiveTrend ? (
+                      <ArrowUpRight className="h-4 w-4 text-red-300" />
+                    ) : (
+                      <ArrowDownRight className="h-4 w-4 text-green-300" />
+                    )}
+                    <span
+                      className={`text-sm ${
+                        isPositiveTrend ? "text-red-200" : "text-green-200"
+                      }`}
+                    >
+                      {Math.abs(trendPercentage)}% vs last month
+                    </span>
+                  </>
                 ) : (
-                  <ArrowDownRight className="h-4 w-4 text-green-300" />
+                  <span className="text-sm text-purple-200/60">
+                    No previous month data
+                  </span>
                 )}
-                <span
-                  className={`text-sm ${
-                    isPositiveTrend ? "text-red-200" : "text-green-200"
-                  }`}
-                >
-                  {trendPercentage}% vs last month
-                </span>
               </div>
             </div>
             <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-sm">
@@ -341,9 +378,8 @@ const ExpensesOverview = () => {
                 />
               </div>
               <div className="w-1/2 space-y-2">
-                {(expenseData?.expenseBreakdown || [])
-                  .slice(0, 5)
-                  .map((item: any, index: number) => (
+                {(expenseData?.expenseBreakdown || []).map(
+                  (item: any, index: number) => (
                     <div key={index} className="flex items-center gap-2">
                       <div
                         className="w-3 h-3 rounded-full"
@@ -358,7 +394,8 @@ const ExpensesOverview = () => {
                         {item.percentage}%
                       </span>
                     </div>
-                  ))}
+                  ),
+                )}
               </div>
             </div>
           </CardContent>

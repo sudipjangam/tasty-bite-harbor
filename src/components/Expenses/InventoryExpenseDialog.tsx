@@ -23,8 +23,8 @@ import {
   Loader2,
   Download,
   CalendarDays,
-  IndianRupee,
   TrendingDown,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Select,
@@ -80,6 +80,25 @@ const InventoryExpenseDialog: React.FC<InventoryExpenseDialogProps> = ({
 
       if (error) throw error;
       return data || [];
+    },
+    enabled: !!restaurantId && isOpen,
+  });
+
+  // Check for existing inventory import for this month
+  const { data: existingImport } = useQuery({
+    queryKey: ["inventory-duplicate-check", restaurantId, monthOffset],
+    queryFn: async () => {
+      if (!restaurantId) return null;
+      const { data } = await supabase
+        .from("expenses")
+        .select("id, amount, expense_date")
+        .eq("restaurant_id", restaurantId)
+        .eq("category", "groceries")
+        .eq("subcategory", "Inventory Import")
+        .gte("expense_date", format(dateRange.start, "yyyy-MM-dd"))
+        .lte("expense_date", format(dateRange.end, "yyyy-MM-dd"))
+        .limit(1);
+      return data && data.length > 0 ? data[0] : null;
     },
     enabled: !!restaurantId && isOpen,
   });
@@ -221,6 +240,23 @@ const InventoryExpenseDialog: React.FC<InventoryExpenseDialogProps> = ({
             {dateRange.label}
           </Badge>
         </div>
+
+        {/* Duplicate Warning */}
+        {existingImport && (
+          <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800/30">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <span>
+              An inventory expense of{" "}
+              <strong>
+                {currencySymbol}
+                {existingImport.amount}
+              </strong>{" "}
+              was already imported for {dateRange.label} on{" "}
+              {format(new Date(existingImport.expense_date), "MMM d")}.
+              Importing again will create a duplicate.
+            </span>
+          </div>
+        )}
 
         {/* Items List */}
         <div className="flex-1 overflow-y-auto border rounded-xl">

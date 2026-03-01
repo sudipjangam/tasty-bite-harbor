@@ -51,7 +51,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
-import { ShoppingCart, Users as UsersIcon } from "lucide-react";
+import { ShoppingCart, Users as UsersIcon, Repeat } from "lucide-react";
 
 interface Expense {
   id: string;
@@ -313,6 +313,75 @@ const ExpensesList = () => {
           </SelectContent>
         </Select>
       </div>
+
+      {/* Recurring Expense Reminders */}
+      {(() => {
+        const recurringExpenses = (expenses || []).filter(
+          (e: any) => e.is_recurring,
+        );
+        if (recurringExpenses.length === 0) return null;
+
+        // Check if any recurring expense hasn't been entered this month
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        const thisMonthExpenses = (expenses || []).filter((e: any) => {
+          const d = new Date(e.expense_date);
+          return (
+            d.getMonth() === currentMonth && d.getFullYear() === currentYear
+          );
+        });
+
+        const dueRecurring = recurringExpenses.filter((re: any) => {
+          return !thisMonthExpenses.some(
+            (me: any) =>
+              me.category === re.category &&
+              me.vendor_name === re.vendor_name &&
+              me.id !== re.id,
+          );
+        });
+
+        if (dueRecurring.length === 0) return null;
+
+        return (
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/10 dark:to-orange-900/10 rounded-xl border border-amber-200 dark:border-amber-800/30 p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Repeat className="h-4 w-4 text-amber-600" />
+              <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                Recurring Expenses Reminder
+              </span>
+              <Badge
+                variant="outline"
+                className="text-xs text-amber-600 border-amber-300"
+              >
+                {dueRecurring.length} due
+              </Badge>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {dueRecurring.slice(0, 5).map((e: any) => (
+                <button
+                  key={e.id}
+                  onClick={() => {
+                    setEditingExpense(null);
+                    setIsFormOpen(true);
+                  }}
+                  className="text-xs px-3 py-1.5 bg-white dark:bg-gray-800 rounded-lg border border-amber-200 dark:border-amber-700 hover:border-amber-400 transition-colors text-gray-700 dark:text-gray-300"
+                >
+                  {getCategoryLabel(e.category)}
+                  {e.vendor_name ? ` • ${e.vendor_name}` : ""}
+                  {" — "}
+                  <strong>
+                    {currencySymbol}
+                    {e.amount}
+                  </strong>
+                  <span className="text-amber-500 ml-1">
+                    ({e.recurring_frequency})
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Expenses List */}
       <div className="space-y-3">

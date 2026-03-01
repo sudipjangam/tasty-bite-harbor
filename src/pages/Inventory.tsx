@@ -142,7 +142,7 @@ const Inventory = () => {
 
       const lowStockItems = items.filter(
         (item) =>
-          item.reorder_level !== null && item.quantity <= item.reorder_level
+          item.reorder_level !== null && item.quantity <= item.reorder_level,
       );
 
       if (lowStockItems.length > 0) {
@@ -199,7 +199,7 @@ const Inventory = () => {
       name: formData.get("name") as string,
       quantity: Math.max(
         0,
-        parseFloat(formData.get("quantity") as string) || 0
+        parseFloat(formData.get("quantity") as string) || 0,
       ),
       unit: formData.get("unit") as string,
       reorder_level: formData.get("reorderLevel")
@@ -312,14 +312,17 @@ const Inventory = () => {
   };
 
   // Group items by category
-  const groupedItems = items.reduce((acc, item) => {
-    const category = item.category || "Other";
-    if (!acc[category]) {
-      acc[category] = [];
-    }
-    acc[category].push(item);
-    return acc;
-  }, {} as Record<string, InventoryItem[]>);
+  const groupedItems = items.reduce(
+    (acc, item) => {
+      const category = item.category || "Other";
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push(item);
+      return acc;
+    },
+    {} as Record<string, InventoryItem[]>,
+  );
 
   // Filter items based on search, category and low stock status
   const filteredItems = items.filter((item) => {
@@ -337,11 +340,12 @@ const Inventory = () => {
 
   // Calculate stats
   const lowStockCount = items.filter(
-    (item) => item.reorder_level !== null && item.quantity <= item.reorder_level
+    (item) =>
+      item.reorder_level !== null && item.quantity <= item.reorder_level,
   ).length;
   const totalValue = items.reduce(
     (sum, item) => sum + item.quantity * (item.cost_per_unit || 0),
-    0
+    0,
   );
   const totalItems = items.length;
 
@@ -693,7 +697,7 @@ const Inventory = () => {
                     <DropdownMenuItem
                       onClick={() => {
                         const exportButton = document.querySelector(
-                          "[data-export-excel]"
+                          "[data-export-excel]",
                         ) as HTMLButtonElement;
                         if (exportButton) exportButton.click();
                       }}
@@ -704,7 +708,7 @@ const Inventory = () => {
                     <DropdownMenuItem
                       onClick={() => {
                         const exportButton = document.querySelector(
-                          "[data-export-pdf]"
+                          "[data-export-pdf]",
                         ) as HTMLButtonElement;
                         if (exportButton) exportButton.click();
                       }}
@@ -771,8 +775,8 @@ const Inventory = () => {
                       showLowStockOnly
                         ? "Low Stock Items Report"
                         : filterCategory !== "all"
-                        ? `${filterCategory} Inventory Report`
-                        : "Complete Inventory Report"
+                          ? `${filterCategory} Inventory Report`
+                          : "Complete Inventory Report"
                     }
                   />
                   <Button
@@ -799,7 +803,7 @@ const Inventory = () => {
                   }`}
                   onClick={() =>
                     setFilterCategory(
-                      category === filterCategory ? "all" : category
+                      category === filterCategory ? "all" : category,
                     )
                   }
                 >
@@ -869,7 +873,7 @@ const Inventory = () => {
                             </h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                               <span className="font-semibold text-lg">
-                                {item.quantity}
+                                {Number(item.quantity).toFixed(2)}
                               </span>{" "}
                               {item.unit}
                             </p>
