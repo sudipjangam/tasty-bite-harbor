@@ -148,7 +148,7 @@ export const RecipeDialog = ({
       );
       const { data, error } = await supabase
         .from("menu_items")
-        .select("id, name, category")
+        .select("id, name, category, price")
         .eq("restaurant_id", restaurantId.restaurantId)
         .order("name");
 
@@ -658,6 +658,12 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                     handleInputChange("menu_item_id", value);
                     if (selectedItem) {
                       handleInputChange("name", selectedItem.name);
+                      if (selectedItem.price) {
+                        handleInputChange(
+                          "selling_price",
+                          selectedItem.price.toString(),
+                        );
+                      }
                     }
                   }}
                 >
@@ -680,6 +686,19 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                   Link this recipe to a menu item for automatic inventory
                   deduction
                 </p>
+                {formData.menu_item_id &&
+                  (() => {
+                    const linked = menuItems.find(
+                      (i: any) => i.id === formData.menu_item_id,
+                    );
+                    return linked?.price ? (
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1">
+                        <DollarSign className="h-3 w-3" />
+                        Selling price fetched from menu: {currencySymbol}
+                        {linked.price} (editable below)
+                      </p>
+                    ) : null;
+                  })()}
               </div>
 
               {/* Recipe Name & Category */}

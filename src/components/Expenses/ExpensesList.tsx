@@ -30,7 +30,10 @@ import {
   AlertCircle,
 } from "lucide-react";
 import ExpenseForm from "./ExpenseForm";
+import InventoryExpenseDialog from "./InventoryExpenseDialog";
+import StaffSalaryExpenseDialog from "./StaffSalaryExpenseDialog";
 import { useToast } from "@/hooks/use-toast";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,6 +51,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { ShoppingCart, Users as UsersIcon } from "lucide-react";
 
 interface Expense {
   id: string;
@@ -71,6 +75,8 @@ const ExpensesList = () => {
   const [dateRange, setDateRange] = useState("30");
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
+  const [showInventoryImport, setShowInventoryImport] = useState(false);
+  const [showSalaryImport, setShowSalaryImport] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { symbol: currencySymbol } = useCurrencyContext();
@@ -161,7 +167,7 @@ const ExpensesList = () => {
 
   const totalAmount = filteredExpenses.reduce(
     (sum, expense) => sum + expense.amount,
-    0
+    0,
   );
 
   const getCategoryColor = (category: string) => {
@@ -194,7 +200,10 @@ const ExpensesList = () => {
       maintenance: "Maintenance",
       other: "Other",
     };
-    return labels[category] || category;
+    return (
+      labels[category] ||
+      category.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    );
   };
 
   const handleEdit = (expense: Expense) => {
@@ -244,6 +253,22 @@ const ExpensesList = () => {
         >
           <Plus className="h-4 w-4 mr-2" />
           Add Expense
+        </Button>
+        <Button
+          onClick={() => setShowInventoryImport(true)}
+          variant="outline"
+          className="border-green-300 dark:border-green-600 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-xl"
+        >
+          <ShoppingCart className="h-4 w-4 mr-2" />
+          Import Inventory
+        </Button>
+        <Button
+          onClick={() => setShowSalaryImport(true)}
+          variant="outline"
+          className="border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl"
+        >
+          <UsersIcon className="h-4 w-4 mr-2" />
+          Import Salaries
         </Button>
       </div>
 
@@ -314,7 +339,7 @@ const ExpensesList = () => {
                   <div className="flex items-center gap-3 mb-2 flex-wrap">
                     <Badge
                       className={`${getCategoryColor(
-                        expense.category
+                        expense.category,
                       )} shadow-md`}
                     >
                       {getCategoryLabel(expense.category)}
@@ -400,6 +425,24 @@ const ExpensesList = () => {
           queryClient.invalidateQueries({ queryKey: ["expense-data"] });
         }}
         editExpense={editingExpense}
+      />
+
+      <InventoryExpenseDialog
+        isOpen={showInventoryImport}
+        onClose={() => setShowInventoryImport(false)}
+        onSuccess={() => {
+          refetch();
+          queryClient.invalidateQueries({ queryKey: ["expense-data"] });
+        }}
+      />
+
+      <StaffSalaryExpenseDialog
+        isOpen={showSalaryImport}
+        onClose={() => setShowSalaryImport(false)}
+        onSuccess={() => {
+          refetch();
+          queryClient.invalidateQueries({ queryKey: ["expense-data"] });
+        }}
       />
 
       <AlertDialog

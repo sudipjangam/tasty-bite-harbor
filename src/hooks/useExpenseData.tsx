@@ -55,17 +55,21 @@ export const useExpenseData = () => {
           };
 
           return {
-            name: categoryLabels[category] || category,
+            name:
+              categoryLabels[category] ||
+              category
+                .replace(/_/g, " ")
+                .replace(/\b\w/g, (c) => c.toUpperCase()),
             value: Math.round(amount),
             percentage: 0, // Will be calculated below
           };
-        }
+        },
       );
 
       // Calculate percentages
       const totalExpenses = expenseBreakdown.reduce(
         (sum, item) => sum + item.value,
-        0
+        0,
       );
       if (totalExpenses > 0) {
         expenseBreakdown.forEach((item) => {
@@ -86,7 +90,7 @@ export const useExpenseData = () => {
         ([date, amount]) => ({
           date,
           amount: Math.round(amount),
-        })
+        }),
       );
 
       // Calculate staff expenses specifically
@@ -104,7 +108,7 @@ export const useExpenseData = () => {
         staffExpenses: Math.round(staffExpenses),
         totalExpenses: (expenses || []).reduce(
           (sum, expense) => sum + expense.amount,
-          0
+          0,
         ),
       };
     },

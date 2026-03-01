@@ -27,13 +27,12 @@ vi.mock("@/contexts/CurrencyContext", () => ({
 const mockPastOrders: PastOrder[] = [
   {
     id: "1",
+    orderId: "order-1",
     source: "QSR-Table 1",
     status: "completed",
     items: [{ name: "Burger", quantity: 2, price: 150 }],
     orderType: "dine_in",
     customerName: "Table 1",
-    serverName: "John",
-    priority: "normal",
     createdAt: new Date().toISOString(),
     completedAt: new Date().toISOString(),
     total: 300,
