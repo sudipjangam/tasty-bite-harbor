@@ -31,6 +31,13 @@ import {
   Wrench,
   Megaphone,
   Package,
+  ShoppingCart,
+  Car,
+  Shield,
+  ScrollText,
+  CalendarDays,
+  AlertTriangle,
+  Repeat,
 } from "lucide-react";
 
 const ExpenseHelpDialog = () => {
@@ -69,8 +76,8 @@ const ExpenseHelpDialog = () => {
               <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
                 The Expense Management module helps you track, categorize, and
                 analyze all your business expenses. It provides real-time
-                insights into your spending patterns, helping you make informed
-                financial decisions.
+                insights into your spending patterns with automated import
+                features for inventory and staff salaries.
               </p>
             </section>
 
@@ -91,8 +98,8 @@ const ExpenseHelpDialog = () => {
                     </span>
                   </div>
                   <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Total expenses recorded in the past 30 days with
-                    month-over-month comparison percentage.
+                    Total expenses with real month-over-month comparison
+                    percentage.
                   </p>
                 </div>
                 <div className="p-3 bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 rounded-lg border border-cyan-200 dark:border-cyan-700">
@@ -126,8 +133,7 @@ const ExpenseHelpDialog = () => {
                     </span>
                   </div>
                   <p className="text-xs text-gray-600 dark:text-gray-400">
-                    The expense category with the highest spending amount this
-                    month.
+                    The expense category with the highest spending this month.
                   </p>
                 </div>
               </div>
@@ -141,6 +147,9 @@ const ExpenseHelpDialog = () => {
                 <PieChart className="h-5 w-5 text-purple-500" />
                 Expense Categories
               </h3>
+              <p className="text-xs text-gray-500 mb-2">
+                System categories + your custom categories
+              </p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {[
                   {
@@ -158,11 +167,7 @@ const ExpenseHelpDialog = () => {
                     label: "Utilities",
                     desc: "Electric, water, gas",
                   },
-                  {
-                    icon: Home,
-                    label: "Rent",
-                    desc: "Property lease payments",
-                  },
+                  { icon: Home, label: "Rent", desc: "Property lease" },
                   {
                     icon: Wrench,
                     label: "Equipment",
@@ -171,7 +176,7 @@ const ExpenseHelpDialog = () => {
                   {
                     icon: Megaphone,
                     label: "Marketing",
-                    desc: "Advertising & promotions",
+                    desc: "Ads & promotions",
                   },
                   {
                     icon: Wrench,
@@ -179,24 +184,102 @@ const ExpenseHelpDialog = () => {
                     desc: "Repairs & upkeep",
                   },
                   {
-                    icon: FileText,
-                    label: "Other",
-                    desc: "Miscellaneous expenses",
+                    icon: Car,
+                    label: "Transport & Fuel",
+                    desc: "Delivery & travel",
+                  },
+                  {
+                    icon: Shield,
+                    label: "Insurance",
+                    desc: "Business coverage",
+                  },
+                  {
+                    icon: ScrollText,
+                    label: "Licenses",
+                    desc: "Permits & renewals",
+                  },
+                  {
+                    icon: Plus,
+                    label: "Custom",
+                    desc: "Create your own categories",
                   },
                 ].map((cat, i) => (
                   <div
                     key={i}
-                    className="p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg text-center"
+                    className={`p-2 rounded-lg text-center ${cat.label === "Custom" ? "bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 border-dashed" : "bg-gray-50 dark:bg-gray-800/50"}`}
                   >
                     <cat.icon className="h-4 w-4 mx-auto mb-1 text-gray-600 dark:text-gray-400" />
                     <p className="text-xs font-medium text-gray-800 dark:text-white">
                       {cat.label}
                     </p>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-500">
-                      {cat.desc}
-                    </p>
+                    <p className="text-[10px] text-gray-500">{cat.desc}</p>
                   </div>
                 ))}
+              </div>
+            </section>
+
+            <Separator />
+
+            {/* Import Features Section — NEW */}
+            <section>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white flex items-center gap-2 mb-3">
+                <ShoppingCart className="h-5 w-5 text-green-500" />
+                Quick Import Features
+              </h3>
+              <div className="space-y-3">
+                {/* Import Inventory */}
+                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
+                  <p className="text-sm font-medium text-gray-800 dark:text-white flex items-center gap-2">
+                    <Package className="h-4 w-4 text-green-600" />
+                    Import Inventory
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    Pulls your current inventory items with quantities and cost
+                    per unit. Select items and import as grocery expense with
+                    detailed breakdown. Choose which month to record the expense
+                    for.
+                  </p>
+                </div>
+
+                {/* Import Salaries */}
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                  <p className="text-sm font-medium text-gray-800 dark:text-white flex items-center gap-2">
+                    <Users className="h-4 w-4 text-blue-600" />
+                    Import Staff Salaries
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    Automatically calculates salary based on attendance and
+                    approved leaves. Shows leave days, working days, and
+                    deductions per staff member.
+                  </p>
+                  <div className="mt-2 p-2 bg-white/60 dark:bg-gray-800 rounded border">
+                    <p className="text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Salary Calculation:
+                    </p>
+                    <div className="space-y-1">
+                      <code className="text-[10px] text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded block">
+                        Daily Staff: Salary/day × Working Days
+                      </code>
+                      <code className="text-[10px] text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded block">
+                        Monthly Staff: Salary − (Salary ÷ Days in Month × Leave
+                        Days)
+                      </code>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Duplicate Detection */}
+                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700">
+                  <p className="text-sm font-medium text-gray-800 dark:text-white flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    Duplicate Import Detection
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    Both import dialogs check if a similar expense was already
+                    recorded for the selected month. An amber warning appears if
+                    a duplicate is detected.
+                  </p>
+                </div>
               </div>
             </section>
 
@@ -210,38 +293,36 @@ const ExpenseHelpDialog = () => {
               </h3>
               <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                 <p className="flex items-start gap-2">
-                  <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full shrink-0">
                     1
                   </span>
-                  Click the <strong>"Add Expense"</strong> button in the
-                  Expenses tab
+                  Click <strong>"Add Expense"</strong> or use the Import buttons
                 </p>
                 <p className="flex items-start gap-2">
-                  <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full shrink-0">
                     2
                   </span>
-                  Select a <strong>Category</strong> (required) and enter the{" "}
-                  <strong>Amount</strong>
+                  Select a <strong>Category</strong> (or create a custom one)
+                  and enter the <strong>Amount</strong>
                 </p>
                 <p className="flex items-start gap-2">
-                  <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full shrink-0">
                     3
                   </span>
                   Choose the <strong>Expense Date</strong> and{" "}
                   <strong>Payment Method</strong>
                 </p>
                 <p className="flex items-start gap-2">
-                  <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full shrink-0">
                     4
                   </span>
                   Optionally add Subcategory, Vendor Name, and Description
                 </p>
                 <p className="flex items-start gap-2">
-                  <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full shrink-0">
                     5
                   </span>
                   Toggle <strong>Recurring</strong> if it's a repeating expense
-                  (rent, salaries, etc.)
                 </p>
               </div>
             </section>
@@ -263,9 +344,40 @@ const ExpenseHelpDialog = () => {
                     >
                       {method}
                     </span>
-                  )
+                  ),
                 )}
               </div>
+            </section>
+
+            <Separator />
+
+            {/* Recurring Expenses Section */}
+            <section>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white flex items-center gap-2 mb-3">
+                <Repeat className="h-5 w-5 text-teal-500" />
+                Recurring Expenses & Reminders
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                Mark expenses as recurring for regular payments. The system
+                shows a <strong>reminder banner</strong> at the top of the
+                Expenses tab when recurring expenses haven't been re-entered for
+                the current month.
+              </p>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {["Daily", "Weekly", "Monthly", "Quarterly", "Yearly"].map(
+                  (freq) => (
+                    <span
+                      key={freq}
+                      className="px-3 py-1 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-full text-xs font-medium"
+                    >
+                      {freq}
+                    </span>
+                  ),
+                )}
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-500">
+                Click any reminder chip to quickly add the expense again.
+              </p>
             </section>
 
             <Separator />
@@ -306,7 +418,7 @@ const ExpenseHelpDialog = () => {
                       Category Filter
                     </p>
                     <p className="text-xs text-gray-600 dark:text-gray-400">
-                      Filter expenses by specific category or view all
+                      Filter by system or custom categories
                     </p>
                   </div>
                 </div>
@@ -328,8 +440,8 @@ const ExpenseHelpDialog = () => {
                     Expense Trend (Area Chart)
                   </p>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    Visualizes daily expense amounts over the last 30 days to
-                    identify spending patterns.
+                    Daily expense amounts over 30 days to spot spending
+                    patterns.
                   </p>
                 </div>
                 <div className="p-3 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg border border-cyan-200 dark:border-cyan-700">
@@ -338,17 +450,27 @@ const ExpenseHelpDialog = () => {
                     Category Breakdown (Donut Chart)
                   </p>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    Shows the percentage distribution of expenses across
-                    different categories.
+                    Percentage distribution across all categories.
                   </p>
                 </div>
                 <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700">
                   <p className="text-sm font-medium text-gray-800 dark:text-white flex items-center gap-2">
                     <BarChart3 className="h-4 w-4 text-amber-600" />
-                    Monthly Comparison (Bar Chart)
+                    Monthly Trend (Bar Chart)
                   </p>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    Compares actual expenses vs budget over the last 6 months.
+                    Real expense totals for the last 6 months with
+                    month-over-month comparison.
+                  </p>
+                </div>
+                <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-700">
+                  <p className="text-sm font-medium text-gray-800 dark:text-white flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-indigo-600" />
+                    Category Comparison
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    This month vs last month per category — identifies where
+                    spending increased or decreased.
                   </p>
                 </div>
               </div>
@@ -373,58 +495,29 @@ const ExpenseHelpDialog = () => {
                 </div>
                 <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                   <p className="font-medium text-gray-800 dark:text-white">
-                    Category Percentage
+                    Expense Growth (Trend %)
                   </p>
                   <code className="text-xs text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/30 px-2 py-1 rounded mt-1 inline-block">
-                    (Category Total ÷ Total Expenses) × 100
+                    ((This Month − Last Month) ÷ Last Month) × 100
                   </code>
                 </div>
                 <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                   <p className="font-medium text-gray-800 dark:text-white">
-                    Expense Growth
+                    Daily Salary
                   </p>
                   <code className="text-xs text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/30 px-2 py-1 rounded mt-1 inline-block">
-                    ((Current Month - Previous Month) ÷ Previous Month) × 100
+                    Salary/Day × (Days in Month − Approved Leave Days)
                   </code>
                 </div>
                 <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                   <p className="font-medium text-gray-800 dark:text-white">
-                    Profit Calculation
+                    Monthly Salary
                   </p>
                   <code className="text-xs text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/30 px-2 py-1 rounded mt-1 inline-block">
-                    Total Revenue - Total Expenses = Profit
+                    Monthly Salary − (Salary ÷ Days in Month × Leave Days)
                   </code>
                 </div>
               </div>
-            </section>
-
-            <Separator />
-
-            {/* Recurring Expenses Section */}
-            <section>
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-white flex items-center gap-2 mb-3">
-                <RefreshCw className="h-5 w-5 text-teal-500" />
-                Recurring Expenses
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-                Mark expenses as recurring for regular payments like:
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {["Daily", "Weekly", "Monthly", "Quarterly", "Yearly"].map(
-                  (freq) => (
-                    <span
-                      key={freq}
-                      className="px-3 py-1 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-full text-xs font-medium"
-                    >
-                      {freq}
-                    </span>
-                  )
-                )}
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-                Examples: Rent (Monthly), Salaries (Monthly), Subscriptions
-                (Monthly/Yearly)
-              </p>
             </section>
 
             <Separator />
@@ -437,26 +530,33 @@ const ExpenseHelpDialog = () => {
               <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                 <li className="flex items-start gap-2">
                   <span className="text-purple-500">•</span>
-                  Record expenses daily for accurate tracking and better
-                  insights
+                  Use <strong>Import Inventory</strong> to auto-calculate
+                  grocery expenses from your stock data
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-purple-500">•</span>
-                  Use subcategories to further classify expenses (e.g.,
-                  "Vegetables" under Groceries)
+                  Use <strong>Import Salaries</strong> at month-end — it
+                  auto-applies leave deductions
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-purple-500">•</span>
-                  Always include vendor names for better supplier tracking
+                  Create <strong>custom categories</strong> for expenses unique
+                  to your business
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-purple-500">•</span>
-                  Review the Analytics tab weekly to identify spending patterns
+                  Mark fixed expenses as <strong>Recurring</strong> to get
+                  monthly reminders
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-purple-500">•</span>
-                  Set budgets and compare against actual spending in the
-                  Analytics view
+                  Review <strong>Analytics</strong> weekly to track spending
+                  patterns across categories
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-purple-500">•</span>
+                  Always include <strong>vendor names</strong> for better
+                  supplier tracking
                 </li>
               </ul>
             </section>
