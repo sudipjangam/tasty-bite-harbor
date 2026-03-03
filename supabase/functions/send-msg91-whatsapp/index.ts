@@ -14,11 +14,13 @@ const corsHeaders = {
 
 interface Msg91WhatsAppPayload {
   phoneNumber: string;
-  pdfUrl: string;
   customerName?: string;
   restaurantName: string;
   templateName: string;
-  orderDetailsUrl?: string; // Optional URL for the "View Order" button
+  amount: string;
+  billDate: string;
+  contactNumber?: string;
+  billUrl?: string;
 }
 
 serve(async (req) => {
@@ -66,26 +68,28 @@ serve(async (req) => {
 
     // ── Business Logic ───────────────────────────────────────────────────
     const MSG91_AUTH_KEY = Deno.env.get("MSG91_AUTH_KEY");
-    const MSG91_INTEGRATED_NUMBER = Deno.env.get("MSG91_INTEGRATED_NUMBER");
+    const MSG91_INTEGRATED_NUMBER = Deno.env.get("MSG91_INTEGRATED_NUMBER") || "918329540398";
 
-    if (!MSG91_AUTH_KEY || !MSG91_INTEGRATED_NUMBER) {
-      throw new Error("Missing MSG91 credentials in environment variables");
+    if (!MSG91_AUTH_KEY) {
+      throw new Error("Missing MSG91_AUTH_KEY in environment variables");
     }
 
     const {
       phoneNumber,
-      pdfUrl,
       customerName = "Guest",
       restaurantName,
       templateName,
-      orderDetailsUrl,
+      amount,
+      billDate,
+      contactNumber,
+      billUrl,
     } = (await req.json()) as Msg91WhatsAppPayload;
 
-    if (!phoneNumber || !pdfUrl || !templateName) {
-      throw new Error("Missing required payload fields: phoneNumber, pdfUrl, or templateName");
+    if (!phoneNumber || !templateName) {
+      throw new Error("Missing required payload fields: phoneNumber or templateName");
     }
 
-    console.log(`Sending MSG91 WhatsApp to ${phoneNumber} with PDF: ${pdfUrl}`);
+    console.log(`Sending MSG91 WhatsApp to ${phoneNumber} using template: ${templateName}`);
 
     // Clean phone number (remove +, spaces, dashes) and ensure country code
     let cleanPhone = phoneNumber.replace(/[\+\-\s]/g, "");
@@ -96,11 +100,65 @@ serve(async (req) => {
 
     console.log(`Cleaned phone number for MSG91: ${cleanPhone}`);
 
-    // MSG91 API Payload based on documentation
+    // Build components based on the template variables
+    const components: Record<string, any> = {};
+
+    // Body variables — using named parameters as required by MSG91
+    if (customerName) {
+      components.body_customer_name = {
+        type: "text",
+        value: customerName,
+        parameter_name: "customer_name",
+      };
+    }
+
+    if (restaurantName) {
+      components.body_restaurant_name = {
+        type: "text",
+        value: restaurantName,
+        parameter_name: "restaurant_name",
+      };
+    }
+
+    if (amount) {
+      components.body_amount = {
+        type: "text",
+        value: amount,
+        parameter_name: "amount",
+      };
+    }
+
+    if (billDate) {
+      components.body_order_date = {
+        type: "text",
+        value: billDate,
+        parameter_name: "order_date",
+      };
+    }
+
+    if (contactNumber) {
+      components.body_contact_number = {
+        type: "text",
+        value: contactNumber,
+        parameter_name: "contact_number",
+      };
+    }
+
+    // Add the URL button component if the bill URL was provided
+    if (billUrl) {
+      components.button_1 = {
+        subtype: "url",
+        type: "text",
+        value: billUrl,
+      };
+    }
+
+    // MSG91 API Payload matching the new invoice_with_contact template
     const msg91Payload = {
       integrated_number: MSG91_INTEGRATED_NUMBER,
       content_type: "template",
       payload: {
+        messaging_product: "whatsapp",
         type: "template",
         template: {
           name: templateName,
@@ -108,50 +166,21 @@ serve(async (req) => {
             code: "en",
             policy: "deterministic",
           },
+          namespace: "7991fb14_798f_46ac_86b2_b0c79f284695",
           to_and_components: [
             {
               to: [cleanPhone],
-              components: {
-                // Header component expects the document URL
-                header_1: {
-                  type: "document",
-                  value: pdfUrl,
-                },
-                // Standard MSG91 v5 API maps body_1 to the first variable, body_2 to the second
-                body_1: {
-                  type: "text",
-                  value: customerName,
-                },
-                body_2: {
-                  type: "text",
-                  value: restaurantName,
-                },
-                // Add the URL button component if the URL was provided
-                ...(orderDetailsUrl && {
-                  button_1: {
-                    type: "button",
-                    sub_type: "url",
-                    index: "0",
-                    parameters: [
-                      {
-                        type: "text",
-                        text: orderDetailsUrl,
-                      },
-                    ],
-                  },
-                }),
-              },
+              components,
             },
           ],
         },
-        messaging_product: "whatsapp",
       },
     };
 
     console.log("Full MSG91 payload:", JSON.stringify(msg91Payload, null, 2));
 
     const response = await fetch(
-      "https://control.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+      "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
       {
         method: "POST",
         headers: {

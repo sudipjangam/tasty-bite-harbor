@@ -1387,9 +1387,10 @@ const PaymentDialog = ({
             phoneNumber: phoneWithCountryCode,
             customerName: customerName || "Customer",
             restaurantName,
-            templateName: "payment_receipt",
+            templateName: "invoice_with_contact",
             amount: formattedAmount,
             billDate: formattedDate,
+            contactNumber: restaurantInfo?.phone || "",
             billUrl: billUrl || undefined,
           },
         });
@@ -1404,6 +1405,7 @@ const PaymentDialog = ({
         title: "Bill Sent!",
         description: `Bill sent to ${customerMobile} via WhatsApp.`,
       });
+      onClose(); // Close the dialog after successful send
     } catch (error) {
       console.error("Failed to send WhatsApp bill:", error);
       toast({
@@ -1426,6 +1428,7 @@ const PaymentDialog = ({
     currencySymbol,
     getBillUrl,
     toast,
+    onClose,
   ]);
 
   const handlePrintBill = async (navigateAfter: boolean = false) => {
