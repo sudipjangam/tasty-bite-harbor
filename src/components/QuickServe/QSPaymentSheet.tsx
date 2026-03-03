@@ -280,7 +280,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       return;
     }
 
-    // Instant UI feedback — button shows "Sent" immediately
+    // Instant UI feedback - show loading state
+    setIsSendingBill(true);
     setBillSent(true);
     toast({
       title: "Sending Bill...",
@@ -331,9 +332,10 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               phoneNumber: phoneWithCountryCode,
               customerName: customerName || "Customer",
               restaurantName: restaurantNameForMsg,
-              templateName: "payment_receipt",
+              templateName: "invoice_with_contact",
               amount: formattedAmount,
               billDate: formattedDate,
+              contactNumber: restaurantDetails?.phone || "",
               billUrl: billUrl || undefined,
             },
           });
@@ -348,7 +350,11 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           title: "Bill Sent!",
           description: `Bill sent to ${customerPhone} via WhatsApp.`,
         });
+
+        setIsSendingBill(false);
+        handleCloseSuccess();
       } catch (error) {
+        setIsSendingBill(false);
         console.error("Failed to send WhatsApp bill:", error);
         toast({
           title: "Failed to Send Bill",
