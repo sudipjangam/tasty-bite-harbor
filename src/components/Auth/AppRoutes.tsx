@@ -85,6 +85,9 @@ const AllUsers = lazy(() => import("@/pages/Platform/AllUsers"));
 const PlatformAnalytics = lazy(
   () => import("@/pages/Platform/PlatformAnalytics"),
 );
+const AdminTemplateReview = lazy(
+  () => import("@/components/Platform/AdminTemplateReview"),
+);
 const DailySummaryHistory = lazy(() => import("@/pages/DailySummaryHistory"));
 
 // ============================================================================
@@ -521,6 +524,14 @@ export const AppRoutes = () => {
               element={
                 <LazyRoute>
                   <PlatformAnalytics />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="templates"
+              element={
+                <LazyRoute>
+                  <AdminTemplateReview />
                 </LazyRoute>
               }
             />
