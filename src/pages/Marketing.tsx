@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/Layout/PageHeader";
@@ -9,29 +8,31 @@ import CampaignsList from "@/components/Marketing/CampaignsList";
 import CreateCampaignDialog from "@/components/Marketing/CreateCampaignDialog";
 import CustomerSegments from "@/components/Marketing/CustomerSegments";
 import MarketingAnalytics from "@/components/Marketing/MarketingAnalytics";
+import WhatsAppCampaigns from "@/components/Marketing/WhatsAppCampaigns";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
-import { 
-  Plus, 
-  Users, 
-  Mail, 
-  MessageSquare, 
+import {
+  Plus,
+  Users,
+  Mail,
+  MessageSquare,
   TrendingUp,
   Target,
   DollarSign,
-  Calendar
+  Calendar,
 } from "lucide-react";
 
 const Marketing = () => {
   const { user } = useAuth();
   const { campaigns, customers, analytics, isLoading } = useMarketingData();
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
-  const [activeTab, setActiveTab] = useState('campaigns');
+  const [activeTab, setActiveTab] = useState("campaigns");
   const { symbol: currencySymbol } = useCurrencyContext();
 
   const tabs = [
-    { id: 'campaigns', label: 'Campaigns', icon: Target },
-    { id: 'segments', label: 'Customer Segments', icon: Users },
-    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+    { id: "campaigns", label: "Campaigns", icon: Target },
+    { id: "whatsapp", label: "WhatsApp", icon: MessageSquare },
+    { id: "segments", label: "Customer Segments", icon: Users },
+    { id: "analytics", label: "Analytics", icon: TrendingUp },
   ];
 
   if (isLoading) {
@@ -58,38 +59,45 @@ const Marketing = () => {
             <div>
               <p className="text-sm text-muted-foreground">Active Campaigns</p>
               <p className="text-2xl font-bold text-blue-600">
-                {campaigns.filter(c => c.status === 'active').length}
+                {campaigns.filter((c) => c.status === "active").length}
               </p>
             </div>
             <Target className="h-8 w-8 text-blue-500" />
           </div>
         </StandardizedCard>
-        
+
         <StandardizedCard className="p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Total Customers</p>
-              <p className="text-2xl font-bold text-green-600">{customers.length}</p>
+              <p className="text-2xl font-bold text-green-600">
+                {customers.length}
+              </p>
             </div>
             <Users className="h-8 w-8 text-green-500" />
           </div>
         </StandardizedCard>
-        
+
         <StandardizedCard className="p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Messages Sent</p>
-              <p className="text-2xl font-bold text-purple-600">{analytics.messagesSent}</p>
+              <p className="text-2xl font-bold text-purple-600">
+                {analytics.messagesSent}
+              </p>
             </div>
             <MessageSquare className="h-8 w-8 text-purple-500" />
           </div>
         </StandardizedCard>
-        
+
         <StandardizedCard className="p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Revenue Impact</p>
-              <p className="text-2xl font-bold text-orange-600">{currencySymbol}{analytics.revenueImpact}</p>
+              <p className="text-2xl font-bold text-orange-600">
+                {currencySymbol}
+                {analytics.revenueImpact}
+              </p>
             </div>
             <DollarSign className="h-8 w-8 text-orange-500" />
           </div>
@@ -106,8 +114,8 @@ const Marketing = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
                 activeTab === tab.id
-                  ? 'bg-purple-600 text-white'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  ? "bg-purple-600 text-white"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -118,7 +126,7 @@ const Marketing = () => {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'campaigns' && (
+      {activeTab === "campaigns" && (
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">Marketing Campaigns</h2>
@@ -134,11 +142,11 @@ const Marketing = () => {
         </div>
       )}
 
-      {activeTab === 'segments' && (
-        <CustomerSegments customers={customers} />
-      )}
+      {activeTab === "whatsapp" && <WhatsAppCampaigns />}
 
-      {activeTab === 'analytics' && (
+      {activeTab === "segments" && <CustomerSegments customers={customers} />}
+
+      {activeTab === "analytics" && (
         <MarketingAnalytics analytics={analytics} />
       )}
 

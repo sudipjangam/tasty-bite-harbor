@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Settings,
   BarChart3,
+  ShieldCheck,
 } from "lucide-react";
 
 interface NavItem {
@@ -45,6 +46,12 @@ const navItems: NavItem[] = [
     href: "/platform/users",
     icon: Users,
     description: "Platform users",
+  },
+  {
+    title: "Template Approvals",
+    href: "/platform/templates",
+    icon: ShieldCheck,
+    description: "WhatsApp templates",
   },
   {
     title: "Analytics",
@@ -157,7 +164,7 @@ const PlatformLayout = () => {
                       "w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300 text-left group relative overflow-hidden",
                       active
                         ? `bg-gradient-to-r ${color.bg} text-white shadow-lg shadow-${color.shadow}-500/30 transform scale-[1.02]`
-                        : "text-slate-600 dark:text-slate-400 hover:bg-white/80 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white hover:shadow-md hover:-translate-y-0.5"
+                        : "text-slate-600 dark:text-slate-400 hover:bg-white/80 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white hover:shadow-md hover:-translate-y-0.5",
                     )}
                   >
                     {active && (
@@ -168,7 +175,7 @@ const PlatformLayout = () => {
                         "p-2 rounded-lg transition-all duration-300 relative z-10",
                         active
                           ? "bg-white/20 text-white"
-                          : `bg-${color.light}-100 dark:bg-${color.light}-500/20 text-${color.light}-600 dark:text-${color.light}-400 group-hover:scale-110`
+                          : `bg-${color.light}-100 dark:bg-${color.light}-500/20 text-${color.light}-600 dark:text-${color.light}-400 group-hover:scale-110`,
                       )}
                     >
                       <Icon className="h-4 w-4" />
@@ -181,7 +188,7 @@ const PlatformLayout = () => {
                         <span
                           className={cn(
                             "text-xs block mt-0.5",
-                            active ? "text-white/70" : "text-slate-400"
+                            active ? "text-white/70" : "text-slate-400",
                           )}
                         >
                           {item.description}
