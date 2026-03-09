@@ -20,11 +20,14 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TrendingUp, BarChart3, Sparkles, Building2 } from "lucide-react";
 import { useFinancialTabAccess } from "@/hooks/useFinancialTabAccess";
+import { usePlanType } from "@/hooks/usePlanType";
+import PlanInsightsCard from "@/components/Dashboard/PlanInsightsCard";
 
 const Analytics = () => {
   const { toast } = useToast();
   const { data, isLoading } = useAnalyticsData();
   const { hasHotelAccess } = useFinancialTabAccess();
+  const { label: planLabel } = usePlanType();
 
   const [expandedChart, setExpandedChart] = useState<string | null>(null);
   const [showDataTable, setShowDataTable] = useState(false);
@@ -410,7 +413,8 @@ const Analytics = () => {
                 Analytics & Reports
               </h1>
               <p className="text-gray-600 dark:text-gray-300 mt-2 text-base md:text-lg">
-                Comprehensive insights into your restaurant's performance
+                Comprehensive insights into your {planLabel.toLowerCase()}'s
+                performance
               </p>
             </div>
 

@@ -32,6 +32,7 @@ import {
   useFinancialTabAccess,
   TAB_REQUIRED_PLAN,
 } from "@/hooks/useFinancialTabAccess";
+import { usePlanType } from "@/hooks/usePlanType";
 import { UpgradeDialog } from "@/components/Shared/UpgradeDialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,7 @@ const FinancialDashboard = () => {
     currentPlanDisplay,
     isLoading,
   } = useFinancialTabAccess();
+  const { hasHotelFeatures, label: planLabel } = usePlanType();
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const [selectedRestrictedTab, setSelectedRestrictedTab] = useState<
     string | null
@@ -170,8 +172,8 @@ const FinancialDashboard = () => {
               Financial Management
             </h1>
             <p className="text-gray-600 dark:text-gray-300 mt-1 md:mt-2 text-sm md:text-lg">
-              Comprehensive financial management for your restaurant and hotel
-              operations
+              Comprehensive financial management for your{" "}
+              {planLabel.toLowerCase()} operations
             </p>
           </div>
 
@@ -209,14 +211,16 @@ const FinancialDashboard = () => {
                   label="Overview"
                   borderColor="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/30"
                 />
-                <RestrictedTabTrigger
-                  value="revenue"
-                  icon={Hotel}
-                  label="Revenue"
-                  borderColor="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/30"
-                  disabled={true}
-                  disabledTooltip="Hotel Revenue Management - Coming Soon"
-                />
+                {hasHotelFeatures && (
+                  <RestrictedTabTrigger
+                    value="revenue"
+                    icon={Hotel}
+                    label="Revenue"
+                    borderColor="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/30"
+                    disabled={true}
+                    disabledTooltip="Hotel Revenue Management - Coming Soon"
+                  />
+                )}
                 <RestrictedTabTrigger
                   value="profit-loss"
                   icon={Calculator}

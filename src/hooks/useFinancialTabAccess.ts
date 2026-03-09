@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from './useAuth';
+import { detectBusinessCategory } from './usePlanType';
 
 // Define which tabs are available for each plan
 // This maps plan names to the tabs they have access to
@@ -23,31 +24,27 @@ export const TAB_REQUIRED_PLAN: Record<string, string> = {
 };
 
 // Plan type detection - determines what business modules are included
-export type PlanType = 'restaurant' | 'hotel' | 'combined' | 'all_in_one';
+export type PlanType = 'food_truck' | 'restaurant' | 'hotel' | 'combined' | 'all_in_one';
 
 const getPlanType = (planName: string): PlanType => {
-  const name = planName.toLowerCase();
-  
-  // Check for combined plans first (order matters)
-  if (name.includes('restaurant + hotel') || name.includes('restaurant+hotel')) {
-    return 'combined';
-  }
-  if (name.includes('all-in-one') || name.includes('all in one') || name.includes('allinone')) {
-    return 'all_in_one';
-  }
-  if (name.includes('hotel') && !name.includes('restaurant')) {
-    return 'hotel';
-  }
-  // Default to restaurant (most common case)
-  return 'restaurant';
+  const category = detectBusinessCategory(planName);
+  // Map BusinessCategory to PlanType for backwards compatibility
+  if (category === 'restaurant_hotel') return 'combined';
+  return category;
 };
 
 const checkRestaurantAccess = (planType: PlanType): boolean => {
-  return ['restaurant', 'combined', 'all_in_one'].includes(planType);
+  // Food trucks share restaurant features (kitchen, menu, orders)
+  // Hotels can have their own restaurant too
+  return ['food_truck', 'restaurant', 'hotel', 'combined', 'all_in_one'].includes(planType);
 };
 
 const checkHotelAccess = (planType: PlanType): boolean => {
   return ['hotel', 'combined', 'all_in_one'].includes(planType);
+};
+
+const checkFoodTruckAccess = (planType: PlanType): boolean => {
+  return planType === 'food_truck';
 };
 
 // Tab display info for upgrade prompts
@@ -161,5 +158,6 @@ export const useFinancialTabAccess = () => {
     planType,
     hasRestaurantAccess: checkRestaurantAccess(planType),
     hasHotelAccess: checkHotelAccess(planType),
+    hasFoodTruckAccess: checkFoodTruckAccess(planType),
   };
 };

@@ -1,13 +1,30 @@
 import React, { useState } from "react";
-import { useReportsData, REPORT_CATEGORIES, ReportCategory } from "@/hooks/useReportsData";
+import {
+  useReportsData,
+  REPORT_CATEGORIES,
+  getFilteredReportCategories,
+  ReportCategory,
+} from "@/hooks/useReportsData";
+import { usePlanType } from "@/hooks/usePlanType";
 import { StandardizedCard } from "@/components/ui/standardized-card";
 import { StandardizedButton } from "@/components/ui/standardized-button";
 import { DatePickerWithRange } from "@/components/ui/date-picker-with-range";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  ShoppingCart, UtensilsCrossed, Package, Users, UserCheck, 
-  Truck, Receipt, Bed, ChefHat, Tag, Download, ArrowLeft,
-  TrendingUp, AlertCircle
+import {
+  ShoppingCart,
+  UtensilsCrossed,
+  Package,
+  Users,
+  UserCheck,
+  Truck,
+  Receipt,
+  Bed,
+  ChefHat,
+  Tag,
+  Download,
+  ArrowLeft,
+  TrendingUp,
+  AlertCircle,
 } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { startOfMonth, endOfMonth } from "date-fns";
@@ -31,9 +48,17 @@ const DefaultReports: React.FC = () => {
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
   });
-  const [selectedCategory, setSelectedCategory] = useState<ReportCategory | null>(null);
-  
-  const { getReportByCategory, isLoadingCategory, isFetchingCategory, getReportError } = useReportsData(dateRange);
+  const [selectedCategory, setSelectedCategory] =
+    useState<ReportCategory | null>(null);
+
+  const {
+    getReportByCategory,
+    isLoadingCategory,
+    isFetchingCategory,
+    getReportError,
+  } = useReportsData(dateRange);
+  const { businessCategory } = usePlanType();
+  const filteredCategories = getFilteredReportCategories(businessCategory);
 
   const handleCardClick = (categoryId: ReportCategory) => {
     setSelectedCategory(categoryId);
@@ -49,7 +74,7 @@ const DefaultReports: React.FC = () => {
     const isLoading = isLoadingCategory(selectedCategory);
     const isFetching = isFetchingCategory(selectedCategory);
     const error = getReportError(selectedCategory);
-    
+
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-4">
@@ -58,14 +83,17 @@ const DefaultReports: React.FC = () => {
             Back to Reports
           </StandardizedButton>
           <h3 className="text-lg font-semibold">
-            {REPORT_CATEGORIES.find(c => c.id === selectedCategory)?.name} Report
+            {filteredCategories.find((c) => c.id === selectedCategory)?.name ||
+              REPORT_CATEGORIES.find((c) => c.id === selectedCategory)
+                ?.name}{" "}
+            Report
           </h3>
         </div>
-        
+
         {isLoading || isFetching ? (
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[1, 2, 3].map(i => (
+              {[1, 2, 3].map((i) => (
                 <Skeleton key={i} className="h-24 w-full" />
               ))}
             </div>
@@ -75,9 +103,13 @@ const DefaultReports: React.FC = () => {
           <StandardizedCard className="p-8 text-center">
             <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
             <p className="text-destructive font-medium">Error loading report</p>
-            <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              {error.message}
+            </p>
           </StandardizedCard>
-        ) : reportData && reportData.tableData && reportData.tableData.length > 0 ? (
+        ) : reportData &&
+          reportData.tableData &&
+          reportData.tableData.length > 0 ? (
           <ReportViewer reports={[reportData]} dateRange={dateRange} />
         ) : reportData ? (
           <div className="space-y-4">
@@ -94,14 +126,18 @@ const DefaultReports: React.FC = () => {
               </div>
               <div className="mt-6 text-center py-8 bg-muted/30 rounded-lg">
                 <AlertCircle className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
-                <p className="text-muted-foreground">No records found for the selected date range</p>
+                <p className="text-muted-foreground">
+                  No records found for the selected date range
+                </p>
               </div>
             </StandardizedCard>
           </div>
         ) : (
           <StandardizedCard className="p-8 text-center">
             <AlertCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground">No data available for this report</p>
+            <p className="text-muted-foreground">
+              No data available for this report
+            </p>
           </StandardizedCard>
         )}
       </div>
@@ -120,14 +156,14 @@ const DefaultReports: React.FC = () => {
             Click on any category to generate its report
           </p>
         </div>
-        <DatePickerWithRange 
+        <DatePickerWithRange
           initialDateRange={dateRange}
           onDateRangeChange={setDateRange}
         />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        {REPORT_CATEGORIES.map((category) => (
+        {filteredCategories.map((category) => (
           <div
             key={category.id}
             onClick={() => handleCardClick(category.id)}
@@ -135,7 +171,9 @@ const DefaultReports: React.FC = () => {
           >
             <StandardizedCard className="p-4 h-full hover:border-primary/50">
               <div className="flex flex-col items-center text-center space-y-3">
-                <div className={`p-3 rounded-full ${category.color} text-white`}>
+                <div
+                  className={`p-3 rounded-full ${category.color} text-white`}
+                >
                   {iconMap[category.icon]}
                 </div>
                 <div>
@@ -158,7 +196,8 @@ const DefaultReports: React.FC = () => {
           <div>
             <h4 className="font-semibold text-sm">Export Options</h4>
             <p className="text-xs text-muted-foreground mt-1">
-              Each report can be exported to PDF or Excel. Click on a category above to generate and export reports.
+              Each report can be exported to PDF or Excel. Click on a category
+              above to generate and export reports.
             </p>
           </div>
         </div>

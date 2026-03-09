@@ -83,13 +83,14 @@ serve(async (req) => {
       });
     }
 
-    // Body (required)
+    // Body (required) — uses named variable format for MSG91
     const bodyComponent: any = {
       type: "BODY",
       text: bodyText,
     };
 
-    // Add variable samples if present
+    // Add named variable samples if present
+    // MSG91 "Name" variable type uses {{variable_name}} format
     if (variables.length > 0) {
       bodyComponent.example = {
         body_text: [variables.map((v) => v.sample)],

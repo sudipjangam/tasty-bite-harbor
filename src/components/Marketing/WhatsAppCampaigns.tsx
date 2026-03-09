@@ -104,7 +104,7 @@ const WhatsAppCampaigns: React.FC = () => {
     }
 
     const confirmed = window.confirm(
-      `Send WhatsApp message to ${customersWithPhone.length} customer${customersWithPhone.length > 1 ? "s" : ""}?\n\nEstimated cost: ${currencySymbol}${estimatedCost.toFixed(2)}\nTemplate: invoice_with_contact`,
+      `Send WhatsApp message to ${customersWithPhone.length} customer${customersWithPhone.length > 1 ? "s" : ""}?\n\nEstimated cost: ${currencySymbol}${estimatedCost.toFixed(2)}\nTemplate: ${selectedTemplate}`,
     );
     if (!confirmed) return;
 
@@ -118,6 +118,7 @@ const WhatsAppCampaigns: React.FC = () => {
         undefined,
         discountText || promoMessage || undefined,
         (sent, total) => setSendProgress({ sent, total }),
+        selectedTemplate,
       );
 
       if (results.success > 0) {
@@ -335,7 +336,51 @@ const WhatsAppCampaigns: React.FC = () => {
           </div>
         </div>
 
-        {/* Preview Bar */}
+        {/* Template Selector — Full-width prominent section */}
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-4 mb-4 border border-blue-200/50 dark:border-blue-700/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 flex-1">
+              <MessageSquare className="h-5 w-5 text-blue-600" />
+              <div className="flex-1">
+                <Label className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1 block">
+                  Select WhatsApp Template
+                </Label>
+                <Select
+                  value={selectedTemplate}
+                  onValueChange={setSelectedTemplate}
+                >
+                  <SelectTrigger className="w-full max-w-md h-10 bg-white dark:bg-gray-800 border-blue-200 dark:border-blue-700 text-sm">
+                    <SelectValue placeholder="Choose a template..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-w-md">
+                    <SelectItem value="invoice_with_contact">
+                      <div className="flex items-center gap-2">
+                        <span>📎 invoice_with_contact</span>
+                        <span className="text-xs text-green-600 font-medium">
+                          (default)
+                        </span>
+                      </div>
+                    </SelectItem>
+                    {approvedTemplates
+                      .filter((t) => t.name !== "invoice_with_contact")
+                      .map((t) => (
+                        <SelectItem key={t.id} value={t.name}>
+                          <div className="flex items-center gap-2">
+                            <span>📄 {t.display_name}</span>
+                            <span className="text-xs text-gray-400 uppercase">
+                              {t.category}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Status Bar */}
         <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 mb-6">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-6">
@@ -350,32 +395,6 @@ const WhatsAppCampaigns: React.FC = () => {
                     no phone)
                   </span>
                 )}
-              </div>
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-blue-600" />
-                <span className="text-sm">
-                  Template:{" "}
-                  <Select
-                    value={selectedTemplate}
-                    onValueChange={setSelectedTemplate}
-                  >
-                    <SelectTrigger className="inline-flex w-auto h-7 text-xs ml-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="invoice_with_contact">
-                        invoice_with_contact (default)
-                      </SelectItem>
-                      {approvedTemplates
-                        .filter((t) => t.name !== "invoice_with_contact")
-                        .map((t) => (
-                          <SelectItem key={t.id} value={t.name}>
-                            {t.display_name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600">

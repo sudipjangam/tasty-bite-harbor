@@ -136,6 +136,37 @@ export const useWhatsAppCampaigns = () => {
     });
   };
 
+  // Map a variable name to the actual runtime value
+  const resolveVariable = (
+    varName: string,
+    customer: WhatsAppCustomer,
+    extras: { discountText?: string; promoCode?: string },
+  ): string => {
+    switch (varName) {
+      case "customer_name":
+        return customer.name || "Guest";
+      case "restaurant_name":
+        return restaurant?.name || "Restaurant";
+      case "amount":
+        return (
+          extras.discountText ||
+          (extras.promoCode ? `Use code ${extras.promoCode}` : "Special offer")
+        );
+      case "order_date":
+        return new Date().toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        });
+      case "contact_number":
+        return restaurant?.phone || "";
+      case "discount_code":
+        return extras.promoCode || "";
+      default:
+        return "";
+    }
+  };
+
   // Send WhatsApp campaign to selected customers
   const sendCampaign = async (
     targetCustomers: WhatsAppCustomer[],
@@ -143,6 +174,7 @@ export const useWhatsAppCampaigns = () => {
     promoCode?: string,
     discountText?: string,
     onProgress?: (sent: number, total: number) => void,
+    templateName?: string,
   ) => {
     if (!restaurantId || !restaurant) throw new Error("Restaurant not loaded");
 
@@ -153,41 +185,96 @@ export const useWhatsAppCampaigns = () => {
     };
 
     const total = targetCustomers.length;
+    const useTemplate = templateName || "invoice_with_contact";
+
+    // Fetch the template definition from DB to know which variables it needs
+    let templateVars: { position: number; name: string; sample: string }[] = [];
+    let templateButtons: any[] = [];
+    let hasUrlButton = false;
+
+    const { data: templateDef } = await supabase
+      .from("whatsapp_templates" as any)
+      .select("variables, buttons, body")
+      .eq("name", useTemplate)
+      .eq("restaurant_id", restaurantId)
+      .maybeSingle();
+
+    if (templateDef) {
+      templateVars = (templateDef as any).variables || [];
+      templateButtons = (templateDef as any).buttons || [];
+      // Check if template body or buttons suggest a URL button
+      hasUrlButton = templateButtons.some(
+        (b: any) => b.type === "URL" || b.subtype === "url",
+      );
+    } else {
+      // Fallback: hardcoded variable lists for known templates
+      if (useTemplate === "invoice_with_contact") {
+        templateVars = [
+          { position: 1, name: "customer_name", sample: "Guest" },
+          { position: 2, name: "restaurant_name", sample: "Restaurant" },
+          { position: 3, name: "amount", sample: "₹0" },
+          { position: 4, name: "order_date", sample: "01 Jan 2026" },
+          { position: 5, name: "contact_number", sample: "0000000000" },
+        ];
+        hasUrlButton = true;
+      } else if (useTemplate === "welcome_offer") {
+        templateVars = [
+          { position: 1, name: "customer_name", sample: "Guest" },
+        ];
+        hasUrlButton = false;
+      }
+    }
+
+    console.log(
+      `Campaign: template="${useTemplate}", vars=${templateVars.length}, urlButton=${hasUrlButton}`,
+    );
 
     for (let i = 0; i < targetCustomers.length; i++) {
       const customer = targetCustomers[i];
       if (!customer.phone) continue;
 
       try {
-        // Build the amount text for the template
-        const amountText =
-          discountText ||
-          (promoCode ? `Use code ${promoCode}` : "Special offer");
+        // Build ONLY the variables this template needs
+        const variables: Record<string, string> = {};
+        for (const v of templateVars) {
+          variables[v.name] = resolveVariable(v.name, customer, {
+            discountText,
+            promoCode,
+          });
+        }
+
+        // Build buttons if template has URL button
+        const buttons: { type: string; value: string }[] = [];
+        if (hasUrlButton) {
+          // For invoice_with_contact, the URL is the bill viewer
+          buttons.push({
+            type: "url",
+            value: customer.phone?.replace(/\D/g, "") || "",
+          });
+        }
 
         const { data, error } = await supabase.functions.invoke(
           "send-msg91-whatsapp",
           {
             body: {
               phoneNumber: customer.phone,
-              customerName: customer.name,
-              restaurantName: restaurant.name,
-              templateName: "invoice_with_contact",
-              amount: amountText,
-              contactNumber: restaurant.phone || "",
+              templateName: useTemplate,
+              variables,
+              buttons: buttons.length > 0 ? buttons : undefined,
             },
           },
         );
 
         if (error) throw error;
 
-        // Log the send in the tracking table
+        // Log the send
         await supabase.from("whatsapp_campaign_sends" as any).insert({
           campaign_id: campaignId,
           restaurant_id: restaurantId,
           customer_id: customer.id,
           customer_phone: customer.phone,
           customer_name: customer.name,
-          template_name: "invoice_with_contact",
+          template_name: useTemplate,
           status: "sent",
           msg91_request_id: data?.data?.request_id || null,
         });
@@ -199,14 +286,13 @@ export const useWhatsAppCampaigns = () => {
           `${customer.name}: ${err instanceof Error ? err.message : "Unknown error"}`,
         );
 
-        // Log the failed send
         await supabase.from("whatsapp_campaign_sends" as any).insert({
           campaign_id: campaignId,
           restaurant_id: restaurantId,
           customer_id: customer.id,
           customer_phone: customer.phone || "",
           customer_name: customer.name,
-          template_name: "invoice_with_contact",
+          template_name: useTemplate,
           status: "failed",
           failure_reason: err instanceof Error ? err.message : "Unknown error",
         });

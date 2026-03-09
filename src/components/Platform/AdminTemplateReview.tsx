@@ -24,17 +24,22 @@ import { format } from "date-fns";
 
 const AdminTemplateReview: React.FC = () => {
   const { pendingTemplates, isLoading, refetch } = useAdminTemplateReview();
-  const { approveTemplate, rejectTemplate } = useWhatsAppTemplates();
+  const { approveTemplate, rejectTemplate, updateTemplate } =
+    useWhatsAppTemplates();
 
   const [rejectNotes, setRejectNotes] = useState<Record<string, string>>({});
   const [showRejectInput, setShowRejectInput] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const handleApprove = async (id: string) => {
-    setProcessingId(id);
+  const handleApprove = async (template: WhatsAppTemplate) => {
+    setProcessingId(template.id);
     try {
-      await approveTemplate(id, true);
+      // Pass the full template object so the hook can use it
+      // even when the admin's restaurant scope doesn't include this template
+      await approveTemplate(template, true);
       refetch();
+    } catch (err) {
+      console.error("Approve failed:", err);
     } finally {
       setProcessingId(null);
     }
@@ -208,7 +213,7 @@ const AdminTemplateReview: React.FC = () => {
                 {/* Action Buttons */}
                 <div className="flex items-center gap-3 border-t pt-3">
                   <StandardizedButton
-                    onClick={() => handleApprove(template.id)}
+                    onClick={() => handleApprove(template as WhatsAppTemplate)}
                     disabled={isProcessing}
                     className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
                   >
