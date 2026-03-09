@@ -37,6 +37,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import HelpProvider from "@/components/Help/HelpProvider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1165,6 +1166,7 @@ export const QSRPosMain: React.FC = () => {
               </h1>
             </div>
             <div className="flex items-center gap-2">
+              <HelpProvider />
               {/* Refresh Tables Button */}
               <Button
                 variant="ghost"

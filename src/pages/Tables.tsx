@@ -12,6 +12,7 @@ import ReservationsList from "@/components/Tables/ReservationsList";
 import { useReservations } from "@/hooks/useReservations";
 import { ReservationFormData } from "@/types/reservations";
 import QRCodeManagement from "@/components/QR/QRCodeManagement";
+import HelpProvider from "@/components/Help/HelpProvider";
 
 const Tables = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -215,17 +216,20 @@ const Tables = () => {
             </div>
           </div>
 
-          <Button
-            onClick={() => {
-              setEditingTable(null);
-              setIsAddDialogOpen(true);
-            }}
-            className="w-full sm:w-auto bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-semibold px-4 sm:px-6 py-2 sm:py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            <span className="hidden xs:inline">Add Table</span>
-            <span className="xs:hidden">Add</span>
-          </Button>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <HelpProvider />
+            <Button
+              onClick={() => {
+                setEditingTable(null);
+                setIsAddDialogOpen(true);
+              }}
+              className="flex-1 sm:flex-none bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-semibold px-4 sm:px-6 py-2 sm:py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              <span className="hidden xs:inline">Add Table</span>
+              <span className="xs:hidden">Add</span>
+            </Button>
+          </div>
         </div>
       </div>
 

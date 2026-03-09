@@ -8,6 +8,7 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  Presentation,
 } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
@@ -29,6 +30,7 @@ import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { generateEditablePPTX, generateRichExcel } from "@/utils/exportUtils";
 
 const COLORS = [
   "#0088FE",
@@ -111,7 +113,9 @@ const formatCellValue = (value: unknown): string => {
 };
 
 const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
-  const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
+  const [exporting, setExporting] = useState<"pdf" | "excel" | "pptx" | null>(
+    null,
+  );
   const [currentPages, setCurrentPages] = useState<Record<string, number>>({});
   const { toast } = useToast();
   const { restaurantName } = useRestaurantId();
@@ -130,22 +134,32 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
       const pageHeight = doc.internal.pageSize.getHeight();
 
       // ===== COVER PAGE =====
-      // Header gradient-like effect
-      doc.setFillColor(6, 78, 59); // Dark teal
+      // Header gradient-like effect (Brand Blue and Orange)
+      doc.setFillColor(43, 87, 154); // Brand Blue (#2B579A)
       doc.rect(0, 0, pageWidth, 60, "F");
-      doc.setFillColor(0, 179, 167); // Lighter teal
+      doc.setFillColor(241, 122, 40); // Brand Orange (#F17A28)
       doc.rect(0, 55, pageWidth, 5, "F");
+
+      // Attempt to load and add the Swadeshi Solutions Logo
+      try {
+        const logoImg = new Image();
+        logoImg.src = "/logo.png";
+        // To be safe in case image loading is async, we draw it if it's already cached or loads fast
+        doc.addImage(logoImg, "PNG", 14, 15, 30, 30);
+      } catch (e) {
+        console.error("Could not load logo for PDF", e);
+      }
 
       // Title
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(28);
       doc.setFont("helvetica", "bold");
-      doc.text("BUSINESS REPORT", pageWidth / 2, 30, { align: "center" });
+      doc.text("BUSINESS REPORT", pageWidth / 2 + 15, 30, { align: "center" });
 
       // Subtitle - Swadeshi Solutions branding
-      doc.setFontSize(12);
+      doc.setFontSize(14);
       doc.setFont("helvetica", "normal");
-      doc.text("Powered by Swadeshi Solutions", pageWidth / 2, 45, {
+      doc.text("Swadeshi Solutions", pageWidth / 2 + 15, 42, {
         align: "center",
       });
 
@@ -175,7 +189,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
       );
 
       // Report Contents Summary
-      doc.setFillColor(0, 179, 167);
+      doc.setFillColor(241, 122, 40); // Brand Orange
       doc.roundedRect(14, 120, pageWidth - 28, 10, 2, 2, "F");
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(11);
@@ -222,7 +236,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
         let yPos = 20;
 
         // Section Header
-        doc.setFillColor(6, 78, 59);
+        doc.setFillColor(43, 87, 154); // Brand Blue
         doc.rect(0, 0, pageWidth, 25, "F");
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(16);
@@ -311,7 +325,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
               lineColor: [226, 232, 240],
             },
             headStyles: {
-              fillColor: [6, 78, 59],
+              fillColor: [43, 87, 154], // Brand Blue
               textColor: 255,
               fontStyle: "bold",
             },
@@ -367,96 +381,23 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
   const handleExportExcel = async () => {
     setExporting("excel");
     try {
-      const wb = XLSX.utils.book_new();
-
-      reports.forEach((report, index) => {
-        const displayColumns = getDisplayColumns(
-          report.tableData as Record<string, unknown>[],
-        );
-
-        const wsData: unknown[][] = [
-          [report.title],
-          [],
-          ["Summary"],
-          ...Object.entries(report.summary).map(([k, v]) => [k, v]),
-          [],
-          ["Data"],
-        ];
-
-        if (report.tableData.length > 0) {
-          wsData.push(displayColumns.map(formatColumnName));
-          report.tableData.forEach((row) => {
-            wsData.push(
-              displayColumns.map((h) =>
-                formatCellValue((row as Record<string, unknown>)[h]),
-              ),
-            );
-          });
-
-          // Add Summary for Orders Report
-          if (report.category === "orders") {
-            wsData.push([]); // Empty row
-            wsData.push(["Order Type Summary"]);
-            wsData.push(["Type", "Count", "Total Value"]);
-
-            const summaryStats: Record<
-              string,
-              { count: number; total: number }
-            > = {};
-
-            report.tableData.forEach((row: any) => {
-              const type = row["Type"] || "Unknown";
-              const total = Number(row["Total"]) || 0;
-
-              if (!summaryStats[type]) {
-                summaryStats[type] = { count: 0, total: 0 };
-              }
-
-              summaryStats[type].count += 1;
-              summaryStats[type].total += total;
-            });
-
-            // Add rows for each type
-            Object.entries(summaryStats).forEach(([type, stats]) => {
-              wsData.push([
-                type,
-                stats.count,
-                stats.total.toLocaleString("en-IN", {
-                  maximumFractionDigits: 2,
-                }),
-              ]);
-            });
-
-            // Add Grand Total
-            const grandTotal = Object.values(summaryStats).reduce(
-              (acc, curr) => ({
-                count: acc.count + curr.count,
-                total: acc.total + curr.total,
-              }),
-              { count: 0, total: 0 },
-            );
-
-            wsData.push([
-              "Grand Total",
-              grandTotal.count,
-              grandTotal.total.toLocaleString("en-IN", {
-                maximumFractionDigits: 2,
-              }),
-            ]);
-          }
-        }
-
-        const ws = XLSX.utils.aoa_to_sheet(wsData);
-        const sheetName = report.category
-          .substring(0, 31)
-          .replace(/[/\\?*[\]]/g, "");
-        XLSX.utils.book_append_sheet(wb, ws, sheetName || `Sheet${index + 1}`);
-      });
-
-      XLSX.writeFile(wb, `Report_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
-      toast({ title: "Excel exported successfully" });
+      await generateRichExcel(reports, restaurantName, dateRange);
+      toast({ title: "Rich Excel exported successfully" });
     } catch (error) {
       console.error("Excel export error:", error);
+      toast({ title: "Export failed", variant: "destructive" });
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleExportPPTX = async () => {
+    setExporting("pptx");
+    try {
+      await generateEditablePPTX(reports, restaurantName, dateRange);
+      toast({ title: "PowerPoint exported successfully" });
+    } catch (error) {
+      console.error("PPTX export error:", error);
       toast({ title: "Export failed", variant: "destructive" });
     } finally {
       setExporting(null);
@@ -466,23 +407,25 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
   return (
     <div className="space-y-6">
       {/* Export buttons */}
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
         <StandardizedButton
           variant="secondary"
-          onClick={handleExportPDF}
+          onClick={handleExportPPTX}
           disabled={exporting !== null}
+          className="bg-orange-50 text-orange-700 hover:bg-orange-100 hover:text-orange-800 border-orange-200"
         >
-          {exporting === "pdf" ? (
+          {exporting === "pptx" ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
           ) : (
-            <Download className="h-4 w-4 mr-2" />
+            <Presentation className="h-4 w-4 mr-2" />
           )}
-          Export PDF
+          Export PPT
         </StandardizedButton>
         <StandardizedButton
           variant="secondary"
           onClick={handleExportExcel}
           disabled={exporting !== null}
+          className="bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-green-200"
         >
           {exporting === "excel" ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -490,6 +433,19 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
             <FileSpreadsheet className="h-4 w-4 mr-2" />
           )}
           Export Excel
+        </StandardizedButton>
+        <StandardizedButton
+          variant="secondary"
+          onClick={handleExportPDF}
+          disabled={exporting !== null}
+          className="bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-blue-200"
+        >
+          {exporting === "pdf" ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4 mr-2" />
+          )}
+          Export PDF
         </StandardizedButton>
       </div>
 

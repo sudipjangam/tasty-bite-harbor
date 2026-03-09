@@ -36,6 +36,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { DailySummaryDialog } from "@/components/QuickServe/DailySummaryDialog";
+import HelpProvider from "@/components/Help/HelpProvider";
 
 const QuickServePOS: React.FC = () => {
   const [orderItems, setOrderItems] = useState<QSOrderItem[]>([]);
@@ -276,6 +277,9 @@ const QuickServePOS: React.FC = () => {
               <p className="text-[10px] text-white/60 font-medium tracking-wider uppercase">
                 Counter & Takeaway
               </p>
+            </div>
+            <div className="ml-2">
+              <HelpProvider />
             </div>
           </div>
 

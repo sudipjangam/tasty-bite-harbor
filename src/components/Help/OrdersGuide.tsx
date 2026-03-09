@@ -1,23 +1,18 @@
-
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  HelpCircle, 
-  ShoppingCart, 
-  Plus, 
-  Clock, 
-  CheckCircle, 
-  Users, 
+import {
+  ShoppingCart,
+  Plus,
   CreditCard,
+  Clock,
   Search,
-  Filter,
-  Edit,
-  Trash2
+  Users,
 } from "lucide-react";
+import HelpGuideShell, {
+  FeatureCard,
+  InfoCallout,
+  OverviewCard,
+  GuideTab,
+} from "./HelpGuideShell";
 
 const OrdersGuide = () => {
   const features = [
@@ -31,8 +26,8 @@ const OrdersGuide = () => {
         "Choose menu items from categories",
         "Add quantities and special instructions",
         "Review order summary",
-        "Submit order to kitchen"
-      ]
+        "Submit order to kitchen",
+      ],
     },
     {
       title: "Order Management",
@@ -43,8 +38,8 @@ const OrdersGuide = () => {
         "Update order status (Pending → Preparing → Ready → Served)",
         "Edit orders before kitchen confirmation",
         "Cancel orders if needed",
-        "Process payments and billing"
-      ]
+        "Process payments and billing",
+      ],
     },
     {
       title: "Payment Processing",
@@ -55,186 +50,162 @@ const OrdersGuide = () => {
         "Choose payment method (Cash/Card/UPI)",
         "Apply discounts if applicable",
         "Generate receipt",
-        "Process payment confirmation"
-      ]
-    }
+        "Process payment confirmation",
+      ],
+    },
   ];
 
   const orderStatuses = [
-    { status: "Pending", color: "bg-yellow-500", description: "Order received, waiting for kitchen" },
-    { status: "Preparing", color: "bg-blue-500", description: "Kitchen is preparing the order" },
-    { status: "Ready", color: "bg-green-500", description: "Order ready for pickup/serving" },
-    { status: "Served", color: "bg-gray-500", description: "Order delivered to customer" },
-    { status: "Cancelled", color: "bg-red-500", description: "Order cancelled" }
+    {
+      status: "Pending",
+      color: "from-yellow-400 to-amber-500",
+      description: "Order received, waiting for kitchen",
+    },
+    {
+      status: "Preparing",
+      color: "from-blue-400 to-indigo-500",
+      description: "Kitchen is preparing the order",
+    },
+    {
+      status: "Ready",
+      color: "from-emerald-400 to-green-500",
+      description: "Order ready for pickup/serving",
+    },
+    {
+      status: "Served",
+      color: "from-gray-400 to-slate-500",
+      description: "Order delivered to customer",
+    },
+    {
+      status: "Cancelled",
+      color: "from-red-400 to-rose-500",
+      description: "Order cancelled",
+    },
+  ];
+
+  const tabs: GuideTab[] = [
+    {
+      value: "overview",
+      label: "Overview",
+      content: (
+        <OverviewCard
+          title="Orders Management System"
+          description="The Orders Management system helps you efficiently handle customer orders from creation to completion. Track order status, manage payments, and coordinate with kitchen operations seamlessly."
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <InfoCallout
+              icon={<ShoppingCart className="w-4 h-4" />}
+              title="Key Benefits"
+              gradient="blue"
+            >
+              Real-time order tracking, streamlined kitchen workflow, multiple
+              payment options, and customer satisfaction monitoring.
+            </InfoCallout>
+            <InfoCallout
+              icon={<CreditCard className="w-4 h-4" />}
+              title="Order Types"
+              gradient="blue"
+            >
+              Supports Dine-in, Takeaway, and Delivery orders — each with
+              customized workflows.
+            </InfoCallout>
+          </div>
+        </OverviewCard>
+      ),
+    },
+    {
+      value: "features",
+      label: "Features",
+      content: (
+        <div className="space-y-4">
+          {features.map((feature, index) => (
+            <FeatureCard key={index} feature={feature} gradient="blue" />
+          ))}
+        </div>
+      ),
+    },
+    {
+      value: "workflow",
+      label: "Workflow",
+      content: (
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl border border-white/40 dark:border-gray-700/40 shadow-lg p-6 space-y-4">
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+            Order Status Workflow
+          </h3>
+          <div className="space-y-3">
+            {orderStatuses.map((s, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-4 p-3 bg-gray-50/80 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700/50"
+              >
+                <div
+                  className={`w-3 h-8 rounded-full bg-gradient-to-b ${s.color}`}
+                />
+                <div>
+                  <span className="font-bold text-gray-900 dark:text-white">
+                    {s.status}
+                  </span>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {s.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <InfoCallout
+            icon={<Clock className="w-4 h-4" />}
+            title="Order Lifecycle"
+            gradient="blue"
+          >
+            Orders flow through these statuses automatically as they progress
+            through your restaurant operations. Staff can manually update status
+            when needed.
+          </InfoCallout>
+        </div>
+      ),
+    },
+    {
+      value: "tips",
+      label: "Tips",
+      content: (
+        <div className="space-y-4">
+          <InfoCallout
+            icon={<Search className="w-4 h-4" />}
+            title="Search & Filter Tips"
+            gradient="blue"
+          >
+            Use order number for quick lookup. Filter by status to focus on
+            specific orders. Sort by time to prioritize urgent orders.
+          </InfoCallout>
+          <InfoCallout
+            icon={<Clock className="w-4 h-4" />}
+            title="Time Management"
+            gradient="sky"
+          >
+            Monitor preparation times for efficiency. Set up notifications for
+            delayed orders. Track peak hours for better staffing.
+          </InfoCallout>
+          <InfoCallout
+            icon={<Users className="w-4 h-4" />}
+            title="Customer Service"
+            gradient="violet"
+          >
+            Keep customers informed about order status. Handle special dietary
+            requirements carefully. Maintain order accuracy for satisfaction.
+          </InfoCallout>
+        </div>
+      ),
+    },
   ];
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <HelpCircle className="w-4 h-4 mr-2" />
-          Orders Help
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ShoppingCart className="w-5 h-5" />
-            Orders Management Guide
-          </DialogTitle>
-        </DialogHeader>
-        
-        <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="features">Features</TabsTrigger>
-            <TabsTrigger value="workflow">Workflow</TabsTrigger>
-            <TabsTrigger value="tips">Tips</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Orders Management System</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="aspect-video bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                  <img 
-                    src="photo-1519389950473-47ba0277781c" 
-                    alt="Restaurant order management system" 
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                </div>
-                <p>The Orders Management system helps you efficiently handle customer orders from creation to completion. Track order status, manage payments, and coordinate with kitchen operations seamlessly.</p>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="border rounded-lg p-4">
-                    <h3 className="font-semibold mb-2">Key Benefits</h3>
-                    <ul className="text-sm space-y-1">
-                      <li>• Real-time order tracking</li>
-                      <li>• Streamlined kitchen workflow</li>
-                      <li>• Multiple payment options</li>
-                      <li>• Customer satisfaction monitoring</li>
-                    </ul>
-                  </div>
-                  <div className="border rounded-lg p-4">
-                    <h3 className="font-semibold mb-2">Order Types</h3>
-                    <div className="space-y-2">
-                      <Badge variant="secondary">Dine-in</Badge>
-                      <Badge variant="outline">Takeaway</Badge>
-                      <Badge variant="outline">Delivery</Badge>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="features" className="space-y-4">
-            {features.map((feature, index) => (
-              <Card key={index}>
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                      {feature.icon}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold mb-2">{feature.title}</h3>
-                      <p className="text-sm text-muted-foreground mb-3">{feature.description}</p>
-                      <div className="space-y-1">
-                        {feature.steps.map((step, stepIndex) => (
-                          <div key={stepIndex} className="flex items-start gap-2 text-sm">
-                            <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                              {stepIndex + 1}
-                            </span>
-                            {step}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </TabsContent>
-
-          <TabsContent value="workflow" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Order Status Workflow</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  {orderStatuses.map((status, index) => (
-                    <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
-                      <div className={`w-4 h-4 rounded-full ${status.color}`}></div>
-                      <div>
-                        <span className="font-medium">{status.status}</span>
-                        <p className="text-sm text-muted-foreground">{status.description}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <h4 className="font-semibold mb-2">Order Lifecycle</h4>
-                  <p className="text-sm">Orders flow through these statuses automatically as they progress through your restaurant operations. Staff can manually update status when needed.</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="tips" className="space-y-4">
-            <div className="grid gap-4">
-              <Card>
-                <CardContent className="p-4">
-                  <h3 className="font-semibold mb-2 flex items-center gap-2">
-                    <Search className="w-4 h-4" />
-                    Search & Filter Tips
-                  </h3>
-                  <ul className="text-sm space-y-1">
-                    <li>• Use order number for quick lookup</li>
-                    <li>• Filter by status to focus on specific orders</li>
-                    <li>• Sort by time to prioritize urgent orders</li>
-                    <li>• Use customer name search for repeat customers</li>
-                  </ul>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-4">
-                  <h3 className="font-semibold mb-2 flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Time Management
-                  </h3>
-                  <ul className="text-sm space-y-1">
-                    <li>• Monitor preparation times for efficiency</li>
-                    <li>• Set up notifications for delayed orders</li>
-                    <li>• Track peak hours for better staffing</li>
-                    <li>• Use rush hour indicators</li>
-                  </ul>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-4">
-                  <h3 className="font-semibold mb-2 flex items-center gap-2">
-                    <Users className="w-4 h-4" />
-                    Customer Service
-                  </h3>
-                  <ul className="text-sm space-y-1">
-                    <li>• Keep customers informed about order status</li>
-                    <li>• Handle special dietary requirements carefully</li>
-                    <li>• Maintain order accuracy for customer satisfaction</li>
-                    <li>• Use order notes for special instructions</li>
-                  </ul>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </DialogContent>
-    </Dialog>
+    <HelpGuideShell
+      icon={<ShoppingCart className="w-6 h-6" />}
+      title="Orders Management Guide"
+      subtitle="From creation to completion"
+      gradient="blue"
+      tabs={tabs}
+    />
   );
 };
 
