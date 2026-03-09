@@ -13,6 +13,7 @@ import {
   List,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import HelpProvider from "@/components/Help/HelpProvider";
 import {
   Select,
   SelectContent,
@@ -745,6 +746,7 @@ const KitchenDisplay = () => {
 
           {/* Action Buttons with Modern Design */}
           <div className="flex items-center gap-4 flex-wrap">
+            <HelpProvider />
             {/* Station Filter */}
             <Select value={stationFilter} onValueChange={setStationFilter}>
               <SelectTrigger className="w-40 bg-white/60 dark:bg-gray-700/60 backdrop-blur-sm rounded-xl border border-white/30 dark:border-gray-600">

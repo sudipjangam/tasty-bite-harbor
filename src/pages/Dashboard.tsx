@@ -35,6 +35,7 @@ import LocationTodayWidget from "@/components/Dashboard/LocationTodayWidget";
 import FoodTruckDashboard from "@/components/Dashboard/FoodTruckDashboard";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { supabase } from "@/integrations/supabase/client";
+import HelpProvider from "@/components/Help/HelpProvider";
 
 const Dashboard = () => {
   const { user, hasPermission } = useAuth();
@@ -219,9 +220,10 @@ const Dashboard = () => {
                 {greeting}, {user?.email ? user.email.split("@")[0] : "there"}!
                 👋
               </h1>
-              <p className="mt-2 text-white/80 text-sm sm:text-base">
+              <p className="mt-2 text-white/80 text-sm sm:text-base mb-2">
                 Here's what's happening with your restaurant today
               </p>
+              <HelpProvider />
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2">
