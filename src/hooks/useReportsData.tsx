@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "./useRestaurantId";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { DateRange } from "react-day-picker";
+import { type BusinessCategory, isReportCategoryVisible } from "./usePlanType";
 
 export type ReportCategory =
   | "orders"
@@ -97,6 +98,18 @@ export const REPORT_CATEGORIES: CategoryReportConfig[] = [
   },
 ];
 
+/**
+ * Returns report categories filtered by business category.
+ * Hides "Rooms/Hotel" for food truck and restaurant-only plans.
+ */
+export const getFilteredReportCategories = (
+  businessCategory: BusinessCategory,
+): CategoryReportConfig[] => {
+  return REPORT_CATEGORIES.filter((cat) =>
+    isReportCategoryVisible(cat.id, businessCategory),
+  );
+};
+
 export interface ReportData {
   category: ReportCategory;
   title: string;
@@ -137,7 +150,7 @@ export const useReportsData = (dateRange?: DateRange) => {
         orders?.filter((o) => o.order_type !== "non-chargeable") || [];
       const totalRevenue = chargeableOrders.reduce(
         (sum, o) => sum + (o.total || 0),
-        0
+        0,
       );
       const orderCount = orders?.length || 0;
       const avgOrderValue =
@@ -146,16 +159,19 @@ export const useReportsData = (dateRange?: DateRange) => {
           : 0;
       const totalDiscount = chargeableOrders.reduce(
         (sum, o) => sum + (o.discount_amount || 0),
-        0
+        0,
       );
 
       // Group by order type
       const byType =
-        orders?.reduce((acc, o) => {
-          const type = o.order_type || "dine-in";
-          acc[type] = (acc[type] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>) || {};
+        orders?.reduce(
+          (acc, o) => {
+            const type = o.order_type || "dine-in";
+            acc[type] = (acc[type] || 0) + 1;
+            return acc;
+          },
+          {} as Record<string, number>,
+        ) || {};
 
       // Format orders for display
       const formattedOrders =
@@ -233,10 +249,13 @@ export const useReportsData = (dateRange?: DateRange) => {
       });
 
       // Category breakdown
-      const byCategory = menuItems.reduce((acc, item) => {
-        acc[item.category] = (acc[item.category] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
+      const byCategory = menuItems.reduce(
+        (acc, item) => {
+          acc[item.category] = (acc[item.category] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
 
       // Format menu items for display
       const formattedItems = menuItems
@@ -287,18 +306,21 @@ export const useReportsData = (dateRange?: DateRange) => {
       const totalValue =
         items?.reduce(
           (sum, i) => sum + i.quantity * (i.cost_per_unit || 0),
-          0
+          0,
         ) || 0;
       const lowStock =
         items?.filter((i) => i.quantity <= (i.reorder_level || 10)) || [];
 
       const byCategory =
-        items?.reduce((acc, item) => {
-          acc[item.category] =
-            (acc[item.category] || 0) +
-            item.quantity * (item.cost_per_unit || 0);
-          return acc;
-        }, {} as Record<string, number>) || {};
+        items?.reduce(
+          (acc, item) => {
+            acc[item.category] =
+              (acc[item.category] || 0) +
+              item.quantity * (item.cost_per_unit || 0);
+            return acc;
+          },
+          {} as Record<string, number>,
+        ) || {};
 
       // Format inventory for display
       const formattedInventory =
@@ -476,10 +498,10 @@ export const useReportsData = (dateRange?: DateRange) => {
 
       const totalSpent = purchaseOrders.reduce(
         (sum, po) => sum + (po.total_amount || 0),
-        0
+        0,
       );
       const pendingOrders = purchaseOrders.filter(
-        (po) => po.status === "pending"
+        (po) => po.status === "pending",
       ).length;
 
       // Spending by supplier
@@ -532,10 +554,13 @@ export const useReportsData = (dateRange?: DateRange) => {
         expenses?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0;
 
       const byCategory =
-        expenses?.reduce((acc, e) => {
-          acc[e.category] = (acc[e.category] || 0) + (e.amount || 0);
-          return acc;
-        }, {} as Record<string, number>) || {};
+        expenses?.reduce(
+          (acc, e) => {
+            acc[e.category] = (acc[e.category] || 0) + (e.amount || 0);
+            return acc;
+          },
+          {} as Record<string, number>,
+        ) || {};
 
       return {
         category: "expenses" as ReportCategory,
@@ -584,7 +609,7 @@ export const useReportsData = (dateRange?: DateRange) => {
 
       const totalRevenue = billings.reduce(
         (sum, b) => sum + (b.total_amount || 0),
-        0
+        0,
       );
       const occupiedRooms = rooms.filter((r) => r.status === "occupied").length;
 
@@ -694,7 +719,7 @@ export const useReportsData = (dateRange?: DateRange) => {
 
   // Get report by category
   const getReportByCategory = (
-    category: ReportCategory
+    category: ReportCategory,
   ): ReportData | null | undefined => {
     switch (category) {
       case "orders":
@@ -809,7 +834,7 @@ export const useReportsData = (dateRange?: DateRange) => {
       .map((cat) => getReportByCategory(cat))
       .filter(
         (report): report is ReportData =>
-          report !== null && report !== undefined
+          report !== null && report !== undefined,
       );
   };
 

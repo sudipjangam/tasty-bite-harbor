@@ -15,12 +15,15 @@ import {
 } from "lucide-react";
 import { useExpenseData } from "@/hooks/useExpenseData";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { usePlanType } from "@/hooks/usePlanType";
+import PlanInsightsCard from "@/components/Dashboard/PlanInsightsCard";
 
 const Expenses = () => {
   const { user, loading } = useAuthState();
   const { data: expenseData } = useExpenseData();
   const [activeTab, setActiveTab] = useState("overview");
   const { symbol: currencySymbol } = useCurrencyContext();
+  const { label: planLabel } = usePlanType();
 
   if (loading) {
     return <AuthLoader />;
@@ -49,7 +52,7 @@ const Expenses = () => {
               </h1>
               <p className="text-gray-600 dark:text-gray-300 text-lg mt-2 flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-purple-500" />
-                Track and analyze your business expenses
+                Track and analyze your {planLabel.toLowerCase()} expenses
               </p>
             </div>
           </div>
@@ -136,7 +139,14 @@ const Expenses = () => {
         </div>
 
         <TabsContent value="overview" className="animate-in fade-in">
-          <ExpensesOverview />
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-3">
+              <ExpensesOverview />
+            </div>
+            <div className="lg:col-span-1">
+              <PlanInsightsCard />
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="expenses" className="animate-in fade-in">

@@ -17,14 +17,22 @@ import {
   Trash2,
   Clock,
   AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 
 const TemplateManager: React.FC = () => {
   const { toast } = useToast();
-  const { templates, isLoading, refetch, submitForApproval, deleteTemplate } =
-    useWhatsAppTemplates();
+  const {
+    templates,
+    isLoading,
+    refetch,
+    submitForApproval,
+    deleteTemplate,
+    syncTemplateStatuses,
+  } = useWhatsAppTemplates();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const handleDelete = async (id: string) => {
     const confirmed = window.confirm(
@@ -81,13 +89,34 @@ const TemplateManager: React.FC = () => {
               </p>
             </div>
           </div>
-          <StandardizedButton
-            onClick={() => setShowCreateDialog(true)}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
-          >
-            <Plus className="h-4 w-4" />
-            New Template
-          </StandardizedButton>
+          <div className="flex items-center gap-2">
+            <StandardizedButton
+              size="sm"
+              variant="secondary"
+              onClick={async () => {
+                setIsSyncing(true);
+                try {
+                  await syncTemplateStatuses();
+                } finally {
+                  setIsSyncing(false);
+                }
+              }}
+              disabled={isSyncing}
+              className="flex items-center gap-1.5"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${isSyncing ? "animate-spin" : ""}`}
+              />
+              {isSyncing ? "Syncing..." : "Sync from Meta"}
+            </StandardizedButton>
+            <StandardizedButton
+              onClick={() => setShowCreateDialog(true)}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Plus className="h-4 w-4" />
+              New Template
+            </StandardizedButton>
+          </div>
         </div>
 
         {templates.length === 0 ? (

@@ -12,26 +12,42 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface Msg91WhatsAppPayload {
+/**
+ * Dynamic WhatsApp template sender.
+ *
+ * The caller sends:
+ *   - phoneNumber:    recipient phone
+ *   - templateName:   MSG91 template slug   (e.g. "invoice_with_contact", "welcome_offer")
+ *   - variables:      key→value map of ONLY the variables that template uses
+ *                     e.g. { "customer_name": "John", "amount": "₹500" }
+ *   - buttons:        optional array of button params
+ *                     e.g. [{ type: "url", value: "https://..." }]
+ *
+ * The function builds MSG91 components dynamically from whatever
+ * variables are provided — no hardcoded param list.
+ */
+
+interface SendPayload {
   phoneNumber: string;
-  customerName?: string;
-  restaurantName: string;
   templateName: string;
-  amount: string;
-  billDate: string;
+  variables?: Record<string, string>;   // named var → value
+  buttons?: { type: string; value: string }[];
+  // Legacy fields (backward compat with POS/QSR bill senders)
+  customerName?: string;
+  restaurantName?: string;
+  amount?: string;
+  billDate?: string;
   contactNumber?: string;
   billUrl?: string;
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    // ── SECURITY: JWT Authentication ─────────────────────────────────────
-    // Verify that the caller has a valid Supabase session.
+    // ── Auth ──────────────────────────────────────────────────────────────
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(
@@ -55,97 +71,109 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Authenticated user: ${user.id}`);
-
-    // ── SECURITY: Rate Limiting ──────────────────────────────────────────
+    // ── Rate Limiting ────────────────────────────────────────────────────
     const identifier = getRequestIdentifier(req, authHeader);
     const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.WHATSAPP);
-
     if (!rateLimitResult.allowed) {
-      console.log(`MSG91 rate limit exceeded for ${identifier}`);
       return createRateLimitResponse(rateLimitResult, corsHeaders);
     }
 
-    // ── Business Logic ───────────────────────────────────────────────────
+    // ── Env ──────────────────────────────────────────────────────────────
     const MSG91_AUTH_KEY = Deno.env.get("MSG91_AUTH_KEY");
     const MSG91_INTEGRATED_NUMBER = Deno.env.get("MSG91_INTEGRATED_NUMBER") || "918329540398";
-
     if (!MSG91_AUTH_KEY) {
       throw new Error("Missing MSG91_AUTH_KEY in environment variables");
     }
 
+    // ── Parse payload ────────────────────────────────────────────────────
+    const payload = (await req.json()) as SendPayload;
     const {
       phoneNumber,
-      customerName = "Guest",
-      restaurantName,
       templateName,
+      variables: namedVars,
+      buttons: buttonParams,
+      // Legacy fields
+      customerName,
+      restaurantName,
       amount,
       billDate,
       contactNumber,
       billUrl,
-    } = (await req.json()) as Msg91WhatsAppPayload;
+    } = payload;
 
     if (!phoneNumber || !templateName) {
-      throw new Error("Missing required payload fields: phoneNumber or templateName");
+      throw new Error("Missing required fields: phoneNumber, templateName");
     }
 
-    console.log(`Sending MSG91 WhatsApp to ${phoneNumber} using template: ${templateName}`);
-
-    // Clean phone number (remove +, spaces, dashes) and ensure country code
+    // Clean phone number
     let cleanPhone = phoneNumber.replace(/[\+\-\s]/g, "");
-    // Auto-prepend India country code if the number is 10 digits
     if (cleanPhone.length === 10) {
       cleanPhone = "91" + cleanPhone;
     }
 
-    console.log(`Cleaned phone number for MSG91: ${cleanPhone}`);
+    console.log(`Sending template "${templateName}" to ${cleanPhone}`);
 
-    // Build components based on the template variables
+    // ── Build components dynamically ─────────────────────────────────────
     const components: Record<string, any> = {};
 
-    // Body variables — using named parameters as required by MSG91
-    if (customerName) {
-      components.body_customer_name = {
-        type: "text",
-        value: customerName,
-        parameter_name: "customer_name",
-      };
+    // If caller sent the new `variables` map, use it directly
+    if (namedVars && Object.keys(namedVars).length > 0) {
+      for (const [varName, varValue] of Object.entries(namedVars)) {
+        components[`body_${varName}`] = {
+          type: "text",
+          value: varValue,
+          parameter_name: varName,
+        };
+      }
+    } else {
+      // Legacy mode: build from individual fields (POS/QSR bill senders)
+      if (customerName) {
+        components.body_customer_name = {
+          type: "text",
+          value: customerName,
+          parameter_name: "customer_name",
+        };
+      }
+      if (restaurantName) {
+        components.body_restaurant_name = {
+          type: "text",
+          value: restaurantName,
+          parameter_name: "restaurant_name",
+        };
+      }
+      if (amount) {
+        components.body_amount = {
+          type: "text",
+          value: amount,
+          parameter_name: "amount",
+        };
+      }
+      if (billDate) {
+        components.body_order_date = {
+          type: "text",
+          value: billDate,
+          parameter_name: "order_date",
+        };
+      }
+      if (contactNumber) {
+        components.body_contact_number = {
+          type: "text",
+          value: contactNumber,
+          parameter_name: "contact_number",
+        };
+      }
     }
 
-    if (restaurantName) {
-      components.body_restaurant_name = {
-        type: "text",
-        value: restaurantName,
-        parameter_name: "restaurant_name",
-      };
-    }
-
-    if (amount) {
-      components.body_amount = {
-        type: "text",
-        value: amount,
-        parameter_name: "amount",
-      };
-    }
-
-    if (billDate) {
-      components.body_order_date = {
-        type: "text",
-        value: billDate,
-        parameter_name: "order_date",
-      };
-    }
-
-    if (contactNumber) {
-      components.body_contact_number = {
-        type: "text",
-        value: contactNumber,
-        parameter_name: "contact_number",
-      };
-    }
-
-    // Add the URL button component if the bill URL was provided
-    if (billUrl) {
+    // Buttons — new style array or legacy billUrl
+    if (buttonParams && buttonParams.length > 0) {
+      buttonParams.forEach((btn, idx) => {
+        components[`button_${idx + 1}`] = {
+          subtype: btn.type || "url",
+          type: "text",
+          value: btn.value,
+        };
+      });
+    } else if (billUrl) {
       components.button_1 = {
         subtype: "url",
         type: "text",
@@ -153,7 +181,9 @@ serve(async (req) => {
       };
     }
 
-    // MSG91 API Payload matching the new invoice_with_contact template
+    console.log("Dynamic components:", JSON.stringify(components, null, 2));
+
+    // ── MSG91 API call ───────────────────────────────────────────────────
     const msg91Payload = {
       integrated_number: MSG91_INTEGRATED_NUMBER,
       content_type: "template",
@@ -193,8 +223,8 @@ serve(async (req) => {
     );
 
     const rawText = await response.text();
-    console.log("MSG91 raw response status:", response.status, "body:", rawText);
-    
+    console.log("MSG91 response:", response.status, rawText);
+
     let data;
     try {
       data = JSON.parse(rawText);
@@ -209,14 +239,12 @@ serve(async (req) => {
       );
     }
 
-    console.log("MSG91 message sent successfully:", data);
-
     return new Response(JSON.stringify({ success: true, data }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error) {
-    console.error("Error in send-msg91-whatsapp function:", error);
+    console.error("Error in send-msg91-whatsapp:", error);
     return new Response(
       JSON.stringify({
         success: false,

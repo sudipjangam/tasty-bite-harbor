@@ -22,13 +22,15 @@ import {
   useWhatsAppTemplates,
   VariableMapping,
 } from "@/hooks/useWhatsAppTemplates";
-import { Plus, Eye, Send, X } from "lucide-react";
+import { Plus, Eye, Send, X, Lock } from "lucide-react";
 
 interface CreateTemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated?: () => void;
 }
+
+const DEFAULT_FOOTER = "billed by Swadeshi Solutions";
 
 const AVAILABLE_VARIABLES = [
   { name: "customer_name", sample: "John Doe" },
@@ -54,13 +56,11 @@ const CreateTemplateDialog: React.FC<CreateTemplateDialogProps> = ({
     category: "UTILITY",
     body: "",
     header_text: "",
-    footer_text: "",
   });
   const [variables, setVariables] = useState<VariableMapping[]>([]);
 
-  // Insert a variable into the body text
+  // Insert a named variable into the body text
   const insertVariable = (varName: string) => {
-    const nextPosition = variables.length + 1;
     const varObj = AVAILABLE_VARIABLES.find((v) => v.name === varName);
     if (!varObj) return;
 
@@ -73,26 +73,27 @@ const CreateTemplateDialog: React.FC<CreateTemplateDialogProps> = ({
       return;
     }
 
+    const nextPosition = variables.length + 1;
     setVariables((prev) => [
       ...prev,
       { position: nextPosition, name: varName, sample: varObj.sample },
     ]);
+    // Insert named variable format: {{customer_name}}
     setForm((prev) => ({
       ...prev,
-      body: prev.body + `{{${nextPosition}}}`,
+      body: prev.body + `{{${varName}}}`,
     }));
   };
 
-  const removeVariable = (position: number) => {
+  const removeVariable = (varName: string) => {
     setVariables((prev) => {
-      const updated = prev.filter((v) => v.position !== position);
-      // Re-number positions
+      const updated = prev.filter((v) => v.name !== varName);
       return updated.map((v, i) => ({ ...v, position: i + 1 }));
     });
-    // Remove the placeholder from body
+    // Remove the named placeholder from body
     setForm((prev) => ({
       ...prev,
-      body: prev.body.replace(`{{${position}}}`, ""),
+      body: prev.body.replace(`{{${varName}}}`, ""),
     }));
   };
 
@@ -100,7 +101,7 @@ const CreateTemplateDialog: React.FC<CreateTemplateDialogProps> = ({
   const getPreviewText = () => {
     let text = form.body;
     variables.forEach((v) => {
-      text = text.replace(`{{${v.position}}}`, v.sample);
+      text = text.replace(`{{${v.name}}}`, v.sample);
     });
     return text;
   };
@@ -138,7 +139,7 @@ const CreateTemplateDialog: React.FC<CreateTemplateDialogProps> = ({
         body: form.body,
         variables: variables,
         header_text: form.header_text || null,
-        footer_text: form.footer_text || null,
+        footer_text: DEFAULT_FOOTER,
         buttons: [],
         status: asDraft ? "draft" : "pending_admin",
         is_default: false,
@@ -158,7 +159,6 @@ const CreateTemplateDialog: React.FC<CreateTemplateDialogProps> = ({
         category: "UTILITY",
         body: "",
         header_text: "",
-        footer_text: "",
       });
       setVariables([]);
       onCreated?.();
@@ -249,19 +249,21 @@ const CreateTemplateDialog: React.FC<CreateTemplateDialogProps> = ({
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, body: e.target.value }))
                 }
-                placeholder="Hi {{1}}, thank you for visiting {{2}}!"
+                placeholder="Hi {{customer_name}}, thank you for visiting {{restaurant_name}}!"
                 rows={6}
                 className="mt-1 font-mono text-sm"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Use the buttons below to insert variables. Variables use{" "}
-                {"{{1}}, {{2}}"} format.
+                Use the buttons below to insert variables. Variables use named
+                format like {"{{customer_name}}"}.
               </p>
             </div>
 
             {/* Variable Insertion Buttons */}
             <div>
-              <Label className="text-sm mb-2 block">Insert Variables</Label>
+              <Label className="text-sm mb-2 block">
+                Insert Variables (Name type)
+              </Label>
               <div className="flex flex-wrap gap-2">
                 {AVAILABLE_VARIABLES.map((v) => {
                   const isUsed = variables.some((vr) => vr.name === v.name);
@@ -293,19 +295,17 @@ const CreateTemplateDialog: React.FC<CreateTemplateDialogProps> = ({
                 <div className="space-y-1">
                   {variables.map((v) => (
                     <div
-                      key={v.position}
+                      key={v.name}
                       className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 rounded px-3 py-1.5"
                     >
                       <span className="text-sm">
-                        <code className="text-blue-600">{`{{${v.position}}}`}</code>
-                        {" → "}
-                        <span className="text-gray-600">{v.name}</span>
+                        <code className="text-blue-600">{`{{${v.name}}}`}</code>
                         <span className="text-gray-400 ml-2">
                           (sample: {v.sample})
                         </span>
                       </span>
                       <button
-                        onClick={() => removeVariable(v.position)}
+                        onClick={() => removeVariable(v.name)}
                         className="text-red-400 hover:text-red-600"
                       >
                         <X className="h-3 w-3" />
@@ -316,17 +316,18 @@ const CreateTemplateDialog: React.FC<CreateTemplateDialogProps> = ({
               </div>
             )}
 
+            {/* Footer - Locked */}
             <div>
-              <Label htmlFor="footer_text">Footer (Optional)</Label>
-              <Input
-                id="footer_text"
-                value={form.footer_text}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, footer_text: e.target.value }))
-                }
-                placeholder="e.g., Reply STOP to unsubscribe"
-                className="mt-1"
-              />
+              <Label className="flex items-center gap-1.5">
+                Footer
+                <Lock className="h-3 w-3 text-amber-500" />
+              </Label>
+              <div className="mt-1 px-3 py-2 bg-gray-100 dark:bg-gray-800 border rounded-md text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                <span>{DEFAULT_FOOTER}</span>
+                <span className="text-xs text-amber-500 ml-auto">
+                  Admin-only
+                </span>
+              </div>
             </div>
           </div>
 
@@ -367,12 +368,10 @@ const CreateTemplateDialog: React.FC<CreateTemplateDialogProps> = ({
                     )}
                   </p>
 
-                  {/* Footer */}
-                  {form.footer_text && (
-                    <p className="text-xs text-gray-500 mt-2 border-t pt-1">
-                      {form.footer_text}
-                    </p>
-                  )}
+                  {/* Footer - always shown */}
+                  <p className="text-xs text-gray-500 mt-2 border-t pt-1">
+                    {DEFAULT_FOOTER}
+                  </p>
 
                   {/* Timestamp */}
                   <p className="text-[10px] text-gray-400 text-right mt-1">

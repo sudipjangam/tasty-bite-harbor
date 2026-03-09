@@ -32,6 +32,7 @@ import { format, parseISO } from "date-fns";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { usePlanType, isExpenseCategoryVisible } from "@/hooks/usePlanType";
 
 interface EditExpense {
   id: string;
@@ -77,6 +78,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
   const { restaurantId } = useRestaurantId();
+  const { businessCategory } = usePlanType();
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [expenseDate, setExpenseDate] = useState<Date | undefined>(new Date());
@@ -123,8 +125,11 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
     enabled: !!restaurantId && isOpen,
   });
 
-  // Merge system + custom categories
-  const allCategories = [...SYSTEM_CATEGORIES, ...customCategories];
+  // Filter system categories based on business plan type, then merge with custom
+  const filteredSystemCategories = SYSTEM_CATEGORIES.filter((cat) =>
+    isExpenseCategoryVisible(cat.value, businessCategory),
+  );
+  const allCategories = [...filteredSystemCategories, ...customCategories];
 
   // Pre-fill form when editing
   useEffect(() => {

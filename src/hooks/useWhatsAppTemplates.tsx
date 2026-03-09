@@ -201,9 +201,27 @@ export const useWhatsAppTemplates = () => {
   };
 
   // Admin: Approve template and submit to MSG91
-  const approveTemplate = async (id: string, autoSubmitToMeta = true) => {
-    const template = templates.find((t) => t.id === id);
-    if (!template) return;
+  // Accepts full template object so it works from Platform Admin (different restaurant scope)
+  const approveTemplate = async (
+    idOrTemplate: string | WhatsAppTemplate,
+    autoSubmitToMeta = true,
+  ) => {
+    const template =
+      typeof idOrTemplate === "string"
+        ? templates.find((t) => t.id === idOrTemplate)
+        : idOrTemplate;
+    const id =
+      typeof idOrTemplate === "string" ? idOrTemplate : idOrTemplate.id;
+
+    if (!template) {
+      console.error("approveTemplate: template not found for id", id);
+      toast({
+        title: "Error",
+        description: "Template not found. Please refresh and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (autoSubmitToMeta) {
       // Submit to MSG91 API
@@ -269,6 +287,9 @@ export const useWhatsAppTemplates = () => {
       } as any);
       toast({ title: "Approved ✅", description: "Template approved." });
     }
+
+    // Also invalidate admin pending list
+    queryClient.invalidateQueries({ queryKey: ["admin-pending-templates"] });
   };
 
   // Admin: Reject template
@@ -281,6 +302,36 @@ export const useWhatsAppTemplates = () => {
       title: "Rejected ❌",
       description: "Template rejected with feedback sent to owner.",
     });
+    queryClient.invalidateQueries({ queryKey: ["admin-pending-templates"] });
+  };
+
+  // Sync template statuses from MSG91/Meta
+  const syncTemplateStatuses = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "sync-msg91-template-status",
+        {
+          body: { restaurantId },
+        },
+      );
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ["wa-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-pending-templates"] });
+
+      toast({
+        title: "Synced ✅",
+        description: `Synced ${data?.synced || 0} template statuses from Meta.`,
+      });
+      return data;
+    } catch (err) {
+      toast({
+        title: "Sync failed",
+        description:
+          err instanceof Error ? err.message : "Failed to sync statuses",
+        variant: "destructive",
+      });
+    }
   };
 
   return {
@@ -294,6 +345,7 @@ export const useWhatsAppTemplates = () => {
     submitForApproval,
     approveTemplate,
     rejectTemplate,
+    syncTemplateStatuses,
     restaurantId,
   };
 };

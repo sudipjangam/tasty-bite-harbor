@@ -34,6 +34,7 @@ import InventoryExpenseDialog from "./InventoryExpenseDialog";
 import StaffSalaryExpenseDialog from "./StaffSalaryExpenseDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { usePlanType, isExpenseCategoryVisible } from "@/hooks/usePlanType";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,6 +81,7 @@ const ExpensesList = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { symbol: currencySymbol } = useCurrencyContext();
+  const { businessCategory } = usePlanType();
 
   const {
     data: expenses = [],
@@ -302,13 +304,30 @@ const ExpensesList = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
-            <SelectItem value="groceries">Groceries</SelectItem>
-            <SelectItem value="staff_salary">Staff Salaries</SelectItem>
-            <SelectItem value="utilities">Utilities</SelectItem>
-            <SelectItem value="rent">Rent</SelectItem>
-            <SelectItem value="equipment">Equipment</SelectItem>
-            <SelectItem value="marketing">Marketing</SelectItem>
-            <SelectItem value="maintenance">Maintenance</SelectItem>
+            {isExpenseCategoryVisible("groceries", businessCategory) && (
+              <SelectItem value="groceries">Groceries</SelectItem>
+            )}
+            {isExpenseCategoryVisible("staff_salary", businessCategory) && (
+              <SelectItem value="staff_salary">Staff Salaries</SelectItem>
+            )}
+            {isExpenseCategoryVisible("utilities", businessCategory) && (
+              <SelectItem value="utilities">Utilities</SelectItem>
+            )}
+            {isExpenseCategoryVisible("rent", businessCategory) && (
+              <SelectItem value="rent">Rent</SelectItem>
+            )}
+            {isExpenseCategoryVisible("equipment", businessCategory) && (
+              <SelectItem value="equipment">Equipment</SelectItem>
+            )}
+            {isExpenseCategoryVisible("marketing", businessCategory) && (
+              <SelectItem value="marketing">Marketing</SelectItem>
+            )}
+            {isExpenseCategoryVisible("maintenance", businessCategory) && (
+              <SelectItem value="maintenance">Maintenance</SelectItem>
+            )}
+            {isExpenseCategoryVisible("transport", businessCategory) && (
+              <SelectItem value="transport">Transport & Fuel</SelectItem>
+            )}
             <SelectItem value="other">Other</SelectItem>
           </SelectContent>
         </Select>
