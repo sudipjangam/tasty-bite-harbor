@@ -205,7 +205,8 @@ const RecipeManagement = () => {
             </TabsTrigger>
             <TabsTrigger
               value="batch"
-              className="flex items-center gap-2 text-xs md:text-sm rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/30 font-semibold transition-all duration-300"
+              disabled
+              className="flex items-center gap-2 text-xs md:text-sm rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/30 font-semibold transition-all duration-300 pointer-events-none opacity-50 cursor-not-allowed"
             >
               <Factory className="h-4 w-4" />
               <span className="hidden md:inline">Batch</span>
