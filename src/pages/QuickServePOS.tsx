@@ -11,7 +11,6 @@ import {
   AppliedCoupon,
 } from "@/components/QuickServe/QSOrderPanel";
 import { QSCustomerInput, LoyaltyCustomerInfo } from "@/components/QuickServe/QSCustomerInput";
-import { QSCustomerInput, LoyaltyCustomerInfo } from "@/components/QuickServe/QSCustomerInput";
 import { QSPaymentSheet } from "@/components/QuickServe/QSPaymentSheet";
 import {
   QSOrderHistory,
@@ -82,6 +81,30 @@ const QuickServePOS: React.FC = () => {
     },
     enabled: !!restaurantId,
     staleTime: 1000 * 60 * 30,
+  });
+
+  // Fetch active coupons
+  const { data: availableCoupons = [] } = useQuery({
+    queryKey: ["active-coupons", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return [];
+      const today = new Date().toISOString();
+      const { data, error } = await supabase
+        .from("promotion_campaigns")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .eq("is_active", true)
+        .lte("start_date", today)
+        .gte("end_date", today);
+        
+      if (error) {
+        console.error("Failed to fetch coupons:", error);
+        return [];
+      }
+      return data;
+    },
+    enabled: !!restaurantId,
+    staleTime: 1000 * 60 * 5,
   });
 
   const handleCustomerFound = useCallback((customer: LoyaltyCustomerInfo | null) => {
@@ -470,7 +493,6 @@ const QuickServePOS: React.FC = () => {
             onNameChange={setCustomerName}
             onPhoneChange={setCustomerPhone}
             onCustomerFound={handleCustomerFound}
-            onCustomerFound={handleCustomerFound}
           />
           <QSOrderPanel
             items={orderItems}
@@ -491,6 +513,7 @@ const QuickServePOS: React.FC = () => {
               setLoyaltyDiscountAmount(discount);
             }}
             loyaltyProgram={loyaltyProgram}
+            availableCoupons={availableCoupons}
             appliedCoupon={appliedCoupon}
             couponDiscountAmount={couponDiscountAmount}
             onApplyCoupon={handleApplyCoupon}
@@ -539,7 +562,6 @@ const QuickServePOS: React.FC = () => {
               onNameChange={setCustomerName}
               onPhoneChange={setCustomerPhone}
               onCustomerFound={handleCustomerFound}
-              onCustomerFound={handleCustomerFound}
             />
             <QSOrderPanel
               items={orderItems}
@@ -563,6 +585,7 @@ const QuickServePOS: React.FC = () => {
                 setLoyaltyDiscountAmount(discount);
               }}
               loyaltyProgram={loyaltyProgram}
+              availableCoupons={availableCoupons}
               appliedCoupon={appliedCoupon}
               couponDiscountAmount={couponDiscountAmount}
               onApplyCoupon={handleApplyCoupon}
