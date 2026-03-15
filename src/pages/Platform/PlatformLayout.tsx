@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,8 @@ import {
   Settings,
   BarChart3,
   ShieldCheck,
+  Menu,
+  X,
 } from "lucide-react";
 
 interface NavItem {
@@ -65,6 +68,7 @@ const PlatformLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const isActive = (href: string) => {
     if (href === "/platform") {
@@ -72,6 +76,112 @@ const PlatformLayout = () => {
     }
     return location.pathname.startsWith(href);
   };
+
+  const handleNavClick = (href: string) => {
+    navigate(href);
+    setIsMobileSidebarOpen(false);
+  };
+
+  // Shared sidebar content
+  const SidebarContent = () => (
+    <>
+      <ScrollArea className="flex-1 py-4">
+        <nav className="px-3 space-y-2">
+          {navItems.map((item, index) => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+            const colors = [
+              {
+                bg: "from-violet-500 to-purple-600",
+                light: "violet",
+                shadow: "violet",
+              },
+              {
+                bg: "from-emerald-500 to-teal-600",
+                light: "emerald",
+                shadow: "emerald",
+              },
+              {
+                bg: "from-amber-500 to-orange-600",
+                light: "amber",
+                shadow: "amber",
+              },
+              {
+                bg: "from-blue-500 to-indigo-600",
+                light: "blue",
+                shadow: "blue",
+              },
+              {
+                bg: "from-pink-500 to-rose-600",
+                light: "pink",
+                shadow: "pink",
+              },
+            ];
+            const color = colors[index % colors.length];
+
+            return (
+              <button
+                key={item.href}
+                onClick={() => handleNavClick(item.href)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300 text-left group relative overflow-hidden",
+                  active
+                    ? `bg-gradient-to-r ${color.bg} text-white shadow-lg shadow-${color.shadow}-500/30 transform scale-[1.02]`
+                    : "text-slate-600 dark:text-slate-400 hover:bg-white/80 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white hover:shadow-md hover:-translate-y-0.5",
+                )}
+              >
+                {active && (
+                  <div className="absolute inset-0 bg-white/10 backdrop-blur-sm" />
+                )}
+                <div
+                  className={cn(
+                    "p-2 rounded-lg transition-all duration-300 relative z-10",
+                    active
+                      ? "bg-white/20 text-white"
+                      : `bg-${color.light}-100 dark:bg-${color.light}-500/20 text-${color.light}-600 dark:text-${color.light}-400 group-hover:scale-110`,
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0 transition-transform duration-300 group-hover:translate-x-1 relative z-10">
+                  <span className="font-semibold block text-sm">
+                    {item.title}
+                  </span>
+                  {item.description && (
+                    <span
+                      className={cn(
+                        "text-xs block mt-0.5",
+                        active ? "text-white/70" : "text-slate-400",
+                      )}
+                    >
+                      {item.description}
+                    </span>
+                  )}
+                </div>
+                {active && (
+                  <ChevronRight className="h-4 w-4 text-white/80 relative z-10" />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </ScrollArea>
+
+      <div className="p-4 border-t border-white/20 dark:border-white/10 bg-white/30 dark:bg-slate-800/30 backdrop-blur-sm">
+        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-4 text-white shadow-lg shadow-indigo-500/20 relative overflow-hidden group cursor-pointer hover:shadow-indigo-500/40 transition-all duration-300">
+          <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+            <LayoutDashboard className="h-12 w-12" />
+          </div>
+          <h3 className="font-semibold text-sm relative z-10">
+            Premium Admin
+          </h3>
+          <p className="text-xs text-indigo-100 mt-1 relative z-10 opacity-80">
+            v2.0 dashboard active
+          </p>
+        </div>
+      </div>
+    </>
+  );
 
   return (
     <div className="min-h-screen bg-[conic-gradient(at_top_left,_var(--tw-gradient-stops))] from-indigo-100 via-slate-100 to-purple-100 dark:from-slate-950 dark:via-indigo-950 dark:to-slate-900 transition-colors duration-500">
@@ -83,34 +193,44 @@ const PlatformLayout = () => {
 
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-white/10 shadow-lg shadow-slate-200/20 dark:shadow-slate-900/50">
-        <div className="flex items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-5">
+        <div className="flex items-center justify-between px-3 md:px-6 py-3">
+          <div className="flex items-center gap-2 md:gap-5">
+            {/* Hamburger for mobile */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="md:hidden text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30 h-9 w-9"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
             <Button
               onClick={() => navigate("/")}
-              className="gap-2 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-700 hover:via-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300 rounded-full px-5 py-2 h-auto font-medium"
+              className="gap-2 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-700 hover:via-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300 rounded-full px-3 md:px-5 py-2 h-auto font-medium text-xs md:text-sm"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back to App
+              <span className="hidden sm:inline">Back to App</span>
+              <span className="sm:hidden">Back</span>
             </Button>
-            <div className="h-8 w-px bg-gradient-to-b from-transparent via-slate-300 dark:via-slate-600 to-transparent" />
+            <div className="h-8 w-px bg-gradient-to-b from-transparent via-slate-300 dark:via-slate-600 to-transparent hidden md:block" />
             <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
+              <h1 className="text-base md:text-xl font-bold bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
                 Platform Admin
               </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:block">
                 Manage restaurants & subscriptions
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/30 dark:to-purple-900/30 backdrop-blur-md px-4 py-2 rounded-full border border-violet-200/50 dark:border-violet-500/20 shadow-inner">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-purple-500/30">
+          <div className="flex items-center gap-2 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/30 dark:to-purple-900/30 backdrop-blur-md px-2.5 md:px-4 py-1.5 md:py-2 rounded-full border border-violet-200/50 dark:border-violet-500/20 shadow-inner">
+            <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs md:text-sm shadow-lg shadow-purple-500/30">
               {user?.first_name?.[0] || user?.email?.[0]?.toUpperCase() || "A"}
             </div>
             <div className="flex flex-col">
-              <span className="text-xs text-violet-600 dark:text-violet-400 font-medium">
+              <span className="text-[10px] md:text-xs text-violet-600 dark:text-violet-400 font-medium">
                 Logged in as
               </span>
-              <span className="font-semibold text-sm text-slate-800 dark:text-white">
+              <span className="font-semibold text-xs md:text-sm text-slate-800 dark:text-white">
                 {user?.first_name || user?.email?.split("@")[0] || "Admin"}
               </span>
             </div>
@@ -118,110 +238,52 @@ const PlatformLayout = () => {
         </div>
       </header>
 
-      <div className="flex relative z-10 p-4 gap-4 h-[calc(100vh-73px)]">
-        {/* Floating Glass Sidebar */}
-        <aside className="w-64 h-full bg-gradient-to-b from-white/70 to-white/50 dark:from-slate-900/70 dark:to-slate-900/50 backdrop-blur-xl border border-violet-200/30 dark:border-violet-500/10 rounded-2xl shadow-xl shadow-violet-500/5 flex flex-col overflow-hidden transition-all duration-300">
-          <ScrollArea className="flex-1 py-4">
-            <nav className="px-3 space-y-2">
-              {navItems.map((item, index) => {
-                const Icon = item.icon;
-                const active = isActive(item.href);
-                // Color schemes for each nav item
-                const colors = [
-                  {
-                    bg: "from-violet-500 to-purple-600",
-                    light: "violet",
-                    shadow: "violet",
-                  },
-                  {
-                    bg: "from-emerald-500 to-teal-600",
-                    light: "emerald",
-                    shadow: "emerald",
-                  },
-                  {
-                    bg: "from-amber-500 to-orange-600",
-                    light: "amber",
-                    shadow: "amber",
-                  },
-                  {
-                    bg: "from-blue-500 to-indigo-600",
-                    light: "blue",
-                    shadow: "blue",
-                  },
-                  {
-                    bg: "from-pink-500 to-rose-600",
-                    light: "pink",
-                    shadow: "pink",
-                  },
-                ];
-                const color = colors[index % colors.length];
+      {/* Mobile Sidebar Overlay */}
+      {isMobileSidebarOpen && (
+        <div
+          className="fixed inset-0 z-50 md:hidden"
+          onClick={() => setIsMobileSidebarOpen(false)}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" />
 
-                return (
-                  <button
-                    key={item.href}
-                    onClick={() => navigate(item.href)}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300 text-left group relative overflow-hidden",
-                      active
-                        ? `bg-gradient-to-r ${color.bg} text-white shadow-lg shadow-${color.shadow}-500/30 transform scale-[1.02]`
-                        : "text-slate-600 dark:text-slate-400 hover:bg-white/80 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white hover:shadow-md hover:-translate-y-0.5",
-                    )}
-                  >
-                    {active && (
-                      <div className="absolute inset-0 bg-white/10 backdrop-blur-sm" />
-                    )}
-                    <div
-                      className={cn(
-                        "p-2 rounded-lg transition-all duration-300 relative z-10",
-                        active
-                          ? "bg-white/20 text-white"
-                          : `bg-${color.light}-100 dark:bg-${color.light}-500/20 text-${color.light}-600 dark:text-${color.light}-400 group-hover:scale-110`,
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 min-w-0 transition-transform duration-300 group-hover:translate-x-1 relative z-10">
-                      <span className="font-semibold block text-sm">
-                        {item.title}
-                      </span>
-                      {item.description && (
-                        <span
-                          className={cn(
-                            "text-xs block mt-0.5",
-                            active ? "text-white/70" : "text-slate-400",
-                          )}
-                        >
-                          {item.description}
-                        </span>
-                      )}
-                    </div>
-                    {active && (
-                      <ChevronRight className="h-4 w-4 text-white/80 relative z-10" />
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
-          </ScrollArea>
-
-          <div className="p-4 border-t border-white/20 dark:border-white/10 bg-white/30 dark:bg-slate-800/30 backdrop-blur-sm">
-            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-4 text-white shadow-lg shadow-indigo-500/20 relative overflow-hidden group cursor-pointer hover:shadow-indigo-500/40 transition-all duration-300">
-              <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                <LayoutDashboard className="h-12 w-12" />
+          {/* Sidebar Drawer */}
+          <div
+            className="absolute left-0 top-0 bottom-0 w-72 bg-gradient-to-b from-white/95 to-white/90 dark:from-slate-900/95 dark:to-slate-900/90 backdrop-blur-xl border-r border-violet-200/30 dark:border-violet-500/10 shadow-2xl flex flex-col animate-in slide-in-from-left duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <div className="flex items-center justify-between p-4 border-b border-violet-200/20 dark:border-violet-500/10">
+              <div>
+                <h2 className="font-bold text-lg bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+                  Platform Admin
+                </h2>
+                <p className="text-xs text-slate-500">Navigation</p>
               </div>
-              <h3 className="font-semibold text-sm relative z-10">
-                Premium Admin
-              </h3>
-              <p className="text-xs text-indigo-100 mt-1 relative z-10 opacity-80">
-                v2.0 dashboard active
-              </p>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="text-slate-500 hover:bg-violet-100 dark:hover:bg-violet-900/30 h-9 w-9 rounded-xl"
+              >
+                <X className="h-5 w-5" />
+              </Button>
             </div>
+
+            <SidebarContent />
           </div>
+        </div>
+      )}
+
+      <div className="flex relative z-10 p-2 md:p-4 gap-2 md:gap-4 h-[calc(100vh-57px)] md:h-[calc(100vh-73px)]">
+        {/* Desktop Sidebar — Hidden on mobile */}
+        <aside className="hidden md:flex w-64 h-full bg-gradient-to-b from-white/70 to-white/50 dark:from-slate-900/70 dark:to-slate-900/50 backdrop-blur-xl border border-violet-200/30 dark:border-violet-500/10 rounded-2xl shadow-xl shadow-violet-500/5 flex-col overflow-hidden transition-all duration-300">
+          <SidebarContent />
         </aside>
 
         {/* Main Content */}
         <main className="flex-1 bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border border-white/30 dark:border-white/5 rounded-2xl shadow-xl overflow-hidden flex flex-col">
-          <div className="h-full overflow-y-auto p-6 scrollbar-hide">
+          <div className="h-full overflow-y-auto p-3 md:p-6 scrollbar-hide pb-20 md:pb-6">
             <Outlet />
           </div>
         </main>

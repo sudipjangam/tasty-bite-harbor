@@ -14,6 +14,7 @@ const createUserSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters').max(100, 'Password too long'),
   first_name: z.string().trim().min(1, 'First name required').max(100, 'First name too long'),
   last_name: z.string().trim().max(100, 'Last name too long').default(''),
+  phone: z.string().trim().max(20, 'Phone number too long').default(''),
   role: z.enum(systemRoles).optional().default('staff'),
   role_id: z.string().uuid('Invalid role id').optional(),
   role_name_text: z.string().trim().max(100).optional(),
@@ -154,7 +155,7 @@ Deno.serve(async (req) => {
         }
 
         // Create new user account with email confirmed (SDK may vary; adjust if your SDK differs)
-        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        const createUserPayload: any = {
           email: validated.email,
           password: validated.password,
           email_confirm: true,
@@ -162,7 +163,14 @@ Deno.serve(async (req) => {
             first_name: validated.first_name,
             last_name: validated.last_name
           }
-        })
+        }
+        // Include phone in auth if provided
+        if (validated.phone) {
+          createUserPayload.phone = validated.phone
+          createUserPayload.phone_confirm = true
+        }
+
+        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser(createUserPayload)
 
         if (createError) {
           const msg = createError?.message ?? JSON.stringify(createError)
@@ -177,9 +185,7 @@ Deno.serve(async (req) => {
 
         try {
           // Upsert profile for the new user (handles case where trigger already created row)
-          const { error: profileError } = await supabaseAdmin
-            .from('profiles')
-            .upsert({
+          const profileUpsertData: any = {
               id: newUser.user.id,
               first_name: validated.first_name,
               last_name: validated.last_name,
@@ -187,7 +193,15 @@ Deno.serve(async (req) => {
               role_id: isSystemRole ? null : validated.role_id,
               role_name_text: isSystemRole ? null : (validated.role_name_text ?? null),
               restaurant_id: targetRestaurantId
-            }, { onConflict: 'id' })
+            }
+          // Include phone in profile if provided
+          if (validated.phone) {
+            profileUpsertData.phone = validated.phone
+          }
+
+          const { error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .upsert(profileUpsertData, { onConflict: 'id' })
 
           if (profileError) {
             // Cleanup: delete the created auth user

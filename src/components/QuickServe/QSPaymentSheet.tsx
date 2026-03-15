@@ -42,6 +42,9 @@ interface QSPaymentSheetProps {
   onSuccess: (orderNumber?: number) => void;
   discountAmount?: number;
   discountPercentage?: number;
+  loyaltyPointsUsed?: number;
+  loyaltyDiscountAmount?: number;
+  loyaltyCustomerId?: string;
 }
 
 const paymentMethods = [
@@ -112,6 +115,9 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   onSuccess,
   discountAmount = 0,
   discountPercentage = 0,
+  loyaltyPointsUsed = 0,
+  loyaltyDiscountAmount = 0,
+  loyaltyCustomerId,
 }) => {
   const [status, setStatus] = useState<"idle" | "processing" | "success">(
     "idle",
@@ -189,12 +195,12 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     0,
   );
 
-  // Apply discount
   const discountValue =
     discountPercentage > 0
       ? (itemsSubtotal * discountPercentage) / 100
       : discountAmount;
-  const subtotal = Math.max(0, itemsSubtotal - discountValue);
+  const afterDiscount = Math.max(0, itemsSubtotal - discountValue);
+  const subtotal = Math.max(0, afterDiscount - loyaltyDiscountAmount);
 
   const upiId = paymentSettings?.upi_id || null;
   const upiName = (paymentSettings as any)?.upi_name || restaurantName;
@@ -691,6 +697,42 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           console.warn(`${failed.length} background tasks had issues`);
         }
       });
+
+      // Deduct loyalty points after successful payment
+      if (loyaltyPointsUsed > 0 && loyaltyCustomerId) {
+        (async () => {
+          try {
+            // Deduct points from customer
+            const { data: customer } = await supabase
+              .from("customers")
+              .select("loyalty_points")
+              .eq("id", loyaltyCustomerId)
+              .single();
+
+            if (customer) {
+              const newPoints = Math.max(0, (customer.loyalty_points || 0) - loyaltyPointsUsed);
+              await supabase
+                .from("customers")
+                .update({ loyalty_points: newPoints })
+                .eq("id", loyaltyCustomerId);
+
+              // Log redemption in loyalty_transactions
+              await supabase.from("loyalty_transactions").insert({
+                restaurant_id: restaurantId,
+                customer_id: loyaltyCustomerId,
+                points: -loyaltyPointsUsed,
+                transaction_type: "redeemed",
+                source: "quickserve_pos",
+                notes: `Redeemed ${loyaltyPointsUsed} points for order discount`,
+              });
+
+              console.log(`✅ Deducted ${loyaltyPointsUsed} loyalty points`);
+            }
+          } catch (err) {
+            console.error("Loyalty points deduction error:", err);
+          }
+        })();
+      }
     } catch (error) {
       console.error("Payment error:", error);
       toast({
