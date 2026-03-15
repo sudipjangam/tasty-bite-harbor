@@ -28,6 +28,7 @@ import {
   Receipt,
   Zap,
   Store,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -44,6 +45,7 @@ interface MobileNavItem {
   path: string;
   icon: React.ComponentType<{ className?: string }>;
   requiredPermissions?: Permission[];
+  adminOnly?: boolean;
   gradient: string;
   shadowColor: string;
   textColor: string;
@@ -56,7 +58,8 @@ const mobileNavItems: MobileNavItem[] = [
     label: "Dashboard",
     path: "/",
     icon: Home,
-    requiredPermissions: ["dashboard.view"],
+    // No permission required — route-level PermissionGuard shows
+    // StaffLandingPage for users without dashboard.view
     gradient: "from-violet-500 to-purple-600",
     shadowColor: "shadow-violet-500/30",
     textColor: "text-violet-600",
@@ -292,6 +295,16 @@ const mobileNavItems: MobileNavItem[] = [
     shadowColor: "shadow-gray-500/30",
     textColor: "text-gray-600",
   },
+  {
+    id: "platform-admin",
+    label: "Platform Admin",
+    path: "/platform",
+    icon: Building2,
+    adminOnly: true,
+    gradient: "from-violet-600 to-indigo-700",
+    shadowColor: "shadow-violet-600/30",
+    textColor: "text-violet-700",
+  },
 ];
 
 // Priority items for bottom bar - dynamically selected from accessible items
@@ -349,6 +362,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     "role-management": "role-management",
     ai: "ai",
     settings: "settings",
+    "platform-admin": "platform-admin",
   };
 
   // System components bypass subscription check (controlled by role permissions only)
@@ -359,12 +373,18 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     "permission-management",
     "settings",
     "security",
+    "platform-admin",
   ];
 
   // Filter items based on BOTH role permissions AND subscription access
   // Logic matches ImprovedSidebarNavigation.hasPermissionForItem
   const hasPermissionForItem = (item: MobileNavItem): boolean => {
     if (!user) return false;
+
+    // Admin-only items: check role directly
+    if (item.adminOnly) {
+      return user.role === "admin";
+    }
 
     const componentKey = itemToComponentMap[item.id];
 

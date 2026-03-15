@@ -1,9 +1,20 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { QSRMenuItem, QSRCategory } from "@/hooks/useQSRMenuItems";
 import { cn } from "@/lib/utils";
-import { Search, Ban, RotateCcw, Sparkles } from "lucide-react";
+import { Search, Ban, RotateCcw, Sparkles, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
+
+interface MenuItemVariant {
+  id: string;
+  menu_item_id: string;
+  name: string;
+  price: number;
+  sort_order: number;
+  is_available: boolean;
+}
 
 interface QSMenuGridProps {
   menuItems: QSRMenuItem[];
@@ -37,6 +48,55 @@ export const QSMenuGrid: React.FC<QSMenuGridProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [showSoldOut, setShowSoldOut] = useState(false);
   const { symbol: currencySymbol } = useCurrencyContext();
+  const { restaurantId } = useRestaurantId();
+
+  // Variant state
+  const [variantsMap, setVariantsMap] = useState<Record<string, MenuItemVariant[]>>({});
+  const [variantPickerItem, setVariantPickerItem] = useState<QSRMenuItem | null>(null);
+
+  // Fetch all variants for this restaurant once
+  useEffect(() => {
+    if (!restaurantId) return;
+    (async () => {
+      const { data } = await supabase
+        .from('menu_item_variants')
+        .select('*')
+        .eq('restaurant_id', restaurantId)
+        .eq('is_available', true)
+        .order('sort_order');
+      if (data && data.length > 0) {
+        const map: Record<string, MenuItemVariant[]> = {};
+        data.forEach((v: any) => {
+          if (!map[v.menu_item_id]) map[v.menu_item_id] = [];
+          map[v.menu_item_id].push(v);
+        });
+        setVariantsMap(map);
+      }
+    })();
+  }, [restaurantId]);
+
+  // Handle item tap — check for variants
+  const handleItemTap = (item: QSRMenuItem) => {
+    const itemVariants = variantsMap[item.id];
+    if (itemVariants && itemVariants.length > 0) {
+      setVariantPickerItem(item);
+    } else {
+      onAddItem(item);
+    }
+  };
+
+  const handleVariantSelect = (variant: MenuItemVariant) => {
+    if (!variantPickerItem) return;
+    // Create a modified menu item with variant name and price
+    const variantItem: QSRMenuItem = {
+      ...variantPickerItem,
+      id: `${variantPickerItem.id}__${variant.id}`,
+      name: `${variantPickerItem.name} (${variant.name})`,
+      price: variant.price,
+    };
+    onAddItem(variantItem);
+    setVariantPickerItem(null);
+  };
 
   const filteredItems = useMemo(() => {
     let items = menuItems;
@@ -186,7 +246,7 @@ export const QSMenuGrid: React.FC<QSMenuGridProps> = ({
               >
                 {/* Main clickable area */}
                 <button
-                  onClick={() => !isSoldOut && onAddItem(item)}
+                  onClick={() => !isSoldOut && handleItemTap(item)}
                   disabled={isSoldOut}
                   className={cn(
                     "w-full p-3.5 text-left transition-all duration-150 active:scale-[0.96] rounded-2xl",
@@ -311,6 +371,62 @@ export const QSMenuGrid: React.FC<QSMenuGridProps> = ({
           </div>
         )}
       </div>
+
+      {/* ─── Variant Picker Overlay ─── */}
+      {variantPickerItem && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm" onClick={() => setVariantPickerItem(null)}>
+          <div
+            className="w-full max-w-md bg-white dark:bg-gray-900 rounded-t-3xl p-5 animate-in slide-in-from-bottom-8 duration-300 border-t border-white/20"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Handle */}
+            <div className="flex justify-center mb-3">
+              <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
+            </div>
+
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-bold text-gray-900 dark:text-white">{variantPickerItem.name}</h3>
+                <p className="text-xs text-gray-500 dark:text-white/50">Choose a size</p>
+              </div>
+              <button
+                onClick={() => setVariantPickerItem(null)}
+                className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Variant Options */}
+            <div className="space-y-2">
+              {variantsMap[variantPickerItem.id]?.map((variant) => (
+                <button
+                  key={variant.id}
+                  onClick={() => handleVariantSelect(variant)}
+                  className="w-full flex items-center justify-between p-3.5 rounded-2xl border-2 border-gray-100 dark:border-white/10 hover:border-orange-300 dark:hover:border-orange-500/40 bg-white/80 dark:bg-white/5 hover:bg-gradient-to-r hover:from-orange-50/80 hover:to-pink-50/50 dark:hover:from-orange-500/10 dark:hover:to-pink-500/5 transition-all active:scale-[0.97]"
+                >
+                  <span className="text-sm font-semibold text-gray-800 dark:text-white/90">{variant.name}</span>
+                  <span className="text-sm font-black bg-gradient-to-r from-orange-600 via-rose-500 to-pink-500 bg-clip-text text-transparent">
+                    {currencySymbol}{variant.price}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Also add base item option */}
+            <button
+              onClick={() => {
+                onAddItem(variantPickerItem);
+                setVariantPickerItem(null);
+              }}
+              className="w-full mt-2 p-3 rounded-2xl border-2 border-dashed border-gray-200 dark:border-white/10 text-center text-xs font-semibold text-gray-500 dark:text-white/40 hover:bg-gray-50 dark:hover:bg-white/5 transition-all"
+            >
+              Regular — {currencySymbol}{variantPickerItem.price}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

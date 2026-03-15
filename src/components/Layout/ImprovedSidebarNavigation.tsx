@@ -102,7 +102,7 @@ const navigationGroups: NavigationGroup[] = [
         icon: LayoutDashboard,
         href: "/",
         description: "Main dashboard and analytics",
-        requiredPermissions: ["dashboard.view"],
+        // No permission required — route shows StaffLandingPage for staff
       },
     ],
   },

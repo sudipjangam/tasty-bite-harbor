@@ -110,11 +110,11 @@ const Customers = () => {
     enabled: !!restaurantId,
   });
 
-  // Points settings state
   const [pointsPerAmount, setPointsPerAmount] = useState(1);
   const [amountPerPoint, setAmountPerPoint] = useState(1);
   const [pointsExpiryDays, setPointsExpiryDays] = useState<number | null>(null);
   const [loyaltyEnabled, setLoyaltyEnabled] = useState(true);
+  const [maxRedemptionPercentage, setMaxRedemptionPercentage] = useState(100);
 
   useEffect(() => {
     if (loyaltyProgram) {
@@ -122,6 +122,7 @@ const Customers = () => {
       setAmountPerPoint(loyaltyProgram.amount_per_point ?? 1);
       setPointsExpiryDays(loyaltyProgram.points_expiry_days ?? null);
       setLoyaltyEnabled(loyaltyProgram.is_enabled ?? true);
+      setMaxRedemptionPercentage((loyaltyProgram as any).max_redemption_percentage ?? 100);
     }
   }, [loyaltyProgram]);
 
@@ -133,6 +134,7 @@ const Customers = () => {
       points_per_amount: pointsPerAmount,
       amount_per_point: amountPerPoint,
       points_expiry_days: pointsExpiryDays,
+      max_redemption_percentage: maxRedemptionPercentage,
     };
     try {
       if (loyaltyProgram) {
@@ -547,6 +549,24 @@ const Customers = () => {
                     min="1"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>Max Redemption Cap (%)</Label>
+                  <Input
+                    type="number"
+                    value={maxRedemptionPercentage}
+                    onChange={(e) =>
+                      setMaxRedemptionPercentage(
+                        Math.min(100, Math.max(1, Number(e.target.value))),
+                      )
+                    }
+                    min="1"
+                    max="100"
+                    step="1"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Max % of bill that can be paid via points. e.g. "50" means customer can redeem points for at most 50% of the order total.
+                  </p>
+                </div>
                 {loyaltyProgram && (
                   <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-sm">
                     <p className="font-medium text-blue-800 dark:text-blue-300">
@@ -556,6 +576,8 @@ const Customers = () => {
                       Earn <strong>{loyaltyProgram.points_per_amount}</strong>{" "}
                       pts per ₹100 spent · Each point ={" "}
                       <strong>₹{loyaltyProgram.amount_per_point}</strong>
+                      {" · Max redemption: "}
+                      <strong>{(loyaltyProgram as any).max_redemption_percentage ?? 100}%</strong>
                     </p>
                   </div>
                 )}
