@@ -8,11 +8,22 @@ import {
   Tag,
   Sparkles,
   Gift,
+  Ticket,
+  X,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { LoyaltyCustomerInfo } from "./QSCustomerInput";
+
+export interface AppliedCoupon {
+  id: string;
+  code: string;
+  name: string;
+  discount_percentage: number | null;
+  discount_amount: number | null;
+}
 
 export interface QSOrderItem {
   id: string;
@@ -39,6 +50,13 @@ interface QSOrderPanelProps {
   loyaltyDiscountAmount?: number;
   onLoyaltyRedemptionChange?: (pointsUsed: number, discountAmount: number) => void;
   loyaltyProgram?: any;
+  // Coupon
+  appliedCoupon?: AppliedCoupon | null;
+  couponDiscountAmount?: number;
+  onApplyCoupon?: (code: string) => void;
+  onRemoveCoupon?: () => void;
+  couponLoading?: boolean;
+  couponError?: string | null;
 }
 
 export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
@@ -57,11 +75,19 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
   loyaltyDiscountAmount = 0,
   onLoyaltyRedemptionChange,
   loyaltyProgram,
+  appliedCoupon,
+  couponDiscountAmount = 0,
+  onApplyCoupon,
+  onRemoveCoupon,
+  couponLoading = false,
+  couponError,
 }) => {
   const { symbol: currencySymbol } = useCurrencyContext();
   const [discountMode, setDiscountMode] = useState<"flat" | "percent">("flat");
   const [showDiscount, setShowDiscount] = useState(false);
   const [showLoyaltyRedeem, setShowLoyaltyRedeem] = useState(false);
+  const [showCoupon, setShowCoupon] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
 
   const subtotal = items.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -72,7 +98,7 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
     discountPercentage > 0
       ? (subtotal * discountPercentage) / 100
       : discountAmount;
-  const afterDiscount = Math.max(0, subtotal - discountValue);
+  const afterDiscount = Math.max(0, subtotal - discountValue - couponDiscountAmount);
   const finalTotal = Math.max(0, afterDiscount - loyaltyDiscountAmount);
 
   // Calculate max redeemable points
@@ -328,8 +354,87 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
           </>
         )}
 
+        {/* Coupon Code */}
+        {onApplyCoupon && (
+          <>
+            <button
+              onClick={() => setShowCoupon(!showCoupon)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-emerald-500 dark:text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-300 transition-colors"
+            >
+              <Ticket className="w-3 h-3" />
+              {showCoupon
+                ? "Hide Coupon"
+                : appliedCoupon
+                  ? `Coupon: ${appliedCoupon.code}`
+                  : "Apply Coupon"}
+            </button>
+            {showCoupon && (
+              <div className="space-y-2">
+                {!appliedCoupon ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        className="flex-1 bg-white dark:bg-gray-800 border border-gray-200/60 dark:border-gray-600 rounded-xl px-3 py-1.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/50 uppercase tracking-wider transition-all"
+                        placeholder="Enter code"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && couponCode.trim()) {
+                            onApplyCoupon(couponCode.trim());
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          if (couponCode.trim()) onApplyCoupon(couponCode.trim());
+                        }}
+                        disabled={!couponCode.trim() || couponLoading}
+                        className={cn(
+                          "px-3 py-1.5 rounded-xl text-xs font-bold transition-all",
+                          couponCode.trim() && !couponLoading
+                            ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:shadow-lg"
+                            : "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed",
+                        )}
+                      >
+                        {couponLoading ? "..." : "Apply"}
+                      </button>
+                    </div>
+                    {couponError && (
+                      <p className="text-[10px] text-red-500 font-medium">{couponError}</p>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between bg-gradient-to-r from-emerald-50/80 to-teal-50/60 dark:from-emerald-500/10 dark:to-teal-500/5 rounded-2xl px-3 py-2 border border-emerald-200/50 dark:border-emerald-500/15">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg">
+                        <Check className="w-3 h-3" />
+                        {appliedCoupon.code}
+                      </div>
+                      <span className="text-xs text-emerald-700 dark:text-emerald-300 font-medium">
+                        {appliedCoupon.discount_percentage
+                          ? `${appliedCoupon.discount_percentage}% off`
+                          : `${currencySymbol}${appliedCoupon.discount_amount} off`}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        onRemoveCoupon?.();
+                        setCouponCode("");
+                      }}
+                      className="p-1 rounded-lg text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
         {/* Subtotal + discount summary */}
-        {(discountValue > 0 || loyaltyDiscountAmount > 0) && (
+        {(discountValue > 0 || loyaltyDiscountAmount > 0 || couponDiscountAmount > 0) && (
           <div className="space-y-1">
             <div className="flex justify-between items-center text-xs">
               <span className="text-gray-400 dark:text-white/30">Subtotal</span>
@@ -347,6 +452,17 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
               <span className="text-emerald-600 dark:text-emerald-400 font-bold">
                 -{currencySymbol}
                 {discountValue.toFixed(2)}
+              </span>
+            </div>
+            )}
+            {couponDiscountAmount > 0 && (
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                Coupon ({appliedCoupon?.code})
+              </span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                -{currencySymbol}
+                {couponDiscountAmount.toFixed(2)}
               </span>
             </div>
             )}
