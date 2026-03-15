@@ -7,10 +7,12 @@ import {
   Percent,
   Tag,
   Sparkles,
+  Gift,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { LoyaltyCustomerInfo } from "./QSCustomerInput";
 
 export interface QSOrderItem {
   id: string;
@@ -32,6 +34,11 @@ interface QSOrderPanelProps {
   discountPercentage?: number;
   onDiscountChange?: (amount: number, percentage: number) => void;
   onAddCustomItem?: () => void;
+  loyaltyCustomer?: LoyaltyCustomerInfo | null;
+  loyaltyPointsUsed?: number;
+  loyaltyDiscountAmount?: number;
+  onLoyaltyRedemptionChange?: (pointsUsed: number, discountAmount: number) => void;
+  loyaltyProgram?: any;
 }
 
 export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
@@ -45,22 +52,43 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
   discountPercentage = 0,
   onDiscountChange,
   onAddCustomItem,
+  loyaltyCustomer,
+  loyaltyPointsUsed = 0,
+  loyaltyDiscountAmount = 0,
+  onLoyaltyRedemptionChange,
+  loyaltyProgram,
 }) => {
   const { symbol: currencySymbol } = useCurrencyContext();
   const [discountMode, setDiscountMode] = useState<"flat" | "percent">("flat");
   const [showDiscount, setShowDiscount] = useState(false);
+  const [showLoyaltyRedeem, setShowLoyaltyRedeem] = useState(false);
 
   const subtotal = items.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
 
-  // Calculate discount
   const discountValue =
     discountPercentage > 0
       ? (subtotal * discountPercentage) / 100
       : discountAmount;
-  const finalTotal = Math.max(0, subtotal - discountValue);
+  const afterDiscount = Math.max(0, subtotal - discountValue);
+  const finalTotal = Math.max(0, afterDiscount - loyaltyDiscountAmount);
+
+  // Calculate max redeemable points
+  const amountPerPoint = loyaltyProgram?.amount_per_point || 1;
+  const maxRedemptionPct = (loyaltyProgram as any)?.max_redemption_percentage || 100;
+  const maxRedemptionValue = Math.floor((afterDiscount * maxRedemptionPct) / 100);
+  const maxPointsCanUse = Math.min(
+    loyaltyCustomer?.loyalty_points || 0,
+    Math.floor(maxRedemptionValue / amountPerPoint)
+  );
+
+  const handleLoyaltyPointsChange = (points: number) => {
+    const clampedPoints = Math.min(Math.max(0, points), maxPointsCanUse);
+    const discount = clampedPoints * amountPerPoint;
+    onLoyaltyRedemptionChange?.(clampedPoints, discount);
+  };
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -255,8 +283,53 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
           </>
         )}
 
+        {/* Loyalty Points Redemption */}
+        {loyaltyCustomer && loyaltyCustomer.loyalty_points > 0 && onLoyaltyRedemptionChange && (
+          <>
+            <button
+              onClick={() => setShowLoyaltyRedeem(!showLoyaltyRedeem)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-purple-500 dark:text-purple-400 hover:text-purple-600 dark:hover:text-purple-300 transition-colors"
+            >
+              <Gift className="w-3 h-3" />
+              {showLoyaltyRedeem
+                ? "Hide Points"
+                : loyaltyPointsUsed > 0
+                  ? `Points: -${currencySymbol}${loyaltyDiscountAmount.toFixed(0)}`
+                  : `Redeem Points (${loyaltyCustomer.loyalty_points} pts)`}
+            </button>
+            {showLoyaltyRedeem && (
+              <div className="bg-gradient-to-r from-purple-50/80 to-indigo-50/60 dark:from-purple-500/10 dark:to-indigo-500/5 rounded-2xl p-3 border border-purple-200/50 dark:border-purple-500/15 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-purple-700 dark:text-purple-300 font-medium">
+                    Available: {loyaltyCustomer.loyalty_points} pts
+                  </span>
+                  <span className="text-purple-500 dark:text-purple-400 text-[10px]">
+                    1pt = {currencySymbol}{amountPerPoint} • Max {maxRedemptionPct}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max={maxPointsCanUse}
+                  value={loyaltyPointsUsed}
+                  onChange={(e) => handleLoyaltyPointsChange(parseInt(e.target.value))}
+                  className="w-full h-2 bg-purple-200 dark:bg-purple-800 rounded-full appearance-none cursor-pointer accent-purple-600"
+                />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-purple-600 dark:text-purple-400 font-bold">
+                    Using {loyaltyPointsUsed} pts
+                  </span>
+                  <span className="text-xs font-bold text-purple-700 dark:text-purple-300">
+                    -{currencySymbol}{loyaltyDiscountAmount.toFixed(0)} off
+                  </span>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
         {/* Subtotal + discount summary */}
-        {discountValue > 0 && (
+        {(discountValue > 0 || loyaltyDiscountAmount > 0) && (
           <div className="space-y-1">
             <div className="flex justify-between items-center text-xs">
               <span className="text-gray-400 dark:text-white/30">Subtotal</span>
@@ -265,6 +338,7 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
                 {subtotal.toFixed(2)}
               </span>
             </div>
+            {discountValue > 0 && (
             <div className="flex justify-between items-center text-xs">
               <span className="text-emerald-600 dark:text-emerald-400 font-medium">
                 Discount
@@ -275,6 +349,18 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
                 {discountValue.toFixed(2)}
               </span>
             </div>
+            )}
+            {loyaltyDiscountAmount > 0 && (
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-purple-600 dark:text-purple-400 font-medium">
+                Points ({loyaltyPointsUsed} pts)
+              </span>
+              <span className="text-purple-600 dark:text-purple-400 font-bold">
+                -{currencySymbol}
+                {loyaltyDiscountAmount.toFixed(2)}
+              </span>
+            </div>
+            )}
           </div>
         )}
 
