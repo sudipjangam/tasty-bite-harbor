@@ -741,6 +741,42 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           }
         })();
       }
+
+      // Deduct loyalty points after successful payment
+      if (loyaltyPointsUsed > 0 && loyaltyCustomerId) {
+        (async () => {
+          try {
+            // Deduct points from customer
+            const { data: customer } = await supabase
+              .from("customers")
+              .select("loyalty_points")
+              .eq("id", loyaltyCustomerId)
+              .single();
+
+            if (customer) {
+              const newPoints = Math.max(0, (customer.loyalty_points || 0) - loyaltyPointsUsed);
+              await supabase
+                .from("customers")
+                .update({ loyalty_points: newPoints })
+                .eq("id", loyaltyCustomerId);
+
+              // Log redemption in loyalty_transactions
+              await supabase.from("loyalty_transactions").insert({
+                restaurant_id: restaurantId,
+                customer_id: loyaltyCustomerId,
+                points: -loyaltyPointsUsed,
+                transaction_type: "redeemed",
+                source: "quickserve_pos",
+                notes: `Redeemed ${loyaltyPointsUsed} points for order discount`,
+              });
+
+              console.log(`✅ Deducted ${loyaltyPointsUsed} loyalty points`);
+            }
+          } catch (err) {
+            console.error("Loyalty points deduction error:", err);
+          }
+        })();
+      }
     } catch (error) {
       console.error("Payment error:", error);
       toast({
