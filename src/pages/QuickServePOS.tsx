@@ -8,6 +8,7 @@ import { QSMenuGrid } from "@/components/QuickServe/QSMenuGrid";
 import {
   QSOrderPanel,
   QSOrderItem,
+  AppliedCoupon,
 } from "@/components/QuickServe/QSOrderPanel";
 import { QSCustomerInput, LoyaltyCustomerInfo } from "@/components/QuickServe/QSCustomerInput";
 import { QSPaymentSheet } from "@/components/QuickServe/QSPaymentSheet";
@@ -53,6 +54,10 @@ const QuickServePOS: React.FC = () => {
   const [loyaltyCustomer, setLoyaltyCustomer] = useState<LoyaltyCustomerInfo | null>(null);
   const [loyaltyPointsUsed, setLoyaltyPointsUsed] = useState(0);
   const [loyaltyDiscountAmount, setLoyaltyDiscountAmount] = useState(0);
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+  const [couponDiscountAmount, setCouponDiscountAmount] = useState(0);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
   const queryClient = useQueryClient();
@@ -220,6 +225,9 @@ const QuickServePOS: React.FC = () => {
     setLoyaltyCustomer(null);
     setLoyaltyPointsUsed(0);
     setLoyaltyDiscountAmount(0);
+    setAppliedCoupon(null);
+    setCouponDiscountAmount(0);
+    setCouponError(null);
     // Refresh active orders and stats
     queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
     queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
@@ -259,6 +267,62 @@ const QuickServePOS: React.FC = () => {
     [],
   );
 
+  // Handle apply coupon
+  const handleApplyCoupon = useCallback(
+    async (code: string) => {
+      if (!restaurantId) return;
+      setCouponLoading(true);
+      setCouponError(null);
+
+      try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const { data, error } = await supabase
+          .from("promotion_campaigns")
+          .select("*")
+          .eq("restaurant_id", restaurantId)
+          .eq("promotion_code", code.trim())
+          .eq("is_active", true)
+          .lte("start_date", todayStr)
+          .gte("end_date", todayStr)
+          .maybeSingle();
+
+        if (error || !data) {
+          setCouponError("Invalid or expired coupon");
+          return;
+        }
+
+        setAppliedCoupon({
+          id: data.id,
+          code: data.promotion_code,
+          name: data.name,
+          discount_percentage: data.discount_percentage,
+          discount_amount: data.discount_amount,
+        });
+        
+        // Reset manual discount when applying a coupon to avoid double dipping
+        setDiscountAmount(0);
+        setDiscountPercentage(0);
+
+        toast({
+          title: "Coupon Applied",
+          description: `${data.name} applied successfully!`,
+          duration: 2000,
+        });
+      } catch (e) {
+        setCouponError("Failed to apply coupon");
+      } finally {
+        setCouponLoading(false);
+      }
+    },
+    [restaurantId, toast],
+  );
+
+  const handleRemoveCoupon = useCallback(() => {
+    setAppliedCoupon(null);
+    setCouponDiscountAmount(0);
+    setCouponError(null);
+  }, []);
+
   // Recall order from history into active cart
   const handleRecallOrder = useCallback(
     (items: RecalledOrderItem[], name: string, phone: string) => {
@@ -287,6 +351,24 @@ const QuickServePOS: React.FC = () => {
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
+
+  // Recalculate coupon discount whenever subtotal or applied coupon changes
+  React.useEffect(() => {
+    if (!appliedCoupon) {
+      setCouponDiscountAmount(0);
+      return;
+    }
+    
+    let discount = 0;
+    if (appliedCoupon.discount_percentage) {
+      discount = (orderTotal * appliedCoupon.discount_percentage) / 100;
+    } else if (appliedCoupon.discount_amount) {
+      discount = appliedCoupon.discount_amount;
+    }
+    
+    // Cap discount at order total
+    setCouponDiscountAmount(Math.min(discount, orderTotal));
+  }, [appliedCoupon, orderTotal]);
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 via-orange-50/30 to-pink-50/20 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 text-gray-900 dark:text-white overflow-hidden">
@@ -407,6 +489,12 @@ const QuickServePOS: React.FC = () => {
               setLoyaltyDiscountAmount(discount);
             }}
             loyaltyProgram={loyaltyProgram}
+            appliedCoupon={appliedCoupon}
+            couponDiscountAmount={couponDiscountAmount}
+            onApplyCoupon={handleApplyCoupon}
+            onRemoveCoupon={handleRemoveCoupon}
+            couponLoading={couponLoading}
+            couponError={couponError}
           />
         </div>
       </div>
@@ -472,6 +560,12 @@ const QuickServePOS: React.FC = () => {
                 setLoyaltyDiscountAmount(discount);
               }}
               loyaltyProgram={loyaltyProgram}
+              appliedCoupon={appliedCoupon}
+              couponDiscountAmount={couponDiscountAmount}
+              onApplyCoupon={handleApplyCoupon}
+              onRemoveCoupon={handleRemoveCoupon}
+              couponLoading={couponLoading}
+              couponError={couponError}
             />
           </div>
         </SheetContent>
@@ -490,6 +584,8 @@ const QuickServePOS: React.FC = () => {
         loyaltyPointsUsed={loyaltyPointsUsed}
         loyaltyDiscountAmount={loyaltyDiscountAmount}
         loyaltyCustomerId={loyaltyCustomer?.id}
+        couponId={appliedCoupon?.id}
+        couponDiscountAmount={couponDiscountAmount}
       />
 
       {/* Custom Item Dialog */}

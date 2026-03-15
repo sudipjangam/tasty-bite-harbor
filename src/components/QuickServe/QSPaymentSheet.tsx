@@ -45,6 +45,8 @@ interface QSPaymentSheetProps {
   loyaltyPointsUsed?: number;
   loyaltyDiscountAmount?: number;
   loyaltyCustomerId?: string;
+  couponId?: string;
+  couponDiscountAmount?: number;
 }
 
 const paymentMethods = [
@@ -118,6 +120,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   loyaltyPointsUsed = 0,
   loyaltyDiscountAmount = 0,
   loyaltyCustomerId,
+  couponId,
+  couponDiscountAmount = 0,
 }) => {
   const [status, setStatus] = useState<"idle" | "processing" | "success">(
     "idle",
@@ -199,7 +203,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     discountPercentage > 0
       ? (itemsSubtotal * discountPercentage) / 100
       : discountAmount;
-  const afterDiscount = Math.max(0, itemsSubtotal - discountValue);
+  const afterDiscount = Math.max(0, itemsSubtotal - discountValue - couponDiscountAmount);
   const subtotal = Math.max(0, afterDiscount - loyaltyDiscountAmount);
 
   const upiId = paymentSettings?.upi_id || null;
@@ -310,7 +314,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             price: item.price,
           })),
           subtotal: itemsSubtotal,
-          discount: discountValue,
+          discount: discountValue + loyaltyDiscountAmount + couponDiscountAmount,
           cgst: 0,
           sgst: 0,
           total: subtotal,
@@ -455,6 +459,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           ...(discountPercentage > 0 && {
             discount_percentage: discountPercentage,
           }),
+          ...(couponId && { coupon_id: couponId }),
+          ...(couponDiscountAmount > 0 && { coupon_discount: couponDiscountAmount }),
           ...(ncReason && { nc_reason: ncReason }),
           ...(customerPhone && { customer_phone: customerPhone }),
           created_at: new Date().toISOString(),
@@ -573,6 +579,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           ...(discountPercentage > 0 && {
             discount_percentage: discountPercentage,
           }),
+          ...(couponId && { coupon_id: couponId }),
+          ...(couponDiscountAmount > 0 && { coupon_discount: couponDiscountAmount }),
           ...(ncReason && { nc_reason: ncReason }),
           ...(customerPhone && { customer_phone: customerPhone }),
         })
