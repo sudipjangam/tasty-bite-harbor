@@ -57,6 +57,7 @@ interface QSOrderPanelProps {
   onRemoveCoupon?: () => void;
   couponLoading?: boolean;
   couponError?: string | null;
+  availableCoupons?: any[];
 }
 
 export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
@@ -81,6 +82,7 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
   onRemoveCoupon,
   couponLoading = false,
   couponError,
+  availableCoupons = [],
 }) => {
   const { symbol: currencySymbol } = useCurrencyContext();
   const [discountMode, setDiscountMode] = useState<"flat" | "percent">("flat");
@@ -372,6 +374,19 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
               <div className="space-y-2">
                 {!appliedCoupon ? (
                   <>
+                    {availableCoupons.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {availableCoupons.map((coupon) => (
+                          <button
+                            key={coupon.id}
+                            onClick={() => onApplyCoupon(coupon.promotion_code)}
+                            className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2 py-1 text-xs font-medium hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+                          >
+                            {coupon.promotion_code} - {coupon.discount_percentage ? `${coupon.discount_percentage}% off` : `${currencySymbol}${coupon.discount_amount} off`}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
@@ -443,7 +458,6 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
                 {subtotal.toFixed(2)}
               </span>
             </div>
-            {discountValue > 0 && (
             {discountValue > 0 && (
             <div className="flex justify-between items-center text-xs">
               <span className="text-emerald-600 dark:text-emerald-400 font-medium">
