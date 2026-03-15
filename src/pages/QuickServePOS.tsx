@@ -11,6 +11,7 @@ import {
   AppliedCoupon,
 } from "@/components/QuickServe/QSOrderPanel";
 import { QSCustomerInput, LoyaltyCustomerInfo } from "@/components/QuickServe/QSCustomerInput";
+import { QSCustomerInput, LoyaltyCustomerInfo } from "@/components/QuickServe/QSCustomerInput";
 import { QSPaymentSheet } from "@/components/QuickServe/QSPaymentSheet";
 import {
   QSOrderHistory,
@@ -469,6 +470,7 @@ const QuickServePOS: React.FC = () => {
             onNameChange={setCustomerName}
             onPhoneChange={setCustomerPhone}
             onCustomerFound={handleCustomerFound}
+            onCustomerFound={handleCustomerFound}
           />
           <QSOrderPanel
             items={orderItems}
@@ -536,6 +538,7 @@ const QuickServePOS: React.FC = () => {
               customerPhone={customerPhone}
               onNameChange={setCustomerName}
               onPhoneChange={setCustomerPhone}
+              onCustomerFound={handleCustomerFound}
               onCustomerFound={handleCustomerFound}
             />
             <QSOrderPanel

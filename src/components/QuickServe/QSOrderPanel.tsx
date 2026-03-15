@@ -444,6 +444,7 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
               </span>
             </div>
             {discountValue > 0 && (
+            {discountValue > 0 && (
             <div className="flex justify-between items-center text-xs">
               <span className="text-emerald-600 dark:text-emerald-400 font-medium">
                 Discount
