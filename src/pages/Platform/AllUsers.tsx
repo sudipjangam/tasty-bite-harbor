@@ -101,6 +101,7 @@ const AllUsers = () => {
     password: "",
     first_name: "",
     last_name: "",
+    phone: "",
     role: "staff" as string,
     restaurant_id: "",
   });
@@ -237,6 +238,7 @@ const AllUsers = () => {
               password: userData.password,
               first_name: userData.first_name || "User",
               last_name: userData.last_name || "",
+              phone: userData.phone || "",
               role: userData.role,
               restaurant_id: userData.restaurant_id,
             },
@@ -258,6 +260,7 @@ const AllUsers = () => {
         password: "",
         first_name: "",
         last_name: "",
+        phone: "",
         role: "staff",
         restaurant_id: "",
       });
@@ -803,6 +806,20 @@ const AllUsers = () => {
                   setNewUserData({ ...newUserData, email: e.target.value })
                 }
                 placeholder="user@example.com"
+                className="mt-1 h-9 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">
+                Phone Number
+              </Label>
+              <Input
+                type="tel"
+                value={newUserData.phone}
+                onChange={(e) =>
+                  setNewUserData({ ...newUserData, phone: e.target.value })
+                }
+                placeholder="+91 9876543210"
                 className="mt-1 h-9 text-sm"
               />
             </div>

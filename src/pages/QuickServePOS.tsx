@@ -9,7 +9,7 @@ import {
   QSOrderPanel,
   QSOrderItem,
 } from "@/components/QuickServe/QSOrderPanel";
-import { QSCustomerInput } from "@/components/QuickServe/QSCustomerInput";
+import { QSCustomerInput, LoyaltyCustomerInfo } from "@/components/QuickServe/QSCustomerInput";
 import { QSPaymentSheet } from "@/components/QuickServe/QSPaymentSheet";
 import {
   QSOrderHistory,
@@ -50,9 +50,36 @@ const QuickServePOS: React.FC = () => {
   const [showDailySummary, setShowDailySummary] = useState(false);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [discountPercentage, setDiscountPercentage] = useState(0);
+  const [loyaltyCustomer, setLoyaltyCustomer] = useState<LoyaltyCustomerInfo | null>(null);
+  const [loyaltyPointsUsed, setLoyaltyPointsUsed] = useState(0);
+  const [loyaltyDiscountAmount, setLoyaltyDiscountAmount] = useState(0);
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
   const queryClient = useQueryClient();
+  const { restaurantId } = useRestaurantId();
+
+  // Fetch loyalty program settings for redemption cap and point value
+  const { data: loyaltyProgram } = useQuery({
+    queryKey: ["loyalty-program-qs", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return null;
+      const { data } = await supabase
+        .from("loyalty_programs")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .eq("is_enabled", true)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!restaurantId,
+    staleTime: 1000 * 60 * 30,
+  });
+
+  const handleCustomerFound = useCallback((customer: LoyaltyCustomerInfo | null) => {
+    setLoyaltyCustomer(customer);
+    setLoyaltyPointsUsed(0);
+    setLoyaltyDiscountAmount(0);
+  }, []);
 
   // Menu data
   const {
@@ -65,7 +92,6 @@ const QuickServePOS: React.FC = () => {
     isToggling,
     isRestoring,
   } = useQSRMenuItems();
-  const { restaurantId } = useRestaurantId();
 
   // Today's revenue
   const { data: todaysRevenue = 0 } = useQuery({
@@ -188,6 +214,9 @@ const QuickServePOS: React.FC = () => {
     setShowMobileCart(false);
     setDiscountAmount(0);
     setDiscountPercentage(0);
+    setLoyaltyCustomer(null);
+    setLoyaltyPointsUsed(0);
+    setLoyaltyDiscountAmount(0);
     // Refresh active orders and stats
     queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
     queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
@@ -354,6 +383,7 @@ const QuickServePOS: React.FC = () => {
             customerPhone={customerPhone}
             onNameChange={setCustomerName}
             onPhoneChange={setCustomerPhone}
+            onCustomerFound={handleCustomerFound}
           />
           <QSOrderPanel
             items={orderItems}
@@ -366,6 +396,14 @@ const QuickServePOS: React.FC = () => {
             discountPercentage={discountPercentage}
             onDiscountChange={handleDiscountChange}
             onAddCustomItem={() => setShowCustomItem(true)}
+            loyaltyCustomer={loyaltyCustomer}
+            loyaltyPointsUsed={loyaltyPointsUsed}
+            loyaltyDiscountAmount={loyaltyDiscountAmount}
+            onLoyaltyRedemptionChange={(points, discount) => {
+              setLoyaltyPointsUsed(points);
+              setLoyaltyDiscountAmount(discount);
+            }}
+            loyaltyProgram={loyaltyProgram}
           />
         </div>
       </div>
@@ -407,6 +445,7 @@ const QuickServePOS: React.FC = () => {
               customerPhone={customerPhone}
               onNameChange={setCustomerName}
               onPhoneChange={setCustomerPhone}
+              onCustomerFound={handleCustomerFound}
             />
             <QSOrderPanel
               items={orderItems}
@@ -422,6 +461,14 @@ const QuickServePOS: React.FC = () => {
               discountPercentage={discountPercentage}
               onDiscountChange={handleDiscountChange}
               onAddCustomItem={() => setShowCustomItem(true)}
+              loyaltyCustomer={loyaltyCustomer}
+              loyaltyPointsUsed={loyaltyPointsUsed}
+              loyaltyDiscountAmount={loyaltyDiscountAmount}
+              onLoyaltyRedemptionChange={(points, discount) => {
+                setLoyaltyPointsUsed(points);
+                setLoyaltyDiscountAmount(discount);
+              }}
+              loyaltyProgram={loyaltyProgram}
             />
           </div>
         </SheetContent>
@@ -437,6 +484,9 @@ const QuickServePOS: React.FC = () => {
         onSuccess={handlePaymentSuccess}
         discountAmount={discountAmount}
         discountPercentage={discountPercentage}
+        loyaltyPointsUsed={loyaltyPointsUsed}
+        loyaltyDiscountAmount={loyaltyDiscountAmount}
+        loyaltyCustomerId={loyaltyCustomer?.id}
       />
 
       {/* Custom Item Dialog */}

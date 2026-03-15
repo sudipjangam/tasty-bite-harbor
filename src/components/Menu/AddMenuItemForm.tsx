@@ -15,7 +15,7 @@ import {
   FormDescription,
 } from "@/components/ui/form";
 import { supabase } from "@/integrations/supabase/client";
-import { X, Upload, Loader2, Image as ImageIcon, Sparkles, ChefHat, Plus, Scale } from "lucide-react";
+import { X, Upload, Loader2, Image as ImageIcon, Sparkles, ChefHat, Plus, Scale, Layers, Lightbulb, Trash2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCategories } from "@/hooks/useCategories";
@@ -55,6 +55,13 @@ type FormData = {
   base_unit_quantity: string;
 };
 
+interface VariantRow {
+  id?: string;
+  name: string;
+  price: string;
+  isExisting?: boolean;
+}
+
 const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormProps) => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -65,8 +72,43 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showNewCategoryDialog, setShowNewCategoryDialog] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [variants, setVariants] = useState<VariantRow[]>([]);
+  const [deletedVariantIds, setDeletedVariantIds] = useState<string[]>([]);
   
   const { categories, addCategory, isAddingCategory } = useCategories();
+
+  // Fetch existing variants when editing
+  useEffect(() => {
+    if (editingItem?.id) {
+      (async () => {
+        const { data } = await supabase
+          .from('menu_item_variants')
+          .select('*')
+          .eq('menu_item_id', editingItem.id)
+          .order('sort_order');
+        if (data && data.length > 0) {
+          setVariants(data.map(v => ({ id: v.id, name: v.name, price: String(v.price), isExisting: true })));
+        }
+      })();
+    }
+  }, [editingItem?.id]);
+
+  // Smart pricing hint for variants
+  const getVariantPriceHint = (index: number): string | null => {
+    if (index === 0 || variants.length === 0) return null;
+    const firstPrice = parseFloat(variants[0].price);
+    if (isNaN(firstPrice) || firstPrice <= 0) return null;
+    
+    if (index === 1) {
+      const suggested = Math.round(firstPrice * 1.5);
+      return `💡 Tip: ₹${suggested} (1.5× of ${variants[0].name}) works well for medium sizes`;
+    }
+    if (index === 2) {
+      const suggested = Math.round(firstPrice * 2);
+      return `💡 Tip: ₹${suggested} (2× of ${variants[0].name}) is a common large size price`;
+    }
+    return null;
+  };
 
   // Fetch user's restaurant_id from their profile
   const { data: userProfile } = useQuery({
@@ -242,60 +284,73 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
         category: data.category,
         image_url: imageUrl,
         is_available: true,
-        is_veg: Boolean(data.is_veg), // Explicit Boolean conversion
-        is_special: Boolean(data.is_special), // Explicit Boolean conversion
+        is_veg: Boolean(data.is_veg),
+        is_special: Boolean(data.is_special),
         pricing_type: data.pricing_type || "fixed",
         pricing_unit: data.pricing_type !== "fixed" ? data.pricing_unit : null,
         base_unit_quantity: data.pricing_type !== "fixed" ? parseFloat(data.base_unit_quantity) || 1 : null,
-        updated_at: new Date().toISOString(), // Track update time
+        updated_at: new Date().toISOString(),
       };
 
-      console.log("Saving menu item with data:", menuItemData);
-      console.log("is_veg value:", data.is_veg, "->", menuItemData.is_veg);
-      console.log("Editing item ID:", editingItem?.id);
-      console.log("Restaurant ID:", userProfile.restaurant_id);
+      let savedItemId = editingItem?.id;
 
       if (editingItem) {
-        // Update existing menu item - include restaurant_id for RLS
         const { error, data: updatedData } = await supabase
           .from("menu_items")
           .update(menuItemData)
           .eq("id", editingItem.id)
-          .eq("restaurant_id", userProfile.restaurant_id) // RLS requirement
+          .eq("restaurant_id", userProfile.restaurant_id)
           .select();
 
-        if (error) {
-          console.error("Supabase update error:", error);
-          throw error;
-        }
-        
-        console.log("Updated menu item result:", updatedData);
-        
-        // Check if update actually happened
+        if (error) throw error;
         if (!updatedData || updatedData.length === 0) {
-          console.error("No rows were updated - RLS policy may be blocking the update");
           throw new Error("Failed to update menu item. Please check permissions.");
         }
 
-        toast({
-          title: "Success",
-          description: "Menu item updated successfully",
-        });
+        toast({ title: "Success", description: "Menu item updated successfully" });
       } else {
-        // Insert new menu item
-        const { error } = await supabase
+        const { data: insertedData, error } = await supabase
           .from("menu_items")
-          .insert([{
-            ...menuItemData,
-            restaurant_id: userProfile.restaurant_id,
-          }]);
+          .insert([{ ...menuItemData, restaurant_id: userProfile.restaurant_id }])
+          .select()
+          .single();
 
         if (error) throw error;
+        savedItemId = insertedData?.id;
+        toast({ title: "Success", description: "Menu item added successfully" });
+      }
 
-        toast({
-          title: "Success",
-          description: "Menu item added successfully",
-        });
+      // Save variants
+      if (savedItemId) {
+        // Delete removed variants
+        if (deletedVariantIds.length > 0) {
+          await supabase.from('menu_item_variants').delete().in('id', deletedVariantIds);
+        }
+
+        // Filter valid variants
+        const validVariants = variants.filter(v => v.name.trim() && v.price.trim());
+
+        for (let i = 0; i < validVariants.length; i++) {
+          const v = validVariants[i];
+          const variantData = {
+            name: v.name.trim(),
+            price: parseFloat(v.price),
+            sort_order: i,
+            updated_at: new Date().toISOString(),
+          };
+
+          if (v.id && v.isExisting) {
+            // Update existing variant
+            await supabase.from('menu_item_variants').update(variantData).eq('id', v.id);
+          } else {
+            // Insert new variant
+            await supabase.from('menu_item_variants').insert([{
+              ...variantData,
+              menu_item_id: savedItemId,
+              restaurant_id: userProfile.restaurant_id,
+            }]);
+          }
+        }
       }
 
       onSuccess();
@@ -661,6 +716,78 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                     </p>
                   </div>
                 )}
+              </div>
+
+              {/* Size Variants Section */}
+              <div className="bg-gradient-to-r from-indigo-50/80 to-violet-50/80 dark:from-indigo-900/20 dark:to-violet-900/20 backdrop-blur-sm rounded-2xl p-4 border border-indigo-200/50 dark:border-indigo-600/50">
+                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                  <Layers className="h-5 w-5 text-indigo-500" />
+                  Size Variants
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  Add size options like Small/Medium/Large or 250ml/350ml/500ml
+                </p>
+
+                {variants.map((variant, index) => (
+                  <div key={index} className="mb-3">
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        placeholder="e.g., Small, 250ml"
+                        value={variant.name}
+                        onChange={(e) => {
+                          const updated = [...variants];
+                          updated[index] = { ...updated[index], name: e.target.value };
+                          setVariants(updated);
+                        }}
+                        className="flex-1 h-9 bg-white/80 dark:bg-gray-700/80 border-2 border-indigo-200/50 dark:border-indigo-700/30 rounded-lg text-sm"
+                      />
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Price"
+                        value={variant.price}
+                        onChange={(e) => {
+                          const updated = [...variants];
+                          updated[index] = { ...updated[index], price: e.target.value };
+                          setVariants(updated);
+                        }}
+                        className="w-24 h-9 bg-white/80 dark:bg-gray-700/80 border-2 border-indigo-200/50 dark:border-indigo-700/30 rounded-lg text-sm"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 w-9 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
+                        onClick={() => {
+                          if (variant.id && variant.isExisting) {
+                            setDeletedVariantIds(prev => [...prev, variant.id!]);
+                          }
+                          setVariants(variants.filter((_, i) => i !== index));
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {/* Smart pricing hint */}
+                    {getVariantPriceHint(index) && !variant.price && (
+                      <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 ml-1 flex items-center gap-1">
+                        <Lightbulb className="h-3 w-3" />
+                        {getVariantPriceHint(index)}
+                      </p>
+                    )}
+                  </div>
+                ))}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setVariants([...variants, { name: '', price: '' }])}
+                  className="w-full border-2 border-dashed border-indigo-300 dark:border-indigo-600 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Size Variant
+                </Button>
               </div>
 
               {/* Special Options */}
