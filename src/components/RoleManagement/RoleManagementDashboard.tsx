@@ -499,10 +499,12 @@ export const RoleManagementDashboard = () => {
                     <div className="flex gap-3">
                       <Button
                         onClick={() => setEditingRole(role)}
-                        className={`flex-1 ${theme.btn} text-white font-semibold py-6 rounded-xl shadow-md transition-all hover:scale-[1.02] active:scale-[0.98]`}
+                        disabled={!isCurrentUserAdmin && (role.is_system || role.has_full_access)}
+                        title={!isCurrentUserAdmin && (role.is_system || role.has_full_access) ? "Only administrators can edit system roles" : undefined}
+                        className={`flex-1 ${theme.btn} text-white font-semibold py-6 rounded-xl shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100`}
                       >
                         <Pencil className="h-4 w-4 mr-2" />
-                        Manage Role
+                        {!isCurrentUserAdmin && (role.is_system || role.has_full_access) ? 'View Role' : 'Manage Role'}
                       </Button>
 
                       {role.is_deletable && (

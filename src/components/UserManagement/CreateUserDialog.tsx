@@ -326,23 +326,29 @@ export const CreateUserDialog = ({
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="staff">Staff</SelectItem>
-                <SelectItem value="waiter">Waiter</SelectItem>
-                <SelectItem value="chef">Chef</SelectItem>
-                <SelectItem value="manager">Manager</SelectItem>
-                {isCurrentUserAdmin && (
-                  <SelectItem value="admin">Admin</SelectItem>
-                )}
-                {(currentUser?.role === "owner" ||
-                  currentUser?.role_name_text?.toLowerCase() === "owner") && (
-                  <SelectItem value="owner">Owner</SelectItem>
-                )}
-                {roles.length > 0 &&
+                {roles.length > 0 ? (
+                  // Use DB roles exclusively when available (avoids duplicates)
                   roles.map((role) => (
                     <SelectItem key={role.id} value={role.id}>
                       {role.name}
                     </SelectItem>
-                  ))}
+                  ))
+                ) : (
+                  // Fallback to hardcoded system roles when no DB roles loaded
+                  <>
+                    <SelectItem value="staff">Staff</SelectItem>
+                    <SelectItem value="waiter">Waiter</SelectItem>
+                    <SelectItem value="chef">Chef</SelectItem>
+                    <SelectItem value="manager">Manager</SelectItem>
+                    {isCurrentUserAdmin && (
+                      <SelectItem value="admin">Admin</SelectItem>
+                    )}
+                    {(currentUser?.role === "owner" ||
+                      currentUser?.role_name_text?.toLowerCase() === "owner") && (
+                      <SelectItem value="owner">Owner</SelectItem>
+                    )}
+                  </>
+                )}
               </SelectContent>
             </Select>
           </div>
