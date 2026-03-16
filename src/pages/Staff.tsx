@@ -119,45 +119,45 @@ const Staff = () => {
   ).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-950 dark:via-purple-950/50 dark:to-indigo-950 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-950 dark:via-purple-950/50 dark:to-indigo-950 p-3 md:p-6">
       {/* Modern Header with Glass Effect */}
-      <div className="mb-8 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-3xl shadow-xl dark:shadow-purple-500/10 p-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="p-4 bg-gradient-to-br from-purple-500 via-indigo-500 to-pink-500 rounded-2xl shadow-lg shadow-purple-500/30 dark:shadow-purple-500/50">
-              <Users className="h-8 w-8 text-white drop-shadow-lg" />
+      <div className="mb-4 md:mb-8 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-2xl md:rounded-3xl shadow-xl dark:shadow-purple-500/10 p-4 md:p-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-6">
+          <div className="flex items-center gap-3 md:gap-4">
+            <div className="p-3 md:p-4 bg-gradient-to-br from-purple-500 via-indigo-500 to-pink-500 rounded-xl md:rounded-2xl shadow-lg shadow-purple-500/30 dark:shadow-purple-500/50 flex-shrink-0">
+              <Users className="h-6 w-6 md:h-8 md:w-8 text-white drop-shadow-lg" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 bg-clip-text text-transparent">
                 Staff Management
               </h1>
-              <p className="text-gray-600 dark:text-gray-300 text-lg mt-2 flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-purple-500" />
+              <p className="text-gray-600 dark:text-gray-300 text-sm md:text-lg mt-1 md:mt-2 flex items-center gap-1.5">
+                <Sparkles className="h-4 w-4 md:h-5 md:w-5 text-purple-500" />
                 Manage your restaurant's staff and leave requests
               </p>
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-2 md:gap-3">
             <Button
               onClick={() => setIsTimeClockDialogOpen(true)}
-              className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-2 border-indigo-200 dark:border-indigo-500/50 hover:border-indigo-400 dark:hover:border-indigo-400 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-indigo-900/50 dark:hover:to-purple-900/50 text-indigo-700 dark:text-indigo-300 hover:text-indigo-800 dark:hover:text-indigo-200 font-semibold px-6 py-3 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300"
+              className="flex-1 md:flex-none bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-2 border-indigo-200 dark:border-indigo-500/50 hover:border-indigo-400 dark:hover:border-indigo-400 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-indigo-900/50 dark:hover:to-purple-900/50 text-indigo-700 dark:text-indigo-300 hover:text-indigo-800 dark:hover:text-indigo-200 font-semibold px-3 md:px-6 py-2.5 md:py-3 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300 text-sm md:text-base"
             >
-              <ClockIcon className="h-4 w-4 mr-2" />
+              <ClockIcon className="h-4 w-4 mr-1.5 md:mr-2" />
               Clock In/Out
             </Button>
             <Button
               onClick={handleAddStaff}
-              className="bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white font-semibold px-6 py-3 rounded-xl shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transform hover:-translate-y-0.5 transition-all duration-300"
+              className="flex-1 md:flex-none bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white font-semibold px-3 md:px-6 py-2.5 md:py-3 rounded-xl shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transform hover:-translate-y-0.5 transition-all duration-300 text-sm md:text-base"
             >
-              <UserPlus className="h-4 w-4 mr-2" />
+              <UserPlus className="h-4 w-4 mr-1.5 md:mr-2" />
               Add Staff
             </Button>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 mt-4 md:mt-8">
           <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl p-4 text-white shadow-lg shadow-purple-500/30">
             <div className="flex items-center justify-between">
               <div>
@@ -211,29 +211,30 @@ const Staff = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="overflow-x-auto pb-2 mb-6">
-          <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-3xl shadow-xl dark:shadow-purple-500/10 p-2">
-            <TabsList className="inline-flex w-auto min-w-full md:w-auto space-x-1 p-1 bg-transparent rounded-2xl">
+        <div className="overflow-x-auto pb-1 md:pb-2 mb-3 md:mb-6">
+          <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-2xl md:rounded-3xl shadow-xl dark:shadow-purple-500/10 p-1.5 md:p-2">
+            <TabsList className="inline-flex w-auto min-w-full md:w-auto space-x-0.5 md:space-x-1 p-0.5 md:p-1 bg-transparent rounded-2xl">
               <TabsTrigger
                 value="staff"
-                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/30 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400"
+                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/30 px-3 md:px-6 py-2 md:py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-1.5 md:gap-2 text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 text-sm md:text-base"
               >
                 <Users className="h-4 w-4" />
-                Staff List
+                <span className="hidden xs:inline">Staff</span>
+                <span className="xs:hidden">Staff</span>
               </TabsTrigger>
               <TabsTrigger
                 value="shifts"
-                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-amber-500/30 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-amber-600 dark:hover:text-amber-400"
+                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-amber-500/30 px-3 md:px-6 py-2 md:py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-1.5 md:gap-2 text-gray-600 dark:text-gray-300 hover:text-amber-600 dark:hover:text-amber-400 text-sm md:text-base"
               >
                 <CalendarClock className="h-4 w-4" />
-                Shift Management
+                <span>Shifts</span>
               </TabsTrigger>
               <TabsTrigger
                 value="leaves"
-                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/30 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400"
+                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/30 px-3 md:px-6 py-2 md:py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-1.5 md:gap-2 text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 text-sm md:text-base"
               >
                 <FileText className="h-4 w-4" />
-                Leave Management
+                <span>Leaves</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -242,7 +243,7 @@ const Staff = () => {
         <TabsContent value="staff" className="animate-in fade-in">
           <ErrorBoundary>
             {selectedStaff ? (
-              <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-3xl shadow-xl dark:shadow-purple-500/10 p-8">
+              <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-2xl md:rounded-3xl shadow-xl dark:shadow-purple-500/10 p-4 md:p-8">
                 <StaffDetail
                   staffId={selectedStaff.id}
                   restaurantId={restaurantId}
@@ -251,7 +252,7 @@ const Staff = () => {
                 />
               </div>
             ) : (
-              <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-3xl shadow-xl dark:shadow-purple-500/10 p-8">
+              <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-2xl md:rounded-3xl shadow-xl dark:shadow-purple-500/10 p-4 md:p-8">
                 <StaffList
                   selectedStaffId={selectedStaff?.id || null}
                   onSelectStaff={setSelectedStaff}
@@ -265,7 +266,7 @@ const Staff = () => {
 
         <TabsContent value="leaves" className="animate-in fade-in">
           <ErrorBoundary>
-            <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-3xl shadow-xl dark:shadow-purple-500/10 p-8">
+            <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-2xl md:rounded-3xl shadow-xl dark:shadow-purple-500/10 p-4 md:p-8">
               <StaffLeaveManager />
             </div>
           </ErrorBoundary>
@@ -273,7 +274,7 @@ const Staff = () => {
 
         <TabsContent value="shifts" className="animate-in fade-in">
           <ErrorBoundary>
-            <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-3xl shadow-xl dark:shadow-purple-500/10 p-8">
+            <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-2xl md:rounded-3xl shadow-xl dark:shadow-purple-500/10 p-4 md:p-8">
               <ShiftManagementContent restaurantId={restaurantId} />
             </div>
           </ErrorBoundary>

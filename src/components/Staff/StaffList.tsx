@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Search, Filter, ChevronDown, Users, UserPlus, Trash2 } from "lucide-react";
+import { Search, Filter, Users, UserPlus, Trash2, Phone, Mail, Briefcase } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
@@ -120,13 +120,13 @@ const StaffList: React.FC<StaffListProps> = ({
   const getStatusBadge = (status: string | null) => {
     switch (status) {
       case 'active':
-        return <Badge className="bg-gradient-to-r from-emerald-500 to-green-600 text-white border-0 shadow-sm shadow-emerald-500/30">Active</Badge>;
+        return <Badge className="bg-gradient-to-r from-emerald-500 to-green-600 text-white border-0 shadow-sm shadow-emerald-500/30 text-xs">Active</Badge>;
       case 'on_leave':
-        return <Badge className="bg-gradient-to-r from-amber-500 to-orange-600 text-white border-0 shadow-sm shadow-amber-500/30">On Leave</Badge>;
+        return <Badge className="bg-gradient-to-r from-amber-500 to-orange-600 text-white border-0 shadow-sm shadow-amber-500/30 text-xs">On Leave</Badge>;
       case 'inactive':
-        return <Badge className="bg-gradient-to-r from-slate-500 to-gray-600 text-white border-0 shadow-sm shadow-slate-500/30">Inactive</Badge>;
+        return <Badge className="bg-gradient-to-r from-slate-500 to-gray-600 text-white border-0 shadow-sm shadow-slate-500/30 text-xs">Inactive</Badge>;
       default:
-        return <Badge className="bg-gradient-to-r from-emerald-500 to-green-600 text-white border-0 shadow-sm shadow-emerald-500/30">Active</Badge>;
+        return <Badge className="bg-gradient-to-r from-emerald-500 to-green-600 text-white border-0 shadow-sm shadow-emerald-500/30 text-xs">Active</Badge>;
     }
   };
 
@@ -182,24 +182,26 @@ const StaffList: React.FC<StaffListProps> = ({
     );
   }
 
+  const filteredStaff = filterStaff(staff);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-gradient-to-br from-purple-500 via-indigo-500 to-pink-500 rounded-xl shadow-lg shadow-purple-500/30">
-            <Users className="h-6 w-6 text-white drop-shadow-sm" />
+          <div className="p-2.5 md:p-3 bg-gradient-to-br from-purple-500 via-indigo-500 to-pink-500 rounded-xl shadow-lg shadow-purple-500/30">
+            <Users className="h-5 w-5 md:h-6 md:w-6 text-white drop-shadow-sm" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+            <h2 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
               Staff Members
             </h2>
-            <p className="text-gray-600 dark:text-gray-400">Manage your team members</p>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">Manage your team members</p>
           </div>
         </div>
         <Button 
           onClick={onAddStaff}
-          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transform hover:-translate-y-0.5 transition-all duration-300"
+          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold px-4 md:px-6 py-2 md:py-3 rounded-xl shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transform hover:-translate-y-0.5 transition-all duration-300 w-full sm:w-auto"
         >
           <UserPlus className="h-4 w-4 mr-2" />
           Add Staff
@@ -207,71 +209,164 @@ const StaffList: React.FC<StaffListProps> = ({
       </div>
 
       {/* Search and Filters */}
-      <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl shadow-lg dark:shadow-purple-500/10 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 w-full max-w-md">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400 dark:text-gray-500" />
-              <Input
-                type="search"
-                placeholder="Search staff members..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
-              />
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400 dark:text-gray-500" />
+          <Input
+            type="search"
+            placeholder="Search staff members..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-2 border-gray-200 dark:border-purple-500/30 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all duration-200 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+          />
+        </div>
+        <div className="flex gap-2">
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="bg-white/80 dark:bg-gray-800/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl text-gray-900 dark:text-gray-100 min-w-[130px]">
+              <SelectValue placeholder="All roles" />
+            </SelectTrigger>
+            <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-purple-500/30 rounded-xl">
+              <SelectItem value="all-roles">All roles</SelectItem>
+              {roles.map((role) => (
+                <SelectItem key={role.id} value={role.name}>
+                  {role.name}
+                </SelectItem>
+              ))}
+              <SelectItem value="Manager">Manager</SelectItem>
+              <SelectItem value="Server">Server</SelectItem>
+              <SelectItem value="Chef">Chef</SelectItem>
+              <SelectItem value="Cleaner">Cleaner</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="bg-white/80 dark:bg-gray-800/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl text-gray-900 dark:text-gray-100 min-w-[130px]">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-purple-500/30 rounded-xl">
+              <SelectItem value="all-statuses">All statuses</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="on_leave">On Leave</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════
+          MOBILE LAYOUT: Card grid (shown on screens < md)
+          ═══════════════════════════════════════════════════════════ */}
+      <div className="block md:hidden">
+        {filteredStaff.length === 0 ? (
+          <div className="flex flex-col items-center py-12 space-y-3">
+            <div className="p-4 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 rounded-2xl">
+              <Users className="h-10 w-10 text-gray-400 dark:text-gray-500" />
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-gray-200 dark:border-purple-500/30 hover:border-purple-300 dark:hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 text-gray-700 dark:text-gray-300 rounded-xl"
-                >
-                  <Filter className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-purple-500/30 rounded-2xl shadow-xl p-4">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Filter by Role</label>
-                    <Select value={roleFilter} onValueChange={setRoleFilter}>
-                      <SelectTrigger className="bg-white/80 dark:bg-gray-800/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl text-gray-900 dark:text-gray-100">
-                        <SelectValue placeholder="All roles" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-purple-500/30 rounded-xl">
-                        <SelectItem value="all-roles">All roles</SelectItem>
-                        {roles.map((role) => (
-                          <SelectItem key={role.id} value={role.name}>
-                            {role.name}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value="Manager">Manager</SelectItem>
-                        <SelectItem value="Server">Server</SelectItem>
-                        <SelectItem value="Chef">Chef</SelectItem>
-                        <SelectItem value="Cleaner">Cleaner</SelectItem>
-                      </SelectContent>
-                    </Select>
+            <p className="text-gray-500 dark:text-gray-400 font-medium">No staff members found</p>
+            <p className="text-gray-400 dark:text-gray-500 text-sm">Try adjusting your search or filters</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4">
+            {filteredStaff.map((staffMember) => (
+              <Card
+                key={staffMember.id}
+                className={`overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-200 bg-white dark:bg-gray-800 rounded-2xl ${
+                  selectedStaffId === staffMember.id
+                    ? 'ring-2 ring-purple-500 ring-offset-2'
+                    : ''
+                }`}
+                onClick={() => onSelectStaff(staffMember)}
+              >
+                {/* Card top accent bar */}
+                <div className="h-1.5 bg-gradient-to-r from-purple-500 to-indigo-600" />
+                <div className="p-4">
+                  {/* Top row: Avatar + name + Status badge */}
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-12 w-12 border-2 border-purple-200 dark:border-purple-500/50 shadow-sm flex-shrink-0">
+                      <AvatarImage src={staffMember.photo_url || ''} alt={`${staffMember.first_name} ${staffMember.last_name}`} />
+                      <AvatarFallback className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-semibold text-sm">
+                        {getInitials(staffMember.first_name, staffMember.last_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-bold text-gray-900 dark:text-gray-100 text-base leading-tight">
+                          {staffMember.first_name} {staffMember.last_name}
+                        </h3>
+                        {getStatusBadge(staffMember.status)}
+                      </div>
+                      {staffMember.position && (
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Briefcase className="h-3 w-3 text-purple-500 flex-shrink-0" />
+                          <span className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                            {staffMember.position}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Filter by Status</label>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="bg-white/80 dark:bg-gray-800/80 border-2 border-gray-200 dark:border-purple-500/30 rounded-xl text-gray-900 dark:text-gray-100">
-                        <SelectValue placeholder="All statuses" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-purple-500/30 rounded-xl">
-                        <SelectItem value="all-statuses">All statuses</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="on_leave">On Leave</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
+
+                  {/* Contact info row */}
+                  <div className="mt-3 space-y-1.5 bg-gray-50 dark:bg-gray-900/50 rounded-xl p-3">
+                    {staffMember.email && (
+                      <a
+                        href={`mailto:${staffMember.email}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400 hover:underline"
+                      >
+                        <Mail className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span className="truncate">{staffMember.email}</span>
+                      </a>
+                    )}
+                    {staffMember.phone && (
+                      <a
+                        href={`tel:${staffMember.phone}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400 hover:underline"
+                      >
+                        <Phone className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span>{staffMember.phone}</span>
+                      </a>
+                    )}
+                    {!staffMember.email && !staffMember.phone && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500">No contact info</p>
+                    )}
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2 mt-3">
+                    <Button
+                      size="sm"
+                      className="flex-1 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-md shadow-purple-500/20 text-xs py-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectStaff(staffMember);
+                      }}
+                    >
+                      View Details
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-2 border-red-200 dark:border-red-500/50 hover:border-red-300 dark:hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 px-3 rounded-xl transition-all duration-300"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteStaff(staffMember);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </Card>
+            ))}
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* Staff Table */}
+      {/* ═══════════════════════════════════════════════════════════
+          DESKTOP LAYOUT: Table (shown on screens ≥ md)
+          ═══════════════════════════════════════════════════════════ */}
+      <div className="hidden md:block">
         <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border border-white/30 dark:border-purple-500/20 rounded-2xl shadow-inner overflow-hidden">
           <Table>
             <TableHeader>
@@ -285,7 +380,7 @@ const StaffList: React.FC<StaffListProps> = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filterStaff(staff).length === 0 ? (
+              {filteredStaff.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-12">
                     <div className="flex flex-col items-center space-y-3">
@@ -298,7 +393,7 @@ const StaffList: React.FC<StaffListProps> = ({
                   </TableCell>
                 </TableRow>
               ) : (
-                filterStaff(staff).map((staffMember) => (
+                filteredStaff.map((staffMember) => (
                   <TableRow 
                     key={staffMember.id} 
                     onClick={() => onSelectStaff(staffMember)}
@@ -370,11 +465,11 @@ const StaffList: React.FC<StaffListProps> = ({
             </TableBody>
           </Table>
         </div>
-      </Card>
+      </div>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!staffToDelete} onOpenChange={() => setStaffToDelete(null)}>
-        <AlertDialogContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-purple-500/30 rounded-3xl shadow-2xl">
+        <AlertDialogContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-purple-500/30 rounded-3xl shadow-2xl mx-4">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">
               Delete Staff Member
@@ -384,7 +479,7 @@ const StaffList: React.FC<StaffListProps> = ({
               This action cannot be undone and will permanently remove all their data.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col-reverse sm:flex-row gap-2">
             <AlertDialogCancel className="bg-white/80 dark:bg-gray-800/80 border-2 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold px-6 py-3 rounded-xl transition-all duration-300">
               Cancel
             </AlertDialogCancel>
@@ -402,4 +497,3 @@ const StaffList: React.FC<StaffListProps> = ({
 };
 
 export default StaffList;
-
