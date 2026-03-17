@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { format, addDays, differenceInDays } from "date-fns";
 import {
   Dialog,
@@ -290,7 +291,7 @@ const LeaveRequestDialog: React.FC<LeaveRequestDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
+      <DialogContent className="max-w-md p-0 overflow-x-hidden overflow-y-auto max-h-[90vh] border-0 shadow-2xl rounded-2xl">
         {/* Gradient Header Section */}
         <div className="relative px-6 pt-10 pb-8 text-center bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-600">
           {/* Decorative circles */}
@@ -320,153 +321,152 @@ const LeaveRequestDialog: React.FC<LeaveRequestDialogProps> = ({
             {isEditMode ? "Edit Leave Request" : "Request Time Off"}
           </DialogTitle>
           <DialogDescription className="relative z-10 text-white/80 mt-1">
-            Submit your leave request for approval
+            {isEditMode
+              ? "Update your existing leave application"
+              : "Submit your leave request for approval"}
           </DialogDescription>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="p-6 space-y-5 bg-white dark:bg-gray-900"
-        >
+        <form onSubmit={handleSubmit} className="p-6 space-y-5 bg-white dark:bg-gray-900">
           {/* Staff Member */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Staff Member</Label>
-            <Select
-              value={staffId}
-              onValueChange={setStaffId}
-              disabled={isEditMode || staffOptions.length === 0 || !!staff_id}
-            >
-              <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-gray-700">
-                <SelectValue placeholder="Select staff member" />
-              </SelectTrigger>
-              <SelectContent>
-                {staffOptions.map((staff) => (
-                  <SelectItem key={staff.id} value={staff.id}>
-                    {staff.first_name} {staff.last_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Leave Type & Balance */}
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <Label className="text-sm font-medium">Leave Type</Label>
-              {leaveBalance && (
-                <span
-                  className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                    leaveBalance.total_days - leaveBalance.used_days <= 0
-                      ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                      : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                  }`}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Staff Member</Label>
+                <Select
+                  value={staffId}
+                  onValueChange={setStaffId}
+                  disabled={isEditMode || staffOptions.length === 0 || !!staff_id}
                 >
-                  {leaveBalance.total_days - leaveBalance.used_days} days left
-                </span>
-              )}
-            </div>
-            <Select
-              value={leaveType}
-              onValueChange={setLeaveType}
-              disabled={leaveTypes.length === 0}
-            >
-              <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-gray-700">
-                <SelectValue placeholder="Select leave type" />
-              </SelectTrigger>
-              <SelectContent>
-                {leaveTypes.map((type) => (
-                  <SelectItem key={type.id} value={type.name}>
-                    {type.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Date Range */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Start Date</Label>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                min={format(new Date(), "yyyy-MM-dd")}
-                disabled={isEditMode && leave?.status !== "pending"}
-                className="h-12 rounded-xl border-gray-200 dark:border-gray-700"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">End Date</Label>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                min={startDate}
-                disabled={isEditMode && leave?.status !== "pending"}
-                className="h-12 rounded-xl border-gray-200 dark:border-gray-700"
-              />
-            </div>
-          </div>
-
-          {/* Duration Preview */}
-          {startDate && endDate && (
-            <div className="py-4 px-4 rounded-xl bg-violet-50 dark:bg-violet-900/20 border-2 border-violet-200 dark:border-violet-800 flex items-center justify-between">
-              <span className="text-sm font-semibold text-violet-700 dark:text-violet-300">
-                Total Duration
-              </span>
-              <Badge className="bg-violet-500 text-white font-bold px-3 py-1">
-                {differenceInDays(new Date(endDate), new Date(startDate)) + 1}{" "}
-                Days
-              </Badge>
-            </div>
-          )}
-
-          {/* Reason */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Reason (Optional)</Label>
-            <Textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Provide a brief reason..."
-              rows={2}
-              disabled={isEditMode && leave?.status !== "pending"}
-              className="resize-none rounded-xl border-gray-200 dark:border-gray-700"
-            />
-          </div>
-
-          {/* Current Status (Edit Mode) */}
-          {isEditMode && leave && (
-            <div
-              className={`p-4 rounded-xl border-2 ${
-                leave.status === "approved"
-                  ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800"
-                  : leave.status === "denied"
-                  ? "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800"
-                  : "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Current Status
-                </span>
-                <Badge
-                  className={`px-3 py-1 font-semibold ${
-                    leave.status === "approved"
-                      ? "bg-emerald-500 text-white"
-                      : leave.status === "denied"
-                      ? "bg-red-500 text-white"
-                      : "bg-amber-500 text-white"
-                  }`}
-                >
-                  {leave.status.toUpperCase()}
-                </Badge>
+                  <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-gray-700">
+                    <SelectValue placeholder="Select staff member" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {staffOptions.map((staff) => (
+                      <SelectItem key={staff.id} value={staff.id}>
+                        {staff.first_name} {staff.last_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-          )}
 
+              {/* Leave Type & Balance */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label className="text-sm font-medium">Leave Type</Label>
+                  {leaveBalance && (
+                    <span
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        leaveBalance.total_days - leaveBalance.used_days <= 0
+                          ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                      }`}
+                    >
+                      {leaveBalance.total_days - leaveBalance.used_days} days left
+                    </span>
+                  )}
+                </div>
+                <Select
+                  value={leaveType}
+                  onValueChange={setLeaveType}
+                  disabled={leaveTypes.length === 0}
+                >
+                  <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-gray-700">
+                    <SelectValue placeholder="Select leave type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {leaveTypes.map((type) => (
+                      <SelectItem key={type.id} value={type.name}>
+                        {type.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Date Range */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Start Date</Label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    min={format(new Date(), "yyyy-MM-dd")}
+                    disabled={isEditMode && leave?.status !== "pending"}
+                    className="h-12 rounded-xl border-gray-200 dark:border-gray-700"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">End Date</Label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    min={startDate}
+                    disabled={isEditMode && leave?.status !== "pending"}
+                    className="h-12 rounded-xl border-gray-200 dark:border-gray-700"
+                  />
+                </div>
+              </div>
+
+              {/* Duration Preview */}
+              {startDate && endDate && (
+                <div className="py-4 px-4 rounded-xl bg-violet-50 dark:bg-violet-900/20 border-2 border-violet-200 dark:border-violet-800 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-violet-700 dark:text-violet-300">
+                    Total Duration
+                  </span>
+                  <Badge className="bg-violet-500 text-white font-bold px-3 py-1">
+                    {differenceInDays(new Date(endDate), new Date(startDate)) + 1}{" "}
+                    Days
+                  </Badge>
+                </div>
+              )}
+
+              {/* Reason */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Reason (Optional)</Label>
+                <Textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Provide a brief reason..."
+                  rows={2}
+                  disabled={isEditMode && leave?.status !== "pending"}
+                  className="resize-none rounded-xl border-gray-200 dark:border-gray-700"
+                />
+              </div>
+
+              {/* Current Status (Edit Mode) */}
+              {isEditMode && leave && (
+                <div
+                  className={`p-4 rounded-xl border-2 ${
+                    leave.status === "approved"
+                      ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800"
+                      : leave.status === "denied"
+                      ? "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800"
+                      : "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      Current Status
+                    </span>
+                    <Badge
+                      className={`px-3 py-1 font-semibold ${
+                        leave.status === "approved"
+                          ? "bg-emerald-500 text-white"
+                          : leave.status === "denied"
+                          ? "bg-red-500 text-white"
+                          : "bg-amber-500 text-white"
+                      }`}
+                    >
+                      {leave.status.toUpperCase()}
+                    </Badge>
+                  </div>
+                </div>
+              )}
+              
           {/* Footer Buttons */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 pt-4 border-t bg-white dark:bg-gray-900 dark:border-gray-800">
             <Button
               type="button"
               variant="outline"
