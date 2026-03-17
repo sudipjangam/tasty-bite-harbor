@@ -36,6 +36,7 @@ import FoodTruckDashboard from "@/components/Dashboard/FoodTruckDashboard";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { supabase } from "@/integrations/supabase/client";
 import HelpProvider from "@/components/Help/HelpProvider";
+import OwnerAlertsWidget from "@/components/Dashboard/OwnerAlertsWidget";
 
 const Dashboard = () => {
   const { user, hasPermission } = useAuth();
@@ -380,6 +381,11 @@ const Dashboard = () => {
               <StaffAttendanceWidget />
             </CardContent>
           </Card>
+        )}
+
+        {/* Owner Staff Alerts */}
+        {hasPermission("staff.view") && (
+          <OwnerAlertsWidget />
         )}
 
         {/* Stats Overview */}

@@ -90,12 +90,14 @@ export interface StaffLeaveType {
   id: string;
   restaurant_id: string;
   name: string;
-  accrual_type: string;
-  accrual_amount: number;
-  accrual_period: string;
-  requires_approval: boolean;
-  created_at: string;
-  updated_at: string;
+  description?: string;
+  days_per_year?: number;
+  accrual_type?: string;
+  accrual_amount?: number;
+  accrual_period?: string;
+  requires_approval?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface StaffLeaveRequest {
