@@ -380,7 +380,7 @@ const TimeClockDialog: React.FC<TimeClockDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
+      <DialogContent className="max-w-md p-0 overflow-x-hidden overflow-y-auto max-h-[90vh] border-0 shadow-2xl rounded-2xl">
         
         {/* Gradient Header Section */}
         <div className={`relative px-6 pt-10 pb-8 text-center ${
@@ -405,119 +405,117 @@ const TimeClockDialog: React.FC<TimeClockDialogProps> = ({
           </DialogDescription>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 bg-white dark:bg-gray-900">
-          
-          {/* Live Clock Display */}
-          <div className={`relative py-5 rounded-xl text-center border-2 ${
-            action === "in" 
-              ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800" 
-              : "bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800"
-          }`}>
-            <div className={`text-4xl font-black tabular-nums tracking-tight ${
-              action === "in" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-            }`}>
-              {format(currentTime, "h:mm:ss")}
-              <span className="text-base font-semibold ml-1 opacity-70">{format(currentTime, "a")}</span>
-            </div>
-          </div>
-
-          {/* Staff Selection (if needed) */}
-          {!staffId && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Staff Member</Label>
-              <Select
-                value={selectedStaffId}
-                onValueChange={(value) => {
-                  setSelectedStaffId(value);
-                  setTimeout(() => refetchActiveSession(), 100);
-                }}
-                required
-              >
-                <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-gray-700">
-                  <SelectValue placeholder="Select yourself" />
-                </SelectTrigger>
-                <SelectContent>
-                  {staffMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.first_name} {member.last_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Shift Info (Only for Clock In) */}
-          {action === "in" && effectiveStaffId && todayShift && (
-            <div className={`p-4 rounded-xl border-2 ${
-              clockInValidation.status === 'late' 
-                ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800' 
-              : clockInValidation.status === 'early' 
-                ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' 
-              : clockInValidation.status === 'on_time' 
-                ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800' 
-                : 'bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
-            }`}>
-              <div className="flex justify-between items-center">
-                <div>
-                  <span className="font-bold text-gray-900 dark:text-white">{todayShift.name}</span>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {todayShift.start_time.slice(0, 5)} - {todayShift.end_time.slice(0, 5)}
-                  </p>
-                </div>
-                <Badge className={`px-3 py-1 font-semibold ${
-                  clockInValidation.status === 'late' ? 'bg-red-500 text-white' : 
-                  clockInValidation.status === 'early' ? 'bg-blue-500 text-white' : 
-                  clockInValidation.status === 'on_time' ? 'bg-emerald-500 text-white' : 'bg-gray-500 text-white'
+        <form onSubmit={handleSubmit} className="p-6 space-y-6 bg-white dark:bg-gray-900">
+              {/* Live Clock Display */}
+              <div className={`relative py-5 rounded-xl text-center border-2 ${
+                action === "in" 
+                  ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800" 
+                  : "bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800"
+              }`}>
+                <div className={`text-4xl font-black tabular-nums tracking-tight ${
+                  action === "in" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                 }`}>
-                  {clockInValidation.message}
-                </Badge>
+                  {format(currentTime, "h:mm:ss")}
+                  <span className="text-base font-semibold ml-1 opacity-70">{format(currentTime, "a")}</span>
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* Action Toggle Buttons - Now with color! */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setAction("in")}
-              disabled={!!activeSession}
-              className={`relative h-12 rounded-xl font-bold text-sm transition-all duration-200 border-2 ${
-                action === "in"
-                  ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/30"
-                  : "bg-white dark:bg-gray-800 text-gray-400 border-gray-200 dark:border-gray-700 hover:border-emerald-300"
-              } ${activeSession ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              Clock In
-            </button>
-            <button
-              type="button"
-              onClick={() => setAction("out")}
-              disabled={!activeSession}
-              className={`relative h-12 rounded-xl font-bold text-sm transition-all duration-200 border-2 ${
-                action === "out"
-                  ? "bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/30"
-                  : "bg-white dark:bg-gray-800 text-gray-400 border-gray-200 dark:border-gray-700 hover:border-rose-300"
-              } ${!activeSession ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              Clock Out
-            </button>
-          </div>
+              {/* Staff Selection (if needed) */}
+              {!staffId && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Staff Member</Label>
+                  <Select
+                    value={selectedStaffId}
+                    onValueChange={(value) => {
+                      setSelectedStaffId(value);
+                      setTimeout(() => refetchActiveSession(), 100);
+                    }}
+                    required
+                  >
+                    <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-gray-700">
+                      <SelectValue placeholder="Select yourself" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {staffMembers.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.first_name} {member.last_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
-          {/* Notes Input */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Notes (Optional)</Label>
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder={action === "in" ? "Any notes for starting?" : "Handover notes..."}
-              className="resize-none rounded-xl border-gray-200 dark:border-gray-700"
-              rows={2}
-            />
-          </div>
+              {/* Shift Info (Only for Clock In) */}
+              {action === "in" && effectiveStaffId && todayShift && (
+                <div className={`p-4 rounded-xl border-2 ${
+                  clockInValidation.status === 'late' 
+                    ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800' 
+                  : clockInValidation.status === 'early' 
+                    ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' 
+                  : clockInValidation.status === 'on_time' 
+                    ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800' 
+                    : 'bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                }`}>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="font-bold text-gray-900 dark:text-white">{todayShift.name}</span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {todayShift.start_time.slice(0, 5)} - {todayShift.end_time.slice(0, 5)}
+                      </p>
+                    </div>
+                    <Badge className={`px-3 py-1 font-semibold ${
+                      clockInValidation.status === 'late' ? 'bg-red-500 text-white' : 
+                      clockInValidation.status === 'early' ? 'bg-blue-500 text-white' : 
+                      clockInValidation.status === 'on_time' ? 'bg-emerald-500 text-white' : 'bg-gray-500 text-white'
+                    }`}>
+                      {clockInValidation.message}
+                    </Badge>
+                  </div>
+                </div>
+              )}
 
+              {/* Action Toggle Buttons - Now with color! */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setAction("in")}
+                  disabled={!!activeSession}
+                  className={`relative h-12 rounded-xl font-bold text-sm transition-all duration-200 border-2 ${
+                    action === "in"
+                      ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/30"
+                      : "bg-white dark:bg-gray-800 text-gray-400 border-gray-200 dark:border-gray-700 hover:border-emerald-300"
+                  } ${activeSession ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  Clock In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAction("out")}
+                  disabled={!activeSession}
+                  className={`relative h-12 rounded-xl font-bold text-sm transition-all duration-200 border-2 ${
+                    action === "out"
+                      ? "bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/30"
+                      : "bg-white dark:bg-gray-800 text-gray-400 border-gray-200 dark:border-gray-700 hover:border-rose-300"
+                  } ${!activeSession ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  Clock Out
+                </button>
+              </div>
+
+              {/* Notes Input */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Notes (Optional)</Label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder={action === "in" ? "Any notes for starting?" : "Handover notes..."}
+                  className="resize-none rounded-xl border-gray-200 dark:border-gray-700"
+                  rows={2}
+                />
+              </div>
           {/* Footer Buttons */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 pt-4 border-t bg-white dark:bg-gray-900 dark:border-gray-800">
             <Button 
               type="button" 
               variant="outline" 
