@@ -34,14 +34,14 @@ interface OwnerNotification {
  * provides quick navigation shortcuts.
  */
 const OwnerNotificationBell: React.FC = () => {
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, isRole } = useAuth();
   const { restaurantId } = useRestaurantId();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const isOwnerOrAdmin = hasPermission('staff.view' as any);
+  const isOwnerOrAdmin = hasPermission('staff.view' as any) || isRole('admin') || isRole('owner');
 
   // Close dropdown on outside click
   useEffect(() => {
