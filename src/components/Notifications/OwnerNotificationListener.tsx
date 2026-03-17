@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
  * Only active for users with admin/owner permissions.
  */
 const OwnerNotificationListener: React.FC = () => {
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, isRole } = useAuth();
   const { restaurantId } = useRestaurantId();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -21,8 +21,8 @@ const OwnerNotificationListener: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const channelRef = useRef<any>(null);
 
-  // Only owners / admins should get these notifications
-  const isOwnerOrAdmin = hasPermission('staff.view' as any);
+  // Owners and Admins should get these notifications
+  const isOwnerOrAdmin = hasPermission('staff.view' as any) || isRole('admin') || isRole('owner');
 
   useEffect(() => {
     audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
