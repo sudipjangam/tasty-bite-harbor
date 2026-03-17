@@ -14,6 +14,7 @@ import { useRealtimeAnalytics } from "@/hooks/useRealtimeAnalytics";
 import { useOfflineCache } from "@/hooks/useOfflineCache";
 import Routes from "./components/Auth/Routes";
 import NotificationListener from "@/components/Notifications/NotificationListener";
+import OwnerNotificationListener from "@/components/Notifications/OwnerNotificationListener";
 import { UpdateNotification } from "@/components/UpdateNotification";
 import { registerServiceWorker } from "@/utils/serviceWorkerUtils";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
@@ -50,6 +51,7 @@ function AppWithRealtime() {
       {/* Global offline indicator */}
       <OfflineBanner />
       <NotificationListener />
+      <OwnerNotificationListener />
       <Routes />
       <Toaster />
       {updateAvailable && (

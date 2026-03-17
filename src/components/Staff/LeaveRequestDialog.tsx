@@ -178,6 +178,23 @@ const LeaveRequestDialog: React.FC<LeaveRequestDialogProps> = ({
           });
 
           if (error) throw error;
+
+          // --- Notify owner about the new leave request ---
+          const staffMember = staffOptions.find(s => s.id === (leaveData.staff_id || ""));
+          const staffName = staffMember
+            ? `${staffMember.first_name} ${staffMember.last_name}`.trim()
+            : "A staff member";
+
+          await supabase.from("owner_notifications").insert({
+            restaurant_id: restaurantId,
+            type: "leave_request",
+            title: `${staffName} requested leave`,
+            message: `${staffName} has requested ${leaveData.leave_type || "leave"} from ${leaveData.start_date} to ${leaveData.end_date}. Please review.`,
+            staff_name: staffName,
+            action_url: "/staff",
+          }).then(({ error: notifError }) => {
+            if (notifError) console.error("Failed to create owner notification:", notifError);
+          });
         }
 
         return { success: true };

@@ -111,7 +111,11 @@ const TimeClockDialog: React.FC<TimeClockDialogProps> = ({
         return null;
       }
 
-      return data?.shifts as ShiftInfo || null;
+      const shifts = data?.shifts;
+      if (!shifts) return null;
+      // Supabase may return the joined relation as an array or single object
+      const shift = Array.isArray(shifts) ? shifts[0] : shifts;
+      return (shift as ShiftInfo) || null;
     },
   });
 
@@ -296,6 +300,26 @@ const TimeClockDialog: React.FC<TimeClockDialogProps> = ({
           description: statusMessages[clockInValidation.status],
           variant: clockInValidation.status === 'late' ? 'destructive' : 'default',
         });
+
+        // --- Notify owner if staff is late ---
+        if (clockInValidation.status === 'late' && restaurantId) {
+          // Get the staff member name
+          const staffMember = staffMembers.find(s => s.id === staffToUse);
+          const staffName = staffMember
+            ? `${staffMember.first_name} ${staffMember.last_name}`.trim()
+            : "A staff member";
+
+          await supabase.from("owner_notifications").insert({
+            restaurant_id: restaurantId,
+            type: "late_punch",
+            title: `${staffName} clocked in late`,
+            message: `${staffName} clocked in ${clockInValidation.minutesVariance} minutes late${todayShift ? ` for ${todayShift.name} shift` : ''}. Scheduled: ${todayShift?.start_time?.slice(0, 5) || 'N/A'}.`,
+            staff_name: staffName,
+            action_url: "/staff",
+          }).then(({ error: notifError }) => {
+            if (notifError) console.error("Failed to create owner notification:", notifError);
+          });
+        }
 
       } else if (action === "out") {
         // Find the active session to clock out
