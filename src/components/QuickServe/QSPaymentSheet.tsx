@@ -327,6 +327,13 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
 
         const billUrl = await getBillUrl(billParams as any);
 
+        // MSG91 template button has a base URL (e.g. https://swadeshisolutions.co.in/bill/)
+        // already configured in the template. So we pass ONLY the short ID suffix,
+        // not the full URL — otherwise MSG91 concatenates them and produces a double-prefix URL.
+        const billUrlSuffix = billUrl
+          ? billUrl.split("/bill/").pop() ?? billUrl
+          : undefined;
+
         const formattedAmount = `${currencySymbol === "₹" ? "Rs." : currencySymbol}${subtotal.toFixed(2)}`;
         const now = new Date();
         const formattedDate = `${now.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })} ${now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
@@ -346,7 +353,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               amount: formattedAmount,
               billDate: formattedDate,
               contactNumber: restaurantDetails?.phone || "",
-              billUrl: billUrl || undefined,
+              billUrl: billUrlSuffix,
             },
           });
 
