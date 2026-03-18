@@ -1370,6 +1370,9 @@ const PaymentDialog = ({
 
       // 1. Generate bill URL
       const billUrl = await getBillUrl(currentBillParams);
+      const billUrlSuffix = billUrl
+        ? billUrl.split("/bill/").pop() ?? billUrl
+        : undefined;
 
       // 2. Format amount and date
       const formattedAmount = `${currencySymbol === "₹" ? "Rs." : currencySymbol}${total.toFixed(2)}`;
@@ -1391,7 +1394,7 @@ const PaymentDialog = ({
             amount: formattedAmount,
             billDate: formattedDate,
             contactNumber: restaurantInfo?.phone || "",
-            billUrl: billUrl || undefined,
+            billUrl: billUrlSuffix,
           },
         });
 
