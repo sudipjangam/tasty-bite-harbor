@@ -1306,6 +1306,13 @@ const PaymentDialog = ({
       restaurantAddress: restaurantInfo?.address,
       restaurantPhone: restaurantInfo?.phone,
       gstin: restaurantInfo?.gstin,
+      logoUrl: restaurantInfo?.logo_url || (() => {
+        try {
+          return localStorage.getItem("restaurant_logo_url") || undefined;
+        } catch {
+          return undefined;
+        }
+      })(),
       items: orderItems.map((item) => ({
         name: item.name,
         quantity: item.quantity,

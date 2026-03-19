@@ -160,21 +160,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   const { toast } = useToast();
   const { getBillUrl } = useBillSharing();
 
-  // Fetch restaurant name for bill header
-  const { data: restaurantName = "Restaurant" } = useQuery({
-    queryKey: ["restaurant-name", restaurantId],
-    queryFn: async () => {
-      if (!restaurantId) return "Restaurant";
-      const { data } = await supabase
-        .from("restaurants")
-        .select("name")
-        .eq("id", restaurantId)
-        .single();
-      return data?.name || "Restaurant";
-    },
-    enabled: !!restaurantId,
-    staleTime: 1000 * 60 * 60,
-  });
+  const restaurantName = restaurantDetails?.name || "Restaurant";
+  console.log("Restaurant Name log :", restaurantDetails);
 
   // Fetch payment settings for UPI ID
   const { data: paymentSettings } = useQuery({
@@ -203,7 +190,10 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     discountPercentage > 0
       ? (itemsSubtotal * discountPercentage) / 100
       : discountAmount;
-  const afterDiscount = Math.max(0, itemsSubtotal - discountValue - couponDiscountAmount);
+  const afterDiscount = Math.max(
+    0,
+    itemsSubtotal - discountValue - couponDiscountAmount,
+  );
   const subtotal = Math.max(0, afterDiscount - loyaltyDiscountAmount);
 
   const upiId = paymentSettings?.upi_id || null;
@@ -308,13 +298,23 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           restaurantName: restaurantNameForMsg,
           restaurantAddress: restaurantDetails?.address,
           restaurantPhone: restaurantDetails?.phone,
+          logoUrl:
+            restaurantDetails?.logo_url ||
+            (() => {
+              try {
+                return localStorage.getItem("restaurant_logo_url") || undefined;
+              } catch {
+                return undefined;
+              }
+            })(),
           items: items.map((item) => ({
             name: item.name,
             quantity: item.quantity,
             price: item.price,
           })),
           subtotal: itemsSubtotal,
-          discount: discountValue + loyaltyDiscountAmount + couponDiscountAmount,
+          discount:
+            discountValue + loyaltyDiscountAmount + couponDiscountAmount,
           cgst: 0,
           sgst: 0,
           total: subtotal,
@@ -331,7 +331,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         // already configured in the template. So we pass ONLY the short ID suffix,
         // not the full URL — otherwise MSG91 concatenates them and produces a double-prefix URL.
         const billUrlSuffix = billUrl
-          ? billUrl.split("/bill/").pop() ?? billUrl
+          ? (billUrl.split("/bill/").pop() ?? billUrl)
           : undefined;
 
         const formattedAmount = `${currencySymbol === "₹" ? "Rs." : currencySymbol}${subtotal.toFixed(2)}`;
@@ -467,7 +467,9 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             discount_percentage: discountPercentage,
           }),
           ...(couponId && { coupon_id: couponId }),
-          ...(couponDiscountAmount > 0 && { coupon_discount: couponDiscountAmount }),
+          ...(couponDiscountAmount > 0 && {
+            coupon_discount: couponDiscountAmount,
+          }),
           ...(ncReason && { nc_reason: ncReason }),
           ...(customerPhone && { customer_phone: customerPhone }),
           created_at: new Date().toISOString(),
@@ -587,7 +589,9 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             discount_percentage: discountPercentage,
           }),
           ...(couponId && { coupon_id: couponId }),
-          ...(couponDiscountAmount > 0 && { coupon_discount: couponDiscountAmount }),
+          ...(couponDiscountAmount > 0 && {
+            coupon_discount: couponDiscountAmount,
+          }),
           ...(ncReason && { nc_reason: ncReason }),
           ...(customerPhone && { customer_phone: customerPhone }),
         })
@@ -725,7 +729,10 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               .single();
 
             if (customer) {
-              const newPoints = Math.max(0, (customer.loyalty_points || 0) - loyaltyPointsUsed);
+              const newPoints = Math.max(
+                0,
+                (customer.loyalty_points || 0) - loyaltyPointsUsed,
+              );
               await supabase
                 .from("customers")
                 .update({ loyalty_points: newPoints })
@@ -761,7 +768,10 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               .single();
 
             if (customer) {
-              const newPoints = Math.max(0, (customer.loyalty_points || 0) - loyaltyPointsUsed);
+              const newPoints = Math.max(
+                0,
+                (customer.loyalty_points || 0) - loyaltyPointsUsed,
+              );
               await supabase
                 .from("customers")
                 .update({ loyalty_points: newPoints })

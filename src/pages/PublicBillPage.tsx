@@ -28,7 +28,7 @@ const PublicBillPage = () => {
   const [copied, setCopied] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
   const billRef = useRef<HTMLDivElement>(null);
-
+  debugger;
   useEffect(() => {
     const loadBillData = async () => {
       try {
@@ -63,7 +63,7 @@ const PublicBillPage = () => {
   }, [encodedData]);
 
   const currencySymbol = billData?.currencySymbol || "₹";
-
+  debugger;
   const handleCopyBill = async () => {
     if (!billData) return;
     const lines: string[] = [];
@@ -371,7 +371,7 @@ const PublicBillPage = () => {
     billData.orderDate ||
     billData.total;
   const hasCustomerInfo = billData.customerName || billData.customerPhone;
-
+  console.log("billData", billData);
   const totalItems = billData.items.reduce(
     (sum, item) => sum + item.quantity,
     0,
@@ -402,8 +402,20 @@ const PublicBillPage = () => {
               <div className="absolute top-1/2 right-0 w-16 h-16 bg-white/5 rounded-full translate-x-1/3 -translate-y-1/2" />
 
               <div className="relative z-10">
-                <div className="w-14 h-14 mx-auto mb-3 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center rotate-3 shadow-lg">
-                  <span className="text-2xl">🧾</span>
+                <div className="mx-auto mb-4 flex items-center justify-center">
+                  {billData.logoUrl ? (
+                    <div className="w-16 h-16 bg-white rounded-2xl p-1 shadow-xl overflow-hidden ring-4 ring-white/20">
+                      <img
+                        src={billData.logoUrl}
+                        alt="Restaurant Logo"
+                        className="w-full h-full object-contain rounded-xl"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center rotate-3 shadow-lg ring-4 ring-white/10">
+                      <span className="text-3xl">owner logo</span>
+                    </div>
+                  )}
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight drop-shadow-sm">
                   {billData.restaurantName}

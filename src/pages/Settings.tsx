@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ import {
   Upload,
   Trash2,
 } from "lucide-react";
+import { uploadImageToFreeHost } from "@/utils/imageUpload";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -54,7 +55,7 @@ const Settings = () => {
   const [loading, setLoading] = useState(false);
   const { symbol: currencySymbol } = useCurrencyContext();
 
-  // Logo state
+  // Logo state — load from localStorage first (fast), then sync from DB
   const [logoUrl, setLogoUrl] = useState(() => {
     try {
       return localStorage.getItem("restaurant_logo_url") || "";
@@ -62,6 +63,7 @@ const Settings = () => {
       return "";
     }
   });
+
   const [logoUploading, setLogoUploading] = useState(false);
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,20 +88,18 @@ const Settings = () => {
 
     setLogoUploading(true);
     try {
-      const ext = file.name.split(".").pop();
-      const fileName = `logos/${profile?.restaurant_id || "default"}/logo.${ext}`;
+      // Upload via freeimage-upload edge function (returns freeimage.host URL, e.g. iili.io)
+      const url = await uploadImageToFreeHost(file);
 
-      const { error: uploadError } = await supabase.storage
-        .from("restaurant-assets")
-        .upload(fileName, file, { upsert: true, contentType: file.type });
+      // Persist to DB
+      if (profile?.restaurant_id) {
+        const { error: dbError } = await supabase
+          .from("restaurants")
+          .update({ logo_url: url })
+          .eq("id", profile.restaurant_id);
+        if (dbError) throw dbError;
+      }
 
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from("restaurant-assets")
-        .getPublicUrl(fileName);
-
-      const url = urlData.publicUrl + "?t=" + Date.now();
       setLogoUrl(url);
       try {
         localStorage.setItem("restaurant_logo_url", url);
@@ -121,11 +121,20 @@ const Settings = () => {
     }
   };
 
-  const handleLogoRemove = () => {
+  const handleLogoRemove = async () => {
     setLogoUrl("");
     try {
       localStorage.removeItem("restaurant_logo_url");
     } catch {}
+    
+    // Clear from DB too
+    if (profile?.restaurant_id) {
+      await supabase
+        .from("restaurants")
+        .update({ logo_url: null })
+        .eq("id", profile.restaurant_id);
+    }
+    
     toast({
       title: "Logo removed",
       description: "Restaurant logo has been removed",
@@ -180,6 +189,17 @@ const Settings = () => {
       return data;
     },
   });
+
+  // Sync logo URL from DB when restaurant data loads
+  useEffect(() => {
+    if (restaurant && (restaurant as any).logo_url) {
+      const dbLogoUrl = (restaurant as any).logo_url as string;
+      setLogoUrl(dbLogoUrl);
+      try {
+        localStorage.setItem("restaurant_logo_url", dbLogoUrl);
+      } catch {}
+    }
+  }, [restaurant]);
 
   // Handle logout
   const handleLogout = async () => {
