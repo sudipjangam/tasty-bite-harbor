@@ -10,6 +10,7 @@ export interface BillFormatParams {
   restaurantAddress?: string;
   restaurantPhone?: string;
   gstin?: string;
+  logoUrl?: string;
   items: { name: string; quantity: number; price: number }[];
   subtotal: number;
   total: number;
@@ -192,6 +193,7 @@ const COMPACT_KEYS: Record<string, string> = {
   restaurantAddress: "ra",
   restaurantPhone: "rp",
   gstin: "g",
+  logoUrl: "lu",
   items: "i",
   subtotal: "st",
   total: "t",
