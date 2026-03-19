@@ -65,7 +65,7 @@ const hrefToComponentMap: Record<string, string> = {
   "/user-management": "user-management",
   "/role-management": "role-management",
   "/permission-management": "permission-management",
-  "/channel-management": "analytics", // Channels fall under analytics
+  "/channel-management": "channel-management", // Channels fall under analytics
   "/analytics": "analytics",
   "/financial": "financial",
   "/reports": "reports",
