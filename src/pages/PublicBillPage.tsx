@@ -16,6 +16,8 @@ import {
   ShoppingBag,
 } from "lucide-react";
 
+import SwadeshiLogoImage from "@/assets/swadeshi-logo.png";
+
 /**
  * PublicBillPage — Premium, luxury-styled public bill page.
  * Accessible at /bill/:encodedData — no login required.
@@ -404,16 +406,19 @@ const PublicBillPage = () => {
               <div className="relative z-10">
                 <div className="mx-auto mb-4 flex items-center justify-center">
                   {billData.logoUrl ? (
-                    <div className="w-16 h-16 bg-white rounded-2xl p-1 shadow-xl overflow-hidden ring-4 ring-white/20">
+                    <div className="w-24 h-24 sm:w-28 sm:h-28 bg-white rounded-3xl p-1.5 shadow-2xl overflow-hidden ring-4 ring-white/20">
                       <img
                         src={billData.logoUrl}
                         alt="Restaurant Logo"
-                        className="w-full h-full object-contain rounded-xl"
+                        className="w-full h-full object-contain rounded-2xl"
                       />
                     </div>
                   ) : (
-                    <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center rotate-3 shadow-lg ring-4 ring-white/10">
-                      <span className="text-3xl">owner logo</span>
+                    <div className="w-24 h-24 sm:w-28 sm:h-28 bg-white/20 backdrop-blur-sm rounded-3xl flex items-center justify-center rotate-3 shadow-2xl ring-4 ring-white/10">
+                      <span className="text-4xl text-white font-semibold flex flex-col items-center">
+                        <span className="opacity-80">Owner</span>
+                        <span className="opacity-80">Logo</span>
+                      </span>
                     </div>
                   )}
                 </div>
@@ -698,9 +703,16 @@ const PublicBillPage = () => {
           </div>
 
           {/* Powered by footer */}
-          <p className="text-center text-[10px] text-gray-600 mt-4">
-            Billed by Swadeshi Solutions
-          </p>
+          <div className="flex flex-col items-center justify-center mt-6 mb-4">
+            <p className="text-[10px] uppercase tracking-widest text-gray-500 font-medium mb-1.5">
+              Billed by
+            </p>
+            <img 
+              src={SwadeshiLogoImage} 
+              alt="Swadeshi Solutions" 
+              className="h-6 sm:h-7 object-contain opacity-80 hover:opacity-100 transition-opacity drop-shadow-sm"
+            />
+          </div>
         </div>
       </div>
     </div>
