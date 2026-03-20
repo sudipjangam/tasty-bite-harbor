@@ -451,6 +451,26 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           priority: "normal",
         });
 
+        const totalDiscountAmount = discountAmount + couponDiscountAmount + (loyaltyDiscountAmount || 0);
+
+        // Build discount notes for owner visibility
+        const discountNotesParts: string[] = [];
+        if (discountPercentage > 0) {
+          discountNotesParts.push(`${discountPercentage}% off (₹${discountAmount.toFixed(2)})`);
+        } else if (discountAmount > 0) {
+          discountNotesParts.push(`Manual discount ₹${discountAmount.toFixed(2)}`);
+        }
+        if (couponDiscountAmount > 0) {
+          discountNotesParts.push(`Coupon (₹${couponDiscountAmount.toFixed(2)})`);
+        }
+        if (loyaltyDiscountAmount > 0) {
+          discountNotesParts.push(`${loyaltyPointsUsed} pts redeemed (₹${loyaltyDiscountAmount.toFixed(2)})`);
+        }
+        const discountNotes = discountNotesParts.join(' + ');
+        const effectiveDiscountPct = itemsSubtotal > 0 && totalDiscountAmount > 0
+          ? Math.round((totalDiscountAmount / itemsSubtotal) * 100)
+          : 0;
+
         // Enqueue POS order
         await enqueueWrite("order", {
           restaurant_id: restaurantId,
@@ -462,14 +482,11 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           source: "quickserve",
           order_type: isNC ? "non-chargeable" : "takeaway",
           attendant: attendantName,
-          ...(discountAmount > 0 && { discount_amount: discountAmount }),
-          ...(discountPercentage > 0 && {
-            discount_percentage: discountPercentage,
+          ...(totalDiscountAmount > 0 && { discount_amount: totalDiscountAmount }),
+          ...(effectiveDiscountPct > 0 && {
+            discount_percentage: effectiveDiscountPct,
           }),
-          ...(couponId && { coupon_id: couponId }),
-          ...(couponDiscountAmount > 0 && {
-            coupon_discount: couponDiscountAmount,
-          }),
+          ...(discountNotes && { discount_notes: discountNotes }),
           ...(ncReason && { nc_reason: ncReason }),
           ...(customerPhone && { customer_phone: customerPhone }),
           created_at: new Date().toISOString(),
@@ -569,6 +586,26 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
 
       if (kitchenError) throw kitchenError;
 
+      const totalDiscountAmount = discountAmount + couponDiscountAmount + (loyaltyDiscountAmount || 0);
+
+      // Build discount notes for owner visibility
+      const discountNotesParts: string[] = [];
+      if (discountPercentage > 0) {
+        discountNotesParts.push(`${discountPercentage}% off (₹${discountAmount.toFixed(2)})`);
+      } else if (discountAmount > 0) {
+        discountNotesParts.push(`Manual discount ₹${discountAmount.toFixed(2)}`);
+      }
+      if (couponDiscountAmount > 0) {
+        discountNotesParts.push(`Coupon (₹${couponDiscountAmount.toFixed(2)})`);
+      }
+      if (loyaltyDiscountAmount > 0) {
+        discountNotesParts.push(`${loyaltyPointsUsed} pts redeemed (₹${loyaltyDiscountAmount.toFixed(2)})`);
+      }
+      const discountNotes = discountNotesParts.join(' + ');
+      const effectiveDiscountPct = itemsSubtotal > 0 && totalDiscountAmount > 0
+        ? Math.round((totalDiscountAmount / itemsSubtotal) * 100)
+        : 0;
+
       // 2. Create order record with token and completion tracking
       const { data: order, error: orderError } = await supabase
         .from("orders")
@@ -584,14 +621,11 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           attendant: attendantName,
           order_number: nextOrderNumber,
           item_completion_status: initialCompletionStatus,
-          ...(discountAmount > 0 && { discount_amount: discountAmount }),
-          ...(discountPercentage > 0 && {
-            discount_percentage: discountPercentage,
+          ...(totalDiscountAmount > 0 && { discount_amount: totalDiscountAmount }),
+          ...(effectiveDiscountPct > 0 && {
+            discount_percentage: effectiveDiscountPct,
           }),
-          ...(couponId && { coupon_id: couponId }),
-          ...(couponDiscountAmount > 0 && {
-            coupon_discount: couponDiscountAmount,
-          }),
+          ...(discountNotes && { discount_notes: discountNotes }),
           ...(ncReason && { nc_reason: ncReason }),
           ...(customerPhone && { customer_phone: customerPhone }),
         })
@@ -756,44 +790,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         })();
       }
 
-      // Deduct loyalty points after successful payment
-      if (loyaltyPointsUsed > 0 && loyaltyCustomerId) {
-        (async () => {
-          try {
-            // Deduct points from customer
-            const { data: customer } = await supabase
-              .from("customers")
-              .select("loyalty_points")
-              .eq("id", loyaltyCustomerId)
-              .single();
-
-            if (customer) {
-              const newPoints = Math.max(
-                0,
-                (customer.loyalty_points || 0) - loyaltyPointsUsed,
-              );
-              await supabase
-                .from("customers")
-                .update({ loyalty_points: newPoints })
-                .eq("id", loyaltyCustomerId);
-
-              // Log redemption in loyalty_transactions
-              await supabase.from("loyalty_transactions").insert({
-                restaurant_id: restaurantId,
-                customer_id: loyaltyCustomerId,
-                points: -loyaltyPointsUsed,
-                transaction_type: "redeemed",
-                source: "quickserve_pos",
-                notes: `Redeemed ${loyaltyPointsUsed} points for order discount`,
-              });
-
-              console.log(`✅ Deducted ${loyaltyPointsUsed} loyalty points`);
-            }
-          } catch (err) {
-            console.error("Loyalty points deduction error:", err);
-          }
-        })();
-      }
+      // NOTE: duplicate loyalty deduction block was removed — the one above (lines ~717-752) handles this
     } catch (error) {
       console.error("Payment error:", error);
       toast({

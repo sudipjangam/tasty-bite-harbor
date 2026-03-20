@@ -52,6 +52,7 @@ interface RecipeIngredient {
   quantity: number;
   unit: string;
   notes?: string;
+  variant_id?: string | null;
 }
 
 // Unit conversion factors to base units (kg for mass, l for volume)
@@ -180,6 +181,21 @@ export const RecipeDialog = ({
     enabled: !!recipe?.id && open,
   });
 
+  // Fetch variants for selected menu item
+  const { data: menuVariants = [] } = useQuery({
+    queryKey: ["menu-item-variants", formData.menu_item_id],
+    queryFn: async () => {
+      if (!formData.menu_item_id) return [];
+      const { data } = await supabase
+        .from("menu_item_variants")
+        .select("id, name")
+        .eq("menu_item_id", formData.menu_item_id)
+        .order("sort_order");
+      return data || [];
+    },
+    enabled: !!formData.menu_item_id && open,
+  });
+
   // FIXED: Only reset form when dialog opens or recipe changes, not on every recipeIngredients update
   useEffect(() => {
     if (!open) {
@@ -245,6 +261,7 @@ export const RecipeDialog = ({
           quantity: ing.quantity,
           unit: ing.unit,
           notes: ing.notes || "",
+          variant_id: ing.variant_id || null,
         })),
       );
     }
@@ -345,6 +362,7 @@ export const RecipeDialog = ({
                 quantity: ing.quantity,
                 unit: ing.unit,
                 notes: ing.notes || null,
+                variant_id: ing.variant_id || null,
                 cost_per_unit: cost / (ing.quantity || 1),
                 total_cost: cost,
               });
@@ -365,6 +383,7 @@ export const RecipeDialog = ({
                 quantity: ing.quantity,
                 unit: ing.unit,
                 notes: ing.notes || null,
+                variant_id: ing.variant_id || null,
                 cost_per_unit: cost / (ing.quantity || 1),
                 total_cost: cost,
               });
@@ -388,7 +407,7 @@ export const RecipeDialog = ({
   const addIngredient = () => {
     setIngredients([
       ...ingredients,
-      { inventory_item_id: "", quantity: 0, unit: "g", notes: "" }, // Default to grams for easier input
+      { inventory_item_id: "", quantity: 0, unit: "g", notes: "", variant_id: null }, // Default to grams for easier input
     ]);
   };
 
@@ -438,9 +457,24 @@ export const RecipeDialog = ({
         .map((item: any) => `${item.name} (${item.unit})`)
         .join(", ");
 
+      let variantContext = "";
+      let ingredientsSchema = '{ "name": "ingredient name (use exact inventory names where possible)", "quantity": <number>, "unit": "kg|g|l|ml|piece|cup|tbsp|tsp" }';
+
+      if (menuVariants && menuVariants.length > 0) {
+        const variantList = menuVariants.map((v: any) => `${v.name} (ID: ${v.id})`).join(", ");
+        variantContext = `
+IMPORTANT SIZE VARIANT INSTRUCTIONS:
+This menu item has the following size variants: ${variantList}.
+For each ingredient, try to specify exact quantities for EACH size variant separately.
+If an ingredient applies to ALL sizes equally (e.g. a base spice), return it once with "variant_id": null.
+If an ingredient quantity changes based on size (e.g. 5g for Small, 10g for Medium, 15g for Large), return multiple objects for that identical ingredient name, one for each size, but set the "variant_id" strictly to the corresponding exact ID provided above.`;
+        ingredientsSchema = '{ "name": "ingredient name", "quantity": <number>, "unit": "g", "variant_id": "<uuid_or_null>" }';
+      }
+
       const prompt = `You are a professional chef and recipe writer. Generate detailed recipe information for "${formData.name}".
 
 Here is the restaurant's current inventory: [${inventoryNames}]
+${variantContext}
 
 Please respond ONLY with a valid JSON object (no markdown, no explanation) in this exact format:
 {
@@ -450,11 +484,11 @@ Please respond ONLY with a valid JSON object (no markdown, no explanation) in th
   "difficulty": "<easy|medium|hard>",
   "instructions": "Detailed step-by-step cooking instructions with numbered steps",
   "ingredients": [
-    { "name": "ingredient name (use exact inventory names where possible)", "quantity": <number>, "unit": "kg|g|l|ml|piece|cup|tbsp|tsp" }
+    ${ingredientsSchema}
   ]
 }
 
-IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to the inventory list above. If an ingredient is not in the inventory, still include it but use a common name. Include all ingredients needed for the recipe. Be accurate with quantities for a single serving.`;
+IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to the inventory list above. If an ingredient is not in the inventory, still include it but use a common name. Include all ingredients needed for the recipe. Be accurate with quantities.`;
 
       const { data, error } = await supabase.functions.invoke(
         "chat-with-gemini",
@@ -546,18 +580,20 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                 inventory_item_id: bestMatch.id,
                 quantity: aiIng.quantity || 1,
                 unit: aiIng.unit || bestMatch.unit || "g",
+                variant_id: aiIng.variant_id || null, // Capture variant from AI
                 notes:
                   bestScore < 80 ? `AI matched from: ${aiIng.name}` : undefined,
               });
             } else {
               missing.push(
-                `${aiIng.name} (${aiIng.quantity || ""} ${aiIng.unit || ""})`.trim(),
+                `${aiIng.name} (${aiIng.quantity || ""} ${aiIng.unit || ""}${aiIng.variant_id ? " [Variant Specific]" : ""})`.trim(),
               );
             }
           }
 
           if (matched.length > 0) {
-            setIngredients(matched);
+            // Append instead of replace if ingredients already exist
+            setIngredients(prev => [...prev, ...matched]);
           }
           if (missing.length > 0) {
             setMissingIngredients(missing);
@@ -1176,6 +1212,35 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                           </SelectContent>
                         </Select>
                       </div>
+
+                      {/* Size Variant Dropdown */}
+                      {menuVariants.length > 0 && (
+                        <div className="w-32 space-y-2">
+                          <Label className="text-gray-600 dark:text-gray-400 text-sm">
+                            Variant Size
+                          </Label>
+                          <Select
+                            value={ingredient.variant_id || "base"}
+                            onValueChange={(value) =>
+                              updateIngredient(index, "variant_id", value === "base" ? null : value)
+                            }
+                          >
+                            <SelectTrigger className="bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 text-gray-900 dark:text-gray-100">
+                              <SelectValue placeholder="All Sizes" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-xl">
+                              <SelectItem value="base" className="rounded-lg font-medium">
+                                Base (All Sizes)
+                              </SelectItem>
+                              {menuVariants.map((variant: any) => (
+                                <SelectItem key={variant.id} value={variant.id} className="rounded-lg">
+                                  {variant.name} Only
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
 
                       <div className="w-24 text-right space-y-2">
                         <Label className="text-gray-600 dark:text-gray-400 text-sm">
