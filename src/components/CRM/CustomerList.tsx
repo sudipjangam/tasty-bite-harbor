@@ -45,6 +45,7 @@ import { CurrencyDisplay } from "@/components/ui/currency-display";
 import LoyaltyBadge from "@/components/Customers/LoyaltyBadge";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 interface CustomerFilters {
   tier: CustomerLoyaltyTier | "all";
@@ -82,6 +83,7 @@ const CustomerList: React.FC<CustomerListProps> = ({
   onBulkDelete,
 }) => {
   const { toast } = useToast();
+  const { isRole } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>("name");
@@ -374,20 +376,22 @@ const CustomerList: React.FC<CustomerListProps> = ({
           </div>
           <div className="flex gap-2">
             {/* Export Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={exportToCSV}
-              className="bg-white/50 dark:bg-gray-800/50 border-white/30 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300"
-              title={
-                selectedIds.size > 0
-                  ? `Export ${selectedIds.size} selected`
-                  : "Export all filtered"
-              }
-            >
-              <Download className="h-4 w-4 mr-1" />
-              Export {selectedIds.size > 0 && `(${selectedIds.size})`}
-            </Button>
+            {isRole("admin") && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportToCSV}
+                className="bg-white/50 dark:bg-gray-800/50 border-white/30 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300"
+                title={
+                  selectedIds.size > 0
+                    ? `Export ${selectedIds.size} selected`
+                    : "Export all filtered"
+                }
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Export {selectedIds.size > 0 && `(${selectedIds.size})`}
+              </Button>
+            )}
 
             {/* Bulk Select Toggle */}
             <Button
@@ -444,15 +448,17 @@ const CustomerList: React.FC<CustomerListProps> = ({
               </Button>
             </div>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={exportToCSV}
-                className="bg-white border-green-300 text-green-700 hover:bg-green-50"
-              >
-                <Download className="h-4 w-4 mr-1" />
-                Export Selected
-              </Button>
+              {isRole("admin") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportToCSV}
+                  className="bg-white border-green-300 text-green-700 hover:bg-green-50"
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Export Selected
+                </Button>
+              )}
               {onBulkDelete && (
                 <Button
                   variant="outline"
