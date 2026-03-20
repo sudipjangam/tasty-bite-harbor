@@ -447,7 +447,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         // Enqueue kitchen order
         await enqueueWrite("kitchen_order", {
           ...sharedPayload,
-          status: "completed",
+          status: "preparing",
           priority: "normal",
         });
 
@@ -477,7 +477,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           customer_name: finalCustomerName,
           items: formattedItems,
           total: orderTotal,
-          status: "completed",
+          status: "preparing",
           payment_status: isNC ? "nc" : "paid",
           source: "quickserve",
           order_type: isNC ? "non-chargeable" : "takeaway",
@@ -573,7 +573,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         .insert({
           restaurant_id: restaurantId,
           source: `QuickServe`,
-          status: "completed",
+          status: "preparing",
           items: kitchenItems,
           order_type: isNC ? "non-chargeable" : "takeaway",
           customer_name: finalCustomerName,
@@ -614,7 +614,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           customer_name: finalCustomerName,
           items: formattedItems,
           total: orderTotal,
-          status: "completed",
+          status: "preparing",
           payment_status: isNC ? "nc" : "paid",
           source: "quickserve",
           order_type: isNC ? "non-chargeable" : "takeaway",

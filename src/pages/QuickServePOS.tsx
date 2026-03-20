@@ -135,7 +135,8 @@ const QuickServePOS: React.FC = () => {
         .from("orders")
         .select("total")
         .eq("restaurant_id", restaurantId)
-        .eq("status", "completed")
+        .in("status", ["preparing", "ready", "completed"])
+        .eq("payment_status", "paid")
         .neq("order_type", "non-chargeable")
         .gte("created_at", startOfDay(today).toISOString())
         .lte("created_at", endOfDay(today).toISOString());
@@ -156,7 +157,8 @@ const QuickServePOS: React.FC = () => {
         .from("orders")
         .select("id", { count: "exact", head: true })
         .eq("restaurant_id", restaurantId)
-        .eq("status", "completed")
+        .in("status", ["preparing", "ready", "completed"])
+        .eq("payment_status", "paid")
         .gte("created_at", startOfDay(today).toISOString())
         .lte("created_at", endOfDay(today).toISOString());
       return count || 0;
