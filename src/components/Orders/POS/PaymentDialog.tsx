@@ -2105,6 +2105,23 @@ const PaymentDialog = ({
           });
         }
 
+        // Build discount notes for owner visibility
+        const discountNotesParts: string[] = [];
+        if (manualDiscountPercent > 0) {
+          discountNotesParts.push(`${manualDiscountPercent}% off (₹${manualDiscountPercentAmount.toFixed(2)})`);
+        }
+        if (manualDiscountCash > 0) {
+          discountNotesParts.push(`Manual ₹${manualDiscountCash.toFixed(2)} off`);
+        }
+        if (appliedPromotion) {
+          const promoLabel = appliedPromotion.promotion_code || appliedPromotion.name || 'Promo';
+          discountNotesParts.push(`${promoLabel} (₹${promotionDiscountAmount.toFixed(2)})`);
+        }
+        const discountNotes = discountNotesParts.join(' + ');
+        const effectiveDiscountPct = subtotal > 0 && totalDiscountAmount > 0
+          ? Math.round((totalDiscountAmount / subtotal) * 100)
+          : 0;
+
         // Update the linked order with payment status and discount info
         if (kitchenOrder?.order_id) {
           const { error: orderError } = await supabase
@@ -2116,9 +2133,8 @@ const PaymentDialog = ({
               discount_amount: isNonChargeable ? subtotal : totalDiscountAmount, // For NC, discount is the full subtotal
               discount_percentage: isNonChargeable
                 ? 100
-                : manualDiscountPercent > 0
-                  ? manualDiscountPercent
-                  : appliedPromotion?.discount_percentage || 0,
+                : effectiveDiscountPct,
+              ...(discountNotes && { discount_notes: isNonChargeable ? 'Non-Chargeable (100% off)' : discountNotes }),
               ...(finalOrderType && { order_type: finalOrderType }),
               // Save NC reason for non-chargeable orders
               ...(isNonChargeable && ncReason && { nc_reason: ncReason }),
@@ -2159,9 +2175,8 @@ const PaymentDialog = ({
                   : totalDiscountAmount,
                 discount_percentage: isNonChargeable
                   ? 100
-                  : manualDiscountPercent > 0
-                    ? manualDiscountPercent
-                    : appliedPromotion?.discount_percentage || 0,
+                  : effectiveDiscountPct,
+                ...(discountNotes && { discount_notes: isNonChargeable ? 'Non-Chargeable (100% off)' : discountNotes }),
                 // Save NC reason for non-chargeable orders
                 ...(isNonChargeable && ncReason && { nc_reason: ncReason }),
                 // Save customer phone if provided

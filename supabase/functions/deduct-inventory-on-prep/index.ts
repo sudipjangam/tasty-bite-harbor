@@ -16,6 +16,7 @@ interface IngredientRequirement {
   inventory_item_id: string;
   quantity: number;
   unit: string;
+  variant_id?: string | null;
 }
 
 // Unit conversion to base units (kg for weight, l for volume)
@@ -110,17 +111,27 @@ serve(async (req) => {
         }
       }
 
+      // Parse potential variant from menuItemId (format: baseId__variantId)
+      let baseMenuItemId = item.menuItemId;
+      let variantId: string | null = null;
+      if (baseMenuItemId.includes('__')) {
+        const parts = baseMenuItemId.split('__');
+        baseMenuItemId = parts[0];
+        variantId = parts[1];
+        console.log(`Parsed variant ${variantId} for base item ${baseMenuItemId}`);
+      }
+
       // Find recipe linked to this menu item
       const { data: recipe, error: recipeError } = await supabaseClient
         .from('recipes')
         .select('id')
-        .eq('menu_item_id', item.menuItemId)
+        .eq('menu_item_id', baseMenuItemId)
         .eq('restaurant_id', restaurantId)
         .eq('is_active', true)
         .maybeSingle();
 
       if (!recipe) {
-        console.log(`No recipe found for menu item ${item.menuItemId} (${item.name})`);
+        console.log(`No recipe found for menu item ${baseMenuItemId} (${item.name})`);
         continue;
       }
 
@@ -129,7 +140,7 @@ serve(async (req) => {
       // Get ingredients for this recipe
       const { data: ingredients, error: ingredientsError } = await supabaseClient
         .from('recipe_ingredients')
-        .select('inventory_item_id, quantity, unit')
+        .select('inventory_item_id, quantity, unit, variant_id')
         .eq('recipe_id', recipe.id);
 
       if (ingredientsError || !ingredients) {
@@ -137,8 +148,24 @@ serve(async (req) => {
         continue;
       }
 
-      // Aggregate ingredients
+      // Resolve ingredients based on variant logic
+      const resolvedIngredients = new Map<string, IngredientRequirement>();
+      
       for (const ingredient of ingredients as IngredientRequirement[]) {
+        const existing = resolvedIngredients.get(ingredient.inventory_item_id);
+        
+        // If this is for our specific variant, use it
+        if (ingredient.variant_id === variantId && variantId !== null) {
+          resolvedIngredients.set(ingredient.inventory_item_id, ingredient);
+        } 
+        // If it's a base ingredient and we don't already have a variant-specific one
+        else if (ingredient.variant_id === null && (!existing || existing.variant_id !== variantId)) {
+          resolvedIngredients.set(ingredient.inventory_item_id, ingredient);
+        }
+      }
+
+      // Aggregate ingredients
+      for (const ingredient of resolvedIngredients.values()) {
         const totalQuantity = ingredient.quantity * item.quantity;
         const key = ingredient.inventory_item_id;
 

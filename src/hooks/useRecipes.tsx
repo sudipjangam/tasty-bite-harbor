@@ -32,6 +32,7 @@ export interface RecipeIngredient {
   inventory_item_id: string;
   quantity: number;
   unit: string;
+  variant_id: string | null;
   cost_per_unit: number | null;
   total_cost: number | null;
   notes: string | null;

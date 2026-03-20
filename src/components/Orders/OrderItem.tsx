@@ -308,11 +308,13 @@ const OrderItem: React.FC<OrderItemProps> = ({
                       className="text-2xl font-bold text-emerald-600 dark:text-emerald-400"
                     />
                     {order.discount_amount &&
-                    order.discount_amount > 0 &&
-                    order.discount_percentage &&
-                    order.discount_percentage > 0 ? (
+                    order.discount_amount > 0 ? (
                       <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
-                        {order.discount_percentage}% discount applied
+                        {(order as any).discount_notes
+                          ? (order as any).discount_notes
+                          : order.discount_percentage && order.discount_percentage > 0
+                            ? `${order.discount_percentage}% discount applied`
+                            : `Discount applied`}
                       </p>
                     ) : null}
                   </>

@@ -554,11 +554,20 @@ const Customers = () => {
                   <Input
                     type="number"
                     value={maxRedemptionPercentage}
-                    onChange={(e) =>
-                      setMaxRedemptionPercentage(
-                        Math.min(100, Math.max(1, Number(e.target.value))),
-                      )
-                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "") {
+                        setMaxRedemptionPercentage("" as any);
+                      } else {
+                        setMaxRedemptionPercentage(Math.min(100, Number(val)));
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const val = Number(e.target.value);
+                      if (isNaN(val) || val < 1) {
+                        setMaxRedemptionPercentage(1);
+                      }
+                    }}
                     min="1"
                     max="100"
                     step="1"
