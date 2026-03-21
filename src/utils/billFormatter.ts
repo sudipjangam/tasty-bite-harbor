@@ -17,6 +17,8 @@ export interface BillFormatParams {
   discount?: number;
   promotionName?: string;
   manualDiscountPercent?: number;
+  discountNotes?: string;
+  pointsEarned?: number;
   paymentMethod?: string;
   tableNumber?: string;
   customerName?: string;
@@ -209,6 +211,8 @@ const COMPACT_KEYS: Record<string, string> = {
   currencySymbol: "cs",
   paymentMethod: "pm",
   isNonChargeable: "nc",
+  discountNotes: "dn",
+  pointsEarned: "pe",
   // Item sub-keys
   name: "n",
   quantity: "q",

@@ -30,7 +30,7 @@ const PublicBillPage = () => {
   const [copied, setCopied] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
   const billRef = useRef<HTMLDivElement>(null);
-  debugger;
+
   useEffect(() => {
     const loadBillData = async () => {
       try {
@@ -65,7 +65,7 @@ const PublicBillPage = () => {
   }, [encodedData]);
 
   const currencySymbol = billData?.currencySymbol || "₹";
-  debugger;
+
   const handleCopyBill = async () => {
     if (!billData) return;
     const lines: string[] = [];
@@ -80,7 +80,14 @@ const PublicBillPage = () => {
     lines.push("---");
     lines.push(`Subtotal: ${currencySymbol}${billData.subtotal.toFixed(2)}`);
     if (billData.discount && billData.discount > 0) {
-      lines.push(`Discount: -${currencySymbol}${billData.discount.toFixed(2)}`);
+      if (billData.discountNotes) {
+        billData.discountNotes.split(' + ').forEach(note => {
+          lines.push(`  ${note}`);
+        });
+        lines.push(`Total Discount: -${currencySymbol}${billData.discount.toFixed(2)}`);
+      } else {
+        lines.push(`Discount: -${currencySymbol}${billData.discount.toFixed(2)}`);
+      }
     }
     lines.push(
       `Total: ${currencySymbol}${billData.total.toFixed(2)}${billData.isNonChargeable ? " (Non-Chargeable)" : ""}`,
@@ -252,18 +259,34 @@ const PublicBillPage = () => {
 
     // Discount
     if (billData.discount && billData.discount > 0) {
-      const label = billData.promotionName
-        ? `Promo (${billData.promotionName})`
-        : billData.manualDiscountPercent
-          ? `Discount (${billData.manualDiscountPercent}%)`
-          : "Discount";
-      doc.text(
-        `${label}: -${pdfCurrency}${billData.discount.toFixed(2)}`,
-        pageWidth - margin,
-        y,
-        { align: "right" },
-      );
-      y += 5;
+      if (billData.discountNotes) {
+        // Show detailed breakdown
+        billData.discountNotes.split(' + ').forEach(note => {
+          const amountMatch = note.match(/₹([\d.]+)/);
+          const amount = amountMatch ? parseFloat(amountMatch[1]).toFixed(2) : billData.discount!.toFixed(2);
+          const label = note.replace(/\(₹[\d.]+\)/, '').trim();
+          doc.text(
+            `${label}: -${pdfCurrency}${amount}`,
+            pageWidth - margin,
+            y,
+            { align: "right" },
+          );
+          y += 5;
+        });
+      } else {
+        const label = billData.promotionName
+          ? `Promo (${billData.promotionName})`
+          : billData.manualDiscountPercent
+            ? `Discount (${billData.manualDiscountPercent}%)`
+            : "Discount";
+        doc.text(
+          `${label}: -${pdfCurrency}${billData.discount.toFixed(2)}`,
+          pageWidth - margin,
+          y,
+          { align: "right" },
+        );
+        y += 5;
+      }
     }
 
     // Total
@@ -608,19 +631,53 @@ const PublicBillPage = () => {
 
               {/* Discount */}
               {billData.discount && billData.discount > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-emerald-400 flex items-center gap-1.5">
-                    🏷️{" "}
-                    {billData.promotionName
-                      ? `Promo (${billData.promotionName})`
-                      : billData.manualDiscountPercent
-                        ? `Discount (${billData.manualDiscountPercent}%)`
-                        : "Discount"}
-                  </span>
-                  <span className="text-emerald-400 tabular-nums">
-                    -{currencySymbol}
-                    {billData.discount.toFixed(2)}
-                  </span>
+                <div className="space-y-1">
+                  {billData.discountNotes ? (
+                    /* Detailed discount breakdown from discountNotes */
+                    billData.discountNotes.split(' + ').map((note, idx) => (
+                      <div key={idx} className="flex justify-between text-sm">
+                        <span className="text-emerald-400 flex items-center gap-1.5">
+                          {note.toLowerCase().includes('coupon') ? '🎟️' :
+                           note.toLowerCase().includes('pts') || note.toLowerCase().includes('redeemed') ? '⭐' :
+                           note.toLowerCase().includes('manual') ? '✏️' :
+                           note.toLowerCase().includes('%') ? '🏷️' : '🏷️'}{' '}
+                          {note.replace(/\(₹[\d.]+\)/, '').trim()}
+                        </span>
+                        <span className="text-emerald-400 tabular-nums">
+                          {(() => {
+                            const amountMatch = note.match(/₹([\d.]+)/);
+                            return amountMatch ? `-${currencySymbol}${parseFloat(amountMatch[1]).toFixed(2)}` : '';
+                          })()}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    /* Fallback: generic discount display */
+                    <div className="flex justify-between text-sm">
+                      <span className="text-emerald-400 flex items-center gap-1.5">
+                        🏷️{" "}
+                        {billData.promotionName
+                          ? `Promo (${billData.promotionName})`
+                          : billData.manualDiscountPercent
+                            ? `Discount (${billData.manualDiscountPercent}%)`
+                            : "Discount"}
+                      </span>
+                      <span className="text-emerald-400 tabular-nums">
+                        -{currencySymbol}
+                        {billData.discount.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {/* Total discount summary line */}
+                  {billData.discountNotes && billData.discountNotes.includes('+') && (
+                    <div className="flex justify-between text-xs pt-0.5 border-t border-white/5">
+                      <span className="text-emerald-400/70">Total Savings</span>
+                      <span className="text-emerald-400/70 tabular-nums font-medium">
+                        -{currencySymbol}
+                        {billData.discount.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -654,6 +711,15 @@ const PublicBillPage = () => {
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-xs text-emerald-400">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     Paid via {paymentMethodLabel}
+                  </span>
+                </div>
+              )}
+
+              {/* Points Earned */}
+              {billData.pointsEarned && billData.pointsEarned > 0 && (
+                <div className="flex justify-center pt-1">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-xs text-amber-400">
+                    ⭐ You earned <strong>{billData.pointsEarned}</strong> loyalty points from this order!
                   </span>
                 </div>
               )}
