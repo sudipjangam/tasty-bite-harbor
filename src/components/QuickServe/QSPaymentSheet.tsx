@@ -295,6 +295,49 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       try {
         const restaurantNameForMsg = restaurantDetails?.name || "Restaurant";
 
+        // Calculate expected points earned for this order
+        let pointsEarned = 0;
+        if (subtotal > 0 && restaurantId) {
+          try {
+            const { data: loyaltyProgram } = await supabase
+              .from("loyalty_programs")
+              .select("is_enabled, points_per_amount")
+              .eq("restaurant_id", restaurantId)
+              .maybeSingle();
+
+            if (loyaltyProgram?.is_enabled !== false) {
+              const pointsPerAmount = loyaltyProgram?.points_per_amount ?? 1;
+              let multiplier = 1;
+
+              // Try to get customer's tier multiplier if they exist
+              if (customerPhone) {
+                const { data: customerRows } = await supabase
+                  .from("customers")
+                  .select("loyalty_tier_id")
+                  .eq("restaurant_id", restaurantId)
+                  .eq("phone", customerPhone.trim())
+                  .limit(1);
+
+                const tierId = customerRows?.[0]?.loyalty_tier_id;
+                if (tierId) {
+                  const { data: tier } = await supabase
+                    .from("loyalty_tiers")
+                    .select("points_multiplier")
+                    .eq("id", tierId)
+                    .maybeSingle();
+                  if (tier?.points_multiplier) {
+                    multiplier = tier.points_multiplier;
+                  }
+                }
+              }
+
+              pointsEarned = Math.floor((subtotal / 100) * pointsPerAmount * multiplier);
+            }
+          } catch (err) {
+            console.error("Points calculation error (non-blocking):", err);
+          }
+        }
+
         const billParams = {
           restaurantId,
           restaurantName: restaurantNameForMsg,
@@ -317,6 +360,22 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           subtotal: itemsSubtotal,
           discount:
             discountValue + loyaltyDiscountAmount + couponDiscountAmount,
+          discountNotes: (() => {
+            const parts: string[] = [];
+            if (discountPercentage > 0) {
+              parts.push(`${discountPercentage}% off (₹${discountValue.toFixed(2)})`);
+            } else if (discountValue > 0) {
+              parts.push(`Manual discount ₹${discountValue.toFixed(2)}`);
+            }
+            if (couponDiscountAmount > 0) {
+              parts.push(`Coupon (₹${couponDiscountAmount.toFixed(2)})`);
+            }
+            if (loyaltyDiscountAmount > 0) {
+              parts.push(`${loyaltyPointsUsed} pts redeemed (₹${loyaltyDiscountAmount.toFixed(2)})`);
+            }
+            return parts.length > 0 ? parts.join(' + ') : undefined;
+          })(),
+          pointsEarned: pointsEarned > 0 ? pointsEarned : undefined,
           cgst: 0,
           sgst: 0,
           total: subtotal,

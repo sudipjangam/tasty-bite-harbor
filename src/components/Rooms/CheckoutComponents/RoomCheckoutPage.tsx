@@ -542,7 +542,7 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
                 customer_name: reservation.customer_name || "Guest",
                 restaurant_name: restaurantData?.name || restaurantName,
                 amount: formattedAmount,
-                bill_date: formattedDate,
+                order_date: formattedDate,
                 contact_number: restaurantData?.phone || "",
               },
               buttons: billUrlSuffix ? [{ type: "url", value: billUrlSuffix }] : [],
