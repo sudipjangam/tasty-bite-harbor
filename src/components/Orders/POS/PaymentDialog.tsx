@@ -97,6 +97,17 @@ const PaymentDialog = ({
   const [appliedPromotion, setAppliedPromotion] = useState<any>(null);
   const [manualDiscountPercent, setManualDiscountPercent] = useState<number>(0);
   const [manualDiscountCash, setManualDiscountCash] = useState<number>(0);
+  const [localDiscountPctStr, setLocalDiscountPctStr] = useState("");
+  const [localDiscountCashStr, setLocalDiscountCashStr] = useState("");
+
+  // Sync POS manual discount inputs
+  useEffect(() => {
+    setLocalDiscountPctStr(manualDiscountPercent > 0 ? manualDiscountPercent.toString() : "");
+  }, [manualDiscountPercent]);
+
+  useEffect(() => {
+    setLocalDiscountCashStr(manualDiscountCash > 0 ? manualDiscountCash.toString() : "");
+  }, [manualDiscountCash]);
   const [detectedReservation, setDetectedReservation] = useState<{
     reservation_id: string;
     room_id: string;
@@ -2767,11 +2778,15 @@ const PaymentDialog = ({
                       placeholder="0"
                       min="0"
                       max="100"
-                      value={manualDiscountPercent || ""}
+                      value={localDiscountPctStr}
                       onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0;
+                        const valStr = e.target.value;
+                        setLocalDiscountPctStr(valStr);
+                        const value = parseFloat(valStr) || 0;
                         if (value >= 0 && value <= 100) {
                           setManualDiscountPercent(value);
+                        } else if (valStr === "") {
+                          setManualDiscountPercent(0);
                         }
                       }}
                       className="flex-1"
@@ -2791,11 +2806,15 @@ const PaymentDialog = ({
                       type="number"
                       placeholder="0"
                       min="0"
-                      value={manualDiscountCash || ""}
+                      value={localDiscountCashStr}
                       onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0;
+                        const valStr = e.target.value;
+                        setLocalDiscountCashStr(valStr);
+                        const value = parseFloat(valStr) || 0;
                         if (value >= 0 && value <= subtotal) {
                           setManualDiscountCash(value);
+                        } else if (valStr === "") {
+                          setManualDiscountCash(0);
                         }
                       }}
                       className="flex-1"

@@ -90,6 +90,16 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
   const [showLoyaltyRedeem, setShowLoyaltyRedeem] = useState(false);
   const [showCoupon, setShowCoupon] = useState(false);
   const [couponCode, setCouponCode] = useState("");
+  const [localDiscountStr, setLocalDiscountStr] = useState("");
+
+  // Sync local text state when mode or props change externally
+  React.useEffect(() => {
+    if (discountMode === "flat") {
+      setLocalDiscountStr(discountAmount > 0 ? discountAmount.toString() : "");
+    } else {
+      setLocalDiscountStr(discountPercentage > 0 ? discountPercentage.toString() : "");
+    }
+  }, [discountAmount, discountPercentage, discountMode]);
 
   const subtotal = items.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -292,13 +302,11 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
                   className="flex-1 bg-white dark:bg-gray-800 border border-gray-200/60 dark:border-gray-600 rounded-xl px-3 py-1.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400/50 w-20 transition-all"
                   placeholder={discountMode === "flat" ? "Amount" : "%"}
                   min="0"
-                  value={
-                    discountMode === "flat"
-                      ? discountAmount || ""
-                      : discountPercentage || ""
-                  }
+                  value={localDiscountStr}
                   onChange={(e) => {
-                    const val = parseFloat(e.target.value) || 0;
+                    const valStr = e.target.value;
+                    setLocalDiscountStr(valStr);
+                    const val = parseFloat(valStr) || 0;
                     if (discountMode === "flat") {
                       onDiscountChange(val, 0);
                     } else {
