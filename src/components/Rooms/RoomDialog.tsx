@@ -1,10 +1,22 @@
-
-import React from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import React from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface RoomDialogProps {
   open: boolean;
@@ -18,7 +30,7 @@ interface RoomDialogProps {
   };
   setRoomData: React.Dispatch<React.SetStateAction<any>>;
   onSave: () => void;
-  mode: 'add' | 'edit';
+  mode: "add" | "edit";
 }
 
 const RoomDialog: React.FC<RoomDialogProps> = ({
@@ -27,21 +39,22 @@ const RoomDialog: React.FC<RoomDialogProps> = ({
   roomData,
   setRoomData,
   onSave,
-  mode
+  mode,
 }) => {
-  const title = mode === 'add' ? 'Add New Room' : 'Edit Room';
-  const description = mode === 'add' ? 'Create a new room for your property.' : 'Update room details and status.';
-  const buttonText = mode === 'add' ? 'Add Room' : 'Save Changes';
-  const idPrefix = mode === 'add' ? '' : 'edit-';
+  const title = mode === "add" ? "Add New Room" : "Edit Room";
+  const description =
+    mode === "add"
+      ? "Create a new room for your property."
+      : "Update room details and status.";
+  const buttonText = mode === "add" ? "Add Room" : "Save Changes";
+  const idPrefix = mode === "add" ? "" : "edit-";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>
-            {description}
-          </DialogDescription>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
@@ -74,7 +87,6 @@ const RoomDialog: React.FC<RoomDialogProps> = ({
             <Input
               id={`${idPrefix}price`}
               type="number"
-              min="0"
               value={roomData.price}
               onChange={(e) =>
                 setRoomData({

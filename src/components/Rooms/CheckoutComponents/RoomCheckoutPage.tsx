@@ -867,6 +867,16 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           totalAmount={grandTotal}
           restaurantId={room.restaurant_id}
           restaurantPhone={restaurantPhone || ""}
+          roomCharges={roomTotal}
+          daysStayed={daysStayed}
+          foodOrders={foodOrders}
+          additionalCharges={additionalCharges}
+          discountAmount={totalDiscount}
+          serviceCharge={serviceCharge}
+          paymentMethod={paymentMethod}
+          subtotal={subtotalBeforeDiscount}
+          promotionName={appliedPromotion ? appliedPromotion.name : undefined}
+          manualDiscountPercent={discountPercent > 0 ? discountPercent : undefined}
         />
       )}
 

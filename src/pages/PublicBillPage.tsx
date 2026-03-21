@@ -191,7 +191,11 @@ const PublicBillPage = () => {
       y += 5;
     }
     if (billData.tableNumber) {
-      doc.text(`Table: ${billData.tableNumber}`, margin, y);
+      if (billData.orderType?.toLowerCase() === "room checkout") {
+        doc.text(`Room: ${billData.tableNumber}`, margin, y);
+      } else {
+        doc.text(`Table: ${billData.tableNumber}`, margin, y);
+      }
       y += 5;
     }
     if (billData.customerName) {
@@ -363,6 +367,7 @@ const PublicBillPage = () => {
         delivery: "Delivery",
         takeaway: "Takeaway",
         room_service: "Room Service",
+        "room checkout": "Room Checkout",
       }[billData.orderType.toLowerCase()] || billData.orderType
     : null;
 
@@ -473,7 +478,11 @@ const PublicBillPage = () => {
                       </div>
                       <p className="text-sm font-semibold text-gray-200">
                         {orderTypeLabel}
-                        {billData.tableNumber && ` · T${billData.tableNumber}`}
+                        {billData.tableNumber && (
+                          billData.orderType?.toLowerCase() === "room checkout"
+                            ? ` · Room ${billData.tableNumber}`
+                            : ` · T${billData.tableNumber}`
+                        )}
                       </p>
                     </div>
                   )}
