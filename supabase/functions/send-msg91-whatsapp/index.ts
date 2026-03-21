@@ -154,6 +154,11 @@ serve(async (req) => {
           value: billDate,
           parameter_name: "order_date",
         };
+        components.body_bill_date = {
+          type: "text",
+          value: billDate,
+          parameter_name: "bill_date",
+        };
       }
       if (contactNumber) {
         components.body_contact_number = {

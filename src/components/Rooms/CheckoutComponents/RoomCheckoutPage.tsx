@@ -32,6 +32,7 @@ import QRPaymentDialog from "./QRPaymentDialog";
 import ServiceChargeSection from "./ServiceChargeSection";
 import PromoCodeSection from "./PromoCodeSection";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { useBillSharing } from "@/hooks/useBillSharing";
 
 interface RoomCheckoutPageProps {
   roomId: string;
@@ -100,6 +101,8 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
   const [restaurantAddress, setRestaurantAddress] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [showQRPayment, setShowQRPayment] = useState(false);
+  const { getBillUrl } = useBillSharing();
+  const [whatsappSentState, setWhatsappSentState] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState<string>("");
   const [promotionCode, setPromotionCode] = useState("");
   const [appliedPromotion, setAppliedPromotion] = useState<any>(null);
@@ -441,9 +444,116 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
 
       setBillingId(billingData?.id || null);
 
+      // --- AUTO WHATSAPP LOGIC ---
+      let isWhatsAppSent = false;
+      if (reservation.customer_phone) {
+        try {
+          // 1. Generate Bill Items array
+          const billItems: {name: string, quantity: number, price: number}[] = [];
+          
+          if (roomTotal > 0) {
+            billItems.push({
+              name: `${room.name} (${daysStayed} Nights)`,
+              quantity: 1,
+              price: roomTotal
+            });
+          }
+
+          foodOrders.forEach(order => {
+            if (order.items && Array.isArray(order.items)) {
+              order.items.forEach((item: any) => {
+                 billItems.push({
+                   name: `[In-Room Dining] ${item.name}`,
+                   quantity: item.quantity || 1,
+                   price: item.price || 0
+                 });
+              });
+            } else if (order.total > 0) {
+              billItems.push({
+                name: `Food Order #${order.id?.slice(0, 4) || 'POS'}`,
+                quantity: 1,
+                price: order.total
+              });
+            }
+          });
+
+          formattedAdditionalCharges.forEach(charge => {
+            billItems.push({ name: charge.name, quantity: 1, price: charge.amount });
+          });
+          
+          if (serviceCharge > 0) {
+            billItems.push({ name: "Service Charge", quantity: 1, price: serviceCharge });
+          }
+
+          // 2. Fetch Restaurant Data
+          const { data: restaurantData } = await supabase
+            .from("restaurants")
+            .select("name, address, phone, logo_url")
+            .eq("id", room.restaurant_id)
+            .single();
+
+          // 3. Get Bill URL
+          const billUrl = await getBillUrl({
+            restaurantId: room.restaurant_id,
+            restaurantName: restaurantData?.name || restaurantName,
+            restaurantAddress: restaurantData?.address || restaurantAddress,
+            restaurantPhone: restaurantData?.phone || undefined,
+            logoUrl: restaurantData?.logo_url || undefined,
+            items: billItems,
+            subtotal: subtotalBeforeDiscount + serviceCharge, 
+            discount: totalDiscount,
+            total: grandTotal,
+            paymentMethod,
+            orderType: "Room Checkout",
+            customerName: reservation.customer_name,
+            customerPhone: reservation.customer_phone,
+            currencySymbol: "₹",
+            promotionName: appliedPromotion?.name,
+            manualDiscountPercent: discountPercent > 0 ? discountPercent : undefined,
+            tableNumber: room.name 
+          } as any);
+
+          // 4. Send WhatsApp
+          const billUrlSuffix = billUrl ? (billUrl.split("/bill/").pop() ?? billUrl) : undefined;
+          const formattedAmount = `₹${grandTotal.toFixed(2)}`;
+          const now = new Date();
+          const formattedDate = `${now.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })} ${now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
+          
+          const phoneWithCountryCode = reservation.customer_phone.replace(/[\+\-\s]/g, "").length === 10
+              ? "91" + reservation.customer_phone.replace(/[\+\-\s]/g, "")
+              : reservation.customer_phone.replace(/[\+\-\s]/g, "");
+
+          const { data: msg91Response, error: msg91Error } = await supabase.functions.invoke("send-msg91-whatsapp", {
+            body: {
+              phoneNumber: phoneWithCountryCode,
+              templateName: "room_checkout_invoice",
+              variables: {
+                customer_name: reservation.customer_name || "Guest",
+                restaurant_name: restaurantData?.name || restaurantName,
+                amount: formattedAmount,
+                bill_date: formattedDate,
+                contact_number: restaurantData?.phone || "",
+              },
+              buttons: billUrlSuffix ? [{ type: "url", value: billUrlSuffix }] : [],
+            }
+          });
+
+          if (msg91Error || !msg91Response?.success) {
+            console.error("Failed to auto-send WhatsApp:", msg91Error || msg91Response?.error);
+          } else {
+            await supabase.from("room_billings").update({ whatsapp_sent: true }).eq("id", billingData.id);
+            isWhatsAppSent = true;
+          }
+        } catch (waError) {
+          console.error("Error in auto-sending WhatsApp:", waError);
+        }
+      }
+
+      setWhatsappSentState(isWhatsAppSent);
+
       toast({
         title: "Checkout Successful",
-        description: `${reservation.customer_name} has been checked out. Room marked for cleaning.`,
+        description: `${reservation.customer_name} has been checked out. Room marked for cleaning.${isWhatsAppSent ? " WhatsApp receipt sent automatically." : ""}`,
       });
 
       setShowSuccessDialog(true);
@@ -877,6 +987,7 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           subtotal={subtotalBeforeDiscount}
           promotionName={appliedPromotion ? appliedPromotion.name : undefined}
           manualDiscountPercent={discountPercent > 0 ? discountPercent : undefined}
+          whatsappSent={whatsappSentState}
         />
       )}
 
