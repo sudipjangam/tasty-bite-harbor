@@ -39,7 +39,7 @@ interface QSActiveOrdersProps {
   onClose: () => void;
 }
 
-type StatusFilter = "all" | "preparing" | "ready" | "completed";
+type StatusFilter = "all" | "preparing" | "completed";
 
 const statusConfig: Record<
   string,
@@ -50,12 +50,6 @@ const statusConfig: Record<
     color: "text-orange-600 dark:text-orange-400",
     icon: ChefHat,
     bg: "bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/20 border-orange-200 dark:border-orange-700",
-  },
-  ready: {
-    label: "Ready",
-    color: "text-green-600 dark:text-green-400",
-    icon: Bell,
-    bg: "bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/20 border-green-200 dark:border-green-700",
   },
   completed: {
     label: "Done",
@@ -136,7 +130,6 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
 
   // Counts by status
   const preparingCount = orders.filter((o) => o.status === "preparing").length;
-  const readyCount = orders.filter((o) => o.status === "ready").length;
   const completedCount = orders.filter((o) => o.status === "completed").length;
 
   // Real-time subscription for immediate updates
@@ -183,18 +176,27 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
       const newStatus = [...currentStatus];
       newStatus[itemIndex] = !newStatus[itemIndex];
 
-      // Auto-set order to "ready" when all items are done
+      // Auto-set order to "completed" when all items are done
       const allDone = newStatus.every((s) => s === true);
 
       const { error } = await supabase
         .from("orders")
         .update({
           item_completion_status: newStatus,
-          ...(allDone ? { status: "ready" } : {}),
+          ...(allDone ? { status: "completed" } : {}),
         })
         .eq("id", orderId);
 
       if (error) throw error;
+
+      // Also update kitchen_orders if completing
+      if (allDone) {
+        await supabase
+          .from("kitchen_orders")
+          .update({ status: "completed" })
+          .eq("order_id", orderId);
+      }
+
       return { allDone, orderId };
     },
     onSuccess: (result) => {
@@ -317,8 +319,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                 Active Orders
               </h2>
               <p className="text-white/70 text-xs mt-0.5">
-                {preparingCount} preparing • {readyCount} ready •{" "}
-                {completedCount} done
+                {preparingCount} preparing • {completedCount} done
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -363,7 +364,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
             />
           </div>
           <div className="flex gap-2">
-            {(["all", "preparing", "ready", "completed"] as StatusFilter[]).map(
+            {(["all", "preparing", "completed"] as StatusFilter[]).map(
               (sf) => (
                 <button
                   key={sf}
@@ -379,9 +380,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                     ? `All (${orders.length})`
                     : sf === "preparing"
                       ? `🔥 Preparing (${preparingCount})`
-                      : sf === "ready"
-                        ? `✅ Ready (${readyCount})`
-                        : `✓ Done (${completedCount})`}
+                      : `✓ Done (${completedCount})`}
                 </button>
               ),
             )}
@@ -465,9 +464,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                               config.color,
                             )}
                           >
-                            {allDone && order.status !== "completed"
-                              ? "✓ Ready"
-                              : config.label}
+                            {config.label}
                           </span>
                         </div>
                       </div>
@@ -575,20 +572,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                           {currencySymbol}
                           {order.total.toFixed(0)}
                         </p>
-                        {order.status === "preparing" && (
-                          <Button
-                            size="sm"
-                            onClick={() =>
-                              handleStatusChange(order.id, "ready")
-                            }
-                            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-xs font-bold rounded-lg px-3 h-7"
-                          >
-                            <Bell className="w-3 h-3 mr-1" />
-                            Mark Ready
-                          </Button>
-                        )}
-                        {(order.status === "ready" ||
-                          (allDone && order.status !== "completed")) && (
+                        {order.status !== "completed" && (
                           <Button
                             size="sm"
                             onClick={() =>
