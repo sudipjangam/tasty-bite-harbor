@@ -477,6 +477,17 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
             }
           });
 
+          // POS orders charged to room
+          posOrders.forEach(order => {
+            if (order.total > 0) {
+              billItems.push({
+                name: `POS Food & Beverage #${order.id?.slice(0, 4) || 'POS'}`,
+                quantity: 1,
+                price: order.total
+              });
+            }
+          });
+
           formattedAdditionalCharges.forEach(charge => {
             billItems.push({ name: charge.name, quantity: 1, price: charge.amount });
           });
@@ -872,6 +883,16 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
                     <span className="font-semibold text-xl text-white">
                       {currencySymbol}
                       {foodOrdersTotal.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
+                {posOrdersTotal > 0 && (
+                  <div className="flex justify-between items-center text-indigo-100">
+                    <span className="text-lg">POS Food & Beverage</span>
+                    <span className="font-semibold text-xl text-white">
+                      {currencySymbol}
+                      {posOrdersTotal.toFixed(2)}
                     </span>
                   </div>
                 )}
