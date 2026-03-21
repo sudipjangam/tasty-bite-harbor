@@ -238,8 +238,10 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         quantity: item.quantity,
         price: item.price,
       })),
-      subtotal,
+      subtotal: itemsSubtotal,
       total: subtotal,
+      discount: discountValue + couponDiscountAmount + (loyaltyDiscountAmount || 0),
+      manualDiscountPercent: discountPercentage > 0 ? discountPercentage : undefined,
       paymentMethod: selectedMethod || "cash",
       customerName: customerName.trim() || undefined,
       currencySymbol,
@@ -451,14 +453,14 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           priority: "normal",
         });
 
-        const totalDiscountAmount = discountAmount + couponDiscountAmount + (loyaltyDiscountAmount || 0);
+        const totalDiscountAmount = discountValue + couponDiscountAmount + (loyaltyDiscountAmount || 0);
 
         // Build discount notes for owner visibility
         const discountNotesParts: string[] = [];
         if (discountPercentage > 0) {
-          discountNotesParts.push(`${discountPercentage}% off (₹${discountAmount.toFixed(2)})`);
-        } else if (discountAmount > 0) {
-          discountNotesParts.push(`Manual discount ₹${discountAmount.toFixed(2)}`);
+          discountNotesParts.push(`${discountPercentage}% off (₹${discountValue.toFixed(2)})`);
+        } else if (discountValue > 0) {
+          discountNotesParts.push(`Manual discount ₹${discountValue.toFixed(2)}`);
         }
         if (couponDiscountAmount > 0) {
           discountNotesParts.push(`Coupon (₹${couponDiscountAmount.toFixed(2)})`);
@@ -586,14 +588,14 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
 
       if (kitchenError) throw kitchenError;
 
-      const totalDiscountAmount = discountAmount + couponDiscountAmount + (loyaltyDiscountAmount || 0);
+      const totalDiscountAmount = discountValue + couponDiscountAmount + (loyaltyDiscountAmount || 0);
 
       // Build discount notes for owner visibility
       const discountNotesParts: string[] = [];
       if (discountPercentage > 0) {
-        discountNotesParts.push(`${discountPercentage}% off (₹${discountAmount.toFixed(2)})`);
-      } else if (discountAmount > 0) {
-        discountNotesParts.push(`Manual discount ₹${discountAmount.toFixed(2)}`);
+        discountNotesParts.push(`${discountPercentage}% off (₹${discountValue.toFixed(2)})`);
+      } else if (discountValue > 0) {
+        discountNotesParts.push(`Manual discount ₹${discountValue.toFixed(2)}`);
       }
       if (couponDiscountAmount > 0) {
         discountNotesParts.push(`Coupon (₹${couponDiscountAmount.toFixed(2)})`);
