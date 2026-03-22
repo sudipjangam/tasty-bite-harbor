@@ -22,6 +22,7 @@ import EnhancedRateManagement from "./EnhancedRateManagement";
 import PoolInventoryManagement from "./PoolInventoryManagement";
 import RoomSpecificRateManager from "./RoomSpecificRateManager";
 import OTACredentialManager from "./OTACredentialManager";
+import RoomInventoryCalendar from "./RoomInventoryCalendar";
 
 const ChannelManagementDashboard = () => {
   const { bookingChannels, updateChannel, isLoadingChannels, syncChannels, bulkUpdatePrices } = useChannelManagement();
@@ -121,6 +122,9 @@ const ChannelManagementDashboard = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
+          {/* Room Inventory Calendar - Asiatech style */}
+          <RoomInventoryCalendar />
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {bookingChannels.map((channel) => (
               <Card key={channel.id} className="standardized-card-elevated group hover:scale-105 transition-all duration-300">
