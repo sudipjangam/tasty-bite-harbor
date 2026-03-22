@@ -21,6 +21,7 @@ import MetaSearchIntegration from "./MetaSearchIntegration";
 import EnhancedRateManagement from "./EnhancedRateManagement";
 import PoolInventoryManagement from "./PoolInventoryManagement";
 import RoomSpecificRateManager from "./RoomSpecificRateManager";
+import OTACredentialManager from "./OTACredentialManager";
 
 const ChannelManagementDashboard = () => {
   const { bookingChannels, updateChannel, isLoadingChannels, syncChannels, bulkUpdatePrices } = useChannelManagement();
@@ -105,8 +106,11 @@ const ChannelManagementDashboard = () => {
       </div>
 
       <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="ota-connect" className="flex items-center gap-1">
+            <span className="hidden md:inline">🔑</span> OTA Connect
+          </TabsTrigger>
           <TabsTrigger value="metasearch">Meta Search</TabsTrigger>
           <TabsTrigger value="rates">Rate Management</TabsTrigger>
           <TabsTrigger value="room-rates">Room Pricing</TabsTrigger>
@@ -215,6 +219,10 @@ const ChannelManagementDashboard = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="ota-connect">
+          <OTACredentialManager />
         </TabsContent>
 
         <TabsContent value="metasearch">
