@@ -23,6 +23,8 @@ import PoolInventoryManagement from "./PoolInventoryManagement";
 import RoomSpecificRateManager from "./RoomSpecificRateManager";
 import OTACredentialManager from "./OTACredentialManager";
 import RoomInventoryCalendar from "./RoomInventoryCalendar";
+import ChannelMappingManager from "./ChannelMappingManager";
+import RateParityDashboard from "./RateParityDashboard";
 
 const ChannelManagementDashboard = () => {
   const { bookingChannels, updateChannel, isLoadingChannels, syncChannels, bulkUpdatePrices } = useChannelManagement();
@@ -107,17 +109,19 @@ const ChannelManagementDashboard = () => {
       </div>
 
       <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className="grid w-full grid-cols-11">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="ota-connect" className="flex items-center gap-1">
             <span className="hidden md:inline">🔑</span> OTA Connect
           </TabsTrigger>
-          <TabsTrigger value="metasearch">Meta Search</TabsTrigger>
-          <TabsTrigger value="rates">Rate Management</TabsTrigger>
+          <TabsTrigger value="channel-mapping">Mapping</TabsTrigger>
+          <TabsTrigger value="rate-parity">Rate Parity</TabsTrigger>
+          <TabsTrigger value="rates">Rates</TabsTrigger>
           <TabsTrigger value="room-rates">Room Pricing</TabsTrigger>
-          <TabsTrigger value="pool-inventory">Pool Inventory</TabsTrigger>
-          <TabsTrigger value="dynamic">Dynamic Pricing</TabsTrigger>
-          <TabsTrigger value="sync">Advanced Sync</TabsTrigger>
+          <TabsTrigger value="pool-inventory">Inventory</TabsTrigger>
+          <TabsTrigger value="dynamic">Dynamic</TabsTrigger>
+          <TabsTrigger value="sync">Sync</TabsTrigger>
+          <TabsTrigger value="metasearch">Meta</TabsTrigger>
           <TabsTrigger value="consolidation">Bookings</TabsTrigger>
         </TabsList>
 
@@ -227,6 +231,14 @@ const ChannelManagementDashboard = () => {
 
         <TabsContent value="ota-connect">
           <OTACredentialManager />
+        </TabsContent>
+
+        <TabsContent value="channel-mapping">
+          <ChannelMappingManager />
+        </TabsContent>
+
+        <TabsContent value="rate-parity">
+          <RateParityDashboard />
         </TabsContent>
 
         <TabsContent value="metasearch">
