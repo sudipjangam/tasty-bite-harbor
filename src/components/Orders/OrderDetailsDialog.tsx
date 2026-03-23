@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { Printer, Edit, DollarSign, Check, Percent, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -53,6 +53,7 @@ interface OrderDetailsDialogProps {
     status: string;
     items: OrderItem[];
     created_at: string;
+    updated_at?: string;
   } | null;
   onPrintBill?: () => void;
   onEditOrder?: (orderId: string) => void;
@@ -726,6 +727,15 @@ const OrderDetailsDialog = ({
                     {formatDistanceToNow(new Date(order.created_at), {
                       addSuffix: true,
                     })}
+                    {" \u2022 "}
+                    {format(
+                      new Date(
+                        order.source === "quickserve"
+                          ? order.created_at
+                          : order.updated_at || order.created_at
+                      ),
+                      "hh:mm a"
+                    )}
                   </dd>
                 </div>
               </dl>
