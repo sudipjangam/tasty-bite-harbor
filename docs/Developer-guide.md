@@ -30,21 +30,24 @@ This is a **full-featured Restaurant & Hotel Management System** designed for mu
 ### Frontend (React + TypeScript)
 - **App Entry**: `App.tsx`
 - **Context Providers**: QueryClient, Theme, Auth, Access, Tooltip
-- **Router & Routes**: 34 Pages
-- **Components**: 350+ Components
-- **Custom Hooks**: 41 Hooks
+- **Router & Routes**: 46 Pages
+- **Components**: 500+ Components
+- **Custom Hooks**: 69 Hooks
 
 ### Backend (Supabase)
 - **Authentication**: JWT-based auth with RLS
-- **Database**: PostgreSQL
-- **Edge Functions**: 25+ serverless functions
+- **Database**: PostgreSQL (80+ tables, 9 CMS-specific)
+- **Edge Functions**: 38+ serverless functions
 - **File Storage**: Images & Documents buckets
 - **Realtime**: WebSocket subscriptions
+- **pg_cron**: 3 scheduled jobs (auto-sync, retries, parity checks)
 
 ### External Integrations
 - Google Gemini AI
-- Twilio WhatsApp
+- MSG91 / WhatsApp Cloud API
 - Email Service
+- Paytm Payment Gateway
+- **OTA APIs**: InGo-MMT (MakeMyTrip/Goibibo), Booking.com Connectivity API
 
 ---
 
@@ -533,7 +536,7 @@ This is a **full-featured Restaurant & Hotel Management System** designed for mu
 
 ## Edge Functions
 
-### Supabase Edge Functions (25+)
+### Supabase Edge Functions (38+)
 
 | Category | Functions |
 |----------|-----------|
@@ -548,7 +551,7 @@ This is a **full-featured Restaurant & Hotel Management System** designed for mu
 | **Backups** | `backup-restore` |
 | **Promotions** | `validate-promo-code`, `log-promotion-usage` |
 | **Suppliers** | `send-purchase-order-notification` |
-| **Channels** | `sync-channels` |
+| **Channel Mgmt** | `sync-channels` (v125, JWT), `ota-webhooks` (v1, No JWT) |
 
 ### Rate Limiting
 
@@ -587,7 +590,7 @@ This is a **full-featured Restaurant & Hotel Management System** designed for mu
 
 ## Custom Hooks
 
-### 41 Custom Hooks by Category
+### 69 Custom Hooks by Category
 
 | Category | Hooks |
 |----------|-------|
@@ -596,6 +599,7 @@ This is a **full-featured Restaurant & Hotel Management System** designed for mu
 | **Features** | `useReservations`, `useRooms`, `useRecipes`, `useTables`, `useWaitlist` |
 | **Real-time** | `useRealtimeAnalytics`, `useRealtimeSubscription`, `useLiveActivity` |
 | **Business** | `useFinancialData`, `useProfitLoss`, `useExpenseData`, `useMarketingData` |
+| **Channel Mgmt** | `useOTACredentials`, `useChannelManagement` |
 | **Utilities** | `usePagination`, `useCurrency`, `useTheme`, `useMobile`, `useToast` |
 
 ---
@@ -620,12 +624,14 @@ This is a **full-featured Restaurant & Hotel Management System** designed for mu
 
 | Category | Count |
 |----------|-------|
-| **Pages** | 34 |
-| **Components** | 350+ |
-| **Hooks** | 41 |
-| **Edge Functions** | 25+ |
+| **Pages** | 46 |
+| **Components** | 500+ |
+| **Hooks** | 69 |
+| **Edge Functions** | 38+ |
 | **Test Files** | 17 |
-| **UI Components** | 72 |
+| **UI Components** | 77 |
+| **CMS Tables** | 9 |
+| **OTA Adapters** | 2 (MMT/Goibibo, Booking.com) |
 
 ---
 
@@ -635,6 +641,7 @@ This is a **full-featured Restaurant & Hotel Management System** designed for mu
 |--------|----------|
 | **Restaurant Operations** | Orders, POS, Menu, Kitchen |
 | **Hotel Operations** | Rooms, Housekeeping, Reservations |
+| **Channel Management** | OTA Integration (MMT, Booking.com), Pooled Inventory, Rate Parity, Auto-Sync |
 | **Customer Management** | CRM, Loyalty, Marketing |
 | **Staff Management** | HR, Attendance, Payroll |
 | **Financial Management** | Budgets, P&L, Invoicing, Taxes |
@@ -644,4 +651,60 @@ This is a **full-featured Restaurant & Hotel Management System** designed for mu
 
 ---
 
-*Last Updated: December 2024*
+## 25. Channel Management System (`/channel-management`)
+
+**Components:**
+- `ChannelManagementDashboard.tsx` — Main dashboard (11 tabs)
+- `OTACredentialManager.tsx` — Secure OTA credential vault
+- `ChannelMappingManager.tsx` — Auto-map + manual room mapping
+- `RateParityDashboard.tsx` — Parity score + channel comparison
+- `RoomInventoryCalendar.tsx` — Asiatech-style availability grid + click-to-book
+- `PoolInventoryManagement.tsx` — Central pooled inventory
+- `EnhancedRateManagement.tsx` — Channel-specific rate rules
+- `DynamicPricingEngine.tsx` — Demand-based pricing
+- `AdvancedChannelSync.tsx` — Sync controls + retry management
+- `BookingConsolidation.tsx` — OTA bookings aggregation
+- `MetaSearchIntegration.tsx` — Meta search channel support
+
+**Hooks:**
+- `useOTACredentials.tsx` — CRUD for OTA credentials, connection testing, sync logs
+- `useChannelManagement.tsx` — Channel CRUD, rate plans, sync triggers
+
+**Edge Functions:**
+- `sync-channels` (v125, JWT) — Full ARI sync engine using OTA adapters
+- `ota-webhooks` (v1, No JWT) — Receives booking webhooks from OTAs
+
+**OTA Adapters:**
+- `mmt-goibibo-adapter.ts` — MakeMyTrip/Goibibo (InGo-MMT platform)
+- `booking-com-adapter.ts` — Booking.com (JSON REST + OTA XML)
+
+**Database (9 CMS tables):**
+- `ota_credentials` — Encrypted OTA login credentials
+- `channel_room_mapping` — HMS room ↔ OTA room type mapping
+- `pool_inventory` — Central inventory pool (all channels share)
+- `sync_logs` — Audit trail for every sync operation
+- `sync_retry_queue` — Failed syncs with exponential backoff
+- `ota_bookings` — Bookings received from OTAs
+- `channel_rate_rules` — Markup/markdown rules per channel
+- `channel_restrictions` — Stop-sell, min-stay, CTA rules
+- `rate_parity_checks` — Daily parity comparison records
+
+**Automation (pg_cron):**
+- Auto-sync every 15 min
+- Retry queue processing every 5 min
+- Rate parity check daily at 6 AM
+
+**Features:**
+- Two-way OTA integration (push ARI, pull bookings)
+- Adapter pattern for plug-and-play OTA support
+- Pooled inventory preventing overbooking
+- Webhook-based real-time booking reception
+- Cross-channel availability updates on new bookings
+- Rate parity monitoring with parity score
+- Channel-specific rate rules (markup, markdown, commission offset)
+- One-click auto-mapping of rooms to OTAs
+- Encrypted credential storage with connection testing
+
+---
+
+*Last Updated: March 2026*

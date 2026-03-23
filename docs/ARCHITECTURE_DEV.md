@@ -251,6 +251,14 @@ graph LR
         Loyalty[Loyalty]
     end
     
+    subgraph ChannelMgmt["Channel Management"]
+        OTAConnect[OTA Connect]
+        ChannelMapping[Channel Mapping]
+        RateParity[Rate Parity]
+        SyncEngine[Sync Engine]
+        PoolInventory[Pool Inventory]
+    end
+    
     subgraph CustomerFacing["Customer-Facing"]
         QROrdering[QR Ordering]
         CustomerOrder[Customer Order]
@@ -325,6 +333,12 @@ graph LR
     
     Platform --> Auth
     Platform --> Analytics
+    
+    Rooms --> ChannelMgmt
+    ChannelMgmt --> SyncEngine
+    SyncEngine --> PoolInventory
+    ChannelMapping --> Rooms
+    RateParity --> Analytics
 ```
 
 ---
@@ -1073,49 +1087,512 @@ flowchart TD
 
 ---
 
-## Revenue & Channel Management Flow
+## Revenue & Channel Management System (CMS)
+
+The Channel Management System is a complete, production-grade OTA integration platform that acts as a centralized switchboard between the HMS and Online Travel Agencies. It supports two-way API integrations, pooled inventory, rate parity monitoring, and automated sync via pg_cron.
+
+### CMS System Architecture
+
+```mermaid
+graph TB
+    subgraph Frontend["🖥️ CMS Frontend (11 Tabs)"]
+        Overview[Overview + Availability Calendar]
+        OTAConnect["🔑 OTA Connect (Credential Vault)"]
+        ChannelMapping["Channel Mapping (Auto-Map)"]
+        RateParity["Rate Parity Monitor"]
+        Rates[Rate Management]
+        RoomPricing[Room Pricing]
+        Inventory[Pool Inventory]
+        Dynamic[Dynamic Pricing]
+        Sync[Advanced Sync]
+        Meta[Meta Search]
+        Bookings[Booking Consolidation]
+    end
+
+    subgraph EdgeFunctions["⚡ Supabase Edge Functions"]
+        SyncEngine["sync-channels (v125, JWT)"]
+        WebhookReceiver["ota-webhooks (v1, No JWT)"]
+    end
+
+    subgraph Adapters["🔌 OTA Adapter Layer"]
+        AdapterInterface["OTAAdapter Interface"]
+        MMTAdapter["MMT/Goibibo Adapter"]
+        BDCAdapter["Booking.com Adapter"]
+        AgodaPlaceholder["Agoda Adapter (planned)"]
+        ExpediaPlaceholder["Expedia Adapter (planned)"]
+    end
+
+    subgraph OTAAPIs["🌍 OTA APIs"]
+        MMTAPI["InGo-MMT Platform"]
+        BDCAPI["Booking.com Connectivity API"]
+        AgodaAPI["Agoda Partner API"]
+    end
+
+    subgraph Database["💾 CMS Database (9 Tables)"]
+        OTACreds[ota_credentials]
+        ChannelRoomMap[channel_room_mapping]
+        PoolInv[pool_inventory]
+        SyncLogs[sync_logs]
+        RetryQueue[sync_retry_queue]
+        OTABookings[ota_bookings]
+        RateRules[channel_rate_rules]
+        Restrictions[channel_restrictions]
+        ParityChecks[rate_parity_checks]
+    end
+
+    subgraph Automation["⏰ pg_cron Jobs"]
+        AutoSync["Every 15min: Full Sync"]
+        RetryProcessor["Every 5min: Retry Queue"]
+        ParityCheck["Daily 6AM: Rate Parity"]
+    end
+
+    OTAConnect --> OTACreds
+    ChannelMapping --> ChannelRoomMap
+    Overview --> PoolInv
+    RateParity --> ParityChecks
+
+    SyncEngine --> Adapters
+    WebhookReceiver --> OTABookings
+    Adapters --> OTAAPIs
+
+    MMTAPI -.-> WebhookReceiver
+    BDCAPI -.-> WebhookReceiver
+
+    Automation --> SyncEngine
+    SyncEngine --> SyncLogs
+    SyncEngine --> RetryQueue
+```
+
+---
+
+### OTA Adapter Pattern
+
+Every OTA integration implements the `OTAAdapter` interface, ensuring the sync engine is completely OTA-agnostic.
+
+```mermaid
+classDiagram
+    class OTAAdapter {
+        <<interface>>
+        +ota_name: string
+        +authenticate(creds) AuthSession
+        +refreshSession(session) AuthSession
+        +testConnection(creds) ConnectionTestResult
+        +pushRates(session, rates[]) SyncResult
+        +pushAvailability(session, inventory[]) SyncResult
+        +pushRestrictions(session, restrictions[]) SyncResult
+        +pullReservations(session, since) OTAReservation[]
+        +pullModifications(session, since) OTAModification[]
+        +pullCancellations(session, since) OTACancellation[]
+        +confirmReservation(session, id) boolean
+    }
+
+    class MMTGoibiboAdapter {
+        +ota_name: "mmt" | "goibibo"
+        -DEFAULT_API_BASE: string
+        +authenticate() Bearer token or Session login
+        +pushRates() InGo-MMT batch rate API
+        +pullReservations() InGo-MMT reservation API
+    }
+
+    class BookingComAdapter {
+        +ota_name: "booking_com"
+        -useJson: boolean
+        +authenticate() HTTP Basic Auth
+        +pushRates() JSON REST or OTA XML
+        +pullReservations() Connectivity API
+    }
+
+    class AdapterRegistry {
+        -registry: Map
+        +registerAdapter(name, factory)
+        +getAdapter(name) OTAAdapter
+        +getRegisteredAdapters() string[]
+    }
+
+    OTAAdapter <|.. MMTGoibiboAdapter
+    OTAAdapter <|.. BookingComAdapter
+    AdapterRegistry --> OTAAdapter : manages
+```
+
+**Registered Adapters:**
+
+| Alias | Adapter Class | Auth Type |
+|-------|--------------|-----------|
+| `mmt`, `makemytrip` | MMTGoibiboAdapter | Token / Session |
+| `goibibo` | MMTGoibiboAdapter | Token / Session |
+| `booking_com`, `booking.com`, `bookingcom` | BookingComAdapter | HTTP Basic Auth |
+
+---
+
+### Sync Engine — Full Sync Sequence
+
+```mermaid
+sequenceDiagram
+    participant Cron as pg_cron (15min)
+    participant Sync as sync-channels Edge Function
+    participant DB as Supabase PostgreSQL
+    participant Adapter as OTA Adapter
+    participant OTA as OTA API
+
+    Cron->>Sync: Invoke (restaurantId, syncType: all)
+
+    Sync->>DB: Fetch active booking_channels
+    Sync->>DB: Fetch ota_credentials (by channel_id)
+    Sync->>DB: Fetch rooms + rate_plans
+    Sync->>DB: Fetch channel_room_mapping
+    Sync->>DB: Fetch channel_rate_rules
+    Sync->>DB: Fetch pool_inventory (next 90 days)
+
+    loop For each active channel
+        Sync->>DB: INSERT sync_logs (status: started)
+        Sync->>Adapter: getAdapter(ota_name)
+        Sync->>Adapter: authenticate(credentials)
+        Adapter->>OTA: Login / Token exchange
+        OTA-->>Adapter: AuthSession
+
+        Note over Sync: PUSH RATES
+        Sync->>Sync: Apply rate_rules + commission offset
+        Sync->>Adapter: pushRates(session, adjusted_rates)
+        Adapter->>OTA: POST /rates/update
+        OTA-->>Adapter: SyncResult
+
+        Note over Sync: PUSH AVAILABILITY
+        Sync->>Sync: Calculate available = total - buffer - blocked
+        Sync->>Adapter: pushAvailability(session, inventory)
+        Adapter->>OTA: POST /availability/update
+        OTA-->>Adapter: SyncResult
+
+        Note over Sync: PULL BOOKINGS
+        Sync->>Adapter: pullReservations(session, since: lastSync)
+        Adapter->>OTA: GET /reservations?since=...
+        OTA-->>Adapter: OTAReservation[]
+        Sync->>DB: UPSERT ota_bookings
+        Note over DB: Trigger: trg_ota_booking_inventory
+        DB->>DB: Decrement pool_inventory
+
+        Sync->>Adapter: pullCancellations(session, since)
+        Sync->>DB: UPDATE ota_bookings SET cancelled
+
+        alt Any Failures
+            Sync->>DB: INSERT sync_retry_queue (exponential backoff)
+        end
+
+        Sync->>DB: UPDATE sync_logs (status, records, duration)
+        Sync->>DB: UPDATE booking_channels (last_sync)
+    end
+```
+
+---
+
+### Webhook Booking Flow (OTA → Your System)
 
 ```mermaid
 flowchart TD
-    subgraph ChannelMgmt["Channel Management"]
-        AddChannel["Add Channel - OTA"]
-        EditChannel[Edit Channel Config]
-        SyncChannels["sync-channels Edge Function"]
+    subgraph OTAs["OTA Webhook Sources"]
+        MMTHook["MakeMyTrip Webhook"]
+        GIBHook["Goibibo Webhook"]
+        BDCHook["Booking.com Notification"]
     end
-    
-    subgraph RateMgmt["Rate Management"]
-        DynamicPricing[Dynamic Pricing Engine]
-        RoomRates[Room-Specific Rate Manager]
-        EnhancedRates[Enhanced Rate Management]
-        PriceManagement[Price Management]
+
+    subgraph WebhookFn["ota-webhooks Edge Function"]
+        ParseBody["Parse JSON / XML body"]
+        ValidateSecret["Validate x-webhook-secret"]
+        FindChannel["Find booking_channels match"]
+        Normalize["normalizeBooking() per OTA"]
     end
-    
-    subgraph InventoryAlloc["Inventory Allocation"]
-        PoolInventory[Pool Inventory Management]
-        AllocateRooms[Allocate Rooms per Channel]
+
+    subgraph DBActions["Database Actions"]
+        LogSync["INSERT sync_logs (inbound)"]
+        UpsertBooking["UPSERT ota_bookings (idempotent)"]
+        TriggerInv["DB Trigger: decrement pool_inventory"]
     end
-    
-    subgraph Analytics["Revenue Analytics"]
-        RevDashboard[Revenue Management Dashboard]
-        BookingConsol[Booking Consolidation]
-        MetaSearch[Meta Search Integration]
-        AdvancedSync[Advanced Channel Sync]
+
+    subgraph CrossChannel["Cross-Channel Update"]
+        QueuePush["Queue availability_push for OTHER channels"]
+        InvokeSync["Invoke sync-channels (availability only)"]
     end
-    
-    AddChannel --> SyncChannels
-    EditChannel --> SyncChannels
-    
-    DynamicPricing --> RoomRates
-    RoomRates --> EnhancedRates
-    EnhancedRates --> PriceManagement
-    
-    PoolInventory --> AllocateRooms
-    AllocateRooms --> SyncChannels
-    
-    SyncChannels --> RevDashboard
-    RevDashboard --> BookingConsol
-    BookingConsol --> MetaSearch
+
+    MMTHook --> ParseBody
+    GIBHook --> ParseBody
+    BDCHook --> ParseBody
+
+    ParseBody --> ValidateSecret
+    ValidateSecret --> FindChannel
+    FindChannel --> Normalize
+    Normalize --> LogSync
+    LogSync --> UpsertBooking
+    UpsertBooking --> TriggerInv
+
+    TriggerInv --> QueuePush
+    QueuePush --> InvokeSync
+
+    style TriggerInv fill:#f59e0b,color:#000
+    style QueuePush fill:#3b82f6,color:#fff
 ```
+
+---
+
+### Pooled Inventory Model
+
+```mermaid
+flowchart LR
+    subgraph Central["Central Pool (pool_inventory table)"]
+        Room1["Deluxe Room: 5 total"]
+        Room2["Standard Room: 10 total"]
+    end
+
+    subgraph Channels["OTA Channels"]
+        MMT["MakeMyTrip: sees 4 available"]
+        BDC["Booking.com: sees 4 available"]
+        Agoda["Agoda: sees 4 available"]
+        Direct["Direct Website: sees 5"]
+    end
+
+    subgraph Events["Booking Events"]
+        BookMMT["Guest books on MMT"]
+        DecPool["pool_inventory -= 1"]
+        PushAll["Push updated count to ALL"]
+    end
+
+    Room1 --> MMT
+    Room1 --> BDC
+    Room1 --> Agoda
+    Room1 --> Direct
+
+    BookMMT --> DecPool
+    DecPool --> |"Now 4 total, 3 available"| PushAll
+    PushAll --> MMT
+    PushAll --> BDC
+    PushAll --> Agoda
+
+    style DecPool fill:#ef4444,color:#fff
+    style PushAll fill:#22c55e,color:#fff
+```
+
+**Key Rule:** `available_count = total_count - booked_count - blocked_count - buffer_count`
+
+---
+
+### Channel Mapping UI Flow
+
+```mermaid
+flowchart TD
+    subgraph UserAction["User Actions"]
+        AutoMap["Quick Auto-Map (1-click)"]
+        ManualMap["Manual Map Room Dialog"]
+    end
+
+    subgraph MappingData["Mapping Record"]
+        HMSRoom["HMS Room: Dhanvantari (local ID)"]
+        Arrow["→ maps to →"]
+        OTARoom["OTA Room Type ID: 12345"]
+        RatePlan["OTA Rate Plan ID: BAR"]
+    end
+
+    subgraph SyncReady["Ready for Sync"]
+        PushRates["Push base_rate + rules to OTA ID 12345"]
+        PushAvail["Push pool_inventory to OTA ID 12345"]
+        PullBook["Pull bookings for OTA ID 12345"]
+    end
+
+    AutoMap --> |"Creates mapping for ALL unmapped rooms"| MappingData
+    ManualMap --> |"User enters OTA room ID"| MappingData
+
+    MappingData --> SyncReady
+```
+
+---
+
+### Rate Parity Monitoring
+
+```mermaid
+flowchart TD
+    subgraph BaseRates["Your Base Rates"]
+        Deluxe["Deluxe: ₹3,000"]
+        Standard["Standard: ₹1,500"]
+    end
+
+    subgraph Rules["Channel Rate Rules"]
+        Markup["MMT: +15% markup"]
+        Commission["BDC: +12% commission offset"]
+        RoundTo["Round to ₹100"]
+    end
+
+    subgraph EffectiveRates["Effective Selling Prices"]
+        MMTRate["MMT: ₹3,450"]
+        BDCRate["BDC: ₹3,360"]
+        DirectRate["Direct: ₹3,000"]
+    end
+
+    subgraph ParityStatus["Parity Status"]
+        InParity["✅ In Parity (less than 1% diff)"]
+        OutParity["⚠️ Out of Parity (greater than 1%)"]
+        Critical["🔴 Critical (greater than 10%)"]
+    end
+
+    Deluxe --> Rules
+    Rules --> EffectiveRates
+    EffectiveRates --> ParityStatus
+
+    style InParity fill:#22c55e,color:#fff
+    style OutParity fill:#f59e0b,color:#000
+    style Critical fill:#ef4444,color:#fff
+```
+
+**Daily Parity Check (pg_cron at 6 AM):** Automatically inserts records into `rate_parity_checks` comparing base rates against channel-adjusted rates.
+
+---
+
+### CMS Database Schema (ERD)
+
+```mermaid
+erDiagram
+    ota_credentials {
+        uuid id PK
+        uuid restaurant_id FK
+        uuid channel_id FK
+        text ota_name
+        text username
+        text password_encrypted
+        text access_token
+        text auth_type
+        jsonb extra_config
+        boolean is_active
+    }
+
+    channel_room_mapping {
+        uuid id PK
+        uuid restaurant_id FK
+        uuid channel_id FK
+        text hms_room_type
+        uuid hms_room_type_id FK
+        text ota_room_type_id
+        text ota_rate_plan_id
+        text ota_room_name
+        boolean is_active
+    }
+
+    pool_inventory {
+        uuid id PK
+        uuid restaurant_id FK
+        text room_type
+        date date
+        int total_count
+        int available_count
+        int booked_count
+        int blocked_count
+        int buffer_count
+    }
+
+    sync_logs {
+        uuid id PK
+        uuid restaurant_id FK
+        uuid channel_id FK
+        text sync_type
+        text direction
+        text status
+        int records_processed
+        int records_failed
+        jsonb request_payload
+        jsonb response_payload
+        int duration_ms
+        text triggered_by
+    }
+
+    ota_bookings {
+        uuid id PK
+        uuid restaurant_id FK
+        uuid channel_id FK
+        text ota_booking_id UK
+        text ota_name
+        text guest_name
+        date check_in
+        date check_out
+        text room_type
+        numeric total_amount
+        numeric commission_amount
+        text booking_status
+        jsonb raw_payload
+    }
+
+    channel_rate_rules {
+        uuid id PK
+        uuid restaurant_id FK
+        uuid channel_id FK
+        text rule_type
+        numeric value
+        boolean is_percentage
+        numeric min_price
+        numeric max_price
+        int priority
+    }
+
+    rate_parity_checks {
+        uuid id PK
+        uuid restaurant_id FK
+        uuid channel_id FK
+        text room_type
+        numeric base_rate
+        numeric ota_rate
+        text parity_status
+        timestamp checked_at
+    }
+
+    sync_retry_queue {
+        uuid id PK
+        uuid restaurant_id FK
+        uuid channel_id FK
+        text sync_type
+        jsonb payload
+        int retry_count
+        text status
+        timestamp next_retry_at
+    }
+
+    channel_restrictions {
+        uuid id PK
+        uuid restaurant_id FK
+        uuid channel_id FK
+        text room_type
+        date date
+        text restriction_type
+        text value
+    }
+
+    ota_credentials ||--o{ sync_logs : "logs syncs"
+    ota_credentials ||--o{ ota_bookings : "receives bookings"
+    channel_room_mapping ||--o{ pool_inventory : "maps inventory"
+    pool_inventory ||--o{ ota_bookings : "decremented by"
+    sync_logs ||--o{ sync_retry_queue : "retries from"
+    channel_rate_rules ||--o{ rate_parity_checks : "checked against"
+```
+
+---
+
+### CMS File Reference
+
+| Category | File | Description |
+|----------|------|-------------|
+| **Edge Functions** | `sync-channels/index.ts` | Full sync engine — pushes ARI, pulls bookings, logs everything |
+| **Edge Functions** | `ota-webhooks/index.ts` | Webhook receiver — normalizes OTA bookings, triggers cross-channel sync |
+| **Shared Types** | `_shared/ota-adapter-types.ts` | OTAAdapter interface, types, adapter registry |
+| **Adapters** | `_shared/adapters/mmt-goibibo-adapter.ts` | MMT/Goibibo adapter (InGo-MMT platform) |
+| **Adapters** | `_shared/adapters/booking-com-adapter.ts` | Booking.com adapter (JSON + XML) |
+| **UI — Dashboard** | `ChannelManagementDashboard.tsx` | Main CMS dashboard with 11 tabs |
+| **UI — Credentials** | `OTACredentialManager.tsx` | Secure OTA credential vault (5 OTA presets) |
+| **UI — Calendar** | `RoomInventoryCalendar.tsx` | Asiatech-style availability grid + click-to-book |
+| **UI — Mapping** | `ChannelMappingManager.tsx` | Channel room mapping with auto-map |
+| **UI — Parity** | `RateParityDashboard.tsx` | Rate parity score + channel comparison |
+| **Hook** | `useOTACredentials.tsx` | CRUD for OTA credentials + sync logs |
+| **Migration** | `20260322_channel_management_system.sql` | 9 tables, indexes, triggers, RLS |
+
+### pg_cron Scheduled Jobs
+
+| Job Name | Schedule | Description |
+|----------|----------|-------------|
+| `channel-auto-sync-15min` | `*/15 * * * *` | Full ARI sync: push rates + availability, pull bookings |
+| `retry-queue-processor-5min` | `*/5 * * * *` | Process failed syncs with exponential backoff (max 10 retries) |
+| `rate-parity-check-daily` | `0 6 * * *` | Compare base rates vs channel-adjusted rates, log to rate_parity_checks |
 
 ---
 
