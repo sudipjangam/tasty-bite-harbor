@@ -16,6 +16,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
+import { useHousekeeping } from "@/hooks/useHousekeeping";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -37,6 +38,7 @@ const CleaningSchedules = () => {
   const queryClient = useQueryClient();
   const { restaurantId } = useRestaurantId();
   const { hasPermission } = useAuth();
+  const { assignTask, updateStatus } = useHousekeeping();
 
   // Real-time subscription for cleaning schedules
   useRealtimeSubscription({
@@ -138,114 +140,17 @@ const CleaningSchedules = () => {
     enabled: !!restaurantId,
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({
-      id,
-      status,
-      actualStartTime,
-      actualEndTime,
-    }: {
-      id: string;
-      status: string;
-      actualStartTime?: string;
-      actualEndTime?: string;
-    }) => {
-      const updateData: any = { status };
-      if (actualStartTime) updateData.actual_start_time = actualStartTime;
-      if (actualEndTime) updateData.actual_end_time = actualEndTime;
-
-      const { error } = await supabase
-        .from("room_cleaning_schedules")
-        .update(updateData)
-        .eq("id", id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cleaning-schedules"] });
-      toast({
-        title: "Success",
-        description: "Schedule status updated successfully",
-      });
-    },
-    onError: (error) => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to update schedule status",
-      });
-    },
-  });
-
-  // Staff assignment mutation with notification
-  const assignStaffMutation = useMutation({
-    mutationFn: async ({
-      scheduleId,
-      staffId,
-      roomName,
-    }: {
-      scheduleId: string;
-      staffId: string;
-      roomName: string;
-    }) => {
-      // Update the schedule with assigned staff
-      const { error: scheduleError } = await supabase
-        .from("room_cleaning_schedules")
-        .update({ assigned_staff_id: staffId })
-        .eq("id", scheduleId);
-
-      if (scheduleError) throw scheduleError;
-
-      // Create notification for the assigned staff
-      const { error: notifError } = await supabase
-        .from("staff_notifications")
-        .insert([
-          {
-            restaurant_id: restaurantId,
-            staff_id: staffId,
-            title: "🧹 New Cleaning Task Assigned",
-            message: `You have been assigned to clean ${roomName}. Please complete the housekeeping checklist.`,
-            type: "task_assigned",
-            reference_type: "cleaning_schedule",
-            reference_id: scheduleId,
-            is_read: false,
-          },
-        ]);
-
-      if (notifError) {
-        console.error("Failed to create notification:", notifError);
-        // Don't fail the assignment if notification fails
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cleaning-schedules"] });
-      toast({
-        title: "Staff Assigned",
-        description: "Staff member has been assigned and notified.",
-      });
-    },
-    onError: () => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to assign staff",
-      });
-    },
-  });
-
-  const handleStartCleaning = (scheduleId: string) => {
-    updateStatusMutation.mutate({
-      id: scheduleId,
-      status: "in_progress",
-      actualStartTime: new Date().toISOString(),
+  const handleStartCleaning = async (scheduleId: string) => {
+    await updateStatus({
+      taskId: scheduleId,
+      status: "in_progress"
     });
   };
 
-  const handleCompleteCleaning = (scheduleId: string) => {
-    updateStatusMutation.mutate({
-      id: scheduleId,
-      status: "completed",
-      actualEndTime: new Date().toISOString(),
+  const handleCompleteCleaning = async (scheduleId: string) => {
+    await updateStatus({
+      taskId: scheduleId,
+      status: "completed"
     });
   };
 
@@ -399,11 +304,7 @@ const CleaningSchedules = () => {
                       hasPermission("housekeeping.assign") && (
                         <Select
                           onValueChange={(staffId) => {
-                            assignStaffMutation.mutate({
-                              scheduleId: schedule.id,
-                              staffId,
-                              roomName: schedule.rooms?.name || "Room",
-                            });
+                            assignTask(schedule.id, staffId);
                           }}
                         >
                           <SelectTrigger className="w-[140px] h-8 text-xs">
@@ -441,7 +342,6 @@ const CleaningSchedules = () => {
                         <Button
                           size="sm"
                           onClick={() => handleStartCleaning(schedule.id)}
-                          disabled={updateStatusMutation.isPending}
                           className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
                         >
                           <Clock className="h-4 w-4 mr-1" />
@@ -454,7 +354,6 @@ const CleaningSchedules = () => {
                         <Button
                           size="sm"
                           onClick={() => handleCompleteCleaning(schedule.id)}
-                          disabled={updateStatusMutation.isPending}
                           className="bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white"
                         >
                           <Check className="h-4 w-4 mr-1" />

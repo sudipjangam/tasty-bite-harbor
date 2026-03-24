@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardHeader,
@@ -15,9 +15,16 @@ import {
   Edit3,
   LogOut,
   LogIn,
+  UserCheck,
+  Clock,
+  Timer,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Link } from "react-router-dom";
 
 interface RoomCardProps {
   room: {
@@ -36,6 +43,25 @@ interface RoomCardProps {
   getStatusClass: (status: string) => string;
 }
 
+// Helper to format elapsed time
+const formatElapsed = (startTime: string) => {
+  const start = new Date(startTime).getTime();
+  const now = Date.now();
+  const diffMs = Math.max(0, now - start);
+  const totalMinutes = Math.floor(diffMs / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+};
+
+const formatTime = (isoString: string) => {
+  return new Date(isoString).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 const RoomCard: React.FC<RoomCardProps> = ({
   room,
   foodOrdersTotal,
@@ -47,6 +73,50 @@ const RoomCard: React.FC<RoomCardProps> = ({
   getStatusClass,
 }) => {
   const { symbol: currencySymbol } = useCurrencyContext();
+
+  // Live timer tick for cleaning elapsed time
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (room.status !== "cleaning") return;
+    const interval = setInterval(() => setTick((t) => t + 1), 30000); // update every 30s
+    return () => clearInterval(interval);
+  }, [room.status]);
+
+  // Fetch active cleaning schedule for this room
+  const { data: cleaningInfo } = useQuery({
+    queryKey: ["room-cleaning-info", room.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("room_cleaning_schedules")
+        .select(
+          `
+          id,
+          status,
+          cleaning_type,
+          actual_start_time,
+          actual_end_time,
+          scheduled_time,
+          scheduled_date,
+          created_at,
+          updated_at,
+          staff:assigned_staff_id(first_name, last_name)
+        `
+        )
+        .eq("room_id", room.id)
+        .in("status", ["pending", "in_progress"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error fetching cleaning info:", error);
+        return null;
+      }
+      return data;
+    },
+    enabled: room.status === "cleaning",
+    refetchInterval: room.status === "cleaning" ? 30000 : false,
+  });
 
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
@@ -204,6 +274,73 @@ const RoomCard: React.FC<RoomCardProps> = ({
                 </div>
               </div>
             )}
+
+          {/* Cleaning Details Section */}
+          {room.status === "cleaning" && cleaningInfo && (
+            <div className="space-y-2 p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl border border-amber-200/60 dark:border-amber-700/40">
+              {/* Assigned Staff */}
+              {cleaningInfo.staff && (
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg shadow-sm">
+                    <UserCheck className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-amber-600/70 dark:text-amber-400/70 font-medium">Assigned Staff</p>
+                    <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                      {(cleaningInfo.staff as any)?.first_name} {(cleaningInfo.staff as any)?.last_name}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Started At */}
+              {(cleaningInfo.actual_start_time || cleaningInfo.status === "in_progress") && (
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg shadow-sm">
+                    <Clock className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-amber-600/70 dark:text-amber-400/70 font-medium">Started At</p>
+                    <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                      {cleaningInfo.actual_start_time
+                        ? formatTime(cleaningInfo.actual_start_time)
+                        : formatTime(cleaningInfo.updated_at)}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Elapsed Time */}
+              {(cleaningInfo.actual_start_time || cleaningInfo.status === "in_progress") && (
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 bg-gradient-to-br from-rose-500 to-pink-600 rounded-lg shadow-sm">
+                    <Timer className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-amber-600/70 dark:text-amber-400/70 font-medium">Elapsed</p>
+                    <p className="text-sm font-bold text-rose-600 dark:text-rose-400">
+                      {formatElapsed(cleaningInfo.actual_start_time || cleaningInfo.updated_at)}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Cleaning Type */}
+              {cleaningInfo.cleaning_type && (
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg shadow-sm">
+                    <Sparkles className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-amber-600/70 dark:text-amber-400/70 font-medium">Type</p>
+                    <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 capitalize">
+                      {cleaningInfo.cleaning_type === "deep" ? "Deep Clean" : cleaningInfo.cleaning_type === "checkout" ? "Checkout Clean" : cleaningInfo.cleaning_type === "maintenance" ? "Maintenance" : "Standard"}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </CardDescription>
       </CardHeader>
 
@@ -258,6 +395,16 @@ const RoomCard: React.FC<RoomCardProps> = ({
               Checkout
             </Button>
           </>
+        ) : room.status === "cleaning" ? (
+          <Link to="/housekeeping">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 font-medium rounded-xl transition-all duration-200"
+            >
+              🧹 Housekeeping →
+            </Button>
+          </Link>
         ) : (
           <Button
             variant="outline"
@@ -265,7 +412,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
             disabled
             className="flex-1 text-gray-500 rounded-xl"
           >
-            {room.status === "cleaning" ? "🧹 Cleaning" : "🔧 Maintenance"}
+            🔧 Maintenance
           </Button>
         )}
       </CardFooter>

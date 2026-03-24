@@ -12,11 +12,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   useHousekeeping,
   HousekeepingStatus,
   HousekeepingTask,
 } from "@/hooks/useHousekeeping";
 import { useRooms } from "@/hooks/useRooms";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import HousekeepingCard from "./HousekeepingCard";
 import {
   Sparkles,
@@ -39,6 +49,7 @@ interface HousekeepingDashboardProps {
 const HousekeepingDashboard: React.FC<HousekeepingDashboardProps> = ({
   className,
 }) => {
+  const { restaurantId } = useRestaurantId();
   const {
     tasks,
     isLoading,
@@ -47,6 +58,8 @@ const HousekeepingDashboard: React.FC<HousekeepingDashboardProps> = ({
     createTask,
     updateStatus,
     deleteTask,
+    assignTask,
+    autoAssignTask,
   } = useHousekeeping();
   const { rooms } = useRooms();
 
@@ -55,7 +68,28 @@ const HousekeepingDashboard: React.FC<HousekeepingDashboardProps> = ({
   );
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
 
+  // Assign staff dialog state
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [selectedTaskToAssign, setSelectedTaskToAssign] = useState<string | null>(null);
+  const [selectedStaffToAssign, setSelectedStaffToAssign] = useState<string>("");
+
+  // Fetch active staff
+  const { data: staffList = [], isLoading: isStaffLoading } = useQuery({
+    queryKey: ['staff', restaurantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('staff')
+        .select('id, first_name, last_name, role')
+        .eq('restaurant_id', restaurantId!)
+        .eq('status', 'active');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!restaurantId,
+  });
+
   // Get rooms needing cleaning (cleaning status or checkout)
+  // that don't already have an active (not inspected) task
   const roomsNeedingCleaning = rooms.filter(
     (r) =>
       r.status === "cleaning" &&
@@ -77,9 +111,17 @@ const HousekeepingDashboard: React.FC<HousekeepingDashboardProps> = ({
     return true;
   });
 
-  const handleAssign = (task: HousekeepingTask) => {
-    // For now, just show a toast - full implementation would open an assignment dialog
-    console.log("Assign task:", task.id);
+  const handleOpenAssignDialog = (taskId: string) => {
+    setSelectedTaskToAssign(taskId);
+    setSelectedStaffToAssign("");
+    setIsAssignDialogOpen(true);
+  };
+
+  const handleConfirmAssign = async () => {
+    if (selectedTaskToAssign && selectedStaffToAssign) {
+      await assignTask(selectedTaskToAssign, selectedStaffToAssign);
+      setIsAssignDialogOpen(false);
+    }
   };
 
   return (
@@ -204,7 +246,14 @@ const HousekeepingDashboard: React.FC<HousekeepingDashboardProps> = ({
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Cleaning Tasks</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">
+              Cleaning Tasks
+              {tasks.filter(t => !t.assigned_to).length > 0 && (
+                <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-200 ml-2">
+                  {tasks.filter(t => !t.assigned_to).length} Unassigned
+                </Badge>
+              )}
+            </CardTitle>
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-gray-400" />
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
@@ -275,7 +324,8 @@ const HousekeepingDashboard: React.FC<HousekeepingDashboardProps> = ({
                           updateStatus({ taskId: task.id, status })
                         }
                         onDelete={() => deleteTask(task.id)}
-                        onAssign={() => handleAssign(task)}
+                        onAssign={() => handleOpenAssignDialog(task.id)}
+                        onAutoAssign={() => autoAssignTask(task.id)}
                       />
                     ))}
                   </div>
@@ -285,6 +335,51 @@ const HousekeepingDashboard: React.FC<HousekeepingDashboardProps> = ({
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Assign Staff Dialog */}
+      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Assign Staff Member</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm text-gray-500">
+              Select an available staff member, or click "Auto Assign" directly on the task card to automatically assign the least-busy staff.
+            </p>
+            {isStaffLoading ? (
+              <div className="flex items-center py-4 text-emerald-600">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                Loading staff...
+              </div>
+            ) : (
+              <Select value={selectedStaffToAssign} onValueChange={setSelectedStaffToAssign}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select staff member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {staffList.map((staff) => (
+                    <SelectItem key={staff.id} value={staff.id}>
+                      {staff.first_name} {staff.last_name} {staff.role && `- ${staff.role}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConfirmAssign} 
+              disabled={!selectedStaffToAssign}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              Assign
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
