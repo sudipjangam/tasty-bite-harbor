@@ -274,7 +274,6 @@ serve(async (req) => {
           errors: deductionErrors 
         }),
         { 
-          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );

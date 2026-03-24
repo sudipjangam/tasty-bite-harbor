@@ -479,38 +479,50 @@ const KitchenDisplay = () => {
       if (newStatus === "preparing") {
         updateData.started_at = new Date().toISOString();
 
-        // Deduct inventory
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        // Inventory deduction is non-blocking - show warnings but don't prevent order progression
+        try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
 
-        const { data: deductResult, error: deductError } =
-          await supabase.functions.invoke("deduct-inventory-on-prep", {
-            body: { order_id: orderId },
-            headers: {
-              Authorization: `Bearer ${session?.access_token}`,
-            },
-          });
+          const { data: deductResult, error: deductError } =
+            await supabase.functions.invoke("deduct-inventory-on-prep", {
+              body: { order_id: orderId },
+              headers: {
+                Authorization: `Bearer ${session?.access_token}`,
+              },
+            });
 
-        if (deductError) {
-          throw new Error(deductError.message);
-        }
-
-        if (!deductResult?.success) {
-          const errorMessage = deductResult?.errors
-            ? deductResult.errors.join("\n")
-            : deductResult?.error || "Failed to deduct inventory";
-
+          if (deductError) {
+            console.warn("Inventory deduction error:", deductError.message);
+            toast({
+              variant: "destructive",
+              title: "Inventory Warning",
+              description: "Could not deduct inventory. Check stock levels.",
+              duration: 5000,
+            });
+          } else if (deductResult && !deductResult.success) {
+            const errorMessage = deductResult.errors
+              ? deductResult.errors.join("\n")
+              : deductResult.error || "Some ingredients could not be deducted";
+            toast({
+              variant: "destructive",
+              title: "Inventory Warning",
+              description: errorMessage,
+              duration: 8000,
+            });
+          } else {
+            console.log("Inventory deducted successfully:", deductResult);
+          }
+        } catch (inventoryError) {
+          console.error("Inventory deduction failed:", inventoryError);
           toast({
             variant: "destructive",
-            title: "Insufficient Stock",
-            description: errorMessage,
-            duration: 8000,
+            title: "Inventory Warning",
+            description: "Inventory deduction failed, but order will proceed.",
+            duration: 5000,
           });
-          return;
         }
-
-        console.log("Inventory deducted successfully:", deductResult);
       } else if (newStatus === "ready") {
         updateData.completed_at = new Date().toISOString();
       }
@@ -541,6 +553,24 @@ const KitchenDisplay = () => {
           .update({ status: orderStatus })
           .eq("id", existingOrder.order_id);
       }
+
+      // Optimistic UI update - immediately move the order in local state
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? {
+                ...o,
+                status: newStatus,
+                ...(newStatus === "preparing"
+                  ? { started_at: updateData.started_at }
+                  : {}),
+                ...(newStatus === "ready"
+                  ? { completed_at: updateData.completed_at }
+                  : {}),
+              }
+            : o,
+        ),
+      );
 
       toast({
         title: "Status Updated",
