@@ -57,6 +57,7 @@ interface ActiveOrder {
   priority?: "normal" | "rush" | "vip";
   items: LocalOrderItem[];
   created_at: string;
+  updated_at?: string;
   discount_amount?: number;
   discount_percentage?: number;
   item_completion_status?: boolean[];
@@ -192,6 +193,7 @@ const ActiveOrdersList = ({
             priority: (order.priority as "normal" | "rush" | "vip") || "normal",
             items: parseOrderItems(order.items),
             created_at: order.created_at,
+            updated_at: order.updated_at,
             discount_amount: orderData?.discount_amount || 0,
             discount_percentage: orderData?.discount_percentage || 0,
             item_completion_status: Array.isArray(order.item_completion_status)
@@ -242,6 +244,7 @@ const ActiveOrdersList = ({
                     "normal",
                   items: parseOrderItems(newOrder.items),
                   created_at: newOrder.created_at,
+                  updated_at: newOrder.updated_at,
                   discount_amount: orderData?.discount_amount || 0,
                   discount_percentage: orderData?.discount_percentage || 0,
                   item_completion_status: Array.isArray(
@@ -819,6 +822,15 @@ const ActiveOrdersList = ({
                         {formatDistanceToNow(new Date(order.created_at), {
                           addSuffix: true,
                         })}
+                        {" • "}
+                        {format(
+                          new Date(
+                            order.source === "quickserve"
+                              ? order.created_at
+                              : order.updated_at || order.created_at
+                          ),
+                          "hh:mm a"
+                        )}
                       </div>
 
                       <ul className="text-xs space-y-1 max-h-16 overflow-y-auto">
@@ -985,6 +997,7 @@ const ActiveOrdersList = ({
               status: updatedOrder.status as any,
               items: parseOrderItems(updatedOrder.items),
               created_at: updatedOrder.created_at,
+              updated_at: updatedOrder.updated_at,
               discount_amount: orderData?.discount_amount || 0,
               discount_percentage: orderData?.discount_percentage || 0,
               item_completion_status: Array.isArray(

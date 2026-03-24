@@ -1,7 +1,7 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import OrderActions from "./OrderActions";
 import type { Order } from "@/types/orders";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
@@ -47,9 +47,14 @@ const OrderItem: React.FC<OrderItemProps> = ({
   onPriorityChange,
 }) => {
   const { toast } = useToast();
+  // Use created_at for quickserve orders, updated_at for pos/qsr orders
+  const orderTimestamp = order.source === "quickserve"
+    ? order.created_at
+    : order.updated_at || order.created_at;
   const formattedDate = formatDistanceToNow(new Date(order.created_at), {
     addSuffix: true,
   });
+  const actualTime = format(new Date(orderTimestamp), "hh:mm a");
 
   const handlePriorityChange = async (priority: "normal" | "rush" | "vip") => {
     try {
@@ -253,7 +258,7 @@ const OrderItem: React.FC<OrderItemProps> = ({
 
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="w-4 h-4" />
-                <span>Ordered {formattedDate}</span>
+                <span>Ordered {formattedDate} • {actualTime}</span>
               </div>
 
               {order.attendant && (
