@@ -25,6 +25,7 @@ import {
   MoreVertical,
   Trash2,
   UserPlus,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +34,7 @@ interface HousekeepingCardProps {
   onStatusChange: (status: HousekeepingStatus) => void;
   onDelete: () => void;
   onAssign: () => void;
+  onAutoAssign: () => void;
 }
 
 const STATUS_CONFIG: Record<
@@ -93,6 +95,7 @@ const HousekeepingCard: React.FC<HousekeepingCardProps> = ({
   onStatusChange,
   onDelete,
   onAssign,
+  onAutoAssign,
 }) => {
   const statusConfig = STATUS_CONFIG[task.status];
   const priorityConfig = PRIORITY_CONFIG[task.priority];
@@ -129,7 +132,7 @@ const HousekeepingCard: React.FC<HousekeepingCardProps> = ({
           <div className="flex items-center gap-2 mb-2">
             <Bed className="h-4 w-4 text-gray-500" />
             <span className="font-semibold text-gray-800 dark:text-gray-200">
-              {task.rooms?.name || "Unknown Room"}
+              {task.room_name || "Unknown Room"}
             </span>
             <Badge className={cn("text-xs", priorityConfig.color)}>
               {priorityConfig.label}
@@ -148,21 +151,32 @@ const HousekeepingCard: React.FC<HousekeepingCardProps> = ({
           </p>
 
           {/* Assigned To */}
-          {task.assigned_profile ? (
+          {task.assigned_to && task.assigned_to_name !== "Unassigned" ? (
             <div className="flex items-center gap-1.5 mt-2 text-sm text-gray-500">
               <User className="h-3.5 w-3.5" />
-              <span>{task.assigned_profile.full_name}</span>
+              <span>{task.assigned_to_name}</span>
             </div>
           ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-2 text-gray-500 hover:text-gray-700 p-0 h-auto"
-              onClick={onAssign}
-            >
-              <UserPlus className="h-3.5 w-3.5 mr-1" />
-              Assign Staff
-            </Button>
+            <div className="flex items-center gap-2 mt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-gray-500 h-auto py-1 px-2 border-dashed"
+                onClick={onAssign}
+              >
+                <UserPlus className="h-3.5 w-3.5 mr-1" />
+                Select Staff
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 h-auto py-1 px-2"
+                onClick={onAutoAssign}
+              >
+                <Sparkles className="h-3 w-3 mr-1" />
+                Auto
+              </Button>
+            </div>
           )}
 
           {/* Notes */}
