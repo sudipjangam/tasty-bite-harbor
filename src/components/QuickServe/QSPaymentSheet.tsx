@@ -47,6 +47,11 @@ interface QSPaymentSheetProps {
   loyaltyCustomerId?: string;
   couponId?: string;
   couponDiscountAmount?: number;
+  existingOrder?: {
+    id: string;
+    total: number;
+    orderNumber: number | null;
+  };
 }
 
 const paymentMethods = [
@@ -122,7 +127,9 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   loyaltyCustomerId,
   couponId,
   couponDiscountAmount = 0,
+  existingOrder,
 }) => {
+  const [isOpenLocal, setIsOpenLocal] = useState(isOpen);
   const [status, setStatus] = useState<"idle" | "processing" | "success">(
     "idle",
   );
@@ -181,20 +188,23 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     staleTime: 1000 * 60 * 30,
   });
 
-  const itemsSubtotal = items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0,
-  );
+  const itemsSubtotal = existingOrder
+    ? existingOrder.total
+    : items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  const discountValue =
-    discountPercentage > 0
+  const discountValue = existingOrder
+    ? 0
+    : discountPercentage > 0
       ? (itemsSubtotal * discountPercentage) / 100
       : discountAmount;
-  const afterDiscount = Math.max(
-    0,
-    itemsSubtotal - discountValue - couponDiscountAmount,
-  );
-  const subtotal = Math.max(0, afterDiscount - loyaltyDiscountAmount);
+
+  const afterDiscount = existingOrder
+    ? existingOrder.total
+    : Math.max(0, itemsSubtotal - discountValue - couponDiscountAmount);
+
+  const subtotal = existingOrder
+    ? existingOrder.total
+    : Math.max(0, afterDiscount - loyaltyDiscountAmount);
 
   const upiId = paymentSettings?.upi_id || null;
   const upiName = (paymentSettings as any)?.upi_name || restaurantName;
@@ -590,6 +600,56 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         : "Staff";
 
       const finalCustomerName = customerName.trim() || "Walk-in Customer";
+
+      // ─── If checking out an existing order (from Active Orders) ───
+      if (existingOrder) {
+        setStatus("processing");
+        setSelectedMethod(method as any);
+
+        // 1. Update order payment status
+        const { error: updateError } = await supabase
+          .from("orders")
+          .update({ payment_status: isNC ? "nc" : "paid" })
+          .eq("id", existingOrder.id);
+
+        if (updateError) throw updateError;
+
+        // 2. Log payment transaction
+        await supabase.from("pos_transactions").insert({
+          restaurant_id: restaurantId,
+          order_id: existingOrder.id,
+          amount: orderTotal,
+          payment_method: method,
+          status: "completed",
+          customer_name: finalCustomerName,
+          customer_phone: customerPhone || null,
+          discount_amount: 0,
+        });
+
+        setOrderNumber(existingOrder.orderNumber || 0);
+
+        // CRM sync (background)
+        if (customerName.trim()) {
+          (async () => {
+            try {
+              await syncCustomerToCRM({
+                customerName: finalCustomerName,
+                customerPhone: customerPhone || undefined,
+                orderTotal,
+                orderId: existingOrder.id,
+                source: "quickserve",
+              });
+            } catch (err) {
+              console.error("CRM sync error:", err);
+            }
+          })();
+        }
+
+        setStatus("success");
+        if (onSuccess) onSuccess(existingOrder.orderNumber || undefined);
+        return; // Early return skip new order generation
+      }
+      // ──────────────────────────────────────────────────────────────
 
       const formattedItems = items.map(
         (item) => `${item.quantity}x ${item.name} @${item.price}`,

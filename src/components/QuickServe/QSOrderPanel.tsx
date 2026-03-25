@@ -11,6 +11,8 @@ import {
   Ticket,
   X,
   Check,
+  PauseCircle,
+  ChefHat,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -41,6 +43,8 @@ interface QSOrderPanelProps {
   onRemove: (id: string) => void;
   onClear: () => void;
   onProceedToPayment: () => void;
+  onHoldOrder?: () => void;
+  onSendToKitchen?: () => void;
   discountAmount?: number;
   discountPercentage?: number;
   onDiscountChange?: (amount: number, percentage: number) => void;
@@ -58,6 +62,9 @@ interface QSOrderPanelProps {
   couponLoading?: boolean;
   couponError?: string | null;
   availableCoupons?: any[];
+  // Edit mode
+  editingOrderItems?: QSOrderItem[];
+  onCancelEdit?: () => void;
 }
 
 export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
@@ -67,6 +74,8 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
   onRemove,
   onClear,
   onProceedToPayment,
+  onHoldOrder,
+  onSendToKitchen,
   discountAmount = 0,
   discountPercentage = 0,
   onDiscountChange,
@@ -83,6 +92,8 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
   couponLoading = false,
   couponError,
   availableCoupons = [],
+  editingOrderItems = [],
+  onCancelEdit,
 }) => {
   const { symbol: currencySymbol } = useCurrencyContext();
   const [discountMode, setDiscountMode] = useState<"flat" | "percent">("flat");
@@ -130,7 +141,13 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
-  if (items.length === 0) {
+  const isEditMode = editingOrderItems.length > 0;
+  const editingTotal = editingOrderItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
+
+  if (items.length === 0 && !isEditMode) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-white/25 px-4">
         <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-orange-100 to-pink-100 dark:from-orange-500/10 dark:to-pink-500/10 flex items-center justify-center mb-4 shadow-inner">
@@ -198,6 +215,54 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
 
       {/* ─── Items List ─── */}
       <div className="flex-1 overflow-y-auto min-h-0 px-3 py-2 space-y-2">
+        {/* ─── Existing Items (Read-only, edit mode) ─── */}
+        {isEditMode && (
+          <>
+            <div className="flex items-center justify-between px-1 py-1">
+              <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                📦 Existing Items
+              </span>
+              {onCancelEdit && (
+                <button
+                  onClick={onCancelEdit}
+                  className="text-[10px] font-bold text-red-400 hover:text-red-500 uppercase tracking-wider"
+                >
+                  ✕ Cancel Edit
+                </button>
+              )}
+            </div>
+            {editingOrderItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center gap-2.5 p-2.5 rounded-2xl border bg-gray-50/80 dark:bg-gray-800/40 border-gray-200/40 dark:border-gray-700/30 opacity-60"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                    {item.name}
+                  </p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    {currencySymbol}{(item.price * item.quantity).toFixed(2)}
+                  </p>
+                </div>
+                <span className="text-xs font-bold text-gray-400 dark:text-gray-500 bg-gray-200/50 dark:bg-gray-700/50 px-2 py-0.5 rounded-full">
+                  {item.quantity}x
+                </span>
+              </div>
+            ))}
+            <div className="flex items-center gap-2 py-1.5">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-emerald-300 dark:via-emerald-600 to-transparent" />
+              <span className="text-[10px] font-bold text-emerald-500 dark:text-emerald-400 uppercase tracking-widest">
+                ➕ New Items
+              </span>
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-emerald-300 dark:via-emerald-600 to-transparent" />
+            </div>
+            {items.length === 0 && (
+              <div className="text-center py-4 text-gray-400 dark:text-gray-500">
+                <p className="text-xs">Tap menu items to add to this order</p>
+              </div>
+            )}
+          </>
+        )}
         {items.map((item) => (
           <div
             key={item.id}
@@ -513,6 +578,35 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
             {finalTotal.toFixed(2)}
           </span>
         </div>
+
+        {/* Action Buttons */}
+        {(onHoldOrder || onSendToKitchen) && (
+          <div className="flex gap-2">
+            {onHoldOrder && (
+              <Button
+                onClick={onHoldOrder}
+                variant="outline"
+                className="flex-1 h-11 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/10 hover:from-amber-100 hover:to-yellow-100 dark:hover:from-amber-900/30 dark:hover:to-yellow-900/20 border-amber-300 dark:border-amber-700/50 text-amber-700 dark:text-amber-400 font-bold text-sm rounded-2xl transition-all active:scale-[0.97]"
+              >
+                <PauseCircle className="h-4 w-4 mr-1.5" />
+                Hold
+              </Button>
+            )}
+            {onSendToKitchen && (
+              <Button
+                onClick={onSendToKitchen}
+                className="flex-1 h-11 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold text-sm rounded-2xl transition-all active:scale-[0.97] border border-white/10"
+                style={{
+                  boxShadow:
+                    "0 4px 16px rgba(59, 130, 246, 0.3), 0 0 0 1px rgba(255,255,255,0.1) inset",
+                }}
+              >
+                <ChefHat className="h-4 w-4 mr-1.5" />
+                Kitchen
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Pay Button */}
         <Button
