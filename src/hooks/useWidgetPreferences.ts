@@ -7,9 +7,13 @@ function getStorageKey(restaurantId: string, dashboardType: string) {
   return `${STORAGE_KEY}_${dashboardType}_${restaurantId}`;
 }
 
-export function useWidgetPreferences(restaurantId: string | null, dashboardType: string = "food-truck") {
+export function useWidgetPreferences(
+  restaurantId: string | null,
+  dashboardType: string = "food-truck",
+  defaultWidgets: string[] = DEFAULT_WIDGETS,
+) {
   const [selectedWidgets, setSelectedWidgets] = useState<string[]>(() => {
-    if (!restaurantId) return DEFAULT_WIDGETS;
+    if (!restaurantId) return defaultWidgets;
     try {
       const saved = localStorage.getItem(getStorageKey(restaurantId, dashboardType));
       if (saved) {
@@ -17,7 +21,7 @@ export function useWidgetPreferences(restaurantId: string | null, dashboardType:
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return DEFAULT_WIDGETS;
+    return defaultWidgets;
   });
 
   const saveWidgets = useCallback(

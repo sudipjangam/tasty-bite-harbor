@@ -24,6 +24,7 @@ import {
   Clock,
   Package,
   Truck,
+  Zap,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Stats from "@/components/Dashboard/Stats";
@@ -37,11 +38,21 @@ import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { supabase } from "@/integrations/supabase/client";
 import HelpProvider from "@/components/Help/HelpProvider";
 import OwnerAlertsWidget from "@/components/Dashboard/OwnerAlertsWidget";
+import { WidgetPickerDialog } from "@/components/Dashboard/widgets/WidgetPickerDialog";
+import { WidgetRenderer } from "@/components/Dashboard/widgets/WidgetRenderer";
+import { useWidgetPreferences } from "@/hooks/useWidgetPreferences";
+import { RESTAURANT_DEFAULT_WIDGETS } from "@/components/Dashboard/widgets/WidgetRegistry";
 
 const Dashboard = () => {
   const { user, hasPermission } = useAuth();
   const navigate = useNavigate();
   const { restaurantId } = useRestaurantId();
+  const [showWidgetPicker, setShowWidgetPicker] = useState(false);
+  const { selectedWidgets, saveWidgets } = useWidgetPreferences(
+    restaurantId,
+    "restaurant",
+    RESTAURANT_DEFAULT_WIDGETS,
+  );
 
   // Detect food truck mode
   const { data: locationType } = useQuery({
@@ -421,6 +432,31 @@ const Dashboard = () => {
             <WeeklySalesChart />
           </CardContent>
         </Card>
+
+        {/* Customizable Dashboard Widgets */}
+        <div className="relative">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-indigo-500" />
+              Dashboard Widgets
+            </h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowWidgetPicker(true)}
+              className="rounded-xl border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-semibold gap-1.5"
+            >
+              <Zap className="h-3.5 w-3.5" />
+              Customize
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {selectedWidgets.map((widgetId) => (
+              <WidgetRenderer key={widgetId} widgetId={widgetId} />
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Permission Denied Dialog */}
@@ -432,6 +468,15 @@ const Dashboard = () => {
         featureName={permissionDialog.featureName}
         requiredPermission={permissionDialog.requiredPermission}
         onNavigateToHome={() => navigate("/")}
+      />
+
+      {/* Widget Picker Dialog */}
+      <WidgetPickerDialog
+        isOpen={showWidgetPicker}
+        onClose={() => setShowWidgetPicker(false)}
+        selectedWidgets={selectedWidgets}
+        onSave={saveWidgets}
+        defaultWidgets={RESTAURANT_DEFAULT_WIDGETS}
       />
     </div>
   );

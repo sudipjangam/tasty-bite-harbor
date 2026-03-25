@@ -22,6 +22,7 @@ interface WidgetPickerDialogProps {
   onClose: () => void;
   selectedWidgets: string[];
   onSave: (widgets: string[]) => void;
+  defaultWidgets?: string[];
 }
 
 export const WidgetPickerDialog: React.FC<WidgetPickerDialogProps> = ({
@@ -29,6 +30,7 @@ export const WidgetPickerDialog: React.FC<WidgetPickerDialogProps> = ({
   onClose,
   selectedWidgets,
   onSave,
+  defaultWidgets,
 }) => {
   const [tempSelection, setTempSelection] = useState<string[]>(selectedWidgets);
 
@@ -53,7 +55,7 @@ export const WidgetPickerDialog: React.FC<WidgetPickerDialogProps> = ({
   };
 
   const handleReset = () => {
-    setTempSelection(DEFAULT_WIDGETS);
+    setTempSelection(defaultWidgets || DEFAULT_WIDGETS);
   };
 
   const isMaxReached = tempSelection.length >= MAX_WIDGETS;
