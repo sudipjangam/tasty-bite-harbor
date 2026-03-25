@@ -195,7 +195,7 @@ export const useCRMSync = () => {
         // Fetch loyalty program settings once (used for points + free order check)
         const { data: loyaltyProgram } = await supabase
           .from("loyalty_programs")
-          .select("is_enabled, points_per_amount, free_order_interval")
+          .select("is_enabled, points_per_amount, spend_threshold, free_order_interval")
           .eq("restaurant_id", restaurantId)
           .maybeSingle();
 
@@ -203,6 +203,7 @@ export const useCRMSync = () => {
         if (orderTotal > 0) {
           if (loyaltyProgram?.is_enabled !== false) {
             const pointsPerAmount = loyaltyProgram?.points_per_amount ?? 1;
+            const spendThreshold = (loyaltyProgram as any)?.spend_threshold ?? 100;
 
             // Fetch customer's current tier to get multiplier
             let multiplier = 1;
@@ -221,9 +222,9 @@ export const useCRMSync = () => {
               }
             }
 
-            // Calculate: (orderTotal / 100) * pointsPerAmount * multiplier
+            // Calculate: (orderTotal / spendThreshold) * pointsPerAmount * multiplier
             pointsEarned = Math.floor(
-              (orderTotal / 100) * pointsPerAmount * multiplier
+              (orderTotal / spendThreshold) * pointsPerAmount * multiplier
             );
 
             if (pointsEarned > 0) {
