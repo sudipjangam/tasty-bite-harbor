@@ -9,6 +9,8 @@ import {
   CheckCircle2,
   RefreshCw,
   Volume2,
+  Wallet,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from "date-fns";
 import { startOfDay, endOfDay } from "date-fns";
+import { QSPaymentSheet } from "./QSPaymentSheet";
 
 export interface ActiveOrder {
   id: string;
@@ -29,6 +32,7 @@ export interface ActiveOrder {
   items: string[];
   total: number;
   status: string;
+  payment_status: string | null;
   item_completion_status: boolean[] | null;
   created_at: string;
   source: string | null;
@@ -37,9 +41,10 @@ export interface ActiveOrder {
 interface QSActiveOrdersProps {
   isOpen: boolean;
   onClose: () => void;
+  onAddItems?: (order: ActiveOrder) => void;
 }
 
-type StatusFilter = "all" | "preparing" | "completed";
+type StatusFilter = "all" | "preparing" | "completed" | "unpaid";
 
 const statusConfig: Record<
   string,
@@ -75,6 +80,7 @@ function parseOrderItem(itemStr: string) {
 export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
   isOpen,
   onClose,
+  onAddItems,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -84,6 +90,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
   const { symbol: currencySymbol } = useCurrencyContext();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [checkoutOrder, setCheckoutOrder] = useState<ActiveOrder | null>(null);
 
   // Fetch active orders (today's orders that aren't fully done, or completed within last 30 min)
   const {
@@ -98,7 +105,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, order_number, customer_name, customer_phone, items, total, status, item_completion_status, created_at, source",
+          "id, order_number, customer_name, customer_phone, items, total, status, payment_status, item_completion_status, created_at, source",
         )
         .eq("restaurant_id", restaurantId)
         .in("source", ["quickserve", "pos"])
@@ -116,7 +123,9 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
 
   // Filter orders
   const filteredOrders = orders.filter((order) => {
-    if (statusFilter !== "all" && order.status !== statusFilter) return false;
+    if (statusFilter === "unpaid" && order.payment_status !== "pending") return false;
+    if (statusFilter === "preparing" && order.status !== "preparing") return false;
+    if (statusFilter === "completed" && order.status !== "completed") return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
@@ -131,6 +140,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
   // Counts by status
   const preparingCount = orders.filter((o) => o.status === "preparing").length;
   const completedCount = orders.filter((o) => o.status === "completed").length;
+  const unpaidCount = orders.filter((o) => o.payment_status === "pending").length;
 
   // Real-time subscription for immediate updates
   useEffect(() => {
@@ -363,8 +373,8 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
               className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
             />
           </div>
-          <div className="flex gap-2">
-            {(["all", "preparing", "completed"] as StatusFilter[]).map(
+          <div className="flex gap-2 flex-wrap">
+            {(["all", "preparing", "unpaid", "completed"] as StatusFilter[]).map(
               (sf) => (
                 <button
                   key={sf}
@@ -372,7 +382,9 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
                     statusFilter === sf
-                      ? "bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-md"
+                      ? sf === "unpaid"
+                        ? "bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-md"
+                        : "bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-md"
                       : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700",
                   )}
                 >
@@ -380,7 +392,9 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                     ? `All (${orders.length})`
                     : sf === "preparing"
                       ? `🔥 Preparing (${preparingCount})`
-                      : `✓ Done (${completedCount})`}
+                      : sf === "unpaid"
+                        ? `💰 Unpaid (${unpaidCount})`
+                        : `✓ Done (${completedCount})`}
                 </button>
               ),
             )}
@@ -568,28 +582,60 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
 
                       {/* Footer: Total + Action */}
                       <div className="px-3 pb-3 pt-1 flex items-center justify-between">
-                        <p className="text-sm font-bold text-gray-700 dark:text-gray-200">
-                          {currencySymbol}
-                          {order.total.toFixed(0)}
-                        </p>
-                        {order.status !== "completed" && (
-                          <Button
-                            size="sm"
-                            onClick={() =>
-                              handleStatusChange(order.id, "completed")
-                            }
-                            className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-xs font-bold rounded-lg px-3 h-7"
-                          >
-                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Done
-                          </Button>
-                        )}
-                        {order.status === "completed" && (
-                          <span className="text-xs font-bold text-blue-500 dark:text-blue-400 flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Completed
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold text-gray-700 dark:text-gray-200">
+                            {currencySymbol}
+                            {order.total.toFixed(0)}
+                          </p>
+                          {order.payment_status === "pending" && (
+                            <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-700/50">
+                              <Wallet className="w-3 h-3" />
+                              Unpaid
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {/* Add Items to existing order */}
+                          {order.status !== "completed" && onAddItems && (
+                            <Button
+                              size="sm"
+                              onClick={() => onAddItems(order)}
+                              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white text-xs font-bold rounded-lg px-3 h-7"
+                            >
+                              <Plus className="w-3 h-3 mr-1" />
+                              Add Items
+                            </Button>
+                          )}
+                          {/* Collect Payment for unpaid orders */}
+                          {order.payment_status === "pending" && (
+                            <Button
+                              size="sm"
+                              onClick={() => setCheckoutOrder(order)}
+                              className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white text-xs font-bold rounded-lg px-3 h-7"
+                            >
+                              <Wallet className="w-3 h-3 mr-1" />
+                              Collect Payment
+                            </Button>
+                          )}
+                          {order.status !== "completed" && (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                handleStatusChange(order.id, "completed")
+                              }
+                              className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-xs font-bold rounded-lg px-3 h-7"
+                            >
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Done
+                            </Button>
+                          )}
+                          {order.status === "completed" && order.payment_status !== "pending" && (
+                            <span className="text-xs font-bold text-blue-500 dark:text-blue-400 flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Completed
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -599,6 +645,37 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
           </div>
         </ScrollArea>
       </div>
+
+      {/* Payment Modal for Pending Orders */}
+      {checkoutOrder && (
+        <QSPaymentSheet
+          isOpen={!!checkoutOrder}
+          onClose={() => setCheckoutOrder(null)}
+          items={checkoutOrder.items.map((itemStr, idx) => {
+            const parsed = parseOrderItem(itemStr);
+            return {
+              id: `existing-item-${idx}`,
+              menuItemId: `existing-menu-item-${idx}`,
+              name: parsed.name,
+              price: parsed.price,
+              quantity: parsed.quantity,
+            };
+          })}
+          customerName={checkoutOrder.customer_name || ""}
+          customerPhone={checkoutOrder.customer_phone || ""}
+          existingOrder={{
+            id: checkoutOrder.id,
+            total: checkoutOrder.total,
+            orderNumber: checkoutOrder.order_number,
+          }}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+            queryClient.invalidateQueries({ queryKey: ["quickserve-todays-revenue"] });
+            queryClient.invalidateQueries({ queryKey: ["food-truck-today-stats"] });
+            queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
+          }}
+        />
+      )}
     </>
   );
 };

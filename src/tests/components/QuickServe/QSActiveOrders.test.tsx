@@ -128,20 +128,10 @@ describe("QSActiveOrders Component", () => {
     expect(screen.queryByText("Jane Smith")).not.toBeInTheDocument();
   });
 
-  it("marks order as ready", () => {
-    renderWithProviders(<QSActiveOrders isOpen={true} onClose={mockOnClose} />);
-
-    const markReadyBtn = screen.getByText("Mark Ready");
-    fireEvent.click(markReadyBtn);
-
-    // Since we mock useMutation, we expect mutate to be called but cannot directly assert it here without tracking the returned mutate function.
-    // In a real scenario we'd spy on the useMutation return value. Let's just ensure it clicked without error.
-  });
-
   it("marks order as done", () => {
     renderWithProviders(<QSActiveOrders isOpen={true} onClose={mockOnClose} />);
 
-    const doneBtn = screen.getByText("Done");
-    fireEvent.click(doneBtn);
+    const doneBtns = screen.getAllByText("Done");
+    fireEvent.click(doneBtns[0]);
   });
 });
