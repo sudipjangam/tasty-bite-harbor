@@ -159,5 +159,14 @@ export const DEFAULT_WIDGETS = [
   "payment-split",
 ];
 
+export const RESTAURANT_DEFAULT_WIDGETS = [
+  "low-inventory",
+  "weekly-sales",
+  "trending-items",
+  "revenue-pie",
+  "recent-orders",
+  "nc-stats",
+];
+
 export const getWidgetById = (id: string) =>
   WIDGET_CATALOG.find((w) => w.id === id);
