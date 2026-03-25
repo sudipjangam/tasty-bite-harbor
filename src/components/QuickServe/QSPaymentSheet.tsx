@@ -301,12 +301,13 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           try {
             const { data: loyaltyProgram } = await supabase
               .from("loyalty_programs")
-              .select("is_enabled, points_per_amount")
+              .select("is_enabled, points_per_amount, spend_threshold")
               .eq("restaurant_id", restaurantId)
               .maybeSingle();
 
             if (loyaltyProgram?.is_enabled !== false) {
               const pointsPerAmount = loyaltyProgram?.points_per_amount ?? 1;
+              const spendThreshold = (loyaltyProgram as any)?.spend_threshold ?? 100;
               let multiplier = 1;
 
               // Try to get customer's tier multiplier if they exist
@@ -331,7 +332,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                 }
               }
 
-              pointsEarned = Math.floor((subtotal / 100) * pointsPerAmount * multiplier);
+              pointsEarned = Math.floor((subtotal / spendThreshold) * pointsPerAmount * multiplier);
             }
           } catch (err) {
             console.error("Points calculation error (non-blocking):", err);

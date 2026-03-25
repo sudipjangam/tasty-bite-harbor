@@ -20,6 +20,7 @@ export interface LoyaltyProgramDB {
   restaurant_id: string;
   is_enabled: boolean;
   points_per_amount: number;
+  spend_threshold: number;
   amount_per_point: number;
   points_expiry_days: number | null;
   created_at: string;

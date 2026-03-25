@@ -142,10 +142,10 @@ const LoyaltyManagement: React.FC<LoyaltyManagementProps> = ({
   const [isEditingPoints, setIsEditingPoints] = useState(false);
   const [isEditingTier, setIsEditingTier] = useState(false);
   const [newPoints, setNewPoints] = useState(
-    customer.loyalty_points.toString()
+    customer.loyalty_points.toString(),
   );
   const [newTier, setNewTier] = useState<CustomerLoyaltyTier>(
-    customer.loyalty_tier
+    customer.loyalty_tier,
   );
   const [showProgramSettings, setShowProgramSettings] = useState(false);
   const [showTierEditor, setShowTierEditor] = useState(false);
@@ -384,7 +384,7 @@ const LoyaltyManagement: React.FC<LoyaltyManagementProps> = ({
     effectiveTiers.find((t) => t.name === customer.loyalty_tier) ||
     effectiveTiers[0];
   const currentTierIndex = effectiveTiers.findIndex(
-    (t) => t.name === customer.loyalty_tier
+    (t) => t.name === customer.loyalty_tier,
   );
   const nextTier =
     currentTierIndex < effectiveTiers.length - 1
@@ -587,7 +587,7 @@ const LoyaltyManagement: React.FC<LoyaltyManagementProps> = ({
                     <Badge
                       className={cn(
                         currentTier?.color || "bg-gray-500",
-                        "text-white"
+                        "text-white",
                       )}
                     >
                       {getTierIcon(customer.loyalty_tier)}
@@ -697,19 +697,19 @@ const TierProgress: React.FC<{
 }> = ({ customer, currentTier, nextTier }) => {
   const spentProgress = Math.min(
     (customer.total_spent / (nextTier.min_spent || 1)) * 100,
-    100
+    100,
   );
   const visitsProgress = Math.min(
     (customer.visit_count / (nextTier.min_visits || 1)) * 100,
-    100
+    100,
   );
   const pointsProgress = Math.min(
     (customer.loyalty_points / (nextTier.points_required || 1)) * 100,
-    100
+    100,
   );
   const overallProgress = Math.min(
     (spentProgress + visitsProgress + pointsProgress) / 3,
-    100
+    100,
   );
 
   return (
@@ -864,7 +864,7 @@ const TierEditorForm: React.FC<{
     display_order: tier.display_order,
   });
   const [benefitsText, setBenefitsText] = useState(
-    (tier.benefits || []).join("\n")
+    (tier.benefits || []).join("\n"),
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1009,6 +1009,7 @@ const ProgramSettingsForm: React.FC<{
   const [settings, setSettings] = useState({
     is_enabled: program?.is_enabled ?? true,
     points_per_amount: program?.points_per_amount ?? 1,
+    spend_threshold: program?.spend_threshold ?? 100,
     amount_per_point: program?.amount_per_point ?? 1,
     points_expiry_days: program?.points_expiry_days ?? null,
   });
@@ -1019,85 +1020,190 @@ const ProgramSettingsForm: React.FC<{
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="flex items-center justify-between">
-        <Label htmlFor="enabled">Enable Loyalty Program</Label>
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {/* Toggle Section */}
+      <div className="flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/60 dark:to-gray-800/40 border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-2.5">
+          <div
+            className={`p-1.5 rounded-lg ${settings.is_enabled ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-gray-200 dark:bg-gray-700"}`}
+          >
+            <Star
+              className={`h-4 w-4 ${settings.is_enabled ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400"}`}
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-semibold">Loyalty Program</Label>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {settings.is_enabled
+                ? "Earning points on every order"
+                : "Points earning paused"}
+            </p>
+          </div>
+        </div>
         <Button
           type="button"
-          variant={settings.is_enabled ? "default" : "outline"}
           size="sm"
+          className={`rounded-full px-4 font-semibold shadow-sm transition-all ${
+            settings.is_enabled
+              ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
+              : "bg-gray-300 hover:bg-gray-400 text-gray-700 dark:bg-gray-600 dark:text-gray-300"
+          }`}
           onClick={() =>
             setSettings({ ...settings, is_enabled: !settings.is_enabled })
           }
         >
-          {settings.is_enabled ? "Enabled" : "Disabled"}
+          {settings.is_enabled ? "✓ Active" : "Inactive"}
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="pointsPerAmount">Points per ₹100 Spent</Label>
-          <Input
-            id="pointsPerAmount"
-            type="number"
-            value={settings.points_per_amount}
-            onChange={(e) =>
-              setSettings({
-                ...settings,
-                points_per_amount: Number(e.target.value),
-              })
-            }
-            min="0"
-            step="0.1"
-          />
-          <p className="text-xs text-gray-500">
-            How many points customer earns per ₹100
+      <div className={`space-y-5 transition-all ${!settings.is_enabled ? 'opacity-40 blur-[1px] pointer-events-none select-none' : ''}`}>
+      {/* How Points Are Earned */}
+      <div className="rounded-xl border border-purple-200 dark:border-purple-800/50 bg-gradient-to-br from-purple-50/80 to-indigo-50/50 dark:from-purple-900/20 dark:to-indigo-900/10 p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+          <h3 className="text-sm font-bold text-purple-800 dark:text-purple-300">
+            How Points Are Earned
+          </h3>
+        </div>
+
+        {/* Live summary sentence */}
+        <div className="rounded-lg bg-purple-100/60 dark:bg-purple-900/30 p-3">
+          <p className="text-sm font-medium text-purple-800 dark:text-purple-200">
+            On every <span className="font-bold text-purple-600 dark:text-purple-300">₹{settings.spend_threshold || '___'}</span> spend, customer earns <span className="font-bold text-purple-600 dark:text-purple-300">{settings.points_per_amount || '___'}</span> points
           </p>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="amountPerPoint">₹ Value per Point</Label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+              <span className="p-0.5 bg-purple-200 dark:bg-purple-800 rounded">
+                💰
+              </span>
+              For every ₹ (spend)
+            </Label>
+            <Input
+              id="spendThreshold"
+              type="number"
+              value={settings.spend_threshold}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSettings({
+                  ...settings,
+                  spend_threshold: val === "" ? ("" as any) : Number(val),
+                });
+              }}
+              placeholder="e.g. 50"
+              className="border-purple-200 dark:border-purple-700 focus:ring-purple-500 bg-white dark:bg-gray-800"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+              <span className="p-0.5 bg-purple-200 dark:bg-purple-800 rounded">
+                ⭐
+              </span>
+              Points earned
+            </Label>
+            <Input
+              id="pointsPerAmount"
+              type="number"
+              value={settings.points_per_amount}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSettings({
+                  ...settings,
+                  points_per_amount: val === "" ? ("" as any) : Number(val),
+                });
+              }}
+              placeholder="e.g. 10"
+              className="border-purple-200 dark:border-purple-700 focus:ring-purple-500 bg-white dark:bg-gray-800"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* How Points Are Used */}
+      <div className="rounded-xl border border-amber-200 dark:border-amber-800/50 bg-gradient-to-br from-amber-50/80 to-orange-50/50 dark:from-amber-900/20 dark:to-orange-900/10 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Gift className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <h3 className="text-sm font-bold text-amber-800 dark:text-amber-300">
+            How Points Are Used
+          </h3>
+        </div>
+
+        <div className="rounded-lg bg-amber-100/60 dark:bg-amber-900/30 p-3">
+          <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+            1 point = <span className="font-bold text-amber-600 dark:text-amber-300">₹{settings.amount_per_point || '___'}</span> discount
+          </p>
+        </div>
+
+        <div className="max-w-xs space-y-1.5">
+          <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+            <span className="p-0.5 bg-amber-200 dark:bg-amber-800 rounded">
+              💎
+            </span>
+            1 point = ₹ ?
+          </Label>
           <Input
             id="amountPerPoint"
             type="number"
             value={settings.amount_per_point}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSettings({
+                ...settings,
+                amount_per_point: val === "" ? ("" as any) : Number(val),
+              });
+            }}
+            placeholder="e.g. 1"
+            className="border-amber-200 dark:border-amber-700 focus:ring-amber-500 bg-white dark:bg-gray-800"
+          />
+        </div>
+      </div>
+
+      {/* Points Expiry */}
+      <div className="rounded-xl border border-rose-200 dark:border-rose-800/50 bg-gradient-to-br from-rose-50/60 to-pink-50/40 dark:from-rose-900/15 dark:to-pink-900/10 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm">⏳</span>
+          <h3 className="text-sm font-bold text-rose-800 dark:text-rose-300">
+            Points Expiry
+          </h3>
+        </div>
+        <div className="max-w-xs space-y-1.5">
+          <Label className="text-xs font-semibold text-rose-700 dark:text-rose-300">
+            Expire after how many days?
+          </Label>
+          <Input
+            id="expiryDays"
+            type="number"
+            value={settings.points_expiry_days || ""}
             onChange={(e) =>
               setSettings({
                 ...settings,
-                amount_per_point: Number(e.target.value),
+                points_expiry_days: e.target.value
+                  ? Number(e.target.value)
+                  : null,
               })
             }
-            min="0.01"
-            step="0.01"
+            placeholder="Leave empty = never expire"
+            className="border-rose-200 dark:border-rose-700 focus:ring-rose-500 bg-white dark:bg-gray-800"
           />
-          <p className="text-xs text-gray-500">
-            Rupee value of each point for redemption
+          <p className="text-[11px] text-rose-500 dark:text-rose-400">
+            {settings.points_expiry_days
+              ? `Points will expire ${settings.points_expiry_days} days after last visit`
+              : "Points will never expire ✓"}
           </p>
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="expiryDays">Points Expiry (Days)</Label>
-        <Input
-          id="expiryDays"
-          type="number"
-          value={settings.points_expiry_days || ""}
-          onChange={(e) =>
-            setSettings({
-              ...settings,
-              points_expiry_days: e.target.value
-                ? Number(e.target.value)
-                : null,
-            })
-          }
-          placeholder="Leave empty for no expiry"
-          min="1"
-        />
-      </div>
-
-      <Button type="submit" className="w-full">
+      {/* Save Button */}
+      <Button
+        type="submit"
+        className="w-full py-5 rounded-xl font-bold text-base bg-gradient-to-r from-purple-500 via-indigo-500 to-pink-500 hover:from-purple-600 hover:via-indigo-600 hover:to-pink-600 text-white shadow-lg shadow-purple-500/25 transition-all hover:shadow-purple-500/40 hover:scale-[1.01]"
+      >
+        <Settings className="h-4 w-4 mr-2" />
         Save Settings
       </Button>
+      </div>
     </form>
   );
 };
