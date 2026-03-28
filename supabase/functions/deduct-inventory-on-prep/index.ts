@@ -148,21 +148,35 @@ serve(async (req) => {
         continue;
       }
 
-      // Resolve ingredients based on variant logic
+      // Resolve ingredients based on variant logic (REPLACEMENT model)
+      // Step 1: Add all base ingredients (variant_id IS NULL) — always included
+      // Step 2: If a variant is selected, overlay variant-specific ingredients
+      //         which REPLACE base quantities for the same inventory item
       const resolvedIngredients = new Map<string, IngredientRequirement>();
-      
+
+      // Step 1: Add all base ingredients
       for (const ingredient of ingredients as IngredientRequirement[]) {
-        const existing = resolvedIngredients.get(ingredient.inventory_item_id);
-        
-        // If this is for our specific variant, use it
-        if (ingredient.variant_id === variantId && variantId !== null) {
-          resolvedIngredients.set(ingredient.inventory_item_id, ingredient);
-        } 
-        // If it's a base ingredient and we don't already have a variant-specific one
-        else if (ingredient.variant_id === null && (!existing || existing.variant_id !== variantId)) {
+        if (ingredient.variant_id === null) {
           resolvedIngredients.set(ingredient.inventory_item_id, ingredient);
         }
       }
+      console.log(`Base ingredients for recipe ${recipe.id}: ${resolvedIngredients.size} items`);
+
+      // Step 2: If a variant was selected, overlay variant-specific ingredients
+      if (variantId) {
+        let variantOverrides = 0;
+        for (const ingredient of ingredients as IngredientRequirement[]) {
+          if (ingredient.variant_id === variantId) {
+            // Replace base quantity for same ingredient, or add new variant-only ingredient
+            resolvedIngredients.set(ingredient.inventory_item_id, ingredient);
+            variantOverrides++;
+          }
+        }
+        console.log(`Applied ${variantOverrides} variant-specific overrides for variant ${variantId}`);
+      } else {
+        console.log(`No variant selected — using base ingredients only`);
+      }
+      // If no variant selected (regular/base order), only base ingredients are deducted
 
       // Aggregate ingredients
       for (const ingredient of resolvedIngredients.values()) {
