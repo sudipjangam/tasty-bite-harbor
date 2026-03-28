@@ -581,7 +581,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                       </div>
 
                       {/* Footer: Total + Action */}
-                      <div className="px-3 pb-3 pt-1 flex items-center justify-between">
+                      <div className="px-3 pb-3 pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-gray-100 dark:border-gray-800/60 mt-2">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-bold text-gray-700 dark:text-gray-200">
                             {currencySymbol}
@@ -594,16 +594,16 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-1.5 max-w-[70%] sm:max-w-none">
                           {/* Add Items to existing order */}
                           {order.status !== "completed" && onAddItems && (
                             <Button
                               size="sm"
                               onClick={() => onAddItems(order)}
-                              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white text-xs font-bold rounded-lg px-3 h-7"
+                              className="flex-1 sm:flex-none bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white text-[11px] sm:text-xs font-bold rounded-lg px-2 sm:px-2.5 h-8 sm:h-7"
                             >
-                              <Plus className="w-3 h-3 mr-1" />
-                              Add Items
+                              <Plus className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1 shrink-0" />
+                              <span className="whitespace-nowrap">Add</span>
                             </Button>
                           )}
                           {/* Collect Payment for unpaid orders */}
@@ -611,10 +611,10 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                             <Button
                               size="sm"
                               onClick={() => setCheckoutOrder(order)}
-                              className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white text-xs font-bold rounded-lg px-3 h-7"
+                              className="flex-1 sm:flex-none bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white text-[11px] sm:text-xs font-bold rounded-lg px-2 sm:px-2.5 h-8 sm:h-7"
                             >
-                              <Wallet className="w-3 h-3 mr-1" />
-                              Collect Payment
+                              <Wallet className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1 shrink-0" />
+                              <span className="whitespace-nowrap">Pay</span>
                             </Button>
                           )}
                           {order.status !== "completed" && (
@@ -623,15 +623,15 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                               onClick={() =>
                                 handleStatusChange(order.id, "completed")
                               }
-                              className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-xs font-bold rounded-lg px-3 h-7"
+                              className="flex-1 sm:flex-none bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-[11px] sm:text-xs font-bold rounded-lg px-2 sm:px-2.5 h-8 sm:h-7"
                             >
-                              <CheckCircle2 className="w-3 h-3 mr-1" />
-                              Done
+                              <CheckCircle2 className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1 shrink-0" />
+                              <span className="whitespace-nowrap">Done</span>
                             </Button>
                           )}
                           {order.status === "completed" && order.payment_status !== "pending" && (
-                            <span className="text-xs font-bold text-blue-500 dark:text-blue-400 flex items-center gap-1">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span className="text-xs font-bold text-blue-500 dark:text-blue-400 flex items-center gap-1 w-full sm:w-auto justify-center">
+                              <CheckCircle2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                               Completed
                             </span>
                           )}

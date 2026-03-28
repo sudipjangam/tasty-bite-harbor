@@ -241,6 +241,12 @@ const QuickServePOS: React.FC = () => {
     setOrderItems((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
+  const handleAddNote = useCallback((id: string, note: string) => {
+    setOrderItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, notes: note } : item)),
+    );
+  }, []);
+
   const handleClear = useCallback(() => {
     setOrderItems([]);
     setCustomerName("");
@@ -364,10 +370,13 @@ const QuickServePOS: React.FC = () => {
         name: item.name,
         quantity: item.quantity,
         price: item.price,
-        notes: [],
+        notes: item.notes ? [item.notes] : [],
       }));
       const formattedItems = orderItems.map(
-        (item) => `${item.quantity}x ${item.name} @${item.price}`,
+        (item) => {
+          const notesSuffix = item.notes ? ` (${item.notes})` : "";
+          return `${item.quantity}x ${item.name}${notesSuffix} @${item.price}`;
+        },
       );
 
       const itemsSubtotal = orderItems.reduce(
@@ -411,9 +420,9 @@ const QuickServePOS: React.FC = () => {
       // Initialize item completion status
       const initialCompletionStatus = orderItems.map(() => false);
 
-      // ─── UPDATE MODE: Append items to existing order ───────────────
+      // ─── UPDATE MODE: Edit existing order (add/remove items) ───────────────
       if (editingOrderId) {
-        // Fetch current order to get existing items
+        // Fetch current order to get order_number and existing completion status
         const { data: existingOrder, error: fetchErr } = await supabase
           .from("orders")
           .select("items, total, item_completion_status, order_number")
@@ -421,75 +430,122 @@ const QuickServePOS: React.FC = () => {
           .single();
 
         if (fetchErr) throw fetchErr;
-
-        const existingItems: string[] = existingOrder?.items || [];
-        const existingTotal: number = existingOrder?.total || 0;
-        const existingCompletion: boolean[] = existingOrder?.item_completion_status || [];
         const orderNumber = existingOrder?.order_number || 0;
 
-        // Merge items + total + completion status
-        const mergedItems = [...existingItems, ...formattedItems];
-        const mergedTotal = existingTotal + orderTotal;
-        const mergedCompletion = [...existingCompletion, ...initialCompletionStatus];
+        // Calculate new total from ALL current cart items (existing + new + modified)
+        const fullSubtotal = orderItems.reduce(
+          (sum, item) => sum + item.price * item.quantity, 0,
+        );
+        const fullTotal = fullSubtotal; // No discount recalculation for edit mode
 
-        // 1. Update the existing order record
+        // Format ALL current items for the order record
+        const allFormattedItems = orderItems.map(
+          (item) => {
+            const notesSuffix = item.notes ? ` (${item.notes})` : "";
+            return `${item.quantity}x ${item.name}${notesSuffix} @${item.price}`;
+          },
+        );
+
+        // Reset completion status for ALL items
+        const newCompletionStatus = orderItems.map(() => false);
+
+        // 1. Replace the entire order items and total
         const { error: updateErr } = await supabase
           .from("orders")
           .update({
-            items: mergedItems,
-            total: mergedTotal,
-            item_completion_status: mergedCompletion,
+            items: allFormattedItems,
+            total: fullTotal,
+            item_completion_status: newCompletionStatus,
           })
           .eq("id", editingOrderId);
 
         if (updateErr) throw updateErr;
 
-        // 2. Create a NEW kitchen order for the new items only
-        const { data: kitchenOrder, error: kitchenError } = await supabase
-          .from("kitchen_orders")
-          .insert({
-            restaurant_id: restaurantId,
-            source: "QuickServe",
-            status: "preparing",
-            items: kitchenItems,
-            order_type: "takeaway",
-            customer_name: finalCustomerName,
-            server_name: attendantName,
-            priority: "normal",
-          })
-          .select()
-          .single();
+        // 2. Determine which items are NEW (not in original order) for kitchen
+        // Build a map of original items: name -> total quantity
+        const originalMap = new Map<string, number>();
+        editingOrderItems.forEach((item) => {
+          const key = `${item.name}@@${item.price}@@${item.notes || ""}`;
+          originalMap.set(key, (originalMap.get(key) || 0) + item.quantity);
+        });
 
-        if (kitchenError) throw kitchenError;
+        // Subtract original quantities from current to find net new
+        const currentMap = new Map<string, { name: string; price: number; quantity: number; notes?: string }>();
+        orderItems.forEach((item) => {
+          const key = `${item.name}@@${item.price}@@${item.notes || ""}`;
+          const existing = currentMap.get(key);
+          if (existing) {
+            existing.quantity += item.quantity;
+          } else {
+            currentMap.set(key, { name: item.name, price: item.price, quantity: item.quantity, notes: item.notes });
+          }
+        });
 
-        // Link kitchen order & deduct inventory (background)
-        if (kitchenOrder?.id) {
-          (async () => {
-            try {
-              await supabase
-                .from("kitchen_orders")
-                .update({ order_id: editingOrderId })
-                .eq("id", kitchenOrder.id);
-            } catch (err) {
-              console.error("Link kitchen→order error:", err);
-            }
-          })();
-          (async () => {
-            try {
-              const { data: { session } } = await supabase.auth.getSession();
-              await supabase.functions.invoke("deduct-inventory-on-prep", {
-                body: { order_id: kitchenOrder.id },
-                headers: { Authorization: `Bearer ${session?.access_token}` },
-              });
-            } catch (err) {
-              console.error("Inventory deduction failed:", err);
-            }
-          })();
+        const newKitchenItems: { name: string; quantity: number; price: number; notes: string[] }[] = [];
+        currentMap.forEach((current, key) => {
+          const origQty = originalMap.get(key) || 0;
+          const netNew = current.quantity - origQty;
+          if (netNew > 0) {
+            newKitchenItems.push({
+              name: current.name,
+              quantity: netNew,
+              price: current.price,
+              notes: current.notes ? [current.notes] : [],
+            });
+          }
+        });
+
+        // 3. Only create kitchen order if there are actually NEW items
+        if (newKitchenItems.length > 0) {
+          const { data: kitchenOrder, error: kitchenError } = await supabase
+            .from("kitchen_orders")
+            .insert({
+              restaurant_id: restaurantId,
+              source: "QuickServe",
+              status: "preparing",
+              items: newKitchenItems,
+              order_type: "takeaway",
+              customer_name: finalCustomerName,
+              server_name: attendantName,
+              priority: "normal",
+            })
+            .select()
+            .single();
+
+          if (kitchenError) throw kitchenError;
+
+          // Link kitchen order & deduct inventory (background)
+          if (kitchenOrder?.id) {
+            (async () => {
+              try {
+                await supabase
+                  .from("kitchen_orders")
+                  .update({ order_id: editingOrderId })
+                  .eq("id", kitchenOrder.id);
+              } catch (err) {
+                console.error("Link kitchen→order error:", err);
+              }
+            })();
+            (async () => {
+              try {
+                const { data: { session } } = await supabase.auth.getSession();
+                await supabase.functions.invoke("deduct-inventory-on-prep", {
+                  body: { order_id: kitchenOrder.id },
+                  headers: { Authorization: `Bearer ${session?.access_token}` },
+                });
+              } catch (err) {
+                console.error("Inventory deduction failed:", err);
+              }
+            })();
+          }
         }
 
+        const newItemCount = newKitchenItems.reduce((s, i) => s + i.quantity, 0);
         toast({
-          title: `Token #${String(orderNumber).padStart(3, "0")} — Items Added`,
-          description: `${orderItems.length} new items sent to kitchen`,
+          title: `Token #${String(orderNumber).padStart(3, "0")} — Order Updated`,
+          description: newItemCount > 0
+            ? `${newItemCount} new item(s) sent to kitchen • Total: ${currencySymbol}${fullTotal.toFixed(0)}`
+            : `Order updated • Total: ${currencySymbol}${fullTotal.toFixed(0)}`,
           duration: 3000,
         });
 
@@ -675,7 +731,8 @@ const QuickServePOS: React.FC = () => {
     orderItems, restaurantId, sendingToKitchen, user, customerName,
     customerPhone, discountAmount, discountPercentage, couponDiscountAmount,
     loyaltyDiscountAmount, loyaltyPointsUsed, appliedCoupon, toast,
-    queryClient, syncCustomerToCRM, editingOrderId,
+    queryClient, syncCustomerToCRM, editingOrderId, editingOrderItems,
+    currencySymbol,
   ]);
 
   // Add custom item
@@ -800,17 +857,32 @@ const QuickServePOS: React.FC = () => {
         if (!ok) return;
       }
 
-      // Parse existing items and load them as read-only reference
+      // Parse existing items into fully editable cart items
       const existingParsed: QSOrderItem[] = order.items.map((itemStr, idx) => {
         const match = itemStr.match(/^(\d+)x\s+(.+?)\s+@(\d+(?:\.\d+)?)$/);
         if (match) {
+          let itemName = match[2];
+          let itemNotes: string | undefined = undefined;
+          
+          // Extract notes if present at the end of the name: e.g. "Burger (No onion)"
+          const notesMatch = itemName.match(/^(.*?)\s*\((.*?)\)$/);
+          if (notesMatch) {
+            itemName = notesMatch[1];
+            itemNotes = notesMatch[2];
+          }
+
+          // Try to find matching menu item for proper menuItemId
+          const matchedMenu = menuItems.find(
+            (m) => m.name.toLowerCase() === itemName.toLowerCase(),
+          );
           return {
             id: `existing-${idx}`,
-            menuItemId: `existing-menu-${idx}`,
-            name: match[2],
+            menuItemId: matchedMenu?.id || `existing-menu-${idx}`,
+            name: itemName,
             price: parseFloat(match[3]),
             quantity: parseInt(match[1]),
-            isCustom: true,
+            isCustom: !matchedMenu,
+            notes: itemNotes,
           };
         }
         return {
@@ -824,8 +896,10 @@ const QuickServePOS: React.FC = () => {
       });
 
       setEditingOrderId(order.id);
-      setEditingOrderItems(existingParsed);
-      setOrderItems([]); // Start fresh cart for new items
+      // Store original items snapshot for kitchen diff (what was originally in the order)
+      setEditingOrderItems(existingParsed.map(item => ({ ...item })));
+      // Load ALL existing items into the editable cart
+      setOrderItems(existingParsed);
       setCustomerName(order.customer_name || "");
       setCustomerPhone(order.customer_phone || "");
       setShowActiveOrders(false);
@@ -833,11 +907,11 @@ const QuickServePOS: React.FC = () => {
 
       toast({
         title: `Editing Order #${String(order.order_number || 0).padStart(3, "0")}`,
-        description: "Add new items and click Kitchen to send them",
+        description: "Add, remove, or adjust items — then tap Kitchen to update",
         duration: 3000,
       });
     },
-    [orderItems, toast],
+    [orderItems, toast, menuItems],
   );
 
   const itemCount = orderItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -980,6 +1054,7 @@ const QuickServePOS: React.FC = () => {
             onIncrement={handleIncrement}
             onDecrement={handleDecrement}
             onRemove={handleRemove}
+            onAddNote={handleAddNote}
             onClear={handleClear}
             onProceedToPayment={() => setShowPayment(true)}
             onHoldOrder={handleHoldOrder}
@@ -1060,6 +1135,7 @@ const QuickServePOS: React.FC = () => {
               onIncrement={handleIncrement}
               onDecrement={handleDecrement}
               onRemove={handleRemove}
+              onAddNote={handleAddNote}
               onClear={handleClear}
               onProceedToPayment={() => {
                 setShowMobileCart(false);
