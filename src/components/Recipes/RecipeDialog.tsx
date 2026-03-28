@@ -117,6 +117,7 @@ export const RecipeDialog = ({
 
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
   const [missingIngredients, setMissingIngredients] = useState<string[]>([]);
+  const [activeVariantTab, setActiveVariantTab] = useState<string>("");
 
   // Fetch inventory items for ingredient selection
   const { data: inventoryItems = [] } = useQuery({
@@ -1072,36 +1073,12 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                 </div>
               )}
 
-              <div className="flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 p-4 rounded-2xl border border-purple-100 dark:border-purple-500/30">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg shadow-purple-500/30">
-                    <ClipboardList className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-purple-700 dark:text-purple-300 font-medium">
-                      Add ingredients from your inventory
-                    </p>
-                    <p className="text-xs text-purple-600/70 dark:text-purple-400/70">
-                      Units are automatically converted (e.g., 500g → 0.5kg)
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  onClick={addIngredient}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold px-4 py-2 rounded-xl shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transform hover:-translate-y-0.5 transition-all duration-300"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Ingredient
-                </Button>
-              </div>
-
               {/* Cost Summary */}
               {ingredients.length > 0 && (
                 <div className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-500/30">
                   <div className="flex items-center justify-between">
                     <span className="text-emerald-700 dark:text-emerald-300 font-semibold">
-                      Total Ingredient Cost:
+                      Total Ingredient Cost (Base):
                     </span>
                     <span className="text-2xl font-bold text-emerald-600">
                       {currencySymbol}
@@ -1111,174 +1088,362 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                 </div>
               )}
 
-              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-                {ingredients.map((ingredient, index) => {
-                  const inventoryItem = inventoryItems.find(
-                    (item: any) => item.id === ingredient.inventory_item_id,
-                  );
-                  const ingredientCost = calculateIngredientCost(ingredient);
-
-                  return (
-                    <div
-                      key={index}
-                      className="flex gap-3 items-end p-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-purple-100 dark:border-purple-500/20 rounded-2xl hover:shadow-lg hover:shadow-purple-500/10 transition-all duration-300"
-                    >
-                      <div className="flex-1 space-y-2">
-                        <Label className="text-gray-600 dark:text-gray-400 text-sm">
-                          Ingredient
-                        </Label>
-                        <Select
-                          value={ingredient.inventory_item_id}
-                          onValueChange={(value) =>
-                            updateIngredient(index, "inventory_item_id", value)
-                          }
-                        >
-                          <SelectTrigger className="bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 text-gray-900 dark:text-gray-100">
-                            <SelectValue placeholder="Select ingredient" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-xl">
-                            {inventoryItems.map((item: any) => (
-                              <SelectItem
-                                key={item.id}
-                                value={item.id}
-                                className="rounded-lg"
-                              >
-                                {item.name} ({currencySymbol}
-                                {item.cost_per_unit || 0}/{item.unit}) - Stock:{" "}
-                                {item.quantity || 0} {item.unit}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="w-28 space-y-2">
-                        <Label className="text-gray-600 dark:text-gray-400 text-sm">
-                          Quantity
-                        </Label>
-                        <Input
-                          type="number"
-                          step="0.001"
-                          value={ingredient.quantity || ""}
-                          onChange={(e) =>
-                            updateIngredient(
-                              index,
-                              "quantity",
-                              parseFloat(e.target.value) || 0,
-                            )
-                          }
-                          className="bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 text-gray-900 dark:text-gray-100"
-                        />
-                      </div>
-
-                      <div className="w-24 space-y-2">
-                        <Label className="text-gray-600 dark:text-gray-400 text-sm">
-                          Unit
-                        </Label>
-                        <Select
-                          value={ingredient.unit}
-                          onValueChange={(value) =>
-                            updateIngredient(index, "unit", value)
-                          }
-                        >
-                          <SelectTrigger className="bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 text-gray-900 dark:text-gray-100">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-xl">
-                            <SelectItem value="kg" className="rounded-lg">
-                              kg
-                            </SelectItem>
-                            <SelectItem value="g" className="rounded-lg">
-                              g
-                            </SelectItem>
-                            <SelectItem value="l" className="rounded-lg">
-                              l
-                            </SelectItem>
-                            <SelectItem value="ml" className="rounded-lg">
-                              ml
-                            </SelectItem>
-                            <SelectItem value="piece" className="rounded-lg">
-                              piece
-                            </SelectItem>
-                            <SelectItem value="cup" className="rounded-lg">
-                              cup
-                            </SelectItem>
-                            <SelectItem value="tbsp" className="rounded-lg">
-                              tbsp
-                            </SelectItem>
-                            <SelectItem value="tsp" className="rounded-lg">
-                              tsp
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Size Variant Dropdown */}
-                      {menuVariants.length > 0 && (
-                        <div className="w-32 space-y-2">
-                          <Label className="text-gray-600 dark:text-gray-400 text-sm">
-                            Variant Size
-                          </Label>
-                          <Select
-                            value={ingredient.variant_id || "base"}
-                            onValueChange={(value) =>
-                              updateIngredient(index, "variant_id", value === "base" ? null : value)
-                            }
-                          >
-                            <SelectTrigger className="bg-white/80 dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 text-gray-900 dark:text-gray-100">
-                              <SelectValue placeholder="All Sizes" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-xl">
-                              <SelectItem value="base" className="rounded-lg font-medium">
-                                Base (All Sizes)
-                              </SelectItem>
-                              {menuVariants.map((variant: any) => (
-                                <SelectItem key={variant.id} value={variant.id} className="rounded-lg">
-                                  {variant.name} Only
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-
-                      <div className="w-24 text-right space-y-2">
-                        <Label className="text-gray-600 dark:text-gray-400 text-sm">
-                          Cost
-                        </Label>
-                        <p className="font-bold text-emerald-600 py-2">
-                          {currencySymbol}
-                          {ingredientCost.toFixed(2)}
-                        </p>
-                      </div>
-
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeIngredient(index)}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-colors"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </Button>
+              {/* ═══════ BASE INGREDIENTS SECTION ═══════ */}
+              <div className="bg-gradient-to-br from-purple-50/80 to-indigo-50/80 dark:from-purple-900/10 dark:to-indigo-900/10 p-4 rounded-2xl border border-purple-100 dark:border-purple-500/20">
+                <div className="flex flex-wrap gap-2 justify-between items-center mb-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="p-1.5 sm:p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg shadow-purple-500/30 shrink-0">
+                      <ClipboardList className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                     </div>
-                  );
-                })}
-
-                {ingredients.length === 0 && (
-                  <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
-                    <div className="p-4 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-2xl inline-block mb-4">
-                      <ClipboardList className="h-8 w-8 text-gray-500 dark:text-gray-400" />
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm text-purple-700 dark:text-purple-300 font-semibold truncate">
+                        📦 Base Ingredients {menuVariants.length > 0 ? "(All Sizes)" : ""}
+                      </p>
+                      <p className="text-[10px] sm:text-xs text-purple-600/70 dark:text-purple-400/70 hidden sm:block">
+                        {menuVariants.length > 0
+                          ? "Used for every size variant — common ingredients"
+                          : "Add ingredients from your inventory"}
+                      </p>
                     </div>
-                    <p className="text-gray-600 dark:text-gray-300 font-medium mb-1">
-                      No ingredients added yet
-                    </p>
-                    <p className="text-sm text-gray-400 dark:text-gray-500">
-                      Click "Add Ingredient" to start building your recipe
-                    </p>
                   </div>
-                )}
+                  <Button
+                    type="button"
+                    onClick={addIngredient}
+                    className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl shadow-lg shadow-purple-500/30 text-xs sm:text-sm"
+                  >
+                    <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    Add
+                  </Button>
+                </div>
+
+                <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                  {ingredients
+                    .map((ingredient, index) => ({ ingredient, index }))
+                    .filter(({ ingredient }) => !ingredient.variant_id)
+                    .map(({ ingredient, index }) => {
+                      const inventoryItem = inventoryItems.find(
+                        (item: any) => item.id === ingredient.inventory_item_id,
+                      );
+                      const ingredientCost = calculateIngredientCost(ingredient);
+
+                      return (
+                        <div
+                          key={index}
+                          className="p-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-100/60 dark:border-purple-500/10 rounded-xl hover:shadow-md transition-all duration-200"
+                        >
+                          {/* Row 1: Ingredient selector (full width on mobile) */}
+                          <div className="space-y-1 mb-2">
+                            <Label className="text-gray-500 dark:text-gray-400 text-xs">
+                              Ingredient
+                            </Label>
+                            <Select
+                              value={ingredient.inventory_item_id}
+                              onValueChange={(value) =>
+                                updateIngredient(index, "inventory_item_id", value)
+                              }
+                            >
+                              <SelectTrigger className="bg-white/80 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-600 rounded-lg h-9 text-sm">
+                                <SelectValue placeholder="Select ingredient" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-xl">
+                                {inventoryItems.map((item: any) => (
+                                  <SelectItem
+                                    key={item.id}
+                                    value={item.id}
+                                    className="rounded-lg"
+                                  >
+                                    {item.name} ({currencySymbol}
+                                    {item.cost_per_unit || 0}/{item.unit}) - Stock:{" "}
+                                    {item.quantity || 0} {item.unit}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Row 2: Qty + Unit + Cost + Delete (inline, responsive) */}
+                          <div className="flex gap-2 items-end">
+                            <div className="flex-1 min-w-[60px] space-y-1">
+                              <Label className="text-gray-500 dark:text-gray-400 text-xs">
+                                Qty
+                              </Label>
+                              <Input
+                                type="number"
+                                step="0.001"
+                                value={ingredient.quantity || ""}
+                                onChange={(e) =>
+                                  updateIngredient(
+                                    index,
+                                    "quantity",
+                                    parseFloat(e.target.value) || 0,
+                                  )
+                                }
+                                className="bg-white/80 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-600 rounded-lg h-9 text-sm"
+                              />
+                            </div>
+
+                            <div className="w-[70px] sm:w-20 space-y-1">
+                              <Label className="text-gray-500 dark:text-gray-400 text-xs">
+                                Unit
+                              </Label>
+                              <Select
+                                value={ingredient.unit}
+                                onValueChange={(value) =>
+                                  updateIngredient(index, "unit", value)
+                                }
+                              >
+                                <SelectTrigger className="bg-white/80 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-600 rounded-lg h-9 text-sm">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-xl">
+                                  <SelectItem value="kg" className="rounded-lg">kg</SelectItem>
+                                  <SelectItem value="g" className="rounded-lg">g</SelectItem>
+                                  <SelectItem value="l" className="rounded-lg">l</SelectItem>
+                                  <SelectItem value="ml" className="rounded-lg">ml</SelectItem>
+                                  <SelectItem value="piece" className="rounded-lg">piece</SelectItem>
+                                  <SelectItem value="cup" className="rounded-lg">cup</SelectItem>
+                                  <SelectItem value="tbsp" className="rounded-lg">tbsp</SelectItem>
+                                  <SelectItem value="tsp" className="rounded-lg">tsp</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="w-16 text-right space-y-1">
+                              <Label className="text-gray-500 dark:text-gray-400 text-xs">
+                                Cost
+                              </Label>
+                              <p className="font-bold text-emerald-600 py-1 text-xs sm:text-sm">
+                                {currencySymbol}
+                                {ingredientCost.toFixed(2)}
+                              </p>
+                            </div>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeIngredient(index)}
+                              className="text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg h-9 w-9 shrink-0 transition-colors"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                  {ingredients.filter((ing) => !ing.variant_id).length === 0 && (
+                    <div className="text-center py-8 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+                      <ClipboardList className="h-6 w-6 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        No base ingredients yet — click "Add" above
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* ═══════ SIZE-SPECIFIC OVERRIDES ═══════ */}
+              {menuVariants.length > 0 && (
+                <div className="bg-gradient-to-br from-sky-50/80 to-blue-50/80 dark:from-sky-900/10 dark:to-blue-900/10 p-3 sm:p-4 rounded-2xl border border-sky-100 dark:border-sky-500/20">
+                  {/* Header */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 bg-gradient-to-br from-sky-500 to-blue-600 rounded-lg shadow-md shadow-sky-500/30 shrink-0">
+                      <Utensils className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm text-sky-700 dark:text-sky-300 font-semibold">
+                        📐 Size Overrides
+                      </p>
+                      <p className="text-[10px] sm:text-xs text-sky-600/60 dark:text-sky-400/60">
+                        Select a size tab → add ingredients that differ from base
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Variant Tabs */}
+                  <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
+                    {menuVariants.map((variant: any) => {
+                      const count = ingredients.filter(
+                        (ing) => ing.variant_id === variant.id,
+                      ).length;
+                      const isActive = activeVariantTab === variant.id;
+
+                      return (
+                        <button
+                          key={variant.id}
+                          type="button"
+                          onClick={() => setActiveVariantTab(isActive ? "" : variant.id)}
+                          className={`
+                            relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold 
+                            transition-all duration-200 shrink-0
+                            ${isActive
+                              ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/30 scale-[1.02]"
+                              : "bg-white/80 dark:bg-gray-800/80 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-600/30 hover:border-sky-400 hover:shadow-sm"
+                            }
+                          `}
+                        >
+                          {variant.name}
+                          {count > 0 && (
+                            <span className={`
+                              inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[10px] font-bold
+                              ${isActive
+                                ? "bg-white/25 text-white"
+                                : "bg-sky-100 dark:bg-sky-800/50 text-sky-600 dark:text-sky-300"
+                              }
+                            `}>
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Active variant content */}
+                  {activeVariantTab ? (
+                    <div className="space-y-2">
+                      {/* Add button for this variant */}
+                      <div className="flex justify-end">
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            const newRow: RecipeIngredient = {
+                              inventory_item_id: "",
+                              quantity: 0,
+                              unit: "g",
+                              notes: "",
+                              variant_id: activeVariantTab,
+                            };
+                            setIngredients([...ingredients, newRow]);
+                          }}
+                          className="bg-sky-500 hover:bg-sky-600 text-white text-xs px-3 py-1.5 rounded-lg shadow-sm"
+                          size="sm"
+                        >
+                          <Plus className="h-3.5 w-3.5 mr-1" />
+                          Add to {menuVariants.find((v: any) => v.id === activeVariantTab)?.name}
+                        </Button>
+                      </div>
+
+                      {/* Ingredient rows for this variant */}
+                      <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
+                        {ingredients
+                          .map((ingredient, index) => ({ ingredient, index }))
+                          .filter(({ ingredient }) => ingredient.variant_id === activeVariantTab)
+                          .map(({ ingredient, index }) => {
+                            const ingredientCost = calculateIngredientCost(ingredient);
+                            return (
+                              <div
+                                key={index}
+                                className="p-2.5 bg-white/90 dark:bg-gray-800/90 border border-sky-100/50 dark:border-sky-500/10 rounded-xl"
+                              >
+                                {/* Ingredient selector full width */}
+                                <div className="mb-2">
+                                  <Select
+                                    value={ingredient.inventory_item_id}
+                                    onValueChange={(value) =>
+                                      updateIngredient(index, "inventory_item_id", value)
+                                    }
+                                  >
+                                    <SelectTrigger className="bg-white/80 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-600 rounded-lg h-9 text-sm">
+                                      <SelectValue placeholder="Select ingredient" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-xl">
+                                      {inventoryItems.map((item: any) => (
+                                        <SelectItem
+                                          key={item.id}
+                                          value={item.id}
+                                          className="rounded-lg"
+                                        >
+                                          {item.name} ({item.unit})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                {/* Qty + Unit + Cost + Delete row */}
+                                <div className="flex gap-2 items-end">
+                                  <div className="flex-1 min-w-[60px]">
+                                    <Label className="text-gray-400 text-[10px]">Qty</Label>
+                                    <Input
+                                      type="number"
+                                      step="0.001"
+                                      value={ingredient.quantity || ""}
+                                      onChange={(e) =>
+                                        updateIngredient(
+                                          index,
+                                          "quantity",
+                                          parseFloat(e.target.value) || 0,
+                                        )
+                                      }
+                                      className="bg-white/80 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-600 rounded-lg h-8 text-sm"
+                                    />
+                                  </div>
+                                  <div className="w-[65px]">
+                                    <Label className="text-gray-400 text-[10px]">Unit</Label>
+                                    <Select
+                                      value={ingredient.unit}
+                                      onValueChange={(value) =>
+                                        updateIngredient(index, "unit", value)
+                                      }
+                                    >
+                                      <SelectTrigger className="bg-white/80 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-600 rounded-lg h-8 text-sm">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl">
+                                        <SelectItem value="kg">kg</SelectItem>
+                                        <SelectItem value="g">g</SelectItem>
+                                        <SelectItem value="l">l</SelectItem>
+                                        <SelectItem value="ml">ml</SelectItem>
+                                        <SelectItem value="piece">piece</SelectItem>
+                                        <SelectItem value="cup">cup</SelectItem>
+                                        <SelectItem value="tbsp">tbsp</SelectItem>
+                                        <SelectItem value="tsp">tsp</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="w-14 text-right">
+                                    <Label className="text-gray-400 text-[10px]">Cost</Label>
+                                    <p className="font-bold text-emerald-600 text-xs py-0.5">
+                                      {currencySymbol}{ingredientCost.toFixed(2)}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeIngredient(index)}
+                                    className="text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg h-8 w-8 shrink-0"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                        {ingredients.filter((ing) => ing.variant_id === activeVariantTab).length === 0 && (
+                          <div className="text-center py-6 bg-sky-50/30 dark:bg-sky-800/10 rounded-xl border border-dashed border-sky-200/50 dark:border-sky-700/30">
+                            <p className="text-xs text-sky-500 dark:text-sky-400">
+                              No overrides for {menuVariants.find((v: any) => v.id === activeVariantTab)?.name} yet
+                            </p>
+                            <p className="text-[10px] text-sky-400/60 mt-0.5">
+                              Click "Add to {menuVariants.find((v: any) => v.id === activeVariantTab)?.name}" above
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-5 bg-sky-50/20 dark:bg-sky-800/5 rounded-xl border border-dashed border-sky-200/40 dark:border-sky-700/20">
+                      <p className="text-xs text-sky-500/70 dark:text-sky-400/50">
+                        👆 Tap a size tab above to manage its ingredients
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="instructions" className="space-y-4 mt-6">

@@ -490,6 +490,7 @@ export const QSRPosMain: React.FC = () => {
         name: item.name,
         quantity: item.quantity,
         price: item.price,
+        menuItemId: item.menuItemId,
         notes: item.notes ? [item.notes] : [],
       }));
 
@@ -647,6 +648,7 @@ export const QSRPosMain: React.FC = () => {
         name: item.name,
         quantity: item.quantity,
         price: item.price,
+        menuItemId: item.menuItemId,
         notes: item.notes ? [item.notes] : [],
       }));
 
@@ -906,6 +908,7 @@ export const QSRPosMain: React.FC = () => {
           name: item.name,
           quantity: item.quantity,
           price: item.price,
+          menuItemId: item.menuItemId,
           notes: item.notes ? [item.notes] : [],
         }));
 
