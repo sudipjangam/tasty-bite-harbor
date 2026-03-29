@@ -63,11 +63,25 @@ const FoodTruckDashboard: React.FC = () => {
     "food-truck",
   );
 
-  // Realtime subscription for instant dashboard updates
+  // Realtime subscriptions — auto-refresh stats on any order or payment change
   useEffect(() => {
     if (!restaurantId) return;
     const channel = supabase
-      .channel("dashboard-orders")
+      .channel("dashboard-live-stats")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({
+            queryKey: ["food-truck-today-stats"],
+          });
+        },
+      )
       .on(
         "postgres_changes",
         {
@@ -105,7 +119,7 @@ const FoodTruckDashboard: React.FC = () => {
     },
   });
 
-  // Today's stats from pos_transactions (populated at payment time)
+  // Today's stats — orders table for counts/revenue, pos_transactions for Cash/UPI
   const today = new Date();
   const { data: todayStats } = useQuery({
     queryKey: [
@@ -118,22 +132,40 @@ const FoodTruckDashboard: React.FC = () => {
       const dayStart = startOfDay(today).toISOString();
       const dayEnd = endOfDay(today).toISOString();
 
-      const { data: transactions, error } = await supabase
-        .from("pos_transactions")
-        .select("amount, status, payment_method, created_at")
-        .eq("restaurant_id", restaurantId)
-        .gte("created_at", dayStart)
-        .lte("created_at", dayEnd);
+      // Two parallel queries: orders for totals, pos_transactions for payment breakdown
+      const [ordersResult, txnResult] = await Promise.all([
+        supabase
+          .from("orders")
+          .select("total, status, order_type, created_at")
+          .eq("restaurant_id", restaurantId)
+          .gte("created_at", dayStart)
+          .lte("created_at", dayEnd),
+        supabase
+          .from("pos_transactions")
+          .select("amount, payment_method, status, created_at")
+          .eq("restaurant_id", restaurantId)
+          .gte("created_at", dayStart)
+          .lte("created_at", dayEnd),
+      ]);
 
-      if (error) throw error;
+      if (ordersResult.error) throw ordersResult.error;
 
-      const allTransactions = transactions || [];
-      const completedTxns = allTransactions.filter(
-        (t) => t.status === "completed",
+      const allOrders = ordersResult.data || [];
+
+      // Revenue: completed + chargeable orders only (matches Orders Management)
+      const completedChargeableOrders = allOrders.filter(
+        (o) =>
+          o.status === "completed" &&
+          o.order_type !== "non-chargeable",
       );
-      const totalRevenue = completedTxns.reduce(
-        (sum, t) => sum + (Number(t.amount) || 0),
+      const totalRevenue = completedChargeableOrders.reduce(
+        (sum, o) => sum + (Number(o.total) || 0),
         0,
+      );
+
+      // Cash / UPI breakdown from pos_transactions (only table with payment_method)
+      const completedTxns = (txnResult.data || []).filter(
+        (t) => t.status === "completed",
       );
       const cashRevenue = completedTxns
         .filter((t) =>
@@ -141,16 +173,20 @@ const FoodTruckDashboard: React.FC = () => {
         )
         .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
       const upiRevenue = completedTxns
-        .filter((t) => (t.payment_method || "").toLowerCase().includes("upi"))
+        .filter((t) =>
+          (t.payment_method || "").toLowerCase().includes("upi"),
+        )
         .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
       return {
-        totalOrders: allTransactions.length,
+        totalOrders: allOrders.length,
         totalRevenue,
         cashRevenue,
         upiRevenue,
         avgOrderValue:
-          completedTxns.length > 0 ? totalRevenue / completedTxns.length : 0,
+          completedChargeableOrders.length > 0
+            ? totalRevenue / completedChargeableOrders.length
+            : 0,
       };
     },
     refetchInterval: 30000, // Refresh every 30 seconds

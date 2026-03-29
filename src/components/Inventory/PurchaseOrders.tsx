@@ -32,6 +32,10 @@ import {
   Edit,
   Trash2,
   Search,
+  MessageCircle,
+  Copy,
+  Send,
+  Loader2,
 } from "lucide-react";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
@@ -41,6 +45,10 @@ import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { BillUploadDialog } from "./BillUploadDialog";
 import { ExtractedBillData, findBestSupplierMatch } from "@/utils/billUtils";
 import { Upload } from "lucide-react";
+import {
+  formatPurchaseOrderText,
+  generateSupplierWhatsAppUrl,
+} from "@/utils/purchaseOrderFormatter";
 
 interface PurchaseOrder {
   id: string;
@@ -49,8 +57,11 @@ interface PurchaseOrder {
   total_amount: number;
   order_date: string;
   expected_delivery_date: string;
+  notes?: string;
   supplier: {
     name: string;
+    phone?: string;
+    contact_person?: string;
   };
   purchase_order_items: Array<{
     id: string;
@@ -69,6 +80,8 @@ interface PurchaseOrder {
 interface Supplier {
   id: string;
   name: string;
+  phone?: string;
+  contact_person?: string;
 }
 
 interface InventoryItem {
@@ -142,7 +155,7 @@ const PurchaseOrders = () => {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { restaurantId } = useRestaurantId();
+  const { restaurantId, restaurantName } = useRestaurantId();
   const { symbol: currencySymbol } = useCurrencyContext();
 
   const { data: purchaseOrders = [], isLoading } = useQuery({
@@ -155,7 +168,7 @@ const PurchaseOrders = () => {
         .select(
           `
           *,
-          supplier:suppliers(name),
+          supplier:suppliers(name, phone, contact_person),
           purchase_order_items(
             id,
             quantity,
@@ -182,7 +195,7 @@ const PurchaseOrders = () => {
       if (!restaurantId) return [];
       const { data, error } = await supabase
         .from("suppliers")
-        .select("id, name")
+        .select("id, name, phone, contact_person")
         .eq("restaurant_id", restaurantId)
         .order("name");
       if (error) throw error;
@@ -545,6 +558,149 @@ const PurchaseOrders = () => {
     return statusFlow[currentStatus] || [];
   };
 
+  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState<string | null>(null);
+
+  // Build PO message text from an order
+  const buildPOMessage = (order: PurchaseOrder) => {
+    return formatPurchaseOrderText({
+      restaurantName: restaurantName || "Restaurant",
+      orderNumber: order.order_number,
+      supplierName: order.supplier?.name || "Unknown Supplier",
+      orderDate: order.order_date,
+      expectedDeliveryDate: order.expected_delivery_date || undefined,
+      items: (order.purchase_order_items || []).map((item) => ({
+        name: item.inventory_item?.name || "Unknown Item",
+        quantity: item.quantity,
+        unit: item.inventory_item?.unit || "units",
+        unitCost: item.unit_cost,
+      })),
+      totalAmount: order.total_amount || 0,
+      notes: order.notes || undefined,
+      currencySymbol,
+      status: statusLabels[order.status] || order.status,
+    });
+  };
+
+  // 1. Share via wa.me link (free, opens WhatsApp with pre-filled message)
+  const handleShareViaWhatsApp = (order: PurchaseOrder) => {
+    const supplierPhone = order.supplier?.phone;
+    if (!supplierPhone) {
+      toast({
+        title: "No Phone Number",
+        description: "This supplier doesn't have a phone number. Add one in Supplier Management.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const poText = buildPOMessage(order);
+    const url = generateSupplierWhatsAppUrl(supplierPhone, poText);
+    window.open(url, "_blank", "noopener,noreferrer");
+    toast({
+      title: "WhatsApp Opened",
+      description: `PO ${order.order_number} ready to send to ${order.supplier?.name}`,
+    });
+  };
+
+  // 2. Send via MSG91 WhatsApp API (automated, no browser needed)
+  const handleSendViaMSG91 = async (order: PurchaseOrder) => {
+    const supplierPhone = order.supplier?.phone;
+    if (!supplierPhone) {
+      toast({
+        title: "No Phone Number",
+        description: "This supplier doesn't have a phone number. Add one in Supplier Management.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSendingWhatsApp(order.id);
+    toast({
+      title: "Sending via WhatsApp...",
+      description: `Sending PO ${order.order_number} to ${order.supplier?.name}`,
+    });
+
+    try {
+      let cleanPhone = supplierPhone.replace(/[\+\-\s()]/g, "");
+      if (cleanPhone.length === 10) {
+        cleanPhone = "91" + cleanPhone;
+      }
+
+      const poText = buildPOMessage(order);
+
+      const { data: msg91Response, error: msg91Error } =
+        await supabase.functions.invoke("send-msg91-whatsapp", {
+          body: {
+            phoneNumber: cleanPhone,
+            templateName: "purchase_order_notification",
+            variables: {
+              supplier_name: order.supplier?.contact_person || order.supplier?.name || "Supplier",
+              restaurant_name: restaurantName || "Restaurant",
+              order_number: order.order_number,
+              order_date: new Date(order.order_date).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+              }),
+              total_amount: `${currencySymbol}${(order.total_amount || 0).toFixed(2)}`,
+              items_count: `${order.purchase_order_items?.length || 0} items`,
+            },
+          },
+        });
+
+      if (msg91Error || !msg91Response?.success) {
+        // Fallback to wa.me if MSG91 template not approved yet
+        console.warn("MSG91 failed, falling back to wa.me:", msg91Error || msg91Response?.error);
+        const url = generateSupplierWhatsAppUrl(supplierPhone, poText);
+        window.open(url, "_blank", "noopener,noreferrer");
+        toast({
+          title: "Opened in WhatsApp",
+          description: `API template not ready — opened wa.me link instead. Send manually.`,
+        });
+      } else {
+        toast({
+          title: "PO Sent!",
+          description: `Purchase Order sent to ${order.supplier?.name} via WhatsApp.`,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to send WhatsApp PO:", error);
+      // Fallback to wa.me
+      const poText = buildPOMessage(order);
+      const url = generateSupplierWhatsAppUrl(supplierPhone, poText);
+      window.open(url, "_blank", "noopener,noreferrer");
+      toast({
+        title: "Opened in WhatsApp",
+        description: "API error — opened wa.me link. Please send manually.",
+      });
+    } finally {
+      setIsSendingWhatsApp(null);
+    }
+  };
+
+  // 3. Copy PO text to clipboard
+  const handleCopyPOText = async (order: PurchaseOrder) => {
+    const poText = buildPOMessage(order);
+    try {
+      await navigator.clipboard.writeText(poText);
+      toast({
+        title: "Copied!",
+        description: "Purchase order text copied. Paste into WhatsApp or any messenger.",
+      });
+    } catch {
+      // Fallback for insecure contexts
+      const textArea = document.createElement("textarea");
+      textArea.value = poText;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      toast({
+        title: "Copied!",
+        description: "Purchase order text copied to clipboard.",
+      });
+    }
+  };
+
   const totalOrderAmount = orderItems.reduce(
     (sum, item) => sum + item.quantity * item.unit_cost,
     0
@@ -677,6 +833,35 @@ const PurchaseOrders = () => {
                       className="rounded-lg"
                     >
                       <Eye className="h-4 w-4" />
+                    </Button>
+
+                    {/* WhatsApp Send via MSG91 API */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSendViaMSG91(order)}
+                      disabled={!order.supplier?.phone || isSendingWhatsApp === order.id || (order.purchase_order_items?.length || 0) === 0}
+                      className="text-green-600 border-green-500 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg"
+                      title={!order.supplier?.phone ? "Add supplier phone number to enable WhatsApp" : "Send PO via WhatsApp (API)"}
+                    >
+                      {isSendingWhatsApp === order.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4 mr-1" />
+                      )}
+                      {isSendingWhatsApp === order.id ? "Sending..." : "WhatsApp"}
+                    </Button>
+
+                    {/* Copy PO text */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCopyPOText(order)}
+                      disabled={(order.purchase_order_items?.length || 0) === 0}
+                      className="rounded-lg"
+                      title="Copy PO details to clipboard"
+                    >
+                      <Copy className="h-4 w-4" />
                     </Button>
 
                     {getAvailableStatuses(order.status).length > 0 && (
@@ -1166,43 +1351,83 @@ const PurchaseOrders = () => {
               </div>
 
               {/* Order Actions */}
-              <div className="flex justify-between items-center pt-4 border-t">
-                <div className="flex gap-2">
-                  {getAvailableStatuses(selectedOrder.status).length > 0 && (
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setIsViewDialogOpen(false);
-                        handleStatusUpdate(selectedOrder);
-                      }}
-                      className="text-blue-600 border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl"
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Update Status
-                    </Button>
-                  )}
-                </div>
-
-                <div className="flex gap-2">
+              <div className="flex flex-col gap-3 pt-4 border-t">
+                {/* WhatsApp Sharing Row */}
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    onClick={() => handleSendViaMSG91(selectedOrder)}
+                    disabled={!selectedOrder.supplier?.phone || isSendingWhatsApp === selectedOrder.id || (selectedOrder.purchase_order_items?.length || 0) === 0}
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl"
+                    title={!selectedOrder.supplier?.phone ? "Add supplier phone to enable" : "Send PO via WhatsApp API"}
+                  >
+                    {isSendingWhatsApp === selectedOrder.id ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-1" />
+                    )}
+                    {isSendingWhatsApp === selectedOrder.id ? "Sending..." : "Send via WhatsApp"}
+                  </Button>
                   <Button
                     variant="outline"
-                    onClick={() => setIsViewDialogOpen(false)}
-                    className="rounded-xl"
+                    onClick={() => handleShareViaWhatsApp(selectedOrder)}
+                    disabled={!selectedOrder.supplier?.phone || (selectedOrder.purchase_order_items?.length || 0) === 0}
+                    className="text-green-600 border-green-500 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-xl"
+                    title={!selectedOrder.supplier?.phone ? "Add supplier phone to enable" : "Open in WhatsApp (wa.me)"}
                   >
-                    Close
+                    <MessageCircle className="h-4 w-4 mr-1" />
+                    wa.me Link
                   </Button>
-                  {selectedOrder.status === "ordered" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => handleCopyPOText(selectedOrder)}
+                    disabled={(selectedOrder.purchase_order_items?.length || 0) === 0}
+                    className="rounded-xl"
+                    title="Copy PO details to clipboard"
+                  >
+                    <Copy className="h-4 w-4 mr-1" />
+                    Copy
+                  </Button>
+                </div>
+
+                {/* Status & Navigation Row */}
+                <div className="flex justify-between items-center">
+                  <div className="flex gap-2">
+                    {getAvailableStatuses(selectedOrder.status).length > 0 && (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsViewDialogOpen(false);
+                          handleStatusUpdate(selectedOrder);
+                        }}
+                        className="text-blue-600 border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl"
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Update Status
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
                     <Button
-                      onClick={() => {
-                        setIsViewDialogOpen(false);
-                        setIsReceivingDialogOpen(true);
-                      }}
-                      className="bg-green-600 hover:bg-green-700 rounded-xl"
+                      variant="outline"
+                      onClick={() => setIsViewDialogOpen(false)}
+                      className="rounded-xl"
                     >
-                      <Truck className="h-4 w-4 mr-1" />
-                      Receive Items
+                      Close
                     </Button>
-                  )}
+                    {selectedOrder.status === "ordered" && (
+                      <Button
+                        onClick={() => {
+                          setIsViewDialogOpen(false);
+                          setIsReceivingDialogOpen(true);
+                        }}
+                        className="bg-green-600 hover:bg-green-700 rounded-xl"
+                      >
+                        <Truck className="h-4 w-4 mr-1" />
+                        Receive Items
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
