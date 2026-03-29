@@ -71,6 +71,11 @@ const DailySummaryHistory = () => {
       discountAmount: report.discount_amount || 0,
       averageOrderValue: report.average_order_value || 0,
       peakHour: report.peak_hour || "N/A",
+      totalExpenses: report.total_expenses || 0,
+      expenseBreakdown: (report.expense_breakdown as Record<string, number>) || {},
+      netProfit: report.net_profit || report.total_revenue,
+      inventoryCostFromOrders: report.inventory_cost_from_orders || 0,
+      inventoryCostDetails: (report.inventory_cost_details as any[]) || [],
     };
 
     setSelectedReport(mappedData);
