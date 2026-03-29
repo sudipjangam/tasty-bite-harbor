@@ -13,10 +13,16 @@ export interface ExtractedInvoice {
 
 export interface ExtractedItem {
   item_name: string;
+  brand: string | null;
   quantity: number;
   unit: string;
   rate: number;
   amount: number;
+  // Package-aware fields for proper unit conversion
+  package_size: number | null;
+  package_unit: string | null;
+  actual_quantity: number | null;
+  actual_unit: string | null;
 }
 
 export interface ExtractedBillData {
@@ -72,6 +78,36 @@ function levenshteinDistance(a: string, b: string): number {
   return matrix[b.length][a.length];
 }
 
+// --- Size/brand token stripping for improved matching ---
+
+// Common size/weight/volume tokens to strip from product names before matching
+const SIZE_TOKENS = /\b(\d+(\.\d+)?)\s*(ml|l|ltr|litre|liters?|g|gm|gms|gram|grams?|kg|kgs?|pcs?|pieces?|boxes?|packs?|pkts?|bottles?|cans?|nos?)\b/gi;
+const BRAND_TOKENS_COMMON = /\b(aashirvaad|amul|tata|nestle|britannia|mother\s*dairy|patanjali|fortune|saffola|sundrop|dabur|haldiram|mdh|everest|catch|tops|kissan|maggi)\b/gi;
+
+/**
+ * Strip size, quantity, and brand tokens from an item name for matching.
+ * e.g., "Aashirvaad Cow Ghee 500 Ml" → "cow ghee"
+ */
+export function normalizeForMatching(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(SIZE_TOKENS, '')
+    .replace(BRAND_TOKENS_COMMON, '')
+    .replace(/\bpet\b/gi, '') // "Pet" bottle type
+    .replace(/[^a-z\s]/g, '') // Remove remaining non-alpha
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Extract core product tokens from a name (for token-overlap scoring).
+ */
+function getProductTokens(name: string): string[] {
+  return normalizeForMatching(name)
+    .split(/\s+/)
+    .filter(t => t.length > 1); // Skip single-char noise
+}
+
 /**
  * Find the best match for a supplier name from a list of suppliers
  */
@@ -110,41 +146,144 @@ export function findBestSupplierMatch(
 }
 
 /**
- * Find the best match for an inventory item name
+ * Find the best match for an inventory item name, using token-based scoring
+ * with brand/size stripping for improved accuracy.
+ * Returns the match along with a confidence score (0-100).
  */
 export function findBestInventoryMatch(
   itemName: string,
   inventoryItems: { id: string; name: string; unit: string }[]
-): { id: string; name: string; unit: string } | null {
+): { id: string; name: string; unit: string; confidence: number } | null {
   if (!itemName || inventoryItems.length === 0) return null;
 
-  const normalizedItem = itemName.toLowerCase().trim();
+  const normalizedItem = normalizeForMatching(itemName);
+  const itemTokens = getProductTokens(itemName);
+
+  let bestMatch: { id: string; name: string; unit: string; confidence: number } | null = null;
+  let bestScore = 0;
 
   for (const inv of inventoryItems) {
-    const normalizedInv = inv.name.toLowerCase().trim();
-    
-    // Direct or containment match
-    if (normalizedInv === normalizedItem) return inv;
-    if (normalizedInv.includes(normalizedItem) || normalizedItem.includes(normalizedInv)) {
-      return inv;
+    const normalizedInv = normalizeForMatching(inv.name);
+    const invTokens = getProductTokens(inv.name);
+
+    let score = 0;
+
+    // 1. Exact normalized match → 100 confidence
+    if (normalizedInv === normalizedItem) {
+      return { ...inv, confidence: 100 };
     }
-  }
 
-  // Fuzzy match
-  let bestMatch = null;
-  let bestDistance = Infinity;
+    // 2. Containment after normalization (stripped name contains or is contained)
+    if (normalizedInv.length > 0 && normalizedItem.length > 0) {
+      if (normalizedInv.includes(normalizedItem) || normalizedItem.includes(normalizedInv)) {
+        const ratio = Math.min(normalizedInv.length, normalizedItem.length) / 
+                      Math.max(normalizedInv.length, normalizedItem.length);
+        score = Math.max(score, ratio * 90);
+      }
+    }
 
-  for (const inv of inventoryItems) {
-    const normalizedInv = inv.name.toLowerCase().trim();
-    const distance = levenshteinDistance(normalizedItem, normalizedInv);
-    const maxLength = Math.max(normalizedItem.length, normalizedInv.length);
-    const tolerance = Math.floor(maxLength * 0.5);
+    // 3. Token overlap scoring — how many meaningful product words match?
+    if (itemTokens.length > 0 && invTokens.length > 0) {
+      const overlap = invTokens.filter(invT =>
+        itemTokens.some(itemT => invT.includes(itemT) || itemT.includes(invT))
+      );
+      const tokenScore = (overlap.length / Math.max(invTokens.length, itemTokens.length)) * 85;
+      score = Math.max(score, tokenScore);
+    }
 
-    if (distance < bestDistance && distance <= tolerance) {
-      bestDistance = distance;
-      bestMatch = inv;
+    // 4. Fuzzy match on normalized names (tightened to 25% tolerance)
+    if (normalizedItem.length > 0 && normalizedInv.length > 0) {
+      const distance = levenshteinDistance(normalizedItem, normalizedInv);
+      const maxLength = Math.max(normalizedItem.length, normalizedInv.length);
+      const tolerance = Math.floor(maxLength * 0.25);
+      if (distance <= tolerance) {
+        const fuzzyScore = ((tolerance - distance) / tolerance) * 70;
+        score = Math.max(score, fuzzyScore);
+      }
+    }
+
+    if (score > bestScore && score >= 40) {
+      bestScore = score;
+      bestMatch = { ...inv, confidence: Math.round(score) };
     }
   }
 
   return bestMatch;
+}
+
+/**
+ * Normalize the AI-extracted items to ensure actual_quantity/actual_unit are populated.
+ * If the AI didn't provide them, try to parse package_size from the item name.
+ */
+export function normalizeExtractedItem(item: ExtractedItem): ExtractedItem {
+  // If AI already provided actual values, use them
+  if (item.actual_quantity != null && item.actual_unit != null) {
+    return item;
+  }
+
+  // If the unit is already a proper measurement (not pcs), use quantity directly
+  const unitLower = (item.unit || '').toLowerCase().trim();
+  const isPcsUnit = ['pcs', 'pc', 'piece', 'pieces', 'nos', 'no', 'bottle', 'bottles', 'box', 'boxes', 'pack', 'packs', 'pkt', 'pkts', 'can', 'cans'].includes(unitLower);
+
+  if (!isPcsUnit) {
+    // Already in proper unit (kg, ml, l, g, etc.)
+    return {
+      ...item,
+      actual_quantity: item.quantity,
+      actual_unit: item.unit,
+    };
+  }
+
+  // Unit is PCS-like: try to extract size from item name
+  const sizeMatch = item.item_name.match(/(\d+(?:\.\d+)?)\s*(ml|l|ltr|litre|g|gm|gms|gram|kg|kgs?)\b/i);
+
+  if (sizeMatch && item.package_size == null) {
+    const size = parseFloat(sizeMatch[1]);
+    const sizeUnit = normalizeUnitString(sizeMatch[2]);
+
+    return {
+      ...item,
+      package_size: size,
+      package_unit: sizeUnit,
+      actual_quantity: item.quantity * size,
+      actual_unit: sizeUnit,
+    };
+  }
+
+  // If AI provided package_size/package_unit, calculate
+  if (item.package_size != null && item.package_unit != null) {
+    return {
+      ...item,
+      actual_quantity: item.quantity * item.package_size,
+      actual_unit: item.package_unit,
+    };
+  }
+
+  // Fallback: can't determine actual unit, keep as-is
+  return {
+    ...item,
+    actual_quantity: item.quantity,
+    actual_unit: item.unit,
+  };
+}
+
+/**
+ * Normalize common unit strings to standard format.
+ */
+export function normalizeUnitString(unit: string): string {
+  const u = unit.toLowerCase().trim();
+  if (['g', 'gm', 'gms', 'gram', 'grams'].includes(u)) return 'g';
+  if (['kg', 'kgs'].includes(u)) return 'kg';
+  if (['ml'].includes(u)) return 'ml';
+  if (['l', 'ltr', 'litre', 'litres', 'liter', 'liters'].includes(u)) return 'l';
+  if (['pcs', 'pc', 'piece', 'pieces', 'nos', 'no'].includes(u)) return 'pcs';
+  return u;
+}
+
+/**
+ * Calculate rate per actual unit (e.g., ₹295 for 500ml → ₹0.59/ml)
+ */
+export function calculateRatePerActualUnit(item: ExtractedItem): number {
+  if (!item.actual_quantity || item.actual_quantity <= 0) return item.rate;
+  return item.amount / item.actual_quantity;
 }
