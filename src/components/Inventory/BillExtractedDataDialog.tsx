@@ -33,6 +33,10 @@ import {
   ExtractedBillData,
   ExtractedItem,
   findBestSupplierMatch,
+  findBestInventoryMatch,
+  normalizeExtractedItem,
+  normalizeUnitString,
+  calculateRatePerActualUnit,
 } from "@/utils/billUtils";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useQueryClient } from "@tanstack/react-query";
@@ -46,6 +50,8 @@ interface BillExtractedDataDialogProps {
 interface EditableItem extends ExtractedItem {
   addToInventory: boolean;
   existingItemId?: string;
+  matchConfidence?: number;
+  matchedName?: string;
 }
 
 export const BillExtractedDataDialog: React.FC<
@@ -79,13 +85,22 @@ export const BillExtractedDataDialog: React.FC<
     []
   );
 
-  // Load suppliers and set initial data
+  // Load suppliers and inventory items for matching
+  const [inventoryItems, setInventoryItems] = useState<{ id: string; name: string; unit: string; quantity: number; cost_per_unit: number | null }[]>([]);
+
   useEffect(() => {
     if (open && extractedData && restaurantId) {
       loadSuppliers();
-      populateFromExtractedData();
+      loadInventoryItems();
     }
   }, [open, extractedData, restaurantId]);
+
+  // Populate from extracted data once inventory items are loaded
+  useEffect(() => {
+    if (open && extractedData && inventoryItems.length >= 0) {
+      populateFromExtractedData();
+    }
+  }, [open, extractedData, inventoryItems]);
 
   const loadSuppliers = async () => {
     if (!restaurantId) return;
@@ -94,6 +109,15 @@ export const BillExtractedDataDialog: React.FC<
       .select("id, name")
       .eq("restaurant_id", restaurantId);
     if (data) setSuppliers(data);
+  };
+
+  const loadInventoryItems = async () => {
+    if (!restaurantId) return;
+    const { data } = await supabase
+      .from("inventory_items")
+      .select("id, name, unit, quantity, cost_per_unit")
+      .eq("restaurant_id", restaurantId);
+    if (data) setInventoryItems(data);
   };
 
   const populateFromExtractedData = () => {
@@ -116,12 +140,26 @@ export const BillExtractedDataDialog: React.FC<
     setInvoiceNumber(extractedData.invoice?.number || "");
     setInvoiceDate(extractedData.invoice?.date || "");
 
-    // Items
+    // Items — normalize for actual quantities and match to existing inventory
     const editableItems: EditableItem[] = (extractedData.items || []).map(
-      (item) => ({
-        ...item,
-        addToInventory: true,
-      })
+      (rawItem) => {
+        // Normalize to get actual_quantity/actual_unit
+        const normalized = normalizeExtractedItem(rawItem);
+
+        // Try to match against existing inventory
+        const invMatch = findBestInventoryMatch(normalized.item_name, inventoryItems);
+
+        return {
+          ...normalized,
+          // Use actual values for the editable fields
+          quantity: normalized.actual_quantity ?? normalized.quantity,
+          unit: normalizeUnitString(normalized.actual_unit ?? normalized.unit),
+          addToInventory: true,
+          existingItemId: invMatch?.id || undefined,
+          matchConfidence: invMatch?.confidence || 0,
+          matchedName: invMatch?.name || undefined,
+        };
+      }
     );
     setItems(editableItems);
 
@@ -157,10 +195,15 @@ export const BillExtractedDataDialog: React.FC<
       ...items,
       {
         item_name: "",
+        brand: null,
         quantity: 1,
         unit: "kg",
         rate: 0,
         amount: 0,
+        package_size: null,
+        package_unit: null,
+        actual_quantity: 1,
+        actual_unit: "kg",
         addToInventory: true,
       },
     ]);
@@ -212,22 +255,53 @@ export const BillExtractedDataDialog: React.FC<
       );
 
       for (const item of itemsToAdd) {
-        // Check if item already exists
-        const { data: existing } = await supabase
-          .from("inventory_items")
-          .select("id, quantity")
-          .eq("restaurant_id", restaurantId)
-          .ilike("name", item.item_name)
-          .maybeSingle();
+        // Use actual_quantity and actual_unit for inventory storage
+        const storeQty = item.actual_quantity ?? item.quantity;
+        const storeUnit = normalizeUnitString(item.actual_unit ?? item.unit);
+        // Calculate rate per actual unit (e.g., ₹295 for 500ml → ₹0.59/ml)
+        const ratePerActualUnit = storeQty > 0 ? item.amount / storeQty : item.rate;
+
+        // Check for existing inventory item:
+        // 1. First, use pre-matched ID from the preview (most reliable)
+        // 2. Fallback to ilike name match
+        let existing: { id: string; quantity: number; cost_per_unit?: number | null } | null = null;
+
+        if (item.existingItemId) {
+          const { data } = await supabase
+            .from("inventory_items")
+            .select("id, quantity, cost_per_unit")
+            .eq("id", item.existingItemId)
+            .single();
+          existing = data;
+        }
+
+        if (!existing) {
+          // Fallback: try exact name match
+          const { data } = await supabase
+            .from("inventory_items")
+            .select("id, quantity, cost_per_unit")
+            .eq("restaurant_id", restaurantId)
+            .ilike("name", item.item_name)
+            .maybeSingle();
+          existing = data;
+        }
 
         if (existing) {
-          // Update existing item quantity
-          const newQuantity = existing.quantity + item.quantity;
+          // Update existing item with weighted average cost
+          const existingQty = existing.quantity || 0;
+          const existingCost = existing.cost_per_unit || 0;
+          const newQuantity = existingQty + storeQty;
+
+          // Weighted average: (oldQty × oldCost + newQty × newCost) / totalQty
+          const weightedAvgCost = newQuantity > 0
+            ? Math.round(((existingQty * existingCost + storeQty * ratePerActualUnit) / newQuantity) * 100) / 100
+            : ratePerActualUnit;
+
           await supabase
             .from("inventory_items")
             .update({
               quantity: newQuantity,
-              cost_per_unit: item.rate,
+              cost_per_unit: weightedAvgCost,
             })
             .eq("id", existing.id);
 
@@ -237,23 +311,23 @@ export const BillExtractedDataDialog: React.FC<
               restaurant_id: restaurantId,
               inventory_item_id: existing.id,
               transaction_type: "purchase",
-              quantity_change: item.quantity,
+              quantity_change: storeQty,
               notes: `Bill: ${invoiceNumber || "N/A"} from ${
                 vendorName || "Unknown"
-              }`,
+              }${item.brand ? ` (${item.brand})` : ''}`,
             },
           ]);
         } else {
-          // Create new inventory item
+          // Create new inventory item with actual quantity and unit
           const { data: newItem, error: itemError } = await supabase
             .from("inventory_items")
             .insert([
               {
                 restaurant_id: restaurantId,
                 name: item.item_name,
-                quantity: item.quantity,
-                unit: item.unit,
-                cost_per_unit: item.rate,
+                quantity: storeQty,
+                unit: storeUnit,
+                cost_per_unit: ratePerActualUnit,
                 category: "Other",
               },
             ])
@@ -268,10 +342,10 @@ export const BillExtractedDataDialog: React.FC<
               restaurant_id: restaurantId,
               inventory_item_id: newItem.id,
               transaction_type: "purchase",
-              quantity_change: item.quantity,
+              quantity_change: storeQty,
               notes: `Bill: ${invoiceNumber || "N/A"} from ${
                 vendorName || "Unknown"
-              }`,
+              }${item.brand ? ` (${item.brand})` : ''}`,
             },
           ]);
         }
@@ -443,8 +517,39 @@ export const BillExtractedDataDialog: React.FC<
                 {items.map((item, index) => (
                   <Card
                     key={index}
-                    className="p-3 sm:p-4 bg-gray-50 dark:bg-gray-700/50"
+                    className={`p-3 sm:p-4 border-l-4 ${
+                      item.matchConfidence && item.matchConfidence >= 70
+                        ? 'bg-green-50 dark:bg-green-900/10 border-l-green-500'
+                        : item.matchConfidence && item.matchConfidence >= 40
+                        ? 'bg-amber-50 dark:bg-amber-900/10 border-l-amber-500'
+                        : 'bg-gray-50 dark:bg-gray-700/50 border-l-blue-400'
+                    }`}
                   >
+                    {/* Match indicator */}
+                    {item.matchedName && (
+                      <div className="flex items-center gap-1.5 mb-2">
+                        {item.matchConfidence && item.matchConfidence >= 70 ? (
+                          <Badge className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0">
+                            <CheckCircle2 className="h-3 w-3 mr-0.5" />
+                            Matched: {item.matchedName}
+                          </Badge>
+                        ) : item.matchConfidence && item.matchConfidence >= 40 ? (
+                          <Badge className="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0">
+                            <AlertCircle className="h-3 w-3 mr-0.5" />
+                            Possible: {item.matchedName} — verify
+                          </Badge>
+                        ) : null}
+                      </div>
+                    )}
+                    {!item.matchedName && item.item_name && (
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Badge className="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0">
+                          <Plus className="h-3 w-3 mr-0.5" />
+                          New inventory item
+                        </Badge>
+                      </div>
+                    )}
+
                     {/* Item Name Row */}
                     <div className="flex items-center gap-2 mb-3">
                       <Checkbox
@@ -456,7 +561,7 @@ export const BillExtractedDataDialog: React.FC<
                       />
                       <div className="flex-1">
                         <Label className="text-xs text-gray-500 mb-1 block">
-                          Item Name
+                          Item Name {item.brand ? `(${item.brand})` : ''}
                         </Label>
                         <Input
                           value={item.item_name}
@@ -481,7 +586,7 @@ export const BillExtractedDataDialog: React.FC<
                     <div className="grid grid-cols-4 gap-2">
                       <div>
                         <Label className="text-xs text-gray-500 block mb-1">
-                          Qty
+                          Qty {item.package_size ? `(${item.package_size}${item.package_unit} × bill qty)` : ''}
                         </Label>
                         <Input
                           type="number"
