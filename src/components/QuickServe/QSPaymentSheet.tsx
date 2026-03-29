@@ -138,6 +138,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [orderNumber, setOrderNumber] = useState<number | string | null>(null);
   const [isOfflineOrder, setIsOfflineOrder] = useState(false);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const { symbol: currencySymbol } = useCurrencyContext();
   const { restaurantId } = useRestaurantId();
   const { isOnline } = useNetworkStatus();
@@ -465,6 +467,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     setQrCodeUrl("");
     setOrderNumber(null);
     setIsOfflineOrder(false);
+    setPaymentConfirmed(false);
+    setCreatedOrderId(null);
     onSuccess(typeof savedOrderNum === "number" ? savedOrderNum : undefined);
     onClose();
   };
@@ -551,7 +555,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           items: formattedItems,
           total: orderTotal,
           status: "preparing",
-          payment_status: isNC ? "nc" : "paid",
+          payment_status: isNC ? "nc" : "pending",
           source: "quickserve",
           order_type: isNC ? "non-chargeable" : "takeaway",
           attendant: attendantName,
@@ -607,27 +611,29 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         setStatus("processing");
         setSelectedMethod(method as any);
 
-        // 1. Update order payment status
+        // 1. Update order payment status to pending (will be confirmed via Mark as Paid)
         const { error: updateError } = await supabase
           .from("orders")
-          .update({ payment_status: isNC ? "nc" : "paid" })
+          .update({ payment_status: isNC ? "nc" : "pending" })
           .eq("id", existingOrder.id);
 
         if (updateError) throw updateError;
 
-        // 2. Log payment transaction
+        // 2. Log payment transaction (pending)
         await supabase.from("pos_transactions").insert({
           restaurant_id: restaurantId,
           order_id: existingOrder.id,
           amount: orderTotal,
           payment_method: method,
-          status: "completed",
+          status: "pending",
           customer_name: finalCustomerName,
           customer_phone: customerPhone || null,
           discount_amount: 0,
         });
 
         setOrderNumber(existingOrder.orderNumber || 0);
+        setCreatedOrderId(existingOrder.id);
+        setPaymentConfirmed(isNC); // NC orders are auto-confirmed
 
         // CRM sync (background)
         if (customerName.trim()) {
@@ -647,7 +653,6 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         }
 
         setStatus("success");
-        if (onSuccess) onSuccess(existingOrder.orderNumber || undefined);
         return; // Early return skip new order generation
       }
       // ──────────────────────────────────────────────────────────────
@@ -739,7 +744,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           items: formattedItems,
           total: orderTotal,
           status: "preparing",
-          payment_status: isNC ? "nc" : "paid",
+          payment_status: isNC ? "nc" : "pending",
           source: "quickserve",
           order_type: isNC ? "non-chargeable" : "takeaway",
           attendant: attendantName,
@@ -758,12 +763,16 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
 
       if (orderError) throw orderError;
       setOrderNumber(nextOrderNumber);
+      setCreatedOrderId(order?.id || null);
+      setPaymentConfirmed(isNC); // NC orders are auto-confirmed
 
-      // ✅ Show success IMMEDIATELY after critical writes
+      // ✅ Show success screen IMMEDIATELY after critical writes
       setStatus("success");
       toast({
-        title: "Payment Successful",
-        description: `${currencySymbol}${subtotal.toFixed(2)} received via ${method}`,
+        title: isNC ? "Order Created" : "Order Created — Awaiting Payment",
+        description: isNC
+          ? `Non-chargeable order created`
+          : `${currencySymbol}${subtotal.toFixed(2)} via ${method.toUpperCase()} — mark as paid when received`,
       });
 
       // 🔥 Fire-and-forget: non-critical tasks run in background
@@ -835,7 +844,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               kitchen_order_id: kitchenOrder?.id || null,
               amount: subtotal,
               payment_method: method,
-              status: "completed",
+              status: "pending",
               customer_name: finalCustomerName || null,
               customer_phone: customerPhone || null,
               staff_id: user?.id || null,
@@ -946,17 +955,25 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                 "w-16 h-16 rounded-full flex items-center justify-center mb-3 animate-in zoom-in-50 duration-300",
                 isOfflineOrder
                   ? "bg-amber-100 dark:bg-amber-500/20"
-                  : "bg-green-100 dark:bg-green-500/20",
+                  : paymentConfirmed
+                    ? "bg-green-100 dark:bg-green-500/20"
+                    : "bg-amber-100 dark:bg-amber-500/20",
               )}
             >
               {isOfflineOrder ? (
                 <WifiOff className="h-8 w-8 text-amber-500" />
-              ) : (
+              ) : paymentConfirmed ? (
                 <CheckCircle2 className="h-8 w-8 text-green-500 dark:text-green-400" />
+              ) : (
+                <Banknote className="h-8 w-8 text-amber-500" />
               )}
             </div>
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-0.5">
-              {isOfflineOrder ? "Order Saved Locally!" : "Payment Complete!"}
+              {isOfflineOrder
+                ? "Order Saved Locally!"
+                : paymentConfirmed
+                  ? "Payment Complete!"
+                  : "Awaiting Payment"}
             </h3>
             <p className="text-gray-500 dark:text-white/60 text-sm mb-1 text-center">
               {isOfflineOrder
@@ -1037,6 +1054,47 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                   </span>
                 </div>
               </div>
+            )}
+
+            {/* ─── Mark as Paid Button (above bill sharing) ─── */}
+            {!isOfflineOrder && !paymentConfirmed && (
+              <button
+                onClick={async () => {
+                  if (!createdOrderId) return;
+                  try {
+                    const { error } = await supabase
+                      .from("orders")
+                      .update({ payment_status: "paid" })
+                      .eq("id", createdOrderId);
+                    if (error) throw error;
+
+                    // Also update pos_transactions status
+                    await supabase
+                      .from("pos_transactions")
+                      .update({ status: "completed" })
+                      .eq("order_id", createdOrderId);
+
+                    setPaymentConfirmed(true);
+                    toast({
+                      title: "Payment Confirmed ✓",
+                      description: `${currencySymbol}${subtotal.toFixed(2)} marked as paid via ${selectedMethod?.toUpperCase()}`,
+                    });
+                  } catch (err) {
+                    console.error("Mark as paid error:", err);
+                    toast({
+                      title: "Failed to mark as paid",
+                      description: "Please try again.",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+                className="w-full max-w-xs mt-2 py-4 rounded-xl font-bold text-base text-white transition-all duration-200 active:scale-[0.97] shadow-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25"
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <CheckCircle2 className="h-5 w-5" />
+                  Mark as Paid — {currencySymbol}{subtotal.toFixed(2)}
+                </span>
+              </button>
             )}
 
             {/* Actions Container - Updated for MSG91 Integration */}
