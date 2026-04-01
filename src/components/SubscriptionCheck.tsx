@@ -13,7 +13,7 @@ const SubscriptionCheck = ({ isOpen, onClose }: SubscriptionCheckProps) => {
   const navigate = useNavigate();
 
   const handleViewPlans = () => {
-    navigate("/");
+    navigate("/dashboard/subscription");
     onClose();
   };
 
