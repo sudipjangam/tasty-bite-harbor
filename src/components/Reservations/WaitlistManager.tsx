@@ -225,7 +225,7 @@ export const WaitlistManager = () => {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => updateWaitlistStatus.mutate({ id: entry.id, status: 'cancelled' })}
+                    onClick={() => updateStatus({ id: entry.id, status: 'cancelled' })}
                   >
                     <XCircle className="w-4 h-4 mr-1" />
                     Cancel
