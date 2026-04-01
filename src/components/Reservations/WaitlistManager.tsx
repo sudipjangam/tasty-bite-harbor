@@ -32,7 +32,7 @@ export const WaitlistManager = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await addToWaitlist.mutateAsync({
+    await (addToWaitlist as any).mutateAsync({
       ...formData,
       status: 'waiting',
     });
