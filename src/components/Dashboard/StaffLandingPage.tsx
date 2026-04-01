@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentStaff } from "@/hooks/useCurrentStaff";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { useNavigate as useRouterNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -164,6 +165,19 @@ const StaffLandingPage: React.FC = () => {
     refetchLeaveData();
     setIsLeaveDialogOpen(false);
   };
+
+  // Realtime subscriptions for staff info
+  useRealtimeSubscription({
+    table: 'staff_notifications',
+    queryKey: 'staff-notifications',
+    filter: staff?.id ? { column: 'staff_id', value: staff.id } : null,
+  });
+
+  useRealtimeSubscription({
+    table: 'room_cleaning_schedules',
+    queryKey: 'staff-cleaning-tasks',
+    filter: staff?.id ? { column: 'assigned_staff_id', value: staff.id } : null,
+  });
 
   // Fetch staff notifications
   const { data: notifications } = useQuery({
