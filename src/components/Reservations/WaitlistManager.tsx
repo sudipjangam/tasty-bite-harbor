@@ -11,15 +11,13 @@ import { Clock, Users, Phone, Mail, Plus, CheckCircle, XCircle } from 'lucide-re
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 export const WaitlistManager = () => {
-  const { waitlist, isLoading, addToWaitlist, updateWaitlistStatus, deleteFromWaitlist, restaurantId } = useWaitlist();
+  const { waitlist, isLoading, addToWaitlist, updateStatus, removeFromWaitlist, restaurantId } = useWaitlist();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     customer_name: '',
     customer_phone: '',
     customer_email: '',
-    party_size: 2,
-    priority: 0,
-    estimated_wait_time: 30,
+    guests_count: 2,
     notes: '',
   });
 
@@ -32,18 +30,21 @@ export const WaitlistManager = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await addToWaitlist.mutateAsync({
-      ...formData,
-      status: 'waiting',
+    addToWaitlist({
+      customer_name: formData.customer_name,
+      customer_phone: formData.customer_phone,
+      customer_email: formData.customer_email || undefined,
+      guests_count: formData.guests_count,
+      notes: formData.notes || undefined,
+      check_in_date: new Date(),
+      check_out_date: new Date(Date.now() + 86400000),
     });
     setIsDialogOpen(false);
     setFormData({
       customer_name: '',
       customer_phone: '',
       customer_email: '',
-      party_size: 2,
-      priority: 0,
-      estimated_wait_time: 30,
+      guests_count: 2,
       notes: '',
     });
   };
@@ -111,40 +112,14 @@ export const WaitlistManager = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="party_size">Party Size *</Label>
+                <Label htmlFor="guests_count">Party Size *</Label>
                 <Input
-                  id="party_size"
+                  id="guests_count"
                   type="number"
                   min="1"
-                  value={formData.party_size}
-                  onChange={(e) => setFormData({ ...formData, party_size: parseInt(e.target.value) })}
+                  value={formData.guests_count}
+                  onChange={(e) => setFormData({ ...formData, guests_count: parseInt(e.target.value) })}
                   required
-                />
-              </div>
-              <div>
-                <Label htmlFor="priority">Priority</Label>
-                <Select
-                  value={formData.priority.toString()}
-                  onValueChange={(value) => setFormData({ ...formData, priority: parseInt(value) })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">Normal</SelectItem>
-                    <SelectItem value="1">High</SelectItem>
-                    <SelectItem value="2">VIP</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="estimated_wait_time">Estimated Wait (minutes)</Label>
-                <Input
-                  id="estimated_wait_time"
-                  type="number"
-                  min="0"
-                  value={formData.estimated_wait_time}
-                  onChange={(e) => setFormData({ ...formData, estimated_wait_time: parseInt(e.target.value) })}
                 />
               </div>
               <div>
@@ -186,12 +161,12 @@ export const WaitlistManager = () => {
                   <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Users className="w-4 h-4" />
-                      {entry.party_size} {entry.party_size === 1 ? 'guest' : 'guests'}
+                      {entry.guests_count} {entry.guests_count === 1 ? 'guest' : 'guests'}
                     </div>
-                    {entry.estimated_wait_time && (
+                    {entry.notes && (
                       <div className="flex items-center gap-1">
                         <Clock className="w-4 h-4" />
-                        ~{entry.estimated_wait_time} min wait
+                        {entry.notes}
                       </div>
                     )}
                     {entry.customer_phone && (
@@ -211,13 +186,13 @@ export const WaitlistManager = () => {
                     <p className="text-sm text-muted-foreground">Note: {entry.notes}</p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    Checked in: {new Date(entry.check_in_time).toLocaleString()}
+                    Checked in: {new Date(entry.check_in_date).toLocaleString()}
                   </p>
                 </div>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    onClick={() => updateWaitlistStatus.mutate({ id: entry.id, status: 'seated' })}
+                    onClick={() => updateStatus({ id: entry.id, status: 'seated' as any })}
                   >
                     <CheckCircle className="w-4 h-4 mr-1" />
                     Seat
@@ -225,7 +200,7 @@ export const WaitlistManager = () => {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => updateWaitlistStatus.mutate({ id: entry.id, status: 'cancelled' })}
+                    onClick={() => updateStatus({ id: entry.id, status: 'cancelled' })}
                   >
                     <XCircle className="w-4 h-4 mr-1" />
                     Cancel

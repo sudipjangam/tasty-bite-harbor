@@ -101,6 +101,7 @@ interface Restaurant {
   established_date: string | null;
   seating_capacity: number | null;
   description: string | null;
+  location_type: string | null;
   is_active: boolean;
   verification_status: string | null;
   rating: string | null;
@@ -674,12 +675,14 @@ const RestaurantManagement = () => {
       established_date: restaurant.established_date || "",
       seating_capacity: restaurant.seating_capacity?.toString() || "",
       description: restaurant.description || "",
+      location_type: restaurant.location_type || "fixed",
       owner_name: restaurant.owner_name || "",
       owner_email: restaurant.owner_email || "",
       owner_phone: restaurant.owner_phone || "",
       owner_address: restaurant.owner_address || "",
       owner_id_type: restaurant.owner_id_type || "aadhar",
       owner_id_number: restaurant.owner_id_number || "",
+      owner_password: "",
       emergency_contact_name: restaurant.emergency_contact_name || "",
       emergency_contact_phone: restaurant.emergency_contact_phone || "",
       bank_name: restaurant.bank_name || "",
@@ -1945,6 +1948,7 @@ const RestaurantManagement = () => {
                     established_date: formData.established_date,
                     seating_capacity: formData.seating_capacity,
                     description: formData.description,
+                    location_type: formData.location_type,
                     owner_name: formData.owner_name,
                     owner_email: formData.owner_email,
                     owner_phone: formData.owner_phone,

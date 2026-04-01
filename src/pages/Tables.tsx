@@ -300,7 +300,6 @@ const Tables = () => {
             {userName && (
               <QRCodeManagement
                 entityType="table"
-                restaurantId={tables[0]?.restaurant_id || ""}
               />
             )}
           </TabsContent>

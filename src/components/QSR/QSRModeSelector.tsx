@@ -11,6 +11,7 @@ interface QSRModeSelectorProps {
 const modes: {
   value: QSROrderMode;
   label: string;
+  shortLabel?: string;
   icon: React.ComponentType<{ className?: string }>;
   color: string;
   tooltip?: string;
