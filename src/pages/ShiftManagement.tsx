@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { PageHeader } from "@/components/Layout/PageHeader";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,21 @@ const ShiftManagement: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  // Real-time synchronization
+  useRealtimeSubscription({
+    table: 'shifts',
+    queryKey: ['shifts'],
+  });
+
+  useRealtimeSubscription({
+    table: 'staff',
+    queryKey: ['staff-list'],
+  });
+
+  useRealtimeSubscription({
+    table: 'staff_shift_assignments',
+    queryKey: ['shift-assignments'],
+  });
   const [isShiftDialogOpen, setIsShiftDialogOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [shiftForm, setShiftForm] = useState({

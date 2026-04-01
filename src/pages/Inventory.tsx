@@ -60,6 +60,7 @@ import InventoryAlerts from "@/components/Inventory/InventoryAlerts";
 import PurchaseOrders from "@/components/Inventory/PurchaseOrders";
 import PurchaseOrderSuggestions from "@/components/Inventory/PurchaseOrderSuggestions";
 import InventoryTransactions from "@/components/Inventory/InventoryTransactions";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { BillUploadDialog } from "@/components/Inventory/BillUploadDialog";
 import { BillExtractedDataDialog } from "@/components/Inventory/BillExtractedDataDialog";
 import { ExtractedBillData } from "@/utils/billUtils";
@@ -147,6 +148,12 @@ const Inventory = () => {
       if (error) throw error;
       return data as InventoryItem[];
     },
+  });
+
+  // Keep inventory data synced in real-time
+  useRealtimeSubscription({
+    table: "inventory_items",
+    queryKey: ["inventory"],
   });
 
   // Check for low stock items and notify
