@@ -246,16 +246,34 @@ const TimeClockDialog: React.FC<TimeClockDialogProps> = ({
 
     try {
       if (action === "in") {
-        // Check if there's already an active session
+        // Check if there's already an active session, or if recently clocked out
         const { data: activeSessions } = await supabase
           .from("staff_time_clock")
-          .select("*")
+          .select("id, clock_out")
           .eq("staff_id", staffToUse)
-          .is("clock_out", null)
+          .order("clock_in", { ascending: false })
           .limit(1);
 
         if (activeSessions && activeSessions.length > 0) {
-          throw new Error("You already have an active clock-in session");
+          if (!activeSessions[0].clock_out) {
+            throw new Error("You already have an active clock-in session");
+          }
+          if (differenceInMinutes(new Date(), new Date(activeSessions[0].clock_out)) < 5) {
+            const staffMember = staffMembers.find(s => s.id === staffToUse);
+            const staffName = staffMember
+              ? `${staffMember.first_name} ${staffMember.last_name}`.trim()
+              : "A staff member";
+              
+            await supabase.from("owner_notifications").insert({
+              restaurant_id: restaurantId,
+              type: "attendance_violation",
+              title: "Rapid Attendance Modification",
+              message: `${staffName} attempted to clock in less than 5 minutes after clocking out.`,
+              staff_name: staffName,
+              action_url: "/staff"
+            });
+            throw new Error("You must wait at least 5 minutes before clocking back in.");
+          }
         }
 
         // Create clock-in record with shift validation data
@@ -336,6 +354,23 @@ const TimeClockDialog: React.FC<TimeClockDialogProps> = ({
         }
 
         const activeSession = activeSessions[0];
+        
+        if (differenceInMinutes(new Date(), new Date(activeSession.clock_in)) < 5) {
+            const staffMember = staffMembers.find(s => s.id === staffToUse);
+            const staffName = staffMember
+              ? `${staffMember.first_name} ${staffMember.last_name}`.trim()
+              : "A staff member";
+              
+            await supabase.from("owner_notifications").insert({
+              restaurant_id: restaurantId,
+              type: "attendance_violation",
+              title: "Rapid Attendance Modification",
+              message: `${staffName} attempted to clock out less than 5 minutes after clocking in.`,
+              staff_name: staffName,
+              action_url: "/staff"
+            });
+            throw new Error("You must wait at least 5 minutes before clocking out.");
+        }
         
         // Update the session with clock-out time
         const { error } = await supabase
