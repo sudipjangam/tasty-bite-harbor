@@ -352,7 +352,7 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
           />
         )}
 
-        {currentStep === "success" && orderId && (
+        {currentStep === ("success" as OrderStep) && orderId && (
           <div className="space-y-4 pb-8">
             {/* Success Header */}
             <Card className="border-2 border-green-500 bg-gradient-to-br from-green-50 to-emerald-50">
