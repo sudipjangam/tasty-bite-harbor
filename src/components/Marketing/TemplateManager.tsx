@@ -196,7 +196,7 @@ const TemplateManager: React.FC = () => {
                     {!template.is_default && (
                       <StandardizedButton
                         size="sm"
-                        variant="destructive"
+                        variant="danger"
                         onClick={() => handleDelete(template.id)}
                         className="flex items-center gap-1"
                       >

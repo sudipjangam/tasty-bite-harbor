@@ -14,8 +14,6 @@ const mockOrders: ActiveKitchenOrder[] = [
       { name: "Fries", quantity: 1, price: 80 },
     ],
     orderType: "dine_in",
-    customerName: "Table 1",
-    serverName: "John",
     priority: "normal",
     createdAt: new Date().toISOString(),
     itemCompletionStatus: [true, false],
@@ -27,8 +25,6 @@ const mockOrders: ActiveKitchenOrder[] = [
     status: "ready",
     items: [{ name: "Pizza", quantity: 1, price: 250 }],
     orderType: "takeaway",
-    customerName: "Takeaway",
-    serverName: "Jane",
     priority: "rush",
     createdAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(), // 10 mins ago
     itemCompletionStatus: [true],

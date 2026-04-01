@@ -191,8 +191,8 @@ export const AreaChart: React.FC<AreaChartProps> = ({
     },
     tooltip: {
       formatter: function () {
-        if (tooltipFormatter && this.point) {
-          return tooltipFormatter(this.point);
+        if (tooltipFormatter && (this as any).point) {
+          return tooltipFormatter((this as any).point);
         }
         return `<b>${this.x}</b><br/>${this.y}`;
       },
@@ -268,10 +268,10 @@ export const PieChart: React.FC<PieChartProps> = ({
     },
     tooltip: {
       formatter: function () {
-        if (tooltipFormatter && this.point) {
-          return tooltipFormatter(this.point);
+        if (tooltipFormatter && (this as any).point) {
+          return tooltipFormatter((this as any).point);
         }
-        return `<b>${this.point.name}</b><br/>${this.y}`;
+        return `<b>${(this as any).point?.name}</b><br/>${this.y}`;
       },
     },
     plotOptions: {
@@ -353,8 +353,8 @@ export const BarChart: React.FC<BarChartProps> = ({
     },
     tooltip: {
       formatter: function () {
-        if (tooltipFormatter && this.point) {
-          return tooltipFormatter(this.point);
+        if (tooltipFormatter && (this as any).point) {
+          return tooltipFormatter((this as any).point);
         }
         return `<b>${this.x}</b><br/>${this.y}`;
       },
@@ -436,8 +436,8 @@ export const LineChart: React.FC<LineChartProps> = ({
     },
     tooltip: {
       formatter: function () {
-        if (tooltipFormatter && this.point) {
-          return tooltipFormatter(this.point);
+        if (tooltipFormatter && (this as any).point) {
+          return tooltipFormatter((this as any).point);
         }
         return `<b>${this.x}</b><br/>${this.y}`;
       },
