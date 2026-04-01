@@ -217,7 +217,7 @@ export const WaitlistManager = () => {
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    onClick={() => updateWaitlistStatus.mutate({ id: entry.id, status: 'seated' })}
+                    onClick={() => updateStatus({ id: entry.id, status: 'seated' as any })}
                   >
                     <CheckCircle className="w-4 h-4 mr-1" />
                     Seat
