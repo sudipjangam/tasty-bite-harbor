@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useCurrencyContext } from '@/contexts/CurrencyContext';
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 
 interface Supplier {
   id: string;
@@ -151,6 +152,16 @@ const Suppliers = () => {
       if (error) throw error;
       return data as InventoryItem[];
     },
+  });
+
+  useRealtimeSubscription({
+    table: 'suppliers',
+    queryKey: ['suppliers'],
+  });
+
+  useRealtimeSubscription({
+    table: 'supplier_orders',
+    queryKey: ['supplier-orders'],
   });
 
   // Filter suppliers

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StaffList from "@/components/Staff/StaffList";
 import StaffDetail from "@/components/Staff/StaffDetail";
@@ -87,6 +88,16 @@ const Staff = () => {
       if (error) throw error;
       return data as StaffRole[];
     },
+  });
+
+  useRealtimeSubscription({
+    table: 'staff',
+    queryKey: ['staff', 'staff-stats'], // invalidating multiple related to staff
+  });
+
+  useRealtimeSubscription({
+    table: 'staff_roles',
+    queryKey: ['staff-roles'],
   });
 
   const handleAddStaff = () => {

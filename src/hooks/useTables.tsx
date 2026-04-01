@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 export interface TableData {
   id: string;
@@ -59,6 +60,11 @@ export const useTables = () => {
       return data as TableData[];
     },
     enabled: !!restaurantId,
+  });
+
+  useRealtimeSubscription({
+    table: 'restaurant_tables',
+    queryKey: ['restaurant-tables'],
   });
 
   return {

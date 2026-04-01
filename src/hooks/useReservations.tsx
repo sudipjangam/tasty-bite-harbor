@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { TableReservation, ReservationFormData } from '@/types/reservations';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 export interface RoomReservation {
   id: string;
@@ -94,6 +95,16 @@ export const useReservations = () => {
       return data as RoomReservation[];
     },
     enabled: !!restaurantId,
+  });
+
+  useRealtimeSubscription({
+    table: 'table_reservations',
+    queryKey: ['table-reservations'],
+  });
+
+  useRealtimeSubscription({
+    table: 'reservations',
+    queryKey: ['room-reservations'],
   });
 
   // Create reservation mutation

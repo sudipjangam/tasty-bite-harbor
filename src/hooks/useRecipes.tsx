@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "./useRestaurantId";
 import { useToast } from "@/hooks/use-toast";
+import { useRealtimeSubscription } from "./useRealtimeSubscription";
 
 export interface Recipe {
   id: string;
@@ -72,6 +73,22 @@ export const useRecipes = () => {
   const restaurantId = useRestaurantId();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // keeping tabs in sync
+  useRealtimeSubscription({
+    table: 'recipes',
+    queryKey: ['recipes'],
+  });
+
+  useRealtimeSubscription({
+    table: 'recipe_ingredients',
+    queryKey: ['recipe-ingredients'],
+  });
+
+  useRealtimeSubscription({
+    table: 'batch_productions',
+    queryKey: ['batch-productions'],
+  });
 
   const recipesQuery = useQuery({
     queryKey: ['recipes', restaurantId],
