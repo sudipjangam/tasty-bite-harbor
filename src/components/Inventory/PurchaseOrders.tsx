@@ -505,8 +505,9 @@ const PurchaseOrders = () => {
 
   const handleBillDataExtracted = (data: ExtractedBillData) => {
     // 1. Find or set supplier
+    const supplierName = data.vendor?.name || null;
     const matchedSupplier = findBestSupplierMatch(
-      data.supplier_name,
+      supplierName,
       suppliers
     );
     if (matchedSupplier) {
@@ -515,36 +516,35 @@ const PurchaseOrders = () => {
         title: "Supplier Matched",
         description: `Matched to ${matchedSupplier.name}`,
       });
-    } else if (data.supplier_name) {
+    } else if (supplierName) {
       toast({
         title: "Supplier Not Found",
-        description: `Could not find supplier "${data.supplier_name}". Please select manually.`,
+        description: `Could not find supplier "${supplierName}". Please select manually.`,
         variant: "destructive",
       });
     }
 
     // 2. Set date
-    if (data.invoice_date) {
-      setExpectedDeliveryDate(data.invoice_date); // Or separate field if we want to track Invoice Date distinct from Delivery
+    if (data.invoice?.date) {
+      setExpectedDeliveryDate(data.invoice.date);
     }
 
     // 3. Map items
     if (data.items && data.items.length > 0) {
       const mappedItems: OrderLineItem[] = data.items.map((item) => {
-        // Try to match inventory item by name
-        // This is a naive partial match, real world might need smarter util
+        const itemName = item.item_name || "";
         const matchedInventoryItem = inventoryItems.find(
           (inv) =>
-            inv.name.toLowerCase().includes(item.description.toLowerCase()) ||
-            item.description.toLowerCase().includes(inv.name.toLowerCase())
+            inv.name.toLowerCase().includes(itemName.toLowerCase()) ||
+            itemName.toLowerCase().includes(inv.name.toLowerCase())
         );
 
         return {
           inventory_item_id: matchedInventoryItem?.id || "",
-          name: matchedInventoryItem?.name || item.description, // Use extracted desc if no match
+          name: matchedInventoryItem?.name || itemName,
           unit: matchedInventoryItem?.unit || item.unit || "unit",
           quantity: item.quantity || 1,
-          unit_cost: item.unit_price || 0,
+          unit_cost: item.rate || 0,
         };
       });
       setOrderItems(mappedItems);

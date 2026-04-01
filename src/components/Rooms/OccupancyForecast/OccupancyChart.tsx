@@ -203,8 +203,8 @@ const OccupancyChart: React.FC<OccupancyChartProps> = ({ className }) => {
       shadow: true,
       useHTML: true,
       formatter: function () {
-        const point = this.point as any;
-        const idx = point.index;
+        const p = this as any;
+        const idx = p.point?.index ?? 0;
         const d = data[idx];
         return `
           <div style="padding: 8px;">

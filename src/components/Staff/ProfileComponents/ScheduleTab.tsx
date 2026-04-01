@@ -56,7 +56,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                   </TableCell>
                   <TableCell>{format(parseISO(shift.start_time), "h:mm a")}</TableCell>
                   <TableCell>{format(parseISO(shift.end_time), "h:mm a")}</TableCell>
-                  <TableCell>{shift.location || "Main"}</TableCell>
+                  <TableCell>{"Main"}</TableCell>
                   <TableCell>
                     {format(parseISO(shift.end_time).getTime() - parseISO(shift.start_time).getTime(), "H")} hrs
                   </TableCell>

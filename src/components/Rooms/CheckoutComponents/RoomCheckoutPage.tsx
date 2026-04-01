@@ -1004,7 +1004,7 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
           additionalCharges={additionalCharges}
           discountAmount={totalDiscount}
           serviceCharge={serviceCharge}
-          paymentMethod={paymentMethod}
+           
           subtotal={subtotalBeforeDiscount}
           promotionName={appliedPromotion ? appliedPromotion.name : undefined}
           manualDiscountPercent={discountPercent > 0 ? discountPercent : undefined}

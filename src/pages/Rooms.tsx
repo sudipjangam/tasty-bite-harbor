@@ -192,7 +192,7 @@ const Rooms = () => {
         <TabsContent value="qr-codes" className="mt-2 animate-in fade-in">
           <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-xl p-8">
             {restaurantId ? (
-              <QRCodeManagement entityType="room" restaurantId={restaurantId} />
+              <QRCodeManagement entityType="room" />
             ) : (
               <div className="flex justify-center items-center min-h-[200px]">
                 <p className="text-muted-foreground">

@@ -1947,6 +1947,7 @@ const RestaurantManagement = () => {
                     established_date: formData.established_date,
                     seating_capacity: formData.seating_capacity,
                     description: formData.description,
+                    location_type: formData.location_type,
                     owner_name: formData.owner_name,
                     owner_email: formData.owner_email,
                     owner_phone: formData.owner_phone,

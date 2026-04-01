@@ -211,7 +211,7 @@ export const WaitlistManager = () => {
                     <p className="text-sm text-muted-foreground">Note: {entry.notes}</p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    Checked in: {new Date(entry.check_in_time).toLocaleString()}
+                    Checked in: {new Date(entry.check_in_date).toLocaleString()}
                   </p>
                 </div>
                 <div className="flex gap-2">
