@@ -11,7 +11,7 @@ import { Clock, Users, Phone, Mail, Plus, CheckCircle, XCircle } from 'lucide-re
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 export const WaitlistManager = () => {
-  const { waitlist, isLoading, addToWaitlist, restaurantId } = useWaitlist();
+  const { waitlist, isLoading, addToWaitlist, updateStatus, removeFromWaitlist, restaurantId } = useWaitlist();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     customer_name: '',
