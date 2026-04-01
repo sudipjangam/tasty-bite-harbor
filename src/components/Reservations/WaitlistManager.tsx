@@ -31,17 +31,20 @@ export const WaitlistManager = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     addToWaitlist({
-      ...formData,
-      status: 'waiting',
+      customer_name: formData.customer_name,
+      customer_phone: formData.customer_phone,
+      customer_email: formData.customer_email || undefined,
+      guests_count: formData.guests_count,
+      notes: formData.notes || undefined,
+      check_in_date: new Date(),
+      check_out_date: new Date(Date.now() + 86400000),
     });
     setIsDialogOpen(false);
     setFormData({
       customer_name: '',
       customer_phone: '',
       customer_email: '',
-      party_size: 2,
-      priority: 0,
-      estimated_wait_time: 30,
+      guests_count: 2,
       notes: '',
     });
   };
