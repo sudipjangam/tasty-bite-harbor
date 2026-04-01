@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { useNavigate } from "react-router-dom";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,43 +65,29 @@ const FoodTruckDashboard: React.FC = () => {
   );
 
   // Realtime subscriptions — auto-refresh stats on any order or payment change
-  useEffect(() => {
-    if (!restaurantId) return;
-    const channel = supabase
-      .channel("dashboard-live-stats")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "orders",
-          filter: `restaurant_id=eq.${restaurantId}`,
-        },
-        () => {
-          queryClient.invalidateQueries({
-            queryKey: ["food-truck-today-stats"],
-          });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "pos_transactions",
-          filter: `restaurant_id=eq.${restaurantId}`,
-        },
-        () => {
-          queryClient.invalidateQueries({
-            queryKey: ["food-truck-today-stats"],
-          });
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [restaurantId, queryClient]);
+  const subscriptionConfig = {
+    schema: "public",
+    debounceMs: 500, // Debounce POS bursts slightly
+  };
+
+  useRealtimeSubscription({ 
+    table: "orders", 
+    queryKey: "food-truck-today-stats",
+    ...subscriptionConfig 
+  });
+  
+  useRealtimeSubscription({ 
+    table: "pos_transactions", 
+    queryKey: "food-truck-today-stats",
+    ...subscriptionConfig 
+  });
+  
+  useRealtimeSubscription({ 
+    table: "restaurants", 
+    queryKey: "food-truck-dashboard",
+    // Filter to just this restaurant if preferred, but typical small load means we can just rely on the query caching
+    ...subscriptionConfig 
+  });
 
   // Fetch restaurant data
   const { data: restaurant } = useQuery({
@@ -189,7 +176,6 @@ const FoodTruckDashboard: React.FC = () => {
             : 0,
       };
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   const schedule = (restaurant?.weekly_schedule as WeeklySchedule) || {};

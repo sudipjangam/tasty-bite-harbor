@@ -8,6 +8,7 @@ interface UseRealtimeSubscriptionOptions {
   queryKey: string | string[];
   schema?: string;
   filter?: { column: string; value: any } | null;
+  debounceMs?: number;
 }
 
 export const useRealtimeSubscription = ({
@@ -15,10 +16,13 @@ export const useRealtimeSubscription = ({
   queryKey,
   schema = 'public',
   filter = null,
+  debounceMs = 0,
 }: UseRealtimeSubscriptionOptions) => {
   const queryClient = useQueryClient();
   
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
     // Create subscription options
     const subscriptionOptions: any = {
       schema,
@@ -35,16 +39,24 @@ export const useRealtimeSubscription = ({
     const channel = supabase
       .channel(`${table}-changes`)
       .on('postgres_changes', subscriptionOptions, () => {
-        // Invalidate the query to refresh data
-        queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] });
+        // Debounce the invalidation to prevent refetch thrashing
+        if (debounceMs > 0) {
+          clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] });
+          }, debounceMs);
+        } else {
+          queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] });
+        }
       })
       .subscribe();
     
     // Clean up subscription when component unmounts
     return () => {
+      clearTimeout(timeoutId);
       supabase.removeChannel(channel);
     };
-  }, [table, schema, queryKey, queryClient, filter?.column, filter?.value]);
+  }, [table, schema, queryKey, queryClient, filter?.column, filter?.value, debounceMs]);
 };
 
 export default useRealtimeSubscription;

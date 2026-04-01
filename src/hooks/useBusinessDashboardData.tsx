@@ -4,6 +4,7 @@ import { format, subDays, startOfWeek, addDays, isSameDay } from "date-fns";
 import { useExpenseData } from "./useExpenseData";
 import { useRealTimeBusinessData } from "./useRealTimeBusinessData";
 import { useRestaurantId } from "./useRestaurantId";
+import { useRealtimeSubscription } from "./useRealtimeSubscription";
 
 // Define proper types for inventory items
 interface InventoryItem {
@@ -77,6 +78,19 @@ export const useBusinessDashboardData = () => {
   const { restaurantId, isLoading: isRestaurantLoading } = useRestaurantId();
   const { data: expenseDataFromHook } = useExpenseData();
   const { data: realTimeData } = useRealTimeBusinessData();
+
+  // Setup heavy debounced real-time subscriptions for all related tables
+  const subscriptionConfig = {
+    queryKey: "business-dashboard-data",
+    schema: "public",
+    debounceMs: 5000 // 5 seconds debounce to prevent refetch thrashing
+  };
+
+  useRealtimeSubscription({ table: "orders", ...subscriptionConfig });
+  useRealtimeSubscription({ table: "inventory_items", ...subscriptionConfig });
+  useRealtimeSubscription({ table: "staff", ...subscriptionConfig });
+  useRealtimeSubscription({ table: "promotion_campaigns", ...subscriptionConfig });
+  useRealtimeSubscription({ table: "daily_revenue_stats", ...subscriptionConfig });
 
   return useQuery({
     queryKey: ["business-dashboard-data", restaurantId],
@@ -754,6 +768,5 @@ export const useBusinessDashboardData = () => {
       };
     },
     enabled: !!restaurantId && !isRestaurantLoading,
-    refetchInterval: 60000,
   });
 };
