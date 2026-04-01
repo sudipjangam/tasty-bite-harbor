@@ -1,0 +1,53 @@
+graph LR
+    subgraph UserActions["User Actions"]
+        Staff["Staff / Admin"]
+        Customer["Customer (QR)"]
+    end
+
+    subgraph ReactApp["React Application"]
+        direction TB
+        RQ["React Query Cache"]
+        Hooks["Custom Hooks"]
+        Components["UI Components"]
+        Contexts["Contexts (Auth, Currency, Access, Cart)"]
+    end
+
+    subgraph SupabaseLayer["Supabase"]
+        direction TB
+        Client["Supabase JS Client"]
+        RLS["Row Level Security"]
+        DB["PostgreSQL"]
+        Realtime["Realtime Subscriptions"]
+        Auth["Auth (JWT)"]
+        Storage["File Storage"]
+        EF["Edge Functions"]
+    end
+
+    subgraph ExternalAPIs["External APIs"]
+        Gemini["Google Gemini"]
+        WhatsApp["MSG91 WhatsApp"]
+        Payment["Paytm"]
+    end
+
+    Staff --> Components
+    Customer --> Components
+
+    Components --> Hooks
+    Hooks --> RQ
+    RQ --> Client
+    Components --> Contexts
+
+    Client --> RLS
+    RLS --> DB
+    Client --> Realtime
+    Client --> Auth
+    Client --> Storage
+
+    Realtime --> RQ
+
+    EF --> DB
+    EF --> Gemini
+    EF --> WhatsApp
+    EF --> Payment
+
+    Components -->|"invoke"| EF

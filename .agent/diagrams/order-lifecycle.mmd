@@ -1,0 +1,47 @@
+stateDiagram-v2
+    [*] --> MenuBrowse: Customer/Staff selects items
+
+    MenuBrowse --> Cart: Add to cart
+
+    Cart --> Held: Hold/Park order
+    Held --> Cart: Resume held order
+
+    Cart --> KitchenSent: Send to Kitchen (KOT)
+    Cart --> DirectPay: Pay Now
+
+    KitchenSent --> Preparing: Kitchen starts
+    Preparing --> Ready: Kitchen completes
+    Ready --> Completed: Served/Picked up
+
+    KitchenSent --> CollectPayment: Collect Payment later
+    CollectPayment --> Paid: Payment received
+
+    DirectPay --> Paid: Transaction logged
+    Paid --> Completed: Order finalized
+
+    Cart --> EditMode: Add items to existing order
+    EditMode --> KitchenSent: Append new items
+
+    Completed --> [*]
+
+    note right of Held
+        Stored in localStorage
+        Key: qs-held-orders
+    end note
+
+    note right of KitchenSent
+        Creates kitchen_order record
+        Triggers inventory deduction
+        payment_status: pending
+    end note
+
+    note right of Paid
+        pos_transactions record created
+        Supports: Cash, UPI, Card, NC
+    end note
+
+    state Cart {
+        [*] --> ItemsAdded
+        ItemsAdded --> DiscountApplied: Apply coupon/loyalty
+        ItemsAdded --> CustomerLinked: Link CRM customer
+    }
