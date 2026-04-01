@@ -8,7 +8,7 @@ import { useState } from "react";
 interface MenuItem {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   price: number;
   category: string;
   image?: string;

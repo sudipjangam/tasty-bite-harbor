@@ -402,10 +402,9 @@ const StaffSelfServiceSection: React.FC<StaffSelfServiceSectionProps> = ({
                       </div>
                     </div>
 
-                    {entry.total_minutes && (
+                    {entry.clock_out && (
                       <span className="text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/50 px-2 py-1 rounded-lg">
-                        {Math.floor(entry.total_minutes / 60)}h{" "}
-                        {entry.total_minutes % 60}m
+                        {(() => { const mins = Math.round((new Date(entry.clock_out).getTime() - new Date(entry.clock_in).getTime()) / 60000); return `${Math.floor(mins / 60)}h ${mins % 60}m`; })()}
                       </span>
                     )}
                   </div>
