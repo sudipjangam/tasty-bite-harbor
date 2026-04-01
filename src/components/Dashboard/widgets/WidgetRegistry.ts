@@ -14,6 +14,7 @@ import {
   Trophy,
   DollarSign,
   CloudSun,
+  UserCheck,
 } from "lucide-react";
 
 export const MAX_WIDGETS = 8;
@@ -148,9 +149,18 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     gradient: "from-sky-400 to-blue-600",
     category: "info",
   },
+  {
+    id: "owner-attendance",
+    name: "Attendance & Leaves",
+    description: "Manage your attendance, live staff times, and upcoming leaves",
+    icon: UserCheck,
+    gradient: "from-rose-500 to-red-600",
+    category: "info",
+  },
 ];
 
 export const DEFAULT_WIDGETS = [
+  "owner-attendance",
   "weekly-sales",
   "trending-items",
   "revenue-pie",

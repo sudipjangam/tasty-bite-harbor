@@ -33,6 +33,7 @@ const LocationPerformanceWidget = lazy(
 );
 const MenuMarginsWidget = lazy(() => import("./MenuMarginsWidget"));
 const WeatherWidget = lazy(() => import("./WeatherWidget"));
+const OwnerAttendanceWidget = lazy(() => import("./OwnerAttendanceWidget"));
 
 // Import NC Stats (named export)
 import { NCStatsCard } from "@/components/Dashboard/NCStatsCard";
@@ -79,6 +80,8 @@ const WidgetContent: React.FC<{
       return <MenuMarginsWidget />;
     case "weather-forecast":
       return <WeatherWidget />;
+    case "owner-attendance":
+      return <OwnerAttendanceWidget />;
     case "this-week":
       return (
         scheduleComponent || (

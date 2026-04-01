@@ -135,8 +135,11 @@ export const useAutoClockOut = (
 
         const minutesPastEnd = differenceInMinutes(now, shiftEndTime);
         const autoClockOutThreshold = todayShift.auto_clock_out_minutes || 120;
+        const minutesSinceClockIn = differenceInMinutes(now, clockInTime);
 
-        if (minutesPastEnd >= autoClockOutThreshold) {
+        // Only auto clock out if it's past the shift end + threshold, 
+        // AND they've been clocked in for at least the threshold duration
+        if (minutesPastEnd >= autoClockOutThreshold && minutesSinceClockIn >= autoClockOutThreshold) {
           performAutoClockOut(
             `Auto clock-out: ${autoClockOutThreshold} min after shift end`
           );
