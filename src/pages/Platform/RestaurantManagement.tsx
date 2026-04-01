@@ -101,6 +101,7 @@ interface Restaurant {
   established_date: string | null;
   seating_capacity: number | null;
   description: string | null;
+  location_type: string | null;
   is_active: boolean;
   verification_status: string | null;
   rating: string | null;
