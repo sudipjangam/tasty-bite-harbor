@@ -500,7 +500,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           name: item.name,
           quantity: item.quantity,
           price: item.price,
-          menuItemId: item.id,
+          menuItemId: item.menuItemId,
           notes: [],
         }));
         const formattedItems = items.map(
@@ -665,7 +665,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         name: item.name,
         quantity: item.quantity,
         price: item.price,
-        menuItemId: item.id,
+        menuItemId: item.menuItemId,
         notes: [],
       }));
 

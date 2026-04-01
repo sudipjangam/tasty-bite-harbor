@@ -370,6 +370,7 @@ const QuickServePOS: React.FC = () => {
         name: item.name,
         quantity: item.quantity,
         price: item.price,
+        menuItemId: item.menuItemId,
         notes: item.notes ? [item.notes] : [],
       }));
       const formattedItems = orderItems.map(
@@ -470,18 +471,18 @@ const QuickServePOS: React.FC = () => {
         });
 
         // Subtract original quantities from current to find net new
-        const currentMap = new Map<string, { name: string; price: number; quantity: number; notes?: string }>();
+        const currentMap = new Map<string, { name: string; price: number; quantity: number; notes?: string; menuItemId?: string }>();
         orderItems.forEach((item) => {
           const key = `${item.name}@@${item.price}@@${item.notes || ""}`;
           const existing = currentMap.get(key);
           if (existing) {
             existing.quantity += item.quantity;
           } else {
-            currentMap.set(key, { name: item.name, price: item.price, quantity: item.quantity, notes: item.notes });
+            currentMap.set(key, { name: item.name, price: item.price, quantity: item.quantity, notes: item.notes, menuItemId: item.menuItemId });
           }
         });
 
-        const newKitchenItems: { name: string; quantity: number; price: number; notes: string[] }[] = [];
+        const newKitchenItems: { name: string; quantity: number; price: number; menuItemId?: string; notes: string[] }[] = [];
         currentMap.forEach((current, key) => {
           const origQty = originalMap.get(key) || 0;
           const netNew = current.quantity - origQty;
@@ -490,6 +491,7 @@ const QuickServePOS: React.FC = () => {
               name: current.name,
               quantity: netNew,
               price: current.price,
+              menuItemId: current.menuItemId,
               notes: current.notes ? [current.notes] : [],
             });
           }

@@ -81,7 +81,9 @@ serve(async (req) => {
     const restaurantId = kitchenOrder.restaurant_id;
 
     // Resolve missing menuItemIds by name lookup (case-insensitive)
+    // Also handles variant-suffixed names like "Pizza (Medium)" → base name "Pizza"
     let menuNameMap: Record<string, string> = {};
+    let variantNameMap: Record<string, Record<string, string>> = {}; // menuItemId → { variantName → variantId }
     const needsResolution = items.some(i => !i.menuItemId);
     if (needsResolution) {
       const { data: menuItems, error: menuErr } = await supabaseClient
@@ -91,7 +93,19 @@ serve(async (req) => {
       if (menuErr) {
         console.error('Failed to fetch menu items for resolution:', menuErr);
       } else {
-        menuNameMap = Object.fromEntries((menuItems || []).map(mi => [String(mi.name).toLowerCase(), mi.id]));
+        menuNameMap = Object.fromEntries((menuItems || []).map(mi => [String(mi.name).toLowerCase().trim(), mi.id]));
+      }
+
+      // Also fetch variants so we can resolve "Pizza (Medium)" → baseId__variantId
+      const { data: variants } = await supabaseClient
+        .from('menu_item_variants')
+        .select('id, menu_item_id, name')
+        .eq('restaurant_id', restaurantId);
+      if (variants) {
+        for (const v of variants) {
+          if (!variantNameMap[v.menu_item_id]) variantNameMap[v.menu_item_id] = {};
+          variantNameMap[v.menu_item_id][String(v.name).toLowerCase().trim()] = v.id;
+        }
       }
     }
 
@@ -101,7 +115,33 @@ serve(async (req) => {
     // Process each item in the order
     for (const item of items) {
       if (!item.menuItemId) {
-        const resolvedId = menuNameMap[(item.name || '').toLowerCase?.() ?? ''];
+        const itemNameLower = (item.name || '').toLowerCase().trim();
+        let resolvedId = menuNameMap[itemNameLower];
+        
+        // If exact match fails, try stripping variant suffix: "Pizza (Medium)" → "Pizza"
+        if (!resolvedId) {
+          const variantMatch = itemNameLower.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+          if (variantMatch) {
+            const baseName = variantMatch[1].trim();
+            const variantName = variantMatch[2].trim();
+            const baseId = menuNameMap[baseName];
+            if (baseId) {
+              // Try to find the variant ID from the suffix name
+              const variantEntries = variantNameMap[baseId];
+              const matchedVariantId = variantEntries?.[variantName];
+              if (matchedVariantId) {
+                // Compose as baseId__variantId so variant parsing below picks it up
+                resolvedId = `${baseId}__${matchedVariantId}`;
+                console.log(`Resolved variant from name suffix: ${item.name} → ${baseName} + variant ${variantName} (${matchedVariantId})`);
+              } else {
+                // Variant name not found, use base item only
+                resolvedId = baseId;
+                console.log(`Resolved base name only (variant "${variantName}" not found in DB): ${item.name} → ${baseName}`);
+              }
+            }
+          }
+        }
+        
         if (resolvedId) {
           item.menuItemId = resolvedId;
           console.log(`Resolved menuItemId for ${item.name}: ${resolvedId}`);
