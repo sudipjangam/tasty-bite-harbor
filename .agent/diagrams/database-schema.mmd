@@ -1,0 +1,118 @@
+graph TB
+    subgraph Core["Core Tables"]
+        restaurants["restaurants"]
+        profiles["profiles"]
+        user_roles["user_roles"]
+    end
+
+    subgraph Operations["Order Operations"]
+        orders["orders"]
+        kitchen_orders["kitchen_orders"]
+        pos_transactions["pos_transactions"]
+        menu_items["menu_items"]
+        categories["categories"]
+        tables["tables"]
+        qr_codes["qr_codes"]
+    end
+
+    subgraph HotelPMS["Hotel / PMS"]
+        rooms["rooms"]
+        reservations["reservations"]
+        check_ins["check_ins"]
+        guest_profiles["guest_profiles"]
+        guest_preferences["guest_preferences"]
+        guest_loyalty["guest_loyalty"]
+        guest_feedback["guest_feedback"]
+        lost_found["lost_found_items"]
+        housekeeping["housekeeping_tasks"]
+    end
+
+    subgraph ChannelMgmt["Channel Management"]
+        booking_channels["booking_channels"]
+        channel_inventory["channel_inventory"]
+        channel_rate_rules["channel_rate_rules"]
+        channel_restrictions["channel_restrictions"]
+        channel_room_mapping["channel_room_mapping"]
+        rate_plans["rate_plans"]
+        competitor_pricing["competitor_pricing"]
+    end
+
+    subgraph FinanceTables["Financial"]
+        expenses["expenses"]
+        expense_categories["expense_categories"]
+        invoices["invoices"]
+        invoice_line_items["invoice_line_items"]
+        chart_of_accounts["chart_of_accounts"]
+        journal_entries["journal_entries"]
+        budgets["budgets"]
+        financial_reports["financial_reports"]
+        daily_revenue_stats["daily_revenue_stats"]
+    end
+
+    subgraph CRM["CRM & Marketing"]
+        customers["customers"]
+        customer_activities["customer_activities"]
+        customer_notes["customer_notes"]
+        loyalty_tiers["loyalty_tiers"]
+        promotion_campaigns["promotion_campaigns"]
+    end
+
+    subgraph InventoryTables["Inventory"]
+        inventory_items["inventory_items"]
+        inventory_transactions["inventory_transactions"]
+        inventory_alerts["inventory_alerts"]
+        recipes["recipes"]
+        batch_productions["batch_productions"]
+    end
+
+    subgraph StaffTables["Staff"]
+        staff["staff"]
+        staff_roles["staff_roles"]
+    end
+
+    subgraph System["System"]
+        audit_logs["audit_logs"]
+        currencies["currencies"]
+        backups["backups"]
+        app_components["app_components"]
+        component_permissions["component_permissions"]
+    end
+
+    restaurants --- orders
+    restaurants --- rooms
+    restaurants --- staff
+    restaurants --- customers
+    restaurants --- expenses
+    restaurants --- inventory_items
+    restaurants --- booking_channels
+    restaurants --- audit_logs
+
+    orders --- kitchen_orders
+    orders --- pos_transactions
+    menu_items --- categories
+
+    rooms --- reservations
+    rooms --- check_ins
+    rooms --- channel_inventory
+    reservations --- check_ins
+    check_ins --- guest_profiles
+
+    booking_channels --- channel_inventory
+    booking_channels --- channel_rate_rules
+    booking_channels --- channel_room_mapping
+    rate_plans --- channel_inventory
+
+    invoices --- invoice_line_items
+    chart_of_accounts --- journal_entries
+    budgets --- budget_line_items
+
+    customers --- customer_activities
+    customers --- customer_notes
+    customers --- loyalty_tiers
+
+    inventory_items --- inventory_transactions
+    inventory_items --- inventory_alerts
+    recipes --- batch_productions
+
+    profiles --- user_roles
+    app_components --- component_permissions
