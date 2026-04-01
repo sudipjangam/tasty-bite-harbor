@@ -112,40 +112,14 @@ export const WaitlistManager = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="party_size">Party Size *</Label>
+                <Label htmlFor="guests_count">Party Size *</Label>
                 <Input
-                  id="party_size"
+                  id="guests_count"
                   type="number"
                   min="1"
-                  value={formData.party_size}
-                  onChange={(e) => setFormData({ ...formData, party_size: parseInt(e.target.value) })}
+                  value={formData.guests_count}
+                  onChange={(e) => setFormData({ ...formData, guests_count: parseInt(e.target.value) })}
                   required
-                />
-              </div>
-              <div>
-                <Label htmlFor="priority">Priority</Label>
-                <Select
-                  value={formData.priority.toString()}
-                  onValueChange={(value) => setFormData({ ...formData, priority: parseInt(value) })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">Normal</SelectItem>
-                    <SelectItem value="1">High</SelectItem>
-                    <SelectItem value="2">VIP</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="estimated_wait_time">Estimated Wait (minutes)</Label>
-                <Input
-                  id="estimated_wait_time"
-                  type="number"
-                  min="0"
-                  value={formData.estimated_wait_time}
-                  onChange={(e) => setFormData({ ...formData, estimated_wait_time: parseInt(e.target.value) })}
                 />
               </div>
               <div>
