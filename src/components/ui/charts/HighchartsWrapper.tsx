@@ -268,10 +268,10 @@ export const PieChart: React.FC<PieChartProps> = ({
     },
     tooltip: {
       formatter: function () {
-        if (tooltipFormatter && this.point) {
-          return tooltipFormatter(this.point);
+        if (tooltipFormatter && (this as any).point) {
+          return tooltipFormatter((this as any).point);
         }
-        return `<b>${this.point.name}</b><br/>${this.y}`;
+        return `<b>${(this as any).point?.name}</b><br/>${this.y}`;
       },
     },
     plotOptions: {
