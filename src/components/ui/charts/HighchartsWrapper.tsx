@@ -191,8 +191,8 @@ export const AreaChart: React.FC<AreaChartProps> = ({
     },
     tooltip: {
       formatter: function () {
-        if (tooltipFormatter && this.point) {
-          return tooltipFormatter(this.point);
+        if (tooltipFormatter && (this as any).point) {
+          return tooltipFormatter((this as any).point);
         }
         return `<b>${this.x}</b><br/>${this.y}`;
       },
