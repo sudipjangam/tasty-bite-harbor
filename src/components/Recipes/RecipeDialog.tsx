@@ -58,6 +58,7 @@ interface RecipeIngredient {
   unit: string;
   notes?: string;
   variant_id?: string | null;
+  custom_cost?: number;
 }
 
 // Unit conversion factors to base units (kg for mass, l for volume)
@@ -95,11 +96,13 @@ const IngredientCombobox = ({
   onValueChange,
   inventoryItems,
   currencySymbol,
+  existingItemIds = [],
 }: {
   value: string;
   onValueChange: (value: string) => void;
   inventoryItems: any[];
   currencySymbol: string;
+  existingItemIds?: string[];
 }) => {
   const [open, setOpen] = useState(false);
   const selectedItem = inventoryItems.find((item: any) => item.id === value);
@@ -127,7 +130,9 @@ const IngredientCombobox = ({
           <CommandList>
             <CommandEmpty>No ingredient found.</CommandEmpty>
             <CommandGroup className="max-h-[250px] overflow-auto">
-              {inventoryItems.map((item: any) => {
+              {inventoryItems
+                .filter((item: any) => !existingItemIds.includes(item.id) || item.id === value)
+                .map((item: any) => {
                 const stockVal = item.quantity
                   ? Number(parseFloat(item.quantity).toFixed(3))
                   : 0;
@@ -349,6 +354,7 @@ export const RecipeDialog = ({
           unit: ing.unit,
           notes: ing.notes || "",
           variant_id: ing.variant_id || null,
+          custom_cost: ing.is_custom_cost ? ing.total_cost : undefined,
         })),
       );
     }
@@ -356,6 +362,10 @@ export const RecipeDialog = ({
 
   // Calculate ingredient cost with unit conversion
   const calculateIngredientCost = (ingredient: RecipeIngredient): number => {
+    if (ingredient.custom_cost !== undefined) {
+      return ingredient.custom_cost;
+    }
+
     const inventoryItem = inventoryItems.find(
       (item: any) => item.id === ingredient.inventory_item_id,
     );
@@ -375,11 +385,10 @@ export const RecipeDialog = ({
     return convertedQuantity * (inventoryItem.cost_per_unit || 0);
   };
 
-  // Total ingredient cost
-  const totalIngredientCost = ingredients.reduce(
-    (sum, ing) => sum + calculateIngredientCost(ing),
-    0,
-  );
+  // Total ingredient cost (Base items only)
+  const totalIngredientCost = ingredients
+    .filter((ing) => !ing.variant_id)
+    .reduce((sum, ing) => sum + calculateIngredientCost(ing), 0);
 
   const handleSubmit = async () => {
     if (!restaurantId) return;
@@ -448,10 +457,12 @@ export const RecipeDialog = ({
                 inventory_item_id: ing.inventory_item_id,
                 quantity: ing.quantity,
                 unit: ing.unit,
-                notes: ing.notes || null,
-                variant_id: ing.variant_id || null,
                 cost_per_unit: cost / (ing.quantity || 1),
                 total_cost: cost,
+                notes: ing.notes || null,
+                variant_id: ing.variant_id || null,
+                // @ts-ignore - column created in migration but types might not be regenerated
+                is_custom_cost: ing.custom_cost !== undefined,
               });
             }),
           );
@@ -1206,7 +1217,8 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                   {ingredients
                     .map((ingredient, index) => ({ ingredient, index }))
                     .filter(({ ingredient }) => !ingredient.variant_id)
-                    .map(({ ingredient, index }) => {
+                    .map(({ ingredient, index }, _, arr) => {
+                      const existingItemIds = arr.map(a => a.ingredient.inventory_item_id);
                       const inventoryItem = inventoryItems.find(
                         (item: any) => item.id === ingredient.inventory_item_id,
                       );
@@ -1229,6 +1241,7 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                               }
                               inventoryItems={inventoryItems}
                               currencySymbol={currencySymbol}
+                              existingItemIds={existingItemIds}
                             />
                           </div>
 
@@ -1279,14 +1292,27 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                               </Select>
                             </div>
 
-                            <div className="w-16 text-right space-y-1">
-                              <Label className="text-gray-500 dark:text-gray-400 text-xs">
-                                Cost
+                            <div className="w-16 sm:w-20 text-right space-y-1">
+                              <Label className="text-gray-500 dark:text-gray-400 text-xs w-full block text-center">
+                                Cost ({currencySymbol})
                               </Label>
-                              <p className="font-bold text-emerald-600 py-1 text-xs sm:text-sm">
-                                {currencySymbol}
-                                {ingredientCost.toFixed(2)}
-                              </p>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={ingredient.custom_cost !== undefined ? ingredient.custom_cost : ingredientCost.toFixed(2)}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === '') {
+                                    const updated = [...ingredients];
+                                    delete updated[index].custom_cost;
+                                    setIngredients(updated);
+                                  } else {
+                                    updateIngredient(index, "custom_cost", parseFloat(val) || 0);
+                                  }
+                                }}
+                                className={`h-9 text-right font-bold text-xs px-2 ${ingredient.custom_cost !== undefined ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'text-emerald-600 bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'}`}
+                                title={ingredient.custom_cost !== undefined ? "Manual Cost Override" : "Auto-calculated Cost"}
+                              />
                             </div>
 
                             <Button
@@ -1374,8 +1400,19 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                   {/* Active variant content */}
                   {activeVariantTab ? (
                     <div className="space-y-2">
-                      {/* Add button for this variant */}
-                      <div className="flex justify-end">
+                      {/* Add button & Cost Summary for this variant */}
+                      <div className="flex justify-between items-center bg-white/50 dark:bg-gray-800/50 p-2 sm:p-3 rounded-xl border border-sky-100 dark:border-sky-800/50 shadow-sm mb-2">
+                        <div className="flex flex-col">
+                          <span className="text-sky-700 dark:text-sky-400 font-semibold text-[10px] sm:text-xs">
+                            Total Cost ({menuVariants.find((v: any) => v.id === activeVariantTab)?.name}):
+                          </span>
+                          <span className="text-sky-600 dark:text-sky-300 font-bold text-sm sm:text-base">
+                            {currencySymbol}
+                            {(totalIngredientCost + ingredients
+                              .filter((ing) => ing.variant_id === activeVariantTab)
+                              .reduce((sum, ing) => sum + calculateIngredientCost(ing), 0)).toFixed(2)}
+                          </span>
+                        </div>
                         <Button
                           type="button"
                           onClick={() => {
@@ -1401,7 +1438,8 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                         {ingredients
                           .map((ingredient, index) => ({ ingredient, index }))
                           .filter(({ ingredient }) => ingredient.variant_id === activeVariantTab)
-                          .map(({ ingredient, index }) => {
+                          .map(({ ingredient, index }, _, arr) => {
+                            const existingItemIds = arr.map(a => a.ingredient.inventory_item_id);
                             const ingredientCost = calculateIngredientCost(ingredient);
                             return (
                               <div
@@ -1417,6 +1455,7 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                                     }
                                     inventoryItems={inventoryItems}
                                     currencySymbol={currencySymbol}
+                                    existingItemIds={existingItemIds}
                                   />
                                 </div>
 
@@ -1461,11 +1500,25 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                                       </SelectContent>
                                     </Select>
                                   </div>
-                                  <div className="w-14 text-right">
-                                    <Label className="text-gray-400 text-[10px]">Cost</Label>
-                                    <p className="font-bold text-emerald-600 text-xs py-0.5">
-                                      {currencySymbol}{ingredientCost.toFixed(2)}
-                                    </p>
+                                  <div className="w-[60px] sm:w-[70px] text-right">
+                                    <Label className="text-gray-400 text-[10px] text-center w-full block">Cost ({currencySymbol})</Label>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={ingredient.custom_cost !== undefined ? ingredient.custom_cost : ingredientCost.toFixed(2)}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === '') {
+                                          const updated = [...ingredients];
+                                          delete updated[index].custom_cost;
+                                          setIngredients(updated);
+                                        } else {
+                                          updateIngredient(index, "custom_cost", parseFloat(val) || 0);
+                                        }
+                                      }}
+                                      className={`h-8 text-right font-bold text-xs px-1 ${ingredient.custom_cost !== undefined ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'text-emerald-600 bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'}`}
+                                      title={ingredient.custom_cost !== undefined ? "Manual Cost Override" : "Auto-calculated Cost"}
+                                    />
                                   </div>
                                   <Button
                                     type="button"
