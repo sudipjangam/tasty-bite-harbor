@@ -555,7 +555,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           items: formattedItems,
           total: orderTotal,
           status: "preparing",
-          payment_status: isNC ? "nc" : "pending",
+          payment_status: isNC ? "nc" : (method === "cash" ? "paid" : "pending"),
           source: "quickserve",
           order_type: isNC ? "non-chargeable" : "takeaway",
           attendant: attendantName,
@@ -566,6 +566,20 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           ...(discountNotes && { discount_notes: discountNotes }),
           ...(ncReason && { nc_reason: ncReason }),
           ...(customerPhone && { customer_phone: customerPhone }),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+
+        // Enqueue pos transaction to track offline revenue
+        await enqueueWrite("pos_transaction", {
+          restaurant_id: restaurantId,
+          amount: orderTotal,
+          payment_method: method,
+          status: method === "cash" || isNC ? "completed" : "pending",
+          customer_name: finalCustomerName || null,
+          customer_phone: customerPhone || null,
+          staff_id: user?.id || null,
+          discount_amount: 0,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });
@@ -619,6 +633,13 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
 
         if (updateError) throw updateError;
 
+        // Clean up any previous pending transactions for this order to prevent duplicate logic
+        await supabase
+          .from("pos_transactions")
+          .delete()
+          .eq("order_id", existingOrder.id)
+          .eq("status", "pending");
+
         // 2. Log payment transaction (pending)
         await supabase.from("pos_transactions").insert({
           restaurant_id: restaurantId,
@@ -628,6 +649,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           status: "pending",
           customer_name: finalCustomerName,
           customer_phone: customerPhone || null,
+          staff_id: user?.id || null,
           discount_amount: 0,
         });
 
@@ -762,6 +784,25 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         .single();
 
       if (orderError) throw orderError;
+      
+      // ✅ Log POS transaction SYNCHRONOUSLY to prevent race condition with "Mark as Paid" button
+      try {
+        await supabase.from("pos_transactions").insert({
+          restaurant_id: restaurantId,
+          order_id: order?.id || null,
+          kitchen_order_id: kitchenOrder?.id || null,
+          amount: subtotal,
+          payment_method: method,
+          status: "pending",
+          customer_name: finalCustomerName || null,
+          customer_phone: customerPhone || null,
+          staff_id: user?.id || null,
+          discount_amount: 0,
+        });
+      } catch (err) {
+        console.error("Synchronous POS transaction error:", err);
+      }
+
       setOrderNumber(nextOrderNumber);
       setCreatedOrderId(order?.id || null);
       setPaymentConfirmed(isNC); // NC orders are auto-confirmed
@@ -833,29 +874,6 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           })(),
         );
       }
-
-      // Log POS transaction
-      bgTasks.push(
-        (async () => {
-          try {
-            await supabase.from("pos_transactions").insert({
-              restaurant_id: restaurantId,
-              order_id: order?.id || null,
-              kitchen_order_id: kitchenOrder?.id || null,
-              amount: subtotal,
-              payment_method: method,
-              status: "pending",
-              customer_name: finalCustomerName || null,
-              customer_phone: customerPhone || null,
-              staff_id: user?.id || null,
-              discount_amount: 0,
-            });
-            console.log("✅ POS transaction logged (background)");
-          } catch (err) {
-            console.error("POS transaction error:", err);
-          }
-        })(),
-      );
 
       // CRM sync
       if (customerName.trim()) {
