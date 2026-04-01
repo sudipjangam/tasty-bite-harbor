@@ -17,9 +17,7 @@ export const WaitlistManager = () => {
     customer_name: '',
     customer_phone: '',
     customer_email: '',
-    party_size: 2,
-    priority: 0,
-    estimated_wait_time: 30,
+    guests_count: 2,
     notes: '',
   });
 
