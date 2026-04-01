@@ -186,12 +186,12 @@ export const WaitlistManager = () => {
                   <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Users className="w-4 h-4" />
-                      {entry.party_size} {entry.party_size === 1 ? 'guest' : 'guests'}
+                      {entry.guests_count} {entry.guests_count === 1 ? 'guest' : 'guests'}
                     </div>
-                    {entry.estimated_wait_time && (
+                    {entry.notes && (
                       <div className="flex items-center gap-1">
                         <Clock className="w-4 h-4" />
-                        ~{entry.estimated_wait_time} min wait
+                        {entry.notes}
                       </div>
                     )}
                     {entry.customer_phone && (
