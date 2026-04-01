@@ -35,11 +35,16 @@ import {
   FileText,
   AlertCircle,
   Wand2,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 
 interface RecipeDialogProps {
   open: boolean;
@@ -83,6 +88,87 @@ const convertUnits = (
 
   // If different base units, return as-is (can't convert kg to liters)
   return quantity;
+};
+
+const IngredientCombobox = ({
+  value,
+  onValueChange,
+  inventoryItems,
+  currencySymbol,
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+  inventoryItems: any[];
+  currencySymbol: string;
+}) => {
+  const [open, setOpen] = useState(false);
+  const selectedItem = inventoryItems.find((item: any) => item.id === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between bg-white/80 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-600 rounded-lg h-9 px-3 text-sm font-normal truncate hover:bg-gray-50 dark:hover:bg-gray-800"
+        >
+          <span className="truncate flex-1 text-left">
+            {selectedItem
+              ? `${selectedItem.name} (${currencySymbol}${selectedItem.cost_per_unit || 0}/${selectedItem.unit})`
+              : "Select ingredient..."}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[300px] sm:w-[400px] p-0 z-[100] shadow-xl" align="start">
+        <Command>
+          <CommandInput placeholder="Search ingredients..." className="h-9" />
+          <CommandList>
+            <CommandEmpty>No ingredient found.</CommandEmpty>
+            <CommandGroup className="max-h-[250px] overflow-auto">
+              {inventoryItems.map((item: any) => {
+                const stockVal = item.quantity
+                  ? Number(parseFloat(item.quantity).toFixed(3))
+                  : 0;
+                return (
+                  <CommandItem
+                    key={item.id}
+                    value={`${item.name} ${item.id}`} // Used for searching text
+                    onSelect={() => {
+                      onValueChange(item.id);
+                      setOpen(false);
+                    }}
+                    className="flex justify-between items-center rounded-lg cursor-pointer my-0.5"
+                  >
+                    <div className="flex flex-col min-w-0 pr-2">
+                      <span className="truncate font-medium">
+                        {item.name}
+                      </span>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        Cost: {currencySymbol}{item.cost_per_unit || 0}/{item.unit}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2 shrink-0">
+                      <span className="text-xs font-mono text-muted-foreground bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700">
+                        Stock: {stockVal} {item.unit}
+                      </span>
+                      <Check
+                        className={cn(
+                          "h-4 w-4",
+                          value === item.id ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                    </div>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 };
 
 export const RecipeDialog = ({
@@ -1136,29 +1222,14 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                             <Label className="text-gray-500 dark:text-gray-400 text-xs">
                               Ingredient
                             </Label>
-                            <Select
+                            <IngredientCombobox
                               value={ingredient.inventory_item_id}
                               onValueChange={(value) =>
                                 updateIngredient(index, "inventory_item_id", value)
                               }
-                            >
-                              <SelectTrigger className="bg-white/80 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-600 rounded-lg h-9 text-sm">
-                                <SelectValue placeholder="Select ingredient" />
-                              </SelectTrigger>
-                              <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-xl">
-                                {inventoryItems.map((item: any) => (
-                                  <SelectItem
-                                    key={item.id}
-                                    value={item.id}
-                                    className="rounded-lg"
-                                  >
-                                    {item.name} ({currencySymbol}
-                                    {item.cost_per_unit || 0}/{item.unit}) - Stock:{" "}
-                                    {item.quantity || 0} {item.unit}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              inventoryItems={inventoryItems}
+                              currencySymbol={currencySymbol}
+                            />
                           </div>
 
                           {/* Row 2: Qty + Unit + Cost + Delete (inline, responsive) */}
@@ -1339,27 +1410,14 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                               >
                                 {/* Ingredient selector full width */}
                                 <div className="mb-2">
-                                  <Select
+                                  <IngredientCombobox
                                     value={ingredient.inventory_item_id}
                                     onValueChange={(value) =>
                                       updateIngredient(index, "inventory_item_id", value)
                                     }
-                                  >
-                                    <SelectTrigger className="bg-white/80 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-600 rounded-lg h-9 text-sm">
-                                      <SelectValue placeholder="Select ingredient" />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-xl">
-                                      {inventoryItems.map((item: any) => (
-                                        <SelectItem
-                                          key={item.id}
-                                          value={item.id}
-                                          className="rounded-lg"
-                                        >
-                                          {item.name} ({item.unit})
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
+                                    inventoryItems={inventoryItems}
+                                    currencySymbol={currencySymbol}
+                                  />
                                 </div>
 
                                 {/* Qty + Unit + Cost + Delete row */}
