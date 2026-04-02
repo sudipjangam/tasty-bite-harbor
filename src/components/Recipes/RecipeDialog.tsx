@@ -1475,7 +1475,6 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                           <span className="text-sky-600 dark:text-sky-300 font-bold text-sm sm:text-base">
                             {currencySymbol}
                             {(
-                              totalIngredientCost +
                               ingredients
                                 .filter(
                                   (ing) => ing.variant_id === activeVariantTab,
