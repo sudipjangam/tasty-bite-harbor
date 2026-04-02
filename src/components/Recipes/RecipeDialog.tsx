@@ -39,7 +39,7 @@ import {
   ChevronsUpDown,
   RefreshCw,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
@@ -204,10 +204,13 @@ export const RecipeDialog = ({
   const { createRecipe, updateRecipe } = useRecipes();
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const isInitialized = useRef(false);
   const prevRecipeId = useRef<string | null>(null);
+  // Track ingredient load version to prevent stale data from blocking fresh loads
+  const ingredientLoadVersion = useRef(0);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -275,17 +278,19 @@ export const RecipeDialog = ({
   });
 
   // Fetch recipe ingredients when editing
-  const { data: recipeIngredients = [] } = useQuery({
-    queryKey: ["recipe-ingredients", recipe?.id],
+  const { data: recipeIngredients = [], dataUpdatedAt } = useQuery({
+    queryKey: ["recipe-ingredients-dialog", recipe?.id],
     queryFn: async () => {
       if (!recipe?.id) return [];
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("recipe_ingredients")
         .select("*")
         .eq("recipe_id", recipe.id);
+      if (error) throw error;
       return data || [];
     },
     enabled: !!recipe?.id && open,
+    staleTime: 0, // Always refetch when dialog opens
   });
 
   // Fetch variants for selected menu item
@@ -303,11 +308,13 @@ export const RecipeDialog = ({
     enabled: !!formData.menu_item_id && open,
   });
 
-  // FIXED: Only reset form when dialog opens or recipe changes, not on every recipeIngredients update
+  // Reset form when dialog opens or recipe changes
   useEffect(() => {
     if (!open) {
       isInitialized.current = false;
       prevRecipeId.current = null;
+      setIngredients([]);
+      ingredientLoadVersion.current += 1; // Bump version so next open reloads
       return;
     }
 
@@ -326,8 +333,9 @@ export const RecipeDialog = ({
           selling_price: recipe.selling_price.toString(),
           is_active: recipe.is_active,
         });
+        setIngredients([]);
+        ingredientLoadVersion.current += 1; // Force reload
       } else {
-        // Reset form for new recipe
         setFormData({
           menu_item_id: "",
           name: "",
@@ -346,26 +354,35 @@ export const RecipeDialog = ({
     }
   }, [open, recipe]);
 
-  // Load ingredients separately when they're fetched (only once)
+  // Load ingredients from DB whenever recipeIngredients data changes.
+  // Uses a version counter + dataUpdatedAt to detect fresh data arrivals,
+  // preventing the old bug where ingredients.length===0 guard blocked reloads.
+  const lastLoadedAt = useRef(0);
   useEffect(() => {
-    if (
-      recipe &&
-      recipeIngredients.length > 0 &&
-      ingredients.length === 0 &&
-      open
-    ) {
+    if (!open || !recipe) return;
+    if (recipeIngredients.length === 0) {
+      // If DB returned empty array, clear local state too (legitimately no ingredients)
+      if (dataUpdatedAt > 0 && lastLoadedAt.current !== dataUpdatedAt) {
+        lastLoadedAt.current = dataUpdatedAt;
+        setIngredients([]);
+      }
+      return;
+    }
+    // Only re-populate if the data has actually changed (new fetch)
+    if (lastLoadedAt.current !== dataUpdatedAt) {
+      lastLoadedAt.current = dataUpdatedAt;
       setIngredients(
-        recipeIngredients.map((ing) => ({
+        recipeIngredients.map((ing: any) => ({
           inventory_item_id: ing.inventory_item_id,
           quantity: ing.quantity,
           unit: ing.unit,
           notes: ing.notes || "",
           variant_id: ing.variant_id || null,
-          custom_cost: ing.is_custom_cost ? ing.total_cost : undefined,
+          custom_cost: undefined,
         })),
       );
     }
-  }, [recipeIngredients, recipe, open]);
+  }, [recipeIngredients, dataUpdatedAt, recipe, open]);
 
   // Calculate ingredient cost with unit conversion
   const calculateIngredientCost = (ingredient: RecipeIngredient): number => {
@@ -440,64 +457,70 @@ export const RecipeDialog = ({
         created_by: null,
       };
 
+      const validIngredients = ingredients.filter(ing => ing.inventory_item_id && Number(ing.quantity) > 0);
+
+      const buildInsertData = (recipeId: string) =>
+        validIngredients.map((ing) => {
+          const cost = calculateIngredientCost(ing);
+          const qty = Number(ing.quantity) || 0;
+          return {
+            recipe_id: recipeId,
+            inventory_item_id: ing.inventory_item_id,
+            quantity: qty,
+            unit: ing.unit,
+            cost_per_unit: parseFloat((cost / (qty || 1)).toFixed(4)),
+            total_cost: parseFloat(cost.toFixed(4)),
+            notes: ing.notes || null,
+            variant_id: ing.variant_id || null,
+          };
+        });
+
       if (recipe) {
         // Update recipe
         await updateRecipe.mutateAsync({ id: recipe.id, ...recipeData });
 
         // Delete existing ingredients
-        await supabase
+        const { error: deleteError } = await supabase
           .from("recipe_ingredients")
           .delete()
           .eq("recipe_id", recipe.id);
+        if (deleteError) throw deleteError;
 
-        // Insert updated ingredients with converted costs
-        if (ingredients.length > 0) {
-          await Promise.all(
-            ingredients.map((ing) => {
-              const cost = calculateIngredientCost(ing);
-              return supabase.from("recipe_ingredients").insert({
-                recipe_id: recipe.id,
-                inventory_item_id: ing.inventory_item_id,
-                quantity: ing.quantity,
-                unit: ing.unit,
-                cost_per_unit: cost / (ing.quantity || 1),
-                total_cost: cost,
-                notes: ing.notes || null,
-                variant_id: ing.variant_id || null,
-                // @ts-ignore - column created in migration but types might not be regenerated
-                is_custom_cost: ing.custom_cost !== undefined,
-              });
-            }),
-          );
+        // Insert updated ingredients
+        if (validIngredients.length > 0) {
+          const { error: insertError } = await supabase
+            .from("recipe_ingredients")
+            .insert(buildInsertData(recipe.id));
+          if (insertError) throw insertError;
         }
       } else {
         const newRecipe = await createRecipe.mutateAsync(recipeData);
 
-        // Add ingredients if any
-        if (ingredients.length > 0 && newRecipe) {
-          await Promise.all(
-            ingredients.map((ing) => {
-              const cost = calculateIngredientCost(ing);
-              return supabase.from("recipe_ingredients").insert({
-                recipe_id: newRecipe.id,
-                inventory_item_id: ing.inventory_item_id,
-                quantity: ing.quantity,
-                unit: ing.unit,
-                notes: ing.notes || null,
-                variant_id: ing.variant_id || null,
-                cost_per_unit: cost / (ing.quantity || 1),
-                total_cost: cost,
-              });
-            }),
-          );
+        // Add ingredients for new recipe
+        if (validIngredients.length > 0 && newRecipe) {
+          const { error: insertError } = await supabase
+            .from("recipe_ingredients")
+            .insert(buildInsertData(newRecipe.id));
+          if (insertError) throw insertError;
         }
       }
 
-      onOpenChange(false);
-    } catch (error) {
+      // Invalidate and WAIT for refetch so the next dialog open gets fresh data
+      await queryClient.invalidateQueries({ queryKey: ["recipe-ingredients"] });
+      await queryClient.invalidateQueries({ queryKey: ["recipe-ingredients-dialog"] });
+      await queryClient.invalidateQueries({ queryKey: ["recipes"] });
+
       toast({
-        title: "Error",
-        description: `Failed to ${recipe ? "update" : "create"} recipe`,
+        title: "Success ✨",
+        description: `Recipe ${recipe ? "updated" : "created"} successfully with ${validIngredients.length} ingredient(s).`,
+      });
+      onOpenChange(false);
+    } catch (error: any) {
+      const msg = error?.message || error?.details || JSON.stringify(error) || "Unknown error";
+      console.error("Recipe save error:", error);
+      toast({
+        title: "Error saving recipe",
+        description: msg,
         variant: "destructive",
       });
     } finally {
