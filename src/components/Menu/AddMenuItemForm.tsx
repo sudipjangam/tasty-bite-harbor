@@ -20,6 +20,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCategories } from "@/hooks/useCategories";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { UNITS } from "@/constants/units";
 
 interface MenuItem {
   id: string;
@@ -174,7 +175,7 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
         is_veg: true, // Default to vegetarian
         is_special: false,
         pricing_type: "fixed",
-        pricing_unit: "piece",
+        pricing_unit: UNITS.PIECE,
         base_unit_quantity: "1",
       });
       setUploadedImageUrl("");
@@ -659,13 +660,13 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                                 )}
                                 {form.watch("pricing_type") === "volume" && (
                                   <>
-                                    <SelectItem value="L" className="rounded-lg">Litre (L)</SelectItem>
-                                    <SelectItem value="ml" className="rounded-lg">Millilitre (ml)</SelectItem>
+                                    <SelectItem value={UNITS.L} className="rounded-lg">Litre (l)</SelectItem>
+                                    <SelectItem value={UNITS.ML} className="rounded-lg">Millilitre (ml)</SelectItem>
                                   </>
                                 )}
                                 {form.watch("pricing_type") === "unit" && (
                                   <>
-                                    <SelectItem value="piece" className="rounded-lg">Piece</SelectItem>
+                                    <SelectItem value={UNITS.PIECE} className="rounded-lg">Piece</SelectItem>
                                     <SelectItem value="plate" className="rounded-lg">Plate</SelectItem>
                                     <SelectItem value="unit" className="rounded-lg">Unit</SelectItem>
                                   </>

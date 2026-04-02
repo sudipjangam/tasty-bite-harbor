@@ -64,6 +64,7 @@ import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { BillUploadDialog } from "@/components/Inventory/BillUploadDialog";
 import { BillExtractedDataDialog } from "@/components/Inventory/BillExtractedDataDialog";
 import { ExtractedBillData } from "@/utils/billUtils";
+import { INVENTORY_UNIT_VALUES } from "@/constants/units";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -353,7 +354,7 @@ const Inventory = () => {
   );
   const totalItems = items.length;
 
-  const commonUnits = ["kg", "g", "l", "ml", "units", "pieces", "boxes", "packs", "dozen"];
+  const commonUnits = INVENTORY_UNIT_VALUES;
   const categories = ["Vegetables", "Fruits", "Groceries", "Meat & Seafood", "Dairy", "Beverages", "Spices", "Other"];
 
   // Stock level helper

@@ -14,6 +14,7 @@ import { Plus, X, Package, Trash2 } from 'lucide-react';
 import { useCurrencyContext } from '@/contexts/CurrencyContext';
 import { OrderItem } from '@/types/orders';
 import { v4 as uuidv4 } from 'uuid';
+import { ORDER_UNITS, UNITS } from '@/constants/units';
 
 interface CustomExtrasPanelProps {
   onAddCustomItem: (item: OrderItem) => void;
@@ -21,15 +22,7 @@ interface CustomExtrasPanelProps {
   onRemoveCustomItem?: (id: string) => void;
 }
 
-const UNITS = [
-  { value: 'piece', label: 'Piece' },
-  { value: 'plate', label: 'Plate' },
-  { value: 'kg', label: 'Kg' },
-  { value: 'g', label: 'Grams' },
-  { value: 'L', label: 'Litre' },
-  { value: 'ml', label: 'ml' },
-  { value: 'unit', label: 'Unit' },
-];
+const CUSTOM_UNITS = ORDER_UNITS;
 
 export const CustomExtrasPanel: React.FC<CustomExtrasPanelProps> = ({
   onAddCustomItem,
@@ -41,7 +34,7 @@ export const CustomExtrasPanel: React.FC<CustomExtrasPanelProps> = ({
   const [itemName, setItemName] = useState('');
   const [itemPrice, setItemPrice] = useState('');
   const [itemQuantity, setItemQuantity] = useState('1');
-  const [itemUnit, setItemUnit] = useState('piece');
+  const [itemUnit, setItemUnit] = useState<string>(UNITS.PIECE);
 
   const handleAddItem = useCallback(() => {
     if (!itemName.trim() || !itemPrice) return;
@@ -69,7 +62,7 @@ export const CustomExtrasPanel: React.FC<CustomExtrasPanelProps> = ({
     setItemName('');
     setItemPrice('');
     setItemQuantity('1');
-    setItemUnit('piece');
+    setItemUnit(UNITS.PIECE);
     setIsExpanded(false);
   }, [itemName, itemPrice, itemQuantity, itemUnit, onAddCustomItem]);
 
@@ -156,7 +149,7 @@ export const CustomExtrasPanel: React.FC<CustomExtrasPanelProps> = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 rounded-xl">
-                    {UNITS.map((unit) => (
+                    {CUSTOM_UNITS.map((unit) => (
                       <SelectItem key={unit.value} value={unit.value} className="rounded-lg">
                         {unit.label}
                       </SelectItem>

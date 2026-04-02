@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCurrencyContext } from '@/contexts/CurrencyContext';
+import { INVENTORY_UNITS } from '@/constants/units';
 
 interface InventoryFormData {
   name: string;
@@ -41,7 +42,7 @@ interface EnhancedInventoryFormProps {
 }
 
 const categories = ["Vegetables", "Fruits", "Groceries", "Dairy", "Meat", "Beverages", "Other"];
-const units = ["kg", "g", "l", "ml", "units", "pieces", "boxes", "packs"];
+const units = INVENTORY_UNITS;
 
 export const EnhancedInventoryForm: React.FC<EnhancedInventoryFormProps> = ({
   isOpen,
@@ -170,8 +171,8 @@ export const EnhancedInventoryForm: React.FC<EnhancedInventoryFormProps> = ({
                       </EnhancedFormControl>
                       <SelectContent>
                         {units.map((unit) => (
-                          <SelectItem key={unit} value={unit}>
-                            {unit}
+                          <SelectItem key={unit.value} value={unit.value}>
+                            {unit.label}
                           </SelectItem>
                         ))}
                       </SelectContent>

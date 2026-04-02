@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { Scale, Calculator, ShoppingCart } from 'lucide-react';
 import { useCurrencyContext } from '@/contexts/CurrencyContext';
+import { UNIT_GROUPS_BY_PRICING, UNITS } from '@/constants/units';
 
 interface WeightQuantityDialogProps {
   open: boolean;
@@ -37,20 +38,14 @@ const UNIT_CONVERSIONS: Record<string, Record<string, number>> = {
   // Weight conversions to kg
   kg: { kg: 1, g: 0.001 },
   g: { kg: 1000, g: 1 },
-  // Volume conversions to L
-  L: { L: 1, ml: 0.001 },
-  ml: { L: 1000, ml: 1 },
+  // Volume conversions to l
+  l: { l: 1, ml: 0.001 },
+  ml: { l: 1000, ml: 1 },
   // Unit-based (no conversion)
-  piece: { piece: 1 },
-  plate: { plate: 1 },
-  unit: { unit: 1 },
+  [UNITS.PIECE]: { [UNITS.PIECE]: 1 },
 };
 
-const UNIT_GROUPS: Record<string, string[]> = {
-  weight: ['kg', 'g'],
-  volume: ['L', 'ml'],
-  unit: ['piece', 'plate', 'unit'],
-};
+const UNIT_GROUPS = UNIT_GROUPS_BY_PRICING;
 
 const QUICK_PRESETS: Record<string, Array<{ label: string; value: number; unit: string }>> = {
   weight: [
@@ -63,13 +58,13 @@ const QUICK_PRESETS: Record<string, Array<{ label: string; value: number; unit: 
     { label: '100ml', value: 100, unit: 'ml' },
     { label: '250ml', value: 250, unit: 'ml' },
     { label: '500ml', value: 500, unit: 'ml' },
-    { label: '1L', value: 1, unit: 'L' },
+    { label: '1L', value: 1, unit: 'l' },
   ],
   unit: [
-    { label: '1 pc', value: 1, unit: 'piece' },
-    { label: '2 pcs', value: 2, unit: 'piece' },
-    { label: '5 pcs', value: 5, unit: 'piece' },
-    { label: '10 pcs', value: 10, unit: 'piece' },
+    { label: '1 pc', value: 1, unit: UNITS.PIECE },
+    { label: '2 pcs', value: 2, unit: UNITS.PIECE },
+    { label: '5 pcs', value: 5, unit: UNITS.PIECE },
+    { label: '10 pcs', value: 10, unit: UNITS.PIECE },
   ],
 };
 
@@ -85,7 +80,7 @@ export const WeightQuantityDialog: React.FC<WeightQuantityDialogProps> = ({
 
   // Get available units based on pricing type
   const availableUnits = useMemo(() => {
-    return UNIT_GROUPS[item.pricingType] || ['piece'];
+    return UNIT_GROUPS[item.pricingType] || [UNITS.PIECE];
   }, [item.pricingType]);
 
   // Get quick presets based on pricing type
@@ -115,9 +110,9 @@ export const WeightQuantityDialog: React.FC<WeightQuantityDialogProps> = ({
     
     // Handle volume conversions
     if (item.pricingType === 'volume') {
-      if (selectedUnit === 'ml' && baseUnit === 'L') {
+      if (selectedUnit === 'ml' && baseUnit === 'l') {
         qtyInBaseUnit = qty / 1000;
-      } else if (selectedUnit === 'L' && baseUnit === 'ml') {
+      } else if (selectedUnit === 'l' && baseUnit === 'ml') {
         qtyInBaseUnit = qty * 1000;
       }
     }

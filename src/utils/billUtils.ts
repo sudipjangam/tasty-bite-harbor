@@ -1,4 +1,5 @@
 // Types for extracted bill data from AI
+import { normalizeUnit } from "@/constants/units";
 export interface ExtractedVendor {
   name: string | null;
   address: string | null;
@@ -271,13 +272,7 @@ export function normalizeExtractedItem(item: ExtractedItem): ExtractedItem {
  * Normalize common unit strings to standard format.
  */
 export function normalizeUnitString(unit: string): string {
-  const u = unit.toLowerCase().trim();
-  if (['g', 'gm', 'gms', 'gram', 'grams'].includes(u)) return 'g';
-  if (['kg', 'kgs'].includes(u)) return 'kg';
-  if (['ml'].includes(u)) return 'ml';
-  if (['l', 'ltr', 'litre', 'litres', 'liter', 'liters'].includes(u)) return 'l';
-  if (['pcs', 'pc', 'piece', 'pieces', 'nos', 'no'].includes(u)) return 'pcs';
-  return u;
+  return normalizeUnit(unit);
 }
 
 /**
