@@ -57,6 +57,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { UNIT_CONVERSIONS, RECIPE_UNITS } from "@/constants/units";
 
 interface RecipeDialogProps {
   open: boolean;
@@ -73,17 +74,7 @@ interface RecipeIngredient {
   custom_cost?: number;
 }
 
-// Unit conversion factors to base units (kg for mass, l for volume)
-const UNIT_CONVERSIONS: Record<string, { base: string; factor: number }> = {
-  kg: { base: "kg", factor: 1 },
-  g: { base: "kg", factor: 0.001 },
-  l: { base: "l", factor: 1 },
-  ml: { base: "l", factor: 0.001 },
-  piece: { base: "piece", factor: 1 },
-  cup: { base: "l", factor: 0.24 }, // approx 240ml
-  tbsp: { base: "l", factor: 0.015 }, // approx 15ml
-  tsp: { base: "l", factor: 0.005 }, // approx 5ml
-};
+// Unit conversion factors imported from @/constants/units
 
 // Convert quantity from one unit to another
 const convertUnits = (
@@ -650,7 +641,7 @@ export const RecipeDialog = ({
 
       let variantContext = "";
       let ingredientsSchema =
-        '{ "name": "ingredient name (use exact inventory names where possible)", "quantity": <number>, "unit": "kg|g|l|ml|piece|cup|tbsp|tsp" }';
+        '{ "name": "ingredient name (use exact inventory names where possible)", "quantity": <number>, "unit": "kg|g|l|ml|piece|dozen|box|pack|cup|tbsp|tsp" }';
 
       if (menuVariants && menuVariants.length > 0) {
         const variantList = menuVariants
@@ -1282,42 +1273,11 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-xl">
-                                  <SelectItem value="kg" className="rounded-lg">
-                                    kg
-                                  </SelectItem>
-                                  <SelectItem value="g" className="rounded-lg">
-                                    g
-                                  </SelectItem>
-                                  <SelectItem value="l" className="rounded-lg">
-                                    l
-                                  </SelectItem>
-                                  <SelectItem value="ml" className="rounded-lg">
-                                    ml
-                                  </SelectItem>
-                                  <SelectItem
-                                    value="piece"
-                                    className="rounded-lg"
-                                  >
-                                    piece
-                                  </SelectItem>
-                                  <SelectItem
-                                    value="cup"
-                                    className="rounded-lg"
-                                  >
-                                    cup
-                                  </SelectItem>
-                                  <SelectItem
-                                    value="tbsp"
-                                    className="rounded-lg"
-                                  >
-                                    tbsp
-                                  </SelectItem>
-                                  <SelectItem
-                                    value="tsp"
-                                    className="rounded-lg"
-                                  >
-                                    tsp
-                                  </SelectItem>
+                                  {RECIPE_UNITS.map((u) => (
+                                    <SelectItem key={u.value} value={u.value} className="rounded-lg">
+                                      {u.label}
+                                    </SelectItem>
+                                  ))}
                                 </SelectContent>
                               </Select>
                             </div>
@@ -1577,18 +1537,9 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                                         <SelectValue />
                                       </SelectTrigger>
                                       <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl">
-                                        <SelectItem value="kg">kg</SelectItem>
-                                        <SelectItem value="g">g</SelectItem>
-                                        <SelectItem value="l">l</SelectItem>
-                                        <SelectItem value="ml">ml</SelectItem>
-                                        <SelectItem value="piece">
-                                          piece
-                                        </SelectItem>
-                                        <SelectItem value="cup">cup</SelectItem>
-                                        <SelectItem value="tbsp">
-                                          tbsp
-                                        </SelectItem>
-                                        <SelectItem value="tsp">tsp</SelectItem>
+                                        {RECIPE_UNITS.map((u) => (
+                                          <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                                        ))}
                                       </SelectContent>
                                     </Select>
                                   </div>

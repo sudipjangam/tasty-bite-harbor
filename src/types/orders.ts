@@ -27,7 +27,7 @@ export interface OrderItem {
   price: number;          // Base price (e.g., 300 for 300/kg)
   quantity: number;       // For fixed items (integer count)
   actualQuantity?: number; // For weight/volume (e.g., 0.5 for 500g)
-  unit?: string;          // kg, g, L, ml, piece, plate
+  unit?: string;          // Canonical values from @/constants/units (kg, g, l, ml, piece, etc.)
   pricingType?: 'fixed' | 'weight' | 'volume' | 'unit';
   baseUnitQuantity?: number; // Base unit quantity for pricing
   calculatedPrice?: number;  // Final calculated price
