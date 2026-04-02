@@ -37,13 +37,25 @@ import {
   Wand2,
   Check,
   ChevronsUpDown,
+  RefreshCw,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 
 interface RecipeDialogProps {
@@ -114,60 +126,67 @@ const IngredientCombobox = ({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between bg-white/80 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-600 rounded-lg h-9 px-3 text-sm font-normal truncate hover:bg-gray-50 dark:hover:bg-gray-800"
+          className="w-full justify-between bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700/50 shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)] rounded-xl h-[42px] px-4 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200"
         >
-          <span className="truncate flex-1 text-left">
+          <span className="truncate flex-1 text-left text-gray-700 dark:text-gray-200">
             {selectedItem
               ? `${selectedItem.name} (${currencySymbol}${selectedItem.cost_per_unit || 0}/${selectedItem.unit})`
-              : "Select ingredient..."}
+              : "Search ingredient..."}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] sm:w-[400px] p-0 z-[100] shadow-xl" align="start">
+      <PopoverContent
+        className="w-[300px] sm:w-[400px] p-0 z-[100] shadow-xl"
+        align="start"
+      >
         <Command>
           <CommandInput placeholder="Search ingredients..." className="h-9" />
           <CommandList>
             <CommandEmpty>No ingredient found.</CommandEmpty>
             <CommandGroup className="max-h-[250px] overflow-auto">
               {inventoryItems
-                .filter((item: any) => !existingItemIds.includes(item.id) || item.id === value)
+                .filter(
+                  (item: any) =>
+                    !existingItemIds.includes(item.id) || item.id === value,
+                )
                 .map((item: any) => {
-                const stockVal = item.quantity
-                  ? Number(parseFloat(item.quantity).toFixed(3))
-                  : 0;
-                return (
-                  <CommandItem
-                    key={item.id}
-                    value={`${item.name} ${item.id}`} // Used for searching text
-                    onSelect={() => {
-                      onValueChange(item.id);
-                      setOpen(false);
-                    }}
-                    className="flex justify-between items-center rounded-lg cursor-pointer my-0.5"
-                  >
-                    <div className="flex flex-col min-w-0 pr-2">
-                      <span className="truncate font-medium">
-                        {item.name}
-                      </span>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        Cost: {currencySymbol}{item.cost_per_unit || 0}/{item.unit}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2 shrink-0">
-                      <span className="text-xs font-mono text-muted-foreground bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700">
-                        Stock: {stockVal} {item.unit}
-                      </span>
-                      <Check
-                        className={cn(
-                          "h-4 w-4",
-                          value === item.id ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                    </div>
-                  </CommandItem>
-                );
-              })}
+                  const stockVal = item.quantity
+                    ? Number(parseFloat(item.quantity).toFixed(3))
+                    : 0;
+                  return (
+                    <CommandItem
+                      key={item.id}
+                      value={`${item.name} ${item.id}`} // Used for searching text
+                      onSelect={() => {
+                        onValueChange(item.id);
+                        setOpen(false);
+                      }}
+                      className="flex justify-between items-center rounded-lg cursor-pointer my-0.5"
+                    >
+                      <div className="flex flex-col min-w-0 pr-2">
+                        <span className="truncate font-medium">
+                          {item.name}
+                        </span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          Cost: {currencySymbol}
+                          {item.cost_per_unit || 0}/{item.unit}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2 shrink-0">
+                        <span className="text-xs font-mono text-muted-foreground bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700">
+                          Stock: {stockVal} {item.unit}
+                        </span>
+                        <Check
+                          className={cn(
+                            "h-4 w-4",
+                            value === item.id ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                      </div>
+                    </CommandItem>
+                  );
+                })}
             </CommandGroup>
           </CommandList>
         </Command>
@@ -196,12 +215,8 @@ export const RecipeDialog = ({
     name: "",
     description: "",
     category: "main_course",
-    prep_time_minutes: "",
-    cook_time_minutes: "",
-    difficulty: "medium",
     serving_size: "1",
     serving_unit: "portion",
-    instructions: "",
     selling_price: "",
     is_active: true,
   });
@@ -306,12 +321,8 @@ export const RecipeDialog = ({
           name: recipe.name,
           description: recipe.description || "",
           category: recipe.category,
-          prep_time_minutes: recipe.prep_time_minutes?.toString() || "",
-          cook_time_minutes: recipe.cook_time_minutes?.toString() || "",
-          difficulty: recipe.difficulty || "medium",
           serving_size: recipe.serving_size.toString(),
           serving_unit: recipe.serving_unit || "portion",
-          instructions: recipe.instructions || "",
           selling_price: recipe.selling_price.toString(),
           is_active: recipe.is_active,
         });
@@ -322,12 +333,8 @@ export const RecipeDialog = ({
           name: "",
           description: "",
           category: "main_course",
-          prep_time_minutes: "",
-          cook_time_minutes: "",
-          difficulty: "medium",
           serving_size: "1",
           serving_unit: "portion",
-          instructions: "",
           selling_price: "",
           is_active: true,
         });
@@ -418,16 +425,12 @@ export const RecipeDialog = ({
         name: formData.name,
         description: formData.description || null,
         category: formData.category as any,
-        prep_time_minutes: formData.prep_time_minutes
-          ? parseInt(formData.prep_time_minutes)
-          : null,
-        cook_time_minutes: formData.cook_time_minutes
-          ? parseInt(formData.cook_time_minutes)
-          : null,
-        difficulty: formData.difficulty as any,
+        prep_time_minutes: null,
+        cook_time_minutes: null,
+        difficulty: null,
         serving_size: parseInt(formData.serving_size),
         serving_unit: formData.serving_unit,
-        instructions: formData.instructions || null,
+        instructions: null,
         image_url: null,
         selling_price: sellingPrice,
         is_active: formData.is_active,
@@ -504,9 +507,76 @@ export const RecipeDialog = ({
 
   const addIngredient = () => {
     setIngredients([
+      {
+        inventory_item_id: "",
+        quantity: 0,
+        unit: "g",
+        notes: "",
+        variant_id: null,
+      }, // Default to grams for easier input
       ...ingredients,
-      { inventory_item_id: "", quantity: 0, unit: "g", notes: "", variant_id: null }, // Default to grams for easier input
     ]);
+  };
+
+  const syncBaseToVariants = () => {
+    const baseIngredients = ingredients.filter(
+      (ing) => !ing.variant_id && ing.inventory_item_id,
+    );
+
+    if (baseIngredients.length === 0) {
+      toast({
+        title: "No Base Ingredients",
+        description:
+          "Add some ingredients to the base list first before syncing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (menuVariants.length === 0) {
+      toast({
+        title: "No Size Variants",
+        description: "This menu item does not have size variants configured.",
+      });
+      return;
+    }
+
+    const newIngredients = [...ingredients];
+    let itemsCopied = 0;
+
+    menuVariants.forEach((variant: any) => {
+      baseIngredients.forEach((baseIng) => {
+        // Check if ingredient already exists in this variant
+        const exists = newIngredients.some(
+          (ing) =>
+            ing.variant_id === variant.id &&
+            ing.inventory_item_id === baseIng.inventory_item_id,
+        );
+
+        if (!exists) {
+          newIngredients.unshift({
+            ...baseIng,
+            variant_id: variant.id,
+            custom_cost: undefined, // Automatically recalculate standard cost based on qty/unit
+          });
+          itemsCopied++;
+        }
+      });
+    });
+
+    if (itemsCopied > 0) {
+      setIngredients(newIngredients);
+      toast({
+        title: "Sync Complete \u2728",
+        description: `Successfully synced ${itemsCopied} missing ingredient(s) to your size variants.`,
+      });
+    } else {
+      toast({
+        title: "Already Synced",
+        description:
+          "All base ingredients are already present in the size variants.",
+      });
+    }
   };
 
   const removeIngredient = (index: number) => {
@@ -556,17 +626,21 @@ export const RecipeDialog = ({
         .join(", ");
 
       let variantContext = "";
-      let ingredientsSchema = '{ "name": "ingredient name (use exact inventory names where possible)", "quantity": <number>, "unit": "kg|g|l|ml|piece|cup|tbsp|tsp" }';
+      let ingredientsSchema =
+        '{ "name": "ingredient name (use exact inventory names where possible)", "quantity": <number>, "unit": "kg|g|l|ml|piece|cup|tbsp|tsp" }';
 
       if (menuVariants && menuVariants.length > 0) {
-        const variantList = menuVariants.map((v: any) => `${v.name} (ID: ${v.id})`).join(", ");
+        const variantList = menuVariants
+          .map((v: any) => `${v.name} (ID: ${v.id})`)
+          .join(", ");
         variantContext = `
 IMPORTANT SIZE VARIANT INSTRUCTIONS:
 This menu item has the following size variants: ${variantList}.
 For each ingredient, try to specify exact quantities for EACH size variant separately.
 If an ingredient applies to ALL sizes equally (e.g. a base spice), return it once with "variant_id": null.
 If an ingredient quantity changes based on size (e.g. 5g for Small, 10g for Medium, 15g for Large), return multiple objects for that identical ingredient name, one for each size, but set the "variant_id" strictly to the corresponding exact ID provided above.`;
-        ingredientsSchema = '{ "name": "ingredient name", "quantity": <number>, "unit": "g", "variant_id": "<uuid_or_null>" }';
+        ingredientsSchema =
+          '{ "name": "ingredient name", "quantity": <number>, "unit": "g", "variant_id": "<uuid_or_null>" }';
       }
 
       const prompt = `You are a professional chef and recipe writer. Generate detailed recipe information for "${formData.name}".
@@ -577,10 +651,6 @@ ${variantContext}
 Please respond ONLY with a valid JSON object (no markdown, no explanation) in this exact format:
 {
   "description": "A brief, appetizing 1-2 sentence description of the dish",
-  "prep_time_minutes": <number>,
-  "cook_time_minutes": <number>,
-  "difficulty": "<easy|medium|hard>",
-  "instructions": "Detailed step-by-step cooking instructions with numbered steps",
   "ingredients": [
     ${ingredientsSchema}
   ]
@@ -616,12 +686,6 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
         setFormData((prev) => ({
           ...prev,
           description: recipeData.description || prev.description,
-          prep_time_minutes:
-            recipeData.prep_time_minutes?.toString() || prev.prep_time_minutes,
-          cook_time_minutes:
-            recipeData.cook_time_minutes?.toString() || prev.cook_time_minutes,
-          difficulty: recipeData.difficulty || prev.difficulty,
-          instructions: recipeData.instructions || prev.instructions,
         }));
 
         // Process AI-suggested ingredients — match against inventory
@@ -691,7 +755,7 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
 
           if (matched.length > 0) {
             // Append instead of replace if ingredients already exist
-            setIngredients(prev => [...prev, ...matched]);
+            setIngredients((prev) => [...prev, ...matched]);
           }
           if (missing.length > 0) {
             setMissingIngredients(missing);
@@ -747,7 +811,7 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
 
         <div className="p-6">
           <Tabs defaultValue="basic" className="mt-2">
-            <TabsList className="grid w-full grid-cols-3 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-gray-800/80 dark:to-gray-700/80 p-1.5 rounded-2xl border border-orange-100 dark:border-orange-500/30">
+            <TabsList className="grid w-full grid-cols-2 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-gray-800/80 dark:to-gray-700/80 p-1.5 rounded-2xl border border-orange-100 dark:border-orange-500/30">
               <TabsTrigger
                 value="basic"
                 className="flex items-center gap-2 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/30 font-semibold transition-all duration-300"
@@ -761,13 +825,6 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
               >
                 <ClipboardList className="h-4 w-4" />
                 Ingredients
-              </TabsTrigger>
-              <TabsTrigger
-                value="instructions"
-                className="flex items-center gap-2 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/30 font-semibold transition-all duration-300"
-              >
-                <FileText className="h-4 w-4" />
-                Instructions
               </TabsTrigger>
             </TabsList>
 
@@ -846,7 +903,7 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                       <ChefHat className="h-4 w-4 text-orange-500" />
                       Recipe Name *
                     </Label>
-                    <Button
+                    {/* <Button
                       type="button"
                       onClick={handleAIGenerate}
                       disabled={!formData.name.trim() || isGeneratingAI}
@@ -863,7 +920,7 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                           AI Generate
                         </>
                       )}
-                    </Button>
+                    </Button> */}
                   </div>
                   <Input
                     id="name"
@@ -947,83 +1004,6 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                   rows={2}
                   className="bg-white/80 dark:bg-gray-800/80 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 resize-none"
                 />
-              </div>
-
-              {/* Time & Difficulty Row */}
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-5 rounded-2xl border border-amber-100 dark:border-amber-500/30">
-                <div className="flex items-center gap-2 mb-4">
-                  <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                  <span className="text-amber-700 dark:text-amber-300 font-semibold">
-                    Time & Difficulty
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="prep_time"
-                      className="text-gray-600 dark:text-gray-400 text-sm"
-                    >
-                      Prep Time (min)
-                    </Label>
-                    <Input
-                      id="prep_time"
-                      type="number"
-                      value={formData.prep_time_minutes}
-                      onChange={(e) =>
-                        handleInputChange("prep_time_minutes", e.target.value)
-                      }
-                      className="bg-white/80 dark:bg-gray-800/80 border-2 border-amber-200 dark:border-amber-500/30 rounded-xl focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="cook_time"
-                      className="text-gray-600 dark:text-gray-400 text-sm"
-                    >
-                      Cook Time (min)
-                    </Label>
-                    <Input
-                      id="cook_time"
-                      type="number"
-                      value={formData.cook_time_minutes}
-                      onChange={(e) =>
-                        handleInputChange("cook_time_minutes", e.target.value)
-                      }
-                      className="bg-white/80 dark:bg-gray-800/80 border-2 border-amber-200 dark:border-amber-500/30 rounded-xl focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="difficulty"
-                      className="text-gray-600 dark:text-gray-400 text-sm"
-                    >
-                      Difficulty
-                    </Label>
-                    <Select
-                      value={formData.difficulty}
-                      onValueChange={(value) =>
-                        handleInputChange("difficulty", value)
-                      }
-                    >
-                      <SelectTrigger className="bg-white/80 dark:bg-gray-800/80 border-2 border-amber-200 dark:border-amber-500/30 rounded-xl focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-gray-900 dark:text-gray-100">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-xl">
-                        <SelectItem value="easy" className="rounded-lg">
-                          🟢 Easy
-                        </SelectItem>
-                        <SelectItem value="medium" className="rounded-lg">
-                          🟡 Medium
-                        </SelectItem>
-                        <SelectItem value="hard" className="rounded-lg">
-                          🔴 Hard
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
               </div>
 
               {/* Serving & Pricing Row */}
@@ -1194,7 +1174,8 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs sm:text-sm text-purple-700 dark:text-purple-300 font-semibold truncate">
-                        📦 Base Ingredients {menuVariants.length > 0 ? "(All Sizes)" : ""}
+                        📦 Base Ingredients{" "}
+                        {menuVariants.length > 0 ? "(All Sizes)" : ""}
                       </p>
                       <p className="text-[10px] sm:text-xs text-purple-600/70 dark:text-purple-400/70 hidden sm:block">
                         {menuVariants.length > 0
@@ -1218,26 +1199,30 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                     .map((ingredient, index) => ({ ingredient, index }))
                     .filter(({ ingredient }) => !ingredient.variant_id)
                     .map(({ ingredient, index }, _, arr) => {
-                      const existingItemIds = arr.map(a => a.ingredient.inventory_item_id);
+                      const existingItemIds = arr.map(
+                        (a) => a.ingredient.inventory_item_id,
+                      );
                       const inventoryItem = inventoryItems.find(
                         (item: any) => item.id === ingredient.inventory_item_id,
                       );
-                      const ingredientCost = calculateIngredientCost(ingredient);
+                      const ingredientCost =
+                        calculateIngredientCost(ingredient);
 
                       return (
                         <div
                           key={index}
-                          className="p-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-100/60 dark:border-purple-500/10 rounded-xl hover:shadow-md transition-all duration-200"
+                          className="group relative flex flex-col sm:flex-row gap-3 p-3 sm:p-4 bg-white dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_30px_-5px_rgba(0,0,0,0.08)] hover:border-purple-200 dark:hover:border-purple-500/30 transition-all duration-300"
                         >
-                          {/* Row 1: Ingredient selector (full width on mobile) */}
-                          <div className="space-y-1 mb-2">
-                            <Label className="text-gray-500 dark:text-gray-400 text-xs">
-                              Ingredient
-                            </Label>
+                          {/* Ingredient Combobox (takes up remaining space) */}
+                          <div className="w-full sm:flex-1 relative">
                             <IngredientCombobox
                               value={ingredient.inventory_item_id}
                               onValueChange={(value) =>
-                                updateIngredient(index, "inventory_item_id", value)
+                                updateIngredient(
+                                  index,
+                                  "inventory_item_id",
+                                  value,
+                                )
                               }
                               inventoryItems={inventoryItems}
                               currencySymbol={currencySymbol}
@@ -1245,15 +1230,14 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                             />
                           </div>
 
-                          {/* Row 2: Qty + Unit + Cost + Delete (inline, responsive) */}
-                          <div className="flex gap-2 items-end">
-                            <div className="flex-1 min-w-[60px] space-y-1">
-                              <Label className="text-gray-500 dark:text-gray-400 text-xs">
-                                Qty
-                              </Label>
+                          {/* Controls row */}
+                          <div className="flex w-full sm:w-auto items-center justify-between sm:justify-start gap-2 sm:gap-3">
+                            {/* Fused Qty and Unit */}
+                            <div className="flex flex-1 sm:flex-none items-center bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-purple-500/30 focus-within:border-purple-500 transition-all">
                               <Input
                                 type="number"
                                 step="0.001"
+                                placeholder="Qty"
                                 value={ingredient.quantity || ""}
                                 onChange={(e) =>
                                   updateIngredient(
@@ -1262,65 +1246,97 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                                     parseFloat(e.target.value) || 0,
                                   )
                                 }
-                                className="bg-white/80 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-600 rounded-lg h-9 text-sm"
+                                className="w-[70px] sm:w-20 bg-transparent border-0 h-[40px] text-sm font-medium focus-visible:ring-0 px-3 flex-1 sm:flex-none"
                               />
-                            </div>
-
-                            <div className="w-[70px] sm:w-20 space-y-1">
-                              <Label className="text-gray-500 dark:text-gray-400 text-xs">
-                                Unit
-                              </Label>
+                              <div className="w-[1px] h-6 bg-gray-300 dark:bg-gray-600" />
                               <Select
                                 value={ingredient.unit}
                                 onValueChange={(value) =>
                                   updateIngredient(index, "unit", value)
                                 }
                               >
-                                <SelectTrigger className="bg-white/80 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-600 rounded-lg h-9 text-sm">
+                                <SelectTrigger className="w-[66px] sm:w-[72px] bg-transparent border-0 h-[40px] text-xs font-medium focus:ring-0 px-2 shadow-none text-gray-600 dark:text-gray-300">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-xl">
-                                  <SelectItem value="kg" className="rounded-lg">kg</SelectItem>
-                                  <SelectItem value="g" className="rounded-lg">g</SelectItem>
-                                  <SelectItem value="l" className="rounded-lg">l</SelectItem>
-                                  <SelectItem value="ml" className="rounded-lg">ml</SelectItem>
-                                  <SelectItem value="piece" className="rounded-lg">piece</SelectItem>
-                                  <SelectItem value="cup" className="rounded-lg">cup</SelectItem>
-                                  <SelectItem value="tbsp" className="rounded-lg">tbsp</SelectItem>
-                                  <SelectItem value="tsp" className="rounded-lg">tsp</SelectItem>
+                                  <SelectItem value="kg" className="rounded-lg">
+                                    kg
+                                  </SelectItem>
+                                  <SelectItem value="g" className="rounded-lg">
+                                    g
+                                  </SelectItem>
+                                  <SelectItem value="l" className="rounded-lg">
+                                    l
+                                  </SelectItem>
+                                  <SelectItem value="ml" className="rounded-lg">
+                                    ml
+                                  </SelectItem>
+                                  <SelectItem
+                                    value="piece"
+                                    className="rounded-lg"
+                                  >
+                                    piece
+                                  </SelectItem>
+                                  <SelectItem
+                                    value="cup"
+                                    className="rounded-lg"
+                                  >
+                                    cup
+                                  </SelectItem>
+                                  <SelectItem
+                                    value="tbsp"
+                                    className="rounded-lg"
+                                  >
+                                    tbsp
+                                  </SelectItem>
+                                  <SelectItem
+                                    value="tsp"
+                                    className="rounded-lg"
+                                  >
+                                    tsp
+                                  </SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
 
-                            <div className="w-16 sm:w-20 text-right space-y-1">
-                              <Label className="text-gray-500 dark:text-gray-400 text-xs w-full block text-center">
-                                Cost ({currencySymbol})
-                              </Label>
+                            {/* Cost display */}
+                            <div className="relative group/cost">
                               <Input
                                 type="number"
                                 step="0.01"
-                                value={ingredient.custom_cost !== undefined ? ingredient.custom_cost : ingredientCost.toFixed(2)}
+                                value={
+                                  ingredient.custom_cost !== undefined
+                                    ? ingredient.custom_cost
+                                    : ingredientCost.toFixed(2)
+                                }
                                 onChange={(e) => {
                                   const val = e.target.value;
-                                  if (val === '') {
+                                  if (val === "") {
                                     const updated = [...ingredients];
                                     delete updated[index].custom_cost;
                                     setIngredients(updated);
                                   } else {
-                                    updateIngredient(index, "custom_cost", parseFloat(val) || 0);
+                                    updateIngredient(
+                                      index,
+                                      "custom_cost",
+                                      parseFloat(val) || 0,
+                                    );
                                   }
                                 }}
-                                className={`h-9 text-right font-bold text-xs px-2 ${ingredient.custom_cost !== undefined ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'text-emerald-600 bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'}`}
-                                title={ingredient.custom_cost !== undefined ? "Manual Cost Override" : "Auto-calculated Cost"}
+                                className={`w-[66px] sm:w-[76px] h-[42px] text-right font-bold text-sm px-2 border-2 focus-visible:ring-0 rounded-xl transition-colors ${ingredient.custom_cost !== undefined ? "text-purple-700 bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-800" : "text-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"}`}
+                                title={
+                                  ingredient.custom_cost !== undefined
+                                    ? "Manual Cost Override"
+                                    : `Calculated Cost: ${currencySymbol}${ingredientCost.toFixed(2)}`
+                                }
                               />
                             </div>
 
+                            {/* Delete Button */}
                             <Button
                               type="button"
-                              variant="ghost"
-                              size="icon"
                               onClick={() => removeIngredient(index)}
-                              className="text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg h-9 w-9 shrink-0 transition-colors"
+                              className="h-[42px] w-[42px] shrink-0 rounded-xl bg-red-50/80 text-red-500 hover:bg-red-500 hover:text-white dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500 transition-colors border border-red-100 dark:border-red-900/30 shadow-sm"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1329,7 +1345,8 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                       );
                     })}
 
-                  {ingredients.filter((ing) => !ing.variant_id).length === 0 && (
+                  {ingredients.filter((ing) => !ing.variant_id).length ===
+                    0 && (
                     <div className="text-center py-8 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
                       <ClipboardList className="h-6 w-6 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
                       <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -1344,18 +1361,32 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
               {menuVariants.length > 0 && (
                 <div className="bg-gradient-to-br from-sky-50/80 to-blue-50/80 dark:from-sky-900/10 dark:to-blue-900/10 p-3 sm:p-4 rounded-2xl border border-sky-100 dark:border-sky-500/20">
                   {/* Header */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="p-1.5 bg-gradient-to-br from-sky-500 to-blue-600 rounded-lg shadow-md shadow-sky-500/30 shrink-0">
-                      <Utensils className="h-4 w-4 text-white" />
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-gradient-to-br from-sky-500 to-blue-600 rounded-lg shadow-md shadow-sky-500/30 shrink-0">
+                        <Utensils className="h-4 w-4 text-white" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs sm:text-sm text-sky-700 dark:text-sky-300 font-semibold">
+                          📐 Size Overrides
+                        </p>
+                        <p className="text-[10px] sm:text-xs text-sky-600/60 dark:text-sky-400/60">
+                          Select a size tab → add ingredients that differ from
+                          base
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs sm:text-sm text-sky-700 dark:text-sky-300 font-semibold">
-                        📐 Size Overrides
-                      </p>
-                      <p className="text-[10px] sm:text-xs text-sky-600/60 dark:text-sky-400/60">
-                        Select a size tab → add ingredients that differ from base
-                      </p>
-                    </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={syncBaseToVariants}
+                      className="bg-white/80 dark:bg-gray-800/80 hover:bg-sky-50 dark:hover:bg-sky-900 border-sky-200 dark:border-sky-700 text-sky-600 dark:text-sky-300 h-8 text-[10px] sm:text-xs px-2 shadow-sm flex items-center gap-1.5 transition-all"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      <span className="hidden sm:inline">Sync from Base</span>
+                      <span className="sm:hidden">Sync</span>
+                    </Button>
                   </div>
 
                   {/* Variant Tabs */}
@@ -1370,25 +1401,31 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                         <button
                           key={variant.id}
                           type="button"
-                          onClick={() => setActiveVariantTab(isActive ? "" : variant.id)}
+                          onClick={() =>
+                            setActiveVariantTab(isActive ? "" : variant.id)
+                          }
                           className={`
                             relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold 
                             transition-all duration-200 shrink-0
-                            ${isActive
-                              ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/30 scale-[1.02]"
-                              : "bg-white/80 dark:bg-gray-800/80 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-600/30 hover:border-sky-400 hover:shadow-sm"
+                            ${
+                              isActive
+                                ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/30 scale-[1.02]"
+                                : "bg-white/80 dark:bg-gray-800/80 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-600/30 hover:border-sky-400 hover:shadow-sm"
                             }
                           `}
                         >
                           {variant.name}
                           {count > 0 && (
-                            <span className={`
+                            <span
+                              className={`
                               inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[10px] font-bold
-                              ${isActive
-                                ? "bg-white/25 text-white"
-                                : "bg-sky-100 dark:bg-sky-800/50 text-sky-600 dark:text-sky-300"
+                              ${
+                                isActive
+                                  ? "bg-white/25 text-white"
+                                  : "bg-sky-100 dark:bg-sky-800/50 text-sky-600 dark:text-sky-300"
                               }
-                            `}>
+                            `}
+                            >
                               {count}
                             </span>
                           )}
@@ -1404,13 +1441,28 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                       <div className="flex justify-between items-center bg-white/50 dark:bg-gray-800/50 p-2 sm:p-3 rounded-xl border border-sky-100 dark:border-sky-800/50 shadow-sm mb-2">
                         <div className="flex flex-col">
                           <span className="text-sky-700 dark:text-sky-400 font-semibold text-[10px] sm:text-xs">
-                            Total Cost ({menuVariants.find((v: any) => v.id === activeVariantTab)?.name}):
+                            Total Cost (
+                            {
+                              menuVariants.find(
+                                (v: any) => v.id === activeVariantTab,
+                              )?.name
+                            }
+                            ):
                           </span>
                           <span className="text-sky-600 dark:text-sky-300 font-bold text-sm sm:text-base">
                             {currencySymbol}
-                            {(totalIngredientCost + ingredients
-                              .filter((ing) => ing.variant_id === activeVariantTab)
-                              .reduce((sum, ing) => sum + calculateIngredientCost(ing), 0)).toFixed(2)}
+                            {(
+                              totalIngredientCost +
+                              ingredients
+                                .filter(
+                                  (ing) => ing.variant_id === activeVariantTab,
+                                )
+                                .reduce(
+                                  (sum, ing) =>
+                                    sum + calculateIngredientCost(ing),
+                                  0,
+                                )
+                            ).toFixed(2)}
                           </span>
                         </div>
                         <Button
@@ -1423,13 +1475,18 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                               notes: "",
                               variant_id: activeVariantTab,
                             };
-                            setIngredients([...ingredients, newRow]);
+                            setIngredients([newRow, ...ingredients]);
                           }}
                           className="bg-sky-500 hover:bg-sky-600 text-white text-xs px-3 py-1.5 rounded-lg shadow-sm"
                           size="sm"
                         >
                           <Plus className="h-3.5 w-3.5 mr-1" />
-                          Add to {menuVariants.find((v: any) => v.id === activeVariantTab)?.name}
+                          Add to{" "}
+                          {
+                            menuVariants.find(
+                              (v: any) => v.id === activeVariantTab,
+                            )?.name
+                          }
                         </Button>
                       </div>
 
@@ -1437,21 +1494,31 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                       <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
                         {ingredients
                           .map((ingredient, index) => ({ ingredient, index }))
-                          .filter(({ ingredient }) => ingredient.variant_id === activeVariantTab)
+                          .filter(
+                            ({ ingredient }) =>
+                              ingredient.variant_id === activeVariantTab,
+                          )
                           .map(({ ingredient, index }, _, arr) => {
-                            const existingItemIds = arr.map(a => a.ingredient.inventory_item_id);
-                            const ingredientCost = calculateIngredientCost(ingredient);
+                            const existingItemIds = arr.map(
+                              (a) => a.ingredient.inventory_item_id,
+                            );
+                            const ingredientCost =
+                              calculateIngredientCost(ingredient);
                             return (
                               <div
                                 key={index}
-                                className="p-2.5 bg-white/90 dark:bg-gray-800/90 border border-sky-100/50 dark:border-sky-500/10 rounded-xl"
+                                className="group flex flex-col sm:flex-row items-center gap-2 sm:gap-3 p-3 bg-white/95 dark:bg-gray-900/60 border border-sky-100 dark:border-sky-800/40 rounded-xl shadow-sm hover:shadow-md hover:border-sky-300 dark:hover:border-sky-500/40 transition-all duration-300"
                               >
                                 {/* Ingredient selector full width */}
-                                <div className="mb-2">
+                                <div className="w-full sm:flex-1 relative">
                                   <IngredientCombobox
                                     value={ingredient.inventory_item_id}
                                     onValueChange={(value) =>
-                                      updateIngredient(index, "inventory_item_id", value)
+                                      updateIngredient(
+                                        index,
+                                        "inventory_item_id",
+                                        value,
+                                      )
                                     }
                                     inventoryItems={inventoryItems}
                                     currencySymbol={currencySymbol}
@@ -1459,13 +1526,14 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                                   />
                                 </div>
 
-                                {/* Qty + Unit + Cost + Delete row */}
-                                <div className="flex gap-2 items-end">
-                                  <div className="flex-1 min-w-[60px]">
-                                    <Label className="text-gray-400 text-[10px]">Qty</Label>
+                                {/* Controls row */}
+                                <div className="flex w-full sm:w-auto items-center justify-between sm:justify-start gap-2 sm:gap-2.5">
+                                  {/* Qty & Unit Fused */}
+                                  <div className="flex flex-1 sm:flex-none items-center bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-sky-500/30 focus-within:border-sky-500 transition-all">
                                     <Input
                                       type="number"
                                       step="0.001"
+                                      placeholder="Qty"
                                       value={ingredient.quantity || ""}
                                       onChange={(e) =>
                                         updateIngredient(
@@ -1474,18 +1542,16 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                                           parseFloat(e.target.value) || 0,
                                         )
                                       }
-                                      className="bg-white/80 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-600 rounded-lg h-8 text-sm"
+                                      className="w-[60px] sm:w-[68px] bg-transparent border-0 h-10 text-sm font-medium focus-visible:ring-0 px-2 flex-1 sm:flex-none"
                                     />
-                                  </div>
-                                  <div className="w-[65px]">
-                                    <Label className="text-gray-400 text-[10px]">Unit</Label>
+                                    <div className="w-[1px] h-5 bg-gray-300 dark:bg-gray-600" />
                                     <Select
                                       value={ingredient.unit}
                                       onValueChange={(value) =>
                                         updateIngredient(index, "unit", value)
                                       }
                                     >
-                                      <SelectTrigger className="bg-white/80 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-600 rounded-lg h-8 text-sm">
+                                      <SelectTrigger className="w-[64px] sm:w-[68px] bg-transparent border-0 h-10 text-xs font-medium focus:ring-0 px-2 shadow-none text-gray-600 dark:text-gray-300">
                                         <SelectValue />
                                       </SelectTrigger>
                                       <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl">
@@ -1493,54 +1559,83 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                                         <SelectItem value="g">g</SelectItem>
                                         <SelectItem value="l">l</SelectItem>
                                         <SelectItem value="ml">ml</SelectItem>
-                                        <SelectItem value="piece">piece</SelectItem>
+                                        <SelectItem value="piece">
+                                          piece
+                                        </SelectItem>
                                         <SelectItem value="cup">cup</SelectItem>
-                                        <SelectItem value="tbsp">tbsp</SelectItem>
+                                        <SelectItem value="tbsp">
+                                          tbsp
+                                        </SelectItem>
                                         <SelectItem value="tsp">tsp</SelectItem>
                                       </SelectContent>
                                     </Select>
                                   </div>
-                                  <div className="w-[60px] sm:w-[70px] text-right">
-                                    <Label className="text-gray-400 text-[10px] text-center w-full block">Cost ({currencySymbol})</Label>
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      value={ingredient.custom_cost !== undefined ? ingredient.custom_cost : ingredientCost.toFixed(2)}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        if (val === '') {
-                                          const updated = [...ingredients];
-                                          delete updated[index].custom_cost;
-                                          setIngredients(updated);
-                                        } else {
-                                          updateIngredient(index, "custom_cost", parseFloat(val) || 0);
-                                        }
-                                      }}
-                                      className={`h-8 text-right font-bold text-xs px-1 ${ingredient.custom_cost !== undefined ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'text-emerald-600 bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'}`}
-                                      title={ingredient.custom_cost !== undefined ? "Manual Cost Override" : "Auto-calculated Cost"}
-                                    />
-                                  </div>
+
+                                  {/* Cost Input */}
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={
+                                      ingredient.custom_cost !== undefined
+                                        ? ingredient.custom_cost
+                                        : ingredientCost.toFixed(2)
+                                    }
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === "") {
+                                        const updated = [...ingredients];
+                                        delete updated[index].custom_cost;
+                                        setIngredients(updated);
+                                      } else {
+                                        updateIngredient(
+                                          index,
+                                          "custom_cost",
+                                          parseFloat(val) || 0,
+                                        );
+                                      }
+                                    }}
+                                    className={`w-[60px] sm:w-[72px] h-[40px] text-right font-bold text-xs px-1.5 border-2 focus-visible:ring-0 rounded-lg transition-colors ${ingredient.custom_cost !== undefined ? "text-sky-700 bg-sky-50 dark:bg-sky-900/20 border-sky-300 dark:border-sky-800" : "text-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"}`}
+                                    title={
+                                      ingredient.custom_cost !== undefined
+                                        ? "Manual Cost Override"
+                                        : "Auto-calculated Cost"
+                                    }
+                                  />
+
+                                  {/* Delete */}
                                   <Button
                                     type="button"
-                                    variant="ghost"
-                                    size="icon"
                                     onClick={() => removeIngredient(index)}
-                                    className="text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg h-8 w-8 shrink-0"
+                                    className="h-[40px] w-[40px] shrink-0 rounded-lg bg-red-50 text-red-500 hover:bg-red-500 hover:text-white dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500 transition-colors border border-red-100 dark:border-red-900/30"
                                   >
-                                    <Trash2 className="h-3.5 w-3.5" />
+                                    <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </div>
                               </div>
                             );
                           })}
 
-                        {ingredients.filter((ing) => ing.variant_id === activeVariantTab).length === 0 && (
+                        {ingredients.filter(
+                          (ing) => ing.variant_id === activeVariantTab,
+                        ).length === 0 && (
                           <div className="text-center py-6 bg-sky-50/30 dark:bg-sky-800/10 rounded-xl border border-dashed border-sky-200/50 dark:border-sky-700/30">
                             <p className="text-xs text-sky-500 dark:text-sky-400">
-                              No overrides for {menuVariants.find((v: any) => v.id === activeVariantTab)?.name} yet
+                              No overrides for{" "}
+                              {
+                                menuVariants.find(
+                                  (v: any) => v.id === activeVariantTab,
+                                )?.name
+                              }{" "}
+                              yet
                             </p>
                             <p className="text-[10px] text-sky-400/60 mt-0.5">
-                              Click "Add to {menuVariants.find((v: any) => v.id === activeVariantTab)?.name}" above
+                              Click "Add to{" "}
+                              {
+                                menuVariants.find(
+                                  (v: any) => v.id === activeVariantTab,
+                                )?.name
+                              }
+                              " above
                             </p>
                           </div>
                         )}
@@ -1555,30 +1650,6 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                   )}
                 </div>
               )}
-            </TabsContent>
-
-            <TabsContent value="instructions" className="space-y-4 mt-6">
-              <div className="bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20 p-5 rounded-2xl border border-teal-100 dark:border-teal-500/30">
-                <div className="flex items-center gap-2 mb-4">
-                  <FileText className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-                  <Label
-                    htmlFor="instructions"
-                    className="text-teal-700 dark:text-teal-300 font-semibold"
-                  >
-                    Cooking Instructions
-                  </Label>
-                </div>
-                <Textarea
-                  id="instructions"
-                  value={formData.instructions}
-                  onChange={(e) =>
-                    handleInputChange("instructions", e.target.value)
-                  }
-                  placeholder="Step-by-step cooking instructions...&#10;&#10;1. Prepare the ingredients...&#10;2. Heat oil in a pan...&#10;3. Add spices and cook..."
-                  rows={14}
-                  className="bg-white/80 dark:bg-gray-800/80 border-2 border-teal-200 dark:border-teal-500/30 rounded-xl focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 resize-none"
-                />
-              </div>
             </TabsContent>
           </Tabs>
 
