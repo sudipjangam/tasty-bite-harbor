@@ -60,6 +60,7 @@ import InventoryAlerts from "@/components/Inventory/InventoryAlerts";
 import PurchaseOrders from "@/components/Inventory/PurchaseOrders";
 import PurchaseOrderSuggestions from "@/components/Inventory/PurchaseOrderSuggestions";
 import InventoryTransactions from "@/components/Inventory/InventoryTransactions";
+import InventoryLots from "@/components/Inventory/InventoryLots";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { BillUploadDialog } from "@/components/Inventory/BillUploadDialog";
 import { BillExtractedDataDialog } from "@/components/Inventory/BillExtractedDataDialog";
@@ -281,6 +282,7 @@ const Inventory = () => {
 
     try {
       await supabase.from("inventory_alerts").delete().eq("inventory_item_id", itemToDelete.id);
+      await supabase.from("inventory_lots").delete().eq("inventory_item_id", itemToDelete.id);
       await supabase.from("inventory_transactions").delete().eq("inventory_item_id", itemToDelete.id);
       await supabase.from("purchase_order_items").delete().eq("inventory_item_id", itemToDelete.id);
       await supabase.from("recipe_ingredients").delete().eq("inventory_item_id", itemToDelete.id);
@@ -585,6 +587,7 @@ const Inventory = () => {
                 { value: "purchase-orders", icon: ShoppingCart, label: "Orders" },
                 { value: "suggestions", icon: BarChart3, label: "Suggest" },
                 { value: "transactions", icon: History, label: "History" },
+                { value: "lots", icon: Layers, label: "Lots" },
               ].map((tab) => (
                 <TabsTrigger
                   key={tab.value}
@@ -945,6 +948,10 @@ const Inventory = () => {
 
           <TabsContent value="transactions" className="p-4 md:p-6">
             <InventoryTransactions />
+          </TabsContent>
+
+          <TabsContent value="lots" className="p-4 md:p-6">
+            <InventoryLots />
           </TabsContent>
         </Tabs>
       </div>

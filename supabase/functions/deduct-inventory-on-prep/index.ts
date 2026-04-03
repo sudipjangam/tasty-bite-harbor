@@ -256,14 +256,14 @@ serve(async (req) => {
       );
     }
 
-    // Deduct from inventory in a transaction-like manner
+    // Deduct from inventory using FIFO lot consumption
     const deductionErrors: string[] = [];
 
     for (const [inventoryItemId, { quantity, unit, itemName }] of ingredientMap.entries()) {
       // Get current inventory
       const { data: inventoryItem, error: invError } = await supabaseClient
         .from('inventory_items')
-        .select('quantity, name, unit')
+        .select('quantity, name, unit, cost_per_unit')
         .eq('id', inventoryItemId)
         .single();
 
@@ -294,7 +294,7 @@ serve(async (req) => {
         continue;
       }
 
-      // Deduct from inventory
+      // Deduct from inventory_items total
       const newQuantity = inventoryItem.quantity - deductAmount;
       const { error: updateError } = await supabaseClient
         .from('inventory_items')
@@ -306,18 +306,94 @@ serve(async (req) => {
         continue;
       }
 
-      // Create transaction record
-      await supabaseClient.from('inventory_transactions').insert({
-        restaurant_id: restaurantId,
-        inventory_item_id: inventoryItemId,
-        transaction_type: 'usage',
-        quantity_change: -deductAmount,
-        reference_type: 'kitchen_order',
-        reference_id: order_id,
-        notes: `Used for order preparation`
-      });
+      // FIFO: Fetch lots ordered by purchase_date ASC (oldest first)
+      const { data: lots, error: lotsError } = await supabaseClient
+        .from('inventory_lots')
+        .select('id, quantity_remaining, unit_cost, purchase_date')
+        .eq('inventory_item_id', inventoryItemId)
+        .gt('quantity_remaining', 0)
+        .order('purchase_date', { ascending: true });
 
-      console.log(`Successfully deducted ${deductAmount} ${inventoryItem.unit} of ${inventoryItem.name}`);
+      if (lotsError) {
+        console.error(`Failed to fetch lots for ${inventoryItem.name}:`, lotsError);
+      }
+
+      let remainingToDeduct = deductAmount;
+      let totalCostAccumulated = 0;
+      const lotConsumptions: { lotId: string; qty: number; unitCost: number }[] = [];
+
+      if (lots && lots.length > 0) {
+        // FIFO consumption: walk through lots oldest → newest
+        for (const lot of lots) {
+          if (remainingToDeduct <= 0) break;
+
+          const consumeFromLot = Math.min(remainingToDeduct, lot.quantity_remaining);
+          const lotCost = consumeFromLot * (lot.unit_cost || 0);
+
+          // Update lot remaining
+          const newLotRemaining = lot.quantity_remaining - consumeFromLot;
+          await supabaseClient
+            .from('inventory_lots')
+            .update({ quantity_remaining: Math.max(0, newLotRemaining) })
+            .eq('id', lot.id);
+
+          lotConsumptions.push({
+            lotId: lot.id,
+            qty: consumeFromLot,
+            unitCost: lot.unit_cost || 0
+          });
+
+          totalCostAccumulated += lotCost;
+          remainingToDeduct -= consumeFromLot;
+
+          console.log(`FIFO: consumed ${consumeFromLot.toFixed(4)} from lot ${lot.id} @ ₹${lot.unit_cost}/unit (remaining: ${newLotRemaining.toFixed(4)})`);
+        }
+      }
+
+      // Fallback: if no lots found or not enough lot stock, use cost_per_unit
+      if (remainingToDeduct > 0) {
+        const fallbackCost = remainingToDeduct * (inventoryItem.cost_per_unit || 0);
+        totalCostAccumulated += fallbackCost;
+        console.log(`FIFO fallback: ${remainingToDeduct.toFixed(4)} units not covered by lots, using cost_per_unit ₹${inventoryItem.cost_per_unit}`);
+        remainingToDeduct = 0;
+      }
+
+      // Calculate weighted average unit cost for this deduction
+      const avgUnitCost = deductAmount > 0 ? totalCostAccumulated / deductAmount : 0;
+
+      // Create transaction record(s) with cost tracking
+      if (lotConsumptions.length > 0) {
+        // Create one transaction per lot consumed (for full traceability)
+        for (const lc of lotConsumptions) {
+          await supabaseClient.from('inventory_transactions').insert({
+            restaurant_id: restaurantId,
+            inventory_item_id: inventoryItemId,
+            transaction_type: 'usage',
+            quantity_change: -lc.qty,
+            unit_cost_at_time: lc.unitCost,
+            total_cost: lc.qty * lc.unitCost,
+            lot_id: lc.lotId,
+            reference_type: 'kitchen_order',
+            reference_id: order_id,
+            notes: `Used for order preparation (FIFO lot)`
+          });
+        }
+      } else {
+        // No lots available — single transaction with fallback cost
+        await supabaseClient.from('inventory_transactions').insert({
+          restaurant_id: restaurantId,
+          inventory_item_id: inventoryItemId,
+          transaction_type: 'usage',
+          quantity_change: -deductAmount,
+          unit_cost_at_time: inventoryItem.cost_per_unit || 0,
+          total_cost: totalCostAccumulated,
+          reference_type: 'kitchen_order',
+          reference_id: order_id,
+          notes: `Used for order preparation`
+        });
+      }
+
+      console.log(`Successfully deducted ${deductAmount} ${inventoryItem.unit} of ${inventoryItem.name} (FIFO cost: ₹${totalCostAccumulated.toFixed(2)})`);
     }
 
     // If there were errors, return them
