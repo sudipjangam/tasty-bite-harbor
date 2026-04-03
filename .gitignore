@@ -49,3 +49,4 @@ docs/
 .agent/
 .claude/
 .gemini/
+.netlify/
