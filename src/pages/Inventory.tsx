@@ -61,6 +61,8 @@ import PurchaseOrders from "@/components/Inventory/PurchaseOrders";
 import PurchaseOrderSuggestions from "@/components/Inventory/PurchaseOrderSuggestions";
 import InventoryTransactions from "@/components/Inventory/InventoryTransactions";
 import InventoryLots from "@/components/Inventory/InventoryLots";
+import Stocktake from "@/components/Inventory/Stocktake";
+import InventoryKPIs from "@/components/Inventory/InventoryKPIs";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { BillUploadDialog } from "@/components/Inventory/BillUploadDialog";
 import { BillExtractedDataDialog } from "@/components/Inventory/BillExtractedDataDialog";
@@ -106,6 +108,7 @@ const Inventory = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [newItemCategory, setNewItemCategory] = useState<string>("Other");
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
 
@@ -256,11 +259,48 @@ const Inventory = () => {
         if (error) throw error;
         toast({ title: "Item updated successfully", description: `"${itemData.name}" has been updated.` });
       } else {
-        const { error } = await supabase
+        const { data: newItem, error } = await supabase
           .from("inventory_items")
-          .insert([{ ...itemData, restaurant_id: userProfile.restaurant_id }]);
+          .insert([{ ...itemData, restaurant_id: userProfile.restaurant_id }])
+          .select()
+          .single();
 
         if (error) throw error;
+        
+        // If an initial quantity is provided, we should track it as an initial lot and transaction
+        if (itemData.quantity > 0) {
+          const transactionCost = itemData.cost_per_unit ? itemData.cost_per_unit * itemData.quantity : 0;
+          const expiryDateStr = formData.get("expiryDate") as string;
+          
+          const { data: newLot, error: lotError } = await supabase
+            .from("inventory_lots")
+            .insert({
+               restaurant_id: userProfile.restaurant_id,
+               inventory_item_id: newItem.id,
+               quantity_purchased: itemData.quantity,
+               quantity_remaining: itemData.quantity,
+               unit_cost: itemData.cost_per_unit || 0,
+               lot_number: 'INITIAL-' + Math.random().toString(36).slice(2, 10),
+               expiry_date: expiryDateStr ? new Date(expiryDateStr).toISOString() : null,
+               notes: "Initial inventory setup"
+            })
+            .select()
+            .single();
+
+          if (!lotError && newLot) {
+            await supabase.from("inventory_transactions").insert({
+               restaurant_id: userProfile.restaurant_id,
+               inventory_item_id: newItem.id,
+               transaction_type: "purchase",
+               quantity_change: itemData.quantity,
+               unit_cost_at_time: itemData.cost_per_unit || 0,
+               total_cost: transactionCost,
+               lot_id: newLot.id,
+               notes: "Initial stock entry"
+            });
+          }
+        }
+
         toast({ title: "Item added successfully", description: `"${itemData.name}" has been added to inventory.` });
       }
 
@@ -357,7 +397,7 @@ const Inventory = () => {
   const totalItems = items.length;
 
   const commonUnits = INVENTORY_UNIT_VALUES;
-  const categories = ["Vegetables", "Fruits", "Groceries", "Meat & Seafood", "Dairy", "Beverages", "Spices", "Other"];
+  const categories = ["Vegetables", "Fruits", "Groceries", "Meat & Seafood", "Dairy", "Bakery", "Beverages", "Spices", "Other"];
 
   // Stock level helper
   const getStockLevel = (item: InventoryItem) => {
@@ -389,17 +429,25 @@ const Inventory = () => {
           </div>
 
           {/* Add Item Dialog */}
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+            setIsAddDialogOpen(open);
+            if (!open) setEditingItem(null);
+            if (open && !editingItem) setNewItemCategory("Other");
+            if (open && editingItem) setNewItemCategory(editingItem.category || "Other");
+          }}>
             <DialogTrigger asChild>
               <Button
-                onClick={() => setEditingItem(null)}
+                onClick={() => {
+                  setEditingItem(null);
+                  setNewItemCategory("Other");
+                }}
                 className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold px-5 py-2.5 rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30 transform hover:-translate-y-0.5 transition-all duration-300"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Item
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[540px] bg-white/98 dark:bg-gray-800/98 backdrop-blur-2xl border border-white/40 dark:border-gray-700/40 rounded-2xl shadow-2xl shadow-emerald-500/10 p-0 overflow-hidden">
+            <DialogContent className="sm:max-w-[540px] bg-background text-foreground backdrop-blur-2xl border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl p-0 overflow-hidden">
               {/* Dialog Header with gradient accent */}
               <div className="bg-gradient-to-r from-emerald-500 to-green-600 px-6 py-4">
                 <DialogHeader>
@@ -433,7 +481,7 @@ const Inventory = () => {
                     defaultValue={editingItem?.name}
                     required
                     placeholder="e.g., Olive Oil, Basmati Rice"
-                    className="bg-gray-50/80 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all"
+                    className="bg-transparent border-gray-300 dark:border-gray-700 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 transition-all"
                   />
                 </div>
 
@@ -443,8 +491,8 @@ const Inventory = () => {
                     <Layers className="h-3.5 w-3.5 text-blue-500" />
                     Category
                   </Label>
-                  <Select name="category" defaultValue={editingItem?.category || "Other"}>
-                    <SelectTrigger className="bg-gray-50/80 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 rounded-xl h-11">
+                  <Select name="category" value={newItemCategory} onValueChange={setNewItemCategory}>
+                    <SelectTrigger className="bg-transparent border-gray-300 dark:border-gray-700 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/30">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -475,19 +523,15 @@ const Inventory = () => {
                       defaultValue={editingItem?.quantity}
                       required
                       placeholder="0"
-                      className="bg-gray-50/80 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/30"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="unit" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-                      <Weight className="h-3.5 w-3.5 text-teal-500" />
-                      Unit
-                    </Label>
-                    <Select name="unit" defaultValue={editingItem?.unit || commonUnits[0]}>
-                      <SelectTrigger className="bg-gray-50/80 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 rounded-xl h-11">
+                    <Label htmlFor="unit">Unit *</Label>
+                    <Select name="unit" defaultValue={editingItem?.unit || "kg"}>
+                      <SelectTrigger>
                         <SelectValue placeholder="Select unit" />
                       </SelectTrigger>
-                      <SelectContent className="rounded-xl">
+                      <SelectContent>
                         {commonUnits.map((unit) => (
                           <SelectItem key={unit} value={unit}>
                             {unit}
@@ -501,10 +545,7 @@ const Inventory = () => {
                 {/* Reorder Level + Cost row */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="reorderLevel" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-                      <TrendingDown className="h-3.5 w-3.5 text-red-400" />
-                      Reorder Level
-                    </Label>
+                    <Label htmlFor="reorderLevel">Reorder Level</Label>
                     <Input
                       id="reorderLevel"
                       name="reorderLevel"
@@ -513,14 +554,10 @@ const Inventory = () => {
                       min="0"
                       defaultValue={editingItem?.reorder_level || ""}
                       placeholder="Low stock alert threshold"
-                      className="bg-gray-50/80 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/30"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="costPerUnit" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-                      <IndianRupee className="h-3.5 w-3.5 text-emerald-500" />
-                      Cost/Unit ({currencySymbol})
-                    </Label>
+                    <Label htmlFor="costPerUnit">Cost/Unit ({currencySymbol})</Label>
                     <Input
                       id="costPerUnit"
                       name="costPerUnit"
@@ -529,12 +566,23 @@ const Inventory = () => {
                       min="0"
                       defaultValue={editingItem?.cost_per_unit || ""}
                       placeholder="0.00"
-                      className="bg-gray-50/80 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/30"
                     />
                   </div>
                 </div>
 
-                {/* Submit */}
+                {/* Expiry Date for Dairy and Bakery */}
+                {(newItemCategory === "Dairy" || newItemCategory === "Bakery") && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="expiryDate">Expiry Date</Label>
+                    <Input
+                      id="expiryDate"
+                      name="expiryDate"
+                      type="date"
+                    />
+                    <p className="text-xs text-slate-500">Only applicable for the initial lot added during item creation.</p>
+                  </div>
+                )}
+
                 <Button
                   type="submit"
                   className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-xl transition-all duration-300 h-12 text-base"
@@ -552,29 +600,13 @@ const Inventory = () => {
       </div>
 
       {/* Premium Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
-        {[
-          { label: "Total Items", value: totalItems, icon: Package, gradient: "from-emerald-500 to-green-500", shadow: "shadow-emerald-500/20" },
-          { label: "Low Stock", value: lowStockCount, icon: AlertTriangle, gradient: "from-red-500 to-rose-500", shadow: "shadow-red-500/20" },
-          { label: "Categories", value: Object.keys(groupedItems).length, icon: Layers, gradient: "from-blue-500 to-cyan-500", shadow: "shadow-blue-500/20" },
-          { label: "Total Value", value: `${currencySymbol}${totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: BarChart3, gradient: "from-violet-500 to-purple-500", shadow: "shadow-violet-500/20" },
-        ].map((stat) => (
-          <Card key={stat.label} className="p-4 md:p-5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/40 dark:border-gray-700/30 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
-            <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-[0.03] group-hover:opacity-[0.06] transition-opacity`} />
-            <div className="flex items-center gap-3 relative">
-              <div className={`p-2.5 bg-gradient-to-br ${stat.gradient} rounded-xl shadow-md ${stat.shadow}`}>
-                <stat.icon className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{stat.label}</p>
-                <h3 className="text-xl md:text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-                  {stat.value}
-                </h3>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+      <InventoryKPIs
+        totalItems={totalItems}
+        lowStockCount={lowStockCount}
+        categoriesCount={Object.keys(groupedItems).length}
+        totalValue={totalValue}
+        currencySymbol={currencySymbol}
+      />
 
       {/* Main Content with Tabs */}
       <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/40 dark:border-gray-700/30 rounded-2xl md:rounded-3xl shadow-xl overflow-hidden">
@@ -584,6 +616,7 @@ const Inventory = () => {
               {[
                 { value: "overview", icon: Package, label: "Overview" },
                 { value: "alerts", icon: Bell, label: "Alerts" },
+                { value: "stocktake", icon: FileText, label: "Stocktake" },
                 { value: "purchase-orders", icon: ShoppingCart, label: "Orders" },
                 { value: "suggestions", icon: BarChart3, label: "Suggest" },
                 { value: "transactions", icon: History, label: "History" },
@@ -952,6 +985,10 @@ const Inventory = () => {
 
           <TabsContent value="lots" className="p-4 md:p-6">
             <InventoryLots />
+          </TabsContent>
+
+          <TabsContent value="stocktake" className="p-4 md:p-6 space-y-5">
+            <Stocktake />
           </TabsContent>
         </Tabs>
       </div>
