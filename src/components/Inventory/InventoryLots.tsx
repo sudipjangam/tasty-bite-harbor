@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -20,7 +21,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
+  Trash2,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { usePagination } from "@/hooks/usePagination";
@@ -53,6 +56,8 @@ const InventoryLots = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const { restaurantId } = useRestaurantId();
   const { symbol: currencySymbol } = useCurrencyContext();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: lots = [], isLoading } = useQuery({
     queryKey: ["inventory-lots", restaurantId],
@@ -148,6 +153,60 @@ const InventoryLots = () => {
     initialPage: 1,
   });
 
+  const markAsWasteMutation = useMutation({
+    mutationFn: async (lot: InventoryLot) => {
+      if (!restaurantId || lot.quantity_remaining <= 0) return;
+      
+      const wasteQty = lot.quantity_remaining;
+      const totalCost = wasteQty * lot.unit_cost;
+      
+      // Update Lot
+      const { error: lotError } = await supabase
+        .from("inventory_lots")
+        .update({ quantity_remaining: 0 })
+        .eq("id", lot.id);
+      if (lotError) throw lotError;
+
+      // Update Inventory Items Total Qty (subtract wasteQty)
+      const { data: itemData, error: itemError } = await supabase
+        .from("inventory_items")
+        .select("quantity")
+        .eq("id", lot.inventory_item_id)
+        .single();
+      if (itemError) throw itemError;
+
+      await supabase
+        .from("inventory_items")
+        .update({ quantity: Math.max(0, itemData.quantity - wasteQty) })
+        .eq("id", lot.inventory_item_id);
+
+      // Create transaction record
+      const { error: transactionError } = await supabase
+        .from("inventory_transactions")
+        .insert({
+          restaurant_id: restaurantId,
+          inventory_item_id: lot.inventory_item_id,
+          transaction_type: "waste",
+          quantity_change: -wasteQty,
+          unit_cost_at_time: lot.unit_cost,
+          total_cost: totalCost,
+          lot_id: lot.id,
+          notes: "Auto-waste: Lot expired."
+        });
+      if (transactionError) throw transactionError;
+    },
+    onSuccess: () => {
+      toast({ title: "Lot marked as waste successfully" });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-lots"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-stocktake"] });
+    },
+    onError: (error) => {
+      toast({ title: "Error marking as waste", description: error.message, variant: "destructive" });
+    }
+  });
+
   const getStatusBadge = (lot: InventoryLot) => {
     if (lot.quantity_remaining <= 0) {
       return (
@@ -222,6 +281,21 @@ const InventoryLots = () => {
           <p className="text-2xl font-bold mt-1">{stats.expiringSoon}</p>
         </div>
       </div>
+
+      {stats.expiringSoon > 0 && (
+        <Card className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-amber-200 dark:border-amber-800 p-4 rounded-xl flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-6 w-6 text-amber-500" />
+            <div>
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-400">Action Required: Expiring Lots</p>
+              <p className="text-xs text-amber-700 dark:text-amber-500">You have {stats.expiringSoon} active lots expiring within the next 7 days. Consider applying promotions!</p>
+            </div>
+          </div>
+          <Button size="sm" variant="outline" className="bg-white border-amber-300 text-amber-700 hover:bg-amber-50" onClick={() => setStatusFilter("expiring")}>
+            View Lots
+          </Button>
+        </Card>
+      )}
 
       {/* Search and Filter */}
       <div className="flex flex-col md:flex-row gap-3">
@@ -357,6 +431,21 @@ const InventoryLots = () => {
                       )}
                     </div>
                   </div>
+
+                  {/* Actions Column */}
+                  {lot.quantity_remaining > 0 && lot.expiry_date && isPast(new Date(lot.expiry_date)) && (
+                    <div className="md:ml-auto w-full md:w-auto pt-2 md:pt-0">
+                      <Button
+                        size="sm"
+                        onClick={() => markAsWasteMutation.mutate(lot)}
+                        disabled={markAsWasteMutation.isPending}
+                        className="w-full bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-md shadow-red-500/20"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        Mark as Waste
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </Card>
             );

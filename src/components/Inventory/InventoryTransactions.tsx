@@ -38,6 +38,7 @@ interface InventoryItem {
   quantity: number;
   unit: string;
   cost_per_unit: number | null;
+  category?: string;
 }
 
 const transactionTypeIcons: Record<string, React.ReactNode> = {
@@ -65,7 +66,8 @@ const InventoryTransactions = () => {
   const [selectedItemId, setSelectedItemId] = useState<string>("");
   const [transactionType, setTransactionType] = useState<string>("adjustment");
   const [quantityChange, setQuantityChange] = useState<number>(0);
-  const [unitCost, setUnitCost] = useState<number>(0);
+  const [unitCost, setUnitCost] = useState(0);
+  const [expiryDate, setExpiryDate] = useState("");
   const [notes, setNotes] = useState("");
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const { restaurantId } = useRestaurantId();
@@ -106,7 +108,7 @@ const InventoryTransactions = () => {
 
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, quantity, unit, cost_per_unit")
+        .select("id, name, quantity, unit, cost_per_unit, category")
         .eq("restaurant_id", restaurantId)
         .order("name");
 
@@ -152,6 +154,7 @@ const InventoryTransactions = () => {
             quantity_remaining: actualChange,
             unit_cost: costPerUnit,
             lot_number: 'MANUAL-' + new Date().toISOString().slice(0, 10) + '-' + Math.random().toString(36).slice(2, 6),
+            expiry_date: expiryDate ? new Date(expiryDate).toISOString() : null,
             notes: notes || 'Manual purchase entry',
           })
           .select('id')
@@ -215,6 +218,7 @@ const InventoryTransactions = () => {
     setTransactionType("adjustment");
     setQuantityChange(0);
     setUnitCost(0);
+    setExpiryDate("");
     setNotes("");
   };
 
@@ -379,26 +383,31 @@ const InventoryTransactions = () => {
 
               {/* Unit Cost — shown for purchases */}
               {transactionType === "purchase" && (
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    <span className="flex items-center gap-1">
-                      <IndianRupee className="h-3.5 w-3.5" />
-                      Unit Cost (per {selectedItem?.unit || 'unit'}) *
-                    </span>
-                  </Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={unitCost || ''}
-                    onChange={(e) => setUnitCost(parseFloat(e.target.value) || 0)}
-                    placeholder="e.g. 35.00"
-                    className="bg-white/80 dark:bg-gray-700/80 border-gray-200 dark:border-gray-600 rounded-xl"
-                  />
-                  {unitCost > 0 && quantityChange > 0 && (
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
-                      Total: {currencySymbol}{(unitCost * Math.abs(quantityChange)).toFixed(2)} • A new FIFO lot will be created
-                    </p>
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">New Unit Cost (₹) *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={unitCost}
+                      onChange={(e) => setUnitCost(parseFloat(e.target.value) || 0)}
+                      required
+                      className="bg-white/80 dark:bg-gray-700/80 border-gray-200 dark:border-gray-600 rounded-xl mt-1"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">This will update the item's average cost and be tracked as a new inventory lot.</p>
+                  </div>
+                  
+                  {selectedItem && (selectedItem.category === 'Dairy' || selectedItem.category === 'Bakery') && (
+                    <div>
+                      <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Expiry Date</Label>
+                      <Input
+                        type="date"
+                        value={expiryDate}
+                        onChange={(e) => setExpiryDate(e.target.value)}
+                        className="bg-white/80 dark:bg-gray-700/80 border-gray-200 dark:border-gray-600 rounded-xl mt-1"
+                      />
+                    </div>
                   )}
                 </div>
               )}
