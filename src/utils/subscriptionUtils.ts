@@ -123,3 +123,69 @@ export const fetchAllowedComponents = async (restaurantId: string): Promise<stri
     return [];
   }
 };
+
+// ─── Granular Feature Access (Dot-Notation + Wildcard) ──────────────────
+
+/**
+ * Check if a specific feature key is granted by the plan's feature list.
+ * Supports:
+ * - Exact match: 'reports.default.staff' is in the plan array
+ * - Wildcard match: 'reports.*' grants 'reports.default.staff'
+ * - Multi-level wildcard: 'reports.default.*' grants 'reports.default.staff'
+ * 
+ * @param featureKey - The dot-notation feature key to check (e.g., 'reports.default.staff')
+ * @param planFeatures - The array of feature keys from the subscription plan
+ * @returns true if the feature is accessible
+ */
+export const hasFeatureAccess = (featureKey: string, planFeatures: string[]): boolean => {
+  if (!featureKey || !planFeatures || planFeatures.length === 0) return false;
+
+  const normalizedKey = featureKey.toLowerCase().trim();
+  const normalizedPlan = planFeatures.map((f) => f.toLowerCase().trim());
+
+  // 1. Exact match
+  if (normalizedPlan.includes(normalizedKey)) return true;
+
+  // 2. Wildcard match — walk up the hierarchy
+  // e.g., for 'reports.default.staff', check:
+  //   'reports.default.*' → 'reports.*'
+  const segments = normalizedKey.split('.');
+  for (let i = segments.length - 1; i >= 1; i--) {
+    const wildcardKey = segments.slice(0, i).join('.') + '.*';
+    if (normalizedPlan.includes(wildcardKey)) return true;
+  }
+
+  return false;
+};
+
+/**
+ * Fetch the minimum plan name required for a given feature key.
+ * Queries all active plans and returns the cheapest one that includes the feature.
+ * Used by the upgrade toast to tell users which plan they need.
+ * 
+ * @param featureKey - The dot-notation feature key
+ * @returns The plan name (e.g., 'Starter') or null if no plan includes it
+ */
+export const getRequiredPlanForFeature = async (featureKey: string): Promise<string | null> => {
+  try {
+    const { data: plans, error } = await supabase
+      .from("subscription_plans")
+      .select("name, price, components")
+      .eq("is_active", true)
+      .order("price", { ascending: true });
+
+    if (error || !plans) return null;
+
+    for (const plan of plans) {
+      const components = Array.isArray(plan.components) ? plan.components : [];
+      if (hasFeatureAccess(featureKey, components as string[])) {
+        return plan.name;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error("getRequiredPlanForFeature: Error:", error);
+    return null;
+  }
+};

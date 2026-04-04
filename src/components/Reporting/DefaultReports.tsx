@@ -6,6 +6,7 @@ import {
   ReportCategory,
 } from "@/hooks/useReportsData";
 import { usePlanType } from "@/hooks/usePlanType";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 import { StandardizedCard } from "@/components/ui/standardized-card";
 import { StandardizedButton } from "@/components/ui/standardized-button";
 import { DatePickerWithRange } from "@/components/ui/date-picker-with-range";
@@ -41,6 +42,20 @@ const iconMap: Record<string, React.ReactNode> = {
   Bed: <Bed className="h-6 w-6" />,
   ChefHat: <ChefHat className="h-6 w-6" />,
   Tag: <Tag className="h-6 w-6" />,
+};
+
+/** Map report category ID → dot-notation feature key */
+const REPORT_FEATURE_KEY_MAP: Record<string, string> = {
+  orders: 'reports.default.orders_sales',
+  menu: 'reports.default.menu_items',
+  inventory: 'reports.default.inventory',
+  customers: 'reports.default.customers',
+  staff: 'reports.default.staff',
+  suppliers: 'reports.default.suppliers',
+  expenses: 'reports.default.expenses',
+  rooms: 'reports.default.rooms',
+  recipes: 'reports.default.recipes',
+  promotions: 'reports.default.promotions',
 };
 
 const DefaultReports: React.FC = () => {
@@ -164,27 +179,31 @@ const DefaultReports: React.FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {filteredCategories.map((category) => (
-          <div
+          <FeatureLock
             key={category.id}
-            onClick={() => handleCardClick(category.id)}
-            className="cursor-pointer transition-all hover:scale-[1.02]"
+            feature={REPORT_FEATURE_KEY_MAP[category.id] || `reports.default.${category.id}`}
           >
-            <StandardizedCard className="p-4 h-full hover:border-primary/50">
-              <div className="flex flex-col items-center text-center space-y-3">
-                <div
-                  className={`p-3 rounded-full ${category.color} text-white`}
-                >
-                  {iconMap[category.icon]}
+            <div
+              onClick={() => handleCardClick(category.id)}
+              className="cursor-pointer transition-all hover:scale-[1.02]"
+            >
+              <StandardizedCard className="p-4 h-full hover:border-primary/50">
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <div
+                    className={`p-3 rounded-full ${category.color} text-white`}
+                  >
+                    {iconMap[category.icon]}
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-sm">{category.name}</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {category.description}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-semibold text-sm">{category.name}</h4>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {category.description}
-                  </p>
-                </div>
-              </div>
-            </StandardizedCard>
-          </div>
+              </StandardizedCard>
+            </div>
+          </FeatureLock>
         ))}
       </div>
 
