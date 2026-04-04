@@ -17,8 +17,8 @@ import {
 import { CardContent, CardFooter } from "@/components/ui/card";
 
 interface AuthFormProps {
-  authMode: "signin" | "signup";
-  setAuthMode: React.Dispatch<React.SetStateAction<"signin" | "signup">>;
+  authMode: "signin" | "signup" | "inquiry" | "forgot" | "reset";
+  setAuthMode: React.Dispatch<React.SetStateAction<"signin" | "signup" | "inquiry" | "forgot" | "reset">>;
 }
 
 const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
@@ -258,7 +258,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
             variant="ghost"
             className="mt-4 w-full text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-slate-700 font-medium transition-all duration-200 h-12 rounded-xl"
             onClick={() =>
-              setAuthMode(authMode === "signin" ? "signup" : "signin")
+              setAuthMode(authMode === "signin" ? "inquiry" : "signin")
             }
           >
             <Sparkles className="w-4 h-4 mr-2" />
@@ -273,6 +273,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
             type="button"
             variant="link"
             className="text-sm text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors"
+            onClick={() => setAuthMode("forgot")}
           >
             Forgot your password?
           </Button>
