@@ -14,8 +14,22 @@ import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
 import {
   MapPin, Plus, Edit, Trash2, Snowflake, Thermometer, Box, Coffee,
-  Package, MoreHorizontal, Warehouse,
+  Package, MoreHorizontal, Warehouse, Search, Check,
 } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface StorageLocation {
   id: string;
@@ -46,6 +60,7 @@ const StorageLocations = () => {
   const [formName, setFormName] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formType, setFormType] = useState("dry_storage");
+  const [openLocationAssign, setOpenLocationAssign] = useState<string | null>(null);
 
   // Fetch storage locations
   const { data: locations = [], isLoading } = useQuery({
@@ -314,6 +329,45 @@ const StorageLocations = () => {
                   ) : (
                     <p className="text-xs text-gray-400 text-center py-3">No items assigned</p>
                   )}
+
+                  <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                    <Popover 
+                      open={openLocationAssign === location.id} 
+                      onOpenChange={(isOpen) => setOpenLocationAssign(isOpen ? location.id : null)}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="w-full text-xs h-8 border-dashed flex justify-start pl-2">
+                          <Plus className="h-3 w-3 mr-1.5" /> Assign an item...
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search items to assign..." />
+                          <CommandList>
+                            <CommandEmpty>No items available to assign.</CommandEmpty>
+                            <CommandGroup heading="Available Items">
+                              {unassignedItems.map((item: any) => (
+                                <CommandItem
+                                  key={item.id}
+                                  value={item.name}
+                                  onSelect={() => {
+                                    assignMutation.mutate({ itemId: item.id, locationId: location.id });
+                                    setOpenLocationAssign(null);
+                                  }}
+                                  className="text-sm cursor-pointer"
+                                >
+                                  <div className="flex flex-col">
+                                    <span>{item.name}</span>
+                                    <span className="text-[10px] text-gray-500">{item.quantity} {item.unit} • {item.category}</span>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </CardContent>
               </Card>
             );
