@@ -15,7 +15,9 @@ import {
 import {
   Star, Beef, PuzzleIcon, Dog, TrendingUp, TrendingDown,
   BarChart3, ArrowUpRight, ArrowDownRight, Lightbulb, Target,
+  Search, ArrowUpDown, ChevronLeft, ChevronRight
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { subDays, format } from "date-fns";
 
 interface MenuItemAnalysis {
@@ -79,6 +81,11 @@ export const MenuEngineering = ({ recipes }: MenuEngineeringProps) => {
   const { symbol: currencySymbol } = useCurrencyContext();
   const [periodDays, setPeriodDays] = useState(30);
   const [filterQuadrant, setFilterQuadrant] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortColumn, setSortColumn] = useState<keyof MenuItemAnalysis | null>("totalRevenue");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // Fetch order data from kitchen_orders to calculate popularity
   const { data: orderItems = [], isLoading: isLoadingOrders } = useQuery({
@@ -168,9 +175,43 @@ export const MenuEngineering = ({ recipes }: MenuEngineeringProps) => {
     }));
   }, [recipes, orderItems]);
 
-  // Filter
-  const filteredAnalysis =
-    filterQuadrant === "all" ? analysis : analysis.filter((a) => a.quadrant === filterQuadrant);
+  // Filter & Search
+  let filteredAnalysis = filterQuadrant === "all" ? analysis : analysis.filter((a) => a.quadrant === filterQuadrant);
+  
+  if (searchQuery.trim()) {
+    const q = searchQuery.toLowerCase();
+    filteredAnalysis = filteredAnalysis.filter((item) => 
+      item.name.toLowerCase().includes(q) || item.category.toLowerCase().includes(q)
+    );
+  }
+
+  // Sort
+  const sortedAnalysis = useMemo(() => {
+    if (!sortColumn) return filteredAnalysis;
+    return [...filteredAnalysis].sort((a, b) => {
+      const aVal = a[sortColumn];
+      const bVal = b[sortColumn];
+      if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [filteredAnalysis, sortColumn, sortDirection]);
+
+  // Pagination
+  const totalPages = Math.ceil(sortedAnalysis.length / ITEMS_PER_PAGE);
+  const safePage = Math.max(1, Math.min(currentPage, Math.max(1, totalPages)));
+  const paginatedAnalysis = sortedAnalysis.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
+
+  const handleSort = (column: keyof MenuItemAnalysis) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("desc"); // Default to desc for numbers initially
+    }
+    setCurrentPage(1);
+  };
+
 
   // Summary stats
   const quadrantCounts = useMemo(() => {
@@ -378,11 +419,22 @@ export const MenuEngineering = ({ recipes }: MenuEngineeringProps) => {
       {/* Detailed Table */}
       <Card className="border-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg rounded-2xl overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-emerald-500 to-teal-500" />
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <Target className="h-5 w-5 text-emerald-600" />
-            Detailed Analysis ({filteredAnalysis.length} items)
-          </CardTitle>
+        <CardHeader className="pb-3 border-b border-gray-100 dark:border-gray-800 mb-2">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Target className="h-5 w-5 text-emerald-600" />
+              Detailed Analysis ({filteredAnalysis.length} items)
+            </CardTitle>
+            <div className="relative max-w-sm w-full md:w-[300px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <Input
+                placeholder="Search items..."
+                className="pl-9 h-9 rounded-xl focus-visible:ring-emerald-500/30"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {filteredAnalysis.length === 0 ? (
@@ -392,90 +444,200 @@ export const MenuEngineering = ({ recipes }: MenuEngineeringProps) => {
               <p className="text-sm mt-1">Ensure recipes have selling prices and are marked as active.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="text-left py-3 px-3 font-semibold text-gray-600 dark:text-gray-400">Item</th>
-                    <th className="text-right py-3 px-3 font-semibold text-gray-600 dark:text-gray-400">Cost</th>
-                    <th className="text-right py-3 px-3 font-semibold text-gray-600 dark:text-gray-400">Price</th>
-                    <th className="text-right py-3 px-3 font-semibold text-gray-600 dark:text-gray-400">Margin</th>
-                    <th className="text-right py-3 px-3 font-semibold text-gray-600 dark:text-gray-400">Orders</th>
-                    <th className="text-right py-3 px-3 font-semibold text-gray-600 dark:text-gray-400">Revenue</th>
-                    <th className="text-center py-3 px-3 font-semibold text-gray-600 dark:text-gray-400">Class</th>
-                    <th className="text-left py-3 px-3 font-semibold text-gray-600 dark:text-gray-400">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredAnalysis
-                    .sort((a, b) => b.totalRevenue - a.totalRevenue)
-                    .map((item) => {
-                      const config = QUADRANT_CONFIG[item.quadrant];
-                      const Icon = config.icon;
-                      return (
-                        <tr
-                          key={item.id}
-                          className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                        >
-                          <td className="py-3 px-3">
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-gray-100">{item.name}</p>
-                              <p className="text-[11px] text-gray-500">{item.category}</p>
-                            </div>
-                          </td>
-                          <td className="text-right py-3 px-3 font-mono text-xs">
-                            {currencySymbol}{item.totalCost.toFixed(0)}
-                          </td>
-                          <td className="text-right py-3 px-3 font-mono text-xs">
-                            {currencySymbol}{item.sellingPrice.toFixed(0)}
-                          </td>
-                          <td className="text-right py-3 px-3">
-                            <div className="flex items-center justify-end gap-1">
-                              {item.marginPercentage >= 65 ? (
-                                <ArrowUpRight className="h-3 w-3 text-emerald-500" />
-                              ) : (
-                                <ArrowDownRight className="h-3 w-3 text-red-500" />
-                              )}
-                              <span
-                                className={`font-semibold text-xs ${
-                                  item.marginPercentage >= 65
-                                    ? "text-emerald-600"
-                                    : item.marginPercentage >= 50
-                                    ? "text-amber-600"
-                                    : "text-red-600"
-                                }`}
+            <>
+              {/* Classification Legend */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50">
+                <div className="flex items-start gap-2">
+                  <Star className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="font-semibold text-xs text-gray-900 dark:text-gray-100">Stars</span>
+                    <p className="text-[10px] text-gray-500 leading-tight mt-0.5">High pop. + High profit<br/>→ Keep & promote</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Beef className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="font-semibold text-xs text-gray-900 dark:text-gray-100">Plowhorses</span>
+                    <p className="text-[10px] text-gray-500 leading-tight mt-0.5">High pop. + Low profit<br/>→ Raise price/reduce cost</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <PuzzleIcon className="h-4 w-4 text-purple-500 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="font-semibold text-xs text-gray-900 dark:text-gray-100">Puzzles</span>
+                    <p className="text-[10px] text-gray-500 leading-tight mt-0.5">Low pop. + High profit<br/>→ Promote aggressively</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Dog className="h-4 w-4 text-gray-500 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="font-semibold text-xs text-gray-900 dark:text-gray-100">Dogs</span>
+                    <p className="text-[10px] text-gray-500 leading-tight mt-0.5">Low pop. + Low profit<br/>→ Consider removing</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto max-h-[500px]">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-white dark:bg-gray-800 z-10 shadow-sm">
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-3 px-3 font-semibold text-gray-600 dark:text-gray-400">
+                        <Button variant="ghost" onClick={() => handleSort("name")} className="-ml-4 h-8 px-4 font-semibold text-gray-600 dark:text-gray-400">
+                          Item
+                          <ArrowUpDown className="ml-2 h-3.5 w-3.5" />
+                        </Button>
+                      </th>
+                      <th className="text-right py-3 px-3 font-semibold text-gray-600 dark:text-gray-400">
+                        <Button variant="ghost" onClick={() => handleSort("totalCost")} className="-mr-4 h-8 px-4 font-semibold text-gray-600 dark:text-gray-400 justify-end w-full">
+                          Cost
+                          <ArrowUpDown className="ml-2 h-3.5 w-3.5" />
+                        </Button>
+                      </th>
+                      <th className="text-right py-3 px-3 font-semibold text-gray-600 dark:text-gray-400">
+                        <Button variant="ghost" onClick={() => handleSort("sellingPrice")} className="-mr-4 h-8 px-4 font-semibold text-gray-600 dark:text-gray-400 justify-end w-full">
+                          Price
+                          <ArrowUpDown className="ml-2 h-3.5 w-3.5" />
+                        </Button>
+                      </th>
+                      <th className="text-right py-3 px-3 font-semibold text-gray-600 dark:text-gray-400">
+                        <Button variant="ghost" onClick={() => handleSort("marginPercentage")} className="-mr-4 h-8 px-4 font-semibold text-gray-600 dark:text-gray-400 justify-end w-full">
+                          Margin
+                          <ArrowUpDown className="ml-2 h-3.5 w-3.5" />
+                        </Button>
+                      </th>
+                      <th className="text-right py-3 px-3 font-semibold text-gray-600 dark:text-gray-400">
+                        <Button variant="ghost" onClick={() => handleSort("orderCount")} className="-mr-4 h-8 px-4 font-semibold text-gray-600 dark:text-gray-400 justify-end w-full">
+                          Orders
+                          <ArrowUpDown className="ml-2 h-3.5 w-3.5" />
+                        </Button>
+                      </th>
+                      <th className="text-right py-3 px-3 font-semibold text-gray-600 dark:text-gray-400">
+                        <Button variant="ghost" onClick={() => handleSort("totalRevenue")} className="-mr-4 h-8 px-4 font-semibold text-gray-600 dark:text-gray-400 justify-end w-full">
+                          Revenue
+                          <ArrowUpDown className="ml-2 h-3.5 w-3.5" />
+                        </Button>
+                      </th>
+                      <th className="text-center py-3 px-3 font-semibold text-gray-600 dark:text-gray-400">Class</th>
+                      <th className="text-left py-3 px-3 font-semibold text-gray-600 dark:text-gray-400">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedAnalysis.map((item) => {
+                        const config = QUADRANT_CONFIG[item.quadrant];
+                        const Icon = config.icon;
+                        return (
+                          <tr
+                            key={item.id}
+                            className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                          >
+                            <td className="py-3 px-3">
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-gray-100">{item.name}</p>
+                                <p className="text-[11px] text-gray-500">{item.category}</p>
+                              </div>
+                            </td>
+                            <td className="text-right py-3 px-3 font-mono text-xs">
+                              {currencySymbol}{item.totalCost.toFixed(0)}
+                            </td>
+                            <td className="text-right py-3 px-3 font-mono text-xs">
+                              {currencySymbol}{item.sellingPrice.toFixed(0)}
+                            </td>
+                            <td className="text-right py-3 px-3">
+                              <div className="flex items-center justify-end gap-1">
+                                {item.marginPercentage >= 65 ? (
+                                  <ArrowUpRight className="h-3 w-3 text-emerald-500" />
+                                ) : (
+                                  <ArrowDownRight className="h-3 w-3 text-red-500" />
+                                )}
+                                <span
+                                  className={`font-semibold text-xs ${
+                                    item.marginPercentage >= 65
+                                      ? "text-emerald-600"
+                                      : item.marginPercentage >= 50
+                                      ? "text-amber-600"
+                                      : "text-red-600"
+                                  }`}
+                                >
+                                  {item.marginPercentage.toFixed(0)}%
+                                </span>
+                              </div>
+                            </td>
+                            <td className="text-right py-3 px-3 font-mono text-xs font-bold">
+                              {item.orderCount}
+                            </td>
+                            <td className="text-right py-3 px-3 font-mono text-xs">
+                              {currencySymbol}{item.totalRevenue.toFixed(0)}
+                            </td>
+                            <td className="text-center py-3 px-3">
+                              <Badge
+                                className="text-[10px] border-0 text-white"
+                                style={{ backgroundColor: config.color }}
                               >
-                                {item.marginPercentage.toFixed(0)}%
-                              </span>
-                            </div>
-                          </td>
-                          <td className="text-right py-3 px-3 font-mono text-xs font-bold">
-                            {item.orderCount}
-                          </td>
-                          <td className="text-right py-3 px-3 font-mono text-xs">
-                            {currencySymbol}{item.totalRevenue.toFixed(0)}
-                          </td>
-                          <td className="text-center py-3 px-3">
-                            <Badge
-                              className="text-[10px] border-0 text-white"
-                              style={{ backgroundColor: config.color }}
-                            >
-                              <Icon className="h-3 w-3 mr-1" />
-                              {config.label}
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-3 text-[11px] text-gray-600 dark:text-gray-400 max-w-[140px]">
-                            {item.quadrant === "star" && "Keep promoting — top performer"}
-                            {item.quadrant === "plowhorse" && "Raise price or reduce costs"}
-                            {item.quadrant === "puzzle" && "Increase visibility & marketing"}
-                            {item.quadrant === "dog" && "Consider removing or redesigning"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
+                                <Icon className="h-3 w-3 mr-1" />
+                                {config.label}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-3 text-[11px] text-gray-600 dark:text-gray-400 max-w-[140px]">
+                              {item.quadrant === "star" && "Keep promoting — top performer"}
+                              {item.quadrant === "plowhorse" && "Raise price or reduce costs"}
+                              {item.quadrant === "puzzle" && "Increase visibility & marketing"}
+                              {item.quadrant === "dog" && "Consider removing or redesigning"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-800 mt-2">
+                  <span className="text-xs text-gray-500">
+                    Showing {(safePage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(safePage * ITEMS_PER_PAGE, filteredAnalysis.length)} of {filteredAnalysis.length}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 rounded-lg"
+                      disabled={safePage <= 1}
+                      onClick={() => setCurrentPage(safePage - 1)}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(page => page === 1 || page === totalPages || (page >= safePage - 1 && page <= safePage + 1))
+                      .map((page, index, array) => (
+                      <div key={page} className="inline-flex items-center">
+                        {index > 0 && page - array[index - 1] > 1 && (
+                          <span className="text-gray-400 px-2">...</span>
+                        )}
+                        <Button
+                          variant={page === safePage ? "default" : "outline"}
+                          size="icon"
+                          className={`h-8 w-8 rounded-lg text-xs ml-1 ${
+                            page === safePage ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""
+                          }`}
+                          onClick={() => setCurrentPage(page)}
+                        >
+                          {page}
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 rounded-lg ml-1"
+                      disabled={safePage >= totalPages}
+                      onClick={() => setCurrentPage(safePage + 1)}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

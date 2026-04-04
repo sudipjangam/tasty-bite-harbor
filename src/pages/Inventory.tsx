@@ -35,6 +35,7 @@ import {
   Weight,
   Zap,
   Warehouse,
+  MapPin,
 } from "lucide-react";
 import {
   Dialog,
@@ -159,6 +160,19 @@ const Inventory = () => {
     },
   });
 
+  const { data: storageLocations = [] } = useQuery({
+    queryKey: ["inventory-storage-locations"],
+    queryFn: async () => {
+      const { data: profile } = await supabase.auth.getUser();
+      if (!profile.user) return [];
+      const { data: userProfile } = await supabase.from("profiles").select("restaurant_id").eq("id", profile.user.id).single();
+      if (!userProfile?.restaurant_id) return [];
+      const { data, error } = await supabase.from("storage_locations").select("id, name").eq("restaurant_id", userProfile.restaurant_id).order("name");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // Keep inventory data synced in real-time
   useRealtimeSubscription({
     table: "inventory_items",
@@ -238,6 +252,9 @@ const Inventory = () => {
         ? Math.max(0, parseFloat(formData.get("costPerUnit") as string))
         : null,
       category: (formData.get("category") as string) || "Other",
+      storage_location_id: (formData.get("storageLocation") as string) && formData.get("storageLocation") !== "none" 
+        ? formData.get("storageLocation") as string 
+        : null,
     };
 
     try {
@@ -572,6 +589,27 @@ const Inventory = () => {
                       placeholder="0.00"
                     />
                   </div>
+                </div>
+
+                {/* Storage Location */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="storageLocation" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-blue-500" />
+                    Storage Location
+                  </Label>
+                  <Select name="storageLocation" defaultValue={editingItem?.storage_location_id || "none"}>
+                    <SelectTrigger className="bg-gray-50/80 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/20 transition-all">
+                      <SelectValue placeholder="Select storage location" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="none">Unassigned / None</SelectItem>
+                      {storageLocations.map((loc: any) => (
+                        <SelectItem key={loc.id} value={loc.id}>
+                          {loc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Expiry Date for Dairy and Bakery */}
