@@ -616,7 +616,7 @@ const Inventory = () => {
       <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/40 dark:border-gray-700/30 rounded-2xl md:rounded-3xl shadow-xl overflow-hidden">
         <Tabs defaultValue="overview" className="w-full">
           <div className="bg-gradient-to-r from-emerald-500/5 to-green-500/5 dark:from-emerald-900/10 dark:to-green-900/10 px-3 pt-3 pb-1">
-            <TabsList className="flex w-full overflow-x-auto scrollbar-hide gap-1 bg-white/60 dark:bg-gray-700/50 backdrop-blur-sm rounded-xl p-1">
+            <TabsList className="flex w-full justify-start md:justify-center overflow-x-auto scrollbar-hide gap-1 bg-white/60 dark:bg-gray-700/50 backdrop-blur-sm rounded-xl p-1">
               {[
                 { value: "overview", icon: Package, label: "Overview" },
                 { value: "alerts", icon: Bell, label: "Alerts" },
@@ -624,7 +624,7 @@ const Inventory = () => {
                 { value: "purchase-orders", icon: ShoppingCart, label: "Orders" },
                 { value: "suggestions", icon: BarChart3, label: "Suggest" },
                 { value: "forecast", icon: Zap, label: "Forecast" },
-                { value: "locations", icon: Warehouse, label: "Locations" },
+                // { value: "locations", icon: Warehouse, label: "Locations" },
                 { value: "transactions", icon: History, label: "History" },
                 { value: "lots", icon: Layers, label: "Lots" },
               ].map((tab) => (
