@@ -71,6 +71,7 @@ import { BillUploadDialog } from "@/components/Inventory/BillUploadDialog";
 import { BillExtractedDataDialog } from "@/components/Inventory/BillExtractedDataDialog";
 import InventoryForecasting from "@/components/Inventory/InventoryForecasting";
 import StorageLocations from "@/components/Inventory/StorageLocations";
+import InventoryItemDetail from "@/components/Inventory/InventoryItemDetail";
 import { ExtractedBillData } from "@/utils/billUtils";
 import { INVENTORY_UNIT_VALUES } from "@/constants/units";
 import {
@@ -114,6 +115,8 @@ const Inventory = () => {
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [newItemCategory, setNewItemCategory] = useState<string>("Other");
+  const [selectedDetailItem, setSelectedDetailItem] = useState<InventoryItem | null>(null);
+  const [pendingDuplicateData, setPendingDuplicateData] = useState<{ existingItem: InventoryItem; formData: any; restaurantId: string } | null>(null);
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
 
@@ -235,6 +238,66 @@ const Inventory = () => {
     }
   };
 
+  // Helper to add stock as a new lot to an existing item
+  const addStockToExistingItem = async (existingItem: InventoryItem, formData: any, restaurantId: string) => {
+    try {
+      const addQty = formData.quantity;
+      const addCost = formData.cost_per_unit || 0;
+      const transactionCost = addCost * addQty;
+      const expiryDateStr = formData.expiryDate || null;
+
+      // Update item total quantity
+      const { error: updateError } = await supabase
+        .from("inventory_items")
+        .update({
+          quantity: existingItem.quantity + addQty,
+          cost_per_unit: addCost > 0 ? addCost : existingItem.cost_per_unit,
+        })
+        .eq("id", existingItem.id);
+      if (updateError) throw updateError;
+
+      // Create new lot
+      if (addQty > 0) {
+        const { data: newLot, error: lotError } = await supabase
+          .from("inventory_lots")
+          .insert({
+            restaurant_id: restaurantId,
+            inventory_item_id: existingItem.id,
+            quantity_purchased: addQty,
+            quantity_remaining: addQty,
+            unit_cost: addCost,
+            lot_number: "LOT-" + Math.random().toString(36).slice(2, 10).toUpperCase(),
+            expiry_date: expiryDateStr ? new Date(expiryDateStr).toISOString() : null,
+            notes: "Added stock to existing item",
+          })
+          .select()
+          .single();
+
+        if (!lotError && newLot) {
+          await supabase.from("inventory_transactions").insert({
+            restaurant_id: restaurantId,
+            inventory_item_id: existingItem.id,
+            transaction_type: "purchase",
+            quantity_change: addQty,
+            unit_cost_at_time: addCost,
+            total_cost: transactionCost,
+            lot_id: newLot.id,
+            notes: "New stock batch added",
+          });
+        }
+      }
+
+      toast({ title: "Stock added successfully", description: `New batch added to "${existingItem.name}".` });
+      refetch();
+      setIsAddDialogOpen(false);
+      setEditingItem(null);
+      setPendingDuplicateData(null);
+    } catch (error) {
+      console.error("Error adding stock:", error);
+      toast({ title: "Operation Failed", description: "Something went wrong. Please try again.", variant: "destructive" });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -255,6 +318,7 @@ const Inventory = () => {
       storage_location_id: (formData.get("storageLocation") as string) && formData.get("storageLocation") !== "none" 
         ? formData.get("storageLocation") as string 
         : null,
+      expiryDate: formData.get("expiryDate") as string || null,
     };
 
     try {
@@ -272,17 +336,36 @@ const Inventory = () => {
       }
 
       if (editingItem) {
+        // Editing — update fields (not quantity-related, that's done via lots)
+        const { expiryDate, ...updateData } = itemData;
         const { error } = await supabase
           .from("inventory_items")
-          .update({ ...itemData })
+          .update({ ...updateData })
           .eq("id", editingItem.id);
 
         if (error) throw error;
         toast({ title: "Item updated successfully", description: `"${itemData.name}" has been updated.` });
       } else {
+        // Check for existing item with same name (case-insensitive)
+        const existingItem = items.find(
+          (i) => i.name.toLowerCase().trim() === itemData.name.toLowerCase().trim()
+        );
+
+        if (existingItem) {
+          // Show confirmation dialog instead of silently creating a duplicate
+          setPendingDuplicateData({
+            existingItem,
+            formData: itemData,
+            restaurantId: userProfile.restaurant_id,
+          });
+          return;
+        }
+
+        // No duplicate — create new item
+        const { expiryDate, ...insertData } = itemData;
         const { data: newItem, error } = await supabase
           .from("inventory_items")
-          .insert([{ ...itemData, restaurant_id: userProfile.restaurant_id }])
+          .insert([{ ...insertData, restaurant_id: userProfile.restaurant_id }])
           .select()
           .single();
 
@@ -291,7 +374,6 @@ const Inventory = () => {
         // If an initial quantity is provided, we should track it as an initial lot and transaction
         if (itemData.quantity > 0) {
           const transactionCost = itemData.cost_per_unit ? itemData.cost_per_unit * itemData.quantity : 0;
-          const expiryDateStr = formData.get("expiryDate") as string;
           
           const { data: newLot, error: lotError } = await supabase
             .from("inventory_lots")
@@ -302,7 +384,7 @@ const Inventory = () => {
                quantity_remaining: itemData.quantity,
                unit_cost: itemData.cost_per_unit || 0,
                lot_number: 'INITIAL-' + Math.random().toString(36).slice(2, 10),
-               expiry_date: expiryDateStr ? new Date(expiryDateStr).toISOString() : null,
+               expiry_date: itemData.expiryDate ? new Date(itemData.expiryDate).toISOString() : null,
                notes: "Initial inventory setup"
             })
             .select()
@@ -815,7 +897,8 @@ const Inventory = () => {
                       return (
                         <Card
                           key={item.id}
-                          className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 ${
+                          onClick={() => setSelectedDetailItem(item)}
+                          className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 cursor-pointer ${
                             isLow
                               ? "bg-gradient-to-br from-red-50/80 to-rose-50/80 dark:from-red-900/15 dark:to-rose-900/15 border-red-200/60 dark:border-red-800/40"
                               : "bg-white/95 dark:bg-gray-800/95 border-gray-100 dark:border-gray-700/40 hover:border-emerald-200 dark:hover:border-emerald-700/50"
@@ -850,7 +933,7 @@ const Inventory = () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => { setEditingItem(item); setIsAddDialogOpen(true); }}
+                                  onClick={(e) => { e.stopPropagation(); setEditingItem(item); setIsAddDialogOpen(true); }}
                                   className="h-7 w-7 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
                                 >
                                   <Edit className="h-3.5 w-3.5 text-emerald-600" />
@@ -858,7 +941,7 @@ const Inventory = () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => setItemToDelete(item)}
+                                  onClick={(e) => { e.stopPropagation(); setItemToDelete(item); }}
                                   className="h-7 w-7 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30"
                                 >
                                   <Trash2 className="h-3.5 w-3.5 text-red-500" />
@@ -873,10 +956,10 @@ const Inventory = () => {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-32 rounded-xl">
-                                  <DropdownMenuItem onClick={() => { setEditingItem(item); setIsAddDialogOpen(true); }}>
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditingItem(item); setIsAddDialogOpen(true); }}>
                                     <Edit className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Edit
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => setItemToDelete(item)} className="text-red-600 focus:text-red-600">
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setItemToDelete(item); }} className="text-red-600 focus:text-red-600">
                                     <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -1082,6 +1165,70 @@ const Inventory = () => {
         onOpenChange={setIsBillUploadOpen}
         onDataExtracted={handleBillDataExtracted}
       />
+      {/* FIFO Item Detail Dialog */}
+      <InventoryItemDetail
+        item={selectedDetailItem}
+        open={!!selectedDetailItem}
+        onOpenChange={(open) => { if (!open) setSelectedDetailItem(null); }}
+        onEdit={(item) => { setEditingItem(item); setIsAddDialogOpen(true); }}
+        onDelete={(item) => setItemToDelete(item)}
+        onAddStock={(item) => {
+          setEditingItem(null);
+          setIsAddDialogOpen(true);
+        }}
+      />
+
+      {/* Duplicate Item Confirmation Dialog */}
+      <AlertDialog open={!!pendingDuplicateData} onOpenChange={() => setPendingDuplicateData(null)}>
+        <AlertDialogContent className="bg-white/98 dark:bg-gray-800/98 backdrop-blur-2xl rounded-2xl border border-white/40 dark:border-gray-700/40 shadow-2xl overflow-hidden p-0">
+          <div className="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-4">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-xl font-bold text-white flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" /> Item Already Exists
+              </AlertDialogTitle>
+            </AlertDialogHeader>
+          </div>
+          <div className="p-6">
+            <AlertDialogDescription className="text-gray-600 dark:text-gray-400 text-sm space-y-3">
+              <p>
+                An item named{" "}
+                <span className="font-bold text-gray-900 dark:text-white">
+                  "{pendingDuplicateData?.existingItem.name}"
+                </span>{" "}
+                already exists in your inventory with{" "}
+                <span className="font-semibold">
+                  {pendingDuplicateData?.existingItem.quantity.toFixed(2)} {pendingDuplicateData?.existingItem.unit}
+                </span>{" "}
+                in stock.
+              </p>
+              <p className="font-medium text-gray-700 dark:text-gray-300">
+                Would you like to add this as a new batch/lot to the existing item?
+              </p>
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 rounded-xl p-3 text-xs text-emerald-700 dark:text-emerald-400">
+                <strong>New batch:</strong> {pendingDuplicateData?.formData.quantity} {pendingDuplicateData?.existingItem.unit} @ {currencySymbol}{pendingDuplicateData?.formData.cost_per_unit || 0}/{pendingDuplicateData?.existingItem.unit}
+              </div>
+            </AlertDialogDescription>
+          </div>
+          <AlertDialogFooter className="px-6 pb-6 pt-0">
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingDuplicateData) {
+                  addStockToExistingItem(
+                    pendingDuplicateData.existingItem,
+                    pendingDuplicateData.formData,
+                    pendingDuplicateData.restaurantId
+                  );
+                }
+              }}
+              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-xl shadow-lg shadow-emerald-500/25"
+            >
+              <Plus className="mr-2 h-4 w-4" /> Add as New Batch
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <BillExtractedDataDialog
         open={isExtractedDataDialogOpen}
         onOpenChange={setIsExtractedDataDialogOpen}
