@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Calculator, Check, AlertTriangle, Save, RefreshCw } from "lucide-react";
+import { Search, Calculator, Check, AlertTriangle, Save, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface InventoryItem {
   id: string;
@@ -27,6 +27,8 @@ const Stocktake = () => {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [actualCounts, setActualCounts] = useState<Record<string, number>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   const { data: inventoryItems = [], isLoading } = useQuery({
     queryKey: ["inventory-stocktake", restaurantId],
@@ -225,74 +227,128 @@ const Stocktake = () => {
 
       <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md rounded-2xl shadow-xl border-gray-100 dark:border-gray-700">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader className="bg-gray-50/80 dark:bg-gray-700/50">
-              <TableRow>
-                <TableHead>Item Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>System Qty</TableHead>
-                <TableHead className="w-48">Actual Qty</TableHead>
-                <TableHead>Variance</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredItems.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                    No items found matching your search.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredItems.map(item => {
-                  const variance = getDiscrepancy(item);
-                  const isModified = variance !== null;
-                  
-                  return (
-                    <TableRow key={item.id} className={isModified ? "bg-amber-50/50 dark:bg-amber-900/10" : ""}>
-                      <TableCell className="font-semibold">{item.name}</TableCell>
-                      <TableCell>{item.category || 'Other'}</TableCell>
-                      <TableCell>
-                        <span className="font-medium">{item.quantity}</span> <span className="text-gray-500 text-xs">{item.unit}</span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={actualCounts[item.id] === undefined ? "" : actualCounts[item.id]}
-                            onChange={e => handleCountChange(item.id, e.target.value)}
-                            placeholder={item.quantity.toString()}
-                            className={`h-9 ${isModified ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20' : 'bg-transparent'}`}
-                          />
-                          <span className="text-gray-500 text-xs w-6">{item.unit}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {isModified ? (
-                          <span className={`font-medium ${variance === 0 ? 'text-gray-500' : variance! > 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                            {variance! > 0 ? '+' : ''}{variance?.toFixed(2)}
-                          </span>
-                        ) : (
-                          <span className="text-gray-300">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {!isModified || variance === 0 ? (
-                          <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">Match</Badge>
-                        ) : variance! > 0 ? (
-                          <Badge className="bg-blue-100 text-blue-800 border-blue-200">Surplus Found</Badge>
-                        ) : (
-                          <Badge className="bg-red-100 text-red-800 border-red-200">Loss / Missing</Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+          {(() => {
+            const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
+            const safePage = Math.min(currentPage, totalPages);
+            const paginatedItems = filteredItems.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
+
+            return (
+              <>
+                <div className="max-h-[520px] overflow-y-auto">
+                  <Table>
+                    <TableHeader className="bg-gray-50/80 dark:bg-gray-700/50 sticky top-0 z-10">
+                      <TableRow>
+                        <TableHead>Item Name</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>System Qty</TableHead>
+                        <TableHead className="w-48">Actual Qty</TableHead>
+                        <TableHead>Variance</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedItems.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                            No items found matching your search.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        paginatedItems.map(item => {
+                          const variance = getDiscrepancy(item);
+                          const isModified = variance !== null;
+                          
+                          return (
+                            <TableRow key={item.id} className={isModified ? "bg-amber-50/50 dark:bg-amber-900/10" : ""}>
+                              <TableCell className="font-semibold">{item.name}</TableCell>
+                              <TableCell>{item.category || 'Other'}</TableCell>
+                              <TableCell>
+                                <span className="font-medium">{item.quantity}</span> <span className="text-gray-500 text-xs">{item.unit}</span>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={actualCounts[item.id] === undefined ? "" : actualCounts[item.id]}
+                                    onChange={e => handleCountChange(item.id, e.target.value)}
+                                    placeholder={item.quantity.toString()}
+                                    className={`h-9 ${isModified ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20' : 'bg-transparent'}`}
+                                  />
+                                  <span className="text-gray-500 text-xs w-6">{item.unit}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {isModified ? (
+                                  <span className={`font-medium ${variance === 0 ? 'text-gray-500' : variance! > 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                                    {variance! > 0 ? '+' : ''}{variance?.toFixed(2)}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-300">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {!isModified || variance === 0 ? (
+                                  <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">Match</Badge>
+                                ) : variance! > 0 ? (
+                                  <Badge className="bg-blue-100 text-blue-800 border-blue-200">Surplus Found</Badge>
+                                ) : (
+                                  <Badge className="bg-red-100 text-red-800 border-red-200">Loss / Missing</Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-800">
+                    <span className="text-xs text-gray-500">
+                      Showing {(safePage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(safePage * ITEMS_PER_PAGE, filteredItems.length)} of {filteredItems.length}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 rounded-lg"
+                        disabled={safePage <= 1}
+                        onClick={() => setCurrentPage(safePage - 1)}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        <Button
+                          key={page}
+                          variant={page === safePage ? "default" : "outline"}
+                          size="icon"
+                          className={`h-8 w-8 rounded-lg text-xs ${
+                            page === safePage ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""
+                          }`}
+                          onClick={() => setCurrentPage(page)}
+                        >
+                          {page}
+                        </Button>
+                      ))}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 rounded-lg"
+                        disabled={safePage >= totalPages}
+                        onClick={() => setCurrentPage(safePage + 1)}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </CardContent>
       </Card>
       

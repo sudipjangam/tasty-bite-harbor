@@ -33,6 +33,8 @@ import {
   IndianRupee,
   Box,
   Weight,
+  Zap,
+  Warehouse,
 } from "lucide-react";
 import {
   Dialog,
@@ -66,6 +68,8 @@ import InventoryKPIs from "@/components/Inventory/InventoryKPIs";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { BillUploadDialog } from "@/components/Inventory/BillUploadDialog";
 import { BillExtractedDataDialog } from "@/components/Inventory/BillExtractedDataDialog";
+import InventoryForecasting from "@/components/Inventory/InventoryForecasting";
+import StorageLocations from "@/components/Inventory/StorageLocations";
 import { ExtractedBillData } from "@/utils/billUtils";
 import { INVENTORY_UNIT_VALUES } from "@/constants/units";
 import {
@@ -619,6 +623,8 @@ const Inventory = () => {
                 { value: "stocktake", icon: FileText, label: "Stocktake" },
                 { value: "purchase-orders", icon: ShoppingCart, label: "Orders" },
                 { value: "suggestions", icon: BarChart3, label: "Suggest" },
+                { value: "forecast", icon: Zap, label: "Forecast" },
+                { value: "locations", icon: Warehouse, label: "Locations" },
                 { value: "transactions", icon: History, label: "History" },
                 { value: "lots", icon: Layers, label: "Lots" },
               ].map((tab) => (
@@ -989,6 +995,14 @@ const Inventory = () => {
 
           <TabsContent value="stocktake" className="p-4 md:p-6 space-y-5">
             <Stocktake />
+          </TabsContent>
+
+          <TabsContent value="forecast" className="p-4 md:p-6">
+            <InventoryForecasting />
+          </TabsContent>
+
+          <TabsContent value="locations" className="p-4 md:p-6">
+            <StorageLocations />
           </TabsContent>
         </Tabs>
       </div>
