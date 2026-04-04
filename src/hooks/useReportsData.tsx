@@ -36,7 +36,7 @@ export const REPORT_CATEGORIES: CategoryReportConfig[] = [
   {
     id: "menu",
     name: "Menu Items",
-    description: "Top sellers, category performance",
+    description: "Item-wise sales, quantity & revenue",
     icon: "UtensilsCrossed",
     color: "bg-orange-500",
   },
@@ -221,7 +221,7 @@ export const useReportsData = (dateRange?: DateRange) => {
           .eq("restaurant_id", restaurantId),
         supabase
           .from("orders")
-          .select("items, total")
+          .select("items, total, order_type")
           .eq("restaurant_id", restaurantId)
           .gte("created_at", startDate)
           .lte("created_at", endDate),
@@ -232,21 +232,87 @@ export const useReportsData = (dateRange?: DateRange) => {
       const menuItems = menuResult.data || [];
       const orders = ordersResult.data || [];
 
-      // Count item sales from orders
-      const itemSales: Record<string, number> = {};
-      orders.forEach((order) => {
-        if (order.items && Array.isArray(order.items)) {
-          order.items.forEach((item: string) => {
-            try {
-              const parsed = typeof item === "string" ? JSON.parse(item) : item;
-              const name = parsed.name || item;
-              itemSales[name] = (itemSales[name] || 0) + (parsed.quantity || 1);
-            } catch {
-              itemSales[item] = (itemSales[item] || 0) + 1;
-            }
-          });
-        }
+      // Build a price lookup from menu items (normalized lowercase trimmed name -> price)
+      const menuPriceLookup: Record<string, number> = {};
+      const menuNameMap: Record<string, string> = {}; // normalized -> original name
+      menuItems.forEach((item) => {
+        const normalized = item.name.trim().replace(/\s+/g, " ").toLowerCase();
+        menuPriceLookup[normalized] = Number(item.price) || 0;
+        menuNameMap[normalized] = item.name;
       });
+
+      // Helper to clean order item text: strip "([size]) @price" suffixes
+      const cleanItemName = (raw: string): string => {
+        return raw
+          .replace(/\s*\(?\[.*?\]\)?\s*/g, " ") // Remove ([...]) or [...] size info
+          .replace(/\s*@\d+(\.\d+)?\s*$/g, "")   // Remove @price suffix
+          .replace(/\s+/g, " ")                    // Normalize whitespace
+          .trim();
+      };
+
+      // Find the best matching menu item name for an order item name
+      const findMenuMatch = (orderItemName: string): { price: number; canonicalName: string } => {
+        const normalized = orderItemName.toLowerCase();
+        
+        // Direct match
+        if (menuPriceLookup[normalized] !== undefined) {
+          return { price: menuPriceLookup[normalized], canonicalName: menuNameMap[normalized] };
+        }
+
+        // Fuzzy match: find menu items whose normalized name contains or is contained in the order item name
+        for (const [menuNormalized, menuOriginal] of Object.entries(menuNameMap)) {
+          if (menuNormalized.includes(normalized) || normalized.includes(menuNormalized)) {
+            return { price: menuPriceLookup[menuNormalized], canonicalName: menuOriginal };
+          }
+        }
+
+        return { price: 0, canonicalName: orderItemName };
+      };
+
+      // Count item sales and revenue from orders
+      const itemSales: Record<string, number> = {};
+      const itemRevenue: Record<string, number> = {};
+      orders
+        .filter((o) => o.order_type !== "non-chargeable")
+        .forEach((order) => {
+          if (order.items && Array.isArray(order.items)) {
+            order.items.forEach((item: string) => {
+              let rawName = "";
+              let qty = 1;
+
+              try {
+                const parsed =
+                  typeof item === "string" ? JSON.parse(item) : item;
+                rawName = (parsed.name || "").trim();
+                qty = parsed.quantity || 1;
+              } catch {
+                // Parse "2x Cold coffee ([]) @150" format
+                const match = String(item).match(/^(\d+)x\s+(.+)$/i);
+                if (match) {
+                  qty = parseInt(match[1], 10);
+                  rawName = match[2].trim();
+                } else {
+                  rawName = String(item).trim();
+                  qty = 1;
+                }
+              }
+
+              if (!rawName) return;
+
+              // Clean name: strip ([size]) and @price suffixes
+              const cleanedName = cleanItemName(rawName);
+              if (!cleanedName) return;
+
+              // Find matching menu item
+              const { price, canonicalName } = findMenuMatch(cleanedName);
+
+              // Aggregate under the canonical menu item name
+              const key = canonicalName.trim();
+              itemSales[key] = (itemSales[key] || 0) + qty;
+              itemRevenue[key] = (itemRevenue[key] || 0) + price * qty;
+            });
+          }
+        });
 
       // Category breakdown
       const byCategory = menuItems.reduce(
@@ -257,33 +323,77 @@ export const useReportsData = (dateRange?: DateRange) => {
         {} as Record<string, number>,
       );
 
-      // Format menu items for display
+      // Calculate totals
+      const totalUnitsSold = Object.values(itemSales).reduce(
+        (a, b) => a + b,
+        0,
+      );
+      const totalItemRevenue = Object.values(itemRevenue).reduce(
+        (a, b) => a + b,
+        0,
+      );
+
+      // Format menu items for display — focus on sales performance
       const formattedItems = menuItems
+        .map((item) => {
+          // Try exact name, then trimmed name for lookup
+          const unitsSold = itemSales[item.name] ?? itemSales[item.name.trim()] ?? 0;
+          const revenue = itemRevenue[item.name] ?? itemRevenue[item.name.trim()] ?? 0;
+          return {
+            "Item Name": item.name.trim(),
+            Category: item.category,
+            "Rate (₹)": `₹${item.price}`,
+            "Qty Sold": unitsSold,
+            "Revenue (₹)": `₹${revenue.toLocaleString("en-IN", {
+              minimumFractionDigits: 2,
+            })}`,
+            Available: item.is_available ? "Yes" : "No",
+            Veg: item.is_veg ? "Veg" : "Non-Veg",
+          };
+        })
+        .sort(
+          (a, b) => b["Qty Sold"] - a["Qty Sold"],
+        );
+
+      // Add grand total row at the bottom
+      formattedItems.push({
+        "Item Name": "━━ GRAND TOTAL ━━",
+        Category: "",
+        "Rate (₹)": "",
+        "Qty Sold": totalUnitsSold,
+        "Revenue (₹)": `₹${totalItemRevenue.toLocaleString("en-IN", {
+          minimumFractionDigits: 2,
+        })}`,
+        Available: "",
+        Veg: "",
+      });
+
+      // Chart: revenue by top selling items (top 10)
+      const topSellerChartData = formattedItems
+        .filter((item) => item["Qty Sold"] > 0)
+        .slice(0, 10)
         .map((item) => ({
-          "Item Name": item.name,
-          Category: item.category,
-          Price: `₹${item.price}`,
-          "Units Sold": itemSales[item.name] || 0,
-          Available: item.is_available ? "Yes" : "No",
-          Veg: item.is_veg ? "Veg" : "Non-Veg",
-          Description: item.description?.substring(0, 50) || "-",
-        }))
-        .sort((a, b) => b["Units Sold"] - a["Units Sold"]);
+          name:
+            item["Item Name"].length > 18
+              ? item["Item Name"].substring(0, 18) + "…"
+              : item["Item Name"],
+          value: item["Qty Sold"],
+          revenue: itemRevenue[item["Item Name"]] || 0,
+        }));
 
       return {
         category: "menu" as ReportCategory,
-        title: "Menu Performance Report",
+        title: "Menu Item Sales Summary",
         summary: {
-          "Total Items": menuItems.length,
-          Available: menuItems.filter((i) => i.is_available).length,
+          "Total Menu Items": menuItems.length,
+          "Items Sold": totalUnitsSold,
+          "Total Revenue": `₹${totalItemRevenue.toLocaleString("en-IN", {
+            minimumFractionDigits: 2,
+          })}`,
           Categories: Object.keys(byCategory).length,
-          "Total Sales": Object.values(itemSales).reduce((a, b) => a + b, 0),
         },
         tableData: formattedItems,
-        chartData: Object.entries(byCategory).map(([name, value]) => ({
-          name,
-          value,
-        })),
+        chartData: topSellerChartData,
       } as ReportData;
     },
     enabled: !!restaurantId,
