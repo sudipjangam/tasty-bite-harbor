@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Menu,
   X,
+  Shield,
 } from "lucide-react";
 
 interface NavItem {
@@ -43,6 +44,12 @@ const navItems: NavItem[] = [
     href: "/platform/subscriptions",
     icon: CreditCard,
     description: "Plans & billing",
+  },
+  {
+    title: "Feature Permissions",
+    href: "/platform/feature-permissions",
+    icon: Shield,
+    description: "Granular plan controls",
   },
   {
     title: "All Users",

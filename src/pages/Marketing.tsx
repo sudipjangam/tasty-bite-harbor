@@ -9,6 +9,8 @@ import CreateCampaignDialog from "@/components/Marketing/CreateCampaignDialog";
 import CustomerSegments from "@/components/Marketing/CustomerSegments";
 import MarketingAnalytics from "@/components/Marketing/MarketingAnalytics";
 import WhatsAppCampaigns from "@/components/Marketing/WhatsAppCampaigns";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
+import { useFeatureGate } from "@/hooks/useFeatureGate";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import {
   Plus,
@@ -29,10 +31,10 @@ const Marketing = () => {
   const { symbol: currencySymbol } = useCurrencyContext();
 
   const tabs = [
-    { id: "campaigns", label: "Campaigns", icon: Target },
-    { id: "whatsapp", label: "WhatsApp", icon: MessageSquare },
-    { id: "segments", label: "Customer Segments", icon: Users },
-    { id: "analytics", label: "Analytics", icon: TrendingUp },
+    { id: "campaigns", label: "Campaigns", icon: Target, feature: "marketing.campaigns" },
+    { id: "whatsapp", label: "WhatsApp", icon: MessageSquare, feature: "marketing.whatsapp" },
+    { id: "segments", label: "Customer Segments", icon: Users, feature: "marketing.segments" },
+    { id: "analytics", label: "Analytics", icon: TrendingUp, feature: "marketing.analytics" },
   ];
 
   if (isLoading) {
@@ -109,18 +111,19 @@ const Marketing = () => {
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
-                activeTab === tab.id
-                  ? "bg-purple-600 text-white"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {tab.label}
-            </button>
+            <FeatureLock key={tab.id} feature={tab.feature} interceptClicks={true}>
+              <button
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
+                  activeTab === tab.id
+                    ? "bg-purple-600 text-white"
+                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            </FeatureLock>
           );
         })}
       </div>
