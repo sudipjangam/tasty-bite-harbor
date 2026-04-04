@@ -6,16 +6,68 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogOut, RefreshCw, Sparkles, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import BrandingSection from "@/components/Auth/BrandingSection";
 import AuthForm from "@/components/Auth/AuthForm";
+import { InquiryForm } from "@/components/Auth/InquiryForm";
+import { ForgotPasswordForm } from "@/components/Auth/ForgotPasswordForm";
+import { ResetPasswordForm } from "@/components/Auth/PasswordResetForm";
+
+export type AuthMode = "signin" | "signup" | "inquiry" | "forgot" | "reset";
 
 const Auth = () => {
-  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [authMode, setAuthMode] = useState<AuthMode>("signin");
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+
+  // Detect Supabase recovery token or error in URL (from password reset email link)
+  useEffect(() => {
+    const mode = searchParams.get('mode');
+    if (mode === 'reset') {
+      setAuthMode('reset');
+    }
+
+    // Parse hash fragment for Supabase errors (e.g., #error=access_denied&error_code=otp_expired)
+    const hash = window.location.hash;
+    if (hash) {
+      const hashParams = new URLSearchParams(hash.substring(1));
+      const errorCode = hashParams.get('error_code');
+      const errorDescription = hashParams.get('error_description');
+
+      if (errorCode === 'otp_expired' || errorDescription?.includes('expired')) {
+        toast({
+          title: "Reset link expired",
+          description: "Your password reset link has expired. Please request a new one.",
+          variant: "destructive",
+          duration: 8000,
+        });
+        setAuthMode('forgot');
+        // Clean up the URL hash
+        window.history.replaceState(null, '', window.location.pathname);
+      } else if (hashParams.get('error')) {
+        toast({
+          title: "Authentication error",
+          description: errorDescription?.replace(/\+/g, ' ') || "Something went wrong. Please try again.",
+          variant: "destructive",
+          duration: 8000,
+        });
+        // Clean up the URL hash
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    }
+
+    // Listen for Supabase PASSWORD_RECOVERY event
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthMode('reset');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [searchParams]);
 
   const handleClearAuth = async () => {
     try {
@@ -224,33 +276,40 @@ const Auth = () => {
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
 
               <CardHeader className="text-center pb-6 pt-8">
-                <div className="mx-auto mb-6 w-20 h-20 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl flex items-center justify-center shadow-xl">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="40"
-                    height="40"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="white"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M17 11V3a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v18a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-8"></path>
-                    <path d="m12 12 4 4"></path>
-                    <path d="M20 12h-8"></path>
-                  </svg>
+                <div className="mx-auto mb-6 w-24 h-24 flex items-center justify-center">
+                  <img src="/swadeshi-logo.png" alt="Swadeshi Solutions" className="w-full h-full object-contain" />
                 </div>
                 <CardTitle className="text-3xl font-bold text-gray-900 dark:text-white">
-                  {authMode === "signin" ? "Welcome back!" : "Join us today"}
+                  {authMode === "signin" ? "Welcome back!" 
+                    : authMode === "forgot" ? "Forgot password?"
+                    : authMode === "reset" ? "Reset password"
+                    : "Join us today"}
                 </CardTitle>
                 <CardDescription className="text-base text-gray-600 dark:text-gray-400 mt-2">
                   {authMode === "signin"
                     ? "Sign in to continue to your restaurant dashboard"
+                    : authMode === "inquiry"
+                    ? "Create your account and start managing your Business."
+                    : authMode === "forgot"
+                    ? "We'll send you a link to reset your password."
+                    : authMode === "reset"
+                    ? "Enter your new password below."
                     : "Create your account and start managing your restaurant"}
                 </CardDescription>
               </CardHeader>
-              <AuthForm authMode={authMode} setAuthMode={setAuthMode} />
+              {authMode === "inquiry" ? (
+                <InquiryForm setAuthMode={setAuthMode} />
+              ) : authMode === "forgot" ? (
+                <ForgotPasswordForm setAuthMode={setAuthMode} />
+              ) : authMode === "reset" ? (
+                <ResetPasswordForm 
+                  setAuthMode={setAuthMode} 
+                  token={searchParams.get('token') || undefined}
+                  email={searchParams.get('email') || undefined}
+                />
+              ) : (
+                <AuthForm authMode={authMode} setAuthMode={setAuthMode} />
+              )}
             </Card>
 
             {/* Trust indicators */}
