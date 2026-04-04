@@ -17,11 +17,13 @@ import {
   Sparkles,
   Utensils,
   Factory,
+  BarChart3,
 } from "lucide-react";
 import { RecipeList } from "@/components/Recipes/RecipeList";
 import { RecipeDialog } from "@/components/Recipes/RecipeDialog";
 import { BatchProductionManager } from "@/components/Recipes/BatchProductionManager";
 import { RecipeCostingCard } from "@/components/Recipes/RecipeCostingCard";
+import { MenuEngineering } from "@/components/Recipes/MenuEngineering";
 import { useRecipes } from "@/hooks/useRecipes";
 import { MobileNavigation } from "@/components/ui/mobile-navigation";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
@@ -188,7 +190,7 @@ const RecipeManagement = () => {
       {/* Main Content */}
       <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/30 dark:border-orange-500/20 rounded-2xl md:rounded-3xl shadow-xl overflow-hidden">
         <Tabs defaultValue="recipes" className="p-3 md:p-6">
-          <TabsList className="grid w-full grid-cols-3 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-gray-800/80 dark:to-gray-700/80 p-1.5 rounded-2xl border border-orange-100 dark:border-orange-500/30">
+          <TabsList className="grid w-full grid-cols-4 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-gray-800/80 dark:to-gray-700/80 p-1.5 rounded-2xl border border-orange-100 dark:border-orange-500/30">
             <TabsTrigger
               value="recipes"
               className="flex items-center gap-2 text-xs md:text-sm rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/30 font-semibold transition-all duration-300"
@@ -202,6 +204,13 @@ const RecipeManagement = () => {
             >
               <Calculator className="h-4 w-4" />
               <span className="hidden md:inline">Costing</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="engineering"
+              className="flex items-center gap-2 text-xs md:text-sm rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-amber-500/30 font-semibold transition-all duration-300"
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden md:inline">Menu Engineering</span>
             </TabsTrigger>
             <TabsTrigger
               value="batch"
@@ -223,6 +232,10 @@ const RecipeManagement = () => {
 
           <TabsContent value="costing" className="mt-4 md:mt-6">
             <RecipeCostingCard recipes={recipes} />
+          </TabsContent>
+
+          <TabsContent value="engineering" className="mt-4 md:mt-6">
+            <MenuEngineering recipes={recipes} />
           </TabsContent>
 
           <TabsContent value="batch" className="mt-4 md:mt-6">

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash2, Phone, Mail, MapPin, Truck, Store, Package2, Search, Calendar, Eye, Check, X, Sparkles } from "lucide-react";
+import { Plus, Edit, Trash2, Phone, Mail, MapPin, Truck, Store, Package2, Search, Calendar, Eye, Check, X, Sparkles, BarChart3 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useCurrencyContext } from '@/contexts/CurrencyContext';
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
+import SupplierPerformance from "@/components/Suppliers/SupplierPerformance";
 
 interface Supplier {
   id: string;
@@ -847,7 +848,7 @@ const Suppliers = () => {
       <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-2xl md:rounded-3xl shadow-xl overflow-hidden">
         <Tabs defaultValue="suppliers" className="w-full">
           <div className="bg-gradient-to-r from-purple-500/10 to-violet-500/10 dark:from-purple-900/20 dark:to-violet-900/20 p-2">
-            <TabsList className="grid w-full grid-cols-2 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm rounded-xl">
+            <TabsList className="grid w-full grid-cols-3 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm rounded-xl">
               <TabsTrigger value="suppliers" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-600 data-[state=active]:text-white rounded-lg font-medium">
                 <Store className="h-4 w-4" />
                 Suppliers ({filteredSuppliers.length})
@@ -855,6 +856,10 @@ const Suppliers = () => {
               <TabsTrigger value="orders" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-600 data-[state=active]:text-white rounded-lg font-medium">
                 <Package2 className="h-4 w-4" />
                 Orders ({filteredOrders.length})
+              </TabsTrigger>
+              <TabsTrigger value="performance" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white rounded-lg font-medium">
+                <BarChart3 className="h-4 w-4" />
+                Performance
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1104,6 +1109,15 @@ const Suppliers = () => {
                   </Table>
                 </div>
               </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="performance" className="p-4 md:p-6">
+            {restaurantId && (
+              <SupplierPerformance
+                restaurantId={restaurantId}
+                suppliers={suppliers.map(s => ({ id: s.id, name: s.name }))}
+              />
             )}
           </TabsContent>
         </Tabs>
