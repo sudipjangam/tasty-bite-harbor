@@ -37,6 +37,7 @@ const Routes = () => {
         <Route path="/order/:encodedData" element={<CustomerOrder />} />
         <Route path="/bill/:encodedData" element={<PublicBillPage />} />
         <Route path="/truck/:slug" element={<PublicTruckPage />} />
+        <Route path="/reset-password" element={<Auth />} />
         <Route path="*" element={<LandingWebsite />} />
       </RouterRoutes>
     );
