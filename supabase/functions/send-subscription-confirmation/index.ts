@@ -184,44 +184,82 @@ function generateInvoiceHTML(data: {
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; background: #f0f2f5; color: #1a202c; }
+    .wrapper { max-width: 700px; margin: 0 auto; padding: 24px; }
+    .card { background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.12); }
+    
+    .header { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #f97316 100%); padding: 32px 40px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .header-logo-group { display: flex; align-items: center; gap: 16px; }
+    .header-text h1 { color: #fff; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin: 0; }
+    .header-badge { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; padding: 8px 16px; display: inline-block; }
+    
+    .meta-row { padding: 28px 40px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; gap: 20px; }
+    .meta-col { flex: 1; }
+    .meta-col.center { text-align: center; }
+    .meta-col.right { text-align: right; }
+    
+    .address-row { padding: 28px 40px; display: flex; gap: 40px; border-bottom: 1px solid #e2e8f0; }
+    .address-col { flex: 1; }
+    
+    .section { padding: 28px 40px; }
+    .table-container { border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; overflow-x: auto; }
+    th { color: #fff; font-weight: 600; font-size: 12px; text-transform: uppercase; padding: 14px 20px; letter-spacing: 0.5px; white-space: nowrap; }
+    td { padding: 18px 20px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+    
+    .payment-grid { background: #f8fafc; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 20px; }
+    .payment-item { flex: 1; min-width: 120px; }
+    
+    .features-box { background: #f0fdf4; border-radius: 12px; padding: 16px 20px; border: 1px solid #bbf7d0; }
+    .features-list { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 20px; }
+    
+    @media (max-width: 600px) {
+      .wrapper { padding: 12px; }
+      .header { flex-direction: column; align-items: flex-start; padding: 24px 20px; }
+      .meta-row { flex-direction: column; padding: 20px; gap: 16px; }
+      .meta-col.center, .meta-col.right { text-align: left; }
+      .address-row { flex-direction: column; padding: 20px; gap: 24px; }
+      .section { padding: 20px; }
+      th, td { padding: 12px 14px; }
+      .features-list { columns: 1; }
+      .header-logo-group { flex-direction: column; align-items: flex-start; }
+    }
   </style>
 </head>
 <body>
-  <div style="max-width:700px;margin:0 auto;padding:24px">
-    <div style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.12)">
+  <div class="wrapper">
+    <div class="card">
       <!-- ═══════ HEADER ═══════ -->
-      <div style="background:linear-gradient(135deg,#1e3a8a 0%,#3b82f6 50%,#f97316 100%);padding:32px 40px;display:flex;align-items:center;justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:16px">
+      <div class="header">
+        <div class="header-logo-group">
           <img src="${LOGO_URL}" alt="Swadeshi Solutions" style="width:72px;height:72px;border-radius:14px;background:#fff;padding:4px;object-fit:contain" />
-          <div>
-            <h1 style="color:#fff;font-size:26px;font-weight:800;letter-spacing:-0.5px;margin:0">${COMPANY_NAME}</h1>
+          <div class="header-text">
+            <h1>${COMPANY_NAME}</h1>
             <p style="color:rgba(255,255,255,0.85);font-size:13px;margin:4px 0 0 0">Restaurant Management Platform</p>
           </div>
         </div>
-        <div style="text-align:right">
-          <div style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);border-radius:8px;padding:8px 16px">
+        <div>
+          <div class="header-badge">
             <span style="color:#fff;font-size:18px;font-weight:700;letter-spacing:1px">INVOICE</span>
           </div>
         </div>
       </div>
       <!-- ═══════ INVOICE META ═══════ -->
-      <div style="padding:28px 40px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between">
-        <div>
+      <div class="meta-row">
+        <div class="meta-col">
           <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:6px">Invoice Number</p>
           <p style="color:#1e3a8a;font-size:16px;font-weight:700">${invoiceNumber}</p>
         </div>
-        <div style="text-align:center">
+        <div class="meta-col center">
           <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:6px">Date of Issue</p>
           <p style="color:#1a202c;font-size:16px;font-weight:600">${formatDate(payment.paid_at)}</p>
         </div>
-        <div style="text-align:right">
+        <div class="meta-col right">
           <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:6px">Status</p>
-          <span style="background:#dcfce7;color:#166534;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700">✓ PAID</span>
+          <span style="background:#dcfce7;color:#166534;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700;display:inline-block">✓ PAID</span>
         </div>
       </div>
       <!-- ═══════ FROM / BILL TO ═══════ -->
-      <div style="padding:28px 40px;display:flex;gap:40px;border-bottom:1px solid #e2e8f0">
-        <div style="flex:1">
+      <div class="address-row">
+        <div class="address-col">
           <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:10px">From</p>
           <p style="font-weight:700;font-size:15px;color:#1a202c">${COMPANY_NAME}</p>
           <p style="color:#64748b;font-size:13px;line-height:1.8;margin-top:4px">
@@ -229,41 +267,41 @@ function generateInvoiceHTML(data: {
             ${COMPANY_PHONE}
           </p>
         </div>
-        <div style="flex:1">
+        <div class="address-col">
           <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:10px">Bill To</p>
           <p style="font-weight:700;font-size:15px;color:#1a202c">${restaurant.name}</p>
-          <p style="color:#64748b;font-size:13px;line-height:1.8;margin-top:4px">
-            ${restaurant.owner_name || ''}<br>
-            ${restaurant.address || ''}<br>
-            ${restaurant.phone ? `📞 ${restaurant.phone}` : ''}
-            ${restaurant.gstin ? `<br>GSTIN: ${restaurant.gstin}` : ''}
+          <p style="color:#64748b;font-size:13px;line-height:1.8;margin-top:4px;word-break:break-word">
+            ${restaurant.owner_name ? restaurant.owner_name + '<br>' : ''}
+            ${restaurant.address ? restaurant.address + '<br>' : ''}
+            ${restaurant.phone ? '📞 ' + restaurant.phone : ''}
+            ${restaurant.gstin ? '<br>GSTIN: ' + restaurant.gstin : ''}
           </p>
         </div>
       </div>
       <!-- ═══════ SUBSCRIPTION DETAILS TABLE ═══════ -->
-      <div style="padding:28px 40px">
+      <div class="section">
         <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:16px">Subscription Details</p>
-        <div style="border-radius:12px;overflow:hidden;border:1px solid #e2e8f0">
-          <table style="width:100%;border-collapse:collapse">
+        <div class="table-container">
+          <table style="width:100%;border-collapse:collapse;min-width:400px">
             <thead>
               <tr style="background:linear-gradient(135deg,#1e3a8a,#3b82f6)">
-                <th style="color:#fff;font-weight:600;font-size:12px;text-transform:uppercase;padding:14px 20px;text-align:left;letter-spacing:0.5px">Description</th>
-                <th style="color:#fff;font-weight:600;font-size:12px;text-transform:uppercase;padding:14px 20px;text-align:center;letter-spacing:0.5px">Period</th>
-                <th style="color:#fff;font-weight:600;font-size:12px;text-transform:uppercase;padding:14px 20px;text-align:right;letter-spacing:0.5px">Amount</th>
+                <th style="text-align:left">Description</th>
+                <th style="text-align:center">Period</th>
+                <th style="text-align:right">Amount</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td style="padding:18px 20px;border-bottom:1px solid #e2e8f0">
+                <td>
                   <p style="font-weight:700;color:#1a202c;font-size:15px;margin-bottom:4px">${plan.name}</p>
                   <p style="color:#64748b;font-size:12px">${intervalLabel[plan.interval] || plan.interval} billing</p>
                 </td>
-                <td style="padding:18px 20px;border-bottom:1px solid #e2e8f0;text-align:center">
+                <td style="text-align:center">
                   <p style="color:#1a202c;font-size:14px;font-weight:500">${formatShortDate(payment.period_start)}</p>
                   <p style="color:#64748b;font-size:11px">to</p>
                   <p style="color:#1a202c;font-size:14px;font-weight:500">${formatShortDate(payment.period_end)}</p>
                 </td>
-                <td style="padding:18px 20px;border-bottom:1px solid #e2e8f0;text-align:right">
+                <td style="text-align:right">
                   <p style="font-weight:800;color:#1e3a8a;font-size:20px">${formattedAmount}</p>
                 </td>
               </tr>
@@ -277,42 +315,40 @@ function generateInvoiceHTML(data: {
         </div>
       </div>
       <!-- ═══════ PAYMENT INFORMATION ═══════ -->
-      <div style="padding:0 40px 28px 40px">
+      <div class="section" style="padding-top:0">
         <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:16px">Payment Information</p>
-        <div style="background:#f8fafc;border-radius:12px;padding:20px;border:1px solid #e2e8f0">
-          <div style="display:flex;flex-wrap:wrap;gap:20px">
-            <div style="flex:1;min-width:140px">
-              <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;margin-bottom:4px">Payment ID</p>
-              <p style="color:#1a202c;font-size:13px;font-weight:600;font-family:monospace">${payment.razorpay_payment_id}</p>
-            </div>
-            <div style="flex:1;min-width:140px">
-              <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;margin-bottom:4px">Order ID</p>
-              <p style="color:#1a202c;font-size:13px;font-weight:600;font-family:monospace">${payment.razorpay_order_id}</p>
-            </div>
-            <div style="flex:1;min-width:100px">
-              <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;margin-bottom:4px">Method</p>
-              <p style="color:#1a202c;font-size:13px;font-weight:600;text-transform:capitalize">${payment.payment_method}</p>
-            </div>
-            <div style="flex:1;min-width:100px">
-              <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;margin-bottom:4px">Paid On</p>
-              <p style="color:#1a202c;font-size:13px;font-weight:600">${formatDate(payment.paid_at)}</p>
-            </div>
+        <div class="payment-grid">
+          <div class="payment-item">
+            <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;margin-bottom:4px">Payment ID</p>
+            <p style="color:#1a202c;font-size:13px;font-weight:600;font-family:monospace;word-break:break-all">${payment.razorpay_payment_id}</p>
+          </div>
+          <div class="payment-item">
+            <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;margin-bottom:4px">Order ID</p>
+            <p style="color:#1a202c;font-size:13px;font-weight:600;font-family:monospace;word-break:break-all">${payment.razorpay_order_id}</p>
+          </div>
+          <div class="payment-item">
+            <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;margin-bottom:4px">Method</p>
+            <p style="color:#1a202c;font-size:13px;font-weight:600;text-transform:capitalize">${payment.payment_method}</p>
+          </div>
+          <div class="payment-item">
+            <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;margin-bottom:4px">Paid On</p>
+            <p style="color:#1a202c;font-size:13px;font-weight:600">${formatDate(payment.paid_at)}</p>
           </div>
         </div>
       </div>
       <!-- ═══════ PLAN FEATURES ═══════ -->
       ${featuresHTML ? `
-      <div style="padding:0 40px 28px 40px">
+      <div class="section" style="padding-top:0">
         <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:12px">What's Included</p>
-        <div style="background:#f0fdf4;border-radius:12px;padding:16px 20px;border:1px solid #bbf7d0">
-          <ul style="list-style:none;margin:0;padding:0;columns:2;column-gap:20px">${featuresHTML}</ul>
+        <div class="features-box">
+          <ul class="features-list">${featuresHTML}</ul>
         </div>
       </div>` : ''}
       <!-- ═══════ FOOTER ═══════ -->
       <div style="background:#f8fafc;padding:24px 40px;border-top:1px solid #e2e8f0;text-align:center">
         <p style="color:#64748b;font-size:13px;margin-bottom:6px">Thank you for choosing <strong style="color:#1e3a8a">${COMPANY_NAME}</strong>!</p>
-        <p style="color:#94a3b8;font-size:12px">Questions? Contact us at ${COMPANY_EMAIL} or ${COMPANY_PHONE}</p>
-        <p style="color:#cbd5e1;font-size:11px;margin-top:12px">This is a computer-generated invoice and does not require a signature.</p>
+        <p style="color:#94a3b8;font-size:12px;margin-bottom:12px">Questions? Contact us at ${COMPANY_EMAIL} or ${COMPANY_PHONE}</p>
+        <p style="color:#cbd5e1;font-size:11px">This is a computer-generated invoice and does not require a signature.</p>
       </div>
     </div>
     <!-- Copyright -->
