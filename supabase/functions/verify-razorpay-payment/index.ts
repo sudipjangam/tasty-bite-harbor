@@ -65,7 +65,7 @@ serve(async (req) => {
   }
 
   try {
-    const RAZORPAY_KEY_SECRET = Deno.env.get('RAZORPAY_KEY_SECRET');
+    const RAZORPAY_KEY_SECRET = Deno.env.get('RAZORPAY_Live_Key_Secret');
 
     if (!RAZORPAY_KEY_SECRET) {
       console.error('Razorpay secret not configured');
@@ -147,7 +147,7 @@ serve(async (req) => {
     // 3. Fetch payment details from Razorpay for payment_method info
     let paymentMethod = 'unknown';
     try {
-      const RAZORPAY_KEY_ID = Deno.env.get('RAZORPAY_KEY_ID') ?? '';
+      const RAZORPAY_KEY_ID = Deno.env.get('RAZORPAY_Live_Key_ID') ?? '';
       const paymentResponse = await fetch(
         `https://api.razorpay.com/v1/payments/${razorpay_payment_id}`,
         {

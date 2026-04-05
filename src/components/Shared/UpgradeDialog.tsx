@@ -48,7 +48,7 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
   const handleUpgrade = () => {
     onClose();
     // Navigate to settings page with subscription tab
-    navigate('/dashboard/subscription');
+    navigate('/subscription');
   };
 
   const gradientClass = PLAN_COLORS[requiredPlan] || PLAN_COLORS['Professional'];

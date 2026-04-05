@@ -95,13 +95,20 @@ export const useSubscription = () => {
   });
 
   // ── Derived status ──
+  // Active = DB status is 'active' AND period hasn't ended
   const isActive =
     subscription?.status === 'active' &&
     new Date(subscription.current_period_end) > new Date();
 
+  // Expired = any non-active state, or active but period has ended
   const isExpired =
-    subscription?.status === 'active' &&
-    new Date(subscription.current_period_end) <= new Date();
+    !!subscription && (
+      subscription.status === 'inactive' ||
+      subscription.status === 'expired' ||
+      subscription.status === 'cancelled' ||
+      (subscription.status === 'active' &&
+        new Date(subscription.current_period_end) <= new Date())
+    );
 
   const isPending = subscription?.status === 'pending';
 
