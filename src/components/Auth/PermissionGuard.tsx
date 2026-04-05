@@ -43,6 +43,8 @@ const routeToComponentMap: Record<string, string> = {
 // System/admin components that bypass subscription check
 // These are controlled purely by role permissions
 const systemBypassRoutes = new Set([
+  "/",
+  "/dashboard",
   "/user-management",
   "/role-management",
   "/permission-management",

@@ -339,8 +339,8 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   // Map item id to subscription component key (matches sidebar's hrefToComponentMap)
   const itemToComponentMap: Record<string, string> = {
     dashboard: "dashboard",
-    "qsr-pos": "qsr-pos",
-    "quickserve-pos": "quickserve-pos",
+    "qsr-pos": "quickserve",
+    "quickserve-pos": "quickserve",
     orders: "orders",
     kitchen: "kitchen",
     pos: "pos",
@@ -350,14 +350,14 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     inventory: "inventory",
     rooms: "rooms",
     reservations: "reservations",
-    housekeeping: "housekeeping",
+    housekeeping: "rooms",
     customers: "customers",
     marketing: "marketing",
     staff: "staff",
-    analytics: "analytics",
+    analytics: "reports",
     financial: "financial",
     reports: "reports",
-    expenses: "financial", // expenses falls under financial
+    expenses: "expenses",
     "user-management": "user-management",
     "role-management": "role-management",
     ai: "ai",
@@ -368,6 +368,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   // System components bypass subscription check (controlled by role permissions only)
   // Must match sidebar's systemComponents list
   const systemComponents = [
+    "dashboard",
     "user-management",
     "role-management",
     "permission-management",
