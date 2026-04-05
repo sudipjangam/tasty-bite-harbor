@@ -5,6 +5,7 @@ import Chatbot from "@/components/Chatbot/Chatbot";
 import AiCapabilities from "@/components/AI/AiCapabilities";
 import SampleQuestions from "@/components/AI/SampleQuestions";
 import { Sparkles, Brain, ChevronDown, ChevronUp, Database, MessageSquare } from "lucide-react";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 const AI = () => {
   const { user } = useAuth();
@@ -135,14 +136,16 @@ const AI = () => {
             
             {/* Right Column - Chat Interface - Account for mobile bottom nav */}
             <div className="lg:col-span-3 h-[calc(100vh-280px)] lg:h-full overflow-hidden">
-              <div className="h-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-2xl shadow-xl overflow-hidden">
-                <Chatbot 
-                  initialOpen={true} 
-                  fixedPosition={false}
-                  pendingMessage={pendingMessage}
-                  onClearPendingMessage={clearPendingMessage}
-                />
-              </div>
+              <FeatureLock feature="ai.assistant" interceptClicks={true}>
+                <div className="h-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-2xl shadow-xl overflow-hidden">
+                  <Chatbot 
+                    initialOpen={true} 
+                    fixedPosition={false}
+                    pendingMessage={pendingMessage}
+                    onClearPendingMessage={clearPendingMessage}
+                  />
+                </div>
+              </FeatureLock>
             </div>
           </div>
         </div>
