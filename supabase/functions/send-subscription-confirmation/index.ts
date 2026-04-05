@@ -10,7 +10,7 @@ const corsHeaders = {
 // ─── Swadeshi Solutions Logo (base64-encoded for email compatibility) ────────
 // We'll fetch it from the deployed site for reliable rendering
 const LOGO_URL = 'https://swadeshi-restaurant-managment.netlify.app/icons/swadeshi-icon-512.png';
-const SITE_URL = 'https://swadeshi-restaurant-managment.netlify.app';
+const SITE_URL = 'https://swadeshisolutions.co.in';
 const COMPANY_NAME = 'Swadeshi Solutions';
 const COMPANY_EMAIL = 'support@swadeshisolutions.com';
 const COMPANY_PHONE = '+91 83295 40398';
@@ -68,10 +68,12 @@ async function sendEmail(
 }
 
 // ─── Send WhatsApp via MSG91 ────────────────────────────────────────────────
+// NOTE: This is a SEPARATE WhatsApp sender — does NOT use the shared
+// send-msg91-whatsapp edge function. Zero risk to other templates.
 async function sendWhatsApp(
   phone: string,
   variables: Record<string, string>,
-  invoiceUrl: string,
+  invoicePath: string,  // Just the path suffix for the dynamic URL button (e.g. "restaurantId/INV-SUB-XXX.html")
 ): Promise<{ success: boolean; error?: string }> {
   const authKey = Deno.env.get('MSG91_AUTH_KEY');
   const integratedNumber = Deno.env.get('MSG91_INTEGRATED_NUMBER') || '918329540398';
@@ -93,11 +95,13 @@ async function sendWhatsApp(
     };
   }
 
-  // Invoice URL button
+  // Invoice URL button — MSG91 dynamic URL appends this value to the template base URL
+  // Template URL: https://swadeshisolutions.co.in/invoice/{{1}}
+  // We send ONLY the dynamic suffix, e.g. "a89cea4a.../INV-SUB-ABC123.html"
   components.button_1 = {
     subtype: 'url',
     type: 'text',
-    value: invoiceUrl,
+    value: invoicePath,
   };
 
   try {
@@ -535,6 +539,9 @@ serve(async (req) => {
     // 7. Send WhatsApp
     const ownerPhone = restaurant.owner_phone || restaurant.phone;
     if (ownerPhone) {
+      // Pass just the dynamic path for the button URL suffix
+      // Template base: https://swadeshisolutions.co.in/invoice/{{1}}
+      // We send: "a89cea4a.../INV-SUB-XXX.html" → final URL = base + suffix
       const whatsappResult = await sendWhatsApp(
         ownerPhone,
         {
@@ -545,7 +552,7 @@ serve(async (req) => {
           valid_till: formatShortDate(period_end),
           payment_id: razorpay_payment_id,
         },
-        invoicePageUrl,
+        encodeURIComponent(invoiceFileName),
       );
       console.log('WhatsApp result:', whatsappResult);
     } else {
