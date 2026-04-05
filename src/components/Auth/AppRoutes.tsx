@@ -81,6 +81,9 @@ const RestaurantManagement = lazy(
 const SubscriptionManager = lazy(
   () => import("@/pages/Platform/SubscriptionManager"),
 );
+const FeaturePermissions = lazy(
+  () => import("@/pages/Platform/FeaturePermissions"),
+);
 const AllUsers = lazy(() => import("@/pages/Platform/AllUsers"));
 const PlatformAnalytics = lazy(
   () => import("@/pages/Platform/PlatformAnalytics"),
@@ -508,6 +511,14 @@ export const AppRoutes = () => {
               element={
                 <LazyRoute>
                   <SubscriptionManager />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="feature-permissions"
+              element={
+                <LazyRoute>
+                  <FeaturePermissions />
                 </LazyRoute>
               }
             />

@@ -50,8 +50,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 const hrefToComponentMap: Record<string, string> = {
   "/": "dashboard",
   "/pos": "pos",
-  "/qsr-pos": "qsr-pos",
-  "/quickserve-pos": "quickserve-pos",
+  "/qsr-pos": "quickserve",
+  "/quickserve-pos": "quickserve",
   "/orders": "orders",
   "/kitchen": "kitchen",
   "/recipes": "menu", // Recipes fall under menu
@@ -62,18 +62,18 @@ const hrefToComponentMap: Record<string, string> = {
   "/shift-management": "staff",
   "/customers": "customers",
   "/marketing": "marketing",
-  "/user-management": "user-management",
-  "/role-management": "role-management",
-  "/permission-management": "permission-management",
-  "/channel-management": "channel-management", // Channels fall under analytics
-  "/analytics": "analytics",
+  "/user-management": "users_permissions",
+  "/role-management": "users_permissions",
+  "/permission-management": "users_permissions",
+  "/channel-management": "reports", // Channels fall under analytics
+  "/analytics": "reports",
   "/financial": "financial",
   "/reports": "reports",
-  "/expenses": "financial", // Expenses fall under financial
+  "/expenses": "expenses",
   "/nc-orders": "orders", // NC Orders fall under orders
   "/rooms": "rooms",
   "/reservations": "reservations",
-  "/housekeeping": "housekeeping",
+  "/housekeeping": "rooms",
   "/ai": "ai",
   "/security": "security",
   "/settings": "settings",

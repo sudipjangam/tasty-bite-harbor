@@ -3,6 +3,7 @@ import React, { Suspense } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, FileBarChart, FileText, Database } from "lucide-react";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 // Lazy load heavy components
 const AdvancedAnalytics = React.lazy(() => import("@/components/Reporting/AdvancedAnalytics"));
@@ -36,22 +37,30 @@ const Reports = () => {
 
       <Tabs defaultValue="default" className="w-full">
         <TabsList className="grid w-full grid-cols-4 mb-6">
-          <TabsTrigger value="analytics" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            <span className="hidden sm:inline">Advanced</span> Analytics
-          </TabsTrigger>
-          <TabsTrigger value="default" className="flex items-center gap-2">
-            <FileBarChart className="h-4 w-4" />
-            <span className="hidden sm:inline">Default</span> Reports
-          </TabsTrigger>
-          <TabsTrigger value="custom" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Custom</span> Builder
-          </TabsTrigger>
-          <TabsTrigger value="export" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            <span className="hidden sm:inline">Export</span> Center
-          </TabsTrigger>
+          <FeatureLock feature="reports.tabs.analytics" interceptClicks={true}>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              <span className="hidden sm:inline">Advanced</span> Analytics
+            </TabsTrigger>
+          </FeatureLock>
+          <FeatureLock feature="reports.tabs.default" interceptClicks={true}>
+            <TabsTrigger value="default" className="flex items-center gap-2">
+              <FileBarChart className="h-4 w-4" />
+              <span className="hidden sm:inline">Default</span> Reports
+            </TabsTrigger>
+          </FeatureLock>
+          <FeatureLock feature="reports.tabs.custom_builder" interceptClicks={true}>
+            <TabsTrigger value="custom" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Custom</span> Builder
+            </TabsTrigger>
+          </FeatureLock>
+          <FeatureLock feature="reports.tabs.export_center" interceptClicks={true}>
+            <TabsTrigger value="export" className="flex items-center gap-2">
+              <Database className="h-4 w-4" />
+              <span className="hidden sm:inline">Export</span> Center
+            </TabsTrigger>
+          </FeatureLock>
         </TabsList>
 
         <TabsContent value="analytics" className="mt-0">

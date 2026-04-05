@@ -13,6 +13,7 @@ import { useReservations } from "@/hooks/useReservations";
 import { ReservationFormData } from "@/types/reservations";
 import QRCodeManagement from "@/components/QR/QRCodeManagement";
 import HelpProvider from "@/components/Help/HelpProvider";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 const Tables = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -238,27 +239,33 @@ const Tables = () => {
         <Tabs defaultValue="tables" className="w-full">
           <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 p-1 sm:p-2">
             <TabsList className="grid w-full grid-cols-3 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl">
-              <TabsTrigger
-                value="tables"
-                className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white rounded-lg sm:rounded-xl font-semibold text-sm sm:text-base py-2 sm:py-2.5"
-              >
-                <Utensils className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden xs:inline">Tables</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="reservations"
-                className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white rounded-lg sm:rounded-xl font-semibold text-sm sm:text-base py-2 sm:py-2.5"
-              >
-                <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden xs:inline">Reservations</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="qr-codes"
-                className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white rounded-lg sm:rounded-xl font-semibold text-sm sm:text-base py-2 sm:py-2.5"
-              >
-                <QrCode className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden xs:inline">QR Codes</span>
-              </TabsTrigger>
+              <FeatureLock feature="tables.grid" interceptClicks={true}>
+                <TabsTrigger
+                  value="tables"
+                  className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white rounded-lg sm:rounded-xl font-semibold text-sm sm:text-base py-2 sm:py-2.5"
+                >
+                  <Utensils className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline">Tables</span>
+                </TabsTrigger>
+              </FeatureLock>
+              <FeatureLock feature="reservations.basic" interceptClicks={true}>
+                <TabsTrigger
+                  value="reservations"
+                  className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white rounded-lg sm:rounded-xl font-semibold text-sm sm:text-base py-2 sm:py-2.5"
+                >
+                  <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline">Reservations</span>
+                </TabsTrigger>
+              </FeatureLock>
+              <FeatureLock feature="tables.optimization" interceptClicks={true}>
+                <TabsTrigger
+                  value="qr-codes"
+                  className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white rounded-lg sm:rounded-xl font-semibold text-sm sm:text-base py-2 sm:py-2.5"
+                >
+                  <QrCode className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline">QR Codes</span>
+                </TabsTrigger>
+              </FeatureLock>
             </TabsList>
           </div>
 

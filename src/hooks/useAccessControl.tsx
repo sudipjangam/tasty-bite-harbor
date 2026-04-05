@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
-import { fetchAllowedComponents } from '@/utils/subscriptionUtils';
+import { fetchAllowedComponents, hasFeatureAccess } from '@/utils/subscriptionUtils';
 import { supabase } from '@/integrations/supabase/client';
 
 interface AccessControl {
@@ -79,10 +79,8 @@ export const useAccessControl = (): AccessControl => {
     // If still loading, deny access to prevent showing restricted content
     if (loading) return false;
     
-    // Check if subscription includes this component
-    const subscriptionHasAccess = subscriptionComponents.some(
-      c => c.toLowerCase() === component.toLowerCase()
-    );
+    // Check if subscription includes this component (supports dot-notation + wildcards)
+    const subscriptionHasAccess = hasFeatureAccess(component, subscriptionComponents);
     
     if (!subscriptionHasAccess) {
       console.log(`AccessControl: Subscription doesn't include ${component}`);
@@ -96,8 +94,12 @@ export const useAccessControl = (): AccessControl => {
     }
     
     // Check if user's role grants access to this component
+    // Roles work at the top-level module (e.g., 'reports', 'inventory')
+    // so we extract the first segment from the dot-notation key
+    const topLevelComponent = component.split('.')[0];
     const roleHasAccess = userRoleComponents.some(
-      c => c.toLowerCase() === component.toLowerCase()
+      c => c.toLowerCase() === component.toLowerCase() || 
+           c.toLowerCase() === topLevelComponent.toLowerCase()
     );
     
     console.log(`AccessControl: Checking ${component} - subscription: ${subscriptionHasAccess}, role: ${roleHasAccess}`);
