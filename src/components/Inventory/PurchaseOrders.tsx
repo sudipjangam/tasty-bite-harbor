@@ -73,6 +73,7 @@ interface PurchaseOrder {
     inventory_item: {
       name: string;
       unit: string;
+      category?: string;
     } | null;
   }>;
 }
@@ -89,6 +90,7 @@ interface InventoryItem {
   name: string;
   unit: string;
   cost_per_unit: number | null;
+  category?: string;
 }
 
 interface OrderLineItem {
@@ -176,7 +178,7 @@ const PurchaseOrders = () => {
             total_cost,
             received_quantity,
             inventory_item_id,
-            inventory_item:inventory_items(name, unit)
+            inventory_item:inventory_items(name, unit, category)
           )
         `
         )
@@ -210,7 +212,7 @@ const PurchaseOrders = () => {
       if (!restaurantId) return [];
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, unit, cost_per_unit")
+        .select("id, name, unit, cost_per_unit, category")
         .eq("restaurant_id", restaurantId)
         .order("name");
       if (error) throw error;
@@ -346,60 +348,28 @@ const PurchaseOrders = () => {
       items: Array<{
         id: string;
         receivedQuantity: number;
+        expiryDate: string | null;
         inventory_item_id: string;
         previousReceivedQuantity: number;
       }>
     ) => {
       for (const item of items) {
-        // Update the received_quantity in purchase_order_items
+        const updateData: any = { received_quantity: item.receivedQuantity };
+        if (item.expiryDate) {
+          updateData.expiry_date = item.expiryDate;
+        }
+
+        // Update the received_quantity and expiry_date in purchase_order_items
         const { error: poError } = await supabase
           .from("purchase_order_items")
-          .update({ received_quantity: item.receivedQuantity })
+          .update(updateData)
           .eq("id", item.id);
 
         if (poError) throw poError;
 
-        // Calculate the difference in received quantity (only add the new quantity received)
-        const quantityToAdd =
-          item.receivedQuantity - item.previousReceivedQuantity;
-
-        if (quantityToAdd > 0) {
-          // Get current inventory item quantity
-          const { data: inventoryItem, error: fetchError } = await supabase
-            .from("inventory_items")
-            .select("quantity")
-            .eq("id", item.inventory_item_id)
-            .single();
-
-          if (fetchError) throw fetchError;
-
-          // Update the inventory item quantity
-          const newQuantity = (inventoryItem?.quantity || 0) + quantityToAdd;
-          const { error: updateError } = await supabase
-            .from("inventory_items")
-            .update({ quantity: newQuantity })
-            .eq("id", item.inventory_item_id);
-
-          if (updateError) throw updateError;
-
-          // Create a transaction record for the received items
-          const { error: transactionError } = await supabase
-            .from("inventory_transactions")
-            .insert([
-              {
-                restaurant_id: restaurantId,
-                inventory_item_id: item.inventory_item_id,
-                transaction_type: "purchase",
-                quantity_change: quantityToAdd,
-                notes: `Received from PO: ${selectedOrder?.order_number}`,
-              },
-            ]);
-
-          if (transactionError) {
-            console.error("Error creating transaction:", transactionError);
-            // Continue anyway - transaction record is not critical
-          }
-        }
+        // Note: The rest of the inventory processing (quantity additions, FIFO lot generation, 
+        // and transaction logging) is handled natively by the 'update_inventory_from_purchase_order' 
+        // PostgreSQL trigger upon this update.
       }
     },
     onSuccess: () => {
@@ -477,6 +447,7 @@ const PurchaseOrders = () => {
       id: item.id,
       receivedQuantity:
         parseFloat(formData.get(`received_${item.id}`) as string) || 0,
+      expiryDate: (formData.get(`expiry_${item.id}`) as string) || null,
       inventory_item_id: item.inventory_item_id,
       previousReceivedQuantity: item.received_quantity || 0,
     }));
@@ -1487,6 +1458,17 @@ const PurchaseOrders = () => {
                         className="bg-gray-100 dark:bg-gray-700 rounded-lg"
                       />
                     </div>
+                    {(item.inventory_item?.category === "Dairy" || item.inventory_item?.category === "Bakery") && (
+                      <div className="col-span-2">
+                         <Label htmlFor={`expiry_${item.id}`}>Expiry Date (Optional)</Label>
+                         <Input
+                           id={`expiry_${item.id}`}
+                           name={`expiry_${item.id}`}
+                           type="date"
+                           className="bg-white dark:bg-gray-600 rounded-lg"
+                         />
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

@@ -31,6 +31,19 @@ export const useExpenseData = () => {
         .gte("expense_date", format(startMonth, "yyyy-MM-dd"))
         .lte("expense_date", format(endMonth, "yyyy-MM-dd"));
 
+      // Auto-calculate inventory consumption cost from FIFO transactions
+      const { data: inventoryUsage } = await supabase
+        .from("inventory_transactions")
+        .select("total_cost")
+        .eq("restaurant_id", restaurantId)
+        .eq("transaction_type", "usage")
+        .gte("created_at", format(startMonth, "yyyy-MM-dd"))
+        .lte("created_at", format(endMonth, "yyyy-MM-dd'T'23:59:59"));
+
+      const inventoryConsumptionCost = (inventoryUsage || []).reduce(
+        (sum, t) => sum + Math.abs(t.total_cost || 0), 0
+      );
+
       // Calculate expense breakdown by category
       const categoryTotals: Record<string, number> = {};
       if (monthlyExpenses) {
@@ -106,6 +119,7 @@ export const useExpenseData = () => {
         expenseTrendData,
         totalMonthlyExpenses: totalExpenses,
         staffExpenses: Math.round(staffExpenses),
+        inventoryConsumption: Math.round(inventoryConsumptionCost * 100) / 100,
         totalExpenses: (expenses || []).reduce(
           (sum, expense) => sum + expense.amount,
           0,

@@ -33,6 +33,9 @@ import {
   IndianRupee,
   Box,
   Weight,
+  Zap,
+  Warehouse,
+  MapPin,
 } from "lucide-react";
 import {
   Dialog,
@@ -60,9 +63,15 @@ import InventoryAlerts from "@/components/Inventory/InventoryAlerts";
 import PurchaseOrders from "@/components/Inventory/PurchaseOrders";
 import PurchaseOrderSuggestions from "@/components/Inventory/PurchaseOrderSuggestions";
 import InventoryTransactions from "@/components/Inventory/InventoryTransactions";
+import InventoryLots from "@/components/Inventory/InventoryLots";
+import Stocktake from "@/components/Inventory/Stocktake";
+import InventoryKPIs from "@/components/Inventory/InventoryKPIs";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { BillUploadDialog } from "@/components/Inventory/BillUploadDialog";
 import { BillExtractedDataDialog } from "@/components/Inventory/BillExtractedDataDialog";
+import InventoryForecasting from "@/components/Inventory/InventoryForecasting";
+import StorageLocations from "@/components/Inventory/StorageLocations";
+import InventoryItemDetail from "@/components/Inventory/InventoryItemDetail";
 import { ExtractedBillData } from "@/utils/billUtils";
 import { INVENTORY_UNIT_VALUES } from "@/constants/units";
 import {
@@ -105,6 +114,9 @@ const Inventory = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [newItemCategory, setNewItemCategory] = useState<string>("Other");
+  const [selectedDetailItem, setSelectedDetailItem] = useState<InventoryItem | null>(null);
+  const [pendingDuplicateData, setPendingDuplicateData] = useState<{ existingItem: InventoryItem; formData: any; restaurantId: string } | null>(null);
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
 
@@ -148,6 +160,19 @@ const Inventory = () => {
 
       if (error) throw error;
       return data as InventoryItem[];
+    },
+  });
+
+  const { data: storageLocations = [] } = useQuery({
+    queryKey: ["inventory-storage-locations"],
+    queryFn: async () => {
+      const { data: profile } = await supabase.auth.getUser();
+      if (!profile.user) return [];
+      const { data: userProfile } = await supabase.from("profiles").select("restaurant_id").eq("id", profile.user.id).single();
+      if (!userProfile?.restaurant_id) return [];
+      const { data, error } = await supabase.from("storage_locations").select("id, name").eq("restaurant_id", userProfile.restaurant_id).order("name");
+      if (error) throw error;
+      return data || [];
     },
   });
 
@@ -213,6 +238,66 @@ const Inventory = () => {
     }
   };
 
+  // Helper to add stock as a new lot to an existing item
+  const addStockToExistingItem = async (existingItem: InventoryItem, formData: any, restaurantId: string) => {
+    try {
+      const addQty = formData.quantity;
+      const addCost = formData.cost_per_unit || 0;
+      const transactionCost = addCost * addQty;
+      const expiryDateStr = formData.expiryDate || null;
+
+      // Update item total quantity
+      const { error: updateError } = await supabase
+        .from("inventory_items")
+        .update({
+          quantity: existingItem.quantity + addQty,
+          cost_per_unit: addCost > 0 ? addCost : existingItem.cost_per_unit,
+        })
+        .eq("id", existingItem.id);
+      if (updateError) throw updateError;
+
+      // Create new lot
+      if (addQty > 0) {
+        const { data: newLot, error: lotError } = await supabase
+          .from("inventory_lots")
+          .insert({
+            restaurant_id: restaurantId,
+            inventory_item_id: existingItem.id,
+            quantity_purchased: addQty,
+            quantity_remaining: addQty,
+            unit_cost: addCost,
+            lot_number: "LOT-" + Math.random().toString(36).slice(2, 10).toUpperCase(),
+            expiry_date: expiryDateStr ? new Date(expiryDateStr).toISOString() : null,
+            notes: "Added stock to existing item",
+          })
+          .select()
+          .single();
+
+        if (!lotError && newLot) {
+          await supabase.from("inventory_transactions").insert({
+            restaurant_id: restaurantId,
+            inventory_item_id: existingItem.id,
+            transaction_type: "purchase",
+            quantity_change: addQty,
+            unit_cost_at_time: addCost,
+            total_cost: transactionCost,
+            lot_id: newLot.id,
+            notes: "New stock batch added",
+          });
+        }
+      }
+
+      toast({ title: "Stock added successfully", description: `New batch added to "${existingItem.name}".` });
+      refetch();
+      setIsAddDialogOpen(false);
+      setEditingItem(null);
+      setPendingDuplicateData(null);
+    } catch (error) {
+      console.error("Error adding stock:", error);
+      toast({ title: "Operation Failed", description: "Something went wrong. Please try again.", variant: "destructive" });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -230,6 +315,10 @@ const Inventory = () => {
         ? Math.max(0, parseFloat(formData.get("costPerUnit") as string))
         : null,
       category: (formData.get("category") as string) || "Other",
+      storage_location_id: (formData.get("storageLocation") as string) && formData.get("storageLocation") !== "none" 
+        ? formData.get("storageLocation") as string 
+        : null,
+      expiryDate: formData.get("expiryDate") as string || null,
     };
 
     try {
@@ -247,19 +336,74 @@ const Inventory = () => {
       }
 
       if (editingItem) {
+        // Editing — update fields (not quantity-related, that's done via lots)
+        const { expiryDate, ...updateData } = itemData;
         const { error } = await supabase
           .from("inventory_items")
-          .update({ ...itemData })
+          .update({ ...updateData })
           .eq("id", editingItem.id);
 
         if (error) throw error;
         toast({ title: "Item updated successfully", description: `"${itemData.name}" has been updated.` });
       } else {
-        const { error } = await supabase
+        // Check for existing item with same name (case-insensitive)
+        const existingItem = items.find(
+          (i) => i.name.toLowerCase().trim() === itemData.name.toLowerCase().trim()
+        );
+
+        if (existingItem) {
+          // Show confirmation dialog instead of silently creating a duplicate
+          setPendingDuplicateData({
+            existingItem,
+            formData: itemData,
+            restaurantId: userProfile.restaurant_id,
+          });
+          return;
+        }
+
+        // No duplicate — create new item
+        const { expiryDate, ...insertData } = itemData;
+        const { data: newItem, error } = await supabase
           .from("inventory_items")
-          .insert([{ ...itemData, restaurant_id: userProfile.restaurant_id }]);
+          .insert([{ ...insertData, restaurant_id: userProfile.restaurant_id }])
+          .select()
+          .single();
 
         if (error) throw error;
+        
+        // If an initial quantity is provided, we should track it as an initial lot and transaction
+        if (itemData.quantity > 0) {
+          const transactionCost = itemData.cost_per_unit ? itemData.cost_per_unit * itemData.quantity : 0;
+          
+          const { data: newLot, error: lotError } = await supabase
+            .from("inventory_lots")
+            .insert({
+               restaurant_id: userProfile.restaurant_id,
+               inventory_item_id: newItem.id,
+               quantity_purchased: itemData.quantity,
+               quantity_remaining: itemData.quantity,
+               unit_cost: itemData.cost_per_unit || 0,
+               lot_number: 'INITIAL-' + Math.random().toString(36).slice(2, 10),
+               expiry_date: itemData.expiryDate ? new Date(itemData.expiryDate).toISOString() : null,
+               notes: "Initial inventory setup"
+            })
+            .select()
+            .single();
+
+          if (!lotError && newLot) {
+            await supabase.from("inventory_transactions").insert({
+               restaurant_id: userProfile.restaurant_id,
+               inventory_item_id: newItem.id,
+               transaction_type: "purchase",
+               quantity_change: itemData.quantity,
+               unit_cost_at_time: itemData.cost_per_unit || 0,
+               total_cost: transactionCost,
+               lot_id: newLot.id,
+               notes: "Initial stock entry"
+            });
+          }
+        }
+
         toast({ title: "Item added successfully", description: `"${itemData.name}" has been added to inventory.` });
       }
 
@@ -281,6 +425,7 @@ const Inventory = () => {
 
     try {
       await supabase.from("inventory_alerts").delete().eq("inventory_item_id", itemToDelete.id);
+      await supabase.from("inventory_lots").delete().eq("inventory_item_id", itemToDelete.id);
       await supabase.from("inventory_transactions").delete().eq("inventory_item_id", itemToDelete.id);
       await supabase.from("purchase_order_items").delete().eq("inventory_item_id", itemToDelete.id);
       await supabase.from("recipe_ingredients").delete().eq("inventory_item_id", itemToDelete.id);
@@ -355,7 +500,7 @@ const Inventory = () => {
   const totalItems = items.length;
 
   const commonUnits = INVENTORY_UNIT_VALUES;
-  const categories = ["Vegetables", "Fruits", "Groceries", "Meat & Seafood", "Dairy", "Beverages", "Spices", "Other"];
+  const categories = ["Vegetables", "Fruits", "Groceries", "Meat & Seafood", "Dairy", "Bakery", "Beverages", "Spices", "Other"];
 
   // Stock level helper
   const getStockLevel = (item: InventoryItem) => {
@@ -387,17 +532,25 @@ const Inventory = () => {
           </div>
 
           {/* Add Item Dialog */}
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+            setIsAddDialogOpen(open);
+            if (!open) setEditingItem(null);
+            if (open && !editingItem) setNewItemCategory("Other");
+            if (open && editingItem) setNewItemCategory(editingItem.category || "Other");
+          }}>
             <DialogTrigger asChild>
               <Button
-                onClick={() => setEditingItem(null)}
+                onClick={() => {
+                  setEditingItem(null);
+                  setNewItemCategory("Other");
+                }}
                 className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold px-5 py-2.5 rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30 transform hover:-translate-y-0.5 transition-all duration-300"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Item
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[540px] bg-white/98 dark:bg-gray-800/98 backdrop-blur-2xl border border-white/40 dark:border-gray-700/40 rounded-2xl shadow-2xl shadow-emerald-500/10 p-0 overflow-hidden">
+            <DialogContent className="sm:max-w-[540px] bg-background text-foreground backdrop-blur-2xl border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl p-0 overflow-hidden">
               {/* Dialog Header with gradient accent */}
               <div className="bg-gradient-to-r from-emerald-500 to-green-600 px-6 py-4">
                 <DialogHeader>
@@ -431,7 +584,7 @@ const Inventory = () => {
                     defaultValue={editingItem?.name}
                     required
                     placeholder="e.g., Olive Oil, Basmati Rice"
-                    className="bg-gray-50/80 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all"
+                    className="bg-transparent border-gray-300 dark:border-gray-700 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 transition-all"
                   />
                 </div>
 
@@ -441,8 +594,8 @@ const Inventory = () => {
                     <Layers className="h-3.5 w-3.5 text-blue-500" />
                     Category
                   </Label>
-                  <Select name="category" defaultValue={editingItem?.category || "Other"}>
-                    <SelectTrigger className="bg-gray-50/80 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 rounded-xl h-11">
+                  <Select name="category" value={newItemCategory} onValueChange={setNewItemCategory}>
+                    <SelectTrigger className="bg-transparent border-gray-300 dark:border-gray-700 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/30">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -473,19 +626,15 @@ const Inventory = () => {
                       defaultValue={editingItem?.quantity}
                       required
                       placeholder="0"
-                      className="bg-gray-50/80 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/30"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="unit" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-                      <Weight className="h-3.5 w-3.5 text-teal-500" />
-                      Unit
-                    </Label>
-                    <Select name="unit" defaultValue={editingItem?.unit || commonUnits[0]}>
-                      <SelectTrigger className="bg-gray-50/80 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 rounded-xl h-11">
+                    <Label htmlFor="unit">Unit *</Label>
+                    <Select name="unit" defaultValue={editingItem?.unit || "kg"}>
+                      <SelectTrigger>
                         <SelectValue placeholder="Select unit" />
                       </SelectTrigger>
-                      <SelectContent className="rounded-xl">
+                      <SelectContent>
                         {commonUnits.map((unit) => (
                           <SelectItem key={unit} value={unit}>
                             {unit}
@@ -499,10 +648,7 @@ const Inventory = () => {
                 {/* Reorder Level + Cost row */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="reorderLevel" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-                      <TrendingDown className="h-3.5 w-3.5 text-red-400" />
-                      Reorder Level
-                    </Label>
+                    <Label htmlFor="reorderLevel">Reorder Level</Label>
                     <Input
                       id="reorderLevel"
                       name="reorderLevel"
@@ -511,14 +657,10 @@ const Inventory = () => {
                       min="0"
                       defaultValue={editingItem?.reorder_level || ""}
                       placeholder="Low stock alert threshold"
-                      className="bg-gray-50/80 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/30"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="costPerUnit" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-                      <IndianRupee className="h-3.5 w-3.5 text-emerald-500" />
-                      Cost/Unit ({currencySymbol})
-                    </Label>
+                    <Label htmlFor="costPerUnit">Cost/Unit ({currencySymbol})</Label>
                     <Input
                       id="costPerUnit"
                       name="costPerUnit"
@@ -527,12 +669,44 @@ const Inventory = () => {
                       min="0"
                       defaultValue={editingItem?.cost_per_unit || ""}
                       placeholder="0.00"
-                      className="bg-gray-50/80 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/30"
                     />
                   </div>
                 </div>
 
-                {/* Submit */}
+                {/* Storage Location */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="storageLocation" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-blue-500" />
+                    Storage Location
+                  </Label>
+                  <Select name="storageLocation" defaultValue={editingItem?.storage_location_id || "none"}>
+                    <SelectTrigger className="bg-gray-50/80 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/20 transition-all">
+                      <SelectValue placeholder="Select storage location" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="none">Unassigned / None</SelectItem>
+                      {storageLocations.map((loc: any) => (
+                        <SelectItem key={loc.id} value={loc.id}>
+                          {loc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Expiry Date for Dairy and Bakery */}
+                {(newItemCategory === "Dairy" || newItemCategory === "Bakery") && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="expiryDate">Expiry Date</Label>
+                    <Input
+                      id="expiryDate"
+                      name="expiryDate"
+                      type="date"
+                    />
+                    <p className="text-xs text-slate-500">Only applicable for the initial lot added during item creation.</p>
+                  </div>
+                )}
+
                 <Button
                   type="submit"
                   className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-xl transition-all duration-300 h-12 text-base"
@@ -550,41 +724,29 @@ const Inventory = () => {
       </div>
 
       {/* Premium Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
-        {[
-          { label: "Total Items", value: totalItems, icon: Package, gradient: "from-emerald-500 to-green-500", shadow: "shadow-emerald-500/20" },
-          { label: "Low Stock", value: lowStockCount, icon: AlertTriangle, gradient: "from-red-500 to-rose-500", shadow: "shadow-red-500/20" },
-          { label: "Categories", value: Object.keys(groupedItems).length, icon: Layers, gradient: "from-blue-500 to-cyan-500", shadow: "shadow-blue-500/20" },
-          { label: "Total Value", value: `${currencySymbol}${totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: BarChart3, gradient: "from-violet-500 to-purple-500", shadow: "shadow-violet-500/20" },
-        ].map((stat) => (
-          <Card key={stat.label} className="p-4 md:p-5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/40 dark:border-gray-700/30 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
-            <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-[0.03] group-hover:opacity-[0.06] transition-opacity`} />
-            <div className="flex items-center gap-3 relative">
-              <div className={`p-2.5 bg-gradient-to-br ${stat.gradient} rounded-xl shadow-md ${stat.shadow}`}>
-                <stat.icon className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{stat.label}</p>
-                <h3 className="text-xl md:text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-                  {stat.value}
-                </h3>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+      <InventoryKPIs
+        totalItems={totalItems}
+        lowStockCount={lowStockCount}
+        categoriesCount={Object.keys(groupedItems).length}
+        totalValue={totalValue}
+        currencySymbol={currencySymbol}
+      />
 
       {/* Main Content with Tabs */}
       <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/40 dark:border-gray-700/30 rounded-2xl md:rounded-3xl shadow-xl overflow-hidden">
         <Tabs defaultValue="overview" className="w-full">
           <div className="bg-gradient-to-r from-emerald-500/5 to-green-500/5 dark:from-emerald-900/10 dark:to-green-900/10 px-3 pt-3 pb-1">
-            <TabsList className="flex w-full overflow-x-auto scrollbar-hide gap-1 bg-white/60 dark:bg-gray-700/50 backdrop-blur-sm rounded-xl p-1">
+            <TabsList className="flex w-full justify-start md:justify-center overflow-x-auto scrollbar-hide gap-1 bg-white/60 dark:bg-gray-700/50 backdrop-blur-sm rounded-xl p-1">
               {[
                 { value: "overview", icon: Package, label: "Overview" },
                 { value: "alerts", icon: Bell, label: "Alerts" },
+                { value: "stocktake", icon: FileText, label: "Stocktake" },
                 { value: "purchase-orders", icon: ShoppingCart, label: "Orders" },
                 { value: "suggestions", icon: BarChart3, label: "Suggest" },
+                { value: "forecast", icon: Zap, label: "Forecast" },
+                // { value: "locations", icon: Warehouse, label: "Locations" },
                 { value: "transactions", icon: History, label: "History" },
+                { value: "lots", icon: Layers, label: "Lots" },
               ].map((tab) => (
                 <TabsTrigger
                   key={tab.value}
@@ -735,7 +897,8 @@ const Inventory = () => {
                       return (
                         <Card
                           key={item.id}
-                          className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 ${
+                          onClick={() => setSelectedDetailItem(item)}
+                          className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 cursor-pointer ${
                             isLow
                               ? "bg-gradient-to-br from-red-50/80 to-rose-50/80 dark:from-red-900/15 dark:to-rose-900/15 border-red-200/60 dark:border-red-800/40"
                               : "bg-white/95 dark:bg-gray-800/95 border-gray-100 dark:border-gray-700/40 hover:border-emerald-200 dark:hover:border-emerald-700/50"
@@ -770,7 +933,7 @@ const Inventory = () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => { setEditingItem(item); setIsAddDialogOpen(true); }}
+                                  onClick={(e) => { e.stopPropagation(); setEditingItem(item); setIsAddDialogOpen(true); }}
                                   className="h-7 w-7 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
                                 >
                                   <Edit className="h-3.5 w-3.5 text-emerald-600" />
@@ -778,7 +941,7 @@ const Inventory = () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => setItemToDelete(item)}
+                                  onClick={(e) => { e.stopPropagation(); setItemToDelete(item); }}
                                   className="h-7 w-7 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30"
                                 >
                                   <Trash2 className="h-3.5 w-3.5 text-red-500" />
@@ -793,10 +956,10 @@ const Inventory = () => {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-32 rounded-xl">
-                                  <DropdownMenuItem onClick={() => { setEditingItem(item); setIsAddDialogOpen(true); }}>
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditingItem(item); setIsAddDialogOpen(true); }}>
                                     <Edit className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Edit
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => setItemToDelete(item)} className="text-red-600 focus:text-red-600">
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setItemToDelete(item); }} className="text-red-600 focus:text-red-600">
                                     <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -946,6 +1109,22 @@ const Inventory = () => {
           <TabsContent value="transactions" className="p-4 md:p-6">
             <InventoryTransactions />
           </TabsContent>
+
+          <TabsContent value="lots" className="p-4 md:p-6">
+            <InventoryLots />
+          </TabsContent>
+
+          <TabsContent value="stocktake" className="p-4 md:p-6 space-y-5">
+            <Stocktake />
+          </TabsContent>
+
+          <TabsContent value="forecast" className="p-4 md:p-6">
+            <InventoryForecasting />
+          </TabsContent>
+
+          <TabsContent value="locations" className="p-4 md:p-6">
+            <StorageLocations />
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -986,6 +1165,70 @@ const Inventory = () => {
         onOpenChange={setIsBillUploadOpen}
         onDataExtracted={handleBillDataExtracted}
       />
+      {/* FIFO Item Detail Dialog */}
+      <InventoryItemDetail
+        item={selectedDetailItem}
+        open={!!selectedDetailItem}
+        onOpenChange={(open) => { if (!open) setSelectedDetailItem(null); }}
+        onEdit={(item) => { setEditingItem(item); setIsAddDialogOpen(true); }}
+        onDelete={(item) => setItemToDelete(item)}
+        onAddStock={(item) => {
+          setEditingItem(null);
+          setIsAddDialogOpen(true);
+        }}
+      />
+
+      {/* Duplicate Item Confirmation Dialog */}
+      <AlertDialog open={!!pendingDuplicateData} onOpenChange={() => setPendingDuplicateData(null)}>
+        <AlertDialogContent className="bg-white/98 dark:bg-gray-800/98 backdrop-blur-2xl rounded-2xl border border-white/40 dark:border-gray-700/40 shadow-2xl overflow-hidden p-0">
+          <div className="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-4">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-xl font-bold text-white flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" /> Item Already Exists
+              </AlertDialogTitle>
+            </AlertDialogHeader>
+          </div>
+          <div className="p-6">
+            <AlertDialogDescription className="text-gray-600 dark:text-gray-400 text-sm space-y-3">
+              <p>
+                An item named{" "}
+                <span className="font-bold text-gray-900 dark:text-white">
+                  "{pendingDuplicateData?.existingItem.name}"
+                </span>{" "}
+                already exists in your inventory with{" "}
+                <span className="font-semibold">
+                  {pendingDuplicateData?.existingItem.quantity.toFixed(2)} {pendingDuplicateData?.existingItem.unit}
+                </span>{" "}
+                in stock.
+              </p>
+              <p className="font-medium text-gray-700 dark:text-gray-300">
+                Would you like to add this as a new batch/lot to the existing item?
+              </p>
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 rounded-xl p-3 text-xs text-emerald-700 dark:text-emerald-400">
+                <strong>New batch:</strong> {pendingDuplicateData?.formData.quantity} {pendingDuplicateData?.existingItem.unit} @ {currencySymbol}{pendingDuplicateData?.formData.cost_per_unit || 0}/{pendingDuplicateData?.existingItem.unit}
+              </div>
+            </AlertDialogDescription>
+          </div>
+          <AlertDialogFooter className="px-6 pb-6 pt-0">
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingDuplicateData) {
+                  addStockToExistingItem(
+                    pendingDuplicateData.existingItem,
+                    pendingDuplicateData.formData,
+                    pendingDuplicateData.restaurantId
+                  );
+                }
+              }}
+              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-xl shadow-lg shadow-emerald-500/25"
+            >
+              <Plus className="mr-2 h-4 w-4" /> Add as New Batch
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <BillExtractedDataDialog
         open={isExtractedDataDialogOpen}
         onOpenChange={setIsExtractedDataDialogOpen}
