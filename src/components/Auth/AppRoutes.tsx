@@ -89,7 +89,6 @@ const AdminTemplateReview = lazy(
   () => import("@/components/Platform/AdminTemplateReview"),
 );
 const DailySummaryHistory = lazy(() => import("@/pages/DailySummaryHistory"));
-const SubscriptionPage = lazy(() => import("@/components/Subscription/SubscriptionPage"));
 
 // ============================================================================
 
@@ -545,16 +544,6 @@ export const AppRoutes = () => {
               <Suspense fallback={<PageLoader />}>
                 <DailySummaryHistory />
               </Suspense>
-            }
-          />
-
-          {/* Subscription Management (accessible to all authenticated users) */}
-          <Route
-            path="/subscription"
-            element={
-              <LazyRoute>
-                <SubscriptionPage />
-              </LazyRoute>
             }
           />
 
