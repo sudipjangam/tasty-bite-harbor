@@ -14,11 +14,11 @@ import { Lock, ShieldAlert } from "lucide-react";
 const routeToComponentMap: Record<string, string> = {
   "/": "dashboard",
   "/pos": "pos",
-  "/qsr-pos": "qsr-pos",
-  "/quickserve-pos": "quickserve-pos",
+  "/qsr-pos": "quickserve",
+  "/quickserve-pos": "quickserve",
   "/orders": "orders",
   "/kitchen": "kitchen",
-  "/recipes": "menu", // Recipes fall under menu management
+  "/recipes": "menu", // Recipes fall under menu
   "/menu": "menu",
   "/tables": "tables",
   "/inventory": "inventory",
@@ -26,18 +26,18 @@ const routeToComponentMap: Record<string, string> = {
   "/shift-management": "staff",
   "/customers": "customers",
   "/marketing": "marketing",
-  "/analytics": "analytics",
+  "/analytics": "reports",
   "/financial": "financial",
   "/reports": "reports",
-  "/expenses": "financial", // Expenses fall under financial
+  "/expenses": "expenses",
   "/nc-orders": "orders", // NC Orders fall under orders
   "/rooms": "rooms",
   "/reservations": "reservations",
-  "/housekeeping": "housekeeping",
+  "/housekeeping": "rooms",
   "/ai": "ai",
   "/security": "security",
   "/settings": "settings",
-  "/channel-management": "analytics",
+  "/channel-management": "reports",
 };
 
 // System/admin components that bypass subscription check
