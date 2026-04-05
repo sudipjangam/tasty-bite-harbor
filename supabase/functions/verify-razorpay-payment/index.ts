@@ -1,11 +1,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
 interface VerifyPaymentRequest {
   razorpay_payment_id: string;
   razorpay_order_id: string;
@@ -13,7 +11,6 @@ interface VerifyPaymentRequest {
   plan_id: string;
   restaurant_id: string;
 }
-
 // HMAC SHA256 verification using Web Crypto API
 async function verifySignature(
   orderId: string,
@@ -36,7 +33,6 @@ async function verifySignature(
     .join('');
   return expectedSignature === signature;
 }
-
 // Calculate subscription end date based on interval
 function calculateEndDate(startDate: Date, interval: string): Date {
   const endDate = new Date(startDate);
@@ -58,15 +54,12 @@ function calculateEndDate(startDate: Date, interval: string): Date {
   }
   return endDate;
 }
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
-
   try {
     const RAZORPAY_KEY_SECRET = Deno.env.get('RAZORPAY_Live_Key_Secret');
-
     if (!RAZORPAY_KEY_SECRET) {
       console.error('Razorpay secret not configured');
       return new Response(
@@ -74,12 +67,10 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 503 }
       );
     }
-
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
-
     const {
       razorpay_payment_id,
       razorpay_order_id,
@@ -87,14 +78,12 @@ serve(async (req) => {
       plan_id,
       restaurant_id,
     }: VerifyPaymentRequest = await req.json();
-
     if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
       return new Response(
         JSON.stringify({ error: 'Missing payment verification fields' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
-
     // 1. Verify the payment signature
     const isValid = await verifySignature(
       razorpay_order_id,
@@ -102,7 +91,6 @@ serve(async (req) => {
       razorpay_signature,
       RAZORPAY_KEY_SECRET
     );
-
     if (!isValid) {
       console.error('Invalid payment signature for order:', razorpay_order_id);
       
@@ -120,22 +108,18 @@ serve(async (req) => {
         })
         .eq('restaurant_id', restaurant_id)
         .eq('razorpay_order_id', razorpay_order_id);
-
       return new Response(
         JSON.stringify({ error: 'Payment verification failed. Signature mismatch.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
-
     console.log('Payment signature verified for order:', razorpay_order_id);
-
     // 2. Fetch plan details to calculate period
     const { data: plan, error: planError } = await supabaseAdmin
       .from('subscription_plans')
       .select('id, name, price, interval, components, features')
       .eq('id', plan_id)
       .single();
-
     if (planError || !plan) {
       console.error('Plan not found:', planError);
       return new Response(
@@ -143,7 +127,6 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
       );
     }
-
     // 3. Fetch payment details from Razorpay for payment_method info
     let paymentMethod = 'unknown';
     try {
@@ -163,11 +146,9 @@ serve(async (req) => {
     } catch (e) {
       console.warn('Could not fetch payment method:', e);
     }
-
     // 4. Calculate subscription period
     const now = new Date();
     const periodEnd = calculateEndDate(now, plan.interval);
-
     // 5. Update restaurant_subscriptions with verified payment details
     const { data: subscription, error: updateError } = await supabaseAdmin
       .from('restaurant_subscriptions')
@@ -200,7 +181,6 @@ serve(async (req) => {
       )
       .select()
       .single();
-
     if (updateError) {
       console.error('Error updating subscription:', updateError);
       return new Response(
@@ -208,41 +188,44 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
-
     console.log('Subscription activated for restaurant:', restaurant_id);
-
-    // ── Fire-and-forget: Send email + WhatsApp + invoice ──
-    // This runs asynchronously — the payment response is NOT delayed
+    // ── Send email + WhatsApp + invoice ──
+    // Await this to ensure the edge function doesn't terminate before the request completes
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-
-    fetch(`${supabaseUrl}/functions/v1/send-subscription-confirmation`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${serviceRoleKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        restaurant_id,
-        subscription_id: subscription.id,
-        plan_id,
-        razorpay_payment_id,
-        razorpay_order_id,
-        amount_paid: Number(plan.price),
-        payment_method: paymentMethod,
-        period_start: now.toISOString(),
-        period_end: periodEnd.toISOString(),
-      }),
-    }).then(res => {
-      console.log('Confirmation notification sent:', res.status);
-    }).catch(err => {
+    let notifyData = null;
+    try {
+      // Use the user's Authorization header so Kong API Gateway allows the request
+      const authHeader = req.headers.get('Authorization') || `Bearer ${serviceRoleKey}`;
+      const notifyRes = await fetch(`${supabaseUrl}/functions/v1/send-subscription-confirmation`, {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          restaurant_id,
+          subscription_id: subscription.id,
+          plan_id,
+          razorpay_payment_id,
+          razorpay_order_id,
+          amount_paid: Number(plan.price),
+          payment_method: paymentMethod,
+          period_start: now.toISOString(),
+          period_end: periodEnd.toISOString(),
+        }),
+      });
+      notifyData = await notifyRes.json();
+      console.log('Confirmation notification sent:', notifyRes.status, notifyData);
+    } catch (err) {
       console.error('Confirmation notification failed (non-blocking):', err);
-    });
-
+    }
+      
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Payment verified and subscription activated',
+        notification_info: notifyData,
         subscription: {
           id: subscription.id,
           status: subscription.status,
@@ -258,7 +241,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in verify-razorpay-payment:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      JSON.stringify({ error: 'Internal server error', details: (error as Error).message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }

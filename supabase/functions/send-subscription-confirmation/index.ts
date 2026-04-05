@@ -1,12 +1,10 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
 // ─── Swadeshi Solutions Logo (base64-encoded for email compatibility) ────────
 // We'll fetch it from the deployed site for reliable rendering
 const LOGO_URL = 'https://swadeshi-restaurant-managment.netlify.app/icons/swadeshi-icon-512.png';
@@ -14,7 +12,6 @@ const SITE_URL = 'https://swadeshisolutions.co.in';
 const COMPANY_NAME = 'Swadeshi Solutions';
 const COMPANY_EMAIL = 'support@swadeshisolutions.com';
 const COMPANY_PHONE = '+91 83295 40398';
-
 interface ConfirmationRequest {
   restaurant_id: string;
   subscription_id: string;
@@ -26,7 +23,6 @@ interface ConfirmationRequest {
   period_start: string;
   period_end: string;
 }
-
 // ─── Send Email via Gmail SMTP ──────────────────────────────────────────────
 async function sendEmail(
   to: string,
@@ -35,11 +31,9 @@ async function sendEmail(
 ): Promise<{ success: boolean; error?: string }> {
   const smtpUser = Deno.env.get('SMTP_USER') || Deno.env.get('GMAIL_USER');
   const smtpPass = Deno.env.get('SMTP_PASS') || Deno.env.get('GMAIL_APP_PASSWORD');
-
   if (!smtpUser || !smtpPass) {
     return { success: false, error: 'SMTP not configured' };
   }
-
   try {
     const client = new SMTPClient({
       connection: {
@@ -49,7 +43,6 @@ async function sendEmail(
         auth: { username: smtpUser, password: smtpPass },
       },
     });
-
     await client.send({
       from: `${COMPANY_NAME} <${smtpUser}>`,
       to,
@@ -57,7 +50,6 @@ async function sendEmail(
       content: 'Please view this email in an HTML-capable client.',
       html,
     });
-
     await client.close();
     console.log('✅ Email sent to', to);
     return { success: true };
@@ -66,7 +58,6 @@ async function sendEmail(
     return { success: false, error: String(error) };
   }
 }
-
 // ─── Send WhatsApp via MSG91 ────────────────────────────────────────────────
 // NOTE: This is a SEPARATE WhatsApp sender — does NOT use the shared
 // send-msg91-whatsapp edge function. Zero risk to other templates.
@@ -77,24 +68,19 @@ async function sendWhatsApp(
 ): Promise<{ success: boolean; error?: string }> {
   const authKey = Deno.env.get('MSG91_AUTH_KEY');
   const integratedNumber = Deno.env.get('MSG91_INTEGRATED_NUMBER') || '918329540398';
-
   if (!authKey) {
     return { success: false, error: 'MSG91 not configured' };
   }
-
   let cleanPhone = phone.replace(/[\+\-\s]/g, '');
   if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
-
   // Build components from variables
   const components: Record<string, any> = {};
   for (const [key, value] of Object.entries(variables)) {
     components[`body_${key}`] = {
       type: 'text',
       value,
-      parameter_name: key,
     };
   }
-
   // Invoice URL button — MSG91 dynamic URL appends this value to the template base URL
   // Template URL: https://swadeshisolutions.co.in/invoice/{{1}}
   // We send ONLY the dynamic suffix, e.g. "a89cea4a.../INV-SUB-ABC123.html"
@@ -103,7 +89,6 @@ async function sendWhatsApp(
     type: 'text',
     value: invoicePath,
   };
-
   try {
     const response = await fetch(
       'https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/',
@@ -130,21 +115,20 @@ async function sendWhatsApp(
         }),
       },
     );
-
     const data = await response.json();
-    console.log('MSG91 response:', response.status, JSON.stringify(data));
-
-    if (!response.ok) {
+    console.log('MSG91 response headers:', response.headers);
+    console.log('MSG91 response status:', response.status);
+    console.log('MSG91 response data:', JSON.stringify(data));
+    if (!response.ok || data.hasError === true) {
+      console.error('MSG91 API rejected the message:', data);
       return { success: false, error: `MSG91: ${JSON.stringify(data)}` };
     }
-
     return { success: true };
   } catch (error) {
     console.error('WhatsApp error:', error);
     return { success: false, error: String(error) };
   }
 }
-
 // ─── Format Date ────────────────────────────────────────────────────────────
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-IN', {
@@ -153,7 +137,6 @@ function formatDate(iso: string): string {
     year: 'numeric',
   });
 }
-
 function formatShortDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-IN', {
     day: '2-digit',
@@ -161,7 +144,6 @@ function formatShortDate(iso: string): string {
     year: 'numeric',
   });
 }
-
 // ─── Generate Premium Invoice HTML ──────────────────────────────────────────
 function generateInvoiceHTML(data: {
   invoiceNumber: string;
@@ -185,12 +167,10 @@ function generateInvoiceHTML(data: {
     half_yearly: 'Half-Yearly (6 months)',
     yearly: 'Yearly (12 months)',
   };
-
   const featuresHTML = (plan.features || [])
     .slice(0, 8)
     .map((f: string) => `<li style="padding:4px 0;color:#4a5568;font-size:13px">✓ ${f}</li>`)
     .join('');
-
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -209,7 +189,6 @@ function generateInvoiceHTML(data: {
 <body>
   <div style="max-width:700px;margin:0 auto;padding:24px">
     <div style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.12)">
-
       <!-- ═══════ HEADER ═══════ -->
       <div style="background:linear-gradient(135deg,#1e3a8a 0%,#3b82f6 50%,#f97316 100%);padding:32px 40px;display:flex;align-items:center;justify-content:space-between">
         <div style="display:flex;align-items:center;gap:16px">
@@ -225,7 +204,6 @@ function generateInvoiceHTML(data: {
           </div>
         </div>
       </div>
-
       <!-- ═══════ INVOICE META ═══════ -->
       <div style="padding:28px 40px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between">
         <div>
@@ -241,7 +219,6 @@ function generateInvoiceHTML(data: {
           <span style="background:#dcfce7;color:#166534;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700">✓ PAID</span>
         </div>
       </div>
-
       <!-- ═══════ FROM / BILL TO ═══════ -->
       <div style="padding:28px 40px;display:flex;gap:40px;border-bottom:1px solid #e2e8f0">
         <div style="flex:1">
@@ -263,7 +240,6 @@ function generateInvoiceHTML(data: {
           </p>
         </div>
       </div>
-
       <!-- ═══════ SUBSCRIPTION DETAILS TABLE ═══════ -->
       <div style="padding:28px 40px">
         <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:16px">Subscription Details</p>
@@ -293,7 +269,6 @@ function generateInvoiceHTML(data: {
               </tr>
             </tbody>
           </table>
-
           <!-- Total row -->
           <div style="background:#f0f5ff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
             <span style="font-weight:700;color:#1a202c;font-size:16px">Total Paid</span>
@@ -301,7 +276,6 @@ function generateInvoiceHTML(data: {
           </div>
         </div>
       </div>
-
       <!-- ═══════ PAYMENT INFORMATION ═══════ -->
       <div style="padding:0 40px 28px 40px">
         <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:16px">Payment Information</p>
@@ -326,7 +300,6 @@ function generateInvoiceHTML(data: {
           </div>
         </div>
       </div>
-
       <!-- ═══════ PLAN FEATURES ═══════ -->
       ${featuresHTML ? `
       <div style="padding:0 40px 28px 40px">
@@ -335,23 +308,19 @@ function generateInvoiceHTML(data: {
           <ul style="list-style:none;margin:0;padding:0;columns:2;column-gap:20px">${featuresHTML}</ul>
         </div>
       </div>` : ''}
-
       <!-- ═══════ FOOTER ═══════ -->
       <div style="background:#f8fafc;padding:24px 40px;border-top:1px solid #e2e8f0;text-align:center">
         <p style="color:#64748b;font-size:13px;margin-bottom:6px">Thank you for choosing <strong style="color:#1e3a8a">${COMPANY_NAME}</strong>!</p>
         <p style="color:#94a3b8;font-size:12px">Questions? Contact us at ${COMPANY_EMAIL} or ${COMPANY_PHONE}</p>
         <p style="color:#cbd5e1;font-size:11px;margin-top:12px">This is a computer-generated invoice and does not require a signature.</p>
       </div>
-
     </div>
-
     <!-- Copyright -->
     <p style="text-align:center;color:#94a3b8;font-size:11px;margin-top:16px">© ${new Date().getFullYear()} ${COMPANY_NAME}. All rights reserved.</p>
   </div>
 </body>
 </html>`;
 }
-
 // ─── Generate Email HTML (wraps invoice + greeting) ─────────────────────────
 function generateEmailHTML(
   ownerName: string,
@@ -365,7 +334,6 @@ function generateEmailHTML(
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="margin:0;padding:0;font-family:'Segoe UI',-apple-system,sans-serif;background:#f0f2f5">
   <div style="max-width:700px;margin:0 auto;padding:24px">
-
     <!-- Greeting Banner -->
     <div style="background:linear-gradient(135deg,#1e3a8a 0%,#3b82f6 50%,#f97316 100%);border-radius:16px;padding:32px 40px;text-align:center;margin-bottom:24px">
       <div style="font-size:48px;margin-bottom:12px">🎉</div>
@@ -375,19 +343,15 @@ function generateEmailHTML(
       </p>
       <p style="color:rgba(255,255,255,0.8);font-size:14px;margin:12px 0 0 0">Amount paid: <strong style="font-size:18px">${amount}</strong></p>
     </div>
-
     <!-- Invoice (embedded) -->
     ${invoiceHTML}
-
     <!-- CTA -->
     <div style="text-align:center;margin:24px 0">
       <a href="${invoiceUrl}" style="display:inline-block;background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:700;font-size:15px">View Invoice Online →</a>
     </div>
-
     <div style="text-align:center;margin:24px 0">
       <a href="${SITE_URL}/dashboard" style="display:inline-block;background:#f97316;color:#fff;text-decoration:none;padding:12px 32px;border-radius:10px;font-weight:600;font-size:14px">Go to Dashboard →</a>
     </div>
-
     <p style="text-align:center;color:#94a3b8;font-size:11px;margin-top:20px">
       You're receiving this email because you subscribed to ${COMPANY_NAME}.<br>
       © ${new Date().getFullYear()} ${COMPANY_NAME}
@@ -396,7 +360,6 @@ function generateEmailHTML(
 </body>
 </html>`;
 }
-
 // ═══════════════════════════════════════════════════════════════════════════════
 //  MAIN HANDLER
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -404,13 +367,11 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
-
   try {
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
-
     const body: ConfirmationRequest = await req.json();
     const {
       restaurant_id,
@@ -422,16 +383,13 @@ serve(async (req) => {
       period_start,
       period_end,
     } = body;
-
     console.log('📨 Processing subscription confirmation for restaurant:', restaurant_id);
-
     // 1. Fetch restaurant details
     const { data: restaurant, error: restError } = await supabaseAdmin
       .from('restaurants')
       .select('name, address, phone, email, gstin, owner_name, owner_email, owner_phone, logo_url')
       .eq('id', restaurant_id)
       .single();
-
     if (restError || !restaurant) {
       console.error('Restaurant not found:', restError);
       return new Response(
@@ -439,14 +397,12 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 },
       );
     }
-
     // 2. Fetch plan details
     const { data: plan, error: planError } = await supabaseAdmin
       .from('subscription_plans')
       .select('name, price, interval, features')
       .eq('id', plan_id)
       .single();
-
     if (planError || !plan) {
       console.error('Plan not found:', planError);
       return new Response(
@@ -454,12 +410,10 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 },
       );
     }
-
     // 3. Generate invoice number
     const timestamp = Date.now().toString(36).toUpperCase();
     const invoiceNumber = `INV-SUB-${timestamp}`;
     const invoiceFileName = `${restaurant_id}/${invoiceNumber}.html`;
-
     // 4. Generate invoice HTML
     const invoiceHTML = generateInvoiceHTML({
       invoiceNumber,
@@ -487,7 +441,6 @@ serve(async (req) => {
         paid_at: new Date().toISOString(),
       },
     });
-
     // 5. Store invoice in Supabase Storage
     const { error: uploadError } = await supabaseAdmin.storage
       .from('subscription-invoices')
@@ -495,29 +448,23 @@ serve(async (req) => {
         contentType: 'text/html',
         upsert: true,
       });
-
     if (uploadError) {
       console.error('Invoice upload failed:', uploadError);
     } else {
       console.log('✅ Invoice stored:', invoiceFileName);
     }
-
     // Get public URL for the invoice
     const { data: publicUrlData } = supabaseAdmin.storage
       .from('subscription-invoices')
       .getPublicUrl(invoiceFileName);
-
     const invoiceStorageUrl = publicUrlData?.publicUrl || '';
     // Frontend-friendly invoice URL (the React page that wraps the invoice with download button)
     const invoicePageUrl = `${SITE_URL}/invoice/${encodeURIComponent(invoiceFileName)}`;
-
     console.log('📄 Invoice URL:', invoicePageUrl);
-
     // 6. Send Email
     const ownerEmail = restaurant.owner_email || restaurant.email;
     const ownerName = restaurant.owner_name || 'Restaurant Owner';
     const formattedAmount = `₹${amount_paid.toLocaleString('en-IN')}`;
-
     if (ownerEmail) {
       const emailHTML = generateEmailHTML(
         ownerName,
@@ -535,14 +482,14 @@ serve(async (req) => {
     } else {
       console.warn('No owner email found — skipping email notification');
     }
-
     // 7. Send WhatsApp
     const ownerPhone = restaurant.owner_phone || restaurant.phone;
+    let whatsappResult = null;
     if (ownerPhone) {
       // Pass just the dynamic path for the button URL suffix
       // Template base: https://swadeshisolutions.co.in/invoice/{{1}}
       // We send: "a89cea4a.../INV-SUB-XXX.html" → final URL = base + suffix
-      const whatsappResult = await sendWhatsApp(
+      whatsappResult = await sendWhatsApp(
         ownerPhone,
         {
           owner_name: ownerName,
@@ -558,13 +505,13 @@ serve(async (req) => {
     } else {
       console.warn('No owner phone found — skipping WhatsApp notification');
     }
-
     return new Response(
       JSON.stringify({
         success: true,
         invoice_url: invoicePageUrl,
         invoice_storage_url: invoiceStorageUrl,
         invoice_number: invoiceNumber,
+        whatsapp_result: ownerPhone ? whatsappResult : null,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
     );
