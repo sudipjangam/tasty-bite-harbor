@@ -20,6 +20,7 @@ import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { startOfDay, endOfDay, format } from "date-fns";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { Button } from "@/components/ui/button";
+import { sanitizeOrderItemDisplay } from "@/lib/order-utils";
 import { cn } from "@/lib/utils";
 
 export interface RecalledOrderItem {
@@ -86,7 +87,7 @@ export const QSOrderHistory: React.FC<QSOrderHistoryProps> = ({
         if (match) {
           return {
             quantity: parseInt(match[1], 10),
-            name: match[2].trim(),
+            name: sanitizeOrderItemDisplay(match[2]),
             price: parseFloat(match[3]),
           };
         }

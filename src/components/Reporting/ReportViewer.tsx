@@ -9,7 +9,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Presentation,
+  Printer,
+  FileText,
+  Filter,
+  Search,
+  Calendar,
 } from "lucide-react";
+import { sanitizeOrderItemDisplay } from "@/lib/order-utils";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import {
@@ -88,17 +94,17 @@ const formatCellValue = (value: unknown): string => {
       .map((item) => {
         if (typeof item === "string") {
           try {
-            const parsed = JSON.parse(item);
-            return parsed.name
-              ? `${parsed.quantity || 1}x ${parsed.name}`
-              : item;
+            const parsed = JSON.parse(String(item));
+            return `${parsed.quantity || 1}x ${sanitizeOrderItemDisplay(parsed.name)}`;
           } catch {
             return item;
           }
         }
-        return item?.name
-          ? `${item.quantity || 1}x ${item.name}`
-          : JSON.stringify(item);
+        try {
+          return `${item.quantity || 1}x ${sanitizeOrderItemDisplay(item.name)}`;
+        } catch (e) {
+          return JSON.stringify(item);
+        }
       })
       .join(", ");
   }

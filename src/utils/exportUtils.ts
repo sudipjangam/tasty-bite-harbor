@@ -2,6 +2,7 @@ import pptxgen from "pptxgenjs";
 import ExcelJS from "exceljs";
 import { format } from "date-fns";
 import { ReportData } from "@/hooks/useReportsData";
+import { sanitizeOrderItemDisplay } from "@/lib/order-utils";
 
 // Swadeshi Solutions Brand Colors (from the provided logo)
 const BRAND_ORANGE = "F17A28";
@@ -30,14 +31,14 @@ const formatCellValue = (value: unknown): string | number => {
           try {
             const parsed = JSON.parse(item);
             return parsed.name
-              ? `${parsed.quantity || 1}x ${parsed.name}`
+              ? `${parsed.quantity || 1}x ${sanitizeOrderItemDisplay(parsed.name)}`
               : item;
           } catch {
             return item;
           }
         }
         return item?.name
-          ? `${item.quantity || 1}x ${item.name}`
+          ? `${item.quantity || 1}x ${sanitizeOrderItemDisplay(item.name)}`
           : JSON.stringify(item);
       })
       .join(", ");

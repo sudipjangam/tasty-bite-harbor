@@ -17,6 +17,8 @@ import MenuItemsGrid from "../MenuItemsGrid";
 import CurrentOrder from "../CurrentOrder";
 import PaymentDialog from "./PaymentDialog";
 import { Button } from "@/components/ui/button";
+import { useLoyaltyProgram } from "@/hooks/useLoyaltyProgram";
+import { formatOrderItemString } from "@/lib/order-utils";
 import { useToast } from "@/hooks/use-toast";
 import { POSPayment } from "../Payment/POSPayment";
 import { OrderPayment } from "../Payment/OrderPayment";
@@ -615,13 +617,9 @@ const POSMode = () => {
           .insert({
             restaurant_id: profile.restaurant_id,
             customer_name: orderSource,
-            items: currentOrderItems.map((item) => {
-              const notes = [...(item.modifiers || []), item.notes]
-                .filter(Boolean)
-                .join(", ");
-              const meta = notes ? ` (${notes})` : "";
-              return `${item.quantity}x ${item.name}${meta} @${item.price}`;
-            }),
+            items: currentOrderItems.map((item) =>
+              formatOrderItemString(item.quantity, item.name, item.price, item.notes, item.modifiers)
+            ),
             total: currentOrderItems.reduce(
               (sum, item) => sum + item.price * item.quantity,
               0
@@ -672,13 +670,9 @@ const POSMode = () => {
           .insert({
             restaurant_id: profile.restaurant_id,
             customer_name: orderSource,
-            items: currentOrderItems.map((item) => {
-              const notes = [...(item.modifiers || []), item.notes]
-                .filter(Boolean)
-                .join(", ");
-              const meta = notes ? ` (${notes})` : "";
-              return `${item.quantity}x ${item.name}${meta} @${item.price}`;
-            }),
+            items: currentOrderItems.map((item) =>
+              formatOrderItemString(item.quantity, item.name, item.price, item.notes, item.modifiers)
+            ),
             total: currentOrderItems.reduce(
               (sum, item) => sum + item.price * item.quantity,
               0

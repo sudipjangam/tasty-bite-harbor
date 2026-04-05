@@ -21,6 +21,7 @@ import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useAuth } from "@/hooks/useAuth";
 import { useCRMSync } from "@/hooks/useCRMSync";
 import { useToast } from "@/hooks/use-toast";
+import { formatOrderItemString } from "@/lib/order-utils";
 import { useQuery } from "@tanstack/react-query";
 import {
   formatBillText,
@@ -504,7 +505,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           notes: [],
         }));
         const formattedItems = items.map(
-          (item) => `${item.quantity}x ${item.name} @${item.price}`,
+          (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
         );
 
         const offlineToken = generateOfflineOrderNumber();
@@ -680,7 +681,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       // ──────────────────────────────────────────────────────────────
 
       const formattedItems = items.map(
-        (item) => `${item.quantity}x ${item.name} @${item.price}`,
+        (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
       );
 
       const kitchenItems = items.map((item) => ({

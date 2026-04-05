@@ -428,12 +428,12 @@ const Customers = () => {
   ).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-indigo-950">
+    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-purple-50 via-indigo-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-indigo-950">
       {/* Enable real-time updates for all customer-related data */}
       <RealtimeCustomers />
 
       {/* Modern Header with Stats */}
-      <div className="p-6 pb-4">
+      <div className="p-6 pb-4 flex-shrink-0 overflow-y-auto">
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl shadow-lg">
@@ -1035,9 +1035,9 @@ const Customers = () => {
           </div>
         </div>
       ) : (
-        <div className="px-6 pb-6">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-320px)]">
-            <div className="lg:col-span-5 xl:col-span-4 h-full">
+        <div className="px-6 pb-6 flex-1 min-h-0">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
+            <div className="lg:col-span-5 xl:col-span-4 h-full min-h-0">
               <CustomerList
                 customers={displayCustomers}
                 loading={isLoadingCustomers}
@@ -1048,7 +1048,7 @@ const Customers = () => {
               />
             </div>
 
-            <div className="lg:col-span-7 xl:col-span-8 h-full">
+            <div className="lg:col-span-7 xl:col-span-8 h-full min-h-0">
               {customers.length === 0 ? (
                 <div className="h-full bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-xl flex flex-col items-center justify-center text-center p-8">
                   <div className="rounded-full bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900 dark:to-indigo-900 p-6 mb-4">

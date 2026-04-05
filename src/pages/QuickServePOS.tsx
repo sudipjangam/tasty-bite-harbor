@@ -16,6 +16,7 @@ import {
   QSOrderHistory,
   RecalledOrderItem,
 } from "@/components/QuickServe/QSOrderHistory";
+import { formatOrderItemString } from "@/lib/order-utils";
 import { QSActiveOrders } from "@/components/QuickServe/QSActiveOrders";
 import { QSCustomItemDialog } from "@/components/QuickServe/QSCustomItemDialog";
 import { QSHeldOrdersDrawer } from "@/components/QuickServe/QSHeldOrdersDrawer";
@@ -374,10 +375,7 @@ const QuickServePOS: React.FC = () => {
         notes: item.notes ? [item.notes] : [],
       }));
       const formattedItems = orderItems.map(
-        (item) => {
-          const notesSuffix = item.notes ? ` (${item.notes})` : "";
-          return `${item.quantity}x ${item.name}${notesSuffix} @${item.price}`;
-        },
+        (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
       );
 
       const itemsSubtotal = orderItems.reduce(
@@ -441,10 +439,7 @@ const QuickServePOS: React.FC = () => {
 
         // Format ALL current items for the order record
         const allFormattedItems = orderItems.map(
-          (item) => {
-            const notesSuffix = item.notes ? ` (${item.notes})` : "";
-            return `${item.quantity}x ${item.name}${notesSuffix} @${item.price}`;
-          },
+          (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
         );
 
         // Reset completion status for ALL items

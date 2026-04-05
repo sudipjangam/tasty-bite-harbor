@@ -292,7 +292,7 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
                   <button
                     onClick={() => {
                       setEditingNoteId(item.id);
-                      setNoteText(item.notes && item.notes !== "[]" ? item.notes : "");
+                      setNoteText(item.notes && item.notes.trim() !== "" && item.notes !== "[]" ? item.notes : "");
                     }}
                     className={cn(
                       "w-7 h-7 rounded-xl flex items-center justify-center transition-all active:scale-90",
@@ -309,7 +309,7 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
             </div>
 
             {/* Note display */}
-            {item.notes && item.notes !== "[]" && (
+            {item.notes && item.notes.trim() !== "" && item.notes !== "[]" && (
               <div className="flex items-center gap-1 mt-1.5 ml-0.5 text-[11px] text-indigo-600 dark:text-indigo-400">
                 <MessageSquare className="w-3 h-3 shrink-0" />
                 <span className="truncate">{item.notes}</span>

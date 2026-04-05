@@ -34,6 +34,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { Order } from "@/types/orders";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { useAuth } from "@/hooks/useAuth";
+import { formatOrderItemString } from "@/lib/order-utils";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface ImprovedAddOrderFormProps {
@@ -177,7 +178,11 @@ const ImprovedAddOrderForm = ({
       let notes = "";
       const notesMatch = remainingString.match(/\((.*?)\)$/);
       if (notesMatch) {
-        notes = notesMatch[1];
+        const rawNotes = notesMatch[1].trim();
+        // Skip artifact notes like "[]"
+        if (rawNotes && rawNotes !== "[]") {
+          notes = rawNotes;
+        }
         remainingString = remainingString.replace(/\s*\(.*?\)$/, "");
       }
 
@@ -347,8 +352,7 @@ const ImprovedAddOrderForm = ({
             ? `Table ${values.tableNumber}`
             : values.customerName || "Take Away",
         items: values.orderItems.map((item) => {
-          const notesText = item.notes ? `(${item.notes})` : "";
-          return `${item.quantity}x ${item.itemName} ${notesText} @${item.unitPrice}`;
+          return formatOrderItemString(item.quantity, item.itemName, item.unitPrice, item.notes);
         }),
         total: orderTotal,
         discount_amount: discountAmount || 0,

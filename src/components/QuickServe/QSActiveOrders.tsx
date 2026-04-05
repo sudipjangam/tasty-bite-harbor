@@ -13,6 +13,7 @@ import {
   Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { sanitizeOrderItemDisplay } from "@/lib/order-utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -70,7 +71,7 @@ function parseOrderItem(itemStr: string) {
   if (match) {
     return {
       quantity: parseInt(match[1]),
-      name: match[2],
+      name: sanitizeOrderItemDisplay(match[2]),
       price: parseFloat(match[3]),
     };
   }
