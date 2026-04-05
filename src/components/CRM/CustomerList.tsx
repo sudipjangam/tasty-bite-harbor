@@ -360,7 +360,7 @@ const CustomerList: React.FC<CustomerListProps> = ({
   }
 
   return (
-    <div className="h-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 rounded-2xl shadow-xl flex flex-col">
+    <div className="h-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 rounded-2xl shadow-xl flex flex-col overflow-hidden min-h-0">
       <div className="p-6 border-b border-white/30 dark:border-gray-700/50">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -765,7 +765,7 @@ const CustomerList: React.FC<CustomerListProps> = ({
         )}
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-4 space-y-3">
           {filteredCustomers.length === 0 ? (
             <div className="text-center py-8">

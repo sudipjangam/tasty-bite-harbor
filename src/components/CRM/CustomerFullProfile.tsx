@@ -77,6 +77,48 @@ const CustomerFullProfile: React.FC<CustomerFullProfileProps> = ({
   const [showAddTag, setShowAddTag] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
+const getOrderInsights = (orders: any[]) => {
+  if (!orders || orders.length === 0) return null;
+  
+  const itemCounts: Record<string, number> = {};
+  let totalItemsCount = 0;
+  
+  orders.forEach(order => {
+    const items = order.items || [];
+    items.forEach((itemObj: any) => {
+      if (typeof itemObj === 'string') {
+        const match = itemObj.match(/^(\d+)x\s+(.+)$/);
+        if (match) {
+           const qty = parseInt(match[1]);
+           const name = match[2].trim();
+           itemCounts[name] = (itemCounts[name] || 0) + qty;
+           totalItemsCount += qty;
+        } else {
+           itemCounts[itemObj] = (itemCounts[itemObj] || 0) + 1;
+           totalItemsCount += 1;
+        }
+      } else if (itemObj?.name) {
+        const qty = Number(itemObj.quantity) || 1;
+        itemCounts[itemObj.name] = (itemCounts[itemObj.name] || 0) + qty;
+        totalItemsCount += qty;
+      }
+    });
+  });
+
+  const mostOrdered = Object.entries(itemCounts).sort((a, b) => b[1] - a[1])[0];
+  
+  const dates = orders.map(o => new Date(o.date).getTime()).sort((a,b) => a - b);
+  const daysDiff = dates.length > 1 ? (dates[dates.length-1] - dates[0]) / (1000 * 60 * 60 * 24) : 0;
+  const visitFrequency = dates.length > 1 ? (daysDiff / (dates.length - 1)).toFixed(1) : null;
+  
+  return {
+    mostOrderedItem: mostOrdered ? mostOrdered[0] : null,
+    mostOrderedCount: mostOrdered ? mostOrdered[1] : 0,
+    visitFrequencyVal: visitFrequency ? parseFloat(visitFrequency) : null,
+    totalItemsCount
+  };
+};
+
   const { getCustomerComprehensiveData } = useCustomerData();
 
   // Fetch comprehensive data
@@ -335,11 +377,11 @@ const CustomerFullProfile: React.FC<CustomerFullProfileProps> = ({
       </Card>
 
       {/* Tabs Section */}
-      <Card className="flex-1 bg-white/80 backdrop-blur-xl border-white/20 shadow-xl overflow-hidden flex flex-col">
+      <Card className="flex-1 bg-white/80 backdrop-blur-xl border-white/20 shadow-xl overflow-hidden flex flex-col min-h-0">
         <Tabs
           value={activeTab}
           onValueChange={setActiveTab}
-          className="flex-1 flex flex-col"
+          className="flex-1 flex flex-col min-h-0"
         >
           <TabsList className="w-full justify-start border-b bg-transparent px-4 pt-4 gap-2">
             <TabsTrigger
@@ -374,7 +416,7 @@ const CustomerFullProfile: React.FC<CustomerFullProfileProps> = ({
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0">
             {/* Overview Tab */}
             <TabsContent value="overview" className="p-4 m-0">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -519,52 +561,92 @@ const CustomerFullProfile: React.FC<CustomerFullProfileProps> = ({
             </TabsContent>
 
             {/* POS Orders Tab */}
-            <TabsContent value="pos-orders" className="p-4 m-0">
+            <TabsContent value="pos-orders" className="p-4 m-0 space-y-4">
               {isLoadingData ? (
                 <div className="text-center py-8 text-gray-500">
                   Loading orders...
                 </div>
               ) : comprehensiveData?.posOrders &&
                 comprehensiveData.posOrders.length > 0 ? (
-                <div className="space-y-3">
-                  {comprehensiveData.posOrders.map((order: any) => (
-                    <div
-                      key={order.id}
-                      className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-                          <ShoppingBag className="h-5 w-5 text-white" />
+                <>
+                  {/* Order Insights Panel */}
+                  <div className="grid grid-cols-2 gap-4 mb-2 shrink-0">
+                    {(() => {
+                      const insights = getOrderInsights(comprehensiveData.posOrders);
+                      return insights ? (
+                        <>
+                          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800/30 shadow-sm">
+                            <h4 className="text-xs font-semibold uppercase tracking-wider text-indigo-800/70 dark:text-indigo-300 mb-1 flex items-center gap-2">
+                              <Star className="h-3 w-3" /> Most Ordered
+                            </h4>
+                            <p className="text-lg font-bold text-gray-900 dark:text-white truncate">
+                              {insights.mostOrderedItem || "N/A"}
+                            </p>
+                            <p className="text-xs text-indigo-600/80 dark:text-indigo-400 font-medium">
+                              {insights.mostOrderedCount > 0 ? `${insights.mostOrderedCount} times total` : "No specific favorites"}
+                            </p>
+                          </div>
+                          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800/30 shadow-sm">
+                            <h4 className="text-xs font-semibold uppercase tracking-wider text-emerald-800/70 dark:text-emerald-300 mb-1 flex items-center gap-2">
+                              <Activity className="h-3 w-3" /> Visit Frequency
+                            </h4>
+                            <p className="text-lg font-bold text-gray-900 dark:text-white">
+                              {insights.visitFrequencyVal !== null ? `Every ${insights.visitFrequencyVal} days` : "Just 1 Visit"}
+                            </p>
+                            <p className="text-xs text-emerald-600/80 dark:text-emerald-400 font-medium">
+                              Avg time between orders
+                            </p>
+                          </div>
+                        </>
+                      ) : null;
+                    })()}
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {comprehensiveData.posOrders.map((order: any) => (
+                      <div
+                        key={order.id}
+                        className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
+                            <ShoppingBag className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                              Order #{order.order_id?.slice(0, 8)}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {formatDateTime(order.date)}
+                            </p>
+                            {order.items && order.items.length > 0 && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                {order.items.length} items
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            Order #{order.order_id?.slice(0, 8)}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {formatDateTime(order.date)}
-                          </p>
+                        <div className="text-right">
+                          <CurrencyDisplay
+                            amount={order.amount}
+                            className="font-bold text-gray-900 dark:text-white"
+                          />
+                          <Badge
+                            variant="secondary"
+                            className={cn(
+                              "mt-1",
+                              order.status === "completed"
+                                ? "bg-green-100 text-green-700"
+                                : "bg-yellow-100 text-yellow-700"
+                            )}
+                          >
+                            {order.status}
+                          </Badge>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <CurrencyDisplay
-                          amount={order.amount}
-                          className="font-bold text-gray-900 dark:text-white"
-                        />
-                        <Badge
-                          variant="secondary"
-                          className={cn(
-                            "mt-1",
-                            order.status === "completed"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-yellow-100 text-yellow-700"
-                          )}
-                        >
-                          {order.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </>
               ) : (
                 <div className="text-center py-8 text-gray-500">
                   <ShoppingBag className="h-12 w-12 mx-auto mb-3 text-gray-300" />
