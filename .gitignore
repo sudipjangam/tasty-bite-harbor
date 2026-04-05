@@ -43,3 +43,10 @@ lerna-debug.log*
 .env
 .env.local
 .env.*.local
+
+# Project Details & AI Agents
+docs/
+.agent/
+.claude/
+.gemini/
+.netlify/

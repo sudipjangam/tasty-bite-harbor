@@ -10,16 +10,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowUpDown, Package, ShoppingCart, Settings, Trash2, RefreshCw, Plus, TrendingUp, TrendingDown, Search } from "lucide-react";
+import { ArrowUpDown, Package, ShoppingCart, Settings, Trash2, RefreshCw, Plus, TrendingUp, TrendingDown, Search, IndianRupee } from "lucide-react";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useToast } from "@/hooks/use-toast";
 import { usePagination } from "@/hooks/usePagination";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 interface InventoryTransaction {
   id: string;
   transaction_type: string;
   quantity_change: number;
+  unit_cost_at_time: number | null;
+  total_cost: number | null;
+  lot_id: string | null;
   notes: string;
   created_at: string;
   inventory_item: {
@@ -33,6 +37,8 @@ interface InventoryItem {
   name: string;
   quantity: number;
   unit: string;
+  cost_per_unit: number | null;
+  category?: string;
 }
 
 const transactionTypeIcons: Record<string, React.ReactNode> = {
@@ -60,11 +66,14 @@ const InventoryTransactions = () => {
   const [selectedItemId, setSelectedItemId] = useState<string>("");
   const [transactionType, setTransactionType] = useState<string>("adjustment");
   const [quantityChange, setQuantityChange] = useState<number>(0);
+  const [unitCost, setUnitCost] = useState(0);
+  const [expiryDate, setExpiryDate] = useState("");
   const [notes, setNotes] = useState("");
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const { restaurantId } = useRestaurantId();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { symbol: currencySymbol } = useCurrencyContext();
 
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ["inventory-transactions", restaurantId, selectedType],
@@ -99,7 +108,7 @@ const InventoryTransactions = () => {
 
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, quantity, unit")
+        .select("id, name, quantity, unit, cost_per_unit, category")
         .eq("restaurant_id", restaurantId)
         .order("name");
 
@@ -121,13 +130,47 @@ const InventoryTransactions = () => {
       if (transactionType === "waste" || transactionType === "sale") {
         actualChange = -Math.abs(quantityChange);
       } else if (transactionType === "adjustment") {
-        // For adjustment, use the signed value as entered
         actualChange = quantityChange;
       } else {
         actualChange = Math.abs(quantityChange);
       }
 
-      // Create transaction record
+      // Determine cost for this transaction
+      const costPerUnit = transactionType === "purchase" && unitCost > 0 
+        ? unitCost 
+        : (selectedItem.cost_per_unit || 0);
+      const totalCostValue = Math.abs(actualChange) * costPerUnit;
+
+      let lotId: string | null = null;
+
+      // For purchases, create an inventory lot
+      if (transactionType === "purchase" && actualChange > 0) {
+        const { data: lot, error: lotError } = await supabase
+          .from("inventory_lots")
+          .insert({
+            restaurant_id: restaurantId,
+            inventory_item_id: selectedItemId,
+            quantity_purchased: actualChange,
+            quantity_remaining: actualChange,
+            unit_cost: costPerUnit,
+            lot_number: 'MANUAL-' + new Date().toISOString().slice(0, 10) + '-' + Math.random().toString(36).slice(2, 6),
+            expiry_date: expiryDate ? new Date(expiryDate).toISOString() : null,
+            notes: notes || 'Manual purchase entry',
+          })
+          .select('id')
+          .single();
+
+        if (lotError) throw lotError;
+        lotId = lot.id;
+
+        // Update cost_per_unit to latest purchase price
+        await supabase
+          .from("inventory_items")
+          .update({ cost_per_unit: costPerUnit })
+          .eq("id", selectedItemId);
+      }
+
+      // Create transaction record with cost tracking
       const { error: transactionError } = await supabase
         .from("inventory_transactions")
         .insert([{
@@ -135,6 +178,9 @@ const InventoryTransactions = () => {
           inventory_item_id: selectedItemId,
           transaction_type: transactionType,
           quantity_change: actualChange,
+          unit_cost_at_time: costPerUnit,
+          total_cost: totalCostValue,
+          lot_id: lotId,
           notes: notes || null,
         }]);
 
@@ -153,6 +199,7 @@ const InventoryTransactions = () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-transactions"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-lots"] });
       toast({ title: "Transaction recorded successfully" });
       setIsAddDialogOpen(false);
       resetForm();
@@ -170,6 +217,8 @@ const InventoryTransactions = () => {
     setSelectedItemId("");
     setTransactionType("adjustment");
     setQuantityChange(0);
+    setUnitCost(0);
+    setExpiryDate("");
     setNotes("");
   };
 
@@ -332,6 +381,37 @@ const InventoryTransactions = () => {
                 )}
               </div>
 
+              {/* Unit Cost — shown for purchases */}
+              {transactionType === "purchase" && (
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">New Unit Cost (₹) *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={unitCost}
+                      onChange={(e) => setUnitCost(parseFloat(e.target.value) || 0)}
+                      required
+                      className="bg-white/80 dark:bg-gray-700/80 border-gray-200 dark:border-gray-600 rounded-xl mt-1"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">This will update the item's average cost and be tracked as a new inventory lot.</p>
+                  </div>
+                  
+                  {selectedItem && (selectedItem.category === 'Dairy' || selectedItem.category === 'Bakery') && (
+                    <div>
+                      <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Expiry Date</Label>
+                      <Input
+                        type="date"
+                        value={expiryDate}
+                        onChange={(e) => setExpiryDate(e.target.value)}
+                        className="bg-white/80 dark:bg-gray-700/80 border-gray-200 dark:border-gray-600 rounded-xl mt-1"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div>
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Notes</Label>
                 <Textarea
@@ -414,6 +494,16 @@ const InventoryTransactions = () => {
                         <span className={`font-semibold ${transaction.quantity_change > 0 ? "text-green-600" : "text-red-600"}`}>
                           {transaction.quantity_change > 0 ? "+" : ""}{transaction.quantity_change}
                         </span> {transaction.inventory_item?.unit || "units"}
+                        {transaction.unit_cost_at_time != null && transaction.unit_cost_at_time > 0 && (
+                          <span className="ml-2 text-gray-500">
+                            @ {currencySymbol}{Number(transaction.unit_cost_at_time).toFixed(2)}/{transaction.inventory_item?.unit || "unit"}
+                          </span>
+                        )}
+                        {transaction.total_cost != null && transaction.total_cost > 0 && (
+                          <span className="ml-1 font-semibold text-purple-600 dark:text-purple-400">
+                            = {currencySymbol}{Number(transaction.total_cost).toFixed(2)}
+                          </span>
+                        )}
                       </p>
                       {transaction.notes && <p className="text-gray-500">{transaction.notes}</p>}
                       <p className="text-xs text-gray-400">
