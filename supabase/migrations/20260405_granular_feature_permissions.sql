@@ -119,6 +119,7 @@ SET components = '[
   "recipes.costing",
   "tables.grid",
   "tables.timers",
+  "reports.analytics",
   "reports.tabs.default",
   "reports.tabs.export_center",
   "reports.default.orders_sales",
@@ -159,6 +160,7 @@ SET components = '[
   "pos.hold_orders",
   "pos.daily_summary",
   "quickserve.basic",
+  "quickserve.qsr_pos",
   "quickserve.custom_widgets",
   "quickserve.live_metrics",
   "quickserve.loyalty_integration",
@@ -190,6 +192,7 @@ SET components = '[
   "tables.grid",
   "tables.timers",
   "tables.optimization",
+  "reports.analytics",
   "reports.tabs.analytics",
   "reports.tabs.default",
   "reports.tabs.custom_builder",
@@ -233,7 +236,9 @@ SET components = '[
   "ai.analytics",
   "settings.basic",
   "settings.security",
-  "settings.gdpr"
+  "settings.gdpr",
+  "users_permissions.user_access",
+  "users_permissions.permission_management"
 ]'::jsonb
 WHERE (name ILIKE '%professional%' OR name ILIKE '%pro %' OR name ILIKE '%pro-%')
   AND name NOT ILIKE '%free trial%'

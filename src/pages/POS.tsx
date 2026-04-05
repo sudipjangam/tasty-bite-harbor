@@ -3,6 +3,7 @@ import POSMode from "@/components/Orders/POS/POSMode";
 import { StandardizedLayout } from "@/components/ui/standardized-layout";
 import { MobileNavigation } from "@/components/ui/mobile-navigation";
 import { Sparkles, Zap } from "lucide-react";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 const POS = () => {
   return (
@@ -53,9 +54,11 @@ const POS = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden">
-        <POSMode />
-      </div>
+      <FeatureLock feature="pos.basic" interceptClicks={true}>
+        <div className="flex-1 overflow-hidden">
+          <POSMode />
+        </div>
+      </FeatureLock>
       
       <MobileNavigation />
     </div>

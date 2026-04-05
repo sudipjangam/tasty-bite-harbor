@@ -1,10 +1,13 @@
 import { QSRPosMain } from "@/components/QSR/QSRPosMain";
 import { MobileNavigation } from "@/components/ui/mobile-navigation";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 const QSRPos = () => {
   return (
     <div className="min-h-screen pb-20 md:pb-0">
-      <QSRPosMain />
+      <FeatureLock feature="quickserve.qsr_pos" interceptClicks={true}>
+        <QSRPosMain />
+      </FeatureLock>
       <MobileNavigation />
     </div>
   );

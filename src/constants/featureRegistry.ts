@@ -50,6 +50,7 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
     color: 'from-orange-500 to-amber-600',
     features: [
       { key: 'quickserve.basic', label: 'Basic Quick Serve', description: 'Core quick serve POS' },
+      { key: 'quickserve.qsr_pos', label: 'QSR POS (Component)', description: 'Dedicated Quick Service Restaurant POS page' },
       { key: 'quickserve.custom_widgets', label: 'Custom Widgets', description: 'Drag-and-drop dashboard widget customization' },
       { key: 'quickserve.live_metrics', label: 'Live Revenue Metrics', description: 'Real-time revenue & order count bar' },
       { key: 'quickserve.loyalty_integration', label: 'Loyalty Integration', description: 'Points redemption at checkout' },
@@ -152,6 +153,7 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
     color: 'from-purple-500 to-fuchsia-600',
     features: [
       // Tab-level access
+      { key: 'reports.analytics', label: 'Analytics Page', description: 'Dedicated Business Insights dashboard' },
       { key: 'reports.tabs.analytics', label: 'Advanced Analytics Tab', description: 'BI-level trend charts' },
       { key: 'reports.tabs.default', label: 'Default Reports Tab', description: 'Pre-built report cards' },
       { key: 'reports.tabs.custom_builder', label: 'Custom Report Builder Tab', description: 'Build your own reports' },
@@ -272,6 +274,19 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
       { key: 'settings.gdpr', label: 'GDPR/Compliance', description: 'Data management tools' },
     ],
   },
+
+  // ─── User & Permission Management ─────────────────────────────────────
+  {
+    id: 'users_permissions',
+    label: 'User & Access Mgmt',
+    icon: 'Key',
+    color: 'from-blue-600 to-indigo-700',
+    features: [
+      { key: 'users_permissions.user_access', label: 'User & Access', description: 'Manage system users, roles, and user permissions' },
+      { key: 'users_permissions.permission_management', label: 'Permission Management', description: 'Access to the global Component Permissions page' },
+    ],
+  },
+
 
   // ─── AI & Advanced ────────────────────────────────────────────────────
   {

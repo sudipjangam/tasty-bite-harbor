@@ -18,6 +18,7 @@ import {
   QrCode,
 } from "lucide-react";
 import QRCodeManagement from "@/components/QR/QRCodeManagement";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 const Rooms = () => {
   const [activeTab, setActiveTab] = useState("rooms");
@@ -102,45 +103,55 @@ const Rooms = () => {
         <div className="overflow-x-auto pb-2 mb-6">
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl p-2">
             <TabsList className="inline-flex w-auto min-w-full md:w-auto space-x-1 p-1 bg-transparent rounded-2xl">
-              <TabsTrigger
-                value="rooms"
-                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
-              >
-                <Hotel className="h-4 w-4" />
-                Rooms
-              </TabsTrigger>
-              <TabsTrigger
-                value="billing"
-                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
-                disabled={!hasRestaurantId}
-              >
-                <Calendar className="h-4 w-4" />
-                Billing History
-              </TabsTrigger>
-              <TabsTrigger
-                value="occasions"
-                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
-                disabled={!hasRestaurantId}
-              >
-                <Gift className="h-4 w-4" />
-                Special Occasions
-              </TabsTrigger>
-              <TabsTrigger
-                value="promotions"
-                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
-                disabled={!hasRestaurantId}
-              >
-                <Percent className="h-4 w-4" />
-                Promotions
-              </TabsTrigger>
-              <TabsTrigger
-                value="qr-codes"
-                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
-                disabled={!hasRestaurantId}
-              >
-                <QrCode className="h-4 w-4" />
-                QR Codes
-              </TabsTrigger>
+              <FeatureLock feature="rooms.management" interceptClicks={true}>
+                <TabsTrigger
+                  value="rooms"
+                  className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
+                >
+                  <Hotel className="h-4 w-4" />
+                  Rooms
+                </TabsTrigger>
+              </FeatureLock>
+              <FeatureLock feature="rooms.management" interceptClicks={true}>
+                <TabsTrigger
+                  value="billing"
+                  className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
+                  disabled={!hasRestaurantId}
+                >
+                  <Calendar className="h-4 w-4" />
+                  Billing History
+                </TabsTrigger>
+              </FeatureLock>
+              <FeatureLock feature="rooms.channel_mgmt" interceptClicks={true}>
+                <TabsTrigger
+                  value="occasions"
+                  className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
+                  disabled={!hasRestaurantId}
+                >
+                  <Gift className="h-4 w-4" />
+                  Special Occasions
+                </TabsTrigger>
+              </FeatureLock>
+              <FeatureLock feature="rooms.channel_mgmt" interceptClicks={true}>
+                <TabsTrigger
+                  value="promotions"
+                  className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
+                  disabled={!hasRestaurantId}
+                >
+                  <Percent className="h-4 w-4" />
+                  Promotions
+                </TabsTrigger>
+              </FeatureLock>
+              <FeatureLock feature="rooms.channel_mgmt" interceptClicks={true}>
+                <TabsTrigger
+                  value="qr-codes"
+                  className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2"
+                  disabled={!hasRestaurantId}
+                >
+                  <QrCode className="h-4 w-4" />
+                  QR Codes
+                </TabsTrigger>
+              </FeatureLock>
             </TabsList>
           </div>
         </div>

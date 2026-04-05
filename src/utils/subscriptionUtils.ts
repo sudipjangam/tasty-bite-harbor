@@ -155,6 +155,17 @@ export const hasFeatureAccess = (featureKey: string, planFeatures: string[]): bo
     if (normalizedPlan.includes(wildcardKey)) return true;
   }
 
+  // 3. Legacy flat-key fallback (e.g. if DB has 'reports' instead of 'reports.*')
+  // This ensures live users aren't locked out before the migration script runs.
+  const rootKey = segments[0];
+  if (normalizedPlan.includes(rootKey)) return true;
+  
+  // Specific legacy mappings
+  if (rootKey === 'users_permissions') {
+    if (normalizedPlan.includes('user-management') || normalizedPlan.includes('permission-management')) return true;
+  }
+  if (rootKey === 'quickserve' && normalizedPlan.includes('qsr-pos')) return true;
+
   return false;
 };
 
