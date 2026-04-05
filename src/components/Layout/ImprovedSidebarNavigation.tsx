@@ -360,6 +360,7 @@ export const ImprovedSidebarNavigation = ({
 
   // System components that should bypass subscription check (admin-only, controls access to system)
   const systemComponents = [
+    "dashboard",
     "user-management",
     "role-management",
     "permission-management",

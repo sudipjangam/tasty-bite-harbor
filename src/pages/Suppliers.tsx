@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -487,6 +488,7 @@ const Suppliers = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 dark:from-gray-900 dark:via-purple-950 dark:to-gray-900 p-4 md:p-6">
+      <FeatureLock feature="suppliers" interceptClicks={true}>
       {/* Modern Header */}
       <div className="mb-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-2xl md:rounded-3xl shadow-xl p-4 md:p-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -1167,6 +1169,7 @@ const Suppliers = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </FeatureLock>
     </div>
   );
 };
