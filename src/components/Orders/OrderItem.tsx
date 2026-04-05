@@ -15,7 +15,11 @@ import {
   Star,
   Zap,
   CheckCircle,
+  User,
+  ChevronRight,
+  UserCircle,
 } from "lucide-react";
+import { sanitizeOrderItemDisplay } from "@/lib/order-utils";
 import {
   Select,
   SelectContent,
@@ -277,7 +281,7 @@ const OrderItem: React.FC<OrderItemProps> = ({
                 <ul className="pl-6 space-y-1">
                   {order.items.map((item, index) => (
                     <li key={index} className="text-sm text-muted-foreground">
-                      • {item}
+                      • {sanitizeOrderItemDisplay(item)}
                     </li>
                   ))}
                 </ul>

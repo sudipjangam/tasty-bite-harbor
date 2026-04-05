@@ -7,6 +7,7 @@ import { useActiveKitchenOrders } from "@/hooks/useActiveKitchenOrders";
 import { usePastOrders, PastOrder } from "@/hooks/usePastOrders";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { formatOrderItemString } from "@/lib/order-utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { startOfDay, endOfDay } from "date-fns";
 import { formatIndianCurrency } from "@/utils/formatters";
@@ -549,10 +550,9 @@ export const QSRPosMain: React.FC = () => {
           .insert({
             restaurant_id: restaurantId,
             customer_name: finalCustomerName, // Use actual customer name
-            items: orderItems.map((item) => {
-              const notes = item.notes ? ` (${item.notes})` : "";
-              return `${item.quantity}x ${item.name}${notes} @${item.price}`;
-            }),
+            items: orderItems.map((item) =>
+              formatOrderItemString(item.quantity, item.name, item.price, item.notes)
+            ),
             total: total,
             status: "pending",
             source: "pos",
@@ -675,10 +675,9 @@ export const QSRPosMain: React.FC = () => {
           .insert({
             restaurant_id: restaurantId,
             customer_name: finalCustomerName, // Use actual customer name
-            items: orderItems.map((item) => {
-              const notes = item.notes ? ` (${item.notes})` : "";
-              return `${item.quantity}x ${item.name}${notes} @${item.price}`;
-            }),
+            items: orderItems.map((item) =>
+              formatOrderItemString(item.quantity, item.name, item.price, item.notes)
+            ),
             total: total,
             status: "held",
             source: "pos",
@@ -944,7 +943,7 @@ export const QSRPosMain: React.FC = () => {
 
         // Prepare items array for orders table
         const orderItemsFormatted = orderItems.map(
-          (item) => `${item.quantity}x ${item.name} @${item.price}`,
+          (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
         );
 
         const { data: createdOrder, error: orderError } = await supabase

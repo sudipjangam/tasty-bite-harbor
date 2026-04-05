@@ -33,6 +33,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { useCurrencyContext } from '@/contexts/CurrencyContext';
+import { sanitizeOrderItemDisplay, formatOrderItemString } from '@/lib/order-utils';
 
 interface RoomOrdersDialogProps {
   roomId: string;
@@ -197,7 +198,7 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
         .insert({
           restaurant_id: restaurantId,
           customer_name: customerName,
-          items: orderItems.map(item => `${item.quantity}x ${item.name}`),
+          items: orderItems.map(item => formatOrderItemString(item.quantity, item.name, item.price)),
           total: total,
           status: 'pending',
           source: 'room_service',
@@ -436,7 +437,9 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
                           <span className="text-xs text-gray-500">{formatDate(order.created_at)} {formatTime(order.created_at)}</span>
                         </div>
                         <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 line-clamp-2">
-                          {Array.isArray(order.items) ? order.items.join(', ') : String(order.items)}
+                          {Array.isArray(order.items) 
+                            ? (order.items as string[]).map(i => sanitizeOrderItemDisplay(i)).join(', ') 
+                            : sanitizeOrderItemDisplay(String(order.items))}
                         </p>
                         <div className="flex items-center justify-between">
                           <span className="text-2xl font-bold text-gray-800 dark:text-white">{currencySymbol}{(order.total || 0).toFixed(2)}</span>

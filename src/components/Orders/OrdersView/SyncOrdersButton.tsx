@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { formatOrderItemString } from "@/lib/order-utils";
 import { useToast } from "@/hooks/use-toast";
 
 export const SyncOrdersButton = () => {
@@ -67,9 +68,7 @@ export const SyncOrdersButton = () => {
 
         // Format items for orders table
         const formattedItems = ko.items.map((item: any) => {
-          const notes = Array.isArray(item.notes) ? item.notes.join(", ") : "";
-          const meta = notes ? ` (${notes})` : "";
-          return `${item.quantity}x ${item.name}${meta} @${item.price}`;
+          return formatOrderItemString(item.quantity, item.name, item.price, item.notes);
         });
 
         // Update the main orders table with Net Total and formatted items

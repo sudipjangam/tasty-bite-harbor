@@ -5,6 +5,8 @@
  * 100% free — no API keys, no per-message costs.
  */
 
+import { sanitizeOrderItemDisplay } from "@/lib/order-utils";
+
 export interface BillFormatParams {
   restaurantName: string;
   restaurantAddress?: string;
@@ -85,7 +87,7 @@ export function formatBillText(params: BillFormatParams): string {
   items.forEach((item) => {
     const itemTotal = item.price * item.quantity;
     lines.push(
-      `  ${item.quantity}x ${item.name}  — ${currencySymbol}${itemTotal.toFixed(2)}`
+      `  ${item.quantity}x ${sanitizeOrderItemDisplay(item.name)}  — ${currencySymbol}${itemTotal.toFixed(2)}`
     );
   });
   lines.push("━━━━━━━━━━━━━━━━━━━");

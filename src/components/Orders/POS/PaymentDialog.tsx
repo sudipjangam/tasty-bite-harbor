@@ -57,6 +57,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { formatOrderItemString } from "@/lib/order-utils";
 import { CustomItemDialog, CustomItem } from "./CustomItemDialog";
 import { PaymentDialogProps } from "./PaymentDialog/types";
 
@@ -798,7 +799,7 @@ const PaymentDialog = ({
           const itemName = item.name || "Unknown Item";
           const itemQty = item.quantity || 1;
           const itemPrice = item.price || 0;
-          return `${itemQty}x ${itemName} @${itemPrice}`;
+          return formatOrderItemString(itemQty, itemName, itemPrice, item.notes);
         });
 
         const { error: ordersUpdateError } = await supabase
@@ -921,7 +922,7 @@ const PaymentDialog = ({
           const itemName = item.name || "Unknown Item";
           const itemQty = item.quantity || 1;
           const itemPrice = item.price || 0;
-          return `${itemQty}x ${itemName} @${itemPrice}`;
+          return formatOrderItemString(itemQty, itemName, itemPrice, item.notes);
         });
 
         const { error: ordersUpdateError } = await supabase
@@ -1048,7 +1049,7 @@ const PaymentDialog = ({
           const itemName = item.name || "Unknown Item";
           const itemQty = item.quantity || 1;
           const itemPrice = item.price || 0;
-          return `${itemQty}x ${itemName} @${itemPrice}`;
+          return formatOrderItemString(itemQty, itemName, itemPrice, item.notes);
         });
 
         const { error: ordersUpdateError } = await supabase
@@ -2165,9 +2166,9 @@ const PaymentDialog = ({
           // This ensures QSR orders appear in Order Management
           try {
             // Format items for the orders table (string array format)
-            const formattedItems = orderItems.map((item) => {
-              return `${item.quantity}x ${item.name} @${item.price}`;
-            });
+            const formattedItems = orderItems.map(
+              (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
+            );
 
             const { data: newOrder, error: insertError } = await supabase
               .from("orders")

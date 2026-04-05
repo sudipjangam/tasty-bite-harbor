@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatDistanceToNow, format } from "date-fns";
 import { Printer, Edit, DollarSign, Check, Percent, X } from "lucide-react";
+import { sanitizeOrderItemDisplay } from "@/lib/order-utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -283,7 +284,7 @@ const OrderDetailsDialog = ({
         id: order.id,
         customer_name: order.source,
         items: order.items.map(
-          (item) => `${item.quantity}x ${item.name} @${item.price}`,
+          (item) => `${item.quantity}x ${sanitizeOrderItemDisplay(item.name)} @${item.price}`,
         ),
         total: subtotal,
         status: order.status as
@@ -514,7 +515,7 @@ const OrderDetailsDialog = ({
                 {order.items.map((item, index) => (
                   <div key={index} className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-300">
-                      {item.quantity}x {item.name}
+                      {item.quantity}x {sanitizeOrderItemDisplay(item.name)}
                     </span>
                     <span className="font-medium">
                       {currencySymbol}
@@ -756,7 +757,7 @@ const OrderDetailsDialog = ({
                     >
                       <div className="flex justify-between">
                         <span className="flex-1">
-                          {item.quantity}x {item.name}
+                          {item.quantity}x {sanitizeOrderItemDisplay(item.name)}
                         </span>
                         <span className="font-medium text-purple-600">
                           {currencySymbol}
