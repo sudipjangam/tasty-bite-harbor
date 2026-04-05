@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { fetchSubscriptionPlans } from "@/utils/subscriptionUtils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, ArrowLeft } from "lucide-react";
+import { Check, ArrowLeft, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
+import { useSubscription } from "@/hooks/useSubscription";
+import { formatPrice, formatInterval } from "@/utils/razorpayUtils";
 
 interface SubscriptionPlansProps {
   restaurantId?: string | null;
@@ -14,8 +14,13 @@ interface SubscriptionPlansProps {
 
 const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+
+  const {
+    subscription,
+    isActive,
+    handleSubscribe,
+    isProcessing,
+  } = useSubscription();
 
   const [planType, setPlanType] = useState<
     "food_truck" | "restaurant" | "hotel" | "all_in_one"
@@ -55,81 +60,13 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
     return typeMatch && (isFree || intervalMatch);
   });
 
-  const subscribeMutation = useMutation({
-    mutationFn: async ({
-      planId,
-      restaurantId,
-      interval,
-    }: {
-      planId: string;
-      restaurantId: string;
-      interval: string;
-    }) => {
-      // Calculate dates for subscription period based on interval
-      const now = new Date();
-      const endDate = new Date(now);
-
-      switch (interval) {
-        case "monthly":
-          endDate.setMonth(endDate.getMonth() + 1);
-          break;
-        case "quarterly":
-          endDate.setMonth(endDate.getMonth() + 3);
-          break;
-        case "half_yearly":
-          endDate.setMonth(endDate.getMonth() + 6);
-          break;
-        case "yearly":
-          endDate.setFullYear(endDate.getFullYear() + 1);
-          break;
-        default: // Default to monthly if unknown
-          endDate.setMonth(endDate.getMonth() + 1);
-      }
-
-      const { error } = await supabase.from("restaurant_subscriptions").insert([
-        {
-          restaurant_id: restaurantId,
-          plan_id: planId,
-          status: "active",
-          current_period_start: now.toISOString(),
-          current_period_end: endDate.toISOString(),
-          cancel_at_period_end: false,
-        },
-      ]);
-
-      if (error) throw error;
-
-      return { success: true };
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Subscription activated successfully",
-      });
-      queryClient.invalidateQueries();
-      navigate("/");
-    },
-    onError: (error) => {
-      console.error("Subscription error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to activate subscription. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleSubscribe = (planId: string, interval: string) => {
+  const onSubscribeClick = (planId: string, price: string, planName: string) => {
     if (!restaurantId) {
-      toast({
-        title: "Error",
-        description: "No restaurant ID found. Please log in again.",
-        variant: "destructive",
-      });
       return;
     }
-
-    subscribeMutation.mutate({ planId, restaurantId, interval });
+    handleSubscribe(planId, price, planName, () => {
+      navigate("/dashboard");
+    });
   };
 
   return (
@@ -157,7 +94,7 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
             {[
               { id: "food_truck", label: "🚚 Food Truck" },
               { id: "restaurant", label: "🍽️ Restaurant" },
-              { id: "hotel", label: "hotel" }, // Using lowercase to match state, but label should be "🏨 Hotel"
+              { id: "hotel", label: "🏨 Hotel" },
               { id: "all_in_one", label: "🏢 All-in-One" },
             ].map((type) => (
               <Button
@@ -166,7 +103,7 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
                 onClick={() => setPlanType(type.id as any)}
                 className="rounded-full px-6"
               >
-                {type.id === "hotel" ? "🏨 Hotel" : type.label}
+                {type.label}
               </Button>
             ))}
           </div>
@@ -196,8 +133,6 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {filteredPlans.map((plan) => {
-            // Clean up name for display (remove "- Monthly", "Food Truck", etc if desired, or keep as is)
-            // Keeping as is for clarity for now, or maybe just simple mapping
             const displayName = plan.name
               .replace(
                 / - (Monthly|Quarterly|Half-Yearly|Yearly|Half_Yearly)/gi,
@@ -205,21 +140,31 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
               )
               .replace("Food Truck ", "");
 
+            const isFree = plan.price === "0";
+            const isCurrentPlan = subscription?.plan_id === plan.id && isActive;
+
             return (
               <Card
                 key={plan.id}
                 className={`p-6 flex flex-col hover:shadow-xl transition-all duration-300 relative overflow-hidden border-2 ${
-                  plan.name.toLowerCase().includes("pro")
-                    ? "border-primary/50"
-                    : "border-transparent"
+                  isCurrentPlan
+                    ? "border-emerald-400 ring-2 ring-emerald-100"
+                    : plan.name.toLowerCase().includes("pro")
+                      ? "border-primary/50"
+                      : "border-transparent"
                 }`}
               >
-                {plan.name.toLowerCase().includes("pro") && (
+                {isCurrentPlan && (
+                  <div className="absolute top-0 right-0 bg-emerald-500 text-white px-4 py-1 rounded-bl-xl text-xs font-bold uppercase tracking-wider">
+                    Current Plan
+                  </div>
+                )}
+                {!isCurrentPlan && plan.name.toLowerCase().includes("pro") && (
                   <div className="absolute top-0 right-0 bg-primary text-primary-foreground px-4 py-1 rounded-bl-xl text-xs font-bold uppercase tracking-wider">
                     Best Value
                   </div>
                 )}
-                {plan.price === "0" && (
+                {!isCurrentPlan && isFree && (
                   <div className="absolute top-0 right-0 bg-green-500 text-white px-4 py-1 rounded-bl-xl text-xs font-bold uppercase tracking-wider">
                     Free Trial
                   </div>
@@ -230,12 +175,9 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
                     {displayName}
                   </h3>
                   <div className="mt-4 flex items-baseline gap-1">
-                    <span className="text-3xl font-bold">₹{plan.price}</span>
+                    <span className="text-3xl font-bold">{formatPrice(plan.price)}</span>
                     <span className="text-sm text-muted-foreground font-medium">
-                      /
-                      {plan.price === "0"
-                        ? "14 days"
-                        : billingCycle.replace("_", "-")}
+                      / {isFree ? "14 days" : formatInterval(billingCycle)}
                     </span>
                   </div>
                   <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
@@ -260,19 +202,28 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
 
                 <Button
                   className={`mt-6 w-full ${
-                    plan.name.toLowerCase().includes("pro")
-                      ? "bg-primary hover:bg-primary/90"
-                      : "bg-secondary hover:bg-secondary/80 text-foreground"
+                    isCurrentPlan
+                      ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 cursor-default"
+                      : plan.name.toLowerCase().includes("pro")
+                        ? "bg-primary hover:bg-primary/90"
+                        : "bg-secondary hover:bg-secondary/80 text-foreground"
                   }`}
                   size="lg"
-                  onClick={() => handleSubscribe(plan.id, plan.interval)}
-                  disabled={subscribeMutation.isPending}
+                  onClick={() => onSubscribeClick(plan.id, plan.price, plan.name)}
+                  disabled={isProcessing || isCurrentPlan}
                 >
-                  {subscribeMutation.isPending
-                    ? "Processing..."
-                    : plan.price === "0"
-                      ? "Start Free Trial"
-                      : "Subscribe Now"}
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : isCurrentPlan ? (
+                    "✓ Current Plan"
+                  ) : isFree ? (
+                    "Start Free Trial"
+                  ) : (
+                    "Subscribe Now"
+                  )}
                 </Button>
               </Card>
             );

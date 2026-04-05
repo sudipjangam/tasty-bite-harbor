@@ -1,7 +1,8 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { Routes as RouterRoutes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { AppRoutes } from "./AppRoutes";
+import SubscriptionGate from "./SubscriptionGate";
 import Auth from "@/pages/Auth";
 import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "@/pages/NotFound";
@@ -12,6 +13,15 @@ import DeleteAccount from "@/pages/DeleteAccount";
 import CustomerOrder from "@/pages/CustomerOrder";
 import PublicBillPage from "@/pages/PublicBillPage";
 import PublicTruckPage from "@/pages/PublicTruckPage";
+import { PageLoader } from "@/components/ui/page-loader";
+
+// Public invoice viewer (accessible without login)
+const InvoicePage = lazy(() => import("@/pages/InvoicePage"));
+
+// Standalone subscription page (outside dashboard layout — no sidebar)
+const SubscriptionPage = lazy(
+  () => import("@/components/Subscription/SubscriptionPage"),
+);
 
 const Routes = () => {
   const { user, loading } = useAuth();
@@ -38,6 +48,7 @@ const Routes = () => {
         <Route path="/bill/:encodedData" element={<PublicBillPage />} />
         <Route path="/truck/:slug" element={<PublicTruckPage />} />
         <Route path="/reset-password" element={<Auth />} />
+        <Route path="/invoice/*" element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
         <Route path="*" element={<LandingWebsite />} />
       </RouterRoutes>
     );
@@ -55,8 +66,35 @@ const Routes = () => {
       <Route path="/order/:encodedData" element={<CustomerOrder />} />
       <Route path="/bill/:encodedData" element={<PublicBillPage />} />
       <Route path="/truck/:slug" element={<PublicTruckPage />} />
-      <Route path="/dashboard/*" element={<AppRoutes />} />
-      <Route path="/*" element={<AppRoutes />} />
+      <Route path="/invoice/*" element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
+
+      {/* Standalone subscription page — NO sidebar, NO subscription gate */}
+      <Route
+        path="/subscription"
+        element={
+          <Suspense fallback={<PageLoader />}>
+            <SubscriptionPage />
+          </Suspense>
+        }
+      />
+
+      {/* Dashboard routes — wrapped with SubscriptionGate */}
+      <Route
+        path="/dashboard/*"
+        element={
+          <SubscriptionGate>
+            <AppRoutes />
+          </SubscriptionGate>
+        }
+      />
+      <Route
+        path="/*"
+        element={
+          <SubscriptionGate>
+            <AppRoutes />
+          </SubscriptionGate>
+        }
+      />
       <Route path="*" element={<NotFound />} />
     </RouterRoutes>
   );
