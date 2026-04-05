@@ -211,6 +211,34 @@ serve(async (req) => {
 
     console.log('Subscription activated for restaurant:', restaurant_id);
 
+    // ── Fire-and-forget: Send email + WhatsApp + invoice ──
+    // This runs asynchronously — the payment response is NOT delayed
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
+    fetch(`${supabaseUrl}/functions/v1/send-subscription-confirmation`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${serviceRoleKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        restaurant_id,
+        subscription_id: subscription.id,
+        plan_id,
+        razorpay_payment_id,
+        razorpay_order_id,
+        amount_paid: Number(plan.price),
+        payment_method: paymentMethod,
+        period_start: now.toISOString(),
+        period_end: periodEnd.toISOString(),
+      }),
+    }).then(res => {
+      console.log('Confirmation notification sent:', res.status);
+    }).catch(err => {
+      console.error('Confirmation notification failed (non-blocking):', err);
+    });
+
     return new Response(
       JSON.stringify({
         success: true,
