@@ -15,6 +15,9 @@ import PublicBillPage from "@/pages/PublicBillPage";
 import PublicTruckPage from "@/pages/PublicTruckPage";
 import { PageLoader } from "@/components/ui/page-loader";
 
+// Public invoice viewer (accessible without login)
+const InvoicePage = lazy(() => import("@/pages/InvoicePage"));
+
 // Standalone subscription page (outside dashboard layout — no sidebar)
 const SubscriptionPage = lazy(
   () => import("@/components/Subscription/SubscriptionPage"),
@@ -44,6 +47,7 @@ const Routes = () => {
         <Route path="/order/:encodedData" element={<CustomerOrder />} />
         <Route path="/bill/:encodedData" element={<PublicBillPage />} />
         <Route path="/truck/:slug" element={<PublicTruckPage />} />
+        <Route path="/invoice/*" element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
         <Route path="*" element={<LandingWebsite />} />
       </RouterRoutes>
     );
@@ -61,6 +65,7 @@ const Routes = () => {
       <Route path="/order/:encodedData" element={<CustomerOrder />} />
       <Route path="/bill/:encodedData" element={<PublicBillPage />} />
       <Route path="/truck/:slug" element={<PublicTruckPage />} />
+      <Route path="/invoice/*" element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
 
       {/* Standalone subscription page — NO sidebar, NO subscription gate */}
       <Route
