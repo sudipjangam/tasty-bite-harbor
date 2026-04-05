@@ -28,6 +28,7 @@ import {
 import { buttonStyles } from "@/config/buttonStyles";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 const Staff = () => {
   const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
@@ -225,28 +226,34 @@ const Staff = () => {
         <div className="overflow-x-auto pb-1 md:pb-2 mb-3 md:mb-6">
           <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-2xl md:rounded-3xl shadow-xl dark:shadow-purple-500/10 p-1.5 md:p-2">
             <TabsList className="inline-flex w-auto min-w-full md:w-auto space-x-0.5 md:space-x-1 p-0.5 md:p-1 bg-transparent rounded-2xl">
-              <TabsTrigger
-                value="staff"
-                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/30 px-3 md:px-6 py-2 md:py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-1.5 md:gap-2 text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 text-sm md:text-base"
-              >
-                <Users className="h-4 w-4" />
-                <span className="hidden xs:inline">Staff</span>
-                <span className="xs:hidden">Staff</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="shifts"
-                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-amber-500/30 px-3 md:px-6 py-2 md:py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-1.5 md:gap-2 text-gray-600 dark:text-gray-300 hover:text-amber-600 dark:hover:text-amber-400 text-sm md:text-base"
-              >
-                <CalendarClock className="h-4 w-4" />
-                <span>Shifts</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="leaves"
-                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/30 px-3 md:px-6 py-2 md:py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-1.5 md:gap-2 text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 text-sm md:text-base"
-              >
-                <FileText className="h-4 w-4" />
-                <span>Leaves</span>
-              </TabsTrigger>
+              <FeatureLock feature="staff.roster" interceptClicks={true}>
+                <TabsTrigger
+                  value="staff"
+                  className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/30 px-3 md:px-6 py-2 md:py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-1.5 md:gap-2 text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 text-sm md:text-base"
+                >
+                  <Users className="h-4 w-4" />
+                  <span className="hidden xs:inline">Staff</span>
+                  <span className="xs:hidden">Staff</span>
+                </TabsTrigger>
+              </FeatureLock>
+              <FeatureLock feature="staff.shifts" interceptClicks={true}>
+                <TabsTrigger
+                  value="shifts"
+                  className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-amber-500/30 px-3 md:px-6 py-2 md:py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-1.5 md:gap-2 text-gray-600 dark:text-gray-300 hover:text-amber-600 dark:hover:text-amber-400 text-sm md:text-base"
+                >
+                  <CalendarClock className="h-4 w-4" />
+                  <span>Shifts</span>
+                </TabsTrigger>
+              </FeatureLock>
+              <FeatureLock feature="staff.attendance" interceptClicks={true}>
+                <TabsTrigger
+                  value="leaves"
+                  className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/30 px-3 md:px-6 py-2 md:py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-1.5 md:gap-2 text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 text-sm md:text-base"
+                >
+                  <FileText className="h-4 w-4" />
+                  <span>Leaves</span>
+                </TabsTrigger>
+              </FeatureLock>
             </TabsList>
           </div>
         </div>

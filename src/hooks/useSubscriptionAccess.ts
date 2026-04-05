@@ -54,10 +54,24 @@ export const useSubscriptionAccess = () => {
   });
 
   const hasSubscriptionAccess = (component: string): boolean => {
-    // Case-insensitive comparison
-    return subscriptionComponents.some(
-      (c: string) => c.toLowerCase() === component.toLowerCase()
-    );
+    const normalizedComponent = component.toLowerCase().trim();
+    
+    return subscriptionComponents.some((c: string) => {
+      const normalizedKey = c.toLowerCase().trim();
+      
+      // 1. Exact match (e.g., 'pos' === 'pos' or 'pos.basic' === 'pos.basic')
+      if (normalizedKey === normalizedComponent) return true;
+      
+      // 2. Prefix match: if checking 'pos', match 'pos.basic', 'pos.hold_orders', etc.
+      //    This handles the sidebar which checks flat component names like 'pos', 'orders', 'kitchen'
+      //    against dot-notation keys like 'pos.basic', 'orders.view'
+      if (normalizedKey.startsWith(normalizedComponent + '.')) return true;
+      
+      // 3. Reverse prefix: if checking 'pos.basic' and the plan has 'pos' (legacy)
+      if (normalizedComponent.startsWith(normalizedKey + '.')) return true;
+      
+      return false;
+    });
   };
 
   return {

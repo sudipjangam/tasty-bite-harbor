@@ -17,6 +17,7 @@ import { useExpenseData } from "@/hooks/useExpenseData";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { usePlanType } from "@/hooks/usePlanType";
 import PlanInsightsCard from "@/components/Dashboard/PlanInsightsCard";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 const Expenses = () => {
   const { user, loading } = useAuthState();
@@ -113,27 +114,33 @@ const Expenses = () => {
         <div className="overflow-x-auto pb-2 mb-6">
           <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-3xl shadow-xl dark:shadow-purple-500/10 p-2">
             <TabsList className="inline-flex w-auto min-w-full md:w-auto space-x-1 p-1 bg-transparent rounded-2xl">
-              <TabsTrigger
-                value="overview"
-                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/30 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400"
-              >
-                <LayoutDashboard className="h-4 w-4" />
-                Overview
-              </TabsTrigger>
-              <TabsTrigger
-                value="expenses"
-                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-500/30 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400"
-              >
-                <List className="h-4 w-4" />
-                Expenses
-              </TabsTrigger>
-              <TabsTrigger
-                value="analytics"
-                className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/30 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400"
-              >
-                <BarChart3 className="h-4 w-4" />
-                Analytics
-              </TabsTrigger>
+              <FeatureLock feature="expenses.basic" interceptClicks={true}>
+                <TabsTrigger
+                  value="overview"
+                  className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/30 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400"
+                >
+                  <LayoutDashboard className="h-4 w-4" />
+                  Overview
+                </TabsTrigger>
+              </FeatureLock>
+              <FeatureLock feature="expenses.basic" interceptClicks={true}>
+                <TabsTrigger
+                  value="expenses"
+                  className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-500/30 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400"
+                >
+                  <List className="h-4 w-4" />
+                  Expenses
+                </TabsTrigger>
+              </FeatureLock>
+              <FeatureLock feature="expenses.advanced" interceptClicks={true}>
+                <TabsTrigger
+                  value="analytics"
+                  className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/30 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  Analytics
+                </TabsTrigger>
+              </FeatureLock>
             </TabsList>
           </div>
         </div>

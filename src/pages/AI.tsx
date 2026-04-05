@@ -5,6 +5,7 @@ import Chatbot from "@/components/Chatbot/Chatbot";
 import AiCapabilities from "@/components/AI/AiCapabilities";
 import SampleQuestions from "@/components/AI/SampleQuestions";
 import { Sparkles, Brain, ChevronDown, ChevronUp, Database, MessageSquare } from "lucide-react";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 const AI = () => {
   const { user } = useAuth();
