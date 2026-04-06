@@ -123,7 +123,7 @@ const FoodTruckDashboard: React.FC = () => {
       const [ordersResult, txnResult] = await Promise.all([
         supabase
           .from("orders")
-          .select("total, status, order_type, created_at")
+          .select("total, status, order_type, payment_status, created_at")
           .eq("restaurant_id", restaurantId)
           .gte("created_at", dayStart)
           .lte("created_at", dayEnd),
@@ -139,31 +139,35 @@ const FoodTruckDashboard: React.FC = () => {
 
       const allOrders = ordersResult.data || [];
 
-      // Revenue: completed + chargeable orders only (matches Orders Management)
-      const completedChargeableOrders = allOrders.filter(
-        (o) =>
-          o.status === "completed" &&
-          o.order_type !== "non-chargeable",
-      );
-      const totalRevenue = completedChargeableOrders.reduce(
-        (sum, o) => sum + (Number(o.total) || 0),
-        0,
-      );
-
-      // Cash / UPI breakdown from pos_transactions (only table with payment_method)
+      // Cash / UPI breakdown and Total Revenue from pos_transactions (accurate source)
       const completedTxns = (txnResult.data || []).filter(
         (t) => t.status === "completed",
       );
+
+      const totalRevenue = completedTxns.reduce(
+        (sum, t) => sum + (Number(t.amount) || 0),
+        0,
+      );
+
       const cashRevenue = completedTxns
         .filter((t) =>
           (t.payment_method || "cash").toLowerCase().includes("cash"),
         )
         .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+        
       const upiRevenue = completedTxns
         .filter((t) =>
           (t.payment_method || "").toLowerCase().includes("upi"),
         )
         .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+      // Average order value is based on paid orders (even if preparing)
+      const paidChargeableOrders = allOrders.filter(
+        (o) =>
+          o.payment_status === "paid" &&
+          o.order_type !== "non-chargeable" &&
+          ["preparing", "ready", "completed"].includes(o.status)
+      );
 
       return {
         totalOrders: allOrders.length,
@@ -171,8 +175,8 @@ const FoodTruckDashboard: React.FC = () => {
         cashRevenue,
         upiRevenue,
         avgOrderValue:
-          completedChargeableOrders.length > 0
-            ? totalRevenue / completedChargeableOrders.length
+          paidChargeableOrders.length > 0
+            ? totalRevenue / paidChargeableOrders.length
             : 0,
       };
     },
