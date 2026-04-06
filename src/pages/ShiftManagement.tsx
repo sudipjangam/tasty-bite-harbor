@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, startOfWeek, addDays } from "date-fns";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 interface Shift {
   id: string;
@@ -408,6 +409,7 @@ const ShiftManagement: React.FC = () => {
   }
 
   return (
+    <FeatureLock feature="staff.shifts" interceptClicks={true}>
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950">
       <PageHeader 
         title="Shift Management" 
@@ -825,6 +827,7 @@ const ShiftManagement: React.FC = () => {
         </DialogContent>
       </Dialog>
     </div>
+    </FeatureLock>
   );
 };
 

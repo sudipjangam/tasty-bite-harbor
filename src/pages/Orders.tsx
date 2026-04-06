@@ -5,6 +5,7 @@ import AddOrderForm from "@/components/Orders/AddOrderForm";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ClipboardList, Sparkles, Package, Zap } from "lucide-react";
 import HelpProvider from "@/components/Help/HelpProvider";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 const Orders = () => {
   const [showAddOrderDialog, setShowAddOrderDialog] = useState(false);
@@ -66,14 +67,16 @@ const Orders = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden">
-        <OrdersView
-          searchTrigger={searchTrigger}
-          filterTrigger={filterTrigger}
-          exportTrigger={exportTrigger}
-          refreshTrigger={refreshTrigger}
-        />
-      </div>
+      <FeatureLock feature="orders.view" interceptClicks={true}>
+        <div className="flex-1 overflow-hidden">
+          <OrdersView
+            searchTrigger={searchTrigger}
+            filterTrigger={filterTrigger}
+            exportTrigger={exportTrigger}
+            refreshTrigger={refreshTrigger}
+          />
+        </div>
+      </FeatureLock>
 
       {/* Add Order Dialog */}
       <Dialog open={showAddOrderDialog} onOpenChange={setShowAddOrderDialog}>

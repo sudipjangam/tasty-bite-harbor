@@ -17,12 +17,14 @@ import {
   Building2,
   PackageSearch,
 } from "lucide-react";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 const Housekeeping = () => {
   const [activeTab, setActiveTab] = useState("guests");
   const isMobile = useIsMobile();
 
   return (
+    <FeatureLock feature="rooms.housekeeping" interceptClicks={true}>
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-teal-50 to-emerald-100 dark:from-gray-900 dark:via-slate-900 dark:to-emerald-950">
       {/* Modern 3D Header with Vibrant Gradient */}
       <div className="sticky top-0 z-40">
@@ -158,6 +160,7 @@ const Housekeeping = () => {
         </Tabs>
       </div>
     </div>
+    </FeatureLock>
   );
 };
 

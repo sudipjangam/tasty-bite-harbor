@@ -25,6 +25,21 @@ export interface FeatureCategory {
 }
 
 export const FEATURE_REGISTRY: FeatureCategory[] = [
+  // ─── Dashboard ─────────────────────────────────────────────────────────
+  {
+    id: 'dashboard',
+    label: 'Dashboard',
+    icon: 'LayoutDashboard',
+    color: 'from-indigo-500 to-purple-600',
+    features: [
+      { key: 'dashboard.basic', label: 'Basic Dashboard', description: 'Core dashboard with stats and live orders' },
+      { key: 'dashboard.custom_widgets', label: 'Custom Widgets', description: 'Drag-and-drop dashboard widget customization' },
+      { key: 'dashboard.room_status', label: 'Room Status Widget', description: 'Live room occupancy widget' },
+      { key: 'dashboard.staff_attendance', label: 'Staff Attendance Widget', description: 'Staff attendance overview widget' },
+      { key: 'dashboard.food_truck', label: 'Food Truck Dashboard', description: 'Specialized food truck dashboard view' },
+    ],
+  },
+
   // ─── POS Systems ──────────────────────────────────────────────────────
   {
     id: 'pos',
@@ -57,7 +72,20 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
       { key: 'quickserve.coupon_engine', label: 'Coupon Engine', description: 'Apply promo codes at checkout' },
     ],
   },
-
+// ─── QSR-POS ──────────────────────────────────────────────────────
+  {
+    id: 'qsr-pos',
+    label: 'QSR-POS',
+    icon: 'Zap',
+    color: 'from-orange-500 to-amber-600',
+    features: [
+      { key: 'qsr-pos.basic', label: 'Basic Quick Serve', description: 'Core quick serve POS' },
+      { key: 'qsr-pos.custom_widgets', label: 'Custom Widgets', description: 'Drag-and-drop dashboard widget customization' },
+      { key: 'qsr-pos.live_metrics', label: 'Live Revenue Metrics', description: 'Real-time revenue & order count bar' },
+      { key: 'qsr-pos.loyalty_integration', label: 'Loyalty Integration', description: 'Points redemption at checkout' },
+      { key: 'qsr-pos.coupon_engine', label: 'Coupon Engine', description: 'Apply promo codes at checkout' },
+    ],
+  },
   // ─── Orders ───────────────────────────────────────────────────────────
   {
     id: 'orders',

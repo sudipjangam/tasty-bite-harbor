@@ -46,6 +46,7 @@ import { AuditLogTab } from "@/components/Settings/AuditLogTab";
 import QRSettingsTab from "@/components/Settings/QRSettingsTab";
 import LocationSettingsTab from "@/components/Settings/LocationSettingsTab";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 const Settings = () => {
   const { toast } = useToast();
@@ -241,6 +242,7 @@ const Settings = () => {
   }
 
   return (
+    <FeatureLock feature="settings.basic" interceptClicks={true}>
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950 p-4 md:p-6">
       {/* Header Section */}
       <div className="max-w-7xl mx-auto mb-8">
@@ -879,6 +881,7 @@ const Settings = () => {
         </Tabs>
       </div>
     </div>
+    </FeatureLock>
   );
 };
 

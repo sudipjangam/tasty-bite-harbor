@@ -42,6 +42,7 @@ import { WidgetPickerDialog } from "@/components/Dashboard/widgets/WidgetPickerD
 import { WidgetRenderer } from "@/components/Dashboard/widgets/WidgetRenderer";
 import { useWidgetPreferences } from "@/hooks/useWidgetPreferences";
 import { RESTAURANT_DEFAULT_WIDGETS } from "@/components/Dashboard/widgets/WidgetRegistry";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 const Dashboard = () => {
   const { user, hasPermission } = useAuth();
@@ -221,6 +222,7 @@ const Dashboard = () => {
         : "Good evening";
 
   return (
+    <FeatureLock feature="dashboard.basic" interceptClicks={true}>
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950">
       {/* Hero Header */}
       <div className="relative overflow-hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-800 dark:via-purple-800 dark:to-pink-800">
@@ -479,6 +481,7 @@ const Dashboard = () => {
         defaultWidgets={RESTAURANT_DEFAULT_WIDGETS}
       />
     </div>
+    </FeatureLock>
   );
 };
 

@@ -44,6 +44,7 @@ import {
   Activity,
   TrendingUp,
 } from "lucide-react";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 const Security = () => {
   const { user, hasPermission } = useAuth();
@@ -401,6 +402,7 @@ const Security = () => {
   };
 
   return (
+    <FeatureLock feature="settings.security" interceptClicks={true}>
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950">
       <PageHeader
         title="Security & Compliance"
@@ -653,6 +655,7 @@ const Security = () => {
         </Tabs>
       </div>
     </div>
+    </FeatureLock>
   );
 };
 

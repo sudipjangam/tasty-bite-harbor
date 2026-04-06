@@ -43,6 +43,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 const Customers = () => {
   const { toast } = useToast();
@@ -428,6 +429,7 @@ const Customers = () => {
   ).length;
 
   return (
+    <FeatureLock feature="customers.basic" interceptClicks={true}>
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-purple-50 via-indigo-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-indigo-950">
       {/* Enable real-time updates for all customer-related data */}
       <RealtimeCustomers />
@@ -1112,6 +1114,7 @@ const Customers = () => {
         isDeleting={deleteCustomer.isPending}
       />
     </div>
+    </FeatureLock>
   );
 };
 
