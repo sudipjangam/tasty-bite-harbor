@@ -41,7 +41,7 @@ const SidebarNavigation = ({ allowedComponents = [] }: SidebarNavigationProps) =
     '/': 'dashboard',
     '/pos': 'pos',
     '/orders': 'orders',
-    // '/qsr-pos': 'qsr-pos',
+    '/qsr-pos': 'qsr-pos',
     '/kitchen': 'kitchen',
     '/menu': 'menu',
     '/recipes': 'recipes',

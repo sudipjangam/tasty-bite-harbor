@@ -91,6 +91,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 interface InventoryItem {
   id: string;
@@ -1095,31 +1096,45 @@ const Inventory = () => {
           </TabsContent>
 
           <TabsContent value="alerts" className="p-4 md:p-6">
-            <InventoryAlerts />
+            <FeatureLock feature="inventory.alerts" interceptClicks={true}>
+              <InventoryAlerts />
+            </FeatureLock>
           </TabsContent>
 
           <TabsContent value="purchase-orders" className="p-4 md:p-6">
-            <PurchaseOrders />
+            <FeatureLock feature="inventory.purchase_orders" interceptClicks={true}>
+              <PurchaseOrders />
+            </FeatureLock>
           </TabsContent>
 
           <TabsContent value="suggestions" className="p-4 md:p-6">
-            <PurchaseOrderSuggestions />
+            <FeatureLock feature="inventory.suggestions" interceptClicks={true}>
+              <PurchaseOrderSuggestions />
+            </FeatureLock>
           </TabsContent>
 
           <TabsContent value="transactions" className="p-4 md:p-6">
-            <InventoryTransactions />
+            <FeatureLock feature="inventory.transactions" interceptClicks={true}>
+              <InventoryTransactions />
+            </FeatureLock>
           </TabsContent>
 
           <TabsContent value="lots" className="p-4 md:p-6">
-            <InventoryLots />
+            <FeatureLock feature="inventory.lots" interceptClicks={true}>
+              <InventoryLots />
+            </FeatureLock>
           </TabsContent>
 
           <TabsContent value="stocktake" className="p-4 md:p-6 space-y-5">
-            <Stocktake />
+            <FeatureLock feature="inventory.stocktake" interceptClicks={true}>
+              <Stocktake />
+            </FeatureLock>
           </TabsContent>
 
           <TabsContent value="forecast" className="p-4 md:p-6">
-            <InventoryForecasting />
+            <FeatureLock feature="inventory.forecasting" interceptClicks={true}>
+              <InventoryForecasting />
+            </FeatureLock>
           </TabsContent>
 
           <TabsContent value="locations" className="p-4 md:p-6">

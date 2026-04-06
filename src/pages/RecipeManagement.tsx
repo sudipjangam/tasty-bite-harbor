@@ -27,6 +27,7 @@ import { MenuEngineering } from "@/components/Recipes/MenuEngineering";
 import { useRecipes } from "@/hooks/useRecipes";
 import { MobileNavigation } from "@/components/ui/mobile-navigation";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 import HelpProvider from "@/components/Help/HelpProvider";
 
 const RecipeManagement = () => {
@@ -231,15 +232,21 @@ const RecipeManagement = () => {
           </TabsContent>
 
           <TabsContent value="costing" className="mt-4 md:mt-6">
-            <RecipeCostingCard recipes={recipes} />
+            <FeatureLock feature="recipes.costing">
+              <RecipeCostingCard recipes={recipes} />
+            </FeatureLock>
           </TabsContent>
 
           <TabsContent value="engineering" className="mt-4 md:mt-6">
-            <MenuEngineering recipes={recipes} />
+            <FeatureLock feature="recipes.menu_engineering">
+              <MenuEngineering recipes={recipes} />
+            </FeatureLock>
           </TabsContent>
 
           <TabsContent value="batch" className="mt-4 md:mt-6">
-            <BatchProductionManager batchProductions={batchProductions} />
+            <FeatureLock feature="recipes.batch_processing">
+              <BatchProductionManager batchProductions={batchProductions} />
+            </FeatureLock>
           </TabsContent>
         </Tabs>
       </div>

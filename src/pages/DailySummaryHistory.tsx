@@ -31,6 +31,7 @@ import {
   TopItem,
   OrderTypeBreakdown,
 } from "@/components/QuickServe/DailySummaryDialog";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 const DailySummaryHistory = () => {
   const { restaurantId } = useRestaurantId();
@@ -84,6 +85,7 @@ const DailySummaryHistory = () => {
   };
 
   return (
+    <FeatureLock feature="pos.daily_summary" interceptClicks={true}>
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="px-4 sm:px-6 lg:px-8 py-4 flex items-center gap-4">
@@ -185,6 +187,7 @@ const DailySummaryHistory = () => {
         reportDate={reportDate}
       />
     </div>
+    </FeatureLock>
   );
 };
 

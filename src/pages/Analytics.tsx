@@ -22,6 +22,7 @@ import { TrendingUp, BarChart3, Sparkles, Building2 } from "lucide-react";
 import { useFinancialTabAccess } from "@/hooks/useFinancialTabAccess";
 import { usePlanType } from "@/hooks/usePlanType";
 import PlanInsightsCard from "@/components/Dashboard/PlanInsightsCard";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 const Analytics = () => {
   const { toast } = useToast();
@@ -400,6 +401,7 @@ const Analytics = () => {
   };
 
   return (
+    <FeatureLock feature="reports.analytics" interceptClicks={true}>
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-950 dark:via-purple-950/50 dark:to-indigo-950 animate-fade-in">
       {/* Modern Header with Glass Effect */}
       <div className="p-4 md:p-6">
@@ -541,6 +543,7 @@ const Analytics = () => {
         )}
       </div>
     </div>
+    </FeatureLock>
   );
 };
 

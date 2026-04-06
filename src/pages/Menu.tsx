@@ -2,6 +2,7 @@ import { Suspense, lazy } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChefHat, Sparkles, Utensils, Zap } from "lucide-react";
 import HelpProvider from "@/components/Help/HelpProvider";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 // Lazy load the MenuGrid component
 const MenuGrid = lazy(() => import("@/components/Menu/MenuGrid"));
@@ -84,9 +85,11 @@ const Menu = () => {
               </div>
             }
           >
-            <div className="p-4 md:p-6 overflow-auto flex-1">
-              <MenuGrid />
-            </div>
+            <FeatureLock feature="menu.basic" interceptClicks={true}>
+              <div className="p-4 md:p-6 overflow-auto flex-1">
+                <MenuGrid />
+              </div>
+            </FeatureLock>
           </Suspense>
         </div>
       </div>

@@ -339,7 +339,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   // Map item id to subscription component key (matches sidebar's hrefToComponentMap)
   const itemToComponentMap: Record<string, string> = {
     dashboard: "dashboard",
-    "qsr-pos": "quickserve",
+    "qsr-pos": "qsr-pos",
     "quickserve-pos": "quickserve",
     orders: "orders",
     kitchen: "kitchen",
