@@ -5,7 +5,7 @@ import { FeatureLock } from "@/components/Auth/FeatureLock";
 const QSRPos = () => {
   return (
     <div className="min-h-screen pb-20 md:pb-0">
-      <FeatureLock feature="quickserve.qsr_pos" interceptClicks={true}>
+      <FeatureLock feature="qsr-pos.basic" interceptClicks={true}>
         <QSRPosMain />
       </FeatureLock>
       <MobileNavigation />
