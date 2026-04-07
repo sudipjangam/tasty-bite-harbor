@@ -38,6 +38,7 @@ import {
   Check,
   ChevronsUpDown,
   RefreshCw,
+  Info,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,6 +59,12 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { UNIT_CONVERSIONS, RECIPE_UNITS } from "@/constants/units";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface RecipeDialogProps {
   open: boolean;
@@ -291,7 +298,7 @@ export const RecipeDialog = ({
       if (!formData.menu_item_id) return [];
       const { data } = await supabase
         .from("menu_item_variants")
-        .select("id, name")
+        .select("id, name, price")
         .eq("menu_item_id", formData.menu_item_id)
         .order("sort_order");
       return data || [];
@@ -400,10 +407,33 @@ export const RecipeDialog = ({
     return convertedQuantity * (inventoryItem.cost_per_unit || 0);
   };
 
-  // Total ingredient cost (Base items only)
-  const totalIngredientCost = ingredients
+  // Total ingredient cost (Base items only — used when NO variants exist)
+  const baseCost = ingredients
     .filter((ing) => !ing.variant_id)
     .reduce((sum, ing) => sum + calculateIngredientCost(ing), 0);
+
+  // Per-variant cost calculations
+  // When variants exist, each variant already contains its own complete set of ingredients
+  // (including copies synced from base via "Sync from Base"). So variant cost = ONLY that
+  // variant's ingredients, NOT base + variant (which would double-count).
+  const hasVariants = menuVariants.length > 0;
+  const variantCostBreakdown = menuVariants.map((variant: any) => {
+    const variantCost = ingredients
+      .filter((ing) => ing.variant_id === variant.id)
+      .reduce((sum, ing) => sum + calculateIngredientCost(ing), 0);
+    return {
+      variantId: variant.id,
+      variantName: variant.name,
+      variantPrice: Number(variant.price) || 0,
+      totalCost: variantCost,
+    };
+  });
+
+  // For recipes with variants: use the first (smallest) variant's cost
+  // For recipes without variants: use base cost
+  const totalIngredientCost = variantCostBreakdown.length > 0
+    ? variantCostBreakdown[0].totalCost
+    : baseCost;
 
   const handleSubmit = async () => {
     if (!restaurantId) return;
@@ -419,12 +449,22 @@ export const RecipeDialog = ({
 
     setIsSubmitting(true);
     try {
-      const sellingPrice = parseFloat(formData.selling_price) || 0;
+      // When variants exist, use the first (smallest) variant's price & cost
+      // for the recipe-level summary; otherwise use the form selling price
+      let effectiveSellingPrice = parseFloat(formData.selling_price) || 0;
+      let effectiveCost = totalIngredientCost;
+
+      if (variantCostBreakdown.length > 0) {
+        const firstVariant = variantCostBreakdown[0];
+        effectiveSellingPrice = firstVariant.variantPrice || effectiveSellingPrice;
+        effectiveCost = firstVariant.totalCost;
+      }
+
       const foodCostPercentage =
-        sellingPrice > 0 ? (totalIngredientCost / sellingPrice) * 100 : 0;
+        effectiveSellingPrice > 0 ? (effectiveCost / effectiveSellingPrice) * 100 : 0;
       const marginPercentage =
-        sellingPrice > 0
-          ? ((sellingPrice - totalIngredientCost) / sellingPrice) * 100
+        effectiveSellingPrice > 0
+          ? ((effectiveSellingPrice - effectiveCost) / effectiveSellingPrice) * 100
           : 0;
 
       const recipeData = {
@@ -440,9 +480,9 @@ export const RecipeDialog = ({
         serving_unit: formData.serving_unit,
         instructions: null,
         image_url: null,
-        selling_price: sellingPrice,
+        selling_price: effectiveSellingPrice,
         is_active: formData.is_active,
-        total_cost: totalIngredientCost,
+        total_cost: effectiveCost,
         food_cost_percentage: foodCostPercentage,
         margin_percentage: marginPercentage,
         created_by: null,
@@ -1166,16 +1206,81 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
 
               {/* Cost Summary */}
               {ingredients.length > 0 && (
-                <div className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-500/30">
-                  <div className="flex items-center justify-between">
-                    <span className="text-emerald-700 dark:text-emerald-300 font-semibold">
-                      Total Ingredient Cost (Base):
-                    </span>
-                    <span className="text-2xl font-bold text-emerald-600">
-                      {currencySymbol}
-                      {totalIngredientCost.toFixed(2)}
-                    </span>
-                  </div>
+                <div className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-500/30 space-y-3">
+                  {/* When variants exist, base is just a template — don't show its cost as additive */}
+                  {hasVariants ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-emerald-700 dark:text-emerald-300 font-semibold text-sm">
+                            Base Ingredients
+                          </span>
+                          <span className="text-[10px] bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full font-medium">
+                            Template Only
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 italic">
+                          Use "Sync from Base" to copy to variants
+                        </span>
+                      </div>
+                      <div className="border-t border-emerald-200 dark:border-emerald-700/30 pt-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Per-Variant Cost:</p>
+                          <TooltipProvider delayDuration={200}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button type="button" className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+                                  <Info className="h-3.5 w-3.5" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-[280px] p-3 text-xs leading-relaxed bg-white dark:bg-gray-800 shadow-xl rounded-xl border border-gray-200 dark:border-gray-700">
+                                <p className="font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Understanding Recipe Metrics</p>
+                                <div className="space-y-1.5 text-gray-600 dark:text-gray-400">
+                                  <p><span className="font-semibold text-emerald-600">FC%</span> = Food Cost % = (Ingredient Cost ÷ Selling Price) × 100</p>
+                                  <p><span className="font-semibold text-blue-600">M%</span> = Margin % = ((Selling Price − Ingredient Cost) ÷ Selling Price) × 100</p>
+                                  <hr className="border-gray-200 dark:border-gray-700 my-1.5" />
+                                  <p className="text-[10px]">🟢 FC ≤30% = Excellent &nbsp; 🟡 FC ≤40% = Good &nbsp; 🔴 FC &gt;40% = High</p>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                        {variantCostBreakdown.map((v) => {
+                          const fc = v.variantPrice > 0 ? (v.totalCost / v.variantPrice) * 100 : 0;
+                          const margin = v.variantPrice > 0 ? ((v.variantPrice - v.totalCost) / v.variantPrice) * 100 : 0;
+                          return (
+                            <div key={v.variantId} className="flex items-center justify-between bg-white/60 dark:bg-gray-800/40 px-3 py-2 rounded-xl">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{v.variantName}</span>
+                                <span className="text-xs text-gray-500">({currencySymbol}{v.variantPrice})</span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm font-bold text-emerald-600">
+                                  {currencySymbol}{v.totalCost.toFixed(2)}
+                                </span>
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                  fc <= 30 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                                  fc <= 40 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                                  'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                }`}>
+                                  FC {fc.toFixed(0)}% · M {margin.toFixed(0)}%
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <span className="text-emerald-700 dark:text-emerald-300 font-semibold">
+                        Total Recipe Cost:
+                      </span>
+                      <span className="text-2xl font-bold text-emerald-600">
+                        {currencySymbol}{totalIngredientCost.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1207,6 +1312,18 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
                     Add
                   </Button>
                 </div>
+
+                {/* Base cost summary */}
+                {ingredients.filter((ing) => !ing.variant_id && ing.inventory_item_id).length > 0 && (
+                  <div className="flex justify-between items-center bg-white/50 dark:bg-gray-800/50 p-2 sm:p-3 rounded-xl border border-purple-100 dark:border-purple-800/50 shadow-sm mb-2">
+                    <span className="text-purple-700 dark:text-purple-400 font-semibold text-[10px] sm:text-xs">
+                      Total Base Cost{hasVariants ? " (Template)" : ""}:
+                    </span>
+                    <span className="text-purple-600 dark:text-purple-300 font-bold text-sm sm:text-base">
+                      {currencySymbol}{baseCost.toFixed(2)}
+                    </span>
+                  </div>
+                )}
 
                 <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
                   {ingredients
