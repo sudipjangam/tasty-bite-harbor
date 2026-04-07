@@ -129,7 +129,7 @@ const FoodTruckDashboard: React.FC = () => {
           .lte("created_at", dayEnd),
         supabase
           .from("pos_transactions")
-          .select("amount, payment_method, status, created_at")
+          .select("amount, payment_method, status, order_id, created_at")
           .eq("restaurant_id", restaurantId)
           .gte("created_at", dayStart)
           .lte("created_at", dayEnd),
@@ -140,13 +140,9 @@ const FoodTruckDashboard: React.FC = () => {
       const allOrders = ordersResult.data || [];
 
       // Cash / UPI breakdown and Total Revenue from pos_transactions (accurate source)
+      // Exclude orphan transactions (no order_id) to avoid inflating figures
       const completedTxns = (txnResult.data || []).filter(
-        (t) => t.status === "completed",
-      );
-
-      const totalRevenue = completedTxns.reduce(
-        (sum, t) => sum + (Number(t.amount) || 0),
-        0,
+        (t) => t.status === "completed" && t.order_id != null,
       );
 
       const cashRevenue = completedTxns
@@ -160,6 +156,9 @@ const FoodTruckDashboard: React.FC = () => {
           (t.payment_method || "").toLowerCase().includes("upi"),
         )
         .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+      // Derive totalRevenue from payment breakdowns to guarantee consistency
+      const totalRevenue = cashRevenue + upiRevenue;
 
       // Average order value is based on paid orders (even if preparing)
       const paidChargeableOrders = allOrders.filter(
