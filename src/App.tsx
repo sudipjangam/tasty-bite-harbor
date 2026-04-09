@@ -18,6 +18,7 @@ import OwnerNotificationListener from "@/components/Notifications/OwnerNotificat
 import { UpdateNotification } from "@/components/UpdateNotification";
 import { registerServiceWorker } from "@/utils/serviceWorkerUtils";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
+import { Analytics } from "@vercel/analytics/react";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -82,6 +83,7 @@ function App() {
           </AuthProvider>
         </TooltipProvider>
       </ThemeProvider>
+      <Analytics />
     </QueryClientProvider>
   );
 }
