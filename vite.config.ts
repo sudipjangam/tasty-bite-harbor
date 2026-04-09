@@ -81,6 +81,7 @@ export default defineConfig(({ mode }) => {
   },
   build: {
     sourcemap: true,
+    chunkSizeWarningLimit: 1500, // Suppress warnings for expected large vendor chunks like pdf/excel utils
     rollupOptions: {
       output: {
         manualChunks: {
@@ -97,6 +98,9 @@ export default defineConfig(({ mode }) => {
           'chart-vendor': ['recharts', 'highcharts', 'highcharts-react-official'],
           'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
           'utils-vendor': ['date-fns', 'clsx', 'tailwind-merge'],
+          'pdf-vendor': ['jspdf', 'html2canvas', 'html2pdf.js'],
+          'excel-vendor': ['xlsx', 'exceljs'],
+          'icon-vendor': ['lucide-react'],
         },
       },
     },
