@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { fetchAllowedComponents } from "@/utils/subscriptionUtils";
+import { fetchAllowedComponents, hasFeatureAccess } from "@/utils/subscriptionUtils";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,40 @@ interface AppComponent {
   name: string;
   description: string | null;
 }
+
+const getFeatureKeyForAppComp = (name: string): string => {
+  const n = name.toLowerCase();
+  switch (n) {
+    case 'dashboard': return 'dashboard.basic';
+    case 'orders': return 'orders.view';
+    case 'pos': return 'pos.basic';
+    case 'qsr pos': return 'quickserve.qsr_pos';
+    case 'menu': return 'menu.basic';
+    case 'inventory': return 'inventory.overview';
+    case 'staff': return 'staff.roster';
+    case 'customers': return 'customers.basic';
+    case 'crm': return 'customers.crm';
+    case 'rooms': return 'rooms.management';
+    case 'reservations': return 'reservations.basic';
+    case 'analytics': return 'reports.analytics';
+    case 'financial': return 'financial.dashboard';
+    case 'expenses': return 'expenses.basic';
+    case 'settings': return 'settings.basic';
+    case 'kitchen': return 'kitchen.kds';
+    case 'tables': return 'tables.grid';
+    case 'housekeeping': return 'rooms.housekeeping';
+    case 'security': return 'settings.security';
+    case 'reports': return 'reports.analytics';
+    case 'marketing': return 'marketing.campaigns';
+    case 'recipes': return 'recipes.view';
+    case 'suppliers': return 'suppliers.basic';
+    case 'channel management': return 'rooms.channel_mgmt';
+    case 'user management': return 'users_permissions.user_access';
+    case 'role management': return 'users_permissions.permission_management';
+    case 'ai assistant': return 'ai.assistant';
+    default: return `${n.replace(/\s+/g, '_')}.view`;
+  }
+};
 
 export const CreateRoleDialog = ({
   open,
@@ -68,11 +102,11 @@ export const CreateRoleDialog = ({
       if (error) throw error;
 
       // Filter to only show components the restaurant has access to
-      return (data as AppComponent[]).filter((c) =>
-        subscriptionComponents.some(
-          (sc) => sc.toLowerCase() === c.name.toLowerCase()
-        )
-      );
+      return (data as AppComponent[]).filter((c) => {
+        const featureKey = getFeatureKeyForAppComp(c.name);
+        return hasFeatureAccess(featureKey, subscriptionComponents) || 
+               subscriptionComponents.some((sc) => sc.toLowerCase() === c.name.toLowerCase());
+      });
     },
     enabled: open && !!user?.restaurant_id,
   });
