@@ -33,7 +33,7 @@ import {
   Upload,
   Trash2,
 } from "lucide-react";
-import { uploadImageToFreeHost } from "@/utils/imageUpload";
+import { uploadImage } from "@/utils/imageUpload";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -89,8 +89,8 @@ const Settings = () => {
 
     setLogoUploading(true);
     try {
-      // Upload via freeimage-upload edge function (returns freeimage.host URL, e.g. iili.io)
-      const url = await uploadImageToFreeHost(file);
+      // Upload via Supabase Storage directly
+      const url = await uploadImage(file, { resize: false });
 
       // Persist to DB
       if (profile?.restaurant_id) {

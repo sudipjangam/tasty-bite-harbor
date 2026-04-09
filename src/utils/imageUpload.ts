@@ -1,22 +1,8 @@
 import { supabase } from '@/integrations/supabase/client';
 
-interface FreeImageHostResponse {
-  status_code: number;
-  success?: {
-    message: string;
-    code: number;
-  };
-  image?: {
-    url: string;
-    display_url: string;
-    thumb: {
-      url: string;
-    };
-    medium: {
-      url: string;
-    };
-  };
-  status_txt: string;
+export interface UploadImageOptions {
+  resize?: boolean;
+  onProgress?: (progress: number) => void;
 }
 
 // Resize image to passport size (3.5cm x 4.5cm at 300 DPI ≈ 413x531 pixels)
@@ -62,11 +48,14 @@ const resizeImageToPassportSize = (file: File): Promise<Blob> => {
   });
 };
 
-export const uploadImageToFreeHost = async (
+export const uploadImage = async (
   file: File,
-  onProgress?: (progress: number) => void
+  options?: UploadImageOptions | ((progress: number) => void)
 ): Promise<string> => {
   try {
+    const resize = typeof options === 'object' ? (options.resize ?? true) : true;
+    const onProgress = typeof options === 'function' ? options : options?.onProgress;
+
     onProgress?.(10);
     
     // Validate file
@@ -78,52 +67,45 @@ export const uploadImageToFreeHost = async (
       throw new Error('File size must be less than 5MB');
     }
     
-    onProgress?.(20);
+    onProgress?.(30);
     
-    // Resize image to passport size
-    const resizedBlob = await resizeImageToPassportSize(file);
-    onProgress?.(40);
+    let fileToUpload: File | Blob = file;
+    if (resize) {
+      fileToUpload = await resizeImageToPassportSize(file);
+    }
     
-    // Convert to base64
-    const base64Promise = new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (e.target?.result) {
-          const base64String = e.target.result.toString().split(',')[1];
-          resolve(base64String);
-        } else {
-          reject(new Error('Failed to convert file to base64'));
-        }
-      };
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(resizedBlob);
-    });
-    
-    const base64String = await base64Promise;
     onProgress?.(60);
     
-    // Use Supabase Edge Function to proxy the upload
-    const { data, error } = await supabase.functions.invoke('freeimage-upload', {
-      body: {
-        base64Image: base64String,
-        fileName: file.name,
-        fileType: file.type
-      }
-    });
+    // Generate unique filename
+    const fileExt = file.name.split('.').pop() || 'jpg';
+    const uuid = typeof crypto !== 'undefined' && crypto.randomUUID 
+      ? crypto.randomUUID() 
+      : Date.now().toString() + Math.random().toString(36).substring(2, 9);
+    const fileName = `${uuid}.${fileExt}`;
     
-    onProgress?.(80);
+    // Upload to Supabase Storage images bucket
+    const { data, error } = await supabase.storage
+      .from('images')
+      .upload(fileName, fileToUpload, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: fileToUpload instanceof File ? fileToUpload.type : 'image/jpeg'
+      });
+    
+    onProgress?.(90);
     
     if (error) {
       throw new Error(`Upload failed: ${error.message}`);
     }
     
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('images')
+      .getPublicUrl(fileName);
+      
     onProgress?.(100);
     
-    if (data.success && data.imageUrl) {
-      return data.imageUrl;
-    } else {
-      throw new Error(data.error || 'Upload failed');
-    }
+    return publicUrl;
   } catch (error) {
     console.error('Upload error:', error);
     if (error instanceof Error) {
@@ -131,12 +113,4 @@ export const uploadImageToFreeHost = async (
     }
     throw new Error('Failed to upload image');
   }
-};
-
-// Main upload function - now uses Supabase Edge Function to avoid CORS
-export const uploadImage = async (
-  file: File,
-  onProgress?: (progress: number) => void
-): Promise<string> => {
-  return await uploadImageToFreeHost(file, onProgress);
 };
