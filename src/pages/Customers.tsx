@@ -955,71 +955,109 @@ const Customers = () => {
         </div>
 
         {/* Quick Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-xl">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl p-4 lg:p-6 shadow-xl">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
-                <Users className="h-5 w-5 text-white" />
+                <Users className="h-4 w-4 md:h-5 md:w-5 text-white" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
                   Total Customers
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {customers.length}
+                <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
+                  {customers.filter(c => c.id !== "walk-in-customer").length}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-xl">
+          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl p-4 lg:p-6 shadow-xl">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg">
+                <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                  Registered Rev
+                </p>
+                <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
+                  <CurrencyDisplay
+                    amount={totalSpent - (displayCustomers.find(c => c.id === 'walk-in-customer')?.total_spent || 0)}
+                    className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white"
+                  />
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl p-4 lg:p-6 shadow-xl">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg">
+                <Users className="h-4 w-4 md:h-5 md:w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                  Walk In Rev
+                </p>
+                <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
+                  <CurrencyDisplay
+                    amount={displayCustomers.find(c => c.id === 'walk-in-customer')?.total_spent || 0}
+                    className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white"
+                  />
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl p-4 lg:p-6 shadow-xl">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-white" />
+                <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-white" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
                   Total Revenue
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
                   <CurrencyDisplay
                     amount={totalSpent}
-                    className="text-2xl font-bold text-gray-900 dark:text-white"
+                    className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white"
                   />
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-xl">
+          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl p-4 lg:p-6 shadow-xl">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-white" />
+                <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-white" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Avg Order Value
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                  Avg Order Val
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
                   <CurrencyDisplay
                     amount={Number(averageOrderValue.toFixed(2))}
-                    className="text-2xl font-bold text-gray-900 dark:text-white"
+                    className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white"
                   />
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-xl">
+          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl p-4 lg:p-6 shadow-xl">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg">
-                <Heart className="h-5 w-5 text-white" />
+                <Heart className="h-4 w-4 md:h-5 md:w-5 text-white" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Loyal Customers
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                  Loyal Users
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
                   {loyalCustomers}
                 </p>
               </div>
