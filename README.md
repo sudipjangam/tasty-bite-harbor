@@ -123,6 +123,14 @@ For detailed testing documentation, see [docs/TESTING.md](docs/TESTING.md).
 
 ---
 
+## 📚 Documentation
+
+- [Project Architecture and Functionality](docs/PROJECT_ARCHITECTURE_AND_FUNCTIONALITY.md)
+- [Codebase Catalog (Routes, Pages, Hooks, Functions, DB Tables)](docs/CODEBASE_CATALOG.md)
+- [Mermaid Flow Diagrams (Frontend to Backend, Auth, Subscription, Realtime, Offline, Payments)](docs/MERMAID_FLOW_DIAGRAMS.md)
+
+---
+
 ## 📁 Project Structure
 
 ```
