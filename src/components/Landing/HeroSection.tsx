@@ -23,8 +23,8 @@ export const HeroSection: React.FC = () => {
 
   // Stats with animated counting
   const stats = [
-    { number: "500+", label: "Happy Restaurants", delay: 0 },
-    { number: "1M+", label: "Orders Processed", delay: 100 },
+    { number: "100+", label: "Happy Restaurants", delay: 0 },
+    { number: "100k+", label: "Orders Processed", delay: 100 },
     { number: "99.9%", label: "Uptime Guarantee", delay: 200 },
     { number: "4.9★", label: "Customer Rating", delay: 300 },
   ];

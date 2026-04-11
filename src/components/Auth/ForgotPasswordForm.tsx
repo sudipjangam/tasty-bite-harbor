@@ -136,7 +136,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ setAuthM
           Email address
         </Label>
         <div className="relative group">
-          <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 w-5 h-5 transition-colors" />
+          <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-[#2E3192] w-5 h-5 transition-colors" />
           <Input
             id="forgot-email"
             type="email"
@@ -145,7 +145,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ setAuthM
             onChange={(e) => setEmail(e.target.value)}
             required
             disabled={loading}
-            className="pl-12 h-14 bg-gray-50/50 dark:bg-slate-700/50 border-gray-200 dark:border-slate-600 focus:border-indigo-500 focus:ring-indigo-500/20 focus:ring-2 transition-all duration-200 rounded-xl text-base"
+            className="pl-12 h-14 bg-gray-50/50 dark:bg-slate-700/50 border-gray-200 dark:border-slate-600 focus:border-[#2E3192] focus:ring-[#2E3192]/20 focus:ring-2 transition-all duration-200 rounded-xl text-base"
           />
         </div>
       </div>
@@ -153,7 +153,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ setAuthM
       <Button
         type="submit"
         disabled={loading || !email}
-        className="w-full h-14 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:via-purple-700 hover:to-indigo-800 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl text-base"
+        className="w-full h-14 bg-gradient-to-r from-[#2E3192] to-[#1a1f6e] hover:from-[#1a1f6e] hover:to-[#0d1045] text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl text-base"
       >
         {loading ? (
           <>
@@ -172,7 +172,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ setAuthM
         type="button"
         variant="ghost"
         onClick={() => setAuthMode("signin")}
-        className="w-full text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-slate-700 font-medium transition-all duration-200 h-12 rounded-xl"
+        className="w-full text-[#2E3192] hover:text-[#1a1f6e] hover:bg-[#2E3192]/5 dark:hover:bg-slate-700 font-medium transition-all duration-200 h-12 rounded-xl"
       >
         <ArrowLeft className="w-4 h-4 mr-2" />
         Back to sign in

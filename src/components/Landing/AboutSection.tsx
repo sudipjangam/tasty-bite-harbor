@@ -33,7 +33,7 @@ export const AboutSection: React.FC = () => {
   const founders = [
     {
       name: "Rohan Jadhav",
-      role: "Founder & CEO",
+      role: "Founder",
       bio: "Visionary entrepreneur with a passion for transforming the Indian hospitality industry through technology. Leading Swadeshi Solutions towards becoming India's #1 restaurant tech platform.",
       avatar: "RJ",
       color: "#FF6B6B",
@@ -42,7 +42,7 @@ export const AboutSection: React.FC = () => {
     },
     {
       name: "Sudip Jangam",
-      role: "Co-Founder & CTO",
+      role: "Co-Founder",
       bio: "Tech innovator driving the cutting-edge development of RMS Pro. Expert in scalable cloud architectures and AI-driven solutions for the hospitality sector.",
       avatar: "SJ",
       color: "#2D3A5F",
