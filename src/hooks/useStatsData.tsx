@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { subDays } from "date-fns";
 import { useRealtimeSubscription } from "./useRealtimeSubscription";
 import { useRestaurantId } from "./useRestaurantId";
 
@@ -20,19 +21,23 @@ export const useStatsData = () => {
         throw new Error("No restaurant found for user");
       }
 
-      // Fetch all orders from all sources (POS, table, manual, room service, QSR, etc.)
+      // Fetch orders from last 30 days from all sources
+      const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
+
       const { data: orders, error } = await supabase
         .from("orders")
         .select("*")
-        .eq("restaurant_id", restaurantId);
+        .eq("restaurant_id", restaurantId)
+        .gte("created_at", thirtyDaysAgo);
 
       if (error) throw error;
 
-      // Fetch room billings for revenue calculation
+      // Fetch room billings for revenue calculation (last 30 days)
       const { data: roomBillings } = await supabase
         .from("room_billings")
         .select("*")
-        .eq("restaurant_id", restaurantId);
+        .eq("restaurant_id", restaurantId)
+        .gte("created_at", thirtyDaysAgo);
 
       // Transform room billings to match orders structure for easier processing
       const roomBillingsAsOrders = (roomBillings || []).map((billing) => ({

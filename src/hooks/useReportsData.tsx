@@ -250,6 +250,12 @@ export const useReportsData = (dateRange?: DateRange) => {
           .trim();
       };
 
+      // Extract @price from the raw item string (e.g. "Cold coffee ([]) @150" -> 150)
+      const extractAtPrice = (raw: string): number | null => {
+        const match = raw.match(/@(\d+(?:\.\d+)?)\s*$/);
+        return match ? parseFloat(match[1]) : null;
+      };
+
       // Find the best matching menu item name for an order item name
       const findMenuMatch = (orderItemName: string): { price: number; canonicalName: string } => {
         const normalized = orderItemName.toLowerCase();
@@ -279,12 +285,15 @@ export const useReportsData = (dateRange?: DateRange) => {
             order.items.forEach((item: string) => {
               let rawName = "";
               let qty = 1;
+              let inlinePrice: number | null = null;
 
               try {
                 const parsed =
                   typeof item === "string" ? JSON.parse(item) : item;
                 rawName = (parsed.name || "").trim();
                 qty = parsed.quantity || 1;
+                // Use price from parsed JSON if available
+                if (parsed.price) inlinePrice = Number(parsed.price);
               } catch {
                 // Parse "2x Cold coffee ([]) @150" format
                 const match = String(item).match(/^(\d+)x\s+(.+)$/i);
@@ -295,6 +304,10 @@ export const useReportsData = (dateRange?: DateRange) => {
                   rawName = String(item).trim();
                   qty = 1;
                 }
+                // Extract @price from the raw string
+                if (inlinePrice === null) {
+                  inlinePrice = extractAtPrice(rawName);
+                }
               }
 
               if (!rawName) return;
@@ -304,12 +317,15 @@ export const useReportsData = (dateRange?: DateRange) => {
               if (!cleanedName) return;
 
               // Find matching menu item
-              const { price, canonicalName } = findMenuMatch(cleanedName);
+              const { price: menuPrice, canonicalName } = findMenuMatch(cleanedName);
+
+              // Use inline @price first (actual price at time of order), fall back to menu lookup
+              const unitPrice = inlinePrice !== null ? inlinePrice : menuPrice;
 
               // Aggregate under the canonical menu item name
               const key = canonicalName.trim();
               itemSales[key] = (itemSales[key] || 0) + qty;
-              itemRevenue[key] = (itemRevenue[key] || 0) + price * qty;
+              itemRevenue[key] = (itemRevenue[key] || 0) + unitPrice * qty;
             });
           }
         });

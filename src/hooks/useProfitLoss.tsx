@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { startOfMonth, endOfMonth, format } from "date-fns";
+import { startOfMonth, endOfMonth, format, startOfDay, endOfDay } from "date-fns";
 import { useRestaurantId } from "./useRestaurantId";
 
 interface ProfitLossData {
@@ -45,20 +45,26 @@ export const useProfitLoss = (startDate?: Date, endDate?: Date) => {
     queryFn: async (): Promise<ProfitLossData> => {
       if (!restaurantId) throw new Error("No restaurant found");
 
-      // Fetch revenue data
+      // Use full timestamp boundaries to avoid cutting off same-day orders
+      const startISO = startOfDay(start).toISOString();
+      const endISO = endOfDay(end).toISOString();
+
+      // Fetch revenue data - only completed, chargeable orders
       const { data: orders } = await supabase
         .from("orders")
         .select("total, created_at")
         .eq("restaurant_id", restaurantId)
-        .gte("created_at", format(start, "yyyy-MM-dd"))
-        .lte("created_at", format(end, "yyyy-MM-dd"));
+        .eq("status", "completed")
+        .neq("order_type", "non-chargeable")
+        .gte("created_at", startISO)
+        .lte("created_at", endISO);
 
       const { data: roomBillings } = await supabase
         .from("room_billings")
         .select("total_amount, created_at")
         .eq("restaurant_id", restaurantId)
-        .gte("created_at", format(start, "yyyy-MM-dd"))
-        .lte("created_at", format(end, "yyyy-MM-dd"));
+        .gte("created_at", startISO)
+        .lte("created_at", endISO);
 
       // Fetch expense data
       const { data: expenses } = await supabase
