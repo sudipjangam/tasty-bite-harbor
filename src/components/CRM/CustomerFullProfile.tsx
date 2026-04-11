@@ -245,47 +245,51 @@ const getOrderInsights = (orders: any[]) => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                onClick={() => onEditCustomer(customer)}
-                variant="outline"
-                size="sm"
-                className="bg-white/80"
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                Edit
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
+              {customer.id !== 'walk-in-customer' && (
+                <>
                   <Button
+                    onClick={() => onEditCustomer(customer)}
                     variant="outline"
                     size="sm"
-                    className="bg-white/80 text-red-600 hover:text-red-700 hover:bg-red-50"
+                    className="bg-white/80"
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
                   </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Customer</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to delete{" "}
-                      <strong>{customer.name}</strong>? This action cannot be
-                      undone. All customer data including notes, activities, and
-                      loyalty points will be permanently removed.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => onDeleteCustomer(customer.id)}
-                      className="bg-red-600 hover:bg-red-700"
-                    >
-                      Delete Customer
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-white/80 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete{" "}
+                          <strong>{customer.name}</strong>? This action cannot be
+                          undone. All customer data including notes, activities, and
+                          loyalty points will be permanently removed.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => onDeleteCustomer(customer.id)}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          Delete Customer
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              )}
             </div>
           </div>
         </CardHeader>
