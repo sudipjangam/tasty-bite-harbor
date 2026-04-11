@@ -215,8 +215,14 @@ export const useBusinessDashboardData = () => {
       ];
 
       // Calculate expense breakdown based on live data
+      // Only count completed, chargeable orders for revenue
+      const completedChargeableOrders = typedOrderData.filter(
+        (order: any) =>
+          order.status === "completed" &&
+          order.order_type !== "non-chargeable"
+      );
       const totalOrderRevenue =
-        typedOrderData.reduce((sum, order) => sum + order.total, 0) || 0;
+        completedChargeableOrders.reduce((sum, order) => sum + order.total, 0) || 0;
 
       // Calculate ingredient costs (from inventory)
       const ingredientsCost =
