@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './useAuth';
 import { fetchAllowedComponents, hasFeatureAccess, getRequiredPlanForFeature } from '@/utils/subscriptionUtils';
 import { getFeatureLabel } from '@/constants/featureRegistry';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 /**
@@ -11,6 +12,9 @@ import { toast } from 'sonner';
 let cachedRestaurantId: string | null = null;
 let cachedComponents: string[] | null = null;
 let cachePromise: Promise<string[]> | null = null;
+
+/** Listeners that get called when cache is invalidated (for re-renders) */
+const cacheListeners = new Set<() => void>();
 
 const fetchWithCache = async (restaurantId: string): Promise<string[]> => {
   if (cachedRestaurantId === restaurantId && cachedComponents !== null) {
@@ -34,11 +38,51 @@ const fetchWithCache = async (restaurantId: string): Promise<string[]> => {
 
 /**
  * Invalidate the feature cache. Call this when plans are updated in admin.
+ * Notifies all mounted useFeatureGate hooks to re-fetch.
  */
 export const invalidateFeatureCache = () => {
   cachedRestaurantId = null;
   cachedComponents = null;
   cachePromise = null;
+  // Notify all listeners to re-fetch
+  cacheListeners.forEach((listener) => listener());
+};
+
+// ─── Supabase Realtime: auto-invalidate on plan changes ─────────────────
+// Single shared channel across all hook instances
+let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+let realtimeSubscriberCount = 0;
+
+const subscribeToRealtimeUpdates = () => {
+  realtimeSubscriberCount++;
+  if (realtimeChannel) return; // Already subscribed
+
+  realtimeChannel = supabase
+    .channel('feature-gate-plan-changes')
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'subscription_plans',
+      },
+      (payload) => {
+        console.log('[useFeatureGate] Plan updated via Realtime, invalidating cache:', payload.new?.id);
+        invalidateFeatureCache();
+      }
+    )
+    .subscribe((status) => {
+      console.log('[useFeatureGate] Realtime subscription status:', status);
+    });
+};
+
+const unsubscribeFromRealtimeUpdates = () => {
+  realtimeSubscriberCount--;
+  if (realtimeSubscriberCount <= 0 && realtimeChannel) {
+    supabase.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+    realtimeSubscriberCount = 0;
+  }
 };
 
 interface UseFeatureGateResult {
@@ -54,6 +98,9 @@ interface UseFeatureGateResult {
 
 /**
  * Hook to check if a granular feature is accessible for the current user's plan.
+ * 
+ * Includes Supabase Realtime subscription: when an admin updates plan features,
+ * all connected users' FeatureLock components update immediately.
  * 
  * Usage:
  * ```tsx
@@ -72,6 +119,25 @@ export const useFeatureGate = (featureKey: string): UseFeatureGateResult => {
   const [planComponents, setPlanComponents] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [requiredPlan, setRequiredPlan] = useState<string | null>(null);
+  const [, forceUpdate] = useState(0); // Trigger re-render on cache invalidation
+
+  // Subscribe to Realtime updates
+  useEffect(() => {
+    subscribeToRealtimeUpdates();
+    return () => unsubscribeFromRealtimeUpdates();
+  }, []);
+
+  // Listen for cache invalidations → re-fetch
+  useEffect(() => {
+    const listener = () => {
+      forceUpdate((n) => n + 1);
+      setLoading(true);
+    };
+    cacheListeners.add(listener);
+    return () => {
+      cacheListeners.delete(listener);
+    };
+  }, []);
 
   // Fetch plan components
   useEffect(() => {
@@ -94,7 +160,7 @@ export const useFeatureGate = (featureKey: string): UseFeatureGateResult => {
     };
 
     load();
-  }, [user?.restaurant_id]);
+  }, [user?.restaurant_id, forceUpdate]);
 
   // Determine if locked
   const isLocked = useMemo(() => {
@@ -134,3 +200,4 @@ export const useFeatureGate = (featureKey: string): UseFeatureGateResult => {
     requiredPlan,
   };
 };
+

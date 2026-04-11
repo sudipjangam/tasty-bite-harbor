@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { invalidateFeatureCache } from "@/hooks/useFeatureGate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -177,6 +178,10 @@ const FeaturePermissions = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["all-plans-permissions"] });
+      // Invalidate feature gate cache so FeatureLock components update for admin
+      invalidateFeatureCache();
+      // Also invalidate subscription-components for sidebar navigation
+      queryClient.invalidateQueries({ queryKey: ["subscription-components"] });
       toast.success("Feature permissions saved successfully");
       setHasUnsavedChanges(false);
     },

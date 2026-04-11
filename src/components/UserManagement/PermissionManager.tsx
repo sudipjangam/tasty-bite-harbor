@@ -3,6 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { fetchAllowedComponents, hasFeatureAccess } from "@/utils/subscriptionUtils";
 import {
+  getFeatureKeyForComponent,
+  getCategoryForComponent,
+  syncAppComponentsWithRegistry,
+} from "@/utils/featureComponentMapping";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -26,6 +31,20 @@ import {
   Package,
   Calendar,
   Settings,
+  Zap,
+  ShoppingCart,
+  UtensilsCrossed,
+  LayoutGrid,
+  Truck,
+  CalendarDays,
+  Receipt,
+  Sparkles,
+  Megaphone,
+  Monitor,
+  Soup,
+  Key,
+  UserCheck,
+  Home,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -43,117 +62,30 @@ interface AppComponent {
   description: string | null;
 }
 
-// Component category mapping - matching EditRoleDialog
-const componentCategories: Record<
-  string,
-  { icon: any; label: string; color: string }
-> = {
-  Operations: {
-    icon: ChefHat,
-    label: "Operations",
-    color: "from-orange-500 to-amber-500",
-  },
-  Management: {
-    icon: Users,
-    label: "Management",
-    color: "from-blue-500 to-indigo-500",
-  },
-  Analytics: {
-    icon: BarChart3,
-    label: "Analytics & Reports",
-    color: "from-purple-500 to-violet-500",
-  },
-  Financial: {
-    icon: DollarSign,
-    label: "Financial",
-    color: "from-emerald-500 to-green-500",
-  },
-  Inventory: {
-    icon: Package,
-    label: "Inventory & Supplies",
-    color: "from-teal-500 to-cyan-500",
-  },
-  Reservations: {
-    icon: Calendar,
-    label: "Reservations & Rooms",
-    color: "from-rose-500 to-pink-500",
-  },
-  Settings: {
-    icon: Settings,
-    label: "Settings & Security",
-    color: "from-slate-500 to-gray-500",
-  },
-};
-
-const getComponentCategory = (name: string): string => {
-  const n = name.toLowerCase();
-  if (
-    ["pos", "orders", "kitchen", "tables", "menu", "qsr"].some((k) =>
-      n.includes(k)
-    )
-  )
-    return "Operations";
-  if (
-    ["staff", "user", "role", "customers", "crm", "marketing"].some((k) =>
-      n.includes(k)
-    )
-  )
-    return "Management";
-  if (["analytics", "reports", "dashboard", "ai"].some((k) => n.includes(k)))
-    return "Analytics";
-  if (
-    ["financial", "expenses", "invoice", "billing"].some((k) => n.includes(k))
-  )
-    return "Financial";
-  if (["inventory", "suppliers", "recipes"].some((k) => n.includes(k)))
-    return "Inventory";
-  if (
-    ["reservations", "rooms", "housekeeping", "channel"].some((k) =>
-      n.includes(k)
-    )
-  )
-    return "Reservations";
-  if (
-    ["settings", "security", "audit", "backup", "gdpr"].some((k) =>
-      n.includes(k)
-    )
-  )
-    return "Settings";
-  return "Management";
-};
-
-const getFeatureKeyForAppComp = (name: string): string => {
-  const n = name.toLowerCase();
-  switch (n) {
-    case 'dashboard': return 'dashboard.basic';
-    case 'orders': return 'orders.view';
-    case 'pos': return 'pos.basic';
-    case 'qsr pos': return 'quickserve.qsr_pos';
-    case 'menu': return 'menu.basic';
-    case 'inventory': return 'inventory.overview';
-    case 'staff': return 'staff.roster';
-    case 'customers': return 'customers.basic';
-    case 'crm': return 'customers.crm';
-    case 'rooms': return 'rooms.management';
-    case 'reservations': return 'reservations.basic';
-    case 'analytics': return 'reports.analytics';
-    case 'financial': return 'financial.dashboard';
-    case 'expenses': return 'expenses.basic';
-    case 'settings': return 'settings.basic';
-    case 'kitchen': return 'kitchen.kds';
-    case 'tables': return 'tables.grid';
-    case 'housekeeping': return 'rooms.housekeeping';
-    case 'security': return 'settings.security';
-    case 'reports': return 'reports.analytics';
-    case 'marketing': return 'marketing.campaigns';
-    case 'recipes': return 'recipes.view';
-    case 'suppliers': return 'suppliers.basic';
-    case 'channel management': return 'rooms.channel_mgmt';
-    case 'user management': return 'users_permissions.user_access';
-    case 'role management': return 'users_permissions.permission_management';
-    case 'ai assistant': return 'ai.assistant';
-    default: return `${n.replace(/\s+/g, '_')}.view`;
-  }
+// ─── Icon map for dynamic registry-based category rendering ──────────────
+const ICON_MAP: Record<string, any> = {
+  LayoutDashboard: Home,
+  Monitor,
+  Zap,
+  ShoppingCart,
+  ChefHat,
+  UtensilsCrossed,
+  Package,
+  Soup,
+  LayoutGrid,
+  BarChart3,
+  Users,
+  UserCheck,
+  DollarSign,
+  Receipt,
+  Truck,
+  CalendarDays,
+  Shield,
+  Settings,
+  Sparkles,
+  Megaphone,
+  Key,
+  Calendar,
 };
 
 export const PermissionManager = ({
@@ -170,27 +102,23 @@ export const PermissionManager = ({
   const [userProfile, setUserProfile] = useState<any>(null);
   const [initComplete, setInitComplete] = useState(false);
 
-  // Fetch components filtered by restaurant subscription
+  // Fetch components filtered by restaurant subscription (auto-synced with registry)
   const { data: components, isLoading: isLoadingComponents } = useQuery({
     queryKey: ["app-components-filtered", user?.restaurant_id],
     queryFn: async () => {
       if (!user?.restaurant_id) return [];
+
+      // Auto-sync app_components table with feature registry
+      const allComponents = await syncAppComponentsWithRegistry();
 
       // Get subscription plan components
       const subscriptionComponents = await fetchAllowedComponents(
         user.restaurant_id
       );
 
-      const { data, error } = await supabase
-        .from("app_components")
-        .select("*")
-        .order("name");
-
-      if (error) throw error;
-
       // Filter to only show components the restaurant has access to
-      return (data as AppComponent[]).filter((c) => {
-        const featureKey = getFeatureKeyForAppComp(c.name);
+      return (allComponents as AppComponent[]).filter((c) => {
+        const featureKey = getFeatureKeyForComponent(c.name);
         return hasFeatureAccess(featureKey, subscriptionComponents) || 
                subscriptionComponents.some((sc) => sc.toLowerCase() === c.name.toLowerCase());
       });
@@ -281,14 +209,15 @@ export const PermissionManager = ({
       enabled: open && !!userId,
     });
 
-  // Group components by category
+  // Group components by category (derived from FEATURE_REGISTRY)
   const groupedComponents = useMemo(() => {
     if (!components) return {};
     const groups: Record<string, AppComponent[]> = {};
     components.forEach((comp) => {
-      const cat = getComponentCategory(comp.name);
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(comp);
+      const catInfo = getCategoryForComponent(comp.name);
+      const catKey = catInfo.label;
+      if (!groups[catKey]) groups[catKey] = [];
+      groups[catKey].push(comp);
     });
     return groups;
   }, [components]);
@@ -548,10 +477,9 @@ export const PermissionManager = ({
             <ScrollArea className="h-[350px] border rounded-xl p-4 bg-gray-50/50 dark:bg-gray-800/30">
               <div className="space-y-6">
                 {Object.entries(groupedComponents).map(([category, comps]) => {
-                  const catInfo =
-                    componentCategories[category] ||
-                    componentCategories["Management"];
-                  const Icon = catInfo.icon;
+                  const firstComp = comps[0];
+                  const catMeta = firstComp ? getCategoryForComponent(firstComp.name) : { icon: 'Settings', label: category, color: 'from-slate-500 to-gray-500' };
+                  const Icon = ICON_MAP[catMeta.icon] || Settings;
                   const allSelected = comps.every((c) =>
                     selectedComponents.includes(c.id)
                   );
@@ -564,12 +492,12 @@ export const PermissionManager = ({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div
-                            className={`h-6 w-6 rounded-lg bg-gradient-to-br ${catInfo.color} flex items-center justify-center`}
+                            className={`h-6 w-6 rounded-lg bg-gradient-to-br ${catMeta.color} flex items-center justify-center`}
                           >
                             <Icon className="h-3.5 w-3.5 text-white" />
                           </div>
                           <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                            {catInfo.label}
+                            {catMeta.label}
                           </span>
                         </div>
                         <Button
