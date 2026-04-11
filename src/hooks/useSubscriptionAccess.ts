@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from './useAuth';
 import { Permission } from '../types/auth';
@@ -10,6 +11,7 @@ interface SubscriptionComponent {
 
 export const useSubscriptionAccess = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data: subscriptionComponents = [], isLoading } = useQuery({
     queryKey: ['subscription-components', user?.restaurant_id],
@@ -52,6 +54,34 @@ export const useSubscriptionAccess = () => {
     },
     enabled: !!user?.restaurant_id
   });
+
+  // ─── Supabase Realtime: auto-invalidate when plan features change ──────
+  useEffect(() => {
+    const channel = supabase
+      .channel('subscription-access-plan-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'subscription_plans',
+        },
+        (payload) => {
+          console.log('[useSubscriptionAccess] Plan updated via Realtime, invalidating cache:', payload.new?.id);
+          // Invalidate the subscription-components query to trigger re-fetch
+          queryClient.invalidateQueries({
+            queryKey: ['subscription-components', user?.restaurant_id],
+          });
+        }
+      )
+      .subscribe((status) => {
+        console.log('[useSubscriptionAccess] Realtime subscription status:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.restaurant_id, queryClient]);
 
   const hasSubscriptionAccess = (component: string): boolean => {
     const normalizedComponent = component.toLowerCase().trim();

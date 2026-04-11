@@ -14,7 +14,7 @@ import { Lock, ShieldAlert } from "lucide-react";
 const routeToComponentMap: Record<string, string> = {
   "/": "dashboard",
   "/pos": "pos",
-  "/qsr-pos": "quickserve",
+  "/qsr-pos": "qsr-pos",
   "/quickserve-pos": "quickserve",
   "/orders": "orders",
   "/kitchen": "kitchen",

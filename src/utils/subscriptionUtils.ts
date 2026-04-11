@@ -164,7 +164,7 @@ export const hasFeatureAccess = (featureKey: string, planFeatures: string[]): bo
   if (rootKey === 'users_permissions') {
     if (normalizedPlan.includes('user-management') || normalizedPlan.includes('permission-management')) return true;
   }
-  if (rootKey === 'quickserve' && normalizedPlan.includes('qsr-pos')) return true;
+  // qsr-pos is independent of quickserve — no legacy fallback needed
 
   return false;
 };
