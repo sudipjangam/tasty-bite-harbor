@@ -103,53 +103,71 @@ const Auth = () => {
 
   // Show auth form directly
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950 relative overflow-hidden">
-      {/* Animated background elements */}
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center relative overflow-hidden py-2 sm:py-8"
+      style={{
+        background: 'linear-gradient(135deg, #f0f4ff 0%, #ffffff 40%, #fff7f0 70%, #fef3ec 100%)',
+      }}
+    >
+      {/* Animated background elements — brand-aligned navy & orange */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-r from-purple-400/30 to-pink-400/30 rounded-full mix-blend-multiply filter blur-xl animate-float"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-r from-blue-400/30 to-indigo-400/30 rounded-full mix-blend-multiply filter blur-xl animate-float animation-delay-1000"></div>
-        <div className="absolute top-40 left-1/2 w-80 h-80 bg-gradient-to-r from-cyan-400/20 to-teal-400/20 rounded-full mix-blend-multiply filter blur-xl animate-float animation-delay-2000"></div>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-r from-[#2E3192]/15 to-[#F26722]/15 rounded-full mix-blend-multiply filter blur-xl animate-float"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-r from-[#2E3192]/20 to-[#1a1f6e]/15 rounded-full mix-blend-multiply filter blur-xl animate-float animation-delay-1000"></div>
+        <div className="absolute top-40 left-1/2 w-80 h-80 bg-gradient-to-r from-[#F26722]/10 to-[#ff8a47]/10 rounded-full mix-blend-multiply filter blur-xl animate-float animation-delay-2000"></div>
       </div>
 
-      {/* Clear auth button for debugging */}
-      <div className="fixed top-4 right-4 z-50 flex gap-2">
+      {/* Top action bar — small, unobtrusive */}
+      <div className="relative z-50 w-full max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 mb-2 sm:mb-6 flex justify-end gap-2">
         <Button
           onClick={handleClearAuth}
-          variant="outline"
+          variant="default"
           size="sm"
-          className="bg-white/80 backdrop-blur-sm"
+          className="bg-[#2E3192] hover:bg-[#1a1f6e] text-white shadow-md rounded-full font-medium h-7 px-2.5 text-[11px] sm:h-9 sm:px-4 sm:text-sm"
         >
-          <LogOut className="h-4 w-4 mr-2" />
+          <LogOut className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
           Clear Auth
         </Button>
         <Button
           onClick={() => window.location.reload()}
-          variant="outline"
+          variant="secondary"
           size="sm"
-          className="bg-white/80 backdrop-blur-sm"
+          className="bg-white hover:bg-gray-50 text-[#2E3192] border border-[#2E3192]/20 shadow-sm rounded-full font-medium h-7 px-2.5 text-[11px] sm:h-9 sm:px-4 sm:text-sm"
         >
-          <RefreshCw className="h-4 w-4 mr-2" />
+          <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
           Refresh
         </Button>
       </div>
 
       {/* Main content container */}
-      <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="relative z-10 w-full max-w-6xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
-          {/* Left side - branding */}
+          {/* Left side - branding (desktop only) */}
           <div className="hidden lg:block space-y-8">
             <div className="space-y-6">
-              <div className="inline-flex items-center px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-full text-indigo-700 dark:text-indigo-300">
-                <Sparkles className="w-4 h-4 mr-2" />
+              <div className="inline-flex items-center px-4 py-2 bg-white/40 backdrop-blur-sm border border-[#2E3192]/10 rounded-full text-[#2E3192]">
+                <Sparkles className="w-4 h-4 mr-2 text-[#F26722]" />
                 <span className="text-sm font-medium">
                   Trusted by 500+ restaurants
                 </span>
               </div>
 
               <div className="space-y-4">
-                <h1 className="text-5xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">
-                  Swadeshi Solutions
-                </h1>
+                <div className="flex flex-col sm:flex-row items-center sm:items-end gap-2 sm:gap-4">
+                  <div className="relative flex items-center justify-center transition-transform duration-300 hover:scale-105">
+                    <img
+                      src="/swadeshi-logo2.png"
+                      alt="Swadeshi Solutions Logo"
+                      className="object-contain w-28 h-28 sm:w-36 sm:h-36 lg:w-[10rem] lg:h-[10rem]"
+                    />
+                  </div>
+                  <div className="flex flex-row items-center sm:pb-2">
+                    <span className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight text-[#2E3192] dark:text-white leading-tight sm:leading-none">
+                      Swadeshi
+                    </span>
+                    <span className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight text-[#F26722] ml-2 leading-tight sm:leading-none">
+                      Solutions
+                    </span>
+                  </div>
+                </div>
                 <p className="text-xl text-gray-600 dark:text-gray-300 leading-relaxed">
                   Transform your restaurant operations with our comprehensive
                   management platform. Streamline everything from orders and
@@ -183,7 +201,7 @@ const Auth = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-lg">
+                  <div className="w-12 h-12 bg-gradient-to-r from-[#F26722] to-[#ff4500] rounded-2xl flex items-center justify-center shadow-lg">
                     <svg
                       className="w-6 h-6 text-white"
                       fill="none"
@@ -207,7 +225,7 @@ const Auth = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <div className="w-12 h-12 bg-gradient-to-r from-[#2E3192] to-[#1a1f6e] rounded-2xl flex items-center justify-center shadow-lg">
                     <svg
                       className="w-6 h-6 text-white"
                       fill="none"
@@ -231,7 +249,7 @@ const Auth = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <div className="w-12 h-12 bg-gradient-to-r from-[#F26722]/80 to-[#2E3192]/80 rounded-2xl flex items-center justify-center shadow-lg">
                     <svg
                       className="w-6 h-6 text-white"
                       fill="none"
@@ -259,7 +277,7 @@ const Auth = () => {
               <div className="pt-6">
                 <Button
                   variant="outline"
-                  className="group border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm transition-all duration-200"
+                  className="group border-[#2E3192]/20 text-[#2E3192] hover:bg-[#2E3192] hover:text-white bg-white/60 backdrop-blur-sm transition-all duration-200"
                   onClick={() => window.open("/", "_blank")}
                 >
                   <span>Visit our website</span>
@@ -271,21 +289,36 @@ const Auth = () => {
 
           {/* Right side - auth form */}
           <div className="w-full max-w-md mx-auto lg:mx-0">
-            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl relative overflow-hidden">
-              {/* Card header gradient */}
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+            <Card className="shadow-2xl border-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl relative overflow-hidden">
+              {/* Card header gradient — brand navy to orange */}
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#2E3192] via-[#4a4fcc] to-[#F26722]"></div>
 
-              <CardHeader className="text-center pb-6 pt-8">
-                <div className="mx-auto mb-6 w-24 h-24 flex items-center justify-center">
-                  <img src="/swadeshi-logo.png" alt="Swadeshi Solutions" className="w-full h-full object-contain" />
+              <CardHeader className="text-center pb-1 pt-4 sm:pb-4 sm:pt-8 px-5 sm:px-8">
+                {/* Mobile: compact row layout; Desktop: comfortable spacing */}
+                <div className="mx-auto mb-1 sm:mb-4 flex flex-row items-center justify-center gap-2 sm:gap-3">
+                  <div className="relative flex items-center justify-center transition-transform duration-300 hover:scale-105">
+                    <img
+                      src="/swadeshi-logo2.png"
+                      alt="Swadeshi Solutions Logo"
+                      className="object-contain w-10 h-10 sm:w-20 sm:h-20"
+                    />
+                  </div>
+                  <div className="flex flex-row items-center">
+                    <span className="text-xl sm:text-3xl font-extrabold tracking-tight text-[#2E3192] dark:text-white">
+                      Swadeshi
+                    </span>
+                    <span className="text-xl sm:text-3xl font-extrabold tracking-tight text-[#F26722] ml-1.5">
+                      Solutions
+                    </span>
+                  </div>
                 </div>
-                <CardTitle className="text-3xl font-bold text-gray-900 dark:text-white">
+                <CardTitle className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                   {authMode === "signin" ? "Welcome back!" 
                     : authMode === "forgot" ? "Forgot password?"
                     : authMode === "reset" ? "Reset password"
                     : "Join us today"}
                 </CardTitle>
-                <CardDescription className="text-base text-gray-600 dark:text-gray-400 mt-2">
+                <CardDescription className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-2">
                   {authMode === "signin"
                     ? "Sign in to continue to your restaurant dashboard"
                     : authMode === "inquiry"
@@ -313,17 +346,17 @@ const Auth = () => {
             </Card>
 
             {/* Trust indicators */}
-            <div className="mt-8 flex justify-center items-center space-x-8 text-sm text-gray-500 dark:text-gray-400">
+            <div className="hidden sm:flex mt-6 justify-center items-center space-x-8 text-sm text-gray-500 dark:text-gray-400">
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                 <span>Secure</span>
               </div>
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <div className="w-2 h-2 bg-[#2E3192] rounded-full"></div>
                 <span>Trusted</span>
               </div>
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                <div className="w-2 h-2 bg-[#F26722] rounded-full"></div>
                 <span>Fast</span>
               </div>
             </div>

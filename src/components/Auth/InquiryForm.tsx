@@ -132,7 +132,7 @@ export const InquiryForm: React.FC<InquiryFormProps> = ({ setAuthMode }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 px-8 pb-8">
+    <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 px-5 sm:px-8 pb-5 sm:pb-8">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="firstName">First Name</Label>
@@ -248,7 +248,7 @@ export const InquiryForm: React.FC<InquiryFormProps> = ({ setAuthMode }) => {
       <Button
         type="submit"
         disabled={isSubmitting}
-        className="w-full h-12 mt-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl"
+        className="w-full h-11 sm:h-12 mt-4 sm:mt-6 bg-gradient-to-r from-[#2E3192] to-[#1a1f6e] hover:from-[#1a1f6e] hover:to-[#0d1045] text-white font-semibold rounded-xl"
       >
         {isSubmitting ? (
           <>
@@ -267,7 +267,7 @@ export const InquiryForm: React.FC<InquiryFormProps> = ({ setAuthMode }) => {
         <button
           type="button"
           onClick={() => setAuthMode("signin")}
-          className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+          className="text-sm text-[#2E3192] hover:text-[#1a1f6e] font-medium transition-colors"
         >
           Back to sign in
         </button>
