@@ -46,6 +46,10 @@ lerna-debug.log*
 
 # Project Details & AI Agents
 docs/
+!docs/
+!docs/PROJECT_ARCHITECTURE_AND_FUNCTIONALITY.md
+!docs/CODEBASE_CATALOG.md
+!docs/MERMAID_FLOW_DIAGRAMS.md
 .agent/
 .claude/
 .gemini/
