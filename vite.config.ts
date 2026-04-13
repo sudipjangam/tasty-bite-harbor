@@ -35,12 +35,7 @@ export default defineConfig(({ mode }) => {
     );
     console.log(`[Build] App version: ${APP_VERSION}`);
 
-    // Update manifest.json with current version
-    const manifestPath = path.resolve(__dirname, 'public/manifest.json');
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-    manifest.version = APP_VERSION;
-    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-    console.log(`[Build] Updated manifest.json with version ${APP_VERSION}`);
+    console.log(`[Build] App version: ${APP_VERSION} (tracked in version.json)`);
   }
 
   return {
@@ -55,7 +50,7 @@ export default defineConfig(({ mode }) => {
       // In production, Vercel/Netlify rewrites handle this instead.
       // This bypasses Jio and other ISP blocks on *.supabase.co domains.
       '/api/supabase': {
-        target: 'https://tasty-bite-harbor.vercel.app',
+        target: 'https://swadeshisolutions.co.in',
         changeOrigin: true,
         // When proxying to Vercel, we actually DON'T want to rewrite the path 
         // because Vercel handles the /api/supabase -> real supabase routing.
