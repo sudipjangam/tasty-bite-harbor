@@ -223,8 +223,10 @@ export const useReportsData = (dateRange?: DateRange) => {
           .from("orders")
           .select("items, total, order_type")
           .eq("restaurant_id", restaurantId)
+          .eq("status", "completed")
+          .neq("order_type", "non-chargeable")
           .gte("created_at", startDate)
-          .lte("created_at", endDate),
+          .lte("created_at", endDate + "T23:59:59"),
       ]);
 
       if (menuResult.error) throw menuResult.error;

@@ -31,30 +31,31 @@ export const useAnalyticsData = () => {
         .order("total_spent", { ascending: false })
         .limit(100);
 
-      // Fetch recent orders from all sources - EXCLUDE cancelled orders
+      // Fetch recent orders from all sources - only COMPLETED, chargeable orders
       const { data: regularOrders } = await supabase
         .from("orders")
         .select("*")
         .eq("restaurant_id", restaurantId)
-        .neq("status", "cancelled") // Exclude cancelled orders
+        .eq("status", "completed")
+        .neq("order_type", "non-chargeable")
         .order("created_at", { ascending: false })
         .limit(100);
 
-      // Room service orders - EXCLUDE cancelled
+      // Room service orders - only completed
       const { data: roomOrders } = await supabase
         .from("room_food_orders")
         .select("*")
         .eq("restaurant_id", restaurantId)
-        .neq("status", "cancelled") // Exclude cancelled orders
+        .eq("status", "completed")
         .order("created_at", { ascending: false })
         .limit(50);
 
-      // Kitchen orders - EXCLUDE cancelled
+      // Kitchen orders - only completed
       const { data: kitchenOrders } = await supabase
         .from("kitchen_orders")
         .select("*")
         .eq("restaurant_id", restaurantId)
-        .neq("status", "cancelled") // Exclude cancelled orders
+        .eq("status", "completed")
         .order("created_at", { ascending: false })
         .limit(50);
 

@@ -241,10 +241,66 @@ export const useCustomerData = () => {
         };
       });
 
+      // Find Walk-in stats by searching unmapped orders
+      const registeredNames = new Set(customersData.map((c) => c.name.toLowerCase()));
+      let walkInTotalSpent = 0;
+      let walkInVisitCount = 0;
+      let walkInDates: number[] = [];
+
+      ordersByCustomer.forEach((orders, name) => {
+        if (!name || !registeredNames.has(name) || name.includes("walk")) {
+          orders.forEach((o) => {
+            walkInTotalSpent += o.total;
+            walkInVisitCount++;
+            walkInDates.push(new Date(o.created_at).getTime());
+          });
+        }
+      });
+
+      roomOrdersByCustomer.forEach((orders, name) => {
+        if (!name || !registeredNames.has(name) || name.includes("walk")) {
+          orders.forEach((o) => {
+            walkInTotalSpent += o.total;
+            walkInVisitCount++;
+            walkInDates.push(new Date(o.created_at).getTime());
+          });
+        }
+      });
+
+      reservationsByCustomer.forEach((res, name) => {
+        if (!name || !registeredNames.has(name) || name.includes("walk")) {
+          walkInVisitCount += res.length;
+          res.forEach((r) => walkInDates.push(new Date(r.created_at).getTime()));
+        }
+      });
+
+      const walkInLastVisit = walkInDates.length > 0 ? new Date(Math.max(...walkInDates)).toISOString() : null;
+
+      if (walkInVisitCount > 0) {
+        enrichedCustomers.push({
+          id: "walk-in-customer",
+          name: "Walk in Customer",
+          email: null,
+          phone: null,
+          address: null,
+          birthday: null,
+          created_at: new Date().toISOString(),
+          restaurant_id: restaurantId,
+          loyalty_points: 0,
+          loyalty_tier: "None",
+          tags: ["Walk-in"],
+          preferences: {"notes": "Auto-generated category for unregistered orders."},
+          last_visit_date: walkInLastVisit,
+          total_spent: walkInTotalSpent,
+          visit_count: walkInVisitCount,
+          average_order_value: walkInVisitCount > 0 ? walkInTotalSpent / walkInVisitCount : 0,
+        } as any);
+      }
+
       // STEP 4: Batch-persist any changed loyalty tiers back to DB
       const tierUpdates = enrichedCustomers.filter(
         (enriched, i) =>
-          enriched.loyalty_tier !== (customersData[i].loyalty_tier || "None"),
+          enriched.id !== "walk-in-customer" && enriched.loyalty_tier !== (customersData[i]?.loyalty_tier || "None"),
       );
       if (tierUpdates.length > 0) {
         // Fire-and-forget batch update — don't block the UI
@@ -298,13 +354,28 @@ export const useCustomerData = () => {
   const getCustomerOrders = async (customerName: string) => {
     if (!restaurantId || !customerName) return [];
 
-    // Get standard orders
-    const { data: orders, error: ordersError } = await supabase
+    let ordersQuery = supabase
       .from("orders")
       .select("*")
       .eq("restaurant_id", restaurantId)
-      .eq("customer_name", customerName)
       .order("created_at", { ascending: false });
+
+    let roomOrdersQuery = supabase
+      .from("room_food_orders")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
+      .order("created_at", { ascending: false });
+
+    if (customerName === "Walk in Customer") {
+      ordersQuery = ordersQuery.or("customer_name.is.null,customer_name.eq.,customer_name.ilike.%walk%");
+      roomOrdersQuery = roomOrdersQuery.or("customer_name.is.null,customer_name.eq.,customer_name.ilike.%walk%");
+    } else {
+      ordersQuery = ordersQuery.eq("customer_name", customerName);
+      roomOrdersQuery = roomOrdersQuery.eq("customer_name", customerName);
+    }
+
+    // Get standard orders
+    const { data: orders, error: ordersError } = await ordersQuery;
 
     if (ordersError) {
       console.error("Error fetching customer orders:", ordersError);
@@ -312,12 +383,7 @@ export const useCustomerData = () => {
     }
 
     // Get room food orders
-    const { data: roomOrders, error: roomError } = await supabase
-      .from("room_food_orders")
-      .select("*")
-      .eq("restaurant_id", restaurantId)
-      .eq("customer_name", customerName)
-      .order("created_at", { ascending: false });
+    const { data: roomOrders, error: roomError } = await roomOrdersQuery;
 
     if (roomError) {
       console.error("Error fetching room food orders:", roomError);
@@ -378,17 +444,19 @@ export const useCustomerData = () => {
   const getCustomerRoomBillings = async (customerName: string) => {
     if (!restaurantId || !customerName) return [];
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("room_billings")
-      .select(
-        `
-        *,
-        rooms:room_id (name)
-      `,
-      )
+      .select(`*, rooms:room_id (name)`)
       .eq("restaurant_id", restaurantId)
-      .ilike("customer_name", customerName) // Case-insensitive match
       .order("checkout_date", { ascending: false });
+
+    if (customerName === "Walk in Customer") {
+      query = query.or("customer_name.is.null,customer_name.eq.,customer_name.ilike.%walk%");
+    } else {
+      query = query.ilike("customer_name", customerName);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching room billings:", error);
@@ -413,17 +481,19 @@ export const useCustomerData = () => {
   const getCustomerReservations = async (customerName: string) => {
     if (!restaurantId || !customerName) return [];
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("reservations")
-      .select(
-        `
-        *,
-        rooms:room_id (name)
-      `,
-      )
+      .select(`*, rooms:room_id (name)`)
       .eq("restaurant_id", restaurantId)
-      .ilike("customer_name", customerName)
       .order("start_time", { ascending: false });
+
+    if (customerName === "Walk in Customer") {
+      query = query.or("customer_name.is.null,customer_name.eq.,customer_name.ilike.%walk%");
+    } else {
+      query = query.ilike("customer_name", customerName);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching reservations:", error);
