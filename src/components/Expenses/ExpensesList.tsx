@@ -238,99 +238,103 @@ const ExpensesList = () => {
       {/* Header with Filters */}
       <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
         <div className="flex items-center gap-3">
-          <Badge className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-lg px-4 py-2 rounded-xl shadow-lg shadow-purple-500/30">
+          <Badge className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-sm md:text-lg px-3 md:px-4 py-1.5 md:py-2 rounded-xl shadow-lg shadow-purple-500/30">
             {currencySymbol}
             {totalAmount.toLocaleString()}
           </Badge>
-          <span className="text-sm text-gray-600 dark:text-gray-400">
+          <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
             {filteredExpenses.length} expenses
           </span>
         </div>
-        <Button
-          onClick={() => {
-            setEditingExpense(null);
-            setIsFormOpen(true);
-          }}
-          className="bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white font-semibold px-6 py-2.5 rounded-xl shadow-lg shadow-purple-500/30 hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Expense
-        </Button>
-        <Button
-          onClick={() => setShowInventoryImport(true)}
-          variant="outline"
-          className="border-green-300 dark:border-green-600 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-xl"
-        >
-          <ShoppingCart className="h-4 w-4 mr-2" />
-          Import Inventory
-        </Button>
-        <Button
-          onClick={() => setShowSalaryImport(true)}
-          variant="outline"
-          className="border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl"
-        >
-          <UsersIcon className="h-4 w-4 mr-2" />
-          Import Salaries
-        </Button>
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          <Button
+            onClick={() => {
+              setEditingExpense(null);
+              setIsFormOpen(true);
+            }}
+            className="bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white font-semibold px-4 md:px-6 py-2 md:py-2.5 rounded-xl shadow-lg shadow-purple-500/30 hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 text-xs md:text-sm flex-1 md:flex-none"
+          >
+            <Plus className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
+            Add Expense
+          </Button>
+          <Button
+            onClick={() => setShowInventoryImport(true)}
+            variant="outline"
+            className="border-green-300 dark:border-green-600 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-xl text-xs md:text-sm px-3 md:px-4 flex-1 md:flex-none"
+          >
+            <ShoppingCart className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5" />
+            <span className="hidden sm:inline">Import </span>Inventory
+          </Button>
+          <Button
+            onClick={() => setShowSalaryImport(true)}
+            variant="outline"
+            className="border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl text-xs md:text-sm px-3 md:px-4 flex-1 md:flex-none"
+          >
+            <UsersIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5" />
+            <span className="hidden sm:inline">Import </span>Salaries
+          </Button>
+        </div>
       </div>
 
       {/* Filters Row */}
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-2 md:gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Search expenses..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-gray-200 dark:border-gray-700 rounded-xl"
+            className="pl-10 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-gray-200 dark:border-gray-700 rounded-xl text-sm"
           />
         </div>
-        <Select value={dateRange} onValueChange={setDateRange}>
-          <SelectTrigger className="w-40 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-gray-200 dark:border-gray-700 rounded-xl">
-            <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7">Last 7 days</SelectItem>
-            <SelectItem value="30">Last 30 days</SelectItem>
-            <SelectItem value="90">Last 90 days</SelectItem>
-            <SelectItem value="365">Last year</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-48 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-gray-200 dark:border-gray-700 rounded-xl">
-            <Filter className="h-4 w-4 mr-2 text-gray-400" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {isExpenseCategoryVisible("groceries", businessCategory) && (
-              <SelectItem value="groceries">Groceries</SelectItem>
-            )}
-            {isExpenseCategoryVisible("staff_salary", businessCategory) && (
-              <SelectItem value="staff_salary">Staff Salaries</SelectItem>
-            )}
-            {isExpenseCategoryVisible("utilities", businessCategory) && (
-              <SelectItem value="utilities">Utilities</SelectItem>
-            )}
-            {isExpenseCategoryVisible("rent", businessCategory) && (
-              <SelectItem value="rent">Rent</SelectItem>
-            )}
-            {isExpenseCategoryVisible("equipment", businessCategory) && (
-              <SelectItem value="equipment">Equipment</SelectItem>
-            )}
-            {isExpenseCategoryVisible("marketing", businessCategory) && (
-              <SelectItem value="marketing">Marketing</SelectItem>
-            )}
-            {isExpenseCategoryVisible("maintenance", businessCategory) && (
-              <SelectItem value="maintenance">Maintenance</SelectItem>
-            )}
-            {isExpenseCategoryVisible("transport", businessCategory) && (
-              <SelectItem value="transport">Transport & Fuel</SelectItem>
-            )}
-            <SelectItem value="other">Other</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2">
+          <Select value={dateRange} onValueChange={setDateRange}>
+            <SelectTrigger className="w-full sm:w-36 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-gray-200 dark:border-gray-700 rounded-xl text-xs md:text-sm">
+              <Calendar className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">Last 7 days</SelectItem>
+              <SelectItem value="30">Last 30 days</SelectItem>
+              <SelectItem value="90">Last 90 days</SelectItem>
+              <SelectItem value="365">Last year</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-full sm:w-40 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-gray-200 dark:border-gray-700 rounded-xl text-xs md:text-sm">
+              <Filter className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {isExpenseCategoryVisible("groceries", businessCategory) && (
+                <SelectItem value="groceries">Groceries</SelectItem>
+              )}
+              {isExpenseCategoryVisible("staff_salary", businessCategory) && (
+                <SelectItem value="staff_salary">Staff Salaries</SelectItem>
+              )}
+              {isExpenseCategoryVisible("utilities", businessCategory) && (
+                <SelectItem value="utilities">Utilities</SelectItem>
+              )}
+              {isExpenseCategoryVisible("rent", businessCategory) && (
+                <SelectItem value="rent">Rent</SelectItem>
+              )}
+              {isExpenseCategoryVisible("equipment", businessCategory) && (
+                <SelectItem value="equipment">Equipment</SelectItem>
+              )}
+              {isExpenseCategoryVisible("marketing", businessCategory) && (
+                <SelectItem value="marketing">Marketing</SelectItem>
+              )}
+              {isExpenseCategoryVisible("maintenance", businessCategory) && (
+                <SelectItem value="maintenance">Maintenance</SelectItem>
+              )}
+              {isExpenseCategoryVisible("transport", businessCategory) && (
+                <SelectItem value="transport">Transport & Fuel</SelectItem>
+              )}
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Recurring Expense Reminders */}
@@ -420,53 +424,55 @@ const ExpensesList = () => {
           filteredExpenses.map((expense) => (
             <div
               key={expense.id}
-              className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-lg hover:shadow-purple-500/10 dark:hover:shadow-purple-500/20 transition-all duration-300 group"
+              className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-xl p-3 md:p-4 hover:shadow-lg hover:shadow-purple-500/10 dark:hover:shadow-purple-500/20 transition-all duration-300 group"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2 flex-wrap">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                     <Badge
                       className={`${getCategoryColor(
                         expense.category,
-                      )} shadow-md`}
+                      )} shadow-md text-[10px] md:text-xs px-2 py-0.5`}
                     >
                       {getCategoryLabel(expense.category)}
                     </Badge>
                     {expense.subcategory && (
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                      <span className="text-[10px] md:text-sm text-gray-500 dark:text-gray-400 truncate max-w-[120px]">
                         • {expense.subcategory}
                       </span>
                     )}
                     {expense.is_recurring && (
                       <Badge
                         variant="outline"
-                        className="text-xs border-purple-300 dark:border-purple-600 text-purple-600 dark:text-purple-400"
+                        className="text-[9px] md:text-xs border-purple-300 dark:border-purple-600 text-purple-600 dark:text-purple-400 px-1.5 py-0"
                       >
                         Recurring
                       </Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center gap-2 md:gap-4 text-[10px] md:text-sm text-gray-500 dark:text-gray-400 flex-wrap">
                     <span className="flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5" />
+                      <Calendar className="h-3 w-3 md:h-3.5 md:w-3.5" />
                       {format(new Date(expense.expense_date), "MMM dd, yyyy")}
                     </span>
                     {expense.vendor_name && (
-                      <span>• {expense.vendor_name}</span>
+                      <span className="truncate max-w-[80px] md:max-w-none">• {expense.vendor_name}</span>
                     )}
-                    <span className="capitalize">
+                    <span className="capitalize hidden sm:inline">
                       • {expense.payment_method.replace("_", " ")}
                     </span>
                   </div>
                   {expense.description && (
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
-                      {expense.description}
+                    <p className="text-[10px] md:text-sm text-gray-600 dark:text-gray-300 mt-1.5 line-clamp-2 md:line-clamp-none">
+                      {expense.description.length > 80
+                        ? expense.description.substring(0, 80) + "..."
+                        : expense.description}
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1 md:gap-4 shrink-0">
                   <div className="text-right">
-                    <div className="text-xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                    <div className="text-base md:text-xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
                       {currencySymbol}
                       {expense.amount.toLocaleString()}
                     </div>
@@ -476,9 +482,9 @@ const ExpensesList = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="h-7 w-7 md:h-9 md:w-9 opacity-60 md:opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        <MoreVertical className="h-4 w-4" />
+                        <MoreVertical className="h-3.5 w-3.5 md:h-4 md:w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">

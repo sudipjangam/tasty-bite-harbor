@@ -12,13 +12,11 @@ import {
   LayoutDashboard,
   List,
   BarChart3,
-  Sparkles,
   Trash2,
 } from "lucide-react";
 import { useExpenseData } from "@/hooks/useExpenseData";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { usePlanType } from "@/hooks/usePlanType";
-import PlanInsightsCard from "@/components/Dashboard/PlanInsightsCard";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 const Expenses = () => {
@@ -28,11 +26,7 @@ const Expenses = () => {
   const { symbol: currencySymbol } = useCurrencyContext();
   const { label: planLabel } = usePlanType();
 
-  if (loading) {
-    return <AuthLoader />;
-  }
-
-  if (!user) {
+  if (loading || !user) {
     return <AuthLoader />;
   }
 
@@ -41,147 +35,115 @@ const Expenses = () => {
   const categoriesCount = expenseData?.expenseBreakdown?.length || 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-950 dark:via-purple-950/50 dark:to-indigo-950 p-6">
-      {/* Modern Header with Glass Effect */}
-      <div className="mb-8 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-3xl shadow-xl dark:shadow-purple-500/10 p-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="p-4 bg-gradient-to-br from-purple-500 via-indigo-500 to-pink-500 rounded-2xl shadow-lg shadow-purple-500/30 dark:shadow-purple-500/50">
-              <DollarSign className="h-8 w-8 text-white drop-shadow-lg" />
-            </div>
-            <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 bg-clip-text text-transparent">
-                Expense Management
-              </h1>
-              <p className="text-gray-600 dark:text-gray-300 text-lg mt-2 flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-purple-500" />
-                Track and analyze your {planLabel.toLowerCase()} expenses
-              </p>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/30 to-purple-50/40 dark:from-[#0d0e1a] dark:via-[#12142a] dark:to-[#0d0e1a] p-2 sm:p-4 md:p-6">
+
+      {/* ── TOPBAR HEADER ── */}
+      <div className="mb-4 md:mb-6 flex items-center justify-between gap-3 px-1 md:px-2">
+        <div className="flex items-center gap-2.5 md:gap-4 min-w-0">
+          <div className="w-9 h-9 md:w-11 md:h-11 rounded-[11px] md:rounded-[13px] bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-indigo-500/40 dark:shadow-indigo-500/50 shrink-0">
+            <DollarSign className="h-4 w-4 md:h-5 md:w-5 text-white" />
           </div>
-          <ExpenseHelpDialog />
+          <div className="min-w-0">
+            <h1 className="text-base md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight truncate">
+              Expense Management
+            </h1>
+            <p className="text-[10px] md:text-sm text-gray-500 dark:text-[#5c6191] font-normal mt-0.5 truncate">
+              Track and analyse your {planLabel.toLowerCase()} expenses
+            </p>
+          </div>
         </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-          <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl p-4 text-white shadow-lg shadow-purple-500/30">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-purple-100 text-sm font-medium">
-                  Last 30 Days
-                </p>
-                <p className="text-3xl font-bold mt-1">
-                  {currencySymbol}
-                  {totalExpenses.toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                <DollarSign className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl p-4 text-white shadow-lg shadow-cyan-500/30">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-cyan-100 text-sm font-medium">This Month</p>
-                <p className="text-3xl font-bold mt-1">
-                  {currencySymbol}
-                  {monthlyExpenses.toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                <BarChart3 className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl p-4 text-white shadow-lg shadow-emerald-500/30">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-emerald-100 text-sm font-medium">
-                  Categories
-                </p>
-                <p className="text-3xl font-bold mt-1">{categoriesCount}</p>
-              </div>
-              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                <List className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
+        <div className="shrink-0">
+          <ExpenseHelpDialog />
         </div>
       </div>
 
+      {/* ── TABS ── */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="overflow-x-auto pb-2 mb-6">
-          <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-3xl shadow-xl dark:shadow-purple-500/10 p-2">
-            <TabsList className="inline-flex w-auto min-w-full md:w-auto space-x-1 p-1 bg-transparent rounded-2xl">
-              <FeatureLock feature="expenses.basic" interceptClicks={true}>
-                <TabsTrigger
-                  value="overview"
-                  className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/30 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400"
-                >
-                  <LayoutDashboard className="h-4 w-4" />
-                  Overview
-                </TabsTrigger>
-              </FeatureLock>
-              <FeatureLock feature="expenses.basic" interceptClicks={true}>
-                <TabsTrigger
-                  value="expenses"
-                  className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-500/30 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400"
-                >
-                  <List className="h-4 w-4" />
-                  Expenses
-                </TabsTrigger>
-              </FeatureLock>
-              <FeatureLock feature="expenses.advanced" interceptClicks={true}>
-                <TabsTrigger
-                  value="analytics"
-                  className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/30 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400"
-                >
-                  <BarChart3 className="h-4 w-4" />
-                  Analytics
-                </TabsTrigger>
-              </FeatureLock>
-              <FeatureLock feature="expenses.advanced" interceptClicks={true}>
-                <TabsTrigger
-                  value="wastage"
-                  className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-500 data-[state=active]:to-rose-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-red-500/30 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Wastage
-                </TabsTrigger>
-              </FeatureLock>
-            </TabsList>
+        <div className="overflow-x-auto pb-1 mb-3 md:mb-5 px-1 md:px-2 -mx-1">
+          <div className="flex items-center gap-1">
+            <FeatureLock feature="expenses.basic" interceptClicks={true}>
+              <button
+                onClick={() => setActiveTab("overview")}
+                className={`px-3 md:px-5 py-1.5 md:py-2 rounded-t-xl text-[11px] md:text-sm font-semibold transition-all duration-200 flex items-center gap-1.5 md:gap-2 border border-transparent border-b-0 whitespace-nowrap ${
+                  activeTab === "overview"
+                    ? "bg-indigo-500/15 dark:bg-indigo-500/15 text-indigo-600 dark:text-white border-indigo-500/30 dark:border-indigo-500/30 shadow-[0_-4px_20px_rgba(99,102,241,0.12)]"
+                    : "text-gray-400 dark:text-[#5c6191] hover:text-gray-700 dark:hover:text-white hover:bg-gray-100/60 dark:hover:bg-white/5"
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${activeTab === "overview" ? "bg-indigo-500" : "bg-current opacity-50"}`} />
+                Overview
+              </button>
+            </FeatureLock>
+            <FeatureLock feature="expenses.basic" interceptClicks={true}>
+              <button
+                onClick={() => setActiveTab("expenses")}
+                className={`px-3 md:px-5 py-1.5 md:py-2 rounded-t-xl text-[11px] md:text-sm font-semibold transition-all duration-200 flex items-center gap-1.5 md:gap-2 border border-transparent border-b-0 whitespace-nowrap ${
+                  activeTab === "expenses"
+                    ? "bg-indigo-500/15 dark:bg-indigo-500/15 text-indigo-600 dark:text-white border-indigo-500/30 dark:border-indigo-500/30 shadow-[0_-4px_20px_rgba(99,102,241,0.12)]"
+                    : "text-gray-400 dark:text-[#5c6191] hover:text-gray-700 dark:hover:text-white hover:bg-gray-100/60 dark:hover:bg-white/5"
+                }`}
+              >
+                Expenses
+              </button>
+            </FeatureLock>
+            <FeatureLock feature="expenses.advanced" interceptClicks={true}>
+              <button
+                onClick={() => setActiveTab("analytics")}
+                className={`px-3 md:px-5 py-1.5 md:py-2 rounded-t-xl text-[11px] md:text-sm font-semibold transition-all duration-200 flex items-center gap-1.5 md:gap-2 border border-transparent border-b-0 whitespace-nowrap ${
+                  activeTab === "analytics"
+                    ? "bg-indigo-500/15 dark:bg-indigo-500/15 text-indigo-600 dark:text-white border-indigo-500/30 dark:border-indigo-500/30 shadow-[0_-4px_20px_rgba(99,102,241,0.12)]"
+                    : "text-gray-400 dark:text-[#5c6191] hover:text-gray-700 dark:hover:text-white hover:bg-gray-100/60 dark:hover:bg-white/5"
+                }`}
+              >
+                Analytics
+              </button>
+            </FeatureLock>
+            <FeatureLock feature="expenses.advanced" interceptClicks={true}>
+              <button
+                onClick={() => setActiveTab("wastage")}
+                className={`px-3 md:px-5 py-1.5 md:py-2 rounded-t-xl text-[11px] md:text-sm font-semibold transition-all duration-200 flex items-center gap-1.5 md:gap-2 border border-transparent border-b-0 whitespace-nowrap ${
+                  activeTab === "wastage"
+                    ? "bg-indigo-500/15 dark:bg-indigo-500/15 text-indigo-600 dark:text-white border-indigo-500/30 dark:border-indigo-500/30 shadow-[0_-4px_20px_rgba(99,102,241,0.12)]"
+                    : "text-gray-400 dark:text-[#5c6191] hover:text-gray-700 dark:hover:text-white hover:bg-gray-100/60 dark:hover:bg-white/5"
+                }`}
+              >
+                Wastage
+              </button>
+            </FeatureLock>
           </div>
         </div>
 
-        <TabsContent value="overview" className="animate-in fade-in">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3">
+        {/* ── CONTENT AREA ── */}
+        <div className="border-t border-indigo-200/40 dark:border-indigo-500/20">
+
+          {activeTab === "overview" && (
+            <div className="animate-in fade-in pt-5">
               <ExpensesOverview />
             </div>
-            <div className="lg:col-span-1">
-              <PlanInsightsCard />
+          )}
+
+          {activeTab === "expenses" && (
+            <div className="animate-in fade-in pt-5">
+              <div className="bg-white/80 dark:bg-white/[0.055] backdrop-blur-2xl border border-gray-200/60 dark:border-white/[0.09] rounded-2xl shadow-xl dark:shadow-none p-3 sm:p-5 md:p-8">
+                <ExpensesList />
+              </div>
             </div>
-          </div>
-        </TabsContent>
+          )}
 
-        <TabsContent value="expenses" className="animate-in fade-in">
-          <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-3xl shadow-xl dark:shadow-purple-500/10 p-8">
-            <ExpensesList />
-          </div>
-        </TabsContent>
+          {activeTab === "analytics" && (
+            <div className="animate-in fade-in pt-5">
+              <ExpenseAnalytics />
+            </div>
+          )}
 
-        <TabsContent value="analytics" className="animate-in fade-in">
-          <ExpenseAnalytics />
-        </TabsContent>
-
-        <TabsContent value="wastage" className="animate-in fade-in">
-          <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-red-500/20 rounded-3xl shadow-xl dark:shadow-red-500/10 p-8">
-            <ExpenseWastageTab />
-          </div>
-        </TabsContent>
+          {activeTab === "wastage" && (
+            <div className="animate-in fade-in pt-5">
+              <div className="bg-white/80 dark:bg-white/[0.055] backdrop-blur-2xl border border-gray-200/60 dark:border-white/[0.09] rounded-2xl shadow-xl dark:shadow-none p-6 md:p-8">
+                <ExpenseWastageTab />
+              </div>
+            </div>
+          )}
+        </div>
       </Tabs>
     </div>
   );

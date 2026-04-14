@@ -1,8 +1,8 @@
 {
   "git": {
     "deploymentEnabled": {
-      "main": false,
-      "staging": false
+      "main": true,
+      "staging": true
     }
   },
   "rewrites": [
