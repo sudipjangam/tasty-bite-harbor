@@ -560,6 +560,34 @@ const ExpenseHelpDialog = () => {
                 </li>
               </ul>
             </section>
+
+            <Separator />
+
+            {/* Plan Info */}
+            <section>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white flex items-center gap-2 mb-3">
+                <Shield className="h-5 w-5 text-indigo-500" />
+                Your Plan &amp; Features
+              </h3>
+              <div className="p-3 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-lg border border-indigo-200 dark:border-indigo-700">
+                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                  Your current plan determines which expense features are available.
+                  Use the <strong>Financial dashboard</strong> for a complete business picture
+                  including P&amp;L statements and revenue analysis.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="px-2.5 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-medium">
+                    Overview &amp; Expenses
+                  </span>
+                  <span className="px-2.5 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs font-medium">
+                    Analytics (Advanced)
+                  </span>
+                  <span className="px-2.5 py-1 bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 rounded-full text-xs font-medium">
+                    Wastage Tracking (Advanced)
+                  </span>
+                </div>
+              </div>
+            </section>
           </div>
         </ScrollArea>
       </DialogContent>
