@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import OrderFilters from "./OrderFilters";
 import OrderItem from "./OrderItem";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +6,6 @@ import type { Order } from "@/types/orders";
 import AddOrderForm from "./AddOrderForm";
 import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
 import { AlertCircle, Trash2 } from "lucide-react";
-import { StandardizedCard } from "@/components/ui/standardized-card";
 import PaymentDialog from "@/components/Orders/POS/PaymentDialog";
 import {
   AlertDialog,
@@ -33,18 +31,12 @@ const OrderList: React.FC<OrderListProps> = ({
   onEditOrder,
   isLoading = false,
 }) => {
-  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showEditForm, setShowEditForm] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [printBillOrder, setPrintBillOrder] = useState<Order | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
   const { toast } = useToast();
-
-  const filteredOrders = orders.filter((order) => {
-    if (statusFilter === "all") return true;
-    return order.status === statusFilter;
-  });
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     try {
@@ -178,43 +170,24 @@ const OrderList: React.FC<OrderListProps> = ({
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <OrderFilters
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-        />
+      <div className="space-y-3">
         <EnhancedSkeleton type="orders" count={5} showHeader={false} />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Orders ({filteredOrders.length})
-        </h3>
-        <OrderFilters
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-        />
-      </div>
-
-      {filteredOrders.length === 0 ? (
-        <StandardizedCard padding="lg" className="text-center border-dashed">
-          <AlertCircle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <p className="text-lg font-medium text-gray-900 mb-2">
-            No orders found
-          </p>
-          <p className="text-gray-500">
-            {statusFilter === "all"
-              ? "No orders have been placed yet."
-              : `No ${statusFilter} orders found.`}
-          </p>
-        </StandardizedCard>
+    <div>
+      {orders.length === 0 ? (
+        <div className="text-center py-16 bg-white/70 backdrop-blur-2xl border border-white/85 rounded-[20px] border-dashed"
+          style={{ boxShadow: "0 8px 32px rgba(29,78,216,0.08)" }}>
+          <AlertCircle className="mx-auto h-12 w-12 text-slate-300 mb-4" />
+          <p className="text-lg font-semibold text-slate-700 mb-2">No orders found</p>
+          <p className="text-slate-400 text-sm">No orders matching current filters.</p>
+        </div>
       ) : (
-        <div className="grid gap-4">
-          {filteredOrders.map((order) => (
+        <div>
+          {orders.map((order) => (
             <OrderItem
               key={order.id}
               order={order}
@@ -228,10 +201,11 @@ const OrderList: React.FC<OrderListProps> = ({
         </div>
       )}
 
-      {/* Edit Order Dialog - Uses transparent wrapper, form is styled */}
+      {/* Edit Order Dialog */}
       {showEditForm && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+          style={{ background: "rgba(10,20,60,0.45)" }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowEditForm(false);
@@ -282,22 +256,21 @@ const OrderList: React.FC<OrderListProps> = ({
           if (!open) setOrderToDelete(null);
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Trash2 className="w-5 h-5 text-red-500" />
               Delete Order
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this order? This action cannot be
-              undone.
+              Are you sure you want to delete this order? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={executeDeleteOrder}
-              className="bg-red-500 hover:bg-red-600 text-white"
+              className="bg-red-500 hover:bg-red-600 text-white rounded-xl"
             >
               Delete Order
             </AlertDialogAction>

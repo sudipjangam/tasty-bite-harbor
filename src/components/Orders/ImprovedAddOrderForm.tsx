@@ -26,8 +26,6 @@ import {
   Utensils,
   ShoppingBag,
   Trash2,
-  ChefHat,
-  Receipt,
   User,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -151,35 +149,27 @@ const ImprovedAddOrderForm = ({
   });
 
   // Parse editing order items if available
-  // Format: "2x ItemName @price" or "2x ItemName (notes)" or just "2x ItemName"
   const parseEditingOrderItems = () => {
     if (!editingOrder) return [];
 
-    console.log("Parsing order items:", editingOrder.items);
-
     return editingOrder.items.map((itemString) => {
-      // Extract quantity (e.g., "2x" -> 2)
       const quantityMatch = itemString.match(/^(\d+)x /);
       const quantity = quantityMatch ? parseInt(quantityMatch[1]) : 1;
 
       let remainingString = itemString.replace(/^\d+x /, "");
 
-      // Extract price if present (e.g., "@250" -> 250), handle @undefined or @null
       let unitPrice = 0;
       const priceMatch = remainingString.match(/@(\d+(?:\.\d+)?)$/);
       if (priceMatch) {
         unitPrice = parseFloat(priceMatch[1]) || 0;
         remainingString = remainingString.replace(/\s*@\d+(?:\.\d+)?$/, "");
       }
-      // Also clean up @undefined or @null
       remainingString = remainingString.replace(/\s*@(undefined|null)$/i, "");
 
-      // Extract notes in parentheses (e.g., "(no cheese)" -> "no cheese")
       let notes = "";
       const notesMatch = remainingString.match(/\((.*?)\)$/);
       if (notesMatch) {
         const rawNotes = notesMatch[1].trim();
-        // Skip artifact notes like "[]"
         if (rawNotes && rawNotes !== "[]") {
           notes = rawNotes;
         }
@@ -188,7 +178,6 @@ const ImprovedAddOrderForm = ({
 
       const itemName = remainingString.trim();
 
-      // Try to find the menu item to get category and price
       const menuItem = menuItems?.find(
         (item) =>
           item.name === itemName ||
@@ -197,12 +186,7 @@ const ImprovedAddOrderForm = ({
           itemName.toLowerCase().includes(item.name.toLowerCase()),
       );
 
-      // Priority: parsed price > menu item price > 0
       const finalPrice = unitPrice > 0 ? unitPrice : menuItem?.price || 0;
-
-      console.log(
-        `Parsed item: "${itemName}" qty=${quantity} price=${finalPrice} (from string: ${unitPrice}, from menu: ${menuItem?.price})`,
-      );
 
       return {
         category: menuItem?.category || "",
@@ -268,9 +252,6 @@ const ImprovedAddOrderForm = ({
       const parsedItems = parseEditingOrderItems();
       const { orderType, tableNumber } = determineOrderTypeAndTable();
 
-      // Only reset if items have been parsed successfully (at least some with prices)
-      const hasPrices = parsedItems.some((item) => item.unitPrice > 0);
-
       form.reset({
         orderType,
         tableNumber,
@@ -300,13 +281,6 @@ const ImprovedAddOrderForm = ({
           editingOrder?.discount_amount ||
           0,
       });
-
-      console.log(
-        "Form reset with parsed items:",
-        parsedItems,
-        "Has prices:",
-        hasPrices,
-      );
     }
   }, [editingOrder, menuItems]);
 
@@ -372,7 +346,6 @@ const ImprovedAddOrderForm = ({
       }));
 
       if (editingOrder) {
-        // 1. Update Orders Table
         const { error: orderError } = await supabase
           .from("orders")
           .update(orderData)
@@ -380,8 +353,6 @@ const ImprovedAddOrderForm = ({
 
         if (orderError) throw orderError;
 
-        // 2. Update Kitchen Orders Table
-        // Find the kitchen order linked to this order
         const { data: linkedKitchenOrder } = await supabase
           .from("kitchen_orders")
           .select("id")
@@ -393,7 +364,6 @@ const ImprovedAddOrderForm = ({
             .from("kitchen_orders")
             .update({
               items: kitchenItems,
-              // Optionally update source/customer_name if changed
               source: orderData.customer_name,
             })
             .eq("id", linkedKitchenOrder.id);
@@ -413,7 +383,6 @@ const ImprovedAddOrderForm = ({
           description: "Order updated successfully",
         });
       } else {
-        // 1. Create Order
         const { data: newOrder, error: orderError } = await supabase
           .from("orders")
           .insert([orderData])
@@ -422,7 +391,6 @@ const ImprovedAddOrderForm = ({
 
         if (orderError) throw orderError;
 
-        // 2. Create Kitchen Order
         if (newOrder) {
           const { error: kitchenError } = await supabase
             .from("kitchen_orders")
@@ -478,90 +446,108 @@ const ImprovedAddOrderForm = ({
   );
   const watchedOrderType = form.watch("orderType");
 
+  // Short order ID for display
+  const shortOrderId = editingOrder
+    ? editingOrder.id.length > 8
+      ? `#${editingOrder.id.substring(0, 8).toUpperCase()}`
+      : `#${editingOrder.id.toUpperCase()}`
+    : null;
+
   return (
-    <div className="max-w-2xl mx-auto overflow-hidden rounded-2xl shadow-2xl border-0">
-      {/* Gradient Header - Like TimeClockDialog */}
-      <div
-        className={`relative px-5 pt-8 pb-6 text-center ${
-          editingOrder
-            ? "bg-gradient-to-br from-amber-500 via-orange-500 to-red-500"
-            : "bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500"
-        }`}
-      >
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
-
-        {/* Close button */}
-        <button
-          onClick={onCancel}
-          className="absolute top-3 right-3 p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+    <div
+      className="max-w-[540px] w-full mx-auto overflow-hidden flex flex-col max-h-[88vh]"
+      style={{
+        background: "rgba(255,255,255,0.9)",
+        backdropFilter: "blur(40px)",
+        border: "1px solid rgba(255,255,255,0.92)",
+        borderRadius: 24,
+        boxShadow: "0 32px 80px rgba(29,78,216,0.22), 0 8px 24px rgba(0,0,0,0.1)",
+      }}
+    >
+      {/* ═══ Modal Header Band ═══ */}
+      <div className="flex-shrink-0 overflow-hidden" style={{ borderRadius: "24px 24px 0 0" }}>
+        <div
+          className="px-6 pt-5 pb-5 flex items-start justify-between relative"
+          style={{
+            background: "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 40%, #f97316 100%)",
+          }}
         >
-          <X className="h-4 w-4 text-white" />
-        </button>
+          {/* Decorative orbs */}
+          <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-white/[0.06] pointer-events-none" />
+          <div className="absolute left-0 bottom-0 w-20 h-20 rounded-full bg-white/[0.04] pointer-events-none translate-y-1/2 -translate-x-1/4" />
 
-        {/* Icon */}
-        <div className="relative z-10 inline-flex items-center justify-center w-14 h-14 mb-3 bg-white/20 backdrop-blur-sm rounded-2xl border border-white/30 shadow-lg">
-          {editingOrder ? (
-            <Receipt className="w-7 h-7 text-white" />
-          ) : (
-            <ChefHat className="w-7 h-7 text-white" />
-          )}
+          <div className="relative z-10">
+            <h2 className="text-lg font-extrabold text-white tracking-tight">
+              {editingOrder ? `Edit Order ${shortOrderId}` : "New Order"}
+            </h2>
+            <p className="text-xs text-white/65 font-medium mt-0.5">
+              {editingOrder
+                ? `${editingOrder.customer_name} · Ordered ${new Date(editingOrder.created_at).toLocaleDateString()}`
+                : "Create a new order"}
+            </p>
+          </div>
+
+          {/* Close button */}
+          <button
+            onClick={onCancel}
+            className="relative z-10 w-[30px] h-[30px] rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white text-sm font-semibold hover:bg-white/35 transition-all flex-shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
-
-        <h2 className="relative z-10 text-xl font-bold text-white">
-          {editingOrder ? "Edit Order" : "New Order"}
-        </h2>
-        <p className="relative z-10 text-white/80 text-sm mt-0.5">
-          {editingOrder ? "Update order details" : "Add items to the order"}
-        </p>
       </div>
 
-      {/* Form Content */}
-      <div className="bg-white dark:bg-gray-900 p-5 space-y-4 max-h-[60vh] overflow-y-auto">
+      {/* ═══ Modal Body ═══ */}
+      <div className="flex-1 overflow-y-auto px-6 py-5" style={{ scrollbarWidth: "thin" }}>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Order Type Toggle */}
-            <div className="grid grid-cols-2 gap-2">
+          <form onSubmit={form.handleSubmit(onSubmit)} id="order-form" className="space-y-5">
+
+            {/* ── Order Type Toggle ── */}
+            <div
+              className="flex gap-1 p-1 rounded-xl"
+              style={{ background: "rgba(29,78,216,0.07)" }}
+            >
               <button
                 type="button"
                 onClick={() => form.setValue("orderType", "dineIn")}
-                className={`flex items-center justify-center gap-2 h-11 rounded-xl font-semibold text-sm transition-all border-2 ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[9px] text-xs font-bold transition-all ${
                   watchedOrderType === "dineIn"
-                    ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/30"
-                    : "bg-white dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:border-emerald-300"
+                    ? "bg-white text-blue-600 shadow-lg border border-blue-100"
+                    : "text-slate-400 hover:text-slate-600"
                 }`}
               >
-                <Utensils className="w-4 h-4" />
+                <Utensils className="w-3.5 h-3.5" />
                 Dine In
               </button>
               <button
                 type="button"
                 onClick={() => form.setValue("orderType", "takeAway")}
-                className={`flex items-center justify-center gap-2 h-11 rounded-xl font-semibold text-sm transition-all border-2 ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[9px] text-xs font-bold transition-all ${
                   watchedOrderType === "takeAway"
-                    ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/30"
-                    : "bg-white dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:border-amber-300"
+                    ? "bg-white text-blue-600 shadow-lg border border-blue-100"
+                    : "text-slate-400 hover:text-slate-600"
                 }`}
               >
-                <ShoppingBag className="w-4 h-4" />
+                <ShoppingBag className="w-3.5 h-3.5" />
                 Take Away
               </button>
             </div>
 
-            {/* Conditional: Table or Customer */}
+            {/* ── Customer / Table Fields ── */}
             {watchedOrderType === "dineIn" ? (
               <FormField
                 control={form.control}
                 name="tableNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                    <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                       Table
                     </FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger className="h-11 rounded-xl border-gray-200 dark:border-gray-700">
+                        <SelectTrigger
+                          className="h-10 rounded-[10px] border-blue-100 bg-white/85 text-sm font-medium focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+                        >
                           <SelectValue placeholder="Select table..." />
                         </SelectTrigger>
                       </FormControl>
@@ -580,20 +566,20 @@ const ImprovedAddOrderForm = ({
                 )}
               />
             ) : (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <FormField
                   control={form.control}
                   name="customerName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs font-semibold text-gray-600 dark:text-gray-400">
-                        Name
+                      <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        Customer Name
                       </FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          placeholder="Customer name"
-                          className="h-11 rounded-xl border-gray-200 dark:border-gray-700"
+                          placeholder="Walk-in Customer"
+                          className="h-10 rounded-[10px] border-blue-100 bg-white/85 text-sm font-medium placeholder:text-slate-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
                         />
                       </FormControl>
                     </FormItem>
@@ -604,14 +590,14 @@ const ImprovedAddOrderForm = ({
                   name="customerPhone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs font-semibold text-gray-600 dark:text-gray-400">
-                        Phone
+                      <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        Phone Number
                       </FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          placeholder="Phone"
-                          className="h-11 rounded-xl border-gray-200 dark:border-gray-700"
+                          placeholder="Enter phone number…"
+                          className="h-10 rounded-[10px] border-blue-100 bg-white/85 text-sm font-medium placeholder:text-slate-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
                         />
                       </FormControl>
                     </FormItem>
@@ -620,15 +606,14 @@ const ImprovedAddOrderForm = ({
               </div>
             )}
 
-            {/* Order Items Section */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+            {/* ── Items Section ── */}
+            <div>
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                   Items ({fields.length})
                 </span>
-                <Button
+                <button
                   type="button"
-                  size="sm"
                   onClick={() =>
                     append({
                       category: "",
@@ -638,17 +623,20 @@ const ImprovedAddOrderForm = ({
                       unitPrice: 0,
                     })
                   }
-                  className="h-7 px-3 text-xs bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 rounded-lg shadow-md"
+                  className="flex items-center gap-1 text-[11px] font-bold text-white px-3 py-1 rounded-[7px] transition-all hover:-translate-y-px"
+                  style={{
+                    background: "linear-gradient(135deg, #f97316 0%, #1d4ed8 100%)",
+                    boxShadow: "0 3px 10px rgba(249,115,22,0.35)",
+                  }}
                 >
-                  <Plus className="w-3 h-3 mr-1" />
-                  Add
-                </Button>
+                  <Plus className="w-3 h-3" /> Add Item
+                </button>
               </div>
 
-              {/* Items List - Compact */}
-              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+              {/* Items List */}
+              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1" style={{ scrollbarWidth: "thin" }}>
                 {fields.length === 0 && (
-                  <div className="text-center py-6 text-gray-400 dark:text-gray-500">
+                  <div className="text-center py-8 text-slate-300">
                     <ShoppingBag className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p className="text-xs">No items yet</p>
                   </div>
@@ -657,277 +645,260 @@ const ImprovedAddOrderForm = ({
                 {fields.map((field, index) => (
                   <div
                     key={field.id}
-                    className="relative p-3 rounded-xl bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-800/50 border border-gray-100 dark:border-gray-700"
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all hover:bg-white hover:border-blue-200 hover:shadow-md"
+                    style={{
+                      background: "rgba(255,255,255,0.78)",
+                      border: "1.5px solid rgba(29,78,216,0.09)",
+                      backdropFilter: "blur(10px)",
+                    }}
                   >
-                    {/* Item number badge */}
-                    <div className="absolute -top-1 -left-1 w-5 h-5 bg-gradient-to-br from-violet-500 to-purple-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow">
+                    {/* Number badge */}
+                    <div
+                      className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                      style={{
+                        background: "linear-gradient(135deg, #f97316 0%, #1d4ed8 100%)",
+                        boxShadow: "0 2px 8px rgba(249,115,22,0.35)",
+                      }}
+                    >
                       {index + 1}
                     </div>
 
-                    <div className="grid grid-cols-12 gap-2 items-end">
-                      {/* Item Name - Show as text if has value, Select if empty */}
-                      <div className="col-span-6">
-                        <FormField
-                          control={form.control}
-                          name={`orderItems.${index}.itemName`}
-                          render={({ field }) => (
-                            <FormItem className="space-y-1">
-                              <FormLabel className="text-[10px] font-semibold text-gray-500 uppercase">
-                                Item
-                              </FormLabel>
-                              {field.value && field.value.trim() !== "" ? (
-                                // Show item name as text for existing items
-                                <div className="h-9 px-3 flex items-center rounded-lg bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-700">
-                                  <span className="text-sm font-medium text-violet-700 dark:text-violet-300 truncate">
-                                    {field.value}
-                                  </span>
-                                  <Badge className="ml-auto bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
-                                    {currencySymbol}
-                                    {form.watch(
-                                      `orderItems.${index}.unitPrice`,
-                                    ) || 0}
-                                  </Badge>
-                                </div>
-                              ) : (
-                                // Show Select for new items
-                                <>
-                                  <FormField
-                                    control={form.control}
-                                    name={`orderItems.${index}.category`}
-                                    render={({ field }) => (
-                                      <Select
-                                        onValueChange={field.onChange}
-                                        value={field.value}
-                                      >
-                                        <SelectTrigger className="h-9 text-xs rounded-lg border-gray-200 dark:border-gray-600 mb-1">
-                                          <SelectValue placeholder="Category..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {categories.map((category) => (
-                                            <SelectItem
-                                              key={category}
-                                              value={category || "other"}
-                                              className="text-sm"
-                                            >
-                                              {category}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    )}
-                                  />
-                                  <Select
-                                    onValueChange={(value) => {
-                                      const menuItem = menuItems?.find(
-                                        (item) => item.name === value,
-                                      );
-                                      if (menuItem) {
-                                        form.setValue(
-                                          `orderItems.${index}.unitPrice`,
-                                          menuItem.price,
-                                        );
-                                        form.setValue(
-                                          `orderItems.${index}.category`,
-                                          menuItem.category,
-                                        );
-                                      }
-                                      field.onChange(value);
-                                    }}
-                                    value={field.value}
-                                  >
-                                    <SelectTrigger className="h-9 text-xs rounded-lg border-gray-200 dark:border-gray-600">
-                                      <SelectValue placeholder="Select item..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {menuItems
-                                        ?.filter(
-                                          (item) =>
-                                            !form.watch(
-                                              `orderItems.${index}.category`,
-                                            ) ||
-                                            item.category ===
-                                              form.watch(
-                                                `orderItems.${index}.category`,
-                                              ),
-                                        )
-                                        .map((item) => (
-                                          <SelectItem
-                                            key={item.id}
-                                            value={item.name || item.id}
-                                            className="text-sm"
-                                          >
-                                            {item.name} - {currencySymbol}
-                                            {item.price}
+                    {/* Item name / select */}
+                    <div className="flex-1 min-w-0">
+                      <FormField
+                        control={form.control}
+                        name={`orderItems.${index}.itemName`}
+                        render={({ field: itemField }) => (
+                          <FormItem className="space-y-0">
+                            {itemField.value && itemField.value.trim() !== "" ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-[13px] font-bold text-slate-800 truncate">
+                                  {itemField.value}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="space-y-1">
+                                <FormField
+                                  control={form.control}
+                                  name={`orderItems.${index}.category`}
+                                  render={({ field: catField }) => (
+                                    <Select
+                                      onValueChange={catField.onChange}
+                                      value={catField.value}
+                                    >
+                                      <SelectTrigger className="h-7 text-[10px] rounded-lg border-slate-200">
+                                        <SelectValue placeholder="Category..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {categories.map((category) => (
+                                          <SelectItem key={category} value={category || "other"} className="text-xs">
+                                            {category}
                                           </SelectItem>
                                         ))}
-                                    </SelectContent>
-                                  </Select>
-                                </>
-                              )}
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      {/* Quantity */}
-                      <div className="col-span-4">
-                        <FormField
-                          control={form.control}
-                          name={`orderItems.${index}.quantity`}
-                          render={({ field }) => (
-                            <FormItem className="space-y-1">
-                              <FormLabel className="text-[10px] font-semibold text-gray-500 uppercase">
-                                Qty
-                              </FormLabel>
-                              <div className="flex h-9">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    field.onChange(
-                                      Math.max(1, (field.value || 1) - 1),
-                                    )
-                                  }
-                                  className="w-9 bg-gray-100 dark:bg-gray-700 rounded-l-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 font-bold"
-                                >
-                                  -
-                                </button>
-                                <input
-                                  type="number"
-                                  value={field.value}
-                                  onChange={(e) =>
-                                    field.onChange(
-                                      parseInt(e.target.value) || 1,
-                                    )
-                                  }
-                                  className="w-10 text-center text-sm font-bold border-y border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800"
+                                      </SelectContent>
+                                    </Select>
+                                  )}
                                 />
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    field.onChange((field.value || 1) + 1)
-                                  }
-                                  className="w-9 bg-gray-100 dark:bg-gray-700 rounded-r-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 font-bold"
+                                <Select
+                                  onValueChange={(value) => {
+                                    const menuItem = menuItems?.find(
+                                      (item) => item.name === value,
+                                    );
+                                    if (menuItem) {
+                                      form.setValue(`orderItems.${index}.unitPrice`, menuItem.price);
+                                      form.setValue(`orderItems.${index}.category`, menuItem.category);
+                                    }
+                                    itemField.onChange(value);
+                                  }}
+                                  value={itemField.value}
                                 >
-                                  +
-                                </button>
+                                  <SelectTrigger className="h-7 text-[10px] rounded-lg border-slate-200">
+                                    <SelectValue placeholder="Select item..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {menuItems
+                                      ?.filter(
+                                        (item) =>
+                                          !form.watch(`orderItems.${index}.category`) ||
+                                          item.category === form.watch(`orderItems.${index}.category`),
+                                      )
+                                      .map((item) => (
+                                        <SelectItem key={item.id} value={item.name || item.id} className="text-xs">
+                                          {item.name} - {currencySymbol}{item.price}
+                                        </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
                               </div>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      {/* Delete */}
-                      <div className="col-span-2 flex justify-end">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                          onClick={() => remove(index)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                            )}
+                          </FormItem>
+                        )}
+                      />
                     </div>
 
-                    {/* Item Total */}
-                    <div className="mt-2 flex justify-between items-center">
-                      <span className="text-[10px] text-gray-400">
-                        {form.watch(`orderItems.${index}.quantity`)} ×{" "}
-                        {currencySymbol}
-                        {form.watch(`orderItems.${index}.unitPrice`) || 0}
-                      </span>
-                      <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-bold text-sm">
-                        {currencySymbol}
-                        {(
-                          (form.watch(`orderItems.${index}.quantity`) || 0) *
-                          (form.watch(`orderItems.${index}.unitPrice`) || 0)
-                        ).toFixed(0)}
-                      </Badge>
+                    {/* Price label */}
+                    <span className="font-mono text-[11px] font-semibold text-slate-400 flex-shrink-0">
+                      {currencySymbol}{form.watch(`orderItems.${index}.unitPrice`) || 0} each
+                    </span>
+
+                    {/* Quantity control */}
+                    <div
+                      className="flex items-center rounded-[9px] overflow-hidden flex-shrink-0"
+                      style={{
+                        border: "1.5px solid rgba(29,78,216,0.18)",
+                        background: "rgba(255,255,255,0.92)",
+                      }}
+                    >
+                      <FormField
+                        control={form.control}
+                        name={`orderItems.${index}.quantity`}
+                        render={({ field: qtyField }) => (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => qtyField.onChange(Math.max(1, (qtyField.value || 1) - 1))}
+                              className="w-7 h-7 flex items-center justify-center text-slate-500 hover:bg-blue-50 hover:text-blue-600 font-bold text-sm transition-all"
+                            >
+                              −
+                            </button>
+                            <span className="px-2 font-mono text-[13px] font-bold text-slate-800 min-w-[30px] text-center leading-7">
+                              {qtyField.value}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => qtyField.onChange((qtyField.value || 1) + 1)}
+                              className="w-7 h-7 flex items-center justify-center text-slate-500 hover:bg-blue-50 hover:text-blue-600 font-bold text-sm transition-all"
+                            >
+                              +
+                            </button>
+                          </>
+                        )}
+                      />
                     </div>
+
+                    {/* Subtotal */}
+                    <span className="font-mono text-xs font-bold text-blue-600 min-w-[45px] text-right flex-shrink-0">
+                      {currencySymbol}
+                      {((form.watch(`orderItems.${index}.quantity`) || 0) *
+                        (form.watch(`orderItems.${index}.unitPrice`) || 0)).toFixed(0)}
+                    </span>
+
+                    {/* Delete */}
+                    <button
+                      type="button"
+                      onClick={() => remove(index)}
+                      className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-1 rounded-md transition-all flex-shrink-0"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Discount Section */}
-            <div className="flex gap-2 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
-              <FormField
-                control={form.control}
-                name="discountType"
-                render={({ field }) => (
-                  <FormItem className="w-1/3">
-                    <FormLabel className="text-xs font-semibold text-gray-500">
-                      Discount Type
-                    </FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="h-9 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-xs">
-                          <SelectValue placeholder="Type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="amount">
-                          Amount ({currencySymbol})
-                        </SelectItem>
-                        <SelectItem value="percentage">
-                          Percentage (%)
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              />
+            {/* ── Divider ── */}
+            <div className="h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(29,78,216,0.18), transparent)" }} />
 
-              <FormField
-                control={form.control}
-                name="discountValue"
-                render={({ field }) => (
-                  <FormItem className="flex-1">
-                    <FormLabel className="text-xs font-semibold text-gray-500">
-                      Discount Value
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        {...field}
-                        onChange={(e) =>
-                          field.onChange(parseFloat(e.target.value) || 0)
-                        }
-                        className="h-9 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+            {/* ── Discount Section ── */}
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">
+                Discount
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="discountType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        Discount Type
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="h-10 rounded-[10px] border-blue-100 bg-white/85 text-xs font-medium">
+                            <SelectValue placeholder="Type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="amount">Amount ({currencySymbol})</SelectItem>
+                          <SelectItem value="percentage">Percentage (%)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="discountValue"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        Discount Value
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          {...field}
+                          onChange={(e) =>
+                            field.onChange(parseFloat(e.target.value) || 0)
+                          }
+                          className="h-10 rounded-[10px] border-blue-100 bg-white/85 text-sm font-medium focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
-            {/* Order Total */}
-            <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 dark:from-emerald-900/20 dark:via-teal-900/20 dark:to-cyan-900/20 border-2 border-emerald-200 dark:border-emerald-800">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Order Total
-                </span>
-                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                  {currencySymbol}
-                  {orderTotal.toFixed(2)}
+            {/* ── Summary Box ── */}
+            <div
+              className="p-4 rounded-[14px]"
+              style={{
+                background: "linear-gradient(135deg, rgba(29,78,216,0.06), rgba(249,115,22,0.06))",
+                border: "1.5px solid rgba(29,78,216,0.13)",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <div className="flex justify-between text-[13px] text-slate-500 mb-2 font-medium">
+                <span>Subtotal</span>
+                <span className="font-mono">{currencySymbol}{subtotal.toFixed(0)}</span>
+              </div>
+              <div className="flex justify-between text-[13px] mb-2 font-medium">
+                <span className="text-slate-500">Discount</span>
+                <span className="font-mono text-red-500">−{currencySymbol}{discountAmount.toFixed(0)}</span>
+              </div>
+              <div
+                className="flex justify-between text-base font-extrabold text-slate-800 pt-2.5 mt-1"
+                style={{ borderTop: "1.5px solid rgba(29,78,216,0.13)" }}
+              >
+                <span>Total payable</span>
+                <span
+                  className="text-lg font-mono"
+                  style={{
+                    background: "linear-gradient(135deg, #f97316 0%, #1d4ed8 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  {currencySymbol}{orderTotal.toFixed(2)}
                 </span>
               </div>
             </div>
 
-            {/* Attendant */}
+            {/* ── Attendant ── */}
             <FormField
               control={form.control}
               name="attendant"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-xs font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                  <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
                     <User className="w-3 h-3" /> Attendant
                   </FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger className="h-11 rounded-xl border-gray-200 dark:border-gray-700">
+                      <SelectTrigger className="h-10 rounded-[10px] border-blue-100 bg-white/85 text-sm font-medium">
                         <SelectValue placeholder="Select attendant..." />
                       </SelectTrigger>
                     </FormControl>
@@ -950,41 +921,48 @@ const ImprovedAddOrderForm = ({
                 </FormItem>
               )}
             />
-
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onCancel}
-                disabled={loading}
-                className="flex-1 h-12 rounded-xl border-2 font-semibold"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={loading || orderTotal === 0}
-                className={`flex-[2] h-12 rounded-xl font-bold text-base shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] ${
-                  editingOrder
-                    ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-amber-500/30"
-                    : "bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 shadow-violet-500/30"
-                }`}
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Processing...
-                  </span>
-                ) : editingOrder ? (
-                  "Update Order"
-                ) : (
-                  "Create Order"
-                )}
-              </Button>
-            </div>
           </form>
         </Form>
+      </div>
+
+      {/* ═══ Modal Footer ═══ */}
+      <div
+        className="flex gap-2.5 px-6 py-4 flex-shrink-0"
+        style={{
+          borderTop: "1px solid rgba(29,78,216,0.09)",
+          background: "rgba(255,255,255,0.65)",
+          backdropFilter: "blur(20px)",
+        }}
+      >
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={loading}
+          className="flex-1 flex items-center justify-center py-2.5 rounded-[10px] text-[13px] font-bold text-slate-500 bg-white/92 border-[1.5px] border-blue-100 transition-all hover:bg-white disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          form="order-form"
+          disabled={loading || orderTotal === 0}
+          className="flex-[1.5] flex items-center justify-center py-2.5 rounded-[10px] text-[13px] font-bold text-white transition-all hover:-translate-y-px disabled:opacity-50"
+          style={{
+            background: "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 40%, #f97316 100%)",
+            boxShadow: "0 6px 20px rgba(29,78,216,0.35)",
+          }}
+        >
+          {loading ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Processing...
+            </span>
+          ) : editingOrder ? (
+            "Save changes"
+          ) : (
+            "Create Order"
+          )}
+        </button>
       </div>
     </div>
   );

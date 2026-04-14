@@ -1,6 +1,5 @@
 import React from "react";
-import { Button } from "@/components/ui/button";
-import { Edit, Trash, Check, Clock, Printer } from "lucide-react";
+import { Edit, Trash2, Check, Clock, Printer } from "lucide-react";
 import type { Order } from "@/types/orders";
 
 interface OrderActionsProps {
@@ -20,76 +19,74 @@ const OrderActions: React.FC<OrderActionsProps> = ({
   onDelete,
   onPrintBill,
 }) => {
-  // Return early if order is undefined or null
-  if (!order) {
-    return null;
-  }
+  if (!order) return null;
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex items-center gap-[7px] flex-wrap">
+      {/* Edit */}
       {onEdit && (
-        <Button
-          variant="outline"
-          size="sm"
+        <button
           onClick={() => onEdit(order)}
           disabled={loading}
-          className="bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:hover:bg-blue-900"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-white/85 text-slate-600 border border-blue-100 shadow-sm transition-all hover:bg-white hover:text-blue-600 hover:border-blue-300 hover:shadow-md disabled:opacity-50"
         >
-          <Edit className="w-4 h-4" />
-          <span className="ml-1">Edit</span>
-        </Button>
+          <Edit className="w-3 h-3" />
+          Edit
+        </button>
       )}
 
+      {/* Complete / Revert */}
       {onStatusUpdate &&
-      (order.status === "pending" || order.status === "preparing") ? (
-        <Button
-          variant="outline"
-          size="sm"
+        (order.status === "pending" || order.status === "preparing") ? (
+        <button
           onClick={() => onStatusUpdate(order.id, "completed")}
           disabled={loading}
-          className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:hover:bg-emerald-900"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white transition-all hover:shadow-lg hover:-translate-y-px disabled:opacity-50"
+          style={{
+            background: "linear-gradient(135deg, #059669 0%, #10b981 100%)",
+            boxShadow: "0 3px 12px rgba(5,150,105,0.38)",
+          }}
         >
-          <Check className="w-4 h-4" />
-          <span className="ml-1">Complete</span>
-        </Button>
+          <Check className="w-3 h-3" />
+          Complete
+        </button>
       ) : onStatusUpdate && order.status === "completed" ? (
-        <Button
-          variant="outline"
-          size="sm"
+        <button
           onClick={() => onStatusUpdate(order.id, "pending")}
           disabled={loading}
-          className="bg-amber-50 text-amber-600 hover:bg-amber-100 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:hover:bg-amber-900"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 transition-all hover:bg-amber-100 disabled:opacity-50"
         >
-          <Clock className="w-4 h-4" />
-          <span className="ml-1">Pending</span>
-        </Button>
+          <Clock className="w-3 h-3" />
+          Revert
+        </button>
       ) : null}
 
-      {/* Print Bill Button */}
+      {/* Print Bill */}
       {onPrintBill && (
-        <Button
-          variant="outline"
-          size="sm"
+        <button
           onClick={() => onPrintBill(order)}
           disabled={loading}
-          className="bg-purple-50 text-purple-600 hover:bg-purple-100 border-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:hover:bg-purple-900"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:bg-blue-100/80 disabled:opacity-50"
+          style={{
+            background: "linear-gradient(135deg, rgba(29,78,216,0.1), rgba(59,130,246,0.13))",
+            color: "#1d4ed8",
+            border: "1px solid rgba(29,78,216,0.22)",
+          }}
         >
-          <Printer className="w-4 h-4" />
-          <span className="ml-1">Print Bill</span>
-        </Button>
+          <Printer className="w-3 h-3" />
+          Print Bill
+        </button>
       )}
 
+      {/* Delete */}
       {onDelete && (
-        <Button
-          variant="outline"
-          size="sm"
+        <button
           onClick={() => onDelete(order.id)}
           disabled={loading}
-          className="bg-red-50 text-red-600 hover:bg-red-100 border-red-200 dark:bg-red-950 dark:text-red-400 dark:hover:bg-red-900"
+          className="flex items-center justify-center w-7 h-7 rounded-[7px] text-slate-400 bg-transparent border-none transition-all hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
         >
-          <Trash className="w-4 h-4" />
-          <span className="ml-1">Delete</span>
-        </Button>
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
       )}
     </div>
   );
