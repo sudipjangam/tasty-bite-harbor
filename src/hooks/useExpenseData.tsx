@@ -44,6 +44,20 @@ export const useExpenseData = () => {
         (sum, t) => sum + Math.abs(t.total_cost || 0), 0
       );
 
+      // Auto-calculate inventory wastage cost from waste transactions
+      const { data: wastageTransactions } = await supabase
+        .from("inventory_transactions")
+        .select("total_cost")
+        .eq("restaurant_id", restaurantId)
+        .eq("transaction_type", "waste")
+        .gte("created_at", format(startMonth, "yyyy-MM-dd"))
+        .lte("created_at", format(endMonth, "yyyy-MM-dd'T'23:59:59"));
+
+      const inventoryWastageCost = (wastageTransactions || []).reduce(
+        (sum, t) => sum + Math.abs(t.total_cost || 0), 0
+      );
+      const wastageCount = (wastageTransactions || []).length;
+
       // Calculate expense breakdown by category
       const categoryTotals: Record<string, number> = {};
       if (monthlyExpenses) {
@@ -120,6 +134,8 @@ export const useExpenseData = () => {
         totalMonthlyExpenses: totalExpenses,
         staffExpenses: Math.round(staffExpenses),
         inventoryConsumption: Math.round(inventoryConsumptionCost * 100) / 100,
+        inventoryWastage: Math.round(inventoryWastageCost * 100) / 100,
+        wastageCount,
         totalExpenses: (expenses || []).reduce(
           (sum, expense) => sum + expense.amount,
           0,

@@ -5,6 +5,7 @@ import ExpensesList from "@/components/Expenses/ExpensesList";
 import ExpensesOverview from "@/components/Expenses/ExpensesOverview";
 import ExpenseAnalytics from "@/components/Expenses/ExpenseAnalytics";
 import ExpenseHelpDialog from "@/components/Expenses/ExpenseHelpDialog";
+import ExpenseWastageTab from "@/components/Expenses/ExpenseWastageTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DollarSign,
@@ -12,6 +13,7 @@ import {
   List,
   BarChart3,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { useExpenseData } from "@/hooks/useExpenseData";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
@@ -141,6 +143,15 @@ const Expenses = () => {
                   Analytics
                 </TabsTrigger>
               </FeatureLock>
+              <FeatureLock feature="expenses.advanced" interceptClicks={true}>
+                <TabsTrigger
+                  value="wastage"
+                  className="whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-500 data-[state=active]:to-rose-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-red-500/30 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Wastage
+                </TabsTrigger>
+              </FeatureLock>
             </TabsList>
           </div>
         </div>
@@ -164,6 +175,12 @@ const Expenses = () => {
 
         <TabsContent value="analytics" className="animate-in fade-in">
           <ExpenseAnalytics />
+        </TabsContent>
+
+        <TabsContent value="wastage" className="animate-in fade-in">
+          <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-red-500/20 rounded-3xl shadow-xl dark:shadow-red-500/10 p-8">
+            <ExpenseWastageTab />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

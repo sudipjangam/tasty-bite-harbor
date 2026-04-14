@@ -72,6 +72,7 @@ import { BillExtractedDataDialog } from "@/components/Inventory/BillExtractedDat
 import InventoryForecasting from "@/components/Inventory/InventoryForecasting";
 import StorageLocations from "@/components/Inventory/StorageLocations";
 import InventoryItemDetail from "@/components/Inventory/InventoryItemDetail";
+import WastageReport from "@/components/Inventory/WastageReport";
 import { ExtractedBillData } from "@/utils/billUtils";
 import { INVENTORY_UNIT_VALUES } from "@/constants/units";
 import {
@@ -116,8 +117,13 @@ const Inventory = () => {
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [newItemCategory, setNewItemCategory] = useState<string>("Other");
-  const [selectedDetailItem, setSelectedDetailItem] = useState<InventoryItem | null>(null);
-  const [pendingDuplicateData, setPendingDuplicateData] = useState<{ existingItem: InventoryItem; formData: any; restaurantId: string } | null>(null);
+  const [selectedDetailItem, setSelectedDetailItem] =
+    useState<InventoryItem | null>(null);
+  const [pendingDuplicateData, setPendingDuplicateData] = useState<{
+    existingItem: InventoryItem;
+    formData: any;
+    restaurantId: string;
+  } | null>(null);
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
 
@@ -169,9 +175,17 @@ const Inventory = () => {
     queryFn: async () => {
       const { data: profile } = await supabase.auth.getUser();
       if (!profile.user) return [];
-      const { data: userProfile } = await supabase.from("profiles").select("restaurant_id").eq("id", profile.user.id).single();
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("restaurant_id")
+        .eq("id", profile.user.id)
+        .single();
       if (!userProfile?.restaurant_id) return [];
-      const { data, error } = await supabase.from("storage_locations").select("id, name").eq("restaurant_id", userProfile.restaurant_id).order("name");
+      const { data, error } = await supabase
+        .from("storage_locations")
+        .select("id, name")
+        .eq("restaurant_id", userProfile.restaurant_id)
+        .order("name");
       if (error) throw error;
       return data || [];
     },
@@ -240,7 +254,11 @@ const Inventory = () => {
   };
 
   // Helper to add stock as a new lot to an existing item
-  const addStockToExistingItem = async (existingItem: InventoryItem, formData: any, restaurantId: string) => {
+  const addStockToExistingItem = async (
+    existingItem: InventoryItem,
+    formData: any,
+    restaurantId: string,
+  ) => {
     try {
       const addQty = formData.quantity;
       const addCost = formData.cost_per_unit || 0;
@@ -267,8 +285,11 @@ const Inventory = () => {
             quantity_purchased: addQty,
             quantity_remaining: addQty,
             unit_cost: addCost,
-            lot_number: "LOT-" + Math.random().toString(36).slice(2, 10).toUpperCase(),
-            expiry_date: expiryDateStr ? new Date(expiryDateStr).toISOString() : null,
+            lot_number:
+              "LOT-" + Math.random().toString(36).slice(2, 10).toUpperCase(),
+            expiry_date: expiryDateStr
+              ? new Date(expiryDateStr).toISOString()
+              : null,
             notes: "Added stock to existing item",
           })
           .select()
@@ -288,14 +309,21 @@ const Inventory = () => {
         }
       }
 
-      toast({ title: "Stock added successfully", description: `New batch added to "${existingItem.name}".` });
+      toast({
+        title: "Stock added successfully",
+        description: `New batch added to "${existingItem.name}".`,
+      });
       refetch();
       setIsAddDialogOpen(false);
       setEditingItem(null);
       setPendingDuplicateData(null);
     } catch (error) {
       console.error("Error adding stock:", error);
-      toast({ title: "Operation Failed", description: "Something went wrong. Please try again.", variant: "destructive" });
+      toast({
+        title: "Operation Failed",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -316,10 +344,12 @@ const Inventory = () => {
         ? Math.max(0, parseFloat(formData.get("costPerUnit") as string))
         : null,
       category: (formData.get("category") as string) || "Other",
-      storage_location_id: (formData.get("storageLocation") as string) && formData.get("storageLocation") !== "none" 
-        ? formData.get("storageLocation") as string 
-        : null,
-      expiryDate: formData.get("expiryDate") as string || null,
+      storage_location_id:
+        (formData.get("storageLocation") as string) &&
+        formData.get("storageLocation") !== "none"
+          ? (formData.get("storageLocation") as string)
+          : null,
+      expiryDate: (formData.get("expiryDate") as string) || null,
     };
 
     try {
@@ -345,11 +375,15 @@ const Inventory = () => {
           .eq("id", editingItem.id);
 
         if (error) throw error;
-        toast({ title: "Item updated successfully", description: `"${itemData.name}" has been updated.` });
+        toast({
+          title: "Item updated successfully",
+          description: `"${itemData.name}" has been updated.`,
+        });
       } else {
         // Check for existing item with same name (case-insensitive)
         const existingItem = items.find(
-          (i) => i.name.toLowerCase().trim() === itemData.name.toLowerCase().trim()
+          (i) =>
+            i.name.toLowerCase().trim() === itemData.name.toLowerCase().trim(),
         );
 
         if (existingItem) {
@@ -371,41 +405,48 @@ const Inventory = () => {
           .single();
 
         if (error) throw error;
-        
+
         // If an initial quantity is provided, we should track it as an initial lot and transaction
         if (itemData.quantity > 0) {
-          const transactionCost = itemData.cost_per_unit ? itemData.cost_per_unit * itemData.quantity : 0;
-          
+          const transactionCost = itemData.cost_per_unit
+            ? itemData.cost_per_unit * itemData.quantity
+            : 0;
+
           const { data: newLot, error: lotError } = await supabase
             .from("inventory_lots")
             .insert({
-               restaurant_id: userProfile.restaurant_id,
-               inventory_item_id: newItem.id,
-               quantity_purchased: itemData.quantity,
-               quantity_remaining: itemData.quantity,
-               unit_cost: itemData.cost_per_unit || 0,
-               lot_number: 'INITIAL-' + Math.random().toString(36).slice(2, 10),
-               expiry_date: itemData.expiryDate ? new Date(itemData.expiryDate).toISOString() : null,
-               notes: "Initial inventory setup"
+              restaurant_id: userProfile.restaurant_id,
+              inventory_item_id: newItem.id,
+              quantity_purchased: itemData.quantity,
+              quantity_remaining: itemData.quantity,
+              unit_cost: itemData.cost_per_unit || 0,
+              lot_number: "INITIAL-" + Math.random().toString(36).slice(2, 10),
+              expiry_date: itemData.expiryDate
+                ? new Date(itemData.expiryDate).toISOString()
+                : null,
+              notes: "Initial inventory setup",
             })
             .select()
             .single();
 
           if (!lotError && newLot) {
             await supabase.from("inventory_transactions").insert({
-               restaurant_id: userProfile.restaurant_id,
-               inventory_item_id: newItem.id,
-               transaction_type: "purchase",
-               quantity_change: itemData.quantity,
-               unit_cost_at_time: itemData.cost_per_unit || 0,
-               total_cost: transactionCost,
-               lot_id: newLot.id,
-               notes: "Initial stock entry"
+              restaurant_id: userProfile.restaurant_id,
+              inventory_item_id: newItem.id,
+              transaction_type: "purchase",
+              quantity_change: itemData.quantity,
+              unit_cost_at_time: itemData.cost_per_unit || 0,
+              total_cost: transactionCost,
+              lot_id: newLot.id,
+              notes: "Initial stock entry",
             });
           }
         }
 
-        toast({ title: "Item added successfully", description: `"${itemData.name}" has been added to inventory.` });
+        toast({
+          title: "Item added successfully",
+          description: `"${itemData.name}" has been added to inventory.`,
+        });
       }
 
       refetch();
@@ -425,26 +466,48 @@ const Inventory = () => {
     if (!itemToDelete) return;
 
     try {
-      await supabase.from("inventory_alerts").delete().eq("inventory_item_id", itemToDelete.id);
-      await supabase.from("inventory_lots").delete().eq("inventory_item_id", itemToDelete.id);
-      await supabase.from("inventory_transactions").delete().eq("inventory_item_id", itemToDelete.id);
-      await supabase.from("purchase_order_items").delete().eq("inventory_item_id", itemToDelete.id);
-      await supabase.from("recipe_ingredients").delete().eq("inventory_item_id", itemToDelete.id);
-      await supabase.from("supplier_order_items").delete().eq("inventory_item_id", itemToDelete.id);
+      await supabase
+        .from("inventory_alerts")
+        .delete()
+        .eq("inventory_item_id", itemToDelete.id);
+      await supabase
+        .from("inventory_lots")
+        .delete()
+        .eq("inventory_item_id", itemToDelete.id);
+      await supabase
+        .from("inventory_transactions")
+        .delete()
+        .eq("inventory_item_id", itemToDelete.id);
+      await supabase
+        .from("purchase_order_items")
+        .delete()
+        .eq("inventory_item_id", itemToDelete.id);
+      await supabase
+        .from("recipe_ingredients")
+        .delete()
+        .eq("inventory_item_id", itemToDelete.id);
+      await supabase
+        .from("supplier_order_items")
+        .delete()
+        .eq("inventory_item_id", itemToDelete.id);
 
       const { error } = await supabase
         .from("inventory_items")
         .delete()
         .eq("id", itemToDelete.id);
       if (error) throw error;
-      toast({ title: "Item deleted", description: `"${itemToDelete.name}" has been removed.` });
+      toast({
+        title: "Item deleted",
+        description: `"${itemToDelete.name}" has been removed.`,
+      });
       refetch();
       setItemToDelete(null);
     } catch (error) {
       console.error("Error:", error);
       toast({
         title: "Delete Failed",
-        description: "Failed to delete item. It may be linked to other records.",
+        description:
+          "Failed to delete item. It may be linked to other records.",
         variant: "destructive",
       });
       setItemToDelete(null);
@@ -484,7 +547,10 @@ const Inventory = () => {
   }, [searchQuery, filterCategory, showLowStockOnly]);
 
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredItems.length / ITEMS_PER_PAGE),
+  );
   const paginatedItems = filteredItems.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE,
@@ -492,7 +558,8 @@ const Inventory = () => {
 
   // Stats
   const lowStockCount = items.filter(
-    (item) => item.reorder_level !== null && item.quantity <= item.reorder_level,
+    (item) =>
+      item.reorder_level !== null && item.quantity <= item.reorder_level,
   ).length;
   const totalValue = items.reduce(
     (sum, item) => sum + item.quantity * (item.cost_per_unit || 0),
@@ -501,11 +568,22 @@ const Inventory = () => {
   const totalItems = items.length;
 
   const commonUnits = INVENTORY_UNIT_VALUES;
-  const categories = ["Vegetables", "Fruits", "Groceries", "Meat & Seafood", "Dairy", "Bakery", "Beverages", "Spices", "Other"];
+  const categories = [
+    "Vegetables",
+    "Fruits",
+    "Groceries",
+    "Meat & Seafood",
+    "Dairy",
+    "Bakery",
+    "Beverages",
+    "Spices",
+    "Other",
+  ];
 
   // Stock level helper
   const getStockLevel = (item: InventoryItem) => {
-    if (!item.reorder_level || item.reorder_level === 0) return { pct: 100, color: "emerald" };
+    if (!item.reorder_level || item.reorder_level === 0)
+      return { pct: 100, color: "emerald" };
     const pct = Math.min(100, (item.quantity / (item.reorder_level * 3)) * 100);
     if (item.quantity <= item.reorder_level) return { pct, color: "red" };
     if (pct < 40) return { pct, color: "amber" };
@@ -533,12 +611,16 @@ const Inventory = () => {
           </div>
 
           {/* Add Item Dialog */}
-          <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
-            setIsAddDialogOpen(open);
-            if (!open) setEditingItem(null);
-            if (open && !editingItem) setNewItemCategory("Other");
-            if (open && editingItem) setNewItemCategory(editingItem.category || "Other");
-          }}>
+          <Dialog
+            open={isAddDialogOpen}
+            onOpenChange={(open) => {
+              setIsAddDialogOpen(open);
+              if (!open) setEditingItem(null);
+              if (open && !editingItem) setNewItemCategory("Other");
+              if (open && editingItem)
+                setNewItemCategory(editingItem.category || "Other");
+            }}
+          >
             <DialogTrigger asChild>
               <Button
                 onClick={() => {
@@ -557,13 +639,19 @@ const Inventory = () => {
                 <DialogHeader>
                   <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
                     {editingItem ? (
-                      <><Edit className="h-5 w-5" /> Edit Inventory Item</>
+                      <>
+                        <Edit className="h-5 w-5" /> Edit Inventory Item
+                      </>
                     ) : (
-                      <><Plus className="h-5 w-5" /> Add New Item</>
+                      <>
+                        <Plus className="h-5 w-5" /> Add New Item
+                      </>
                     )}
                   </DialogTitle>
                   <DialogDescription className="text-emerald-100 text-sm">
-                    {editingItem ? "Update the details below" : "Fill in the details to add a new inventory item"}
+                    {editingItem
+                      ? "Update the details below"
+                      : "Fill in the details to add a new inventory item"}
                   </DialogDescription>
                 </DialogHeader>
               </div>
@@ -575,7 +663,10 @@ const Inventory = () => {
               >
                 {/* Item Name */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="name" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                  <Label
+                    htmlFor="name"
+                    className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5"
+                  >
                     <Tag className="h-3.5 w-3.5 text-emerald-500" />
                     Item Name <span className="text-red-400">*</span>
                   </Label>
@@ -591,11 +682,18 @@ const Inventory = () => {
 
                 {/* Category */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="category" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                  <Label
+                    htmlFor="category"
+                    className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5"
+                  >
                     <Layers className="h-3.5 w-3.5 text-blue-500" />
                     Category
                   </Label>
-                  <Select name="category" value={newItemCategory} onValueChange={setNewItemCategory}>
+                  <Select
+                    name="category"
+                    value={newItemCategory}
+                    onValueChange={setNewItemCategory}
+                  >
                     <SelectTrigger className="bg-transparent border-gray-300 dark:border-gray-700 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/30">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
@@ -614,7 +712,10 @@ const Inventory = () => {
                 {/* Quantity + Unit row */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="quantity" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Label
+                      htmlFor="quantity"
+                      className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5"
+                    >
                       <Box className="h-3.5 w-3.5 text-violet-500" />
                       Quantity <span className="text-red-400">*</span>
                     </Label>
@@ -631,7 +732,10 @@ const Inventory = () => {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="unit">Unit *</Label>
-                    <Select name="unit" defaultValue={editingItem?.unit || "kg"}>
+                    <Select
+                      name="unit"
+                      defaultValue={editingItem?.unit || "kg"}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select unit" />
                       </SelectTrigger>
@@ -661,7 +765,9 @@ const Inventory = () => {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="costPerUnit">Cost/Unit ({currencySymbol})</Label>
+                    <Label htmlFor="costPerUnit">
+                      Cost/Unit ({currencySymbol})
+                    </Label>
                     <Input
                       id="costPerUnit"
                       name="costPerUnit"
@@ -676,11 +782,17 @@ const Inventory = () => {
 
                 {/* Storage Location */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="storageLocation" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                  <Label
+                    htmlFor="storageLocation"
+                    className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5"
+                  >
                     <MapPin className="h-3.5 w-3.5 text-blue-500" />
                     Storage Location
                   </Label>
-                  <Select name="storageLocation" defaultValue={editingItem?.storage_location_id || "none"}>
+                  <Select
+                    name="storageLocation"
+                    defaultValue={editingItem?.storage_location_id || "none"}
+                  >
                     <SelectTrigger className="bg-gray-50/80 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/20 transition-all">
                       <SelectValue placeholder="Select storage location" />
                     </SelectTrigger>
@@ -696,15 +808,15 @@ const Inventory = () => {
                 </div>
 
                 {/* Expiry Date for Dairy and Bakery */}
-                {(newItemCategory === "Dairy" || newItemCategory === "Bakery") && (
+                {(newItemCategory === "Dairy" ||
+                  newItemCategory === "Bakery") && (
                   <div className="space-y-1.5">
                     <Label htmlFor="expiryDate">Expiry Date</Label>
-                    <Input
-                      id="expiryDate"
-                      name="expiryDate"
-                      type="date"
-                    />
-                    <p className="text-xs text-slate-500">Only applicable for the initial lot added during item creation.</p>
+                    <Input id="expiryDate" name="expiryDate" type="date" />
+                    <p className="text-xs text-slate-500">
+                      Only applicable for the initial lot added during item
+                      creation.
+                    </p>
                   </div>
                 )}
 
@@ -713,9 +825,13 @@ const Inventory = () => {
                   className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-xl transition-all duration-300 h-12 text-base"
                 >
                   {editingItem ? (
-                    <><Edit className="mr-2 h-4 w-4" /> Update Item</>
+                    <>
+                      <Edit className="mr-2 h-4 w-4" /> Update Item
+                    </>
                   ) : (
-                    <><Plus className="mr-2 h-4 w-4" /> Add to Inventory</>
+                    <>
+                      <Plus className="mr-2 h-4 w-4" /> Add to Inventory
+                    </>
                   )}
                 </Button>
               </form>
@@ -742,12 +858,17 @@ const Inventory = () => {
                 { value: "overview", icon: Package, label: "Overview" },
                 { value: "alerts", icon: Bell, label: "Alerts" },
                 { value: "stocktake", icon: FileText, label: "Stocktake" },
-                { value: "purchase-orders", icon: ShoppingCart, label: "Orders" },
+                {
+                  value: "purchase-orders",
+                  icon: ShoppingCart,
+                  label: "Orders",
+                },
                 { value: "suggestions", icon: BarChart3, label: "Suggest" },
                 { value: "forecast", icon: Zap, label: "Forecast" },
                 // { value: "locations", icon: Warehouse, label: "Locations" },
                 { value: "transactions", icon: History, label: "History" },
                 { value: "lots", icon: Layers, label: "Lots" },
+                { value: "wastage", icon: TrendingDown, label: "Wastage" },
               ].map((tab) => (
                 <TabsTrigger
                   key={tab.value}
@@ -786,23 +907,46 @@ const Inventory = () => {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon" className="md:hidden h-10 w-10 rounded-xl shrink-0">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="md:hidden h-10 w-10 rounded-xl shrink-0"
+                    >
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-44 rounded-xl">
-                    <DropdownMenuItem onClick={() => { const b = document.querySelector("[data-export-excel]") as HTMLButtonElement; b?.click(); }}>
-                      <FileSpreadsheet className="h-4 w-4 mr-2 text-green-600" /> Export Excel
+                    <DropdownMenuItem
+                      onClick={() => {
+                        const b = document.querySelector(
+                          "[data-export-excel]",
+                        ) as HTMLButtonElement;
+                        b?.click();
+                      }}
+                    >
+                      <FileSpreadsheet className="h-4 w-4 mr-2 text-green-600" />{" "}
+                      Export Excel
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { const b = document.querySelector("[data-export-pdf]") as HTMLButtonElement; b?.click(); }}>
-                      <FileText className="h-4 w-4 mr-2 text-red-600" /> Export PDF
+                    <DropdownMenuItem
+                      onClick={() => {
+                        const b = document.querySelector(
+                          "[data-export-pdf]",
+                        ) as HTMLButtonElement;
+                        b?.click();
+                      }}
+                    >
+                      <FileText className="h-4 w-4 mr-2 text-red-600" /> Export
+                      PDF
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <Select
+                  value={filterCategory}
+                  onValueChange={setFilterCategory}
+                >
                   <SelectTrigger className="flex-1 min-w-[120px] md:w-[180px] md:flex-none bg-gray-50/80 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600 rounded-xl h-9 text-sm">
                     <Filter className="h-3.5 w-3.5 mr-1.5" />
                     <SelectValue placeholder="Category" />
@@ -810,7 +954,9 @@ const Inventory = () => {
                   <SelectContent className="rounded-xl">
                     <SelectItem value="all">All Categories</SelectItem>
                     {Object.keys(groupedItems).map((category) => (
-                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -819,21 +965,39 @@ const Inventory = () => {
                   variant={showLowStockOnly ? "default" : "outline"}
                   onClick={() => setShowLowStockOnly(!showLowStockOnly)}
                   size="sm"
-                  className={showLowStockOnly
-                    ? "bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-xl h-9"
-                    : "bg-gray-50/80 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600 rounded-xl hover:bg-red-50 h-9"
+                  className={
+                    showLowStockOnly
+                      ? "bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-xl h-9"
+                      : "bg-gray-50/80 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600 rounded-xl hover:bg-red-50 h-9"
                   }
                 >
                   <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
                   <span className="hidden sm:inline">Low Stock</span>
                   <span className="sm:hidden">Low</span>
-                  <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-xs">{lowStockCount}</Badge>
+                  <Badge
+                    variant="secondary"
+                    className="ml-1.5 h-5 px-1.5 text-xs"
+                  >
+                    {lowStockCount}
+                  </Badge>
                 </Button>
 
                 <div className="hidden md:flex gap-2 ml-auto">
                   <ReportExport
-                    items={showLowStockOnly || filterCategory !== "all" || searchQuery ? filteredItems : items}
-                    title={showLowStockOnly ? "Low Stock Items" : filterCategory !== "all" ? `${filterCategory} Inventory` : "Complete Inventory"}
+                    items={
+                      showLowStockOnly ||
+                      filterCategory !== "all" ||
+                      searchQuery
+                        ? filteredItems
+                        : items
+                    }
+                    title={
+                      showLowStockOnly
+                        ? "Low Stock Items"
+                        : filterCategory !== "all"
+                          ? `${filterCategory} Inventory`
+                          : "Complete Inventory"
+                    }
                   />
                   <Button
                     onClick={() => setIsBillUploadOpen(true)}
@@ -856,11 +1020,17 @@ const Inventory = () => {
                       ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 shadow-sm"
                       : "bg-white/80 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600/50"
                   }`}
-                  onClick={() => setFilterCategory(category === filterCategory ? "all" : category)}
+                  onClick={() =>
+                    setFilterCategory(
+                      category === filterCategory ? "all" : category,
+                    )
+                  }
                 >
                   {getCategoryIcon(category)}
                   <span>{category}</span>
-                  <span className="text-xs bg-gray-100 dark:bg-gray-600 px-1.5 py-0.5 rounded-md font-semibold">{categoryItems.length}</span>
+                  <span className="text-xs bg-gray-100 dark:bg-gray-600 px-1.5 py-0.5 rounded-md font-semibold">
+                    {categoryItems.length}
+                  </span>
                 </button>
               ))}
             </div>
@@ -883,9 +1053,13 @@ const Inventory = () => {
                     <div className="inline-flex p-4 bg-gray-100 dark:bg-gray-700 rounded-2xl mb-4">
                       <Package className="h-10 w-10 text-gray-400" />
                     </div>
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">No items found</h3>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                      No items found
+                    </h3>
                     <p className="text-gray-500 dark:text-gray-400 text-sm">
-                      {searchQuery || filterCategory !== "all" || showLowStockOnly
+                      {searchQuery ||
+                      filterCategory !== "all" ||
+                      showLowStockOnly
                         ? "Try adjusting your filters"
                         : "Add your first inventory item to get started"}
                     </p>
@@ -894,7 +1068,9 @@ const Inventory = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
                     {paginatedItems.map((item) => {
                       const stock = getStockLevel(item);
-                      const isLow = item.reorder_level != null && item.quantity <= item.reorder_level;
+                      const isLow =
+                        item.reorder_level != null &&
+                        item.quantity <= item.reorder_level;
                       return (
                         <Card
                           key={item.id}
@@ -906,26 +1082,37 @@ const Inventory = () => {
                           }`}
                         >
                           {/* Top color accent bar */}
-                          <div className={`h-1 w-full bg-gradient-to-r ${
-                            isLow ? "from-red-400 to-rose-400" : "from-emerald-400 to-green-400"
-                          }`} />
+                          <div
+                            className={`h-1 w-full bg-gradient-to-r ${
+                              isLow
+                                ? "from-red-400 to-rose-400"
+                                : "from-emerald-400 to-green-400"
+                            }`}
+                          />
 
                           <div className="p-4">
                             {/* Header: Icon + Name + Actions */}
                             <div className="flex items-start justify-between gap-2 mb-3">
                               <div className="flex items-center gap-2.5 min-w-0">
-                                <div className={`p-2 rounded-xl shrink-0 ${
-                                  isLow
-                                    ? "bg-red-100 dark:bg-red-900/40"
-                                    : "bg-emerald-50 dark:bg-emerald-900/30"
-                                }`}>
+                                <div
+                                  className={`p-2 rounded-xl shrink-0 ${
+                                    isLow
+                                      ? "bg-red-100 dark:bg-red-900/40"
+                                      : "bg-emerald-50 dark:bg-emerald-900/30"
+                                  }`}
+                                >
                                   {getCategoryIcon(item.category)}
                                 </div>
                                 <div className="min-w-0">
-                                  <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-tight truncate" title={item.name}>
+                                  <h3
+                                    className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-tight truncate"
+                                    title={item.name}
+                                  >
                                     {item.name}
                                   </h3>
-                                  <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{item.category}</p>
+                                  <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">
+                                    {item.category}
+                                  </p>
                                 </div>
                               </div>
 
@@ -934,7 +1121,11 @@ const Inventory = () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={(e) => { e.stopPropagation(); setEditingItem(item); setIsAddDialogOpen(true); }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingItem(item);
+                                    setIsAddDialogOpen(true);
+                                  }}
                                   className="h-7 w-7 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
                                 >
                                   <Edit className="h-3.5 w-3.5 text-emerald-600" />
@@ -942,7 +1133,10 @@ const Inventory = () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={(e) => { e.stopPropagation(); setItemToDelete(item); }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setItemToDelete(item);
+                                  }}
                                   className="h-7 w-7 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30"
                                 >
                                   <Trash2 className="h-3.5 w-3.5 text-red-500" />
@@ -952,16 +1146,37 @@ const Inventory = () => {
                               {/* Mobile menu */}
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="md:hidden h-7 w-7 rounded-lg shrink-0">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="md:hidden h-7 w-7 rounded-lg shrink-0"
+                                  >
                                     <MoreVertical className="h-3.5 w-3.5 text-gray-500" />
                                   </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-32 rounded-xl">
-                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditingItem(item); setIsAddDialogOpen(true); }}>
-                                    <Edit className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Edit
+                                <DropdownMenuContent
+                                  align="end"
+                                  className="w-32 rounded-xl"
+                                >
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingItem(item);
+                                      setIsAddDialogOpen(true);
+                                    }}
+                                  >
+                                    <Edit className="h-3.5 w-3.5 mr-2 text-emerald-600" />{" "}
+                                    Edit
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setItemToDelete(item); }} className="text-red-600 focus:text-red-600">
-                                    <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setItemToDelete(item);
+                                    }}
+                                    className="text-red-600 focus:text-red-600"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5 mr-2" />{" "}
+                                    Delete
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -971,39 +1186,52 @@ const Inventory = () => {
                             <div className="mb-3">
                               <div className="flex items-baseline gap-1.5">
                                 <span className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-                                  {Number(item.quantity).toFixed(item.quantity % 1 === 0 ? 0 : 2)}
+                                  {Number(item.quantity).toFixed(
+                                    item.quantity % 1 === 0 ? 0 : 2,
+                                  )}
                                 </span>
-                                <span className="text-sm font-semibold text-gray-400 dark:text-gray-500">{item.unit}</span>
+                                <span className="text-sm font-semibold text-gray-400 dark:text-gray-500">
+                                  {item.unit}
+                                </span>
                               </div>
 
                               {/* Stock level progress bar */}
-                              {item.reorder_level != null && item.reorder_level > 0 && (
-                                <div className="mt-2">
-                                  <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                                    <div
-                                      className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${
-                                        stock.color === "red" ? "from-red-400 to-rose-500" :
-                                        stock.color === "amber" ? "from-amber-400 to-orange-500" :
-                                        "from-emerald-400 to-green-500"
-                                      }`}
-                                      style={{ width: `${stock.pct}%` }}
-                                    />
+                              {item.reorder_level != null &&
+                                item.reorder_level > 0 && (
+                                  <div className="mt-2">
+                                    <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                      <div
+                                        className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${
+                                          stock.color === "red"
+                                            ? "from-red-400 to-rose-500"
+                                            : stock.color === "amber"
+                                              ? "from-amber-400 to-orange-500"
+                                              : "from-emerald-400 to-green-500"
+                                        }`}
+                                        style={{ width: `${stock.pct}%` }}
+                                      />
+                                    </div>
                                   </div>
-                                </div>
-                              )}
+                                )}
                             </div>
 
                             {/* Low Stock Badge */}
                             {isLow && (
-                              <Badge variant="destructive" className="text-[10px] font-bold px-2 py-0.5 rounded-lg mb-2">
-                                <AlertTriangle className="h-3 w-3 mr-1" /> Low Stock
+                              <Badge
+                                variant="destructive"
+                                className="text-[10px] font-bold px-2 py-0.5 rounded-lg mb-2"
+                              >
+                                <AlertTriangle className="h-3 w-3 mr-1" /> Low
+                                Stock
                               </Badge>
                             )}
 
                             {/* Footer: Price + Reorder */}
                             <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700/50">
                               <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                                {item.cost_per_unit ? `${currencySymbol}${item.cost_per_unit}/${item.unit}` : "—"}
+                                {item.cost_per_unit
+                                  ? `${currencySymbol}${item.cost_per_unit}/${item.unit}`
+                                  : "—"}
                               </span>
                               {item.reorder_level != null && (
                                 <span className="text-[10px] text-gray-400 dark:text-gray-500">
@@ -1022,8 +1250,19 @@ const Inventory = () => {
                 {filteredItems.length > ITEMS_PER_PAGE && (
                   <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700/50">
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Showing <span className="font-bold text-gray-700 dark:text-gray-300">{(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredItems.length)}</span> of{" "}
-                      <span className="font-bold text-gray-700 dark:text-gray-300">{filteredItems.length}</span> items
+                      Showing{" "}
+                      <span className="font-bold text-gray-700 dark:text-gray-300">
+                        {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
+                        {Math.min(
+                          currentPage * ITEMS_PER_PAGE,
+                          filteredItems.length,
+                        )}
+                      </span>{" "}
+                      of{" "}
+                      <span className="font-bold text-gray-700 dark:text-gray-300">
+                        {filteredItems.length}
+                      </span>{" "}
+                      items
                     </p>
                     <div className="flex items-center gap-1">
                       <Button
@@ -1039,21 +1278,32 @@ const Inventory = () => {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8 rounded-lg"
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        onClick={() =>
+                          setCurrentPage((p) => Math.max(1, p - 1))
+                        }
                         disabled={currentPage === 1}
                       >
                         <ChevronLeft className="h-3.5 w-3.5" />
                       </Button>
                       <div className="hidden sm:flex items-center gap-1">
                         {Array.from({ length: totalPages }, (_, i) => i + 1)
-                          .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                          .filter(
+                            (p) =>
+                              p === 1 ||
+                              p === totalPages ||
+                              Math.abs(p - currentPage) <= 1,
+                          )
                           .map((page, idx, arr) => (
                             <span key={page} className="contents">
                               {idx > 0 && arr[idx - 1] !== page - 1 && (
-                                <span className="text-gray-400 text-xs px-1">…</span>
+                                <span className="text-gray-400 text-xs px-1">
+                                  …
+                                </span>
                               )}
                               <Button
-                                variant={currentPage === page ? "default" : "outline"}
+                                variant={
+                                  currentPage === page ? "default" : "outline"
+                                }
                                 size="icon"
                                 className={`h-8 w-8 rounded-lg text-xs font-bold ${
                                   currentPage === page
@@ -1074,7 +1324,9 @@ const Inventory = () => {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8 rounded-lg"
-                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        onClick={() =>
+                          setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        }
                         disabled={currentPage === totalPages}
                       >
                         <ChevronRight className="h-3.5 w-3.5" />
@@ -1102,7 +1354,10 @@ const Inventory = () => {
           </TabsContent>
 
           <TabsContent value="purchase-orders" className="p-4 md:p-6">
-            <FeatureLock feature="inventory.purchase_orders" interceptClicks={true}>
+            <FeatureLock
+              feature="inventory.purchase_orders"
+              interceptClicks={true}
+            >
               <PurchaseOrders />
             </FeatureLock>
           </TabsContent>
@@ -1114,7 +1369,10 @@ const Inventory = () => {
           </TabsContent>
 
           <TabsContent value="transactions" className="p-4 md:p-6">
-            <FeatureLock feature="inventory.transactions" interceptClicks={true}>
+            <FeatureLock
+              feature="inventory.transactions"
+              interceptClicks={true}
+            >
               <InventoryTransactions />
             </FeatureLock>
           </TabsContent>
@@ -1122,6 +1380,12 @@ const Inventory = () => {
           <TabsContent value="lots" className="p-4 md:p-6">
             <FeatureLock feature="inventory.lots" interceptClicks={true}>
               <InventoryLots />
+            </FeatureLock>
+          </TabsContent>
+
+          <TabsContent value="wastage" className="p-4 md:p-6">
+            <FeatureLock feature="inventory.lots" interceptClicks={true}>
+              <WastageReport />
             </FeatureLock>
           </TabsContent>
 
@@ -1144,7 +1408,10 @@ const Inventory = () => {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!itemToDelete} onOpenChange={() => setItemToDelete(null)}>
+      <AlertDialog
+        open={!!itemToDelete}
+        onOpenChange={() => setItemToDelete(null)}
+      >
         <AlertDialogContent className="bg-white/98 dark:bg-gray-800/98 backdrop-blur-2xl rounded-2xl border border-white/40 dark:border-gray-700/40 shadow-2xl overflow-hidden p-0">
           <div className="bg-gradient-to-r from-red-500 to-rose-600 px-6 py-4">
             <AlertDialogHeader>
@@ -1159,7 +1426,8 @@ const Inventory = () => {
               <span className="font-bold text-gray-900 dark:text-white">
                 "{itemToDelete?.name}"
               </span>
-              ? This will also remove all related transactions, alerts, and recipe links. This action cannot be undone.
+              ? This will also remove all related transactions, alerts, and
+              recipe links. This action cannot be undone.
             </AlertDialogDescription>
           </div>
           <AlertDialogFooter className="px-6 pb-6 pt-0">
@@ -1184,8 +1452,13 @@ const Inventory = () => {
       <InventoryItemDetail
         item={selectedDetailItem}
         open={!!selectedDetailItem}
-        onOpenChange={(open) => { if (!open) setSelectedDetailItem(null); }}
-        onEdit={(item) => { setEditingItem(item); setIsAddDialogOpen(true); }}
+        onOpenChange={(open) => {
+          if (!open) setSelectedDetailItem(null);
+        }}
+        onEdit={(item) => {
+          setEditingItem(item);
+          setIsAddDialogOpen(true);
+        }}
         onDelete={(item) => setItemToDelete(item)}
         onAddStock={(item) => {
           setEditingItem(null);
@@ -1194,7 +1467,10 @@ const Inventory = () => {
       />
 
       {/* Duplicate Item Confirmation Dialog */}
-      <AlertDialog open={!!pendingDuplicateData} onOpenChange={() => setPendingDuplicateData(null)}>
+      <AlertDialog
+        open={!!pendingDuplicateData}
+        onOpenChange={() => setPendingDuplicateData(null)}
+      >
         <AlertDialogContent className="bg-white/98 dark:bg-gray-800/98 backdrop-blur-2xl rounded-2xl border border-white/40 dark:border-gray-700/40 shadow-2xl overflow-hidden p-0">
           <div className="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-4">
             <AlertDialogHeader>
@@ -1212,15 +1488,21 @@ const Inventory = () => {
                 </span>{" "}
                 already exists in your inventory with{" "}
                 <span className="font-semibold">
-                  {pendingDuplicateData?.existingItem.quantity.toFixed(2)} {pendingDuplicateData?.existingItem.unit}
+                  {pendingDuplicateData?.existingItem.quantity.toFixed(2)}{" "}
+                  {pendingDuplicateData?.existingItem.unit}
                 </span>{" "}
                 in stock.
               </p>
               <p className="font-medium text-gray-700 dark:text-gray-300">
-                Would you like to add this as a new batch/lot to the existing item?
+                Would you like to add this as a new batch/lot to the existing
+                item?
               </p>
               <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 rounded-xl p-3 text-xs text-emerald-700 dark:text-emerald-400">
-                <strong>New batch:</strong> {pendingDuplicateData?.formData.quantity} {pendingDuplicateData?.existingItem.unit} @ {currencySymbol}{pendingDuplicateData?.formData.cost_per_unit || 0}/{pendingDuplicateData?.existingItem.unit}
+                <strong>New batch:</strong>{" "}
+                {pendingDuplicateData?.formData.quantity}{" "}
+                {pendingDuplicateData?.existingItem.unit} @ {currencySymbol}
+                {pendingDuplicateData?.formData.cost_per_unit || 0}/
+                {pendingDuplicateData?.existingItem.unit}
               </div>
             </AlertDialogDescription>
           </div>
@@ -1232,7 +1514,7 @@ const Inventory = () => {
                   addStockToExistingItem(
                     pendingDuplicateData.existingItem,
                     pendingDuplicateData.formData,
-                    pendingDuplicateData.restaurantId
+                    pendingDuplicateData.restaurantId,
                   );
                 }
               }}
