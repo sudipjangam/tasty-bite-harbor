@@ -14,6 +14,7 @@ import {
   ArrowDownRight,
   Wallet,
   Layers,
+  Trash2,
 } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import Highcharts from "highcharts";
@@ -76,6 +77,8 @@ const ExpensesOverview = () => {
   const totalExpenses = expenseData?.totalExpenses || 0;
   const monthlyExpenses = expenseData?.totalMonthlyExpenses || 0;
   const inventoryConsumption = expenseData?.inventoryConsumption || 0;
+  const inventoryWastage = expenseData?.inventoryWastage || 0;
+  const wastageCount = expenseData?.wastageCount || 0;
   const avgDaily = monthlyExpenses / 30;
   const topCategory = expenseData?.expenseBreakdown?.reduce(
     (max, curr) => (curr.value > max.value ? curr : max),
@@ -242,7 +245,7 @@ const ExpensesOverview = () => {
   return (
     <div className="space-y-6">
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         {/* Total Expenses (30 days) */}
         <div className="bg-gradient-to-br from-purple-500 via-purple-600 to-indigo-700 rounded-2xl p-5 text-white shadow-xl shadow-purple-500/30 dark:shadow-purple-500/50 transform hover:scale-[1.02] transition-all duration-300">
           <div className="flex items-center justify-between">
@@ -339,6 +342,28 @@ const ExpensesOverview = () => {
             </div>
             <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-sm">
               <Layers className="h-8 w-8" />
+            </div>
+          </div>
+        </div>
+
+        {/* Inventory Wastage */}
+        <div className="bg-gradient-to-br from-red-500 via-red-600 to-orange-700 rounded-2xl p-5 text-white shadow-xl shadow-red-500/30 dark:shadow-red-500/50 transform hover:scale-[1.02] transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-red-100 text-sm font-medium">
+                Wastage Cost
+              </p>
+              <p className="text-3xl font-bold mt-1">
+                {currencySymbol}
+                {inventoryWastage.toLocaleString()}
+              </p>
+              <p className="text-red-200 text-sm mt-2 flex items-center gap-1">
+                <Trash2 className="h-3.5 w-3.5" />
+                {wastageCount} waste entries this month
+              </p>
+            </div>
+            <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-sm">
+              <Trash2 className="h-8 w-8" />
             </div>
           </div>
         </div>
