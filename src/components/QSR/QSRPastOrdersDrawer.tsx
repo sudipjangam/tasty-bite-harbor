@@ -28,11 +28,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import PaymentDialog from "@/components/Orders/POS/PaymentDialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { DatePickerWithRange } from "@/components/ui/date-picker-with-range";
+import type { DateRange } from "react-day-picker";
 
 interface QSRPastOrdersDrawerProps {
   isOpen: boolean;
@@ -340,60 +337,17 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
 
           {/* Custom Date Range Picker */}
           {dateFilter === "custom" && (
-            <div className="flex flex-wrap items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-700">
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  From:
-                </label>
-                <input
-                  type="date"
-                  value={
-                    customStartDate ? format(customStartDate, "yyyy-MM-dd") : ""
-                  }
-                  onChange={(e) => {
-                    const date = e.target.value
-                      ? new Date(e.target.value)
-                      : null;
-                    onCustomStartDateChange?.(date);
-                  }}
-                  className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  max={
-                    customEndDate
-                      ? format(customEndDate, "yyyy-MM-dd")
-                      : format(new Date(), "yyyy-MM-dd")
-                  }
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  To:
-                </label>
-                <input
-                  type="date"
-                  value={
-                    customEndDate ? format(customEndDate, "yyyy-MM-dd") : ""
-                  }
-                  onChange={(e) => {
-                    const date = e.target.value
-                      ? new Date(e.target.value)
-                      : null;
-                    onCustomEndDateChange?.(date);
-                  }}
-                  className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  min={
-                    customStartDate
-                      ? format(customStartDate, "yyyy-MM-dd")
-                      : undefined
-                  }
-                  max={format(new Date(), "yyyy-MM-dd")}
-                />
-              </div>
-              {customStartDate && customEndDate && (
-                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded-full">
-                  {format(customStartDate, "MMM d")} -{" "}
-                  {format(customEndDate, "MMM d, yyyy")}
-                </span>
-              )}
+            <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-700">
+              <DatePickerWithRange
+                initialDateRange={{
+                  from: customStartDate || undefined,
+                  to: customEndDate || undefined,
+                }}
+                onDateRangeChange={(range: DateRange | undefined) => {
+                  onCustomStartDateChange?.(range?.from || null);
+                  onCustomEndDateChange?.(range?.to || null);
+                }}
+              />
             </div>
           )}
 
