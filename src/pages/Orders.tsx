@@ -24,7 +24,7 @@ const Orders = () => {
     }}>
       {/* Main Content Area */}
       <FeatureLock feature="orders.view" interceptClicks={true}>
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-auto">
           <OrdersView
             searchTrigger={searchTrigger}
             filterTrigger={filterTrigger}
@@ -37,7 +37,7 @@ const Orders = () => {
       {/* Add Order Dialog */}
       <Dialog open={showAddOrderDialog} onOpenChange={setShowAddOrderDialog}>
         <DialogContent
-          className={`${isMobile ? "w-[95%] max-w-lg" : "max-w-5xl"} max-h-[95vh] overflow-y-auto p-0`}
+          className={`${isMobile ? "w-[95%] max-w-lg" : "max-w-5xl"} max-h-[95vh] overflow-y-auto p-0 [&>button]:hidden`}
         >
           <AddOrderForm
             onSuccess={() => setShowAddOrderDialog(false)}
