@@ -455,19 +455,20 @@ const ImprovedAddOrderForm = ({
 
   return (
     <div
-      className="max-w-[540px] w-full mx-auto overflow-hidden flex flex-col max-h-[88vh]"
+      className="w-full max-w-[540px] mx-auto overflow-hidden flex flex-col"
       style={{
         background: "rgba(255,255,255,0.9)",
         backdropFilter: "blur(40px)",
         border: "1px solid rgba(255,255,255,0.92)",
-        borderRadius: 24,
+        borderRadius: 20,
         boxShadow: "0 32px 80px rgba(29,78,216,0.22), 0 8px 24px rgba(0,0,0,0.1)",
+        maxHeight: 'calc(100vh - 40px)',
       }}
     >
       {/* ═══ Modal Header Band ═══ */}
-      <div className="flex-shrink-0 overflow-hidden" style={{ borderRadius: "24px 24px 0 0" }}>
+      <div className="flex-shrink-0 overflow-hidden" style={{ borderRadius: "20px 20px 0 0" }}>
         <div
-          className="px-6 pt-5 pb-5 flex items-start justify-between relative"
+          className="px-4 md:px-6 pt-4 pb-4 flex items-start justify-between relative"
           style={{
             background: "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 40%, #f97316 100%)",
           }}
@@ -498,7 +499,7 @@ const ImprovedAddOrderForm = ({
       </div>
 
       {/* ═══ Modal Body ═══ */}
-      <div className="flex-1 overflow-y-auto px-6 py-5" style={{ scrollbarWidth: "thin" }}>
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 md:py-5" style={{ scrollbarWidth: "thin" }}>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} id="order-form" className="space-y-5">
 
@@ -645,7 +646,7 @@ const ImprovedAddOrderForm = ({
                 {fields.map((field, index) => (
                   <div
                     key={field.id}
-                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all hover:bg-white hover:border-blue-200 hover:shadow-md"
+                    className="flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-xl transition-all hover:bg-white hover:border-blue-200 hover:shadow-md"
                     style={{
                       background: "rgba(255,255,255,0.78)",
                       border: "1.5px solid rgba(29,78,216,0.09)",
@@ -737,8 +738,8 @@ const ImprovedAddOrderForm = ({
                     </div>
 
                     {/* Price label */}
-                    <span className="font-mono text-[11px] font-semibold text-slate-400 flex-shrink-0">
-                      {currencySymbol}{form.watch(`orderItems.${index}.unitPrice`) || 0} each
+                    <span className="font-mono text-[10px] md:text-[11px] font-semibold text-slate-400 flex-shrink-0">
+                      {currencySymbol}{form.watch(`orderItems.${index}.unitPrice`) || 0}ea
                     </span>
 
                     {/* Quantity control */}
@@ -777,7 +778,7 @@ const ImprovedAddOrderForm = ({
                     </div>
 
                     {/* Subtotal */}
-                    <span className="font-mono text-xs font-bold text-blue-600 min-w-[45px] text-right flex-shrink-0">
+                    <span className="font-mono text-[11px] font-bold text-blue-600 min-w-[40px] text-right flex-shrink-0">
                       {currencySymbol}
                       {((form.watch(`orderItems.${index}.quantity`) || 0) *
                         (form.watch(`orderItems.${index}.unitPrice`) || 0)).toFixed(0)}
@@ -927,7 +928,7 @@ const ImprovedAddOrderForm = ({
 
       {/* ═══ Modal Footer ═══ */}
       <div
-        className="flex gap-2.5 px-6 py-4 flex-shrink-0"
+        className="flex gap-2 px-4 md:px-6 py-3 md:py-4 flex-shrink-0"
         style={{
           borderTop: "1px solid rgba(29,78,216,0.09)",
           background: "rgba(255,255,255,0.65)",
@@ -938,7 +939,7 @@ const ImprovedAddOrderForm = ({
           type="button"
           onClick={onCancel}
           disabled={loading}
-          className="flex-1 flex items-center justify-center py-2.5 rounded-[10px] text-[13px] font-bold text-slate-500 bg-white/92 border-[1.5px] border-blue-100 transition-all hover:bg-white disabled:opacity-50"
+          className="flex-1 flex items-center justify-center py-2.5 rounded-[10px] text-[12px] md:text-[13px] font-bold text-slate-500 bg-white/92 border-[1.5px] border-blue-100 transition-all hover:bg-white disabled:opacity-50"
         >
           Cancel
         </button>
@@ -946,7 +947,7 @@ const ImprovedAddOrderForm = ({
           type="submit"
           form="order-form"
           disabled={loading || orderTotal === 0}
-          className="flex-[1.5] flex items-center justify-center py-2.5 rounded-[10px] text-[13px] font-bold text-white transition-all hover:-translate-y-px disabled:opacity-50"
+          className="flex-[1.5] flex items-center justify-center py-2.5 rounded-[10px] text-[12px] md:text-[13px] font-bold text-white transition-all hover:-translate-y-px disabled:opacity-50"
           style={{
             background: "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 40%, #f97316 100%)",
             boxShadow: "0 6px 20px rgba(29,78,216,0.35)",

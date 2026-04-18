@@ -326,7 +326,7 @@ const OrdersView = ({
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
       {/* ═══ Topbar ═══ */}
       <div
         className="relative overflow-hidden flex-shrink-0"
@@ -341,7 +341,7 @@ const OrdersView = ({
         }} />
         <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-white/[0.06]" />
 
-        <div className="relative z-10 h-full flex items-center gap-4 px-4 md:px-7 py-3 md:py-0" style={{ minHeight: isMobile ? 64 : 80 }}>
+        <div className="relative z-10 h-full flex items-center gap-2 md:gap-4 px-3 md:px-7 py-2 md:py-0" style={{ minHeight: isMobile ? 56 : 80 }}>
           <div className="flex-1 min-w-0">
             {!isMobile && (
               <div className="text-[10px] font-semibold tracking-widest uppercase text-white/60 mb-0.5">
@@ -362,15 +362,18 @@ const OrdersView = ({
           )}
 
           {/* Action buttons */}
-          <div className="flex items-center gap-2">
-            {(isRole("admin") || isRole("manager") || isRole("owner")) && !isMobile && (
+          <div className="flex items-center gap-1.5 md:gap-2">
+            {(isRole("admin") || isRole("manager") || isRole("owner")) && (
               <button
                 onClick={handleExportOrders}
                 disabled={!filteredOrders || filteredOrders.length === 0}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-[10px] text-xs font-semibold text-white bg-white/15 border border-white/30 backdrop-blur-sm hover:bg-white/25 transition-all disabled:opacity-40"
+                className={`flex items-center justify-center rounded-[10px] text-xs font-semibold text-white bg-white/15 border border-white/30 backdrop-blur-sm hover:bg-white/25 transition-all disabled:opacity-40 ${
+                  isMobile ? 'w-8 h-8' : 'gap-1.5 px-4 py-2'
+                }`}
+                title="Export"
               >
                 <Download className="w-3.5 h-3.5" />
-                Export
+                {!isMobile && 'Export'}
               </button>
             )}
 
@@ -378,17 +381,20 @@ const OrdersView = ({
 
             <button
               onClick={() => setShowAddForm(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-[10px] text-xs font-bold bg-white text-blue-700 shadow-lg hover:shadow-xl hover:-translate-y-px transition-all"
+              className={`flex items-center justify-center rounded-[10px] font-bold bg-white text-blue-700 shadow-lg hover:shadow-xl hover:-translate-y-px transition-all ${
+                isMobile ? 'w-8 h-8 text-xs' : 'gap-1.5 px-4 py-2 text-xs'
+              }`}
+              title="New Order"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              New Order
+              {!isMobile && 'New Order'}
             </button>
           </div>
         </div>
       </div>
 
       {/* ═══ Content ═══ */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 overflow-auto">
         <div className="px-4 md:px-7 py-5 md:py-6 max-w-[1400px] mx-auto">
 
           {/* ── Stat Cards ── */}
@@ -447,66 +453,70 @@ const OrdersView = ({
           </div>
 
           {/* ── Search + Filters Bar ── */}
-          <div className="flex items-center gap-2.5 mb-4">
-            {/* Search */}
-            <div className="flex-1 flex items-center gap-2.5 bg-white/70 backdrop-blur-xl border border-white/85 rounded-xl px-4 py-2.5"
-              style={{ boxShadow: "0 8px 32px rgba(29,78,216,0.12), 0 2px 8px rgba(0,0,0,0.06)" }}>
-              <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search orders, customers, items…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 bg-transparent border-none outline-none text-[13px] font-medium text-slate-800 placeholder:text-slate-400"
-              />
+          <div className="flex flex-col gap-2 mb-4">
+            {/* Search row */}
+            <div className="flex flex-col md:flex-row gap-2">
+              <div className="w-full md:flex-1 flex items-center gap-2 bg-white/70 backdrop-blur-xl border border-white/85 rounded-xl px-3 md:px-4 py-2 md:py-2.5"
+                style={{ boxShadow: "0 8px 32px rgba(29,78,216,0.12), 0 2px 8px rgba(0,0,0,0.06)" }}>
+                <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder={isMobile ? "Search orders…" : "Search orders, customers, items…"}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-transparent border-none outline-none text-[13px] font-medium text-slate-800 placeholder:text-slate-400"
+                />
+              </div>
+
+              <div className="flex gap-2 w-full md:w-auto">
+                {/* Source filter */}
+                <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                  <SelectTrigger className="flex-1 md:w-[130px] bg-white/70 backdrop-blur-xl border-white/85 rounded-xl text-xs font-semibold text-slate-600 shadow-sm truncate">
+                    <SlidersHorizontal className="w-3.5 h-3.5 mr-1 text-slate-500 flex-shrink-0" />
+                    <SelectValue placeholder="Source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sources</SelectItem>
+                    <SelectItem value="pos">POS</SelectItem>
+                    <SelectItem value="table">Table Order</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                    <SelectItem value="qsr">QSR</SelectItem>
+                    <SelectItem value="room_service">Room Service</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Date filter */}
+                <Select
+                  value={dateFilter}
+                  onValueChange={(value) => {
+                    setDateFilter(value);
+                    if (value !== "custom") setCustomDateRange(undefined);
+                  }}
+                >
+                  <SelectTrigger className="flex-1 md:w-[130px] bg-white/70 backdrop-blur-xl border-white/85 rounded-xl text-xs font-semibold text-slate-600 shadow-sm truncate">
+                    <CalendarDays className="w-3.5 h-3.5 mr-1 text-slate-500 flex-shrink-0" />
+                    <SelectValue placeholder="Date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="yesterday">Yesterday</SelectItem>
+                  <SelectItem value="last7days">Last 7 Days</SelectItem>
+                  <SelectItem value="last30days">Last 30 Days</SelectItem>
+                  <SelectItem value="lastMonth">Last Month</SelectItem>
+                  <SelectItem value="custom">Custom Range</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+          </div>
 
-            {/* Source filter */}
-            <Select value={sourceFilter} onValueChange={setSourceFilter}>
-              <SelectTrigger className="w-[130px] bg-white/70 backdrop-blur-xl border-white/85 rounded-xl text-xs font-semibold text-slate-600 shadow-sm">
-                <SlidersHorizontal className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
-                <SelectValue placeholder="Filters" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sources</SelectItem>
-                <SelectItem value="pos">POS</SelectItem>
-                <SelectItem value="table">Table Order</SelectItem>
-                <SelectItem value="manual">Manual</SelectItem>
-                <SelectItem value="qsr">QSR</SelectItem>
-                <SelectItem value="room_service">Room Service</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Date filter */}
-            <Select
-              value={dateFilter}
-              onValueChange={(value) => {
-                setDateFilter(value);
-                if (value !== "custom") setCustomDateRange(undefined);
-              }}
-            >
-              <SelectTrigger className="w-[130px] bg-white/70 backdrop-blur-xl border-white/85 rounded-xl text-xs font-semibold text-slate-600 shadow-sm">
-                <CalendarDays className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
-                <SelectValue placeholder="Date Range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="yesterday">Yesterday</SelectItem>
-                <SelectItem value="last7days">Last 7 Days</SelectItem>
-                <SelectItem value="last30days">Last 30 Days</SelectItem>
-                <SelectItem value="lastMonth">Last Month</SelectItem>
-                <SelectItem value="custom">Custom Range</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Custom date picker */}
+          {/* Custom date picker - separate row */}
             {dateFilter === "custom" && (
               <Popover open={showCalendar} onOpenChange={setShowCalendar}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className="bg-white/70 backdrop-blur-xl border-white/85 rounded-xl shadow-sm min-w-[160px] justify-start text-left font-normal text-xs"
+                    className="bg-white/70 backdrop-blur-xl border-white/85 rounded-xl shadow-sm w-full justify-start text-left font-normal text-xs"
                   >
                     <CalendarIcon className="mr-2 h-3.5 w-3.5 text-blue-500" />
                     {customDateRange?.from && customDateRange?.to ? (
@@ -518,7 +528,7 @@ const OrdersView = ({
                     )}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
+                <PopoverContent className="w-auto p-0" align="start">
                   <div className="p-3 border-b text-xs text-gray-500">💡 Click same date twice for single day</div>
                   <Calendar
                     initialFocus
@@ -533,7 +543,7 @@ const OrdersView = ({
                         setShowCalendar(false);
                       }
                     }}
-                    numberOfMonths={2}
+                    numberOfMonths={isMobile ? 1 : 2}
                     className="rounded-xl"
                   />
                   {customDateRange?.from && !customDateRange?.to && (
@@ -559,34 +569,42 @@ const OrdersView = ({
           </div>
 
           {/* ── Status Tabs ── */}
-          <div
-            className="flex gap-1 overflow-x-auto pb-0 mb-4 bg-white/70 backdrop-blur-xl border border-white/85 rounded-[14px] p-1"
-            style={{ boxShadow: "0 8px 32px rgba(29,78,216,0.12), 0 2px 8px rgba(0,0,0,0.06)", scrollbarWidth: "none" }}
-          >
-            {statusTabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setStatusFilter(tab.id)}
-                className={`
-                  flex items-center gap-1.5 px-4 py-[7px] rounded-[10px] text-xs font-semibold whitespace-nowrap transition-all
-                  ${statusFilter === tab.id
-                    ? "text-white shadow-lg"
-                    : "text-slate-400 hover:text-slate-600 hover:bg-white/55"
-                  }
-                `}
-                style={statusFilter === tab.id ? {
-                  background: "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 40%, #f97316 100%)",
-                  boxShadow: "0 4px 16px rgba(29,78,216,0.35)",
-                } : {}}
-              >
-                {tab.label}
-                <span className={`text-[10px] font-bold font-mono px-1.5 py-px rounded-md ${
-                  statusFilter === tab.id ? "bg-white/[0.22]" : "bg-slate-100 text-slate-500"
-                }`}>
-                  {tab.count}
-                </span>
-              </button>
-            ))}
+          <div className="relative mb-4">
+            {/* Fade-out gradient on the right edge for scrollable hint */}
+            {isMobile && (
+              <div className="absolute right-0 top-0 bottom-0 w-8 z-10 pointer-events-none rounded-r-[14px]"
+                style={{ background: 'linear-gradient(to right, transparent, rgba(240,244,255,0.95))' }}
+              />
+            )}
+            <div
+              className="flex gap-1 overflow-x-auto pb-0 bg-white/70 backdrop-blur-xl border border-white/85 rounded-[14px] p-1"
+              style={{ boxShadow: "0 8px 32px rgba(29,78,216,0.12), 0 2px 8px rgba(0,0,0,0.06)", scrollbarWidth: "none", WebkitOverflowScrolling: 'touch', msOverflowStyle: 'none' }}
+            >
+              {statusTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setStatusFilter(tab.id)}
+                  className={`
+                    flex items-center gap-1 md:gap-1.5 px-3 md:px-4 py-[7px] rounded-[10px] text-[11px] md:text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0
+                    ${statusFilter === tab.id
+                      ? "text-white shadow-lg"
+                      : "text-slate-400 hover:text-slate-600 hover:bg-white/55"
+                    }
+                  `}
+                  style={statusFilter === tab.id ? {
+                    background: "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 40%, #f97316 100%)",
+                    boxShadow: "0 4px 16px rgba(29,78,216,0.35)",
+                  } : {}}
+                >
+                  {tab.label}
+                  <span className={`text-[10px] font-bold font-mono px-1.5 py-px rounded-md ${
+                    statusFilter === tab.id ? "bg-white/[0.22]" : "bg-slate-100 text-slate-500"
+                  }`}>
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* ── Orders Header ── */}
@@ -638,7 +656,7 @@ const OrdersView = ({
       {/* Add/Edit Order Dialog */}
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
         <DialogContent
-          className={`${isMobile ? "w-[95%] max-w-lg" : "max-w-5xl"} max-h-[95vh] overflow-y-auto p-0`}
+          className={`${isMobile ? "w-[95%] max-w-lg" : "max-w-5xl"} max-h-[95vh] overflow-y-auto p-0 [&>button]:hidden`}
         >
           <AddOrderForm
             onSuccess={handleOrderAdded}
