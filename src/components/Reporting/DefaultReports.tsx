@@ -26,9 +26,19 @@ import {
   ArrowLeft,
   TrendingUp,
   AlertCircle,
+  Calendar,
 } from "lucide-react";
 import { DateRange } from "react-day-picker";
-import { startOfMonth, endOfMonth } from "date-fns";
+import {
+  startOfMonth,
+  endOfMonth,
+  startOfDay,
+  endOfDay,
+  subDays,
+  startOfWeek,
+  endOfWeek,
+  startOfYear,
+} from "date-fns";
 import ReportViewer from "./ReportViewer";
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -56,6 +66,42 @@ const REPORT_FEATURE_KEY_MAP: Record<string, string> = {
   rooms: 'reports.default.rooms',
   recipes: 'reports.default.recipes',
   promotions: 'reports.default.promotions',
+  repeat_customers: 'reports.default.repeat_customers',
+};
+
+type DatePreset = "today" | "yesterday" | "last7" | "last30" | "thisMonth" | "thisWeek" | "thisYear" | "custom";
+
+const DATE_PRESETS: { id: DatePreset; label: string }[] = [
+  { id: "today", label: "Today" },
+  { id: "yesterday", label: "Yesterday" },
+  { id: "thisWeek", label: "This Week" },
+  { id: "last7", label: "Last 7 Days" },
+  { id: "last30", label: "Last 30 Days" },
+  { id: "thisMonth", label: "This Month" },
+  { id: "thisYear", label: "This Year" },
+  { id: "custom", label: "Custom Range" },
+];
+
+const getPresetRange = (preset: DatePreset): DateRange | undefined => {
+  const now = new Date();
+  switch (preset) {
+    case "today":
+      return { from: startOfDay(now), to: endOfDay(now) };
+    case "yesterday":
+      return { from: startOfDay(subDays(now, 1)), to: endOfDay(subDays(now, 1)) };
+    case "thisWeek":
+      return { from: startOfWeek(now, { weekStartsOn: 1 }), to: endOfDay(now) };
+    case "last7":
+      return { from: startOfDay(subDays(now, 6)), to: endOfDay(now) };
+    case "last30":
+      return { from: startOfDay(subDays(now, 29)), to: endOfDay(now) };
+    case "thisMonth":
+      return { from: startOfMonth(now), to: endOfMonth(now) };
+    case "thisYear":
+      return { from: startOfYear(now), to: endOfDay(now) };
+    default:
+      return undefined;
+  }
 };
 
 const DefaultReports: React.FC = () => {
@@ -65,6 +111,8 @@ const DefaultReports: React.FC = () => {
   });
   const [selectedCategory, setSelectedCategory] =
     useState<ReportCategory | null>(null);
+  const [activePreset, setActivePreset] = useState<DatePreset>("thisMonth");
+  const [showCustomPicker, setShowCustomPicker] = useState(false);
 
   const {
     getReportByCategory,
@@ -83,6 +131,23 @@ const DefaultReports: React.FC = () => {
     setSelectedCategory(null);
   };
 
+  const handlePresetClick = (preset: DatePreset) => {
+    setActivePreset(preset);
+    if (preset === "custom") {
+      setShowCustomPicker(true);
+      return;
+    }
+    setShowCustomPicker(false);
+    const range = getPresetRange(preset);
+    if (range) setDateRange(range);
+  };
+
+  const handleCustomDateChange = (range: DateRange | undefined) => {
+    setDateRange(range);
+    setActivePreset("custom");
+    setShowCustomPicker(true);
+  };
+
   // Show report viewer if category is selected
   if (selectedCategory) {
     const reportData = getReportByCategory(selectedCategory);
@@ -92,6 +157,7 @@ const DefaultReports: React.FC = () => {
 
     return (
       <div className="space-y-4">
+        {/* Header Row: Back + Title */}
         <div className="flex items-center gap-4">
           <StandardizedButton variant="secondary" onClick={handleBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -103,6 +169,34 @@ const DefaultReports: React.FC = () => {
                 ?.name}{" "}
             Report
           </h3>
+        </div>
+
+        {/* Date Filter Row */}
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {DATE_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                onClick={() => handlePresetClick(preset.id)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${
+                  activePreset === preset.id
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    : "bg-background text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+          {showCustomPicker && (
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <DatePickerWithRange
+                initialDateRange={dateRange}
+                onDateRangeChange={handleCustomDateChange}
+              />
+            </div>
+          )}
         </div>
 
         {isLoading || isFetching ? (

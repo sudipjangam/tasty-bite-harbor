@@ -54,3 +54,6 @@ docs/
 .claude/
 .gemini/
 .netlify/
+.graphify/
+graphify-out/
+.graph-it/

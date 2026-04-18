@@ -196,6 +196,7 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
       { key: 'reports.default.expenses', label: 'Expenses Report', description: 'Breakdown, category totals' },
       { key: 'reports.default.recipes', label: 'Recipes Report', description: 'Food cost, margin analysis' },
       { key: 'reports.default.promotions', label: 'Promotions Report', description: 'Campaign performance' },
+      { key: 'reports.default.repeat_customers', label: 'Repeat Customers Report', description: 'Day-wise repeat customer analysis' },
     ],
   },
 

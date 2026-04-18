@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { ReportData } from "@/hooks/useReportsData";
 import { StandardizedCard } from "@/components/ui/standardized-card";
 import { StandardizedButton } from "@/components/ui/standardized-button";
@@ -14,6 +14,10 @@ import {
   Filter,
   Search,
   Calendar,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  X,
 } from "lucide-react";
 import { sanitizeOrderItemDisplay } from "@/lib/order-utils";
 import { DateRange } from "react-day-picker";
@@ -49,6 +53,12 @@ const COLORS = [
   "#FF6B6B",
 ];
 const ROWS_PER_PAGE = 10;
+
+type SortDirection = "asc" | "desc" | null;
+interface SortConfig {
+  key: string;
+  direction: SortDirection;
+}
 
 // Columns to hide (internal IDs not useful for users)
 const HIDDEN_COLUMNS = [
@@ -123,6 +133,8 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
     null,
   );
   const [currentPages, setCurrentPages] = useState<Record<string, number>>({});
+  const [sortConfigs, setSortConfigs] = useState<Record<string, SortConfig>>({});
+  const [searchTerms, setSearchTerms] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const { restaurantName } = useRestaurantId();
 
@@ -130,6 +142,84 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
 
   const setPage = (category: string, page: number) => {
     setCurrentPages((prev) => ({ ...prev, [category]: page }));
+  };
+
+  const handleSort = (category: string, key: string) => {
+    setSortConfigs((prev) => {
+      const current = prev[category];
+      let newDirection: SortDirection = "asc";
+      if (current?.key === key) {
+        if (current.direction === "asc") newDirection = "desc";
+        else if (current.direction === "desc") newDirection = null;
+        else newDirection = "asc";
+      }
+      return { ...prev, [category]: { key, direction: newDirection } };
+    });
+    // Reset to page 1 on sort change
+    setCurrentPages((prev) => ({ ...prev, [category]: 1 }));
+  };
+
+  const getSortedAndFilteredData = (
+    data: Record<string, unknown>[],
+    category: string,
+    columns: string[],
+  ) => {
+    let filtered = data;
+    const search = (searchTerms[category] || "").toLowerCase().trim();
+    if (search) {
+      filtered = data.filter((row) =>
+        columns.some((col) => {
+          const val = formatCellValue(row[col]);
+          return val.toLowerCase().includes(search);
+        }),
+      );
+    }
+
+    const sortConfig = sortConfigs[category];
+    if (sortConfig?.direction && sortConfig.key) {
+      filtered = [...filtered].sort((a, b) => {
+        const aVal = a[sortConfig.key];
+        const bVal = b[sortConfig.key];
+
+        // Parse numbers from formatted strings like "₹24,158.7"
+        const parseNum = (v: unknown): number | null => {
+          if (typeof v === "number") return v;
+          if (typeof v === "string") {
+            const cleaned = v.replace(/[₹,\s]/g, "");
+            const n = parseFloat(cleaned);
+            if (!isNaN(n)) return n;
+          }
+          return null;
+        };
+
+        const aNum = parseNum(aVal);
+        const bNum = parseNum(bVal);
+
+        let cmp = 0;
+        if (aNum !== null && bNum !== null) {
+          cmp = aNum - bNum;
+        } else {
+          cmp = String(aVal ?? "").localeCompare(String(bVal ?? ""), "en-IN", {
+            numeric: true,
+            sensitivity: "base",
+          });
+        }
+        return sortConfig.direction === "desc" ? -cmp : cmp;
+      });
+    }
+    return filtered;
+  };
+
+  const renderSortIcon = (category: string, key: string) => {
+    const config = sortConfigs[category];
+    if (config?.key !== key || !config.direction) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-40" />;
+    }
+    return config.direction === "asc" ? (
+      <ArrowUp className="h-3 w-3 ml-1 text-primary" />
+    ) : (
+      <ArrowDown className="h-3 w-3 ml-1 text-primary" />
+    );
   };
 
   const handleExportPDF = async () => {
@@ -460,11 +550,17 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
         const displayColumns = getDisplayColumns(
           report.tableData as Record<string, unknown>[],
         );
+        const processedData = getSortedAndFilteredData(
+          report.tableData as Record<string, unknown>[],
+          report.category,
+          displayColumns,
+        );
         const currentPage = getCurrentPage(report.category);
-        const totalPages = Math.ceil(report.tableData.length / ROWS_PER_PAGE);
+        const totalPages = Math.ceil(processedData.length / ROWS_PER_PAGE);
         const startIdx = (currentPage - 1) * ROWS_PER_PAGE;
         const endIdx = startIdx + ROWS_PER_PAGE;
-        const paginatedData = report.tableData.slice(startIdx, endIdx);
+        const paginatedData = processedData.slice(startIdx, endIdx);
+        const searchTerm = searchTerms[report.category] || "";
 
         return (
           <StandardizedCard key={`${report.category}-${index}`} className="p-6">
@@ -521,9 +617,50 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
               </div>
             )}
 
-            {/* Data Table with Pagination */}
+            {/* Data Table with Search, Sort, Pagination */}
             {report.tableData.length > 0 && (
               <div className="space-y-4">
+                {/* Search Bar */}
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Search in table..."
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerms((prev) => ({
+                          ...prev,
+                          [report.category]: e.target.value,
+                        }));
+                        setCurrentPages((prev) => ({
+                          ...prev,
+                          [report.category]: 1,
+                        }));
+                      }}
+                      className="w-full pl-9 pr-8 py-2 text-sm border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    {searchTerm && (
+                      <button
+                        onClick={() =>
+                          setSearchTerms((prev) => ({
+                            ...prev,
+                            [report.category]: "",
+                          }))
+                        }
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  {searchTerm && (
+                    <span className="text-xs text-muted-foreground">
+                      {processedData.length} result{processedData.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -531,9 +668,13 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                         {displayColumns.slice(0, 8).map((key) => (
                           <th
                             key={key}
-                            className="text-left p-2 font-medium whitespace-nowrap"
+                            className="text-left p-2 font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/80 transition-colors"
+                            onClick={() => handleSort(report.category, key)}
                           >
-                            {formatColumnName(key)}
+                            <div className="flex items-center">
+                              {formatColumnName(key)}
+                              {renderSortIcon(report.category, key)}
+                            </div>
                           </th>
                         ))}
                       </tr>
@@ -553,6 +694,16 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                           ))}
                         </tr>
                       ))}
+                      {paginatedData.length === 0 && (
+                        <tr>
+                          <td
+                            colSpan={Math.min(displayColumns.length, 8)}
+                            className="p-8 text-center text-muted-foreground"
+                          >
+                            No matching records found
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -562,8 +713,8 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                   <div className="flex items-center justify-between border-t pt-4">
                     <p className="text-sm text-muted-foreground">
                       Showing {startIdx + 1}-
-                      {Math.min(endIdx, report.tableData.length)} of{" "}
-                      {report.tableData.length} rows
+                      {Math.min(endIdx, processedData.length)} of{" "}
+                      {processedData.length} rows
                     </p>
                     <div className="flex items-center gap-2">
                       <StandardizedButton

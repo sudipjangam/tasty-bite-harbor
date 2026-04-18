@@ -15,7 +15,8 @@ export type ReportCategory =
   | "expenses"
   | "rooms"
   | "recipes"
-  | "promotions";
+  | "promotions"
+  | "repeat_customers";
 
 export interface CategoryReportConfig {
   id: ReportCategory;
@@ -95,6 +96,13 @@ export const REPORT_CATEGORIES: CategoryReportConfig[] = [
     description: "Campaign performance, discounts",
     icon: "Tag",
     color: "bg-cyan-500",
+  },
+  {
+    id: "repeat_customers",
+    name: "Repeat Customers",
+    description: "Day-wise repeat customer analysis",
+    icon: "UserCheck",
+    color: "bg-emerald-500",
   },
 ];
 
@@ -488,55 +496,116 @@ export const useReportsData = (dateRange?: DateRange) => {
     enabled: !!restaurantId,
   });
 
-  // Customers Report
+  // Customers Report (date-aware: shows customers who ordered in date range)
   const customersReport = useQuery({
-    queryKey: ["report-customers", restaurantId],
+    queryKey: ["report-customers", restaurantId, startDate, endDate],
     queryFn: async () => {
       if (!restaurantId) return null;
 
-      const { data: customers, error } = await supabase
-        .from("customers")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .order("total_spent", { ascending: false });
+      // Fetch orders in date range to identify active customers
+      const [customersResult, ordersResult] = await Promise.all([
+        supabase
+          .from("customers")
+          .select("*")
+          .eq("restaurant_id", restaurantId),
+        supabase
+          .from("orders")
+          .select("customer_name, Customer_Name, customer_phone, Customer_MobileNumber, total, order_type, created_at")
+          .eq("restaurant_id", restaurantId)
+          .gte("created_at", startDate)
+          .lte("created_at", endDate),
+      ]);
 
-      if (error) throw error;
+      if (customersResult.error) throw customersResult.error;
 
-      const totalCustomers = customers?.length || 0;
-      const totalSpent =
-        customers?.reduce((sum, c) => sum + (c.total_spent || 0), 0) || 0;
-      const avgSpent = totalCustomers > 0 ? totalSpent / totalCustomers : 0;
-      const loyaltyEnrolled =
-        customers?.filter((c) => c.loyalty_enrolled).length || 0;
+      const allCustomers = customersResult.data || [];
+      const orders = ordersResult.data || [];
 
-      // Format customers for display
-      const formattedCustomers =
-        customers?.map((c) => ({
-          Name: c.name,
-          Phone: c.phone || "-",
-          Email: c.email || "-",
-          "Total Spent": `₹${(c.total_spent || 0).toLocaleString("en-IN")}`,
-          "Visit Count": c.visit_count || 0,
-          "Loyalty Points": c.loyalty_points || 0,
-          "Loyalty Member": c.loyalty_enrolled ? "Yes" : "No",
-        })) || [];
+      // Build a map of customer name → aggregated stats from orders in range
+      const customerOrderStats: Record<string, { spent: number; orderCount: number }> = {};
+      orders
+        .filter((o) => o.order_type !== "non-chargeable")
+        .forEach((o) => {
+          const name = (o.customer_name || o.Customer_Name || "Walk-in").trim();
+          if (!customerOrderStats[name]) {
+            customerOrderStats[name] = { spent: 0, orderCount: 0 };
+          }
+          customerOrderStats[name].spent += o.total || 0;
+          customerOrderStats[name].orderCount += 1;
+        });
+
+      // Match with customer records
+      const activeCustomerNames = new Set(Object.keys(customerOrderStats));
+      const matchedCustomers = allCustomers.filter((c) =>
+        activeCustomerNames.has(c.name?.trim()),
+      );
+
+      // If customer has no record but placed order, create a virtual entry
+      const matchedNames = new Set(matchedCustomers.map((c) => c.name?.trim()));
+      const unmatchedNames = [...activeCustomerNames].filter((n) => !matchedNames.has(n));
+
+      const totalRevenue = Object.values(customerOrderStats).reduce(
+        (sum, s) => sum + s.spent, 0,
+      );
+      const totalActiveCustomers = activeCustomerNames.size;
+      const avgSpent = totalActiveCustomers > 0 ? totalRevenue / totalActiveCustomers : 0;
+      const loyaltyEnrolled = matchedCustomers.filter((c) => c.loyalty_enrolled).length;
+
+      // Format for display
+      const formattedCustomers = [
+        ...matchedCustomers.map((c) => {
+          const stats = customerOrderStats[c.name?.trim()] || { spent: 0, orderCount: 0 };
+          return {
+            Name: c.name,
+            Phone: c.phone || "-",
+            Email: c.email || "-",
+            "Period Spent": `₹${stats.spent.toLocaleString("en-IN")}`,
+            "Period Orders": stats.orderCount,
+            "Total Spent (All Time)": `₹${(c.total_spent || 0).toLocaleString("en-IN")}`,
+            "Visit Count": c.visit_count || 0,
+            "Loyalty Points": c.loyalty_points || 0,
+            "Loyalty Member": c.loyalty_enrolled ? "Yes" : "No",
+          };
+        }),
+        ...unmatchedNames.map((name) => {
+          const stats = customerOrderStats[name];
+          return {
+            Name: name,
+            Phone: "-",
+            Email: "-",
+            "Period Spent": `₹${stats.spent.toLocaleString("en-IN")}`,
+            "Period Orders": stats.orderCount,
+            "Total Spent (All Time)": "-",
+            "Visit Count": "-",
+            "Loyalty Points": "-",
+            "Loyalty Member": "No",
+          };
+        }),
+      ].sort((a, b) => {
+        const aVal = parseFloat(String(a["Period Spent"]).replace(/[₹,]/g, "")) || 0;
+        const bVal = parseFloat(String(b["Period Spent"]).replace(/[₹,]/g, "")) || 0;
+        return bVal - aVal;
+      });
+
+      // Chart: top 10 by period spending
+      const chartData = formattedCustomers
+        .slice(0, 10)
+        .map((c) => ({
+          name: String(c.Name).length > 15 ? String(c.Name).substring(0, 15) + "…" : c.Name,
+          value: parseFloat(String(c["Period Spent"]).replace(/[₹,]/g, "")) || 0,
+        }));
 
       return {
         category: "customers" as ReportCategory,
         title: "Customer Insights Report",
         summary: {
-          "Total Customers": totalCustomers,
-          "Total Revenue": `₹${totalSpent.toLocaleString("en-IN", {
-            minimumFractionDigits: 0,
-          })}`,
+          "Active Customers": totalActiveCustomers,
+          "Period Revenue": `₹${totalRevenue.toLocaleString("en-IN", { minimumFractionDigits: 0 })}`,
           "Avg Spend": `₹${avgSpent.toFixed(0)}`,
           "Loyalty Members": loyaltyEnrolled,
         },
         tableData: formattedCustomers,
-        chartData:
-          customers
-            ?.slice(0, 10)
-            .map((c) => ({ name: c.name, value: c.total_spent || 0 })) || [],
+        chartData,
       } as ReportData;
     },
     enabled: !!restaurantId,
@@ -845,6 +914,117 @@ export const useReportsData = (dateRange?: DateRange) => {
     enabled: !!restaurantId,
   });
 
+  // Repeat Customers Day-Wise Report
+  const repeatCustomersReport = useQuery({
+    queryKey: ["report-repeat-customers", restaurantId, startDate, endDate],
+    queryFn: async () => {
+      if (!restaurantId) return null;
+
+      // Fetch orders in date range
+      const { data: orders, error } = await supabase
+        .from("orders")
+        .select("customer_name, Customer_Name, customer_phone, Customer_MobileNumber, total, order_type, created_at")
+        .eq("restaurant_id", restaurantId)
+        .gte("created_at", startDate)
+        .lte("created_at", endDate)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      // Fetch all customers to know their total visit count
+      const { data: allCustomers } = await supabase
+        .from("customers")
+        .select("name, phone, visit_count")
+        .eq("restaurant_id", restaurantId);
+
+      const customerVisitMap: Record<string, number> = {};
+      (allCustomers || []).forEach((c) => {
+        const key = (c.name || "").trim().toLowerCase();
+        customerVisitMap[key] = c.visit_count || 0;
+      });
+
+      // Group orders by date → unique customers
+      const dayMap: Record<string, Set<string>> = {};
+      const chargeableOrders = (orders || []).filter((o) => o.order_type !== "non-chargeable");
+
+      chargeableOrders.forEach((o) => {
+        const day = format(new Date(o.created_at), "yyyy-MM-dd");
+        const customerName = (o.customer_name || o.Customer_Name || "Walk-in").trim();
+        if (!dayMap[day]) dayMap[day] = new Set();
+        dayMap[day].add(customerName);
+      });
+
+      // Track first-seen date per customer across the date range
+      const customerFirstSeen: Record<string, string> = {};
+      chargeableOrders.forEach((o) => {
+        const day = format(new Date(o.created_at), "yyyy-MM-dd");
+        const customerName = (o.customer_name || o.Customer_Name || "Walk-in").trim();
+        if (!customerFirstSeen[customerName] || day < customerFirstSeen[customerName]) {
+          customerFirstSeen[customerName] = day;
+        }
+      });
+
+      // Build day-wise table
+      const sortedDays = Object.keys(dayMap).sort();
+      let totalCustomersAll = 0;
+      let totalRepeatAll = 0;
+      let totalNewAll = 0;
+
+      const tableData = sortedDays.map((day) => {
+        const dayCustomers = Array.from(dayMap[day]);
+        const totalForDay = dayCustomers.length;
+
+        // A customer is "repeat" if:
+        // 1. They have visit_count > 1 in customer DB, OR
+        // 2. They appeared on a previous day in this date range
+        const repeatCustomers = dayCustomers.filter((name) => {
+          const key = name.toLowerCase();
+          const hasMultipleVisits = (customerVisitMap[key] || 0) > 1;
+          const firstSeenBefore = customerFirstSeen[name] && customerFirstSeen[name] < day;
+          return hasMultipleVisits || firstSeenBefore;
+        });
+
+        const repeatCount = repeatCustomers.length;
+        const newCount = totalForDay - repeatCount;
+        const repeatPct = totalForDay > 0 ? ((repeatCount / totalForDay) * 100).toFixed(1) : "0.0";
+
+        totalCustomersAll += totalForDay;
+        totalRepeatAll += repeatCount;
+        totalNewAll += newCount;
+
+        return {
+          Date: format(new Date(day), "MMM dd, yyyy (EEE)"),
+          "Total Customers": totalForDay,
+          "Repeat Customers": repeatCount,
+          "New Customers": newCount,
+          "Repeat %": `${repeatPct}%`,
+        };
+      });
+
+      const overallRepeatPct = totalCustomersAll > 0
+        ? ((totalRepeatAll / totalCustomersAll) * 100).toFixed(1)
+        : "0.0";
+
+      return {
+        category: "repeat_customers" as ReportCategory,
+        title: "Repeat Customers - Day Wise",
+        summary: {
+          "Total Days": sortedDays.length,
+          "Total Customers": totalCustomersAll,
+          "Repeat Customers": totalRepeatAll,
+          "Repeat Rate": `${overallRepeatPct}%`,
+        },
+        tableData,
+        chartData: tableData.map((d) => ({
+          name: String(d.Date).replace(/ \(.*\)/, ""),
+          value: d["Total Customers"],
+          repeat: d["Repeat Customers"],
+        })),
+      } as ReportData;
+    },
+    enabled: !!restaurantId,
+  });
+
   // Get report by category
   const getReportByCategory = (
     category: ReportCategory,
@@ -870,6 +1050,8 @@ export const useReportsData = (dateRange?: DateRange) => {
         return recipesReport.data;
       case "promotions":
         return promotionsReport.data;
+      case "repeat_customers":
+        return repeatCustomersReport.data;
       default:
         return null;
     }
@@ -897,6 +1079,8 @@ export const useReportsData = (dateRange?: DateRange) => {
         return recipesReport.isLoading;
       case "promotions":
         return promotionsReport.isLoading;
+      case "repeat_customers":
+        return repeatCustomersReport.isLoading;
       default:
         return false;
     }
@@ -924,6 +1108,8 @@ export const useReportsData = (dateRange?: DateRange) => {
         return recipesReport.isFetching;
       case "promotions":
         return promotionsReport.isFetching;
+      case "repeat_customers":
+        return repeatCustomersReport.isFetching;
       default:
         return false;
     }
@@ -951,6 +1137,8 @@ export const useReportsData = (dateRange?: DateRange) => {
         return recipesReport.error;
       case "promotions":
         return promotionsReport.error;
+      case "repeat_customers":
+        return repeatCustomersReport.error;
       default:
         return null;
     }
@@ -978,6 +1166,7 @@ export const useReportsData = (dateRange?: DateRange) => {
     roomsReport,
     recipesReport,
     promotionsReport,
+    repeatCustomersReport,
     // Utility functions
     getReportByCategory,
     isLoadingCategory,
