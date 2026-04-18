@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from "react";
 import { ReportData } from "@/hooks/useReportsData";
-import { StandardizedCard } from "@/components/ui/standardized-card";
 import { StandardizedButton } from "@/components/ui/standardized-button";
 import {
   Download,
@@ -9,11 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Presentation,
-  Printer,
-  FileText,
-  Filter,
   Search,
-  Calendar,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -43,14 +38,14 @@ import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { generateEditablePPTX, generateRichExcel } from "@/utils/exportUtils";
 
 const COLORS = [
-  "#0088FE",
-  "#00C49F",
-  "#FFBB28",
-  "#FF8042",
-  "#8884D8",
-  "#82CA9D",
-  "#FFC658",
-  "#FF6B6B",
+  "#f97316",
+  "#3b82f6",
+  "#10b981",
+  "#8b5cf6",
+  "#06b6d4",
+  "#f59e0b",
+  "#ef4444",
+  "#ec4899",
 ];
 const ROWS_PER_PAGE = 10;
 
@@ -94,7 +89,7 @@ const formatColumnName = (key: string) => {
 
 // Helper to format cell values
 const formatCellValue = (value: unknown): string => {
-  if (value === null || value === undefined) return "-";
+  if (value === null || value === undefined) return "—";
   if (typeof value === "number")
     return value.toLocaleString("en-IN", { maximumFractionDigits: 2 });
   if (typeof value === "boolean") return value ? "Yes" : "No";
@@ -122,7 +117,7 @@ const formatCellValue = (value: unknown): string => {
     try {
       return JSON.stringify(value).substring(0, 100);
     } catch {
-      return "-";
+      return "—";
     }
   }
   return String(value).substring(0, 100);
@@ -216,9 +211,9 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
       return <ArrowUpDown className="h-3 w-3 ml-1 opacity-40" />;
     }
     return config.direction === "asc" ? (
-      <ArrowUp className="h-3 w-3 ml-1 text-primary" />
+      <ArrowUp className="h-3 w-3 ml-1 text-orange-400" />
     ) : (
-      <ArrowDown className="h-3 w-3 ml-1 text-primary" />
+      <ArrowDown className="h-3 w-3 ml-1 text-orange-400" />
     );
   };
 
@@ -501,48 +496,45 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Export buttons */}
-      <div className="flex flex-wrap justify-end gap-2">
-        <StandardizedButton
-          variant="secondary"
+    <div className="space-y-4 sm:space-y-6">
+      {/* Export buttons row */}
+      <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-end sm:gap-3">
+        <button
           onClick={handleExportPPTX}
           disabled={exporting !== null}
-          className="bg-orange-50 text-orange-700 hover:bg-orange-100 hover:text-orange-800 border-orange-200"
+          className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[11px] sm:text-sm font-semibold transition-all duration-200 bg-orange-500/10 dark:bg-orange-500/8 border border-orange-500/30 text-orange-500 hover:bg-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {exporting === "pptx" ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
           ) : (
-            <Presentation className="h-4 w-4 mr-2" />
+            <Presentation className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           )}
-          Export PPT
-        </StandardizedButton>
-        <StandardizedButton
-          variant="secondary"
+          <span className="hidden sm:inline">Export</span> PPT
+        </button>
+        <button
           onClick={handleExportExcel}
           disabled={exporting !== null}
-          className="bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-green-200"
+          className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[11px] sm:text-sm font-semibold transition-all duration-200 bg-emerald-500/10 dark:bg-emerald-500/8 border border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {exporting === "excel" ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
           ) : (
-            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            <FileSpreadsheet className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           )}
-          Export Excel
-        </StandardizedButton>
-        <StandardizedButton
-          variant="secondary"
+          <span className="hidden sm:inline">Export</span> Excel
+        </button>
+        <button
           onClick={handleExportPDF}
           disabled={exporting !== null}
-          className="bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-blue-200"
+          className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[11px] sm:text-sm font-semibold transition-all duration-200 bg-blue-500/10 dark:bg-blue-500/8 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {exporting === "pdf" ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
           ) : (
-            <Download className="h-4 w-4 mr-2" />
+            <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           )}
-          Export PDF
-        </StandardizedButton>
+          <span className="hidden sm:inline">Export</span> PDF
+        </button>
       </div>
 
       {/* Reports */}
@@ -563,22 +555,37 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
         const searchTerm = searchTerms[report.category] || "";
 
         return (
-          <StandardizedCard key={`${report.category}-${index}`} className="p-6">
-            <h3 className="text-lg font-semibold mb-4">{report.title}</h3>
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              {Object.entries(report.summary).map(([key, value]) => (
-                <div key={key} className="bg-muted/50 rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground">{key}</p>
-                  <p className="text-lg font-semibold">{value}</p>
+          <div key={`${report.category}-${index}`} className="space-y-5">
+            {/* ═══ STAT CARDS ═══ */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4">
+              {Object.entries(report.summary).map(([key, value], sIdx) => (
+                <div
+                  key={key}
+                  className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-white dark:bg-white/[0.04] backdrop-blur-xl border border-gray-200 dark:border-white/8 shadow-sm dark:shadow-none p-3.5 sm:p-5 transition-all duration-200 hover:border-orange-300 dark:hover:border-orange-400/30 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-500/5"
+                  style={{ animationDelay: `${sIdx * 0.05}s` }}
+                >
+                  {/* Decorative radial glow */}
+                  <div className="absolute -top-7 -right-7 w-20 h-20 rounded-full bg-orange-500/8 pointer-events-none" />
+                  <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 sm:mb-2">
+                    {key}
+                  </p>
+                  <p className={`text-base sm:text-xl md:text-2xl font-extrabold tracking-tight ${
+                    sIdx === 1
+                      ? "bg-gradient-to-r from-orange-500 via-pink-500 to-blue-500 bg-clip-text text-transparent"
+                      : "text-foreground"
+                  }`}>
+                    {value}
+                  </p>
                 </div>
               ))}
             </div>
 
-            {/* Chart */}
+            {/* ═══ CHART BOX ═══ */}
             {report.chartData && report.chartData.length > 0 && (
-              <div className="mb-6">
+              <div className="rounded-2xl bg-white dark:bg-white/[0.04] backdrop-blur-xl border border-gray-200 dark:border-white/8 shadow-sm dark:shadow-none p-6">
+                <p className="text-sm font-semibold text-muted-foreground mb-5">
+                  {report.title} — Visual Breakdown
+                </p>
                 <ResponsiveContainer width="100%" height={250}>
                   {report.chartData.length <= 6 ? (
                     <PieChart>
@@ -601,27 +608,50 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                           />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip
+                        contentStyle={{
+                          background: "rgba(17,19,32,0.9)",
+                          border: "1px solid rgba(249,115,22,0.3)",
+                          borderRadius: "12px",
+                          color: "#fff",
+                          fontSize: "12px",
+                        }}
+                      />
                       <Legend />
                     </PieChart>
                   ) : (
                     <BarChart data={report.chartData.slice(0, 10)}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="#0088FE" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: "rgba(255,255,255,0.5)" }} />
+                      <YAxis tick={{ fontSize: 10, fill: "rgba(255,255,255,0.5)" }} />
+                      <Tooltip
+                        contentStyle={{
+                          background: "rgba(17,19,32,0.9)",
+                          border: "1px solid rgba(249,115,22,0.3)",
+                          borderRadius: "12px",
+                          color: "#fff",
+                          fontSize: "12px",
+                        }}
+                      />
+                      <defs>
+                        <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#f97316" />
+                          <stop offset="50%" stopColor="#e85d9b" />
+                          <stop offset="100%" stopColor="#2563eb" />
+                        </linearGradient>
+                      </defs>
+                      <Bar dataKey="value" fill="url(#barGradient)" radius={[6, 6, 0, 0]} />
                     </BarChart>
                   )}
                 </ResponsiveContainer>
               </div>
             )}
 
-            {/* Data Table with Search, Sort, Pagination */}
+            {/* ═══ DATA TABLE ═══ */}
             {report.tableData.length > 0 && (
               <div className="space-y-4">
-                {/* Search Bar */}
-                <div className="flex items-center gap-2">
+                {/* Search */}
+                <div className="flex items-center gap-3">
                   <div className="relative flex-1 max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <input
@@ -638,7 +668,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                           [report.category]: 1,
                         }));
                       }}
-                      className="w-full pl-9 pr-8 py-2 text-sm border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      className="w-full pl-9 pr-9 py-2.5 text-sm rounded-xl bg-white dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-orange-400/30 focus:border-orange-400/40 transition-all"
                     />
                     {searchTerm && (
                       <button
@@ -648,7 +678,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                             [report.category]: "",
                           }))
                         }
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -661,93 +691,119 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                   )}
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/50">
-                        {displayColumns.slice(0, 8).map((key) => (
-                          <th
-                            key={key}
-                            className="text-left p-2 font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/80 transition-colors"
-                            onClick={() => handleSort(report.category, key)}
-                          >
-                            <div className="flex items-center">
-                              {formatColumnName(key)}
-                              {renderSortIcon(report.category, key)}
-                            </div>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedData.map((row, i) => (
-                        <tr key={i} className="border-b hover:bg-muted/30">
-                          {displayColumns.slice(0, 8).map((key, j) => (
-                            <td
-                              key={`${i}-${j}`}
-                              className="p-2 max-w-[200px] truncate"
+                {/* Table wrapper */}
+                <div className="rounded-2xl bg-white dark:bg-white/[0.04] backdrop-blur-xl border border-gray-200 dark:border-white/8 overflow-hidden shadow-sm dark:shadow-none">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-orange-50 dark:bg-orange-500/6">
+                          {displayColumns.slice(0, 8).map((key) => (
+                            <th
+                              key={key}
+                              className="text-left p-3.5 font-bold text-[11px] uppercase tracking-wider text-orange-600 dark:text-orange-400 whitespace-nowrap cursor-pointer select-none hover:bg-orange-100 dark:hover:bg-orange-500/10 transition-colors border-b border-orange-200/60 dark:border-orange-500/15"
+                              onClick={() => handleSort(report.category, key)}
                             >
-                              {formatCellValue(
-                                (row as Record<string, unknown>)[key],
-                              )}
-                            </td>
+                              <div className="flex items-center">
+                                {formatColumnName(key)}
+                                {renderSortIcon(report.category, key)}
+                              </div>
+                            </th>
                           ))}
                         </tr>
-                      ))}
-                      {paginatedData.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan={Math.min(displayColumns.length, 8)}
-                            className="p-8 text-center text-muted-foreground"
+                      </thead>
+                      <tbody>
+                        {paginatedData.map((row, i) => (
+                          <tr
+                            key={i}
+                            className="border-b border-gray-100 dark:border-white/[0.03] hover:bg-orange-50/50 dark:hover:bg-white/[0.02] transition-colors"
                           >
-                            No matching records found
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Pagination Controls */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between border-t pt-4">
-                    <p className="text-sm text-muted-foreground">
-                      Showing {startIdx + 1}-
-                      {Math.min(endIdx, processedData.length)} of{" "}
-                      {processedData.length} rows
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <StandardizedButton
-                        variant="secondary"
-                        size="sm"
-                        onClick={() =>
-                          setPage(report.category, currentPage - 1)
-                        }
-                        disabled={currentPage === 1}
-                      >
-                        <ChevronLeft className="h-4 w-4 mr-1" />
-                        Previous
-                      </StandardizedButton>
-                      <span className="text-sm px-2">
-                        Page {currentPage} of {totalPages}
-                      </span>
-                      <StandardizedButton
-                        variant="secondary"
-                        size="sm"
-                        onClick={() =>
-                          setPage(report.category, currentPage + 1)
-                        }
-                        disabled={currentPage === totalPages}
-                      >
-                        Next
-                        <ChevronRight className="h-4 w-4 ml-1" />
-                      </StandardizedButton>
-                    </div>
+                            {displayColumns.slice(0, 8).map((key, j) => (
+                              <td
+                                key={`${i}-${j}`}
+                                className={`p-3.5 max-w-[200px] truncate ${
+                                  j === 0
+                                    ? "font-semibold text-foreground"
+                                    : "text-muted-foreground"
+                                }`}
+                              >
+                                {/* Badge rendering for Yes/No values */}
+                                {(() => {
+                                  const val = formatCellValue(
+                                    (row as Record<string, unknown>)[key],
+                                  );
+                                  if (val === "Yes") {
+                                    return (
+                                      <span className="inline-flex items-center gap-1 bg-orange-50 dark:bg-orange-500/12 border border-orange-300 dark:border-orange-400/30 text-orange-600 dark:text-orange-400 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                                        ✓ Yes
+                                      </span>
+                                    );
+                                  }
+                                  if (val === "No") {
+                                    return (
+                                      <span className="inline-flex items-center bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-muted-foreground text-[11px] font-medium px-2.5 py-0.5 rounded-full">
+                                        No
+                                      </span>
+                                    );
+                                  }
+                                  return val;
+                                })()}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                        {paginatedData.length === 0 && (
+                          <tr>
+                            <td
+                              colSpan={Math.min(displayColumns.length, 8)}
+                              className="p-8 text-center text-muted-foreground"
+                            >
+                              No matching records found
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                )}
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-t border-gray-100 dark:border-white/[0.03]">
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">
+                        Showing {startIdx + 1}–
+                        {Math.min(endIdx, processedData.length)} of{" "}
+                        {processedData.length} rows
+                      </p>
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <button
+                          onClick={() =>
+                            setPage(report.category, currentPage - 1)
+                          }
+                          disabled={currentPage === 1}
+                          className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/8 text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/15 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <ChevronLeft className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                          <span className="hidden sm:inline">Previous</span>
+                        </button>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground px-1 sm:px-2 whitespace-nowrap">
+                          Page {currentPage} of {totalPages}
+                        </span>
+                        <button
+                          onClick={() =>
+                            setPage(report.category, currentPage + 1)
+                          }
+                          disabled={currentPage === totalPages}
+                          className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/8 text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/15 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <span className="hidden sm:inline">Next</span>
+                          <ChevronRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
-          </StandardizedCard>
+          </div>
         );
       })}
     </div>
