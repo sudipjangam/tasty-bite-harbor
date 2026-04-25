@@ -119,6 +119,7 @@ const Inventory = () => {
   const [newItemCategory, setNewItemCategory] = useState<string>("Other");
   const [selectedDetailItem, setSelectedDetailItem] =
     useState<InventoryItem | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState(false);
   const [pendingDuplicateData, setPendingDuplicateData] = useState<{
     existingItem: InventoryItem;
     formData: any;
@@ -387,6 +388,11 @@ const Inventory = () => {
         );
 
         if (existingItem) {
+          if (existingItem.category === itemData.category && existingItem.unit === itemData.unit) {
+             setDuplicateWarning(true);
+             return;
+          }
+          
           // Show confirmation dialog instead of silently creating a duplicate
           setPendingDuplicateData({
             existingItem,
@@ -1534,6 +1540,36 @@ const Inventory = () => {
               className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-xl shadow-lg shadow-emerald-500/25"
             >
               <Plus className="mr-2 h-4 w-4" /> Add as New Batch
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Strict Duplicate Warning Dialog */}
+      <AlertDialog
+        open={duplicateWarning}
+        onOpenChange={setDuplicateWarning}
+      >
+        <AlertDialogContent className="bg-white/98 dark:bg-gray-800/98 backdrop-blur-2xl rounded-2xl border border-white/40 dark:border-gray-700/40 shadow-2xl overflow-hidden p-0">
+          <div className="bg-gradient-to-r from-red-500 to-rose-600 px-6 py-4">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-xl font-bold text-white flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" /> Duplicate Entry
+              </AlertDialogTitle>
+            </AlertDialogHeader>
+          </div>
+          <div className="p-6">
+            <AlertDialogDescription className="text-gray-600 dark:text-gray-400 text-sm">
+              An item with the exact same name, category, and unit already exists in your inventory. 
+              Duplicate entries with the same details are not allowed. Please edit the existing item or add stock to it instead.
+            </AlertDialogDescription>
+          </div>
+          <AlertDialogFooter className="px-6 pb-6 pt-0">
+            <AlertDialogAction
+              onClick={() => setDuplicateWarning(false)}
+              className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white rounded-xl shadow-lg w-full sm:w-auto"
+            >
+              Continue
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
