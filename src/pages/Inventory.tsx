@@ -466,30 +466,43 @@ const Inventory = () => {
     if (!itemToDelete) return;
 
     try {
-      await supabase
+      // Delete child records in correct order (transactions reference lots via lot_id FK)
+      const { error: alertErr } = await supabase
         .from("inventory_alerts")
         .delete()
         .eq("inventory_item_id", itemToDelete.id);
-      await supabase
-        .from("inventory_lots")
-        .delete()
-        .eq("inventory_item_id", itemToDelete.id);
-      await supabase
+      if (alertErr) console.warn("Alert cleanup:", alertErr);
+
+      // Transactions MUST be deleted before lots (lot_id FK constraint)
+      const { error: txnErr } = await supabase
         .from("inventory_transactions")
         .delete()
         .eq("inventory_item_id", itemToDelete.id);
-      await supabase
+      if (txnErr) throw txnErr;
+
+      const { error: lotErr } = await supabase
+        .from("inventory_lots")
+        .delete()
+        .eq("inventory_item_id", itemToDelete.id);
+      if (lotErr) throw lotErr;
+
+      const { error: poErr } = await supabase
         .from("purchase_order_items")
         .delete()
         .eq("inventory_item_id", itemToDelete.id);
-      await supabase
+      if (poErr) console.warn("PO cleanup:", poErr);
+
+      const { error: recipeErr } = await supabase
         .from("recipe_ingredients")
         .delete()
         .eq("inventory_item_id", itemToDelete.id);
-      await supabase
+      if (recipeErr) console.warn("Recipe cleanup:", recipeErr);
+
+      const { error: soErr } = await supabase
         .from("supplier_order_items")
         .delete()
         .eq("inventory_item_id", itemToDelete.id);
+      if (soErr) console.warn("Supplier order cleanup:", soErr);
 
       const { error } = await supabase
         .from("inventory_items")
