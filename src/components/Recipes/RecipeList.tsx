@@ -21,7 +21,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search, Filter, ArrowUpDown } from "lucide-react";
 
 interface RecipeListProps {
   recipes: Recipe[];
@@ -33,6 +42,34 @@ export const RecipeList = ({ recipes, isLoading, onEdit }: RecipeListProps) => {
   const { deleteRecipe } = useRecipes();
   const [recipeToDelete, setRecipeToDelete] = useState<string | null>(null);
   const { symbol: currencySymbol } = useCurrencyContext();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("name");
+
+  const categories = useMemo(() => {
+    const cats = new Set(recipes.map((r) => r.category));
+    return Array.from(cats);
+  }, [recipes]);
+
+  const filteredAndSortedRecipes = useMemo(() => {
+    return recipes
+      .filter((recipe) => {
+        const matchesSearch =
+          recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (recipe.description &&
+            recipe.description.toLowerCase().includes(searchQuery.toLowerCase()));
+        const matchesCategory =
+          categoryFilter === "all" || recipe.category === categoryFilter;
+        return matchesSearch && matchesCategory;
+      })
+      .sort((a, b) => {
+        if (sortBy === "name") return a.name.localeCompare(b.name);
+        if (sortBy === "cost_asc") return a.total_cost - b.total_cost;
+        if (sortBy === "cost_desc") return b.total_cost - a.total_cost;
+        if (sortBy === "margin") return b.margin_percentage - a.margin_percentage;
+        return 0;
+      });
+  }, [recipes, searchQuery, categoryFilter, sortBy]);
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
@@ -107,8 +144,48 @@ export const RecipeList = ({ recipes, isLoading, onEdit }: RecipeListProps) => {
 
   return (
     <>
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search recipes..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 bg-white/50 dark:bg-gray-800/50 border-orange-200 dark:border-orange-500/30 focus-visible:ring-orange-500 rounded-xl"
+          />
+        </div>
+        <div className="flex gap-2">
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[140px] md:w-[180px] bg-white/50 dark:bg-gray-800/50 border-orange-200 dark:border-orange-500/30 rounded-xl">
+              <Filter className="w-4 h-4 mr-2 text-gray-500" />
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories.map((category) => (
+                <SelectItem key={category} value={category} className="capitalize">
+                  {category.replace("_", " ")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-[140px] md:w-[180px] bg-white/50 dark:bg-gray-800/50 border-orange-200 dark:border-orange-500/30 rounded-xl">
+              <ArrowUpDown className="w-4 h-4 mr-2 text-gray-500" />
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Name (A-Z)</SelectItem>
+              <SelectItem value="cost_asc">Cost (Low to High)</SelectItem>
+              <SelectItem value="cost_desc">Cost (High to Low)</SelectItem>
+              <SelectItem value="margin">Margin % (Highest)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {recipes.map((recipe) => (
+        {filteredAndSortedRecipes.map((recipe) => (
           <Card 
             key={recipe.id} 
             className="group relative overflow-hidden border-0 shadow-lg hover:shadow-2xl hover:shadow-orange-500/20 transition-all duration-500 hover:-translate-y-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl"
