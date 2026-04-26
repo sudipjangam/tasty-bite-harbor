@@ -3,25 +3,37 @@ import { supabase } from "@/integrations/supabase/client";
 import { addDays, format, subDays, parseISO } from "date-fns";
 import { useEffect } from "react";
 import { useRestaurantId } from "./useRestaurantId";
+import { DateRange } from "react-day-picker";
 // Note: fetchSalesForecasts is now called on-demand from SalesPrediction component
 
-export const useAnalyticsData = () => {
+export const useAnalyticsData = (dateRange?: DateRange) => {
   const { restaurantId, isLoading: isRestaurantLoading } = useRestaurantId();
 
+  // Calculate date boundaries from dateRange or default to 30 days
+  const rangeFrom = dateRange?.from || subDays(new Date(), 30);
+  const rangeTo = dateRange?.to || new Date();
+  const dayCount = Math.ceil((rangeTo.getTime() - rangeFrom.getTime()) / (1000 * 60 * 60 * 24));
+
   const query = useQuery({
-    queryKey: ["analytics-data", restaurantId],
+    queryKey: ["analytics-data", restaurantId, rangeFrom.toISOString(), rangeTo.toISOString()],
     queryFn: async () => {
       if (!restaurantId) {
         throw new Error("No restaurant found for user");
       }
 
-      // Fetch revenue stats
+      const startISO = rangeFrom.toISOString();
+      const endISO = rangeTo.toISOString();
+      const startDate = format(rangeFrom, "yyyy-MM-dd");
+      const endDate = format(rangeTo, "yyyy-MM-dd");
+
+      // Fetch revenue stats for the selected date range
       const { data: revenueStats } = await supabase
         .from("daily_revenue_stats")
         .select("*")
         .eq("restaurant_id", restaurantId)
-        .order("date", { ascending: false })
-        .limit(30);
+        .gte("date", startDate)
+        .lte("date", endDate)
+        .order("date", { ascending: false });
 
       // Fetch customer insights
       const { data: customerInsights } = await supabase
@@ -38,8 +50,10 @@ export const useAnalyticsData = () => {
         .eq("restaurant_id", restaurantId)
         .eq("status", "completed")
         .neq("order_type", "non-chargeable")
+        .gte("created_at", startISO)
+        .lte("created_at", endISO)
         .order("created_at", { ascending: false })
-        .limit(100);
+        .limit(1000);
 
       // Room service orders - only completed
       const { data: roomOrders } = await supabase
@@ -47,8 +61,10 @@ export const useAnalyticsData = () => {
         .select("*")
         .eq("restaurant_id", restaurantId)
         .eq("status", "completed")
+        .gte("created_at", startISO)
+        .lte("created_at", endISO)
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(500);
 
       // Kitchen orders - only completed
       const { data: kitchenOrders } = await supabase
@@ -56,8 +72,10 @@ export const useAnalyticsData = () => {
         .select("*")
         .eq("restaurant_id", restaurantId)
         .eq("status", "completed")
+        .gte("created_at", startISO)
+        .lte("created_at", endISO)
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(500);
 
       // Fetch room billings for hotel revenue - ONLY paid billings
       const { data: roomBillings } = await supabase
@@ -65,8 +83,10 @@ export const useAnalyticsData = () => {
         .select("*")
         .eq("restaurant_id", restaurantId)
         .eq("payment_status", "paid")
+        .gte("checkout_date", startDate)
+        .lte("checkout_date", endDate)
         .order("checkout_date", { ascending: false })
-        .limit(100);
+        .limit(500);
 
       // Fetch rooms for occupancy calculation
       const { data: rooms } = await supabase
@@ -79,7 +99,8 @@ export const useAnalyticsData = () => {
         .from("reservations")
         .select("*")
         .eq("restaurant_id", restaurantId)
-        .gte("start_time", subDays(new Date(), 30).toISOString())
+        .gte("start_time", startISO)
+        .lte("start_time", endISO)
         .order("start_time", { ascending: false });
 
       // Fetch menu items to calculate top products
@@ -143,7 +164,9 @@ export const useAnalyticsData = () => {
       // Consolidate all revenue sources
       const consolidatedRevenue = calculateConsolidatedRevenue(
         revenueStats || [],
-        roomBillings || []
+        roomBillings || [],
+        rangeFrom,
+        rangeTo
       );
 
       return {
@@ -374,10 +397,14 @@ const calculateHotelMetrics = (
 // Helper function to consolidate revenue from all sources
 const calculateConsolidatedRevenue = (
   revenueStats: any[],
-  roomBillings: any[]
+  roomBillings: any[],
+  rangeFrom: Date,
+  rangeTo: Date
 ) => {
-  const last30Days = Array.from({ length: 30 }).map((_, i) => {
-    const date = format(subDays(new Date(), 29 - i), "yyyy-MM-dd");
+  const dayCount = Math.ceil((rangeTo.getTime() - rangeFrom.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+  const dailyRevenue = Array.from({ length: dayCount }).map((_, i) => {
+    const date = format(addDays(rangeFrom, i), "yyyy-MM-dd");
 
     // Get restaurant revenue for this date
     const restaurantRevenue =
@@ -401,18 +428,18 @@ const calculateConsolidatedRevenue = (
     };
   });
 
-  const totalRestaurantRevenue = last30Days.reduce(
+  const totalRestaurantRevenue = dailyRevenue.reduce(
     (sum, day) => sum + day.restaurantRevenue,
     0
   );
-  const totalHotelRevenue = last30Days.reduce(
+  const totalHotelRevenue = dailyRevenue.reduce(
     (sum, day) => sum + day.hotelRevenue,
     0
   );
   const grandTotal = totalRestaurantRevenue + totalHotelRevenue;
 
   return {
-    dailyRevenue: last30Days,
+    dailyRevenue,
     totalRestaurantRevenue,
     totalHotelRevenue,
     grandTotal,
