@@ -234,7 +234,7 @@ export const useReportsData = (dateRange?: DateRange) => {
           .eq("status", "completed")
           .neq("order_type", "non-chargeable")
           .gte("created_at", startDate)
-          .lte("created_at", endDate + "T23:59:59"),
+          .lte("created_at", endDate),
       ]);
 
       if (menuResult.error) throw menuResult.error;
