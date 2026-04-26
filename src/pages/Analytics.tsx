@@ -8,7 +8,8 @@ import ExpandedChartDialog from "@/components/Analytics/ExpandedChartDialog";
 import BusinessDashboard from "@/components/Analytics/BusinessDashboard";
 import { HotelMetricsCards } from "@/components/Analytics/HotelMetricsCards";
 import { ConsolidatedRevenueChart } from "@/components/Analytics/ConsolidatedRevenueChart";
-import { format } from "date-fns";
+import AIChartBuilder from "@/components/Analytics/AIChartBuilder";
+import { format, subDays } from "date-fns";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -18,15 +19,16 @@ import Watermark from "@/components/Layout/Watermark";
 import { fetchAllowedComponents } from "@/utils/subscriptionUtils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, BarChart3, Sparkles, Building2 } from "lucide-react";
+import { TrendingUp, BarChart3, Sparkles, Building2, ChevronDown, ChevronUp } from "lucide-react";
 import { useFinancialTabAccess } from "@/hooks/useFinancialTabAccess";
 import { usePlanType } from "@/hooks/usePlanType";
 import PlanInsightsCard from "@/components/Dashboard/PlanInsightsCard";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
+import { DateRange } from "react-day-picker";
+import { Button } from "@/components/ui/button";
 
 const Analytics = () => {
   const { toast } = useToast();
-  const { data, isLoading } = useAnalyticsData();
   const { hasHotelAccess } = useFinancialTabAccess();
   const { label: planLabel } = usePlanType();
 
@@ -35,6 +37,16 @@ const Analytics = () => {
   const [analyticsView, setAnalyticsView] = useState<"charts" | "business">(
     "charts",
   );
+  const [showRevenueBreakdown, setShowRevenueBreakdown] = useState(false);
+
+  // Global date range state — default last 30 days
+  const [dateRange, setDateRange] = useState<DateRange>({
+    from: subDays(new Date(), 30),
+    to: new Date(),
+  });
+
+  // Pass date range to hook
+  const { data, isLoading } = useAnalyticsData(dateRange);
 
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
 
@@ -254,7 +266,7 @@ const Analytics = () => {
 
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text("Revenue Data (Last 30 days)", 14, 180);
+      doc.text("Revenue Data", 14, 180);
 
       const revenueTableColumn = [
         "Date",
@@ -294,17 +306,6 @@ const Analytics = () => {
       doc.setFontSize(14);
       doc.text("Top Customer Insights", 14, 30);
 
-      try {
-        const categoryChartElement = document.getElementById("category-chart");
-        if (categoryChartElement) {
-          const canvas = await html2canvas(categoryChartElement);
-          const imgData = canvas.toDataURL("image/png");
-          doc.addImage(imgData, "PNG", 14, 35, 180, 90);
-        }
-      } catch (chartError) {
-        console.warn("Could not add category chart to PDF:", chartError);
-      }
-
       const customerTableColumn = [
         "Customer",
         "Visits",
@@ -323,46 +324,6 @@ const Analytics = () => {
       autoTable(doc, {
         head: [customerTableColumn],
         body: customerTableRows,
-        startY: 130,
-        theme: "grid",
-        styles: { fontSize: 8, cellPadding: 1 },
-        headStyles: { fillColor: [0, 179, 167], textColor: 255 },
-        alternateRowStyles: { fillColor: [245, 245, 245] },
-      });
-
-      doc.addPage();
-
-      doc.setFillColor(0, 179, 167);
-      doc.rect(0, 0, 210, 20, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.text("BUSINESS ANALYTICS REPORT", 14, 14);
-
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(14);
-      doc.text("Top Selling Products", 14, 30);
-
-      const productTableColumn = [
-        "Product",
-        "Orders",
-        "Revenue",
-        "Profit Margin",
-        "In Stock",
-      ];
-      const productTableRows = data.topProducts
-        .slice(0, 10)
-        .map((item) => [
-          item.name,
-          item.orders.toString(),
-          `₹${item.revenue.toFixed(2)}`,
-          `${item.profit_margin}%`,
-          item.in_stock ? "Yes" : "No",
-        ]);
-
-      autoTable(doc, {
-        head: [productTableColumn],
-        body: productTableRows,
         startY: 35,
         theme: "grid",
         styles: { fontSize: 8, cellPadding: 1 },
@@ -403,101 +364,26 @@ const Analytics = () => {
   return (
     <FeatureLock feature="reports.analytics" interceptClicks={true}>
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-950 dark:via-purple-950/50 dark:to-indigo-950 animate-fade-in">
-      {/* Modern Header with Glass Effect */}
       <div className="p-4 md:p-6">
-        <div className="mb-8 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-3xl shadow-xl dark:shadow-purple-500/10 p-8">
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-            <div className="p-4 bg-gradient-to-br from-purple-500 via-indigo-500 to-pink-500 rounded-2xl shadow-lg shadow-purple-500/30 dark:shadow-purple-500/50">
-              <BarChart3 className="h-8 w-8 text-white drop-shadow-lg" />
-            </div>
-            <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 bg-clip-text text-transparent">
-                Analytics & Reports
-              </h1>
-              <p className="text-gray-600 dark:text-gray-300 mt-2 text-base md:text-lg">
-                Comprehensive insights into your {planLabel.toLowerCase()}'s
-                performance
-              </p>
-            </div>
-
-            {/* Colorful Status Badges */}
-            <div className="flex flex-wrap items-center gap-2 md:gap-4">
-              <div className="flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl shadow-lg shadow-emerald-500/30">
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                <span className="text-xs md:text-sm font-semibold">
-                  Live Data
-                </span>
-              </div>
-              <div className="flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-xl shadow-lg shadow-blue-500/30">
-                <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
-                <span className="text-xs md:text-sm font-semibold">
-                  Auto-Refresh
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Enhanced Analytics Header */}
-        <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-3xl shadow-xl dark:shadow-purple-500/10 p-6 mb-8">
+        {/* Compact Header with Date Range */}
+        <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-2xl shadow-xl dark:shadow-purple-500/10 p-5 mb-6">
           <AnalyticsHeader
             analyticsView={analyticsView}
             setAnalyticsView={setAnalyticsView}
             hasBusinessDashboardAccess={hasBusinessDashboardAccess}
             exportToExcel={exportToExcel}
             exportToPDF={exportToPDF}
+            dateRange={dateRange}
+            onDateRangeChange={(range) => {
+              if (range) setDateRange(range);
+            }}
           />
         </div>
-      </div>
 
-      <div className="px-4 md:px-6 pb-6 space-y-8">
-        {analyticsView === "charts" ? (
-          <>
-            {/* Hotel Performance Section - Only for plans with hotel access */}
-            {hasHotelAccess &&
-              data.hotelMetrics &&
-              data.hotelMetrics.totalRooms > 0 && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-lg">
-                      <Building2 className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
-                        Hotel Performance
-                      </h2>
-                      <p className="text-sm text-muted-foreground">
-                        Key hospitality metrics
-                      </p>
-                    </div>
-                  </div>
-                  <HotelMetricsCards metrics={data.hotelMetrics} />
-                </div>
-              )}
-
-            {/* Consolidated Revenue Chart - Pass hasHotelAccess to filter hotel data */}
-            {data.consolidatedRevenue && (
-              <ConsolidatedRevenueChart
-                data={data.consolidatedRevenue}
-                showHotelData={hasHotelAccess}
-              />
-            )}
-
-            {/* Enhanced Stats Section */}
-            <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl shadow-lg">
-                  <TrendingUp className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-                    Performance Overview
-                  </h2>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">
-                    Key metrics and KPIs at a glance
-                  </p>
-                </div>
-              </div>
+        <div className="space-y-6">
+          {analyticsView === "charts" ? (
+            <>
+              {/* Compact KPI Stats Row */}
               <StatCards
                 totalRevenue={totalRevenue}
                 totalOrders={totalOrders}
@@ -506,10 +392,40 @@ const Analytics = () => {
                 restaurantRevenue={restaurantRevenue}
                 hotelRevenue={hasHotelAccess ? hotelRevenue : undefined}
               />
-            </div>
 
-            {/* Enhanced Charts Section */}
-            <div className="space-y-8">
+              {/* Hotel Performance Section - Only for plans with hotel access */}
+              {hasHotelAccess &&
+                data.hotelMetrics &&
+                data.hotelMetrics.totalRooms > 0 && (
+                  <HotelMetricsCards metrics={data.hotelMetrics} />
+                )}
+
+              {/* Collapsible Revenue Breakdown Chart */}
+              {data.consolidatedRevenue && (
+                <div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mb-2 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowRevenueBreakdown(!showRevenueBreakdown)}
+                  >
+                    {showRevenueBreakdown ? (
+                      <ChevronUp className="h-4 w-4 mr-1" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 mr-1" />
+                    )}
+                    {showRevenueBreakdown ? "Hide" : "Show"} Revenue Breakdown Chart
+                  </Button>
+                  {showRevenueBreakdown && (
+                    <ConsolidatedRevenueChart
+                      data={data.consolidatedRevenue}
+                      showHotelData={hasHotelAccess}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Chart Widgets Grid */}
               <ChartCards
                 filteredData={data.revenueStats}
                 categoryData={categoryData}
@@ -520,27 +436,37 @@ const Analytics = () => {
                 orders={data.recentOrders}
                 menuItems={data.menuItems}
               />
-            </div>
 
-            <ExpandedChartDialog
-              expandedChart={expandedChart}
-              setExpandedChart={setExpandedChart}
-              showDataTable={showDataTable}
-              setShowDataTable={setShowDataTable}
-              filteredData={data.revenueStats}
-              categoryData={categoryData}
-              customerTimeData={customerTimeData}
-              topProducts={data.topProducts}
-              salesPrediction={data.salesPrediction}
-              orders={data.recentOrders}
-              menuItems={data.menuItems}
-            />
-          </>
-        ) : (
-          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
-            <BusinessDashboard />
-          </div>
-        )}
+              {/* AI Custom Chart Builder */}
+              <AIChartBuilder
+                orders={data.recentOrders}
+                menuItems={data.menuItems}
+                revenueStats={data.revenueStats}
+                customerInsights={data.customerInsights}
+                topProducts={data.topProducts}
+                dateRange={dateRange}
+              />
+
+              <ExpandedChartDialog
+                expandedChart={expandedChart}
+                setExpandedChart={setExpandedChart}
+                showDataTable={showDataTable}
+                setShowDataTable={setShowDataTable}
+                filteredData={data.revenueStats}
+                categoryData={categoryData}
+                customerTimeData={customerTimeData}
+                topProducts={data.topProducts}
+                salesPrediction={data.salesPrediction}
+                orders={data.recentOrders}
+                menuItems={data.menuItems}
+              />
+            </>
+          ) : (
+            <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
+              <BusinessDashboard />
+            </div>
+          )}
+        </div>
       </div>
     </div>
     </FeatureLock>
