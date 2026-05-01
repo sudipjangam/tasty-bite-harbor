@@ -318,84 +318,39 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
         Delete Order
       </Button>
 
-      {/* Send Bill via Email Checkbox and Inputs */}
+      {/* Send Bill Checkbox + Mobile Input */}
       <Card className="p-4 bg-muted/30 border-2 border-primary/20">
-        <div className="space-y-4">
-          <div className="flex items-center space-x-2">
+        <div className="space-y-3">
+          <div className="flex items-center space-x-3">
             <input
               type="checkbox"
               id="send-bill-checkbox"
               checked={sendBillToEmail}
               onChange={(e) => onSendBillToEmailChange(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+              className="w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer"
             />
             <label
               htmlFor="send-bill-checkbox"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              className="text-sm font-medium leading-none cursor-pointer select-none"
             >
-              📧 Send bill to customer
+              📲 Send bill to customer via WhatsApp
             </label>
           </div>
 
           {sendBillToEmail && (
-            <div className="space-y-3 animate-in slide-in-from-top-2">
-              <div>
-                <label className="text-sm font-medium mb-1 block">
-                  Customer Name <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="Enter customer name"
-                  value={customerName}
-                  onChange={(e) => onCustomerNameChange(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">
-                  Mobile Number{" "}
-                  <span className="text-muted-foreground text-xs">
-                    (for room detection)
-                  </span>
-                </label>
-                <Input
-                  type="tel"
-                  placeholder="Enter mobile number"
-                  value={customerMobile}
-                  onChange={(e) => onCustomerMobileChange(e.target.value)}
-                  onBlur={() => {
-                    if (
-                      customerMobile &&
-                      customerMobile.replace(/\D/g, "").length >= 10
-                    ) {
-                      onCheckReservation();
-                    }
-                  }}
-                  className="w-full"
-                />
-                {detectedReservation && (
-                  <div className="mt-2 p-2 bg-green-50 dark:bg-green-950/30 rounded-md border border-green-200 dark:border-green-800 flex items-center gap-2">
-                    <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    <span className="text-sm text-green-700 dark:text-green-300">
-                      Guest detected in {detectedReservation.roomName}
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">
-                  Email Address{" "}
-                  <span className="text-muted-foreground text-xs">
-                    (for email receipt)
-                  </span>
-                </label>
-                <Input
-                  type="email"
-                  placeholder="Enter email address"
-                  value={customerEmail}
-                  onChange={(e) => onCustomerEmailChange(e.target.value)}
-                  className="w-full"
-                />
-              </div>
+            <div className="flex items-center gap-2 animate-in slide-in-from-top-1">
+              <Input
+                type="tel"
+                placeholder="Enter mobile number"
+                value={customerMobile}
+                onChange={(e) => onCustomerMobileChange(e.target.value)}
+                className="flex-1"
+              />
+              {customerMobile && customerMobile.replace(/\D/g, "").length >= 10 && (
+                <span className="text-xs text-green-600 dark:text-green-400 font-medium whitespace-nowrap">
+                  ✓ Ready
+                </span>
+              )}
             </div>
           )}
         </div>

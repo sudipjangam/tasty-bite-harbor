@@ -427,8 +427,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               templateName: "invoice_with_contact",
               amount: formattedAmount,
               billDate: formattedDate,
-              contactNumber: restaurantDetails?.phone || "",
-              billUrl: billUrlSuffix,
+              contactNumber: restaurantDetails?.phone || "N/A",
+              billUrl: billUrlSuffix || "pending",
             },
           });
 

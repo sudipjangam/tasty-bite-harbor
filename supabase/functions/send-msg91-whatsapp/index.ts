@@ -121,47 +121,38 @@ serve(async (req) => {
       for (const [varName, varValue] of Object.entries(namedVars)) {
         components[`body_${varName}`] = {
           type: "text",
-          value: varValue,
+          value: varValue || "-",
           parameter_name: varName,
         };
       }
     } else {
       // Legacy mode: build from individual fields (POS/QSR bill senders)
-      if (customerName) {
-        components.body_customer_name = {
-          type: "text",
-          value: customerName,
-          parameter_name: "customer_name",
-        };
-      }
-      if (restaurantName) {
-        components.body_restaurant_name = {
-          type: "text",
-          value: restaurantName,
-          parameter_name: "restaurant_name",
-        };
-      }
-      if (amount) {
-        components.body_amount = {
-          type: "text",
-          value: amount,
-          parameter_name: "amount",
-        };
-      }
-      if (billDate) {
-        components.body_order_date = {
-          type: "text",
-          value: billDate,
-          parameter_name: "order_date",
-        };
-      }
-      if (contactNumber) {
-        components.body_contact_number = {
-          type: "text",
-          value: contactNumber,
-          parameter_name: "contact_number",
-        };
-      }
+      // MSG91 templates require ALL parameters — always include every field
+      components.body_customer_name = {
+        type: "text",
+        value: customerName || "Customer",
+        parameter_name: "customer_name",
+      };
+      components.body_restaurant_name = {
+        type: "text",
+        value: restaurantName || "Restaurant",
+        parameter_name: "restaurant_name",
+      };
+      components.body_amount = {
+        type: "text",
+        value: amount || "0",
+        parameter_name: "amount",
+      };
+      components.body_order_date = {
+        type: "text",
+        value: billDate || new Date().toLocaleDateString("en-IN"),
+        parameter_name: "order_date",
+      };
+      components.body_contact_number = {
+        type: "text",
+        value: contactNumber || "-",
+        parameter_name: "contact_number",
+      };
     }
 
     // Buttons — new style array or legacy billUrl
@@ -173,11 +164,11 @@ serve(async (req) => {
           value: btn.value,
         };
       });
-    } else if (billUrl) {
+    } else if (billUrl || templateName === "invoice_with_contact") {
       components.button_1 = {
         subtype: "url",
         type: "text",
-        value: billUrl,
+        value: billUrl || "pending",
       };
     }
 

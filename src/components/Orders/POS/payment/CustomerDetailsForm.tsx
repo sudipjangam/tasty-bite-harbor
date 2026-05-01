@@ -20,77 +20,26 @@ interface CustomerDetailsFormProps {
 }
 
 const CustomerDetailsForm = ({
-  customerName,
-  customerMobile,
-  customerEmail,
   sendBillToEmail,
-  onNameChange,
-  onMobileChange,
-  onEmailChange,
   onSendBillToggle,
 }: CustomerDetailsFormProps) => {
   return (
-    <div className="space-y-4">
-      {/* Toggle for enabling customer details */}
-      <div className="flex items-center space-x-2">
-        <Checkbox
-          id="sendBillToEmail"
-          checked={sendBillToEmail}
-          onCheckedChange={(checked) => onSendBillToggle(checked as boolean)}
-        />
-        <Label
-          htmlFor="sendBillToEmail"
-          className="text-sm font-medium cursor-pointer"
-        >
-          Save Customer Details & Send Bill
-        </Label>
-      </div>
-
-      {/* Customer details form (shown when toggle is enabled) */}
+    <div className="flex items-center space-x-3">
+      <Checkbox
+        id="sendBillToEmail"
+        checked={sendBillToEmail}
+        onCheckedChange={(checked) => onSendBillToggle(checked as boolean)}
+      />
+      <Label
+        htmlFor="sendBillToEmail"
+        className="text-sm font-medium cursor-pointer select-none"
+      >
+        📲 Send bill to customer
+      </Label>
       {sendBillToEmail && (
-        <div className="space-y-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-          <div className="space-y-1">
-            <Label htmlFor="customerName" className="text-sm">
-              Customer Name <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="customerName"
-              value={customerName}
-              onChange={(e) => onNameChange(e.target.value)}
-              placeholder="Enter customer name"
-              className="bg-white dark:bg-gray-900"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="customerMobile" className="text-sm">
-              Mobile Number
-            </Label>
-            <Input
-              id="customerMobile"
-              value={customerMobile}
-              onChange={(e) => onMobileChange(handlePhoneInput(e.target.value))}
-              placeholder="10-digit mobile number"
-              type="tel"
-              className="bg-white dark:bg-gray-900"
-              maxLength={10}
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="customerEmail" className="text-sm">
-              Email Address (optional)
-            </Label>
-            <Input
-              id="customerEmail"
-              value={customerEmail}
-              onChange={(e) => onEmailChange(e.target.value)}
-              placeholder="Enter email address"
-              type="email"
-              className="bg-white dark:bg-gray-900"
-            />
-          </div>
-        </div>
+        <span className="text-xs text-green-600 dark:text-green-400 font-medium ml-auto">
+          ✓ Will send after payment
+        </span>
       )}
     </div>
   );
