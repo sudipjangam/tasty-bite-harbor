@@ -1412,8 +1412,8 @@ const PaymentDialog = ({
             templateName: "invoice_with_contact",
             amount: formattedAmount,
             billDate: formattedDate,
-            contactNumber: restaurantInfo?.phone || "",
-            billUrl: billUrlSuffix,
+            contactNumber: restaurantInfo?.phone || "N/A",
+            billUrl: billUrlSuffix || "pending",
           },
         });
 
@@ -2906,125 +2906,39 @@ const PaymentDialog = ({
             </AlertDialogContent>
           </AlertDialog>
 
-          {/* Send Bill via Email Checkbox and Inputs */}
+          {/* Send Bill Checkbox + Mobile Input */}
           <Card className="p-4 bg-muted/30 border-2 border-primary/20">
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
                 <input
                   type="checkbox"
                   id="send-bill-checkbox"
                   checked={sendBillToEmail}
                   onChange={(e) => setSendBillToEmail(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer"
                 />
                 <label
                   htmlFor="send-bill-checkbox"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  className="text-sm font-medium leading-none cursor-pointer select-none"
                 >
-                  📧 Send bill to customer
+                  📲 Send bill to customer via WhatsApp
                 </label>
               </div>
 
               {sendBillToEmail && (
-                <div className="space-y-3 animate-in slide-in-from-top-2">
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">
-                      Customer Name <span className="text-red-500">*</span>
-                    </label>
-                    <Input
-                      placeholder="Enter customer name"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      className="w-full"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">
-                      Mobile Number{" "}
-                      <span className="text-muted-foreground text-xs">
-                        (for room detection)
-                      </span>
-                    </label>
-                    <Input
-                      type="tel"
-                      placeholder="Enter mobile number"
-                      value={customerMobile}
-                      onChange={(e) => setCustomerMobile(e.target.value)}
-                      onBlur={() => {
-                        if (
-                          customerMobile &&
-                          customerMobile.replace(/\D/g, "").length >= 10
-                        ) {
-                          checkForActiveReservation();
-                        }
-                      }}
-                      className="w-full"
-                    />
-                    {detectedReservation && (
-                      <div className="mt-2 p-2 bg-green-50 dark:bg-green-950/30 rounded-md border border-green-200 dark:border-green-800 flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
-                        <span className="text-sm text-green-700 dark:text-green-300">
-                          Guest detected in {detectedReservation.roomName}
-                        </span>
-                      </div>
-                    )}
-                    {/* WhatsApp Checkbox - show if mobile is entered */}
-                    {customerMobile && customerMobile.length >= 10 && (
-                      <div className="flex items-center space-x-2 pt-2">
-                        <input
-                          type="checkbox"
-                          id="send-whatsapp-checkbox"
-                          checked={sendBillToMobile}
-                          onChange={(e) =>
-                            setSendBillToMobile(e.target.checked)
-                          }
-                          className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                        />
-                        <label
-                          htmlFor="send-whatsapp-checkbox"
-                          className="text-sm font-medium leading-none cursor-pointer text-green-700 dark:text-green-400"
-                        >
-                          📱 Send bill via WhatsApp to {customerMobile}
-                        </label>
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">
-                      Email Address{" "}
-                      <span className="text-muted-foreground text-xs">
-                        (for email receipt)
-                      </span>
-                    </label>
-                    <Input
-                      type="email"
-                      placeholder="Enter email address"
-                      value={customerEmail}
-                      onChange={(e) => setCustomerEmail(e.target.value)}
-                      className="w-full"
-                    />
-                    {/* Email Checkbox - show if valid email is entered */}
-                    {customerEmail &&
-                      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail) && (
-                        <div className="flex items-center space-x-2 pt-2">
-                          <input
-                            type="checkbox"
-                            id="send-email-checkbox"
-                            checked={sendBillToEmail}
-                            onChange={(e) =>
-                              setSendBillToEmail(e.target.checked)
-                            }
-                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <label
-                            htmlFor="send-email-checkbox"
-                            className="text-sm font-medium leading-none cursor-pointer text-blue-700 dark:text-blue-400"
-                          >
-                            📧 Send bill via Email to {customerEmail}
-                          </label>
-                        </div>
-                      )}
-                  </div>
+                <div className="flex items-center gap-2 animate-in slide-in-from-top-1">
+                  <Input
+                    type="tel"
+                    placeholder="Enter mobile number"
+                    value={customerMobile}
+                    onChange={(e) => setCustomerMobile(e.target.value)}
+                    className="flex-1"
+                  />
+                  {customerMobile && customerMobile.replace(/\D/g, "").length >= 10 && (
+                    <span className="text-xs text-green-600 dark:text-green-400 font-medium whitespace-nowrap">
+                      ✓ Ready
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -3477,37 +3391,29 @@ const PaymentDialog = ({
   );
 
   const renderSuccessStep = () => (
-    <div className="space-y-6 text-center py-8 p-4">
+    <div className="flex flex-col items-center justify-center py-8 px-6">
       {/* Animated Success Icon */}
-      <div className="flex justify-center">
-        <div className="relative">
-          {/* Pulsing ring animation */}
-          <div className="absolute inset-0 w-24 h-24 bg-gradient-to-r from-green-400 to-emerald-400 rounded-full animate-ping opacity-25"></div>
-          <div className="relative w-24 h-24 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center shadow-xl shadow-green-300/50">
-            <Check
-              className="w-14 h-14 text-white drop-shadow-sm"
-              strokeWidth={3}
-            />
-          </div>
+      <div className="relative mb-4">
+        <div className="absolute inset-0 w-20 h-20 bg-gradient-to-r from-green-400 to-emerald-400 rounded-full animate-ping opacity-25"></div>
+        <div className="relative w-20 h-20 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center shadow-xl shadow-green-300/50">
+          <Check className="w-12 h-12 text-white drop-shadow-sm" strokeWidth={3} />
         </div>
       </div>
 
       {/* Success Message */}
-      <div className="space-y-2">
-        <h2 className="text-3xl font-extrabold bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent">
-          Payment Successful!
-        </h2>
-        <p className="text-gray-600 dark:text-gray-400">
-          The order for{" "}
-          <span className="font-semibold text-gray-800 dark:text-white">
-            {tableNumber ? `Table ${tableNumber}` : "POS"}
-          </span>{" "}
-          is now complete.
-        </p>
-      </div>
+      <h2 className="text-2xl font-extrabold bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent mb-1">
+        Payment Successful!
+      </h2>
+      <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
+        The order for{" "}
+        <span className="font-semibold text-gray-800 dark:text-white">
+          {tableNumber ? `Table ${tableNumber}` : "POS"}
+        </span>{" "}
+        is now complete.
+      </p>
 
-      {/* Action Buttons */}
-      <div className="space-y-3 pt-4">
+      {/* Simple Action Buttons */}
+      <div className="w-full max-w-sm space-y-3">
         <Button
           onClick={onClose}
           className="w-full bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-green-300/50 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
@@ -3525,123 +3431,27 @@ const PaymentDialog = ({
           Print Bill
         </Button>
 
-        {/* MSG91 WhatsApp Bill (automated — sends via API, no browser needed) */}
+        {/* Send Bill via WhatsApp (MSG91 API — automated, no browser needed) */}
         {customerMobile && (
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-3">
-            <Button
-              onClick={handleSendWhatsAppBill}
-              disabled={isSendingWhatsAppBill}
-              className="w-full h-12 bg-[#25D366] hover:bg-[#1DA851] text-white font-semibold text-sm rounded-xl shadow-md transition-all duration-300 hover:shadow-lg hover:scale-[1.02] active:scale-95"
-            >
-              <MessageSquare className="w-4 h-4 mr-2" />
-              {isSendingWhatsAppBill
-                ? "Sending via WhatsApp..."
-                : "Send Bill via WhatsApp"}
-            </Button>
-            <p className="text-xs text-muted-foreground mt-1 text-center">
-              📲 Sends bill with amount, date & invoice link automatically
-            </p>
-          </div>
+          <Button
+            onClick={handleSendWhatsAppBill}
+            disabled={isSendingWhatsAppBill}
+            className="w-full h-11 bg-[#25D366] hover:bg-[#1DA851] text-white font-semibold text-sm rounded-xl shadow-md transition-all duration-300 hover:shadow-lg hover:scale-[1.02] active:scale-95"
+          >
+            <MessageSquare className="w-4 h-4 mr-2" />
+            {isSendingWhatsAppBill ? "Sending via WhatsApp..." : "Send Bill via WhatsApp"}
+          </Button>
         )}
 
-        {/* Share Bill Section — FREE (no API keys, works for all restaurants) */}
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-3">
-          <p className="text-sm text-muted-foreground mb-2 font-medium">
-            {isMobileDevice ? "Share Bill" : "💻 Share Bill from Desktop"}
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {/* WhatsApp Share — works on both mobile (WhatsApp app) and desktop (WhatsApp Web) */}
-            <Button
-              variant="outline"
-              onClick={handleShareWhatsApp}
-              disabled={!customerMobile}
-              className="border-2 border-green-200 dark:border-green-800 hover:border-green-400 dark:hover:border-green-600 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 dark:hover:from-green-900/20 dark:hover:to-emerald-900/20 transition-all duration-300 text-green-700 dark:text-green-400"
-            >
-              <MessageSquare className="w-4 h-4 mr-1.5" />
-              {isMobileDevice ? "WhatsApp" : "WhatsApp Web"}
-            </Button>
-
-            {/* Mobile: SMS button | Desktop: Email button */}
-            {isMobileDevice ? (
-              <Button
-                variant="outline"
-                onClick={handleShareSms}
-                disabled={!customerMobile}
-                className="border-2 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 transition-all duration-300 text-blue-700 dark:text-blue-400"
-              >
-                <Smartphone className="w-4 h-4 mr-1.5" />
-                SMS
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                onClick={handleShareEmail}
-                className="border-2 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 transition-all duration-300 text-blue-700 dark:text-blue-400"
-              >
-                <Mail className="w-4 h-4 mr-1.5" />
-                Email
-              </Button>
-            )}
-
-            {/* Generic Share / Copy */}
-            <Button
-              variant="outline"
-              onClick={handleShareGeneric}
-              className="col-span-2 border-2 border-purple-200 dark:border-purple-800 hover:border-purple-400 dark:hover:border-purple-600 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 dark:hover:from-purple-900/20 dark:hover:to-pink-900/20 transition-all duration-300 text-purple-700 dark:text-purple-400"
-            >
-              {isWebShareSupported ? (
-                <>
-                  <Share2 className="w-4 h-4 mr-1.5" /> Share via App
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4 mr-1.5" /> Copy Bill Text
-                </>
-              )}
-            </Button>
-          </div>
-
-          {/* ⭐ Share Bill Link — Premium (sends short link to beautiful bill page) */}
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-2">
-            <p className="text-sm text-muted-foreground mb-2 font-medium">
-              ⭐ Share Bill Link
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                onClick={handleShareBillLink}
-                disabled={!customerMobile}
-                className="border-2 border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 dark:hover:from-amber-900/20 dark:hover:to-orange-900/20 transition-all duration-300 text-amber-700 dark:text-amber-400"
-              >
-                <Link className="w-4 h-4 mr-1.5" />
-                {isMobileDevice ? "WhatsApp Link" : "WhatsApp Web Link"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleCopyBillLink}
-                className="border-2 border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 hover:bg-gradient-to-r hover:from-gray-50 hover:to-slate-50 dark:hover:from-gray-900/20 dark:hover:to-slate-900/20 transition-all duration-300 text-gray-700 dark:text-gray-400"
-              >
-                <Copy className="w-4 h-4 mr-1.5" />
-                Copy Link
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1.5">
-              📎 Sends a short link to a premium bill page instead of full text
-            </p>
-          </div>
-          {!customerMobile && (
-            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-              💡 Add customer mobile number to enable WhatsApp{" "}
-              {isMobileDevice ? "& SMS" : "Web"} sharing
-            </p>
-          )}
-          {!isMobileDevice && (
-            <p className="text-xs text-muted-foreground mt-1.5">
-              📌 WhatsApp Web opens in browser. Make sure you're logged in at
-              web.whatsapp.com
-            </p>
-          )}
-        </div>
+        {/* Free Share (wa.me link or clipboard) */}
+        <Button
+          variant="outline"
+          onClick={customerMobile ? handleShareWhatsApp : handleShareGeneric}
+          className="w-full h-11 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl font-semibold text-sm transition-all active:scale-95"
+        >
+          <Share2 className="w-4 h-4 mr-2" />
+          {customerMobile ? "Share Text Bill (Free)" : "Copy Bill Text"}
+        </Button>
       </div>
     </div>
   );
