@@ -254,10 +254,11 @@ export const useWhatsAppCampaigns = () => {
         }
 
         const { data, error } = await supabase.functions.invoke(
-          "send-msg91-whatsapp",
+          "send-whatsapp-unified",
           {
             body: {
               phoneNumber: customer.phone,
+              restaurantId,
               templateName: useTemplate,
               variables,
               buttons: buttons.length > 0 ? buttons : undefined,
