@@ -1,7 +1,8 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RestaurantManagement } from "./RestaurantManagement";
 import { GlobalUserManagement } from "./GlobalUserManagement";
-import { Building2, Users } from "lucide-react";
+import { WhatsAppProviderAdmin } from "./WhatsAppProviderAdmin";
+import { Building2, Users, MessageCircle } from "lucide-react";
 
 export const AdminDashboard = () => {
   return (
@@ -15,6 +16,10 @@ export const AdminDashboard = () => {
           <Users className="h-4 w-4" />
           <span>Users</span>
         </TabsTrigger>
+        <TabsTrigger value="whatsapp" className="space-x-2">
+          <MessageCircle className="h-4 w-4" />
+          <span>WhatsApp</span>
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="restaurants" className="space-y-4">
@@ -23,6 +28,10 @@ export const AdminDashboard = () => {
 
       <TabsContent value="users" className="space-y-4">
         <GlobalUserManagement />
+      </TabsContent>
+
+      <TabsContent value="whatsapp" className="space-y-4">
+        <WhatsAppProviderAdmin />
       </TabsContent>
     </Tabs>
   );
