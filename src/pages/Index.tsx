@@ -273,7 +273,7 @@ const Index = () => {
                 Business Overview
               </h2>
               <p className="text-gray-500 dark:text-gray-400 text-sm">
-                Key performance metrics for today
+                Key performance metrics • Last 30 days
               </p>
             </div>
           </div>

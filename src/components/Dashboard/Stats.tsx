@@ -185,7 +185,7 @@ const Stats = () => {
 
   const stats = [
     {
-      title: "Total Sales",
+      title: "Total Sales (30d)",
       value: formatIndianCurrency(totalSales).formatted,
       icon: DollarSign,
       trend: salesTrend,
@@ -208,7 +208,7 @@ const Stats = () => {
       data: activeOrdersList,
     },
     {
-      title: "Customers",
+      title: "Customers (30d)",
       value: uniqueCustomers.toString(),
       icon: Users,
       trend: customersTrend,
