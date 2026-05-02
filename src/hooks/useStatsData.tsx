@@ -28,8 +28,6 @@ export const useStatsData = () => {
         .from("orders")
         .select("*")
         .eq("restaurant_id", restaurantId)
-        .eq("status", "completed")
-        .neq("order_type", "non-chargeable")
         .gte("created_at", thirtyDaysAgo);
 
       if (error) throw error;

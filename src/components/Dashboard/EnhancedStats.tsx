@@ -31,8 +31,7 @@ export const EnhancedStats = () => {
     (sum, item) => sum + (item.total || 0),
     0
   );
-  const activeOrders =
-    orders.filter((order) => order.status === "pending").length || 0;
+  const totalOrders = completedRevenue.length;
   const uniqueCustomers =
     orders.length > 0
       ? new Set(orders.map((order) => order.customer_name).filter(Boolean)).size
@@ -161,31 +160,31 @@ export const EnhancedStats = () => {
       {/* KPI Widgets */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPIWidget
-          title="Total Revenue"
+          title="Total Sales (30d)"
           value={<CurrencyDisplay amount={totalSales} />}
           change={12.5}
           trend="up"
           icon={DollarSign}
-          subtitle="Last 30 days"
+          subtitle="Last 30 days revenue"
           loading={isLoading}
         />
         <KPIWidget
-          title="Active Orders"
-          value={activeOrders}
+          title="Orders (30d)"
+          value={totalOrders}
           change={3}
           changeType="absolute"
           trend="up"
           icon={ShoppingBag}
-          subtitle="Currently pending"
+          subtitle="Total orders last 30 days"
           loading={isLoading}
         />
         <KPIWidget
-          title="Customers"
+          title="Customers (30d)"
           value={uniqueCustomers}
           change={8.3}
           trend="up"
           icon={Users}
-          subtitle="Unique customers"
+          subtitle="Unique customers last 30 days"
           loading={isLoading}
         />
         <KPIWidget
