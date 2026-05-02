@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   Shield,
+  MessageCircle,
 } from "lucide-react";
 
 interface NavItem {
@@ -62,6 +63,12 @@ const navItems: NavItem[] = [
     href: "/platform/templates",
     icon: ShieldCheck,
     description: "WhatsApp templates",
+  },
+  {
+    title: "WhatsApp",
+    href: "/platform/whatsapp",
+    icon: MessageCircle,
+    description: "API provider config",
   },
   {
     title: "Analytics",
