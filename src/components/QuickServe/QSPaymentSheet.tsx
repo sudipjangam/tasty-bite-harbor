@@ -418,10 +418,11 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             ? "91" + customerPhone.replace(/[\+\-\s]/g, "")
             : customerPhone.replace(/[\+\-\s]/g, "");
 
-        const { data: msg91Response, error: msg91Error } =
-          await supabase.functions.invoke("send-msg91-whatsapp", {
+        const { data: waResponse, error: waError } =
+          await supabase.functions.invoke("send-whatsapp-unified", {
             body: {
               phoneNumber: phoneWithCountryCode,
+              restaurantId,
               customerName: customerName || "Customer",
               restaurantName: restaurantNameForMsg,
               templateName: "invoice_with_contact",
@@ -432,9 +433,9 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             },
           });
 
-        if (msg91Error || !msg91Response.success) {
+        if (waError || !waResponse.success) {
           throw new Error(
-            msg91Error?.message || msg91Response?.error || "MSG91 API failure",
+            waError?.message || waResponse?.error || "WhatsApp API failure",
           );
         }
 

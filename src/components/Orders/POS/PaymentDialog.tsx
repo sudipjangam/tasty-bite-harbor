@@ -1379,7 +1379,7 @@ const PaymentDialog = ({
     }
   }, [currentBillParams, getBillUrl, toast]);
 
-  // Send bill via MSG91 WhatsApp API (automated — text-only template with amount, date & URL)
+  // Send bill via WhatsApp API (automated — routes via unified gateway based on restaurant settings)
   const handleSendWhatsAppBill = useCallback(async () => {
     if (!customerMobile || !restaurantInfo) return;
     setIsSendingWhatsAppBill(true);
@@ -1398,15 +1398,16 @@ const PaymentDialog = ({
       const now = new Date();
       const formattedDate = `${now.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })} ${now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
 
-      // 3. Call MSG91 edge function (text-only template)
+      // 3. Call unified WhatsApp edge function
       const cleanPhone = customerMobile.replace(/[\+\-\s]/g, "");
       const phoneWithCountryCode =
         cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone;
 
-      const { data: msg91Response, error: msg91Error } =
-        await supabase.functions.invoke("send-msg91-whatsapp", {
+      const { data: waResponse, error: waError } =
+        await supabase.functions.invoke("send-whatsapp-unified", {
           body: {
             phoneNumber: phoneWithCountryCode,
+            restaurantId: restaurantInfo?.id,
             customerName: customerName || "Customer",
             restaurantName,
             templateName: "invoice_with_contact",
@@ -1417,9 +1418,9 @@ const PaymentDialog = ({
           },
         });
 
-      if (msg91Error || !msg91Response?.success) {
+      if (waError || !waResponse?.success) {
         throw new Error(
-          msg91Error?.message || msg91Response?.error || "MSG91 API failure",
+          waError?.message || waResponse?.error || "WhatsApp API failure",
         );
       }
 

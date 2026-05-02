@@ -534,9 +534,10 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
               ? "91" + reservation.customer_phone.replace(/[\+\-\s]/g, "")
               : reservation.customer_phone.replace(/[\+\-\s]/g, "");
 
-          const { data: msg91Response, error: msg91Error } = await supabase.functions.invoke("send-msg91-whatsapp", {
+          const { data: waResponse, error: waError } = await supabase.functions.invoke("send-whatsapp-unified", {
             body: {
               phoneNumber: phoneWithCountryCode,
+              restaurantId: room.restaurant_id,
               templateName: "room_checkout_invoice",
               variables: {
                 customer_name: reservation.customer_name || "Guest",
@@ -549,8 +550,8 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
             }
           });
 
-          if (msg91Error || !msg91Response?.success) {
-            console.error("Failed to auto-send WhatsApp:", msg91Error || msg91Response?.error);
+          if (waError || !waResponse?.success) {
+            console.error("Failed to auto-send WhatsApp:", waError || waResponse?.error);
           } else {
             await supabase.from("room_billings").update({ whatsapp_sent: true }).eq("id", billingData.id);
             isWhatsAppSent = true;

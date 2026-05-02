@@ -598,10 +598,11 @@ const PurchaseOrders = () => {
 
       const poText = buildPOMessage(order);
 
-      const { data: msg91Response, error: msg91Error } =
-        await supabase.functions.invoke("send-msg91-whatsapp", {
+      const { data: waResponse, error: waError } =
+        await supabase.functions.invoke("send-whatsapp-unified", {
           body: {
             phoneNumber: cleanPhone,
+            restaurantId,
             templateName: "purchase_order_notification",
             variables: {
               supplier_name: order.supplier?.contact_person || order.supplier?.name || "Supplier",
@@ -618,9 +619,9 @@ const PurchaseOrders = () => {
           },
         });
 
-      if (msg91Error || !msg91Response?.success) {
+      if (waError || !waResponse?.success) {
         // Fallback to wa.me if MSG91 template not approved yet
-        console.warn("MSG91 failed, falling back to wa.me:", msg91Error || msg91Response?.error);
+        console.warn("API failed, falling back to wa.me:", waError || waResponse?.error);
         const url = generateSupplierWhatsAppUrl(supplierPhone, poText);
         window.open(url, "_blank", "noopener,noreferrer");
         toast({
