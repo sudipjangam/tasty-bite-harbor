@@ -171,7 +171,6 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   const { getBillUrl } = useBillSharing();
 
   const restaurantName = restaurantDetails?.name || "Restaurant";
-  console.log("Restaurant Name log :", restaurantDetails);
 
   // Fetch payment settings for UPI ID
   const { data: paymentSettings } = useQuery({
@@ -227,8 +226,6 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       const qrContent =
         upiLink ||
         `Pay ${currencySymbol}${subtotal.toFixed(2)} to ${restaurantName}`;
-
-      console.log("🔍 QR Content:", qrContent);
 
       QRCodeLib.toDataURL(qrContent, {
         width: 300,
