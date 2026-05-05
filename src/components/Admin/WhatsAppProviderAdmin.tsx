@@ -10,12 +10,10 @@ import { MessageCircle, Shield, Loader2, Check, Eye, EyeOff, AlertTriangle } fro
 
 /**
  * Platform-wide WhatsApp Provider configuration.
- * Stores settings in a global row (restaurant_id = 'global') in restaurant_settings.
- * The unified edge function reads this when no per-restaurant override exists.
+ * Stores in `platform_config` table (key = 'whatsapp') — no FK to restaurants.
  */
 export function WhatsAppProviderAdmin() {
   const { toast } = useToast();
-  const GLOBAL_KEY = 'global';
 
   const [whatsappProvider, setWhatsappProvider] = useState<string>('msg91');
   const [metaPhoneNumberId, setMetaPhoneNumberId] = useState('');
@@ -26,24 +24,25 @@ export function WhatsAppProviderAdmin() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadGlobalSettings();
+    loadConfig();
   }, []);
 
-  const loadGlobalSettings = async () => {
+  const loadConfig = async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from('restaurant_settings')
-        .select('whatsapp_provider, whatsapp_meta_config')
-        .eq('restaurant_id', GLOBAL_KEY)
+        .from('platform_config' as any)
+        .select('value')
+        .eq('key', 'whatsapp')
         .maybeSingle();
 
       if (!error && data) {
-        setWhatsappProvider((data as any).whatsapp_provider || 'msg91');
-        const metaCfg = (data as any).whatsapp_meta_config || {};
-        setMetaPhoneNumberId(metaCfg.phone_number_id || '');
-        setMetaAccessToken(metaCfg.access_token || '');
-        setMetaBusinessId(metaCfg.business_account_id || '');
+        const val = (data as any).value || {};
+        setWhatsappProvider(val.provider || 'msg91');
+        const meta = val.meta_config || {};
+        setMetaPhoneNumberId(meta.phone_number_id || '');
+        setMetaAccessToken(meta.access_token || '');
+        setMetaBusinessId(meta.business_account_id || '');
       }
     } finally {
       setIsLoading(false);
@@ -53,22 +52,26 @@ export function WhatsAppProviderAdmin() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      const configValue = {
+        provider: whatsappProvider,
+        meta_config: {
+          phone_number_id: metaPhoneNumberId.trim(),
+          access_token: metaAccessToken.trim(),
+          business_account_id: metaBusinessId.trim(),
+        },
+      };
+
       const { error } = await supabase
-        .from('restaurant_settings')
-        .upsert({
-          restaurant_id: GLOBAL_KEY,
-          whatsapp_provider: whatsappProvider,
-          whatsapp_meta_config: {
-            phone_number_id: metaPhoneNumberId.trim(),
-            access_token: metaAccessToken.trim(),
-            business_account_id: metaBusinessId.trim(),
-          },
-        } as any, { onConflict: 'restaurant_id' });
+        .from('platform_config' as any)
+        .upsert(
+          { key: 'whatsapp', value: configValue, updated_at: new Date().toISOString() } as any,
+          { onConflict: 'key' }
+        );
 
       if (error) throw error;
       toast({
         title: 'Saved',
-        description: `Platform WhatsApp provider set to ${whatsappProvider === 'meta_cloud' ? 'Meta Cloud API (Free)' : 'MSG91'}`,
+        description: `WhatsApp provider set to ${whatsappProvider === 'meta_cloud' ? 'Meta Cloud API (Free)' : 'MSG91'}`,
       });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message || 'Failed to save', variant: 'destructive' });
