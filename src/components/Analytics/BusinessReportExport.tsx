@@ -2,12 +2,12 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { FileDown, FileText, FileSpreadsheet } from "lucide-react";
-import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import { useToast } from "@/components/ui/use-toast";
 import Watermark from "@/components/Layout/Watermark";
+import { generateBrandedMultiSheetExcel } from "@/utils/exportUtils";
 
 interface BusinessReportData {
   expenseData: Array<{
@@ -46,59 +46,52 @@ const BusinessReportExport: React.FC<BusinessReportExportProps> = ({
 }) => {
   const { toast } = useToast();
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     try {
-      // Create workbook and worksheets
-      const workbook = XLSX.utils.book_new();
-      
-      // Expense data worksheet
-      const expenseWorksheet = XLSX.utils.json_to_sheet(
-        data.expenseData.map(item => ({
-          "Category": item.name,
-          "Amount (₹)": item.value,
-          "Percentage": `${item.percentage}%`
-        }))
-      );
-      XLSX.utils.book_append_sheet(workbook, expenseWorksheet, "Expenses");
-      
-      // Peak hours worksheet
-      const peakHoursWorksheet = XLSX.utils.json_to_sheet(
-        data.peakHoursData.map(item => ({
-          "Hour": item.hour,
-          "Customer Count": item.customers
-        }))
-      );
-      XLSX.utils.book_append_sheet(workbook, peakHoursWorksheet, "Peak Hours");
-      
-      // Promotions worksheet
-      const promotionsWorksheet = XLSX.utils.json_to_sheet(
-        data.promotionalData.map(item => ({
-          "Promotion": item.name,
-          "Time Period": item.timePeriod,
-          "Potential Increase": item.potentialIncrease,
-          "Status": item.status
-        }))
-      );
-      XLSX.utils.book_append_sheet(workbook, promotionsWorksheet, "Promotions");
-      
-      // Insights worksheet
-      const insightsWorksheet = XLSX.utils.json_to_sheet(
-        data.insights.map(item => ({
-          "Category": item.type,
-          "Title": item.title,
-          "Details": item.message
-        }))
-      );
-      XLSX.utils.book_append_sheet(workbook, insightsWorksheet, "Insights");
-      
-      // Generate filename with date
-      const fileName = `${title.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
-      
-      XLSX.writeFile(workbook, fileName);
-      
+      const sheets = [
+        {
+          name: "Expenses",
+          data: data.expenseData as any[],
+          columns: [
+            { key: "name", header: "Category" },
+            { key: "value", header: "Amount (₹)" },
+            { key: "percentage", header: "Percentage %" },
+          ],
+        },
+        {
+          name: "Peak Hours",
+          data: data.peakHoursData as any[],
+          columns: [
+            { key: "hour", header: "Hour" },
+            { key: "customers", header: "Customer Count" },
+          ],
+        },
+        {
+          name: "Promotions",
+          data: data.promotionalData as any[],
+          columns: [
+            { key: "name", header: "Promotion" },
+            { key: "timePeriod", header: "Time Period" },
+            { key: "potentialIncrease", header: "Potential Increase" },
+            { key: "status", header: "Status" },
+          ],
+        },
+        {
+          name: "Insights",
+          data: data.insights as any[],
+          columns: [
+            { key: "type", header: "Category" },
+            { key: "title", header: "Title" },
+            { key: "message", header: "Details" },
+          ],
+        },
+      ];
+
+      await generateBrandedMultiSheetExcel(sheets, { title });
+
       toast({
         title: "Excel Export Successful",
-        description: `Report saved as ${fileName}`,
+        description: `Branded report exported`,
       });
     } catch (error) {
       console.error("Error exporting to Excel:", error);

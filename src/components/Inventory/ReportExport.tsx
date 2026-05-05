@@ -2,13 +2,13 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { FileDown, FileText, FileSpreadsheet } from "lucide-react";
-import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import { useToast } from "@/components/ui/use-toast";
 import Watermark from "@/components/Layout/Watermark";
 import { useCurrencyContext } from '@/contexts/CurrencyContext';
+import { generateBrandedDataExcel } from "@/utils/exportUtils";
 
 type InventoryItem = {
   id: string;
@@ -30,32 +30,39 @@ const ReportExport: React.FC<ReportExportProps> = ({ items, title = "Inventory R
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     try {
-      const worksheet = XLSX.utils.json_to_sheet(
-        items.map(item => ({
-          "Item Name": item.name,
-          "Category": item.category,
-          "Quantity": item.quantity,
-          "Unit": item.unit,
-          "Reorder Level": item.reorder_level || "N/A",
-          "Cost Per Unit": item.cost_per_unit ? `${currencySymbol}${item.cost_per_unit}` : "N/A",
-          "Total Value": item.cost_per_unit ? `${currencySymbol}${(item.quantity * item.cost_per_unit).toFixed(2)}` : "N/A",
-          "Status": item.reorder_level && item.quantity <= item.reorder_level ? "Low Stock" : "In Stock"
-        }))
-      );
-      
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory");
-      
-      // Generate filename with date
-      const fileName = `${title.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
-      
-      XLSX.writeFile(workbook, fileName);
-      
+      const data = items.map(item => ({
+        name: item.name,
+        category: item.category,
+        quantity: item.quantity,
+        unit: item.unit,
+        reorder_level: item.reorder_level || 0,
+        cost_per_unit: item.cost_per_unit || 0,
+        total_value: item.cost_per_unit ? item.quantity * item.cost_per_unit : 0,
+        status: item.reorder_level && item.quantity <= item.reorder_level ? "Low Stock" : "In Stock"
+      }));
+
+      const columns = [
+        { key: "name", header: "Item Name" },
+        { key: "category", header: "Category" },
+        { key: "quantity", header: "Quantity" },
+        { key: "unit", header: "Unit" },
+        { key: "reorder_level", header: "Reorder Level" },
+        { key: "cost_per_unit", header: "Cost Per Unit" },
+        { key: "total_value", header: "Total Value" },
+        { key: "status", header: "Status" },
+      ];
+
+      await generateBrandedDataExcel(data as any, columns, {
+        title,
+        sheetName: "Inventory",
+        reportType: "Inventory Stock Report",
+      });
+
       toast({
         title: "Excel Export Successful",
-        description: `Report saved as ${fileName}`,
+        description: `Branded report exported`,
       });
     } catch (error) {
       console.error("Error exporting to Excel:", error);

@@ -64,8 +64,11 @@ const AdvancedAnalytics = () => {
           .lte('created_at', `${endDate}T23:59:59`)
       ]);
 
-      const orders = ordersResult.data || [];
+      const allOrders = ordersResult.data || [];
       const customers = customersResult.data || [];
+
+      // Filter out non-chargeable orders for accurate revenue
+      const orders = allOrders.filter((o: any) => o.order_type !== 'non-chargeable');
 
       // Calculate KPIs
       const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
@@ -74,13 +77,15 @@ const AdvancedAnalytics = () => {
       const newCustomers = customers.length;
 
       // Group orders by date for daily revenue chart
-      const dailyRevenueMap: Record<string, number> = {};
+      const dailyRevenueMap: Record<string, { revenue: number; orders: number }> = {};
       orders.forEach(order => {
         const date = order.created_at.split('T')[0];
-        dailyRevenueMap[date] = (dailyRevenueMap[date] || 0) + (order.total || 0);
+        if (!dailyRevenueMap[date]) dailyRevenueMap[date] = { revenue: 0, orders: 0 };
+        dailyRevenueMap[date].revenue += (order.total || 0);
+        dailyRevenueMap[date].orders += 1;
       });
       const dailyRevenue = Object.entries(dailyRevenueMap)
-        .map(([date, amount]) => ({ date, amount }))
+        .map(([date, data]) => ({ date, revenue: data.revenue, orders: data.orders }))
         .sort((a, b) => a.date.localeCompare(b.date));
 
       // Group orders by category (parse items)
@@ -99,8 +104,8 @@ const AdvancedAnalytics = () => {
         }
       });
       const salesByCategory = Object.entries(categoryMap)
-        .map(([name, amount]) => ({ name, amount }))
-        .sort((a, b) => b.amount - a.amount);
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
 
       // Top products
       const productMap: Record<string, { count: number; revenue: number }> = {};
@@ -473,7 +478,7 @@ const AdvancedAnalytics = () => {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="revenue" stroke="#8884d8" strokeWidth={2} />
+                <Line type="monotone" dataKey="revenue" stroke="#8884d8" strokeWidth={2} name="Revenue (₹)" />
               </LineChart>
             </ResponsiveContainer>
           </StandardizedCard>
@@ -488,7 +493,7 @@ const AdvancedAnalytics = () => {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={(entry) => `${entry.name}: ₹${entry.value}`}
+                  label={(entry) => `${entry.name}: ₹${Number(entry.value || 0).toLocaleString()}`}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
