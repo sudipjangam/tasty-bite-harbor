@@ -16,16 +16,12 @@ const NotificationListener: React.FC = () => {
   useEffect(() => {
     // Initialize audio
     audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-    console.log('[NotificationListener] Audio initialized');
   }, []);
 
   useEffect(() => {
     if (!user || !restaurantId) {
-      console.log('[NotificationListener] No user or restaurant ID', { user: !!user, restaurantId });
       return;
     }
-
-    console.log('[NotificationListener] Initializing for user:', user.id);
 
     // Get the staff ID for the current user using profiles table
     const initSubscription = async () => {
@@ -33,17 +29,13 @@ const NotificationListener: React.FC = () => {
       // The staff table doesn't have auth_user_id, so we need to match by other means
       // For now, skip staff ID lookup and subscribe to user-based notifications
       const staffId = user.id; // Use user ID directly for notifications
-      console.log('[NotificationListener] Using user ID for notifications:', staffId);
-      console.log('[NotificationListener] Found staff ID:', staffId);
 
       // Clean up existing channel if any
       if (channelRef.current) {
-        console.log('[NotificationListener] Removing existing channel');
         await supabase.removeChannel(channelRef.current);
       }
 
       // Subscribe to notifications for this staff member
-     console.log('[NotificationListener] Creating realtime channel for staff:', staffId);
       
       const channel = supabase
         .channel(`staff-notifications-${staffId}`)
@@ -56,11 +48,9 @@ const NotificationListener: React.FC = () => {
             filter: `staff_id=eq.${staffId}`,
           },
           (payload) => {
-            console.log('[NotificationListener] Received notification:', payload);
-            
             // Play sound
             if (audioRef.current) {
-              audioRef.current.play().catch(e => console.error('[NotificationListener] Audio play failed:', e));
+              audioRef.current.play().catch(() => {});
             }
 
             // Show toast
@@ -76,9 +66,7 @@ const NotificationListener: React.FC = () => {
             queryClient.invalidateQueries({ queryKey: ['staff-cleaning-tasks'] });
           }
         )
-        .subscribe((status) => {
-          console.log('[NotificationListener] Subscription status:', status);
-        });
+        .subscribe();
 
       channelRef.current = channel;
     };
@@ -87,7 +75,6 @@ const NotificationListener: React.FC = () => {
 
     // Cleanup on unmount
     return () => {
-      console.log('[NotificationListener] Cleaning up subscription');
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
       }
