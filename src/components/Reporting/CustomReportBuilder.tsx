@@ -86,8 +86,15 @@ const CustomReportBuilder: React.FC = () => {
 
     setIsGenerating(true);
 
-    // Wait a bit for queries to complete, then collect reports
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    // Wait for all selected category queries to finish loading
+    const maxWait = 15000;
+    const start = Date.now();
+    while (selectedCategories.some((cat) => isLoadingCategory(cat)) && Date.now() - start < maxWait) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
+    // Small buffer for data to settle
+    await new Promise((resolve) => setTimeout(resolve, 200));
 
     const reports: ReportData[] = [];
     for (const catId of selectedCategories) {

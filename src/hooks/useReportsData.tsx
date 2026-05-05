@@ -659,8 +659,11 @@ export const useReportsData = (dateRange?: DateRange) => {
           "Leave Requests": leaves.length,
         },
         tableData: staff.map((s) => ({
-          ...s,
-          hoursWorked: (hoursByStaff[s.id] || 0).toFixed(1),
+          "Name": `${s.first_name || ''} ${s.last_name || ''}`.trim(),
+          "Role": s.role || '-',
+          "Phone": s.phone || '-',
+          "Email": s.email || '-',
+          "Hours Worked": Number((hoursByStaff[s.id] || 0).toFixed(1)),
         })),
         chartData: staff.map((s) => ({
           name: `${s.first_name} ${s.last_name}`,
@@ -719,10 +722,13 @@ export const useReportsData = (dateRange?: DateRange) => {
         },
         tableData: suppliers
           .map((s) => ({
-            ...s,
-            totalSpent: bySupplier[s.id] || 0,
+            "Name": s.name || '-',
+            "Contact": s.contact_person || '-',
+            "Phone": s.phone || '-',
+            "Email": s.email || '-',
+            "Total Spent": `₹${(bySupplier[s.id] || 0).toFixed(2)}`,
           }))
-          .sort((a, b) => b.totalSpent - a.totalSpent),
+          .sort((a, b) => parseFloat(b["Total Spent"].replace('₹', '')) - parseFloat(a["Total Spent"].replace('₹', ''))),
         chartData: suppliers
           .map((s) => ({ name: s.name, value: bySupplier[s.id] || 0 }))
           .filter((d) => d.value > 0),
@@ -767,7 +773,13 @@ export const useReportsData = (dateRange?: DateRange) => {
           "Expense Count": expenses?.length || 0,
           Categories: Object.keys(byCategory).length,
         },
-        tableData: expenses || [],
+        tableData: (expenses || []).map((e) => ({
+          "Description": e.description || '-',
+          "Category": e.category || '-',
+          "Amount": `₹${(e.amount || 0).toFixed(2)}`,
+          "Date": e.expense_date || '-',
+          "Payment Method": e.payment_method || '-',
+        })),
         chartData: Object.entries(byCategory).map(([name, value]) => ({
           name,
           value,
@@ -819,7 +831,13 @@ export const useReportsData = (dateRange?: DateRange) => {
           Reservations: reservations.length,
           Revenue: `₹${totalRevenue.toFixed(2)}`,
         },
-        tableData: rooms,
+        tableData: rooms.map((r) => ({
+          "Room Name": r.name || '-',
+          "Type": r.room_type || '-',
+          "Status": r.status || '-',
+          "Floor": r.floor || '-',
+          "Base Price": `₹${(r.base_price || 0).toFixed(2)}`,
+        })),
         chartData: rooms.map((r) => ({
           name: r.name,
           value: r.base_price || 0,
@@ -860,7 +878,13 @@ export const useReportsData = (dateRange?: DateRange) => {
           "Avg Food Cost %": `${avgFoodCost.toFixed(1)}%`,
           "Avg Margin %": `${avgMargin.toFixed(1)}%`,
         },
-        tableData: recipes || [],
+        tableData: (recipes || []).map((r) => ({
+          "Name": r.name || '-',
+          "Category": r.category || '-',
+          "Selling Price": `₹${(r.selling_price || 0).toFixed(2)}`,
+          "Food Cost %": `${(r.food_cost_percentage || 0).toFixed(1)}%`,
+          "Margin %": `${(r.margin_percentage || 0).toFixed(1)}%`,
+        })),
         chartData:
           recipes?.slice(0, 10).map((r) => ({
             name: r.name,
@@ -904,7 +928,13 @@ export const useReportsData = (dateRange?: DateRange) => {
           Active: activeCampaigns,
           "Messages Sent": sent.length,
         },
-        tableData: campaigns,
+        tableData: campaigns.map((c) => ({
+          "Campaign Name": c.name || '-',
+          "Discount": c.discount_percentage ? `${c.discount_percentage}%` : c.discount_amount ? `₹${c.discount_amount}` : '-',
+          "Status": c.is_active ? 'Active' : 'Inactive',
+          "Start Date": c.start_date || '-',
+          "End Date": c.end_date || '-',
+        })),
         chartData: campaigns.map((c) => ({
           name: c.name,
           value: c.discount_percentage || c.discount_amount || 0,

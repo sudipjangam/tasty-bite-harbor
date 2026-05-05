@@ -234,9 +234,16 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
       // Attempt to load and add the Swadeshi Solutions Logo
       try {
         const logoImg = new Image();
+        logoImg.crossOrigin = "anonymous";
         logoImg.src = "/logo.png";
-        // To be safe in case image loading is async, we draw it if it's already cached or loads fast
-        doc.addImage(logoImg, "PNG", 14, 15, 30, 30);
+        await new Promise<void>((resolve) => {
+          logoImg.onload = () => {
+            try { doc.addImage(logoImg, "PNG", 14, 15, 30, 30); } catch {}
+            resolve();
+          };
+          logoImg.onerror = () => resolve();
+          setTimeout(resolve, 2000); // Fallback timeout
+        });
       } catch (e) {
         console.error("Could not load logo for PDF", e);
       }
@@ -570,7 +577,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                     {key}
                   </p>
                   <p className={`text-base sm:text-xl md:text-2xl font-extrabold tracking-tight ${
-                    sIdx === 1
+                    /revenue|total.*sales|total.*spent|total.*expenses/i.test(key)
                       ? "bg-gradient-to-r from-orange-500 via-pink-500 to-blue-500 bg-clip-text text-transparent"
                       : "text-foreground"
                   }`}>
@@ -621,9 +628,9 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                     </PieChart>
                   ) : (
                     <BarChart data={report.chartData.slice(0, 10)}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: "rgba(255,255,255,0.5)" }} />
-                      <YAxis tick={{ fontSize: 10, fill: "rgba(255,255,255,0.5)" }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.08)" className="dark:!stroke-white/[0.06]" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#888" }} />
+                      <YAxis tick={{ fontSize: 10, fill: "#888" }} />
                       <Tooltip
                         contentStyle={{
                           background: "rgba(17,19,32,0.9)",

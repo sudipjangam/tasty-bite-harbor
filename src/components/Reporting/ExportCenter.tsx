@@ -12,7 +12,7 @@ import {
 import { DateRange } from "react-day-picker";
 import { startOfMonth, endOfMonth, format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import * as XLSX from "xlsx";
+import { generateBrandedDataExcel } from "@/utils/exportUtils";
 
 interface ExportableTable {
   id: string;
@@ -34,6 +34,8 @@ const EXPORTABLE_TABLES: ExportableTable[] = [
   { id: 'recipes', name: 'Recipes', description: 'Recipe catalog', tableName: 'recipes' },
 ];
 
+const HIDDEN_EXPORT_COLS = ['id', 'restaurant_id', 'created_by', 'updated_at'];
+
 const ExportCenter: React.FC = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
@@ -42,7 +44,7 @@ const ExportCenter: React.FC = () => {
   const [exportingTable, setExportingTable] = useState<string | null>(null);
   const [exportedTables, setExportedTables] = useState<string[]>([]);
   
-  const { restaurantId } = useRestaurantId();
+  const { restaurantId, restaurantName } = useRestaurantId();
   const { toast } = useToast();
 
   const handleExport = async (table: ExportableTable, exportFormat: 'csv' | 'excel') => {
@@ -74,11 +76,9 @@ const ExportCenter: React.FC = () => {
         return;
       }
 
-      const fileName = `${table.name}_${format(new Date(), 'yyyy-MM-dd')}`;
-
       if (exportFormat === 'csv') {
-        // Convert to CSV
-        const headers = Object.keys(data[0]);
+        // CSV fallback — same as before
+        const headers = Object.keys(data[0]).filter(h => !HIDDEN_EXPORT_COLS.includes(h));
         const csvContent = [
           headers.join(','),
           ...data.map(row => 
@@ -94,14 +94,23 @@ const ExportCenter: React.FC = () => {
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `${fileName}.csv`;
+        link.download = `${table.name}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
         link.click();
       } else {
-        // Convert to Excel
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, table.name);
-        XLSX.writeFile(wb, `${fileName}.xlsx`);
+        // Branded Excel export
+        const allKeys = Object.keys(data[0]).filter(k => !HIDDEN_EXPORT_COLS.includes(k));
+        const columns = allKeys.map(k => ({
+          key: k,
+          header: k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        }));
+
+        await generateBrandedDataExcel(data as any, columns, {
+          title: `${table.name} Export`,
+          sheetName: table.name,
+          restaurantName,
+          dateRange: dateRange as any,
+          reportType: `Raw Data — ${table.description}`,
+        });
       }
 
       setExportedTables(prev => [...prev.filter(t => t !== table.id), table.id]);
