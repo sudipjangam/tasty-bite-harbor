@@ -1,16 +1,7 @@
 
 import React from 'react';
-import { StandardizedCard } from '@/components/ui/standardized-card';
-import { Badge } from '@/components/ui/badge';
 import { useCurrencyContext } from '@/contexts/CurrencyContext';
-import {
-  TrendingUp,
-  TrendingDown,
-  MessageSquare,
-  Coins,
-  Calendar,
-  BarChart3,
-} from 'lucide-react';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 
 interface MarketingAnalyticsProps {
   analytics: {
@@ -33,6 +24,19 @@ interface MarketingAnalyticsProps {
   };
 }
 
+const GlassCard: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
+  <div className={`relative rounded-2xl border bg-white/60 dark:bg-white/[0.04] border-black/[0.07] dark:border-white/[0.08] backdrop-blur-xl p-5 overflow-hidden ${className}`}>
+    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+    {children}
+  </div>
+);
+
+const channels = [
+  { name: 'WhatsApp', rate: 92, barClass: 'bg-gradient-to-r from-emerald-500 to-teal-400' },
+  { name: 'SMS',      rate: 85, barClass: 'bg-gradient-to-r from-amber-500 to-orange-400' },
+  { name: 'Email',    rate: 68, barClass: 'bg-gradient-to-r from-blue-500 to-cyan-400' },
+];
+
 const MarketingAnalytics: React.FC<MarketingAnalyticsProps> = ({ analytics }) => {
   const {
     messagesSent = 0,
@@ -48,74 +52,68 @@ const MarketingAnalytics: React.FC<MarketingAnalyticsProps> = ({ analytics }) =>
   } = analytics;
   const { symbol: currencySymbol } = useCurrencyContext();
 
+  const GrowthChip: React.FC<{ value: number }> = ({ value }) => (
+    <span className={`flex items-center gap-1 text-xs font-semibold ${value >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+      {value >= 0
+        ? <TrendingUp className="h-3 w-3" />
+        : <TrendingDown className="h-3 w-3" />}
+      {value >= 0 ? '+' : ''}{value.toFixed(1)}% from last month
+    </span>
+  );
+
   return (
-    <div className="space-y-6">
-      {/* Key Metrics */}
+    <div className="space-y-5">
+      {/* Key metrics strip */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StandardizedCard className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Messages Sent</p>
-              <p className="text-2xl font-bold text-blue-600">{messagesSent.toLocaleString()}</p>
-              <p className={`text-xs mt-1 ${messageGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {messageGrowth >= 0
-                  ? <TrendingUp className="inline h-3 w-3 mr-1" />
-                  : <TrendingDown className="inline h-3 w-3 mr-1" />}
-                {messageGrowth >= 0 ? '+' : ''}{messageGrowth.toFixed(1)}% from last month
-              </p>
-            </div>
-            <MessageSquare className="h-8 w-8 text-blue-500" />
-          </div>
-        </StandardizedCard>
+        <GlassCard>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-2 flex items-center gap-1.5">
+            💬 Messages Sent
+          </p>
+          <p className="text-3xl font-bold text-foreground leading-none mb-1.5">
+            {messagesSent.toLocaleString()}
+          </p>
+          <GrowthChip value={messageGrowth} />
+        </GlassCard>
 
-        <StandardizedCard className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Marketing Revenue</p>
-              <p className="text-2xl font-bold text-green-600">
-                {currencySymbol}{revenueImpact.toLocaleString()}
-              </p>
-              <p className={`text-xs mt-1 ${revenueGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {revenueGrowth >= 0
-                  ? <TrendingUp className="inline h-3 w-3 mr-1" />
-                  : <TrendingDown className="inline h-3 w-3 mr-1" />}
-                {revenueGrowth >= 0 ? '+' : ''}{revenueGrowth.toFixed(1)}% from last month
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5">Orders with discounts applied</p>
-            </div>
-            <Coins className="h-8 w-8 text-green-500" />
-          </div>
-        </StandardizedCard>
+        <GlassCard>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400 mb-2 flex items-center gap-1.5">
+            💰 Revenue Impact
+          </p>
+          <p className="text-3xl font-bold leading-none mb-1.5 bg-gradient-to-r from-amber-500 to-orange-400 bg-clip-text text-transparent">
+            {currencySymbol}{revenueImpact.toLocaleString()}
+          </p>
+          <GrowthChip value={revenueGrowth} />
+          <p className="text-[10px] text-muted-foreground/50 mt-1">Orders with discounts applied</p>
+        </GlassCard>
 
-        <StandardizedCard className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Special Occasions</p>
-              <p className="text-2xl font-bold text-purple-600">{specialOccasions.toLocaleString()}</p>
-              <p className="text-xs text-green-600 mt-1">
-                <Calendar className="inline h-3 w-3 mr-1" />
-                Upcoming opportunities
-              </p>
-            </div>
-            <Calendar className="h-8 w-8 text-purple-500" />
-          </div>
-        </StandardizedCard>
+        <GlassCard>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-teal-400 mb-2 flex items-center gap-1.5">
+            📅 Special Occasions
+          </p>
+          <p className="text-3xl font-bold text-foreground leading-none mb-1.5">
+            {specialOccasions.toLocaleString()}
+          </p>
+          <p className="text-xs font-semibold text-teal-500 flex items-center gap-1">
+            🗓 Upcoming opportunities
+          </p>
+        </GlassCard>
       </div>
 
       {/* Campaign Performance */}
-      <StandardizedCard className="p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <BarChart3 className="h-5 w-5 text-purple-600" />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Campaign Performance</h3>
+      <GlassCard>
+        <div className="flex items-center gap-2.5 mb-5">
+          <span className="text-lg">📊</span>
+          <h3 className="text-base font-bold text-foreground">Campaign Performance</h3>
         </div>
 
         {campaignPerformance.filter(c => c.sent > 0).length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500">No campaign messages sent yet.</p>
-            <p className="text-sm text-gray-400 mt-1">Send a WhatsApp campaign to see performance data.</p>
+          <div className="rounded-xl border border-dashed border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-10 text-center">
+            <div className="text-3xl mb-2 opacity-30">📈</div>
+            <p className="text-sm font-semibold text-muted-foreground">No campaign data available yet</p>
+            <p className="text-xs text-muted-foreground/50 mt-1">Run your first campaign to see performance metrics here.</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {campaignPerformance.filter(c => c.sent > 0).map((campaign) => {
               const cost = campaign.cost || 0;
               const roi = cost > 0 ? ((campaign.revenue - cost) / cost * 100) : 0;
@@ -123,86 +121,84 @@ const MarketingAnalytics: React.FC<MarketingAnalyticsProps> = ({ analytics }) =>
               return (
                 <div
                   key={campaign.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                  className="flex items-center justify-between p-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.05] dark:border-white/[0.05]"
                 >
                   <div className="flex-1">
-                    <h4 className="font-medium text-gray-900 dark:text-gray-100">{campaign.name}</h4>
-                    <div className="flex items-center gap-4 mt-2 flex-wrap">
-                      <div className="flex items-center gap-1">
-                        <MessageSquare className="h-4 w-4 text-blue-500" />
-                        <span className="text-sm text-gray-600">{campaign.sent} sent</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Coins className="h-4 w-4 text-green-500" />
-                        <span className="text-sm text-gray-600">
-                          {currencySymbol}{campaign.revenue.toLocaleString()} attributed
-                        </span>
-                      </div>
-                      <span className="text-sm text-gray-400">
+                    <h4 className="text-sm font-semibold text-foreground mb-1.5">{campaign.name}</h4>
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <span className="text-xs text-muted-foreground">💬 {campaign.sent} sent</span>
+                      <span className="text-xs text-muted-foreground">
+                        💰 {currencySymbol}{campaign.revenue.toLocaleString()} attributed
+                      </span>
+                      <span className="text-xs text-muted-foreground/50">
                         Cost: {currencySymbol}{cost.toFixed(2)}
                       </span>
                     </div>
                   </div>
-                  <div className="text-right ml-4">
-                    <Badge className={roiPositive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                      {roiPositive ? '+' : ''}{roi.toFixed(0)}% ROI
-                    </Badge>
-                  </div>
+                  <span className={`ml-4 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                    roiPositive
+                      ? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30'
+                      : 'bg-rose-500/15 text-rose-500 border-rose-500/30'
+                  }`}>
+                    {roiPositive ? '+' : ''}{roi.toFixed(0)}% ROI
+                  </span>
                 </div>
               );
             })}
           </div>
         )}
-      </StandardizedCard>
+      </GlassCard>
 
-      {/* Customer Engagement */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <StandardizedCard className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Top Performing Channels
-          </h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <span className="font-medium">WhatsApp</span>
-              <Badge className="bg-green-100 text-green-800">92% open rate</Badge>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <span className="font-medium">Email</span>
-              <Badge className="bg-blue-100 text-blue-800">68% open rate</Badge>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-              <span className="font-medium">SMS</span>
-              <Badge className="bg-yellow-100 text-yellow-800">85% open rate</Badge>
-            </div>
-            <p className="text-xs text-gray-400 text-center mt-2">Industry benchmarks</p>
+      {/* Channels + Engagement */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Top Performing Channels */}
+        <GlassCard>
+          <div className="flex items-center gap-2 mb-5">
+            <span className="text-lg">📡</span>
+            <h3 className="text-base font-bold text-foreground">Top Performing Channels</h3>
           </div>
-        </StandardizedCard>
-
-        <StandardizedCard className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Customer Engagement
-          </h3>
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Average Order Value</span>
-              <span className="font-semibold">{currencySymbol}{avgOrderValue.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Repeat Customer Rate</span>
-              <span className="font-semibold">{repeatCustomerRate.toFixed(1)}%</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Customer Lifetime Value</span>
-              <span className="font-semibold">{currencySymbol}{customerLifetimeValue.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Churn Rate</span>
-              <span className={`font-semibold ${churnRate > 15 ? 'text-red-600' : 'text-yellow-600'}`}>
-                {churnRate.toFixed(1)}%
-              </span>
-            </div>
+            {channels.map((ch) => (
+              <div key={ch.name} className="flex items-center gap-3">
+                <span className="text-sm font-medium text-muted-foreground w-20 shrink-0">{ch.name}</span>
+                <div className="flex-1 h-2 rounded-full bg-black/[0.06] dark:bg-white/[0.07] overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${ch.barClass} transition-all duration-700`}
+                    style={{ width: `${ch.rate}%` }}
+                  />
+                </div>
+                <span className="text-sm font-bold text-muted-foreground w-16 text-right shrink-0">
+                  {ch.rate}% open
+                </span>
+              </div>
+            ))}
           </div>
-        </StandardizedCard>
+          <p className="text-[10px] text-muted-foreground/40 text-center mt-4">Industry benchmarks</p>
+        </GlassCard>
+
+        {/* Customer Engagement */}
+        <GlassCard>
+          <div className="flex items-center gap-2 mb-5">
+            <span className="text-lg">🤝</span>
+            <h3 className="text-base font-bold text-foreground">Customer Engagement</h3>
+          </div>
+          <div>
+            {[
+              { label: 'Average Order Value', value: `${currencySymbol}${avgOrderValue.toLocaleString()}`, accent: '' },
+              { label: 'Repeat Customer Rate', value: `${repeatCustomerRate.toFixed(1)}%`, accent: '' },
+              { label: 'Customer Lifetime Value', value: `${currencySymbol}${customerLifetimeValue.toLocaleString()}`, accent: '' },
+              { label: 'Churn Rate', value: `${churnRate.toFixed(1)}%`, accent: churnRate > 15 ? 'text-rose-500' : 'text-amber-500' },
+            ].map((row, i, arr) => (
+              <div
+                key={row.label}
+                className={`flex items-center justify-between py-3 ${i < arr.length - 1 ? 'border-b border-black/[0.05] dark:border-white/[0.06]' : ''}`}
+              >
+                <span className="text-sm text-muted-foreground">{row.label}</span>
+                <span className={`text-sm font-bold text-foreground ${row.accent}`}>{row.value}</span>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
       </div>
     </div>
   );

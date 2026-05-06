@@ -159,6 +159,7 @@ const WhatsAppCampaigns: React.FC = () => {
   }
 
   return (
+    <>
     <div className="space-y-6">
       {/* Template Manager */}
       <TemplateManager />
@@ -541,6 +542,7 @@ const WhatsAppCampaigns: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
   );
 };
 
