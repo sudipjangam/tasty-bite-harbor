@@ -15,12 +15,10 @@ import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import {
   Plus,
   Users,
-  Mail,
   MessageSquare,
   TrendingUp,
   Target,
-  DollarSign,
-  Calendar,
+  Coins,
 } from "lucide-react";
 
 const Marketing = () => {
@@ -61,7 +59,10 @@ const Marketing = () => {
             <div>
               <p className="text-sm text-muted-foreground">Active Campaigns</p>
               <p className="text-2xl font-bold text-blue-600">
-                {campaigns.filter((c) => c.status === "active").length}
+                {campaigns.filter((c) => {
+                  if (c.status !== 'active') return false;
+                  return new Date(c.end_date) >= new Date();
+                }).length}
               </p>
             </div>
             <Target className="h-8 w-8 text-blue-500" />
@@ -73,7 +74,7 @@ const Marketing = () => {
             <div>
               <p className="text-sm text-muted-foreground">Total Customers</p>
               <p className="text-2xl font-bold text-green-600">
-                {customers.length}
+                {customers.filter(c => !(/^table\s/i.test(c.name || ''))).length}
               </p>
             </div>
             <Users className="h-8 w-8 text-green-500" />
@@ -95,13 +96,13 @@ const Marketing = () => {
         <StandardizedCard className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Revenue Impact</p>
+              <p className="text-sm text-muted-foreground">Marketing Revenue</p>
               <p className="text-2xl font-bold text-orange-600">
-                {currencySymbol}
-                {analytics.revenueImpact}
+                {currencySymbol}{analytics.revenueImpact.toLocaleString()}
               </p>
+              <p className="text-xs text-gray-400">Discount orders</p>
             </div>
-            <DollarSign className="h-8 w-8 text-orange-500" />
+            <Coins className="h-8 w-8 text-orange-500" />
           </div>
         </StandardizedCard>
       </div>

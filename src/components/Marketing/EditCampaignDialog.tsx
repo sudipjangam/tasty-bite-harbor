@@ -14,10 +14,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
+interface Campaign {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  start_date: string;
+  end_date: string;
+  discount_percentage: number;
+  discount_amount: number;
+  created_at: string;
+  promotion_code?: string | null;
+  is_active?: boolean | null;
+}
+
 interface EditCampaignDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  campaign: any | null;
+  campaign: Campaign | null;
   onSaved?: () => void;
 }
 
@@ -43,7 +57,7 @@ const EditCampaignDialog: React.FC<EditCampaignDialogProps> = ({ open, onOpenCha
       setFormData({
         name: campaign.name || '',
         description: campaign.description || '',
-        discount_type: campaign.discount_percentage ? 'percentage' : 'fixed',
+        discount_type: campaign.discount_percentage > 0 ? 'percentage' : 'fixed',
         discount_percentage: campaign.discount_percentage || 0,
         discount_amount: campaign.discount_amount || 0,
         start_date: (campaign.start_date || '').slice(0, 10),
@@ -77,13 +91,12 @@ const EditCampaignDialog: React.FC<EditCampaignDialogProps> = ({ open, onOpenCha
         .eq('id', campaign.id);
 
       if (error) throw error;
-
-      toast({ title: 'Updated', description: 'Campaign updated successfully' });
+      toast({ title: 'Campaign updated successfully' });
       onSaved?.();
       onOpenChange(false);
     } catch (error) {
       console.error('Error updating campaign:', error);
-      toast({ title: 'Error', description: 'Failed to update campaign', variant: 'destructive' });
+      toast({ title: 'Failed to update campaign', variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }
@@ -98,11 +111,11 @@ const EditCampaignDialog: React.FC<EditCampaignDialogProps> = ({ open, onOpenCha
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="name">Campaign Name *</Label>
-              <Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+              <Label htmlFor="edit-name">Campaign Name *</Label>
+              <Input id="edit-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
             </div>
             <div>
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="edit-status">Status</Label>
               <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value, is_active: value === 'active' })}>
                 <SelectTrigger>
                   <SelectValue />
@@ -118,13 +131,13 @@ const EditCampaignDialog: React.FC<EditCampaignDialogProps> = ({ open, onOpenCha
           </div>
 
           <div>
-            <Label htmlFor="description">Description</Label>
-            <Textarea id="description" rows={3} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+            <Label htmlFor="edit-description">Description</Label>
+            <Textarea id="edit-description" rows={3} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <Label htmlFor="discount_type">Discount Type</Label>
+              <Label htmlFor="edit-discount-type">Discount Type</Label>
               <Select value={formData.discount_type} onValueChange={(value) => setFormData({ ...formData, discount_type: value })}>
                 <SelectTrigger>
                   <SelectValue />
@@ -137,29 +150,29 @@ const EditCampaignDialog: React.FC<EditCampaignDialogProps> = ({ open, onOpenCha
             </div>
             {formData.discount_type === 'percentage' ? (
               <div>
-                <Label htmlFor="discount_percentage">Discount %</Label>
-                <Input id="discount_percentage" type="number" min="0" max="100" value={formData.discount_percentage} onChange={(e) => setFormData({ ...formData, discount_percentage: parseInt(e.target.value || '0', 10) })} />
+                <Label htmlFor="edit-discount-pct">Discount %</Label>
+                <Input id="edit-discount-pct" type="number" min="0" max="100" value={formData.discount_percentage} onChange={(e) => setFormData({ ...formData, discount_percentage: parseInt(e.target.value || '0', 10) })} />
               </div>
             ) : (
               <div>
-                <Label htmlFor="discount_amount">Discount Amount (₹)</Label>
-                <Input id="discount_amount" type="number" min="0" value={formData.discount_amount} onChange={(e) => setFormData({ ...formData, discount_amount: parseInt(e.target.value || '0', 10) })} />
+                <Label htmlFor="edit-discount-amt">Discount Amount</Label>
+                <Input id="edit-discount-amt" type="number" min="0" value={formData.discount_amount} onChange={(e) => setFormData({ ...formData, discount_amount: parseInt(e.target.value || '0', 10) })} />
               </div>
             )}
             <div>
-              <Label htmlFor="promotion_code">Promo Code</Label>
-              <Input id="promotion_code" value={formData.promotion_code} onChange={(e) => setFormData({ ...formData, promotion_code: e.target.value })} placeholder="Optional" />
+              <Label htmlFor="edit-promo-code">Promo Code</Label>
+              <Input id="edit-promo-code" value={formData.promotion_code} onChange={(e) => setFormData({ ...formData, promotion_code: e.target.value })} placeholder="Optional" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="start_date">Start Date *</Label>
-              <Input id="start_date" type="date" value={formData.start_date} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} required />
+              <Label htmlFor="edit-start-date">Start Date *</Label>
+              <Input id="edit-start-date" type="date" value={formData.start_date} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} required />
             </div>
             <div>
-              <Label htmlFor="end_date">End Date *</Label>
-              <Input id="end_date" type="date" value={formData.end_date} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} min={formData.start_date} required />
+              <Label htmlFor="edit-end-date">End Date *</Label>
+              <Input id="edit-end-date" type="date" value={formData.end_date} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} min={formData.start_date} required />
             </div>
           </div>
 

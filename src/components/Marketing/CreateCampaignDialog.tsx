@@ -20,11 +20,18 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useRestaurantId } from '@/hooks/useRestaurantId';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface CreateCampaignDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+const getDefaultEndDate = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 30);
+  return d.toISOString().split('T')[0];
+};
 
 const CreateCampaignDialog: React.FC<CreateCampaignDialogProps> = ({
   open,
@@ -32,8 +39,9 @@ const CreateCampaignDialog: React.FC<CreateCampaignDialogProps> = ({
 }) => {
   const { toast } = useToast();
   const { restaurantId } = useRestaurantId();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -42,7 +50,7 @@ const CreateCampaignDialog: React.FC<CreateCampaignDialogProps> = ({
     discount_percentage: 0,
     discount_amount: 0,
     start_date: new Date().toISOString().split('T')[0],
-    end_date: new Date().toISOString().split('T')[0],
+    end_date: getDefaultEndDate(),
     target_audience: 'all_customers',
     promotion_code: '',
   });
@@ -58,8 +66,8 @@ const CreateCampaignDialog: React.FC<CreateCampaignDialogProps> = ({
         .insert([{
           name: formData.name,
           description: formData.description,
-          discount_percentage: formData.discount_percentage,
-          discount_amount: formData.discount_amount,
+          discount_percentage: formData.discount_type === 'percentage' ? formData.discount_percentage : 0,
+          discount_amount: formData.discount_type === 'fixed' ? formData.discount_amount : 0,
           start_date: formData.start_date,
           end_date: formData.end_date,
           promotion_code: formData.promotion_code || null,
@@ -70,10 +78,11 @@ const CreateCampaignDialog: React.FC<CreateCampaignDialogProps> = ({
 
       if (error) throw error;
 
-      toast({
-        title: 'Success',
-        description: 'Campaign created successfully',
-      });
+      toast({ title: 'Campaign created successfully' });
+
+      // Invalidate so list refreshes immediately
+      queryClient.invalidateQueries({ queryKey: ['promotion-campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['marketing-analytics'] });
 
       setFormData({
         name: '',
@@ -83,18 +92,14 @@ const CreateCampaignDialog: React.FC<CreateCampaignDialogProps> = ({
         discount_percentage: 0,
         discount_amount: 0,
         start_date: new Date().toISOString().split('T')[0],
-        end_date: new Date().toISOString().split('T')[0],
+        end_date: getDefaultEndDate(),
         target_audience: 'all_customers',
         promotion_code: '',
       });
       onOpenChange(false);
     } catch (error) {
       console.error('Error creating campaign:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to create campaign',
-        variant: 'destructive',
-      });
+      toast({ title: 'Failed to create campaign', variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }
@@ -171,18 +176,18 @@ const CreateCampaignDialog: React.FC<CreateCampaignDialogProps> = ({
                   min="0"
                   max="100"
                   value={formData.discount_percentage}
-                  onChange={(e) => setFormData({ ...formData, discount_percentage: parseInt(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, discount_percentage: parseInt(e.target.value || '0', 10) })}
                 />
               </div>
             ) : (
               <div>
-                <Label htmlFor="discount_amount">Discount Amount (₹)</Label>
+                <Label htmlFor="discount_amount">Discount Amount</Label>
                 <Input
                   id="discount_amount"
                   type="number"
                   min="0"
                   value={formData.discount_amount}
-                  onChange={(e) => setFormData({ ...formData, discount_amount: parseInt(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, discount_amount: parseInt(e.target.value || '0', 10) })}
                 />
               </div>
             )}

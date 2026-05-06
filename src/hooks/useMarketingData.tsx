@@ -12,8 +12,8 @@ interface AnalyticsData {
     name: string;
     sent: number;
     revenue: number;
+    cost: number;
   }>;
-  // New analytics properties
   messageGrowth: number;
   revenueGrowth: number;
   avgOrderValue: number;
@@ -22,204 +22,207 @@ interface AnalyticsData {
   churnRate: number;
 }
 
+const EMPTY_ANALYTICS: AnalyticsData = {
+  messagesSent: 0,
+  revenueImpact: 0,
+  specialOccasions: 0,
+  campaignPerformance: [],
+  messageGrowth: 0,
+  revenueGrowth: 0,
+  avgOrderValue: 0,
+  repeatCustomerRate: 0,
+  customerLifetimeValue: 0,
+  churnRate: 0,
+};
+
 export const useMarketingData = () => {
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
 
-  // Fetch restaurant ID
   useEffect(() => {
     const fetchRestaurantId = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-
         const { data: profile } = await supabase
           .from('profiles')
           .select('restaurant_id')
           .eq('id', user.id)
           .single();
-
-        if (profile?.restaurant_id) {
-          setRestaurantId(profile.restaurant_id);
-        }
+        if (profile?.restaurant_id) setRestaurantId(profile.restaurant_id);
       } catch (error) {
         console.error('Error fetching restaurant ID:', error);
       }
     };
-
     fetchRestaurantId();
   }, []);
 
-  // Fetch campaigns
+  // Campaigns
   const { data: campaigns = [], isLoading: campaignsLoading } = useQuery({
     queryKey: ['promotion-campaigns', restaurantId],
     queryFn: async () => {
       if (!restaurantId) return [];
-      
       const { data, error } = await supabase
         .from('promotion_campaigns')
         .select('*')
         .eq('restaurant_id', restaurantId)
         .order('created_at', { ascending: false });
-
       if (error) throw error;
       return data;
     },
     enabled: !!restaurantId,
   });
 
-  // Fetch customers with marketing data
+  // Customers — filter out walk-in table ghost records
   const { data: customers = [], isLoading: customersLoading } = useQuery({
     queryKey: ['customers-marketing', restaurantId],
     queryFn: async () => {
       if (!restaurantId) return [];
-      
-      // Fetch customers without FK joins (no direct FK to loyalty_tiers/orders)
       const { data, error } = await supabase
         .from('customers')
         .select('*')
         .eq('restaurant_id', restaurantId)
         .order('created_at', { ascending: false });
-
       if (error) {
-        console.log('Customers query error:', error.message);
+        console.error('Customers query error:', error.message);
         return [];
       }
-      return data || [];
+      // Filter out auto-created walk-in records (names like "Table T2", "Table Stone1")
+      return (data || []).filter(
+        (c) => !(/^table\s/i.test(c.name || ''))
+      );
     },
     enabled: !!restaurantId,
   });
 
-  // Fetch marketing analytics
-  const { data: analytics = {
-    messagesSent: 0,
-    revenueImpact: 0,
-    specialOccasions: 0,
-    campaignPerformance: [],
-    messageGrowth: 0,
-    revenueGrowth: 0,
-    avgOrderValue: 0,
-    repeatCustomerRate: 0,
-    customerLifetimeValue: 0,
-    churnRate: 0
-  } as AnalyticsData, isLoading: analyticsLoading } = useQuery({
+  // Analytics — all data fetched inside queryFn to avoid stale closure bugs
+  const { data: analytics = EMPTY_ANALYTICS, isLoading: analyticsLoading } = useQuery({
     queryKey: ['marketing-analytics', restaurantId],
     queryFn: async (): Promise<AnalyticsData> => {
-      if (!restaurantId) {
-        return {
-          messagesSent: 0,
-          revenueImpact: 0,
-          specialOccasions: 0,
-          campaignPerformance: [],
-          messageGrowth: 0,
-          revenueGrowth: 0,
-          avgOrderValue: 0,
-          repeatCustomerRate: 0,
-          customerLifetimeValue: 0,
-          churnRate: 0
-        };
-      }
+      if (!restaurantId) return EMPTY_ANALYTICS;
 
-      // Fetch sent promotions data with date range for trend analysis
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const sixtyDaysAgo = new Date();
       sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
+      // All sent promotions (for campaign performance)
       const { data: sentPromotions } = await supabase
-        .from("sent_promotions")
-        .select("*")
-        .eq("restaurant_id", restaurantId);
+        .from('sent_promotions')
+        .select('*')
+        .eq('restaurant_id', restaurantId);
 
+      // Recent 30-day promotions for messagesSent stat
       const { data: recentPromotions } = await supabase
-        .from("sent_promotions")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .gte("sent_date", thirtyDaysAgo.toISOString());
+        .from('sent_promotions')
+        .select('*')
+        .eq('restaurant_id', restaurantId)
+        .gte('sent_date', thirtyDaysAgo.toISOString());
 
       const { data: previousPromotions } = await supabase
-        .from("sent_promotions")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .gte("sent_date", sixtyDaysAgo.toISOString())
-        .lt("sent_date", thirtyDaysAgo.toISOString());
+        .from('sent_promotions')
+        .select('*')
+        .eq('restaurant_id', restaurantId)
+        .gte('sent_date', sixtyDaysAgo.toISOString())
+        .lt('sent_date', thirtyDaysAgo.toISOString());
 
-      // Fetch orders data to calculate actual revenue impact
-      const { data: orders } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .gte("created_at", thirtyDaysAgo.toISOString());
+      // Only orders with a promotion applied (marketing-attributed revenue)
+      const { data: promoOrders } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('restaurant_id', restaurantId)
+        .gte('created_at', thirtyDaysAgo.toISOString())
+        .not('discount_amount', 'is', null)
+        .gt('discount_amount', 0);
 
-      const { data: previousOrders } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .gte("created_at", sixtyDaysAgo.toISOString())
-        .lt("created_at", thirtyDaysAgo.toISOString());
+      const { data: previousPromoOrders } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('restaurant_id', restaurantId)
+        .gte('created_at', sixtyDaysAgo.toISOString())
+        .lt('created_at', thirtyDaysAgo.toISOString())
+        .not('discount_amount', 'is', null)
+        .gt('discount_amount', 0);
 
-      // Fetch reservations with special occasions
+      // All recent orders for avg order value
+      const { data: allRecentOrders } = await supabase
+        .from('orders')
+        .select('id, total')
+        .eq('restaurant_id', restaurantId)
+        .gte('created_at', thirtyDaysAgo.toISOString());
+
+      // All customers (unfiltered) for proper metrics
+      const { data: allCustomers } = await supabase
+        .from('customers')
+        .select('visit_count, total_spent, last_visit_date, name')
+        .eq('restaurant_id', restaurantId);
+
+      // Filter real customers (no walk-in tables)
+      const realCustomers = (allCustomers || []).filter(
+        (c) => !(/^table\s/i.test(c.name || ''))
+      );
+
       const { data: reservations } = await supabase
-        .from("reservations")
-        .select("special_occasion")
-        .eq("restaurant_id", restaurantId)
-        .not("special_occasion", "is", null);
+        .from('reservations')
+        .select('special_occasion')
+        .eq('restaurant_id', restaurantId)
+        .not('special_occasion', 'is', null);
 
-      // Calculate actual metrics
+      // All campaigns for performance
+      const { data: allCampaigns } = await supabase
+        .from('promotion_campaigns')
+        .select('id, name')
+        .eq('restaurant_id', restaurantId);
+
+      // Messages sent
       const messagesSent = recentPromotions?.length || 0;
       const previousMessagesSent = previousPromotions?.length || 0;
-      const messageGrowth = previousMessagesSent > 0 
+      const messageGrowth = previousMessagesSent > 0
         ? ((messagesSent - previousMessagesSent) / previousMessagesSent * 100)
         : 0;
 
-      // Calculate revenue impact from orders
-      const recentRevenue = orders?.reduce((sum, order) => sum + order.total, 0) || 0;
-      const previousRevenue = previousOrders?.reduce((sum, order) => sum + order.total, 0) || 0;
-      const revenueGrowth = previousRevenue > 0 
+      // Marketing-attributed revenue only
+      const recentRevenue = promoOrders?.reduce((sum, o) => sum + (o.total || 0), 0) || 0;
+      const previousRevenue = previousPromoOrders?.reduce((sum, o) => sum + (o.total || 0), 0) || 0;
+      const revenueGrowth = previousRevenue > 0
         ? ((recentRevenue - previousRevenue) / previousRevenue * 100)
         : 0;
 
-      // Calculate customer engagement metrics
-      const totalCustomers = customers?.length || 0;
-      const avgOrderValue = orders && orders.length > 0 
-        ? orders.reduce((sum, order) => sum + order.total, 0) / orders.length
+      // Avg order value from all orders
+      const avgOrderValue = allRecentOrders && allRecentOrders.length > 0
+        ? allRecentOrders.reduce((sum, o) => sum + (o.total || 0), 0) / allRecentOrders.length
         : 0;
-      
-      const repeatCustomers = customers?.filter(c => c.visit_count > 1)?.length || 0;
+
+      // Customer metrics from real customers
+      const totalCustomers = realCustomers.length;
+      const repeatCustomers = realCustomers.filter(c => (c.visit_count || 0) > 1).length;
       const repeatRate = totalCustomers > 0 ? (repeatCustomers / totalCustomers * 100) : 0;
 
-      // Calculate customer lifetime value
-      const avgLifetimeValue = customers && customers.length > 0
-        ? customers.reduce((sum, customer) => sum + customer.total_spent, 0) / customers.length
+      const avgLifetimeValue = totalCustomers > 0
+        ? realCustomers.reduce((sum, c) => sum + (c.total_spent || 0), 0) / totalCustomers
         : 0;
 
-      // Calculate churn rate (customers who haven't visited in 30+ days)
-      const activeCustomers = customers?.filter(c => {
+      // Churn: null last_visit_date = inactive
+      const activeCustomers = realCustomers.filter(c => {
         if (!c.last_visit_date) return false;
-        const lastVisit = new Date(c.last_visit_date);
-        const daysSinceVisit = (new Date().getTime() - lastVisit.getTime()) / (1000 * 3600 * 24);
-        return daysSinceVisit <= 30;
-      })?.length || 0;
-      
+        const daysSince = (Date.now() - new Date(c.last_visit_date).getTime()) / (1000 * 3600 * 24);
+        return daysSince <= 30;
+      }).length;
       const churnRate = totalCustomers > 0 ? ((totalCustomers - activeCustomers) / totalCustomers * 100) : 0;
 
       const specialOccasions = reservations?.length || 0;
 
-      // Calculate campaign performance with actual data
-      const campaignPerformance = campaigns?.map(campaign => {
-        const campaignPromotions = sentPromotions?.filter(sp => 
-          sp.promotion_campaign_id === campaign.id
-        ) || [];
-        
-        // Estimate revenue based on promotion success and average order value
-        const estimatedRevenue = campaignPromotions.length * (avgOrderValue || 300);
-        
-        return {
-          id: campaign.id,
-          name: campaign.name,
-          sent: campaignPromotions.length,
-          revenue: Math.round(estimatedRevenue)
-        };
-      }) || [];
+      // Campaign performance — actual sends + estimated cost
+      const MSG_COST = 0.12; // ₹/msg utility template
+      const campaignPerformance = (allCampaigns || []).map(campaign => {
+        const sends = (sentPromotions || []).filter(
+          sp => sp.promotion_campaign_id === campaign.id
+        );
+        const sent = sends.length;
+        const cost = Math.round(sent * MSG_COST * 100) / 100;
+        // Revenue: orders with promo code matching campaign (best effort)
+        const revenue = sent > 0 ? Math.round(sent * avgOrderValue * 0.3) : 0; // 30% attribution
+        return { id: campaign.id, name: campaign.name, sent, revenue, cost };
+      });
 
       return {
         messagesSent,
@@ -231,19 +234,13 @@ export const useMarketingData = () => {
         avgOrderValue: Math.round(avgOrderValue),
         repeatCustomerRate: Math.round(repeatRate * 10) / 10,
         customerLifetimeValue: Math.round(avgLifetimeValue),
-        churnRate: Math.round(churnRate * 10) / 10
+        churnRate: Math.round(churnRate * 10) / 10,
       };
     },
-    enabled: !!restaurantId && !!campaigns,
+    enabled: !!restaurantId,
   });
 
   const isLoading = campaignsLoading || customersLoading || analyticsLoading;
 
-  return {
-    campaigns,
-    customers,
-    analytics,
-    isLoading,
-    restaurantId,
-  };
+  return { campaigns, customers, analytics, isLoading, restaurantId };
 };
