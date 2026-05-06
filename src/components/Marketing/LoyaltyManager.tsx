@@ -240,7 +240,7 @@ const LoyaltyManager = () => {
                   <Label htmlFor="is_enabled">Enable Loyalty Program</Label>
                 </div>
                 <div>
-                  <Label htmlFor="points_per_amount">Points per Dollar Spent</Label>
+                  <Label htmlFor="points_per_amount">Points per Currency Unit Spent</Label>
                   <Input
                     id="points_per_amount"
                     name="points_per_amount"
@@ -251,7 +251,7 @@ const LoyaltyManager = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="amount_per_point">Dollar Value per Point</Label>
+                  <Label htmlFor="amount_per_point">Currency Value per Point</Label>
                   <Input
                     id="amount_per_point"
                     name="amount_per_point"

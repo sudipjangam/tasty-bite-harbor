@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
   useWhatsAppCampaigns,
   LoyaltyTier,
@@ -63,6 +64,7 @@ const WhatsAppCampaigns: React.FC = () => {
   const [selectedTemplate, setSelectedTemplate] = useState(
     "invoice_with_contact",
   );
+  const [showConfirm, setShowConfirm] = useState(false);
 
   // Get target customers
   const targetCustomers = useMemo(() => {
@@ -103,11 +105,11 @@ const WhatsAppCampaigns: React.FC = () => {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Send WhatsApp message to ${customersWithPhone.length} customer${customersWithPhone.length > 1 ? "s" : ""}?\n\nEstimated cost: ${currencySymbol}${estimatedCost.toFixed(2)}\nTemplate: ${selectedTemplate}`,
-    );
-    if (!confirmed) return;
+    setShowConfirm(true);
+  };
 
+  const executeSend = async () => {
+    setShowConfirm(false);
     setIsSending(true);
     setSendProgress({ sent: 0, total: customersWithPhone.length });
 
@@ -521,6 +523,24 @@ const WhatsAppCampaigns: React.FC = () => {
         )}
       </StandardizedCard>
     </div>
+
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send WhatsApp Campaign</AlertDialogTitle>
+            <AlertDialogDescription>
+              Send to {customersWithPhone.length} customer{customersWithPhone.length > 1 ? 's' : ''}?{' '}
+              Estimated cost: {currencySymbol}{estimatedCost.toFixed(2)} · Template: {selectedTemplate}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={executeSend} className="bg-green-600 hover:bg-green-700">
+              Send Now
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
   );
 };
 

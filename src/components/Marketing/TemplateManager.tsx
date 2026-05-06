@@ -3,6 +3,7 @@ import { StandardizedCard } from "@/components/ui/standardized-card";
 import { StandardizedButton } from "@/components/ui/standardized-button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
   useWhatsAppTemplates,
   TEMPLATE_STATUS_CONFIG,
@@ -33,21 +34,21 @@ const TemplateManager: React.FC = () => {
   } = useWhatsAppTemplates();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
-    const confirmed = window.confirm(
-      "Delete this template? This cannot be undone.",
-    );
-    if (!confirmed) return;
+    setDeleteTarget(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await deleteTemplate(id);
+      await deleteTemplate(deleteTarget);
       toast({ title: "Deleted", description: "Template removed." });
     } catch (err) {
-      toast({
-        title: "Error",
-        description: "Failed to delete template.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to delete template.", variant: "destructive" });
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -216,6 +217,23 @@ const TemplateManager: React.FC = () => {
         onOpenChange={setShowCreateDialog}
         onCreated={() => refetch()}
       />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Template</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete this template? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
