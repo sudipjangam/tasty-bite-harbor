@@ -185,7 +185,6 @@ serve(async (req) => {
           name: templateName,
           language: {
             code: "en",
-            policy: "deterministic",
           },
           namespace: "7991fb14_798f_46ac_86b2_b0c79f284695",
           to_and_components: [
