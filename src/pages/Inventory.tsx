@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -36,7 +36,10 @@ import {
   Zap,
   Warehouse,
   MapPin,
+  Home,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import HomemadeIngredientPicker, { RawMaterial } from "@/components/Inventory/HomemadeIngredientPicker";
 import {
   Dialog,
   DialogContent,
@@ -104,6 +107,8 @@ interface InventoryItem {
   restaurant_id: string;
   category: string;
   notification_sent?: boolean;
+  is_produced?: boolean;
+  storage_location_id?: string | null;
 }
 
 const ITEMS_PER_PAGE = 20;
@@ -127,6 +132,11 @@ const Inventory = () => {
   } | null>(null);
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
+
+  // Homemade production state
+  const [isHomemade, setIsHomemade] = useState(false);
+  const [rawMaterials, setRawMaterials] = useState<RawMaterial[]>([]);
+  const [isSubmittingHomemade, setIsSubmittingHomemade] = useState(false);
 
   // Bill upload state
   const [isBillUploadOpen, setIsBillUploadOpen] = useState(false);
@@ -381,78 +391,242 @@ const Inventory = () => {
           description: `"${itemData.name}" has been updated.`,
         });
       } else {
-        // Check for existing item with same name (case-insensitive)
-        const existingItem = items.find(
-          (i) =>
-            i.name.toLowerCase().trim() === itemData.name.toLowerCase().trim(),
-        );
+        // === HOMEMADE PRODUCTION FLOW ===
+        if (isHomemade && rawMaterials.length > 0) {
+          setIsSubmittingHomemade(true);
+          try {
+            // Validate all materials have sufficient stock (re-check live)
+            for (const material of rawMaterials) {
+              const { data: liveItem } = await supabase
+                .from("inventory_items")
+                .select("quantity")
+                .eq("id", material.inventory_item_id)
+                .single();
+              if (!liveItem || liveItem.quantity < material.quantity) {
+                throw new Error(
+                  `Insufficient stock for ${material.name}. Need ${material.quantity} ${material.unit}, have ${liveItem?.quantity || 0}`
+                );
+              }
+            }
 
-        if (existingItem) {
-          if (existingItem.category === itemData.category && existingItem.unit === itemData.unit) {
-             setDuplicateWarning(true);
-             return;
+            // Calculate total production cost
+            const totalProductionCost = rawMaterials.reduce(
+              (sum, m) => sum + m.quantity * m.cost_per_unit, 0
+            );
+            const autoCostPerUnit = itemData.quantity > 0
+              ? totalProductionCost / itemData.quantity
+              : 0;
+            const finalCostPerUnit = itemData.cost_per_unit || autoCostPerUnit;
+
+            // 1. Create the output inventory item
+            const { expiryDate, ...insertData } = itemData;
+            const { data: newItem, error: createError } = await supabase
+              .from("inventory_items")
+              .insert([{
+                ...insertData,
+                cost_per_unit: finalCostPerUnit,
+                is_produced: true,
+                restaurant_id: userProfile.restaurant_id,
+              }])
+              .select()
+              .single();
+            if (createError) throw createError;
+
+            // 2. Create output lot + production_output transaction
+            if (itemData.quantity > 0) {
+              const { data: outputLot } = await supabase
+                .from("inventory_lots")
+                .insert({
+                  restaurant_id: userProfile.restaurant_id,
+                  inventory_item_id: newItem.id,
+                  quantity_purchased: itemData.quantity,
+                  quantity_remaining: itemData.quantity,
+                  unit_cost: finalCostPerUnit,
+                  lot_number: "PROD-" + Math.random().toString(36).slice(2, 10).toUpperCase(),
+                  notes: `Homemade production from: ${rawMaterials.map(m => m.name).join(", ")}`,
+                })
+                .select()
+                .single();
+
+              await supabase.from("inventory_transactions").insert({
+                restaurant_id: userProfile.restaurant_id,
+                inventory_item_id: newItem.id,
+                transaction_type: "production_output",
+                quantity_change: itemData.quantity,
+                unit_cost_at_time: finalCostPerUnit,
+                total_cost: totalProductionCost,
+                lot_id: outputLot?.id || null,
+                notes: `Homemade from: ${rawMaterials.map(m => m.name).join(", ")}`,
+              });
+            }
+
+            // 3. Deduct each raw material
+            for (const material of rawMaterials) {
+              // Update inventory quantity
+              const { data: currentItem } = await supabase
+                .from("inventory_items")
+                .select("quantity")
+                .eq("id", material.inventory_item_id)
+                .single();
+
+              if (currentItem) {
+                await supabase
+                  .from("inventory_items")
+                  .update({ quantity: Math.max(0, currentItem.quantity - material.quantity) })
+                  .eq("id", material.inventory_item_id);
+              }
+
+              // Create production_consumed transaction
+              await supabase.from("inventory_transactions").insert({
+                restaurant_id: userProfile.restaurant_id,
+                inventory_item_id: material.inventory_item_id,
+                transaction_type: "production_consumed",
+                quantity_change: -material.quantity,
+                unit_cost_at_time: material.cost_per_unit,
+                total_cost: material.quantity * material.cost_per_unit,
+                notes: `Homemade: ${itemData.name}`,
+              });
+            }
+
+            // 4. Calculate wastage (when same unit group)
+            // Sum input quantities that share the same unit as the output
+            const sameUnitInputTotal = rawMaterials
+              .filter((m) => m.unit === itemData.unit)
+              .reduce((sum, m) => sum + m.quantity, 0);
+            const wastageQty = sameUnitInputTotal > 0
+              ? Math.max(0, sameUnitInputTotal - itemData.quantity)
+              : 0;
+
+            // 5. Log wastage transaction if any
+            if (wastageQty > 0) {
+              // Create a waste transaction against the output item
+              await supabase.from("inventory_transactions").insert({
+                restaurant_id: userProfile.restaurant_id,
+                inventory_item_id: newItem.id,
+                transaction_type: "waste",
+                quantity_change: -wastageQty,
+                unit_cost_at_time: finalCostPerUnit,
+                total_cost: wastageQty * finalCostPerUnit,
+                notes: `Production wastage: ${wastageQty} ${itemData.unit} lost during homemade production of ${itemData.name}`,
+              });
+            }
+
+            // 6. Create production audit log (with wastage)
+            const { data: productionLog } = await supabase
+              .from("homemade_production_logs")
+              .insert({
+                restaurant_id: userProfile.restaurant_id,
+                output_inventory_item_id: newItem.id,
+                output_quantity: itemData.quantity,
+                output_unit: itemData.unit,
+                total_cost: totalProductionCost,
+                cost_per_unit: finalCostPerUnit,
+                wastage_quantity: wastageQty,
+                wastage_unit: wastageQty > 0 ? itemData.unit : null,
+                notes: `Produced ${itemData.name} from ${rawMaterials.length} ingredients${wastageQty > 0 ? ` (wastage: ${wastageQty} ${itemData.unit})` : ""}`,
+              })
+              .select()
+              .single();
+
+            if (productionLog) {
+              await supabase.from("homemade_production_log_items").insert(
+                rawMaterials.map((m) => ({
+                  production_log_id: productionLog.id,
+                  inventory_item_id: m.inventory_item_id,
+                  quantity_consumed: m.quantity,
+                  unit: m.unit,
+                  cost_per_unit: m.cost_per_unit,
+                  total_cost: m.quantity * m.cost_per_unit,
+                }))
+              );
+            }
+
+            toast({
+              title: "🏠 Homemade item produced!",
+              description: wastageQty > 0
+                ? `"${itemData.name}" created. ${rawMaterials.length} ingredient(s) deducted. ⚠️ Wastage: ${wastageQty} ${itemData.unit}`
+                : `"${itemData.name}" created. ${rawMaterials.length} ingredient(s) deducted.`,
+            });
+          } finally {
+            setIsSubmittingHomemade(false);
+            setIsHomemade(false);
+            setRawMaterials([]);
           }
-          
-          // Show confirmation dialog instead of silently creating a duplicate
-          setPendingDuplicateData({
-            existingItem,
-            formData: itemData,
-            restaurantId: userProfile.restaurant_id,
-          });
-          return;
-        }
+        } else {
+          // === REGULAR ADD ITEM FLOW (unchanged) ===
+          // Check for existing item with same name (case-insensitive)
+          const existingItem = items.find(
+            (i) =>
+              i.name.toLowerCase().trim() === itemData.name.toLowerCase().trim(),
+          );
 
-        // No duplicate — create new item
-        const { expiryDate, ...insertData } = itemData;
-        const { data: newItem, error } = await supabase
-          .from("inventory_items")
-          .insert([{ ...insertData, restaurant_id: userProfile.restaurant_id }])
-          .select()
-          .single();
+          if (existingItem) {
+            if (existingItem.category === itemData.category && existingItem.unit === itemData.unit) {
+               setDuplicateWarning(true);
+               return;
+            }
+            
+            // Show confirmation dialog instead of silently creating a duplicate
+            setPendingDuplicateData({
+              existingItem,
+              formData: itemData,
+              restaurantId: userProfile.restaurant_id,
+            });
+            return;
+          }
 
-        if (error) throw error;
-
-        // If an initial quantity is provided, we should track it as an initial lot and transaction
-        if (itemData.quantity > 0) {
-          const transactionCost = itemData.cost_per_unit
-            ? itemData.cost_per_unit * itemData.quantity
-            : 0;
-
-          const { data: newLot, error: lotError } = await supabase
-            .from("inventory_lots")
-            .insert({
-              restaurant_id: userProfile.restaurant_id,
-              inventory_item_id: newItem.id,
-              quantity_purchased: itemData.quantity,
-              quantity_remaining: itemData.quantity,
-              unit_cost: itemData.cost_per_unit || 0,
-              lot_number: "INITIAL-" + Math.random().toString(36).slice(2, 10),
-              expiry_date: itemData.expiryDate
-                ? new Date(itemData.expiryDate).toISOString()
-                : null,
-              notes: "Initial inventory setup",
-            })
+          // No duplicate — create new item
+          const { expiryDate, ...insertData } = itemData;
+          const { data: newItem, error } = await supabase
+            .from("inventory_items")
+            .insert([{ ...insertData, restaurant_id: userProfile.restaurant_id }])
             .select()
             .single();
 
-          if (!lotError && newLot) {
-            await supabase.from("inventory_transactions").insert({
-              restaurant_id: userProfile.restaurant_id,
-              inventory_item_id: newItem.id,
-              transaction_type: "purchase",
-              quantity_change: itemData.quantity,
-              unit_cost_at_time: itemData.cost_per_unit || 0,
-              total_cost: transactionCost,
-              lot_id: newLot.id,
-              notes: "Initial stock entry",
-            });
-          }
-        }
+          if (error) throw error;
 
-        toast({
-          title: "Item added successfully",
-          description: `"${itemData.name}" has been added to inventory.`,
-        });
+          // If an initial quantity is provided, we should track it as an initial lot and transaction
+          if (itemData.quantity > 0) {
+            const transactionCost = itemData.cost_per_unit
+              ? itemData.cost_per_unit * itemData.quantity
+              : 0;
+
+            const { data: newLot, error: lotError } = await supabase
+              .from("inventory_lots")
+              .insert({
+                restaurant_id: userProfile.restaurant_id,
+                inventory_item_id: newItem.id,
+                quantity_purchased: itemData.quantity,
+                quantity_remaining: itemData.quantity,
+                unit_cost: itemData.cost_per_unit || 0,
+                lot_number: "INITIAL-" + Math.random().toString(36).slice(2, 10),
+                expiry_date: itemData.expiryDate
+                  ? new Date(itemData.expiryDate).toISOString()
+                  : null,
+                notes: "Initial inventory setup",
+              })
+              .select()
+              .single();
+
+            if (!lotError && newLot) {
+              await supabase.from("inventory_transactions").insert({
+                restaurant_id: userProfile.restaurant_id,
+                inventory_item_id: newItem.id,
+                transaction_type: "purchase",
+                quantity_change: itemData.quantity,
+                unit_cost_at_time: itemData.cost_per_unit || 0,
+                total_cost: transactionCost,
+                lot_id: newLot.id,
+                notes: "Initial stock entry",
+              });
+            }
+          }
+
+          toast({
+            title: "Item added successfully",
+            description: `"${itemData.name}" has been added to inventory.`,
+          });
+        }
       }
 
       refetch();
@@ -634,7 +808,11 @@ const Inventory = () => {
             open={isAddDialogOpen}
             onOpenChange={(open) => {
               setIsAddDialogOpen(open);
-              if (!open) setEditingItem(null);
+              if (!open) {
+                setEditingItem(null);
+                setIsHomemade(false);
+                setRawMaterials([]);
+              }
               if (open && !editingItem) setNewItemCategory("Other");
               if (open && editingItem)
                 setNewItemCategory(editingItem.category || "Other");
@@ -652,7 +830,7 @@ const Inventory = () => {
                 Add Item
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[540px] bg-background text-foreground backdrop-blur-2xl border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl p-0 overflow-hidden">
+            <DialogContent className="sm:max-w-[540px] bg-background text-foreground backdrop-blur-2xl border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
               {/* Dialog Header with gradient accent */}
               <div className="bg-gradient-to-r from-emerald-500 to-green-600 px-6 py-4">
                 <DialogHeader>
@@ -678,7 +856,7 @@ const Inventory = () => {
               <form
                 key={editingItem?.id || "new"}
                 onSubmit={handleSubmit}
-                className="p-6 space-y-5"
+                className="p-6 space-y-5 overflow-y-auto flex-1"
               >
                 {/* Item Name */}
                 <div className="space-y-1.5">
@@ -725,6 +903,46 @@ const Inventory = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Homemade Toggle — only in Add mode */}
+                {!editingItem && (
+                  <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                    isHomemade
+                      ? "bg-amber-50/80 dark:bg-amber-900/15 border-amber-200/60 dark:border-amber-800/40"
+                      : "bg-gray-50/50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700"
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <Home className={`h-4 w-4 ${isHomemade ? "text-amber-600" : "text-gray-400"}`} />
+                      <div>
+                        <p className={`text-sm font-semibold ${isHomemade ? "text-amber-700 dark:text-amber-300" : "text-gray-700 dark:text-gray-300"}`}>
+                          Homemade Item
+                        </p>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                          Create by consuming existing inventory
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={isHomemade}
+                      onCheckedChange={(checked) => {
+                        setIsHomemade(checked);
+                        if (!checked) setRawMaterials([]);
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Raw Materials Section — when homemade toggle is ON */}
+                {isHomemade && !editingItem && (
+                  <div className="border border-amber-200/60 dark:border-amber-800/40 rounded-xl p-3 bg-amber-50/30 dark:bg-amber-900/10">
+                    <HomemadeIngredientPicker
+                      materials={rawMaterials}
+                      onMaterialsChange={setRawMaterials}
+                      inventoryItems={items}
+                      currencySymbol={currencySymbol}
+                    />
+                  </div>
+                )}
 
                 <Separator className="my-1" />
 
@@ -841,11 +1059,32 @@ const Inventory = () => {
 
                 <Button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-xl transition-all duration-300 h-12 text-base"
+                  disabled={
+                    isSubmittingHomemade ||
+                    (isHomemade && (
+                      rawMaterials.length === 0 ||
+                      rawMaterials.some(m => !m.inventory_item_id || m.quantity <= 0) ||
+                      rawMaterials.some(m => m.quantity > m.available_stock)
+                    ))
+                  }
+                  className={`w-full font-bold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 h-12 text-base ${
+                    isHomemade && !editingItem
+                      ? "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-amber-500/25"
+                      : "bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-emerald-500/25"
+                  }`}
                 >
-                  {editingItem ? (
+                  {isSubmittingHomemade ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white mr-2" />
+                      Producing...
+                    </>
+                  ) : editingItem ? (
                     <>
                       <Edit className="mr-2 h-4 w-4" /> Update Item
+                    </>
+                  ) : isHomemade ? (
+                    <>
+                      <Home className="mr-2 h-4 w-4" /> 🏠 Produce & Add to Inventory
                     </>
                   ) : (
                     <>
@@ -1129,8 +1368,13 @@ const Inventory = () => {
                                   >
                                     {item.name}
                                   </h3>
-                                  <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">
+                                  <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium flex items-center gap-1">
                                     {item.category}
+                                    {(item as any).is_produced && (
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[9px] font-bold">
+                                        🏠
+                                      </span>
+                                    )}
                                   </p>
                                 </div>
                               </div>

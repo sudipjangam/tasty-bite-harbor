@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowUpDown, Package, ShoppingCart, Settings, Trash2, RefreshCw, Plus, TrendingUp, TrendingDown, Search, IndianRupee } from "lucide-react";
+import { ArrowUpDown, Package, ShoppingCart, Settings, Trash2, RefreshCw, Plus, TrendingUp, TrendingDown, Search, IndianRupee, Home, Factory } from "lucide-react";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useToast } from "@/hooks/use-toast";
 import { usePagination } from "@/hooks/usePagination";
@@ -48,6 +48,8 @@ const transactionTypeIcons: Record<string, React.ReactNode> = {
   waste: <Trash2 className="h-4 w-4" />,
   transfer: <RefreshCw className="h-4 w-4" />,
   stock_take: <Package className="h-4 w-4" />,
+  production_consumed: <Factory className="h-4 w-4" />,
+  production_output: <Home className="h-4 w-4" />,
 };
 
 const transactionTypeColors: Record<string, string> = {
@@ -57,6 +59,8 @@ const transactionTypeColors: Record<string, string> = {
   waste: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300",
   transfer: "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300",
   stock_take: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300",
+  production_consumed: "bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300",
+  production_output: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300",
 };
 
 const InventoryTransactions = () => {
@@ -458,6 +462,8 @@ const InventoryTransactions = () => {
             <SelectItem value="waste">Waste</SelectItem>
             <SelectItem value="transfer">Transfer</SelectItem>
             <SelectItem value="stock_take">Stock Take</SelectItem>
+            <SelectItem value="production_consumed">🏠 Production Used</SelectItem>
+            <SelectItem value="production_output">🏠 Production Output</SelectItem>
           </SelectContent>
         </Select>
       </div>
