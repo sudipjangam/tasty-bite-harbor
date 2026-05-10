@@ -31,22 +31,23 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Read global platform config (restaurant_id = 'global')
+    // Read global platform config from platform_config table (key = 'whatsapp')
     let provider = "msg91";
     let metaConfig: any = {};
 
-    const { data: globalSettings } = await supabase
-      .from("restaurant_settings")
-      .select("whatsapp_provider, whatsapp_meta_config")
-      .eq("restaurant_id", "global")
+    const { data: platformConfig } = await supabase
+      .from("platform_config")
+      .select("value")
+      .eq("key", "whatsapp")
       .maybeSingle();
 
-    if (globalSettings?.whatsapp_provider) {
-      provider = globalSettings.whatsapp_provider;
-      metaConfig = globalSettings.whatsapp_meta_config || {};
+    if (platformConfig?.value) {
+      const cfg = platformConfig.value as any;
+      provider = cfg.provider || "msg91";
+      metaConfig = cfg.meta_config || {};
     }
 
-    console.log(`[unified] provider=${provider}, template=${templateName}, phone=${phoneNumber}`);
+    console.log(`[unified] provider=${provider}, template=${templateName}, phone=${phoneNumber}, hasToken=${!!metaConfig.access_token}, phoneId=${metaConfig.phone_number_id}`);
 
     // --- META CLOUD API PATH ---
     if (provider === "meta_cloud") {
@@ -60,29 +61,38 @@ Deno.serve(async (req: Request) => {
         );
       }
 
+      const usedTemplateName = templateName || "invoice_with_contact";
+
       const params = variables || {
         customer_name: customerName || "Customer",
         restaurant_name: restaurantName || "Restaurant",
-        amount: amount || "",
-        order_date: billDate || "",
-        contact_number: contactNumber || "",
+        amount: amount || "-",
+        order_date: billDate || new Date().toLocaleDateString("en-IN"),
+        contact_number: contactNumber || "-",
       };
 
-      const bodyParams = Object.values(params).map((v: any) => ({
-        type: "text",
-        text: String(v),
-      }));
+      // Meta Cloud API requires parameter_name for named template variables
+      const bodyParams = Object.entries(params)
+        .map(([key, val]: [string, any]) => ({
+          type: "text",
+          parameter_name: key,
+          text: String(val || "-"),
+        }));
 
-      const components: any[] = [{ type: "body", parameters: bodyParams }];
+      const components: any[] = bodyParams.length > 0
+        ? [{ type: "body", parameters: bodyParams }]
+        : [];
 
       if (billUrl || (buttons && buttons.length > 0)) {
         const urlValue = billUrl || buttons?.[0]?.value || "";
-        components.push({
-          type: "button",
-          sub_type: "url",
-          index: 0,
-          parameters: [{ type: "text", text: String(urlValue) }],
-        });
+        if (urlValue) {
+          components.push({
+            type: "button",
+            sub_type: "url",
+            index: 0,
+            parameters: [{ type: "text", text: String(urlValue) }],
+          });
+        }
       }
 
       const metaPayload = {
@@ -90,11 +100,13 @@ Deno.serve(async (req: Request) => {
         to: phoneNumber,
         type: "template",
         template: {
-          name: templateName || "invoice_with_contact",
+          name: usedTemplateName,
           language: { code: "en" },
-          components,
+          components: components.length > 0 ? components : undefined,
         },
       };
+
+      console.log("[meta] Sending payload:", JSON.stringify(metaPayload));
 
       const metaRes = await fetch(
         `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
