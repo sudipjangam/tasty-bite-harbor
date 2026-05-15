@@ -32,7 +32,6 @@ import {
 } from "recharts";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { generateEditablePPTX, generateRichExcel } from "@/utils/exportUtils";

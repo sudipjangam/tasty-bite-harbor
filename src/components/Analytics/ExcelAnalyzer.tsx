@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { read, utils } from 'xlsx';
+import ExcelJS from 'exceljs';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,16 +47,46 @@ const ExcelAnalyzer: React.FC<{
     setIsAnalyzing(true);
     try {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = read(data, { type: 'array' });
-          const sheet = workbook.Sheets[workbook.SheetNames[0]];
-          const jsonData = utils.sheet_to_json(sheet);
+          const buffer = e.target?.result as ArrayBuffer;
+          const workbook = new ExcelJS.Workbook();
+          await workbook.xlsx.load(buffer);
+          const sheet = workbook.worksheets[0];
+          
+          // Convert ExcelJS worksheet to JSON array (like xlsx utils.sheet_to_json)
+          const rows = sheet.getSheetValues() as any[];
+          // ExcelJS getSheetValues() is 1-indexed and first element is empty
+          const headerRow = rows[1];
+          if (!headerRow || !Array.isArray(headerRow)) {
+            toast({
+              title: "Analysis Error",
+              description: "The spreadsheet appears to be empty.",
+              variant: "destructive",
+            });
+            setIsAnalyzing(false);
+            return;
+          }
+          // Build headers from first row (skip index 0 which is empty)
+          const headers: string[] = [];
+          for (let i = 1; i < headerRow.length; i++) {
+            headers.push(String(headerRow[i] ?? `Column${i}`));
+          }
+          
+          const jsonData: Record<string, any>[] = [];
+          for (let r = 2; r < rows.length; r++) {
+            if (!rows[r]) continue;
+            const rowObj: Record<string, any> = {};
+            for (let c = 0; c < headers.length; c++) {
+              const cellVal = (rows[r] as any[])[c + 1];
+              rowObj[headers[c]] = cellVal !== undefined ? cellVal : null;
+            }
+            jsonData.push(rowObj);
+          }
           
           console.log("=== EXCEL FILE ANALYSIS DATA ===");
           console.log("File name:", file.name);
-          console.log("Sheet names:", workbook.SheetNames);
+          console.log("Sheet names:", workbook.worksheets.map(ws => ws.name));
           console.log("Raw JSON data sample:", jsonData.slice(0, 5));
           
           if (jsonData.length === 0) {

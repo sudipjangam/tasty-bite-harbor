@@ -10,7 +10,7 @@ import { HotelMetricsCards } from "@/components/Analytics/HotelMetricsCards";
 import { ConsolidatedRevenueChart } from "@/components/Analytics/ConsolidatedRevenueChart";
 import AIChartBuilder from "@/components/Analytics/AIChartBuilder";
 import { format, subDays } from "date-fns";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import html2canvas from "html2canvas";
@@ -150,50 +150,82 @@ const Analytics = () => {
       (stat) => format(new Date(stat.date), "yyyy-MM-dd") === today,
     )?.order_count || 0;
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     try {
-      const wb = XLSX.utils.book_new();
+      const wb = new ExcelJS.Workbook();
 
-      const revenueData = data.revenueStats.map((item) => ({
-        Date: format(new Date(item.date), "MMM dd, yyyy"),
-        Revenue: Number(item.total_revenue).toFixed(2),
-        Orders: item.order_count,
-        "Average Order Value": Number(item.average_order_value).toFixed(2),
-      }));
+      // Revenue sheet
+      const revenueSheet = wb.addWorksheet("Revenue");
+      revenueSheet.columns = [
+        { header: "Date", key: "date", width: 18 },
+        { header: "Revenue", key: "revenue", width: 15 },
+        { header: "Orders", key: "orders", width: 12 },
+        { header: "Average Order Value", key: "aov", width: 20 },
+      ];
+      data.revenueStats.forEach((item) => {
+        revenueSheet.addRow({
+          date: format(new Date(item.date), "MMM dd, yyyy"),
+          revenue: Number(Number(item.total_revenue).toFixed(2)),
+          orders: item.order_count,
+          aov: Number(Number(item.average_order_value).toFixed(2)),
+        });
+      });
 
-      const revenueSheet = XLSX.utils.json_to_sheet(revenueData);
-      XLSX.utils.book_append_sheet(wb, revenueSheet, "Revenue");
+      // Customer Insights sheet
+      const customerSheet = wb.addWorksheet("Customer Insights");
+      customerSheet.columns = [
+        { header: "Name", key: "name", width: 25 },
+        { header: "Visits", key: "visits", width: 10 },
+        { header: "Total Spent", key: "spent", width: 15 },
+        { header: "Average Order", key: "avg", width: 15 },
+        { header: "First Visit", key: "first", width: 18 },
+        { header: "Last Visit", key: "last", width: 18 },
+      ];
+      data.customerInsights.forEach((customer) => {
+        customerSheet.addRow({
+          name: customer.customer_name,
+          visits: customer.visit_count,
+          spent: Number(Number(customer.total_spent).toFixed(2)),
+          avg: Number(Number(customer.average_order_value).toFixed(2)),
+          first: format(new Date(customer.first_visit), "MMM dd, yyyy"),
+          last: format(new Date(customer.last_visit), "MMM dd, yyyy"),
+        });
+      });
 
-      const customerData = data.customerInsights.map((customer) => ({
-        Name: customer.customer_name,
-        Visits: customer.visit_count,
-        "Total Spent": Number(customer.total_spent).toFixed(2),
-        "Average Order": Number(customer.average_order_value).toFixed(2),
-        "First Visit": format(new Date(customer.first_visit), "MMM dd, yyyy"),
-        "Last Visit": format(new Date(customer.last_visit), "MMM dd, yyyy"),
-      }));
+      // Top Products sheet
+      const productSheet = wb.addWorksheet("Top Products");
+      productSheet.columns = [
+        { header: "Name", key: "name", width: 25 },
+        { header: "Orders", key: "orders", width: 12 },
+        { header: "Revenue", key: "revenue", width: 15 },
+        { header: "Profit Margin", key: "margin", width: 15 },
+        { header: "In Stock", key: "stock", width: 12 },
+        { header: "Trend", key: "trend", width: 12 },
+      ];
+      data.topProducts.forEach((product) => {
+        productSheet.addRow({
+          name: product.name,
+          orders: product.orders,
+          revenue: Number(product.revenue.toFixed(2)),
+          margin: `${product.profit_margin}%`,
+          stock: product.in_stock ? "Yes" : "No",
+          trend: product.trend,
+        });
+      });
 
-      const customerSheet = XLSX.utils.json_to_sheet(customerData);
-      XLSX.utils.book_append_sheet(wb, customerSheet, "Customer Insights");
+      const fileName = `Analytics_Report_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
 
-      const productData = data.topProducts.map((product) => ({
-        Name: product.name,
-        Orders: product.orders,
-        Revenue: product.revenue.toFixed(2),
-        "Profit Margin": `${product.profit_margin}%`,
-        "In Stock": product.in_stock ? "Yes" : "No",
-        Trend: product.trend,
-      }));
-
-      const productSheet = XLSX.utils.json_to_sheet(productData);
-      XLSX.utils.book_append_sheet(wb, productSheet, "Top Products");
-
-      const fileName = `Analytics_Report_${format(
-        new Date(),
-        "yyyy-MM-dd",
-      )}.xlsx`;
-
-      XLSX.writeFile(wb, fileName);
+      // Write to buffer and trigger download
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
 
       toast({
         title: "Excel Export Successful",
