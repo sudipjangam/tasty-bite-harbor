@@ -452,13 +452,16 @@ export const QSRPosMain: React.FC = () => {
           .eq("id", kitchenOrderId);
 
         if (error) throw error;
+
+        // Refetch tables to update pending items count immediately
+        refetchTables();
       } catch (error) {
         console.error("Error toggling item completion:", error);
         // Revert on error
         setItemCompletionStatus(itemCompletionStatus);
       }
     },
-    [recalledKitchenOrderId, pendingKitchenOrderId, itemCompletionStatus],
+    [recalledKitchenOrderId, pendingKitchenOrderId, itemCompletionStatus, refetchTables],
   );
 
   // Send to kitchen

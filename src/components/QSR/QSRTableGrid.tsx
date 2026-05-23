@@ -6,6 +6,7 @@ import {
   Clock,
   AlertTriangle,
   CheckCircle,
+  Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QSRTable } from "@/types/qsr";
@@ -188,6 +189,27 @@ export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
                       <span>LATE</span>
                     </>
                   )}
+                </div>
+              )}
+
+              {/* Pending Items Highlight Badge (Top-Left corner) */}
+              {isOccupied && !isDelivered && table.totalItemsCount !== undefined && table.servedItemsCount !== undefined && (table.totalItemsCount - table.servedItemsCount) > 0 && (
+                <div
+                  className={cn(
+                    "absolute -top-2 -left-2 flex items-center gap-1 text-white text-xs px-2 py-0.5 rounded-full shadow-md font-semibold",
+                    isLate ? "bg-red-500" : "bg-amber-500"
+                  )}
+                >
+                  <Timer className="w-3 h-3" />
+                  <span>{table.totalItemsCount - table.servedItemsCount} Pending</span>
+                </div>
+              )}
+
+              {/* Pending Items Text Line */}
+              {isOccupied && !isDelivered && table.totalItemsCount !== undefined && table.servedItemsCount !== undefined && (table.totalItemsCount - table.servedItemsCount) > 0 && (
+                <div className="flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-500 mt-0.5">
+                  <Timer className="w-3 h-3" />
+                  <span>{table.totalItemsCount - table.servedItemsCount} pending to serve</span>
                 </div>
               )}
 

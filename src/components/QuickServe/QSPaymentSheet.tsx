@@ -1096,6 +1096,14 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                       title: "Payment Confirmed ✓",
                       description: `${currencySymbol}${subtotal.toFixed(2)} marked as paid via ${selectedMethod?.toUpperCase()}`,
                     });
+
+                    // Fire WhatsApp bill in background if customer phone exists
+                    if (customerPhone && restaurantDetails) {
+                      handleSendWhatsAppBill();
+                    }
+
+                    // Auto-close dialog
+                    handleCloseSuccess();
                   } catch (err) {
                     console.error("Mark as paid error:", err);
                     toast({
@@ -1105,10 +1113,10 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                     });
                   }
                 }}
-                className="w-full max-w-xs mt-2 py-4 rounded-xl font-bold text-base text-white transition-all duration-200 active:scale-[0.97] shadow-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25"
+                className="w-full max-w-xs mt-2 py-3 rounded-xl font-bold text-sm text-white transition-all duration-200 active:scale-[0.97] shadow-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25"
               >
                 <span className="flex items-center justify-center gap-2">
-                  <CheckCircle2 className="h-5 w-5" />
+                  <CheckCircle2 className="h-4 w-4" />
                   Mark as Paid — {currencySymbol}{subtotal.toFixed(2)}
                 </span>
               </button>
@@ -1183,8 +1191,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             </div>
 
             {/* Payment Methods */}
-            <div className="p-6 space-y-3">
-              <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-white/40 font-medium mb-2">
+            <div className="p-5 space-y-2">
+              <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-white/40 font-medium mb-1.5">
                 Select Payment Method
               </p>
               {paymentMethods.map((pm) => {
@@ -1198,7 +1206,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                     onClick={() => handlePay(pm.id)}
                     disabled={status === "processing"}
                     className={cn(
-                      "w-full flex items-center gap-4 p-4 rounded-xl border transition-all duration-200 active:scale-[0.98]",
+                      "w-full flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 active:scale-[0.98]",
                       isProcessing
                         ? "border-gray-300 dark:border-white/20 bg-gray-100 dark:bg-white/10"
                         : "border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 hover:border-gray-300 dark:hover:border-white/15",
@@ -1206,13 +1214,13 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                   >
                     <div
                       className={cn(
-                        "w-12 h-12 rounded-xl bg-gradient-to-r flex items-center justify-center shrink-0",
+                        "w-10 h-10 rounded-lg bg-gradient-to-r flex items-center justify-center shrink-0",
                         pm.color,
                       )}
                     >
-                      <Icon className="h-5 w-5 text-white" />
+                      <Icon className="h-4 w-4 text-white" />
                     </div>
-                    <span className="text-base font-semibold text-gray-900 dark:text-white">
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
                       {pm.label}
                     </span>
                     {isProcessing && (
