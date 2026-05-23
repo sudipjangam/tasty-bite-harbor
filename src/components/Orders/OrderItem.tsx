@@ -12,6 +12,7 @@ import {
   Star,
   Zap,
   User,
+  Wallet,
 } from "lucide-react";
 import { sanitizeOrderItemDisplay } from "@/lib/order-utils";
 import {
@@ -225,33 +226,51 @@ const OrderItem: React.FC<OrderItemProps> = ({
 
           {/* Amount */}
           <div className="text-right">
-            <div className="text-[9px] font-bold tracking-widest uppercase text-slate-400">Total Amount</div>
-            {isNCOrder ? (
-              <div className="flex flex-col items-end">
-                <span className="text-sm text-slate-400 line-through">
-                  <CurrencyDisplay amount={displayTotal} showTooltip={false} />
-                </span>
-                <span className="text-xl font-extrabold font-mono bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  <CurrencyDisplay amount={0} showTooltip={false} />
-                </span>
-              </div>
-            ) : (
-              <>
+            <div className="text-[9px] font-bold tracking-widest uppercase text-slate-400 mb-1">Total Amount</div>
+            <div className="flex items-center gap-2 justify-end">
+              {isNCOrder ? (
+                <div className="flex flex-col items-end">
+                  <span className="text-sm text-slate-400 line-through">
+                    <CurrencyDisplay amount={displayTotal} showTooltip={false} />
+                  </span>
+                  <span className="text-xl font-extrabold font-mono bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                    <CurrencyDisplay amount={0} showTooltip={false} />
+                  </span>
+                </div>
+              ) : (
                 <CurrencyDisplay
                   amount={order.total}
                   className="text-[20px] font-extrabold font-mono text-slate-800 tracking-tight"
                 />
-                {order.discount_amount && order.discount_amount > 0 ? (
-                  <p className="text-[10px] text-emerald-600 font-medium mt-0.5">
-                    {(order as any).discount_notes
-                      ? (order as any).discount_notes
-                      : order.discount_percentage && order.discount_percentage > 0
-                        ? `${order.discount_percentage}% discount`
-                        : "Discount applied"}
-                  </p>
-                ) : null}
-              </>
-            )}
+              )}
+
+              {/* Payment Method Badge */}
+              {order.payment_method && order.payment_method !== "nc" && (
+                <span
+                  className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md tracking-wider flex items-center gap-1 shadow-sm uppercase ${
+                    order.payment_method === "cash"
+                      ? "bg-emerald-600 text-white border border-emerald-500"
+                      : order.payment_method === "card"
+                        ? "bg-blue-600 text-white border border-blue-500"
+                        : order.payment_method === "upi"
+                          ? "bg-purple-600 text-white border border-purple-500"
+                          : "bg-slate-600 text-white border border-slate-500"
+                  }`}
+                >
+                  <Wallet className="w-3 h-3" />
+                  {order.payment_method.toUpperCase()}
+                </span>
+              )}
+            </div>
+            {order.discount_amount && order.discount_amount > 0 ? (
+              <p className="text-[10px] text-emerald-600 font-medium mt-0.5">
+                {(order as any).discount_notes
+                  ? (order as any).discount_notes
+                  : order.discount_percentage && order.discount_percentage > 0
+                    ? `${order.discount_percentage}% discount`
+                    : "Discount applied"}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
