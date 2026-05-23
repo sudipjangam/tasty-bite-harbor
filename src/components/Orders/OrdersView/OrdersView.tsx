@@ -194,6 +194,7 @@ const OrdersView = ({
         [`Discount (${currencySymbol})`]: order.discount_amount
           ? `${order.discount_amount.toFixed(2)} (${order.discount_percentage}%)`
           : "-",
+        "Payment Method": order.payment_method ? order.payment_method.toUpperCase() : "-",
         Status: order.status as string,
         "Created Date": new Date(order.created_at).toLocaleDateString(),
         "Created Time": new Date(order.created_at).toLocaleTimeString(),
@@ -205,6 +206,7 @@ const OrdersView = ({
         Items: "",
         [`Total Amount (${currencySymbol})`]: "",
         [`Discount (${currencySymbol})`]: "",
+        "Payment Method": "",
         Status: "",
         "Created Date": "",
         "Created Time": "",
@@ -216,6 +218,7 @@ const OrdersView = ({
         Items: "",
         [`Total Amount (${currencySymbol})`]: parseFloat(totalEarned.toFixed(2)),
         [`Discount (${currencySymbol})`]: parseFloat(totalDiscount.toFixed(2)),
+        "Payment Method": "",
         Status: "",
         "Created Date": getDateFilterLabel(),
         "Created Time": "",

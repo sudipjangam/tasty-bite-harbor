@@ -2009,6 +2009,7 @@ const PaymentDialog = ({
             .update({
               reservation_id: detectedReservation.reservation_id,
               payment_status: "Pending - Room Charge",
+              payment_method: "room",
               status: "completed",
               total: total, // Save final amount after discount
               discount_amount: totalDiscountAmount,
@@ -2141,6 +2142,7 @@ const PaymentDialog = ({
             .from("orders")
             .update({
               payment_status: isNonChargeable ? "nc" : "paid",
+              payment_method: finalPaymentMethod,
               status: "completed",
               total: finalTotal, // Save final amount (0 for NC orders)
               discount_amount: isNonChargeable ? subtotal : totalDiscountAmount, // For NC, discount is the full subtotal
@@ -2181,6 +2183,7 @@ const PaymentDialog = ({
                 total: finalTotal,
                 status: "completed",
                 payment_status: isNonChargeable ? "nc" : "paid",
+                payment_method: finalPaymentMethod,
                 source: "qsr",
                 order_type: finalOrderType || "dine-in",
                 discount_amount: isNonChargeable
