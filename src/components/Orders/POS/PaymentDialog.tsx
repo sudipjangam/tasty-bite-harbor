@@ -2272,20 +2272,31 @@ const PaymentDialog = ({
         }
       }
 
-      setCurrentStep("success");
+      // Skip success screen — close immediately with toast
+      const isDirectClose = true;
 
       toast({
-        title: isNonChargeable ? "NC Order Completed" : "Payment Successful",
+        title: isNonChargeable ? "NC Order Completed" : "Payment Complete ✓",
         description: isNonChargeable
           ? "Complimentary order has been completed successfully."
-          : `Order payment of ₹${finalTotal.toFixed(2)} received via ${finalPaymentMethod}.`,
+          : `${currencySymbol}${finalTotal.toFixed(2)} received via ${finalPaymentMethod.toUpperCase()}`,
       });
 
-      // Auto-close after 6 seconds (gives user time to share bill)
-      setTimeout(() => {
+      if (isDirectClose) {
+        // Fire WhatsApp bill in background if opted in
+        if (sendBillToEmail && customerMobile && restaurantInfo) {
+          handleSendWhatsAppBill();
+        }
         onSuccess();
         onClose();
-      }, 6000);
+      } else {
+        setCurrentStep("success");
+        // Auto-close after 6 seconds for UPI/room flows
+        setTimeout(() => {
+          onSuccess();
+          onClose();
+        }, 6000);
+      }
     } catch (error) {
       toast({
         title: "Payment Failed",
@@ -2335,12 +2346,12 @@ const PaymentDialog = ({
 
   const renderConfirmStep = () => (
     <div className="flex flex-col h-full max-h-[85vh]">
-      {/* Vibrant Header - Full Width */}
-      <div className="text-center py-4 px-6 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-lg">
-        <h2 className="text-2xl font-bold text-white mb-1 drop-shadow-sm">
+      {/* Compact Header */}
+      <div className="text-center py-2.5 px-4 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-md">
+        <h2 className="text-lg font-bold text-white mb-0.5 drop-shadow-sm">
           Confirm Order
         </h2>
-        <p className="text-white/80 text-sm">
+        <p className="text-white/80 text-xs">
           Review the details for{" "}
           <span className="font-semibold text-white">
             {tableNumber ? `Table ${tableNumber}` : "POS Order"}
@@ -2530,145 +2541,129 @@ const PaymentDialog = ({
           </Card>
         </div>
 
-        {/* RIGHT COLUMN - Payment Controls */}
-        <div className="p-4 space-y-4 overflow-y-auto max-h-[60vh] bg-white dark:bg-gray-900">
-          {/* Customer Details Section - Required for Takeaway/Delivery/NC */}
-          {(orderType === "takeaway" ||
-            orderType === "delivery" ||
-            orderType === "nc") && (
-            <Card className="p-4 border-2 border-purple-200 dark:border-purple-700 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 shadow-lg">
-              <div className="space-y-3">
-                <h3 className="font-semibold text-base flex items-center gap-2">
-                  <span className="text-purple-600 dark:text-purple-400">
-                    👤
-                  </span>
-                  Customer Details
-                  <span className="text-red-500 text-lg">*</span>
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <Label
-                      htmlFor="customer-name"
-                      className="text-sm font-medium"
-                    >
-                      Customer Name <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="customer-name"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Enter customer name"
-                      className={`mt-1 ${
-                        !customerName.trim()
-                          ? "border-red-300 focus-visible:ring-red-500"
-                          : "border-green-300 focus-visible:ring-green-500"
-                      }`}
-                    />
-                    {!customerName.trim() && (
-                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                        ⚠️ Customer name is required
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor="customer-phone"
-                      className="text-sm font-medium"
-                    >
-                      Customer Phone{" "}
-                      <span className="text-gray-400">(Optional)</span>
-                    </Label>
-                    <Input
-                      id="customer-phone"
-                      value={customerMobile}
-                      onChange={(e) => setCustomerMobile(e.target.value)}
-                      placeholder="Enter phone number"
-                      className="mt-1"
-                      type="tel"
-                    />
-                  </div>
-                </div>
-              </div>
-            </Card>
-          )}
+        {/* RIGHT COLUMN - Payment Controls (Modernized) */}
+        <div className="p-3 space-y-2 overflow-y-auto max-h-[60vh] bg-white dark:bg-gray-900">
 
-          {/* NC Reason Section - Required for Non-Chargeable Orders */}
+          {/* Premium Unified Customer & Receipt Options Card */}
+          <div className="p-3 rounded-xl border border-purple-100 dark:border-purple-900/50 bg-gradient-to-br from-purple-50/40 to-indigo-50/20 dark:from-purple-950/10 dark:to-indigo-950/5 space-y-2.5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold flex items-center gap-1.5 text-purple-700 dark:text-purple-300">
+                <span>👤 Customer Details</span>
+                {(orderType === "takeaway" || orderType === "delivery" || orderType === "nc") && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-semibold uppercase tracking-wider">Required</span>
+                )}
+              </h3>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Input
+                  id="customer-name"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder={(orderType === "takeaway" || orderType === "delivery" || orderType === "nc") ? "Name *" : "Name (optional)"}
+                  className={`h-8 text-xs rounded-lg transition-all ${
+                    (orderType === "takeaway" || orderType === "delivery" || orderType === "nc") && !customerName.trim()
+                      ? "border-red-300 focus-visible:ring-red-400 bg-red-50/20"
+                      : "border-gray-200 dark:border-gray-800 focus-visible:ring-purple-400"
+                  }`}
+                />
+                {(orderType === "takeaway" || orderType === "delivery" || orderType === "nc") && !customerName.trim() && (
+                  <p className="text-[9px] text-red-500 mt-0.5 ml-1">Required</p>
+                )}
+              </div>
+              <div>
+                <Input
+                  id="customer-phone"
+                  value={customerMobile}
+                  onChange={(e) => setCustomerMobile(e.target.value)}
+                  placeholder="Phone number"
+                  className="h-8 text-xs rounded-lg border-gray-200 dark:border-gray-800 focus-visible:ring-purple-400"
+                  type="tel"
+                />
+              </div>
+            </div>
+
+            {/* Elegant WhatsApp Bill Toggle within Customer Panel */}
+            <div className="pt-2 border-t border-purple-100/50 dark:border-purple-900/30">
+              <label className="flex items-center gap-2 px-1 py-0.5 rounded cursor-pointer select-none group">
+                <input
+                  type="checkbox"
+                  id="send-bill-checkbox"
+                  checked={sendBillToEmail}
+                  onChange={(e) => setSendBillToEmail(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer shrink-0"
+                />
+                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
+                  📲 Send receipt via WhatsApp
+                </span>
+                {sendBillToEmail && customerMobile && customerMobile.replace(/\D/g, "").length >= 10 && (
+                  <span className="text-xs text-green-600 dark:text-green-400 font-bold shrink-0 animate-in fade-in">✓</span>
+                )}
+              </label>
+              {sendBillToEmail && !customerMobile && (
+                <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 ml-5 animate-in slide-in-from-top-1">
+                  ⚠️ Enter phone number above to receive WhatsApp bill
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* 3. NC Reason — compact (NC orders only) */}
           {(isNonChargeable || orderType === "nc") && (
-            <Card className="p-4 border-2 border-amber-200 dark:border-amber-700 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 shadow-lg">
-              <div className="space-y-3">
-                <h3 className="font-semibold text-base flex items-center gap-2">
-                  <span className="text-amber-600 dark:text-amber-400">🎁</span>
-                  Non-Chargeable Reason
-                  <span className="text-red-500 text-lg">*</span>
-                </h3>
-                <div>
-                  <Label htmlFor="nc-reason" className="text-sm font-medium">
-                    Select Reason <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={ncReason}
-                    onValueChange={(value) => setNcReason(value)}
-                  >
-                    <SelectTrigger
-                      id="nc-reason"
-                      className={`mt-1 ${
-                        !ncReason
-                          ? "border-red-300 focus-visible:ring-red-500"
-                          : "border-green-300 focus-visible:ring-green-500"
-                      }`}
-                    >
-                      <SelectValue placeholder="Select reason..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="staff_meal">Staff Meal</SelectItem>
-                      <SelectItem value="owner_complimentary">
-                        Owner Complimentary
-                      </SelectItem>
-                      <SelectItem value="customer_complaint">
-                        Customer Complaint
-                      </SelectItem>
-                      <SelectItem value="promotional_giveaway">
-                        Promotional Giveaway
-                      </SelectItem>
-                      <SelectItem value="wastage">Wastage/Spoilage</SelectItem>
-                      <SelectItem value="testing">
-                        Testing/Quality Check
-                      </SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {!ncReason && (
-                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                      ⚠️ Please select a reason for this Non-Chargeable order
-                    </p>
-                  )}
-                </div>
-              </div>
-            </Card>
+            <div className="p-2.5 rounded-lg border border-amber-200 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-900/10 space-y-1.5">
+              <h3 className="text-xs font-semibold flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
+                🎁 NC Reason <span className="text-red-500">*</span>
+              </h3>
+              <Select
+                value={ncReason}
+                onValueChange={(value) => setNcReason(value)}
+              >
+                <SelectTrigger
+                  id="nc-reason"
+                  className={`h-8 text-sm ${
+                    !ncReason
+                      ? "border-red-300 focus-visible:ring-red-500"
+                      : "border-green-300 focus-visible:ring-green-500"
+                  }`}
+                >
+                  <SelectValue placeholder="Select reason..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="staff_meal">Staff Meal</SelectItem>
+                  <SelectItem value="owner_complimentary">Owner Complimentary</SelectItem>
+                  <SelectItem value="customer_complaint">Customer Complaint</SelectItem>
+                  <SelectItem value="promotional_giveaway">Promotional Giveaway</SelectItem>
+                  <SelectItem value="wastage">Wastage/Spoilage</SelectItem>
+                  <SelectItem value="testing">Testing/Quality Check</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              {!ncReason && (
+                <p className="text-[10px] text-red-500">Select a reason</p>
+              )}
+            </div>
           )}
 
-          {/* Promotion Code Section */}
-          <Card className="p-4 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border border-emerald-200 dark:border-emerald-700">
-            <div className="space-y-3">
-              <h3 className="font-semibold text-sm">Apply Promotion</h3>
+          {/* 4. Promo + Discount — MERGED into one card */}
+          <div className="p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 space-y-2">
+            {/* Promotion */}
+            <div className="space-y-1.5">
+              <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-300">Promo & Discount</h3>
 
               {!appliedPromotion ? (
-                <div className="space-y-3">
-                  <Label htmlFor="promo-select" className="text-xs">
-                    Select or Enter Promotion Code
-                  </Label>
+                <div className="space-y-1.5">
                   <Select
                     value={promotionCode}
                     onValueChange={(value) => {
                       setPromotionCode(value);
                       if (value && value !== "manual") {
-                        // Auto-apply when selecting from dropdown using the selected value directly
                         handleApplyPromotion(value);
                       }
                     }}
                   >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a promotion code" />
+                    <SelectTrigger className="w-full h-8 text-sm">
+                      <SelectValue placeholder="Select promo code" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px]">
                       {activePromotions.length > 0 ? (
@@ -2713,174 +2708,155 @@ const PaymentDialog = ({
                     </SelectContent>
                   </Select>
 
-                  {/* Manual entry field - show when "manual" is selected or no promotions */}
                   {(promotionCode === "manual" ||
                     activePromotions.length === 0) && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <Input
                         value={promotionCode === "manual" ? "" : promotionCode}
                         onChange={(e) =>
                           setPromotionCode(e.target.value.toUpperCase())
                         }
-                        placeholder="Enter promotion code"
-                        className="flex-1"
+                        placeholder="Enter code"
+                        className="flex-1 h-7 text-xs"
                         onKeyPress={(e) => {
                           if (e.key === "Enter") {
                             handleApplyPromotion();
                           }
                         }}
                       />
-                      <Button onClick={() => handleApplyPromotion()} size="sm">
+                      <Button onClick={() => handleApplyPromotion()} size="sm" className="h-7 text-xs px-3">
                         Apply
                       </Button>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="default" className="bg-green-600">
-                          {appliedPromotion.code}
-                        </Badge>
-                        <span className="text-sm font-semibold text-green-700 dark:text-green-300">
-                          {appliedPromotion.name}
-                        </span>
-                      </div>
-                      <p className="text-xs text-green-600 dark:text-green-400 dark:text-green-400">
-                        Discount: {currencySymbol}
-                        {promotionDiscountAmount.toFixed(2)}
-                      </p>
-                    </div>
-                    <Button
-                      onClick={handleRemovePromotion}
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/20"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* Manual Discount Section */}
-          <Card className="p-4 bg-background">
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                {/* Percentage Discount */}
-                <div>
-                  <label className="text-sm font-medium">Discount (%)</label>
-                  <div className="flex items-center gap-1 mt-1">
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      min="0"
-                      max="100"
-                      value={localDiscountPctStr}
-                      onChange={(e) => {
-                        const valStr = e.target.value;
-                        setLocalDiscountPctStr(valStr);
-                        const value = parseFloat(valStr) || 0;
-                        if (value >= 0 && value <= 100) {
-                          setManualDiscountPercent(value);
-                        } else if (valStr === "") {
-                          setManualDiscountPercent(0);
-                        }
-                      }}
-                      className="flex-1"
-                    />
-                    <span className="text-sm text-muted-foreground">%</span>
-                  </div>
-                </div>
-
-                {/* Cash Discount */}
-                <div>
-                  <label className="text-sm font-medium">Cash Discount</label>
-                  <div className="flex items-center gap-1 mt-1">
-                    <span className="text-sm text-muted-foreground">
-                      {currencySymbol}
+                <div className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-200 dark:border-green-700">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Badge variant="default" className="bg-green-600 text-xs shrink-0">
+                      {appliedPromotion.code}
+                    </Badge>
+                    <span className="text-xs text-green-700 dark:text-green-300 truncate">
+                      -{currencySymbol}{promotionDiscountAmount.toFixed(2)}
                     </span>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      min="0"
-                      value={localDiscountCashStr}
-                      onChange={(e) => {
-                        const valStr = e.target.value;
-                        setLocalDiscountCashStr(valStr);
-                        const value = parseFloat(valStr) || 0;
-                        if (value >= 0 && value <= subtotal) {
-                          setManualDiscountCash(value);
-                        } else if (valStr === "") {
-                          setManualDiscountCash(0);
-                        }
-                      }}
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Clear button and discount summary */}
-              {(manualDiscountPercent > 0 || manualDiscountCash > 0) && (
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-green-600 dark:text-green-400 font-medium">
-                    ✓ Discount applied - Save {currencySymbol}
-                    {manualDiscountAmount.toFixed(2)}
-                    {manualDiscountPercent > 0 && manualDiscountCash > 0 && (
-                      <span className="text-xs text-muted-foreground ml-1">
-                        ({manualDiscountPercent}% + {currencySymbol}
-                        {manualDiscountCash})
-                      </span>
-                    )}
                   </div>
                   <Button
-                    onClick={() => {
-                      setManualDiscountPercent(0);
-                      setManualDiscountCash(0);
-                    }}
-                    variant="outline"
+                    onClick={handleRemovePromotion}
+                    variant="ghost"
                     size="sm"
+                    className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/20 shrink-0"
                   >
-                    Clear
+                    <X className="w-3.5 h-3.5" />
                   </Button>
                 </div>
               )}
             </div>
-          </Card>
 
-          <div className="grid grid-cols-2 gap-3">
+            {/* Divider */}
+            <div className="border-t border-gray-200 dark:border-gray-700" />
+
+            {/* Manual Discount */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Discount %</label>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    min="0"
+                    max="100"
+                    value={localDiscountPctStr}
+                    onChange={(e) => {
+                      const valStr = e.target.value;
+                      setLocalDiscountPctStr(valStr);
+                      const value = parseFloat(valStr) || 0;
+                      if (value >= 0 && value <= 100) {
+                        setManualDiscountPercent(value);
+                      } else if (valStr === "") {
+                        setManualDiscountPercent(0);
+                      }
+                    }}
+                    className="flex-1 h-7 text-xs"
+                  />
+                  <span className="text-[10px] text-muted-foreground">%</span>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cash Off</label>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="text-[10px] text-muted-foreground">{currencySymbol}</span>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    min="0"
+                    value={localDiscountCashStr}
+                    onChange={(e) => {
+                      const valStr = e.target.value;
+                      setLocalDiscountCashStr(valStr);
+                      const value = parseFloat(valStr) || 0;
+                      if (value >= 0 && value <= subtotal) {
+                        setManualDiscountCash(value);
+                      } else if (valStr === "") {
+                        setManualDiscountCash(0);
+                      }
+                    }}
+                    className="flex-1 h-7 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {(manualDiscountPercent > 0 || manualDiscountCash > 0) && (
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">
+                  ✓ Save {currencySymbol}{manualDiscountAmount.toFixed(2)}
+                </span>
+                <button
+                  onClick={() => {
+                    setManualDiscountPercent(0);
+                    setManualDiscountCash(0);
+                    setLocalDiscountPctStr("");
+                    setLocalDiscountCashStr("");
+                  }}
+                  className="text-[10px] text-red-500 hover:text-red-700 underline"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 5. Action Buttons — compact row */}
+          <div className="grid grid-cols-3 gap-1.5">
             <Button
               variant="outline"
               onClick={handleEditOrder}
-              className="w-full"
+              className="w-full h-8 text-[11px]"
+              size="sm"
             >
-              <Receipt className="w-4 h-4 mr-2" />
-              Edit Order
+              <Receipt className="w-3 h-3 mr-1" />
+              Edit
             </Button>
             <Button
               variant="outline"
               onClick={() => handlePrintBill(true)}
-              className="w-full"
+              className="w-full h-8 text-[11px]"
+              size="sm"
               disabled={isSaving}
             >
-              <Printer className="w-4 h-4 mr-2" />
-              {isSaving ? "Saving..." : "Print Bill"}
+              <Printer className="w-3 h-3 mr-1" />
+              {isSaving ? "..." : "Print"}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-full h-8 text-[11px]"
+              size="sm"
+            >
+              <Trash2 className="w-3 h-3 mr-1" />
+              Delete
             </Button>
           </div>
-
-          <Button
-            variant="destructive"
-            onClick={() => setShowDeleteConfirm(true)}
-            className="w-full"
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Delete Order
-          </Button>
 
           {/* Delete Confirmation Dialog */}
           <AlertDialog
@@ -2906,44 +2882,6 @@ const PaymentDialog = ({
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-
-          {/* Send Bill Checkbox + Mobile Input */}
-          <Card className="p-4 bg-muted/30 border-2 border-primary/20">
-            <div className="space-y-3">
-              <div className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
-                  id="send-bill-checkbox"
-                  checked={sendBillToEmail}
-                  onChange={(e) => setSendBillToEmail(e.target.checked)}
-                  className="w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer"
-                />
-                <label
-                  htmlFor="send-bill-checkbox"
-                  className="text-sm font-medium leading-none cursor-pointer select-none"
-                >
-                  📲 Send bill to customer via WhatsApp
-                </label>
-              </div>
-
-              {sendBillToEmail && (
-                <div className="flex items-center gap-2 animate-in slide-in-from-top-1">
-                  <Input
-                    type="tel"
-                    placeholder="Enter mobile number"
-                    value={customerMobile}
-                    onChange={(e) => setCustomerMobile(e.target.value)}
-                    className="flex-1"
-                  />
-                  {customerMobile && customerMobile.replace(/\D/g, "").length >= 10 && (
-                    <span className="text-xs text-green-600 dark:text-green-400 font-medium whitespace-nowrap">
-                      ✓ Ready
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          </Card>
         </div>
       </div>
 
@@ -3038,15 +2976,16 @@ const PaymentDialog = ({
   );
 
   const renderMethodStep = () => (
-    <div className="space-y-6 p-4">
+    <div className="space-y-4 p-4">
       {/* Back Button */}
       <Button
         variant="ghost"
         onClick={() => setCurrentStep("confirm")}
-        className="mb-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+        className="mb-1 h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+        size="sm"
       >
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Back to Order
+        <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
+        Back
       </Button>
 
       {/* NC Order - Complimentary View */}
@@ -3108,14 +3047,14 @@ const PaymentDialog = ({
         </>
       ) : (
         <>
-          {/* Vibrant Header - Normal Orders */}
-          <div className="text-center py-6 px-8 rounded-2xl bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 shadow-lg shadow-green-200/50 dark:shadow-green-900/30">
-            <h2 className="text-2xl font-bold text-white mb-2 drop-shadow-sm">
+          {/* Compact Header - Normal Orders */}
+          <div className="text-center py-3 px-6 rounded-xl bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 shadow-md">
+            <h2 className="text-lg font-bold text-white mb-1 drop-shadow-sm">
               Select Payment Method
             </h2>
-            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
-              <span className="text-white/80 text-sm">Total Amount:</span>
-              <span className="text-xl font-extrabold text-white">
+            <div className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
+              <span className="text-white/80 text-xs">Total:</span>
+              <span className="text-lg font-extrabold text-white">
                 {currencySymbol}
                 {total.toFixed(2)}
               </span>
@@ -3150,57 +3089,57 @@ const PaymentDialog = ({
           )}
 
           {/* Payment Methods Grid */}
-          <div className="space-y-3">
-            {/* Cash - Green gradient */}
+          <div className="space-y-2">
+            {/* Cash */}
             <button
               onClick={() => handleMethodSelect("cash")}
-              className="w-full h-20 rounded-2xl flex items-center px-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border-2 border-green-200 dark:border-green-700 hover:border-green-400 dark:hover:border-green-500 group"
+              className="w-full h-14 rounded-xl flex items-center px-4 transition-all duration-200 hover:scale-[1.01] hover:shadow-lg bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border border-green-200 dark:border-green-700 hover:border-green-400 dark:hover:border-green-500 group"
             >
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-green-300/50 group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
-                <Wallet className="w-7 h-7 text-white" />
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center shadow-md group-hover:scale-105 transition-all duration-200">
+                <Wallet className="w-5 h-5 text-white" />
               </div>
-              <div className="ml-4 text-left">
-                <span className="text-xl font-bold text-gray-800 dark:text-white">
+              <div className="ml-3 text-left">
+                <span className="text-base font-bold text-gray-800 dark:text-white">
                   Cash
                 </span>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   Pay with cash
                 </p>
               </div>
             </button>
 
-            {/* Card - Blue/Indigo gradient */}
+            {/* Card */}
             <button
               onClick={() => handleMethodSelect("card")}
-              className="w-full h-20 rounded-2xl flex items-center px-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border-2 border-blue-200 dark:border-blue-700 hover:border-blue-400 dark:hover:border-blue-500 group"
+              className="w-full h-14 rounded-xl flex items-center px-4 transition-all duration-200 hover:scale-[1.01] hover:shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border border-blue-200 dark:border-blue-700 hover:border-blue-400 dark:hover:border-blue-500 group"
             >
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-300/50 group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
-                <CreditCard className="w-7 h-7 text-white" />
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center shadow-md group-hover:scale-105 transition-all duration-200">
+                <CreditCard className="w-5 h-5 text-white" />
               </div>
-              <div className="ml-4 text-left">
-                <span className="text-xl font-bold text-gray-800 dark:text-white">
+              <div className="ml-3 text-left">
+                <span className="text-base font-bold text-gray-800 dark:text-white">
                   Card
                 </span>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   Credit or Debit card
                 </p>
               </div>
             </button>
 
-            {/* UPI - Purple/Violet gradient */}
+            {/* UPI */}
             <button
               onClick={() => handleMethodSelect("upi")}
-              className="w-full h-20 rounded-2xl flex items-center px-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/30 dark:to-violet-900/30 border-2 border-purple-300 dark:border-purple-600 hover:border-purple-400 dark:hover:border-purple-500 group"
+              className="w-full h-14 rounded-xl flex items-center px-4 transition-all duration-200 hover:scale-[1.01] hover:shadow-lg bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/30 dark:to-violet-900/30 border border-purple-200 dark:border-purple-600 hover:border-purple-400 dark:hover:border-purple-500 group"
             >
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-r from-purple-500 to-violet-500 flex items-center justify-center shadow-lg shadow-purple-300/50 group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
-                <QrCode className="w-7 h-7 text-white" />
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 flex items-center justify-center shadow-md group-hover:scale-105 transition-all duration-200">
+                <QrCode className="w-5 h-5 text-white" />
               </div>
-              <div className="ml-4 text-left">
-                <span className="text-xl font-bold text-gray-800 dark:text-white">
+              <div className="ml-3 text-left">
+                <span className="text-base font-bold text-gray-800 dark:text-white">
                   UPI / QR Code
                 </span>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Scan QR to pay instantly
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Scan QR to pay
                 </p>
               </div>
             </button>

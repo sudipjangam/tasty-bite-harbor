@@ -159,6 +159,12 @@ export const hasFeatureAccess = (featureKey: string, planFeatures: string[]): bo
   // This ensures live users aren't locked out before the migration script runs.
   const rootKey = segments[0];
   if (normalizedPlan.includes(rootKey)) return true;
+
+  // 4. Reverse-wildcard: root key "suppliers" matches "suppliers.basic" in plan
+  // This prevents lockouts when FeatureLock uses a bare root key
+  if (segments.length === 1) {
+    if (normalizedPlan.some((f) => f.startsWith(rootKey + '.'))) return true;
+  }
   
   // Specific legacy mappings
   if (rootKey === 'users_permissions') {

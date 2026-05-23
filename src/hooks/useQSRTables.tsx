@@ -64,12 +64,17 @@ export const useQSRTables = () => {
 
         let activeOrderTotal = 0;
         let activeOrderItems = 0;
+        let totalItemsCount = 0;
+        let servedItemsCount = 0;
 
         if (tableOrder && tableOrder.items) {
           const items = tableOrder.items as {
             price: number;
             quantity: number;
           }[];
+          const itemCompletionStatus =
+            (tableOrder?.item_completion_status as boolean[]) || [];
+
           activeOrderTotal = items.reduce(
             (sum, item) => sum + item.price * item.quantity,
             0
@@ -78,6 +83,14 @@ export const useQSRTables = () => {
             (sum, item) => sum + item.quantity,
             0
           );
+
+          items.forEach((item, index) => {
+            const qty = item.quantity || 0;
+            totalItemsCount += qty;
+            if (itemCompletionStatus[index] === true) {
+              servedItemsCount += qty;
+            }
+          });
         }
 
         // Check if all items are delivered (ready for payment)
@@ -105,6 +118,8 @@ export const useQSRTables = () => {
           orderCreatedAt: tableOrder?.created_at,
           lastActivityAt: tableOrder?.updated_at,
           allItemsDelivered,
+          totalItemsCount,
+          servedItemsCount,
         };
       });
 
@@ -143,7 +158,6 @@ export const useQSRTables = () => {
           event: "*",
           schema: "public",
           table: "kitchen_orders",
-          filter: `restaurant_id=eq.${restaurantId}`,
         },
         (payload) => {
           // Immediately refetch when order status changes (especially to 'completed')
@@ -161,7 +175,6 @@ export const useQSRTables = () => {
           event: "*",
           schema: "public",
           table: "orders",
-          filter: `restaurant_id=eq.${restaurantId}`,
         },
         (payload) => {
           // Listen to orders table for payment status changes

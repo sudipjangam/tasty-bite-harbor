@@ -31,6 +31,8 @@ export interface QSRTable {
   orderCreatedAt?: string;    // When order was placed
   lastActivityAt?: string;    // Last item_completion_status update
   allItemsDelivered?: boolean; // True when all items marked complete (ready for payment)
+  totalItemsCount?: number;
+  servedItemsCount?: number;
 }
 
 // Active kitchen order for drawer
