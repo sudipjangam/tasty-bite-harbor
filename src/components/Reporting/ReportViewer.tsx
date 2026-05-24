@@ -368,7 +368,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
           doc.setTextColor(15, 23, 42);
           doc.setFontSize(12);
           doc.setFont("helvetica", "bold");
-          const valueStr = String(value);
+          const valueStr = String(value).replace(/₹/g, "Rs.");
           doc.text(
             valueStr.length > 15 ? valueStr.substring(0, 15) + "..." : valueStr,
             xPos + 3,
@@ -403,17 +403,17 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
           const columns = getDisplayColumns(
             report.tableData as Record<string, unknown>[],
           ).slice(0, 6);
-          const rows = report.tableData.slice(0, 30).map((row) =>
+          const rows = report.tableData.map((row) =>
             columns.map((col) => {
               const val = formatCellValue(
                 (row as Record<string, unknown>)[col],
-              );
+              ).replace(/₹/g, "Rs.");
               return val.length > 25 ? val.substring(0, 25) + "..." : val;
             }),
           );
 
           autoTable(doc, {
-            head: [columns.map(formatColumnName)],
+            head: [columns.map(c => formatColumnName(c).replace(/₹/g, "Rs."))],
             body: rows,
             startY: yPos,
             theme: "striped",
@@ -433,24 +433,39 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
             margin: { left: 14, right: 14 },
           });
 
-          // Show row count
+          // Show total row count
           const finalY = (doc as any).lastAutoTable?.finalY || yPos;
-          if (report.tableData.length > 30) {
-            doc.setFontSize(8);
-            doc.setTextColor(100, 116, 139);
-            doc.text(
-              `Showing 30 of ${report.tableData.length} rows`,
-              14,
-              finalY + 6,
-            );
-          }
+          doc.setFontSize(8);
+          doc.setTextColor(100, 116, 139);
+          doc.text(
+            `Total: ${report.tableData.length} rows`,
+            14,
+            finalY + 6,
+          );
         }
       }
 
-      // ===== FOOTER ON ALL PAGES =====
+      // ===== WATERMARK + FOOTER ON ALL PAGES =====
       const pageCount = doc.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
+
+        // Diagonal watermark with transparency
+        try {
+          const wmState = new (doc as any).GState({ opacity: 0.15 });
+          doc.saveGraphicsState();
+          doc.setGState(wmState);
+          doc.setTextColor(100, 110, 140);
+          doc.setFontSize(55);
+          doc.setFont("helvetica", "bold");
+          doc.text("SWADESHI SOLUTIONS", pageWidth / 2, pageHeight / 2, {
+            align: "center",
+            angle: 45,
+          });
+          doc.restoreGraphicsState();
+        } catch {
+          // GState fallback — skip watermark if unsupported
+        }
 
         // Footer line
         doc.setDrawColor(226, 232, 240);
@@ -458,6 +473,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
 
         // Footer text
         doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
         doc.setTextColor(148, 163, 184);
         doc.text(`Business Report by Swadeshi Solutions`, 14, pageHeight - 8);
         doc.text(`Page ${i} of ${pageCount}`, pageWidth - 14, pageHeight - 8, {

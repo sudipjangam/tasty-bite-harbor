@@ -97,6 +97,13 @@ export const generateEditablePPTX = async (
       { rect: { x: 0, y: 0, w: "100%", h: 0.15, fill: { color: BRAND_BLUE } } },
       // Thin accent bar (Orange)
       { rect: { x: 0, y: 0.15, w: "100%", h: 0.05, fill: { color: BRAND_ORANGE } } },
+      // Diagonal watermark
+      {
+        text: {
+          text: "SWADESHI SOLUTIONS",
+          options: { x: 1.2, y: 2.0, w: 7.5, h: 1.5, color: "E8E8E8", fontSize: 36, bold: true, rotate: 330, align: "center" },
+        },
+      },
       // Footer text
       {
         text: {
@@ -214,56 +221,62 @@ export const generateEditablePPTX = async (
       }
     }
 
-    // B. Data Table Slide (Only if there are records)
+    // B. Data Table Slides — paginated across multiple slides
     if (report.tableData && report.tableData.length > 0) {
-      const tableSlide = pptx.addSlide({ masterName: "MASTER_SLIDE" });
-      
-      tableSlide.addText(`${report.title} - Data Table`, {
-        x: 0.5, y: 0.4, w: "80%", h: 0.5,
-        fontSize: 20, bold: true, color: BRAND_BLUE,
-      });
-
       const columns = getDisplayColumns(report.tableData as Record<string, unknown>[]).slice(0, 6);
-      
-      // Header Row (Blue background, White text)
-      const tableRows: pptxgen.TableRow[] = [
-        columns.map(key => ({
-          text: formatColumnName(key), 
-          options: { fill: { color: BRAND_BLUE }, color: "FFFFFF", bold: true, fontFace: "Helvetica", fontSize: 11, align: "left" }
-        }))
-      ];
+      const ROWS_PER_SLIDE = 12;
+      const totalDataRows = report.tableData.length;
+      const totalTableSlides = Math.ceil(totalDataRows / ROWS_PER_SLIDE);
 
-      // Data Rows (Max 12 rows per slide, alternate background)
-      report.tableData.slice(0, 12).forEach((row, rowIndex) => {
-        const isAlternate = rowIndex % 2 === 1;
-        const rowProps = { 
-          fill: { color: isAlternate ? "F8FAFC" : "FFFFFF" }, 
-          color: TEXT_DARK, 
-          fontSize: 10,
-          border: { type: "solid" as const, color: "E2E8F0", pt: 1 },
-          fontFace: "Helvetica",
-          align: "left" as const,
-          bold: false as const
-        };
+      for (let slideIdx = 0; slideIdx < totalTableSlides; slideIdx++) {
+        const tableSlide = pptx.addSlide({ masterName: "MASTER_SLIDE" });
+        const pageLabel = totalTableSlides > 1 ? ` (${slideIdx + 1}/${totalTableSlides})` : '';
 
-        tableRows.push(
-          columns.map(col => ({
-            text: String(formatCellValue((row as Record<string, unknown>)[col])).substring(0, 40),
-            options: rowProps
+        tableSlide.addText(`${report.title} - Data Table${pageLabel}`, {
+          x: 0.5, y: 0.4, w: "80%", h: 0.5,
+          fontSize: 20, bold: true, color: BRAND_BLUE,
+        });
+
+        // Header Row (Blue background, White text)
+        const tableRows: pptxgen.TableRow[] = [
+          columns.map(key => ({
+            text: formatColumnName(key), 
+            options: { fill: { color: BRAND_BLUE }, color: "FFFFFF", bold: true, fontFace: "Helvetica", fontSize: 11, align: "left" }
           }))
+        ];
+
+        // Data Rows for this slide
+        const sliceStart = slideIdx * ROWS_PER_SLIDE;
+        const sliceEnd = Math.min(sliceStart + ROWS_PER_SLIDE, totalDataRows);
+        report.tableData.slice(sliceStart, sliceEnd).forEach((row, rowIndex) => {
+          const isAlternate = rowIndex % 2 === 1;
+          const rowProps = { 
+            fill: { color: isAlternate ? "F8FAFC" : "FFFFFF" }, 
+            color: TEXT_DARK, 
+            fontSize: 10,
+            border: { type: "solid" as const, color: "E2E8F0", pt: 1 },
+            fontFace: "Helvetica",
+            align: "left" as const,
+            bold: false as const
+          };
+
+          tableRows.push(
+            columns.map(col => ({
+              text: String(formatCellValue((row as Record<string, unknown>)[col])).substring(0, 40),
+              options: rowProps
+            }))
+          );
+        });
+
+        tableSlide.addTable(tableRows, {
+          x: 0.5, y: 1.2, w: 9.0, rowH: 0.3,
+          valign: "middle",
+        });
+
+        tableSlide.addText(
+          `Showing ${sliceStart + 1}\u2013${sliceEnd} of ${totalDataRows} records`,
+          { x: 0.5, y: 5.0, w: 9.0, h: 0.3, fontSize: 9, color: TEXT_MUTED, italic: true }
         );
-      });
-
-      tableSlide.addTable(tableRows, {
-        x: 0.5, y: 1.2, w: 9.0, rowH: 0.3,
-        valign: "middle",
-      });
-
-      if (report.tableData.length > 12) {
-         tableSlide.addText(`Showing first 12 of ${report.tableData.length} records. See Excel export for full dataset.`, {
-           x: 0.5, y: 5.0, w: 9.0, h: 0.3,
-           fontSize: 9, color: TEXT_MUTED, italic: true
-         });
       }
     }
   }
