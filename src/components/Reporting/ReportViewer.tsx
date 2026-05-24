@@ -456,11 +456,11 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
           doc.saveGraphicsState();
           doc.setGState(wmState);
           doc.setTextColor(100, 110, 140);
-          doc.setFontSize(55);
+          doc.setFontSize(50);
           doc.setFont("helvetica", "bold");
           doc.text("SWADESHI SOLUTIONS", pageWidth / 2, pageHeight / 2, {
             align: "center",
-            angle: 45,
+            angle: 0,
           });
           doc.restoreGraphicsState();
         } catch {
