@@ -360,11 +360,15 @@ export const useReportsData = (dateRange?: DateRange) => {
       );
 
       // Format menu items for display — focus on sales performance
+      let totalTheoreticalRevenue = 0;
       const formattedItems = menuItems
         .map((item) => {
           // Try exact name, then trimmed name for lookup
           const unitsSold = itemSales[item.name] ?? itemSales[item.name.trim()] ?? 0;
           const revenue = itemRevenue[item.name] ?? itemRevenue[item.name.trim()] ?? 0;
+          const theoretical = Number(item.price) * unitsSold;
+          const variance = theoretical - revenue;
+          totalTheoreticalRevenue += theoretical;
           return {
             "Item Name": item.name.trim(),
             Category: item.category,
@@ -373,6 +377,9 @@ export const useReportsData = (dateRange?: DateRange) => {
             "Revenue (₹)": `₹${revenue.toLocaleString("en-IN", {
               minimumFractionDigits: 2,
             })}`,
+            "Variance (₹)": unitsSold > 0 ? `₹${variance.toLocaleString("en-IN", {
+              minimumFractionDigits: 2,
+            })}` : "—",
             Available: item.is_available ? "Yes" : "No",
             Veg: item.is_veg ? "Veg" : "Non-Veg",
           };
@@ -381,6 +388,7 @@ export const useReportsData = (dateRange?: DateRange) => {
           (a, b) => b["Qty Sold"] - a["Qty Sold"],
         );
 
+      const totalVariance = totalTheoreticalRevenue - totalItemRevenue;
       // Add grand total row at the bottom
       formattedItems.push({
         "Item Name": "━━ GRAND TOTAL ━━",
@@ -388,6 +396,9 @@ export const useReportsData = (dateRange?: DateRange) => {
         "Rate (₹)": "",
         "Qty Sold": totalUnitsSold,
         "Revenue (₹)": `₹${totalItemRevenue.toLocaleString("en-IN", {
+          minimumFractionDigits: 2,
+        })}`,
+        "Variance (₹)": `₹${totalVariance.toLocaleString("en-IN", {
           minimumFractionDigits: 2,
         })}`,
         Available: "",
