@@ -22,6 +22,10 @@ export interface Recipe {
   selling_price: number;
   food_cost_percentage: number;
   margin_percentage: number;
+  recipe_type: 'menu_item' | 'production' | null;
+  output_inventory_item_id: string | null;
+  output_quantity: number | null;
+  output_unit: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

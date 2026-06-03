@@ -541,11 +541,49 @@ const Inventory = () => {
               );
             }
 
+            // 7. Save production recipe for re-production ("Produce More")
+            try {
+              const { data: prodRecipe } = await supabase
+                .from("recipes")
+                .insert({
+                  restaurant_id: userProfile.restaurant_id,
+                  recipe_type: "production",
+                  name: `Production: ${itemData.name}`,
+                  category: "side_dish" as any,
+                  output_inventory_item_id: newItem.id,
+                  output_quantity: itemData.quantity,
+                  output_unit: itemData.unit,
+                  total_cost: totalProductionCost,
+                  selling_price: 0,
+                  serving_size: 1,
+                  serving_unit: itemData.unit,
+                  is_active: true,
+                  description: `Production recipe for homemade ${itemData.name}`,
+                })
+                .select()
+                .single();
+
+              if (prodRecipe) {
+                await supabase.from("recipe_ingredients").insert(
+                  rawMaterials.map((m) => ({
+                    recipe_id: prodRecipe.id,
+                    inventory_item_id: m.inventory_item_id,
+                    quantity: m.quantity,
+                    unit: m.unit,
+                    cost_per_unit: m.cost_per_unit,
+                    total_cost: m.quantity * m.cost_per_unit,
+                  }))
+                );
+              }
+            } catch (recipeErr) {
+              console.warn("Failed to save production recipe (non-critical):", recipeErr);
+            }
+
             toast({
               title: "🏠 Homemade item produced!",
               description: wastageQty > 0
                 ? `"${itemData.name}" created. ${rawMaterials.length} ingredient(s) deducted. ⚠️ Wastage: ${wastageQty} ${itemData.unit}`
-                : `"${itemData.name}" created. ${rawMaterials.length} ingredient(s) deducted.`,
+                : `"${itemData.name}" created. ${rawMaterials.length} ingredient(s) deducted. Production recipe saved for re-use.`,
             });
           } finally {
             setIsSubmittingHomemade(false);

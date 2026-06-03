@@ -201,6 +201,11 @@ export const RecipeList = ({ recipes, isLoading, onEdit }: RecipeListProps) => {
                     <Badge className={`${getCategoryColor(recipe.category)} capitalize font-medium text-xs px-3 py-1`}>
                       {recipe.category.replace('_', ' ')}
                     </Badge>
+                    {recipe.recipe_type === 'production' && (
+                      <Badge className="bg-gradient-to-r from-amber-500 to-orange-600 text-white border-0 shadow-sm shadow-amber-500/30 font-medium text-xs px-3 py-1">
+                        🏭 Production
+                      </Badge>
+                    )}
                     {getDifficultyBadge(recipe.difficulty)}
                   </div>
                   
@@ -276,32 +281,61 @@ export const RecipeList = ({ recipes, isLoading, onEdit }: RecipeListProps) => {
                     {currencySymbol}{recipe.total_cost.toFixed(2)}
                   </p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Selling Price</p>
-                  <p className="font-bold text-xl bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-                    {currencySymbol}{recipe.selling_price.toFixed(0)}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
-                    <TrendingUp className="h-3.5 w-3.5 text-blue-500" /> Food Cost %
-                  </p>
-                  <Badge className={`font-semibold ${
-                    recipe.food_cost_percentage <= 30 
-                      ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-sm shadow-emerald-500/30' 
-                      : recipe.food_cost_percentage <= 35 
-                        ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-sm shadow-amber-500/30'
-                        : 'bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-sm shadow-red-500/30'
-                  } border-0`}>
-                    {recipe.food_cost_percentage.toFixed(1)}%
-                  </Badge>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Margin</p>
-                  <p className={`font-bold text-lg ${recipe.margin_percentage >= 70 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    {recipe.margin_percentage.toFixed(0)}%
-                  </p>
-                </div>
+                {recipe.recipe_type === "production" ? (
+                  <>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Recipe Yield</p>
+                      <p className="font-bold text-gray-805 dark:text-gray-100 text-base">
+                        {recipe.output_quantity} {recipe.output_unit || "units"}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Unit Cost</p>
+                      <p className="font-bold text-emerald-600 dark:text-emerald-400 text-base">
+                        {currencySymbol}
+                        {recipe.output_quantity && recipe.output_quantity > 0
+                          ? (recipe.total_cost / recipe.output_quantity).toFixed(2)
+                          : "0.00"}
+                        /{recipe.output_unit || "unit"}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Recipe Type</p>
+                      <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 font-medium text-[10px] px-2 py-0.5">
+                        Production
+                      </Badge>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Selling Price</p>
+                      <p className="font-bold text-xl bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+                        {currencySymbol}{recipe.selling_price.toFixed(0)}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                        <TrendingUp className="h-3.5 w-3.5 text-blue-500" /> Food Cost %
+                      </p>
+                      <Badge className={`font-semibold ${
+                        recipe.food_cost_percentage <= 30 
+                          ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-sm shadow-emerald-500/30' 
+                          : recipe.food_cost_percentage <= 35 
+                            ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-sm shadow-amber-500/30'
+                            : 'bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-sm shadow-red-500/30'
+                      } border-0`}>
+                        {recipe.food_cost_percentage.toFixed(1)}%
+                      </Badge>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Margin</p>
+                      <p className={`font-bold text-lg ${recipe.margin_percentage >= 70 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {recipe.margin_percentage.toFixed(0)}%
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Quick Action Button */}
