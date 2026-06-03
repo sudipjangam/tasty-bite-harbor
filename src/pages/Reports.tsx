@@ -2,7 +2,7 @@
 import React, { Suspense } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, FileBarChart, FileText, Database } from "lucide-react";
+import { TrendingUp, FileBarChart, FileText, Database, Ban } from "lucide-react";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
 
 // Lazy load heavy components
@@ -10,6 +10,7 @@ const AdvancedAnalytics = React.lazy(() => import("@/components/Reporting/Advanc
 const DefaultReports = React.lazy(() => import("@/components/Reporting/DefaultReports"));
 const CustomReportBuilder = React.lazy(() => import("@/components/Reporting/CustomReportBuilder"));
 const ExportCenter = React.lazy(() => import("@/components/Reporting/ExportCenter"));
+const NCOrdersReport = React.lazy(() => import("@/components/Reporting/NCOrdersReport"));
 
 const LoadingFallback = () => (
   <div className="space-y-4">
@@ -75,6 +76,15 @@ const Reports = () => {
               <span className="hidden sm:inline">Export</span> Center
             </TabsTrigger>
           </FeatureLock>
+          <FeatureLock feature="orders.nc_orders" interceptClicks={true}>
+            <TabsTrigger
+              value="nc_orders"
+              className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500/15 data-[state=active]:to-pink-500/10 data-[state=active]:border data-[state=active]:border-violet-400/30 data-[state=active]:shadow-md data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-white/10 whitespace-nowrap"
+            >
+              <Ban className="h-4 w-4" />
+              <span className="hidden sm:inline">NC</span> Orders
+            </TabsTrigger>
+          </FeatureLock>
         </TabsList>
 
         <TabsContent value="analytics" className="mt-0">
@@ -98,6 +108,12 @@ const Reports = () => {
         <TabsContent value="export" className="mt-0">
           <Suspense fallback={<LoadingFallback />}>
             <ExportCenter />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="nc_orders" className="mt-0">
+          <Suspense fallback={<LoadingFallback />}>
+            <NCOrdersReport />
           </Suspense>
         </TabsContent>
       </Tabs>

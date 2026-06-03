@@ -281,13 +281,13 @@ const navigationGroups: NavigationGroup[] = [
         description: "Track business expenses",
         requiredPermissions: ["financial.view"],
       },
-      {
-        title: "NC Orders",
-        icon: Ban,
-        href: "/nc-orders",
-        description: "Non-chargeable order tracking",
-        // No permissions required - accessible to all users
-      },
+      // {
+      //   title: "NC Orders",
+      //   icon: Ban,
+      //   href: "/nc-orders",
+      //   description: "Non-chargeable order tracking",
+      //   // No permissions required - accessible to all users
+      // },
     ],
   },
 ];
