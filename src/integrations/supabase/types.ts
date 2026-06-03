@@ -4672,7 +4672,11 @@ export type Database = {
           margin_percentage: number | null
           menu_item_id: string | null
           name: string
+          output_inventory_item_id: string | null
+          output_quantity: number | null
+          output_unit: string | null
           prep_time_minutes: number | null
+          recipe_type: string | null
           restaurant_id: string
           selling_price: number | null
           serving_size: number
@@ -4695,7 +4699,11 @@ export type Database = {
           margin_percentage?: number | null
           menu_item_id?: string | null
           name: string
+          output_inventory_item_id?: string | null
+          output_quantity?: number | null
+          output_unit?: string | null
           prep_time_minutes?: number | null
+          recipe_type?: string | null
           restaurant_id: string
           selling_price?: number | null
           serving_size?: number
@@ -4718,7 +4726,11 @@ export type Database = {
           margin_percentage?: number | null
           menu_item_id?: string | null
           name?: string
+          output_inventory_item_id?: string | null
+          output_quantity?: number | null
+          output_unit?: string | null
           prep_time_minutes?: number | null
+          recipe_type?: string | null
           restaurant_id?: string
           selling_price?: number | null
           serving_size?: number

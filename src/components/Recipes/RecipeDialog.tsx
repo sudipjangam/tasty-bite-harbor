@@ -220,6 +220,10 @@ export const RecipeDialog = ({
     serving_unit: "portion",
     selling_price: "",
     is_active: true,
+    recipe_type: "menu_item",
+    output_inventory_item_id: "",
+    output_quantity: "1",
+    output_unit: "kg",
   });
 
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
@@ -330,6 +334,10 @@ export const RecipeDialog = ({
           serving_unit: recipe.serving_unit || "portion",
           selling_price: recipe.selling_price.toString(),
           is_active: recipe.is_active,
+          recipe_type: (recipe as any).recipe_type || "menu_item",
+          output_inventory_item_id: (recipe as any).output_inventory_item_id || "",
+          output_quantity: ((recipe as any).output_quantity || 1).toString(),
+          output_unit: (recipe as any).output_unit || "kg",
         });
         setIngredients([]);
         ingredientLoadVersion.current += 1; // Force reload
@@ -343,6 +351,10 @@ export const RecipeDialog = ({
           serving_unit: "portion",
           selling_price: "",
           is_active: true,
+          recipe_type: "menu_item",
+          output_inventory_item_id: "",
+          output_quantity: "1",
+          output_unit: "kg",
         });
         setIngredients([]);
       }
@@ -469,7 +481,7 @@ export const RecipeDialog = ({
 
       const recipeData = {
         restaurant_id: restaurantId.restaurantId,
-        menu_item_id: formData.menu_item_id || null,
+        menu_item_id: formData.recipe_type === "production" ? null : (formData.menu_item_id || null),
         name: formData.name,
         description: formData.description || null,
         category: formData.category as any,
@@ -480,12 +492,16 @@ export const RecipeDialog = ({
         serving_unit: formData.serving_unit,
         instructions: null,
         image_url: null,
-        selling_price: effectiveSellingPrice,
+        selling_price: formData.recipe_type === "production" ? 0 : effectiveSellingPrice,
         is_active: formData.is_active,
         total_cost: effectiveCost,
-        food_cost_percentage: foodCostPercentage,
-        margin_percentage: marginPercentage,
+        food_cost_percentage: formData.recipe_type === "production" ? 0 : foodCostPercentage,
+        margin_percentage: formData.recipe_type === "production" ? 0 : marginPercentage,
         created_by: null,
+        recipe_type: formData.recipe_type,
+        output_inventory_item_id: formData.recipe_type === "production" ? (formData.output_inventory_item_id || null) : null,
+        output_quantity: formData.recipe_type === "production" ? parseFloat(formData.output_quantity) : null,
+        output_unit: formData.recipe_type === "production" ? formData.output_unit : null,
       };
 
       const validIngredients = ingredients.filter(ing => ing.inventory_item_id && Number(ing.quantity) > 0);
@@ -883,68 +899,163 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
             </TabsList>
 
             <TabsContent value="basic" className="space-y-6 mt-6">
-              {/* Menu Item Link Card */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-5 rounded-2xl border border-blue-100 dark:border-blue-500/30">
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  <Label
-                    htmlFor="menu_item"
-                    className="text-blue-700 dark:text-blue-300 font-semibold"
-                  >
-                    Link to Menu Item
-                  </Label>
-                </div>
+              {/* Recipe Type Selector */}
+              <div className="space-y-2">
+                <Label className="text-gray-700 dark:text-gray-300 font-semibold">
+                  Recipe Type
+                </Label>
                 <Select
-                  value={formData.menu_item_id}
-                  onValueChange={(value) => {
-                    const selectedItem = menuItems.find(
-                      (item: any) => item.id === value,
-                    );
-                    handleInputChange("menu_item_id", value);
-                    if (selectedItem) {
-                      handleInputChange("name", selectedItem.name);
-                      if (selectedItem.price) {
-                        handleInputChange(
-                          "selling_price",
-                          selectedItem.price.toString(),
-                        );
-                      }
-                    }
-                  }}
+                  value={formData.recipe_type}
+                  onValueChange={(value) => handleInputChange("recipe_type", value)}
                 >
-                  <SelectTrigger className="bg-white/80 dark:bg-gray-800/80 border-2 border-blue-200 dark:border-blue-500/30 rounded-xl focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 text-gray-900 dark:text-gray-100">
-                    <SelectValue placeholder="Select menu item to link recipe" />
+                  <SelectTrigger className="bg-white/80 dark:bg-gray-800/80 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 text-gray-900 dark:text-gray-100">
+                    <SelectValue placeholder="Select recipe type" />
                   </SelectTrigger>
                   <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-xl">
-                    {menuItems.map((item: any) => (
-                      <SelectItem
-                        key={item.id}
-                        value={item.id}
-                        className="rounded-lg"
-                      >
-                        {item.name} - {item.category}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="menu_item" className="rounded-lg">
+                      🍽️ Menu Item Recipe (Deducts stock when sold)
+                    </SelectItem>
+                    <SelectItem value="production" className="rounded-lg">
+                      🏭 Production Formula (For homemade inventory items)
+                    </SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-2">
-                  Link this recipe to a menu item for automatic inventory
-                  deduction
-                </p>
-                {formData.menu_item_id &&
-                  (() => {
-                    const linked = menuItems.find(
-                      (i: any) => i.id === formData.menu_item_id,
-                    );
-                    return linked?.price ? (
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1">
-                        <DollarSign className="h-3 w-3" />
-                        Selling price fetched from menu: {currencySymbol}
-                        {linked.price} (editable below)
-                      </p>
-                    ) : null;
-                  })()}
               </div>
+
+              {/* Menu Item Link Card */}
+              {formData.recipe_type === "menu_item" && (
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-5 rounded-2xl border border-blue-100 dark:border-blue-500/30">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <Label
+                      htmlFor="menu_item"
+                      className="text-blue-700 dark:text-blue-300 font-semibold"
+                    >
+                      Link to Menu Item
+                    </Label>
+                  </div>
+                  <Select
+                    value={formData.menu_item_id}
+                    onValueChange={(value) => {
+                      const selectedItem = menuItems.find(
+                        (item: any) => item.id === value,
+                      );
+                      handleInputChange("menu_item_id", value);
+                      if (selectedItem) {
+                        handleInputChange("name", selectedItem.name);
+                        if (selectedItem.price) {
+                          handleInputChange(
+                            "selling_price",
+                            selectedItem.price.toString(),
+                          );
+                        }
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="bg-white/80 dark:bg-gray-800/80 border-2 border-blue-200 dark:border-blue-500/30 rounded-xl focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 text-gray-900 dark:text-gray-100">
+                      <SelectValue placeholder="Select menu item to link recipe" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-xl">
+                      {menuItems.map((item: any) => (
+                        <SelectItem
+                          key={item.id}
+                          value={item.id}
+                          className="rounded-lg"
+                        >
+                          {item.name} - {item.category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-2">
+                    Link this recipe to a menu item for automatic inventory
+                    deduction
+                  </p>
+                  {formData.menu_item_id &&
+                    (() => {
+                      const linked = menuItems.find(
+                        (i: any) => i.id === formData.menu_item_id,
+                      );
+                      return linked?.price ? (
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1">
+                          <DollarSign className="h-3 w-3" />
+                          Selling price fetched from menu: {currencySymbol}
+                          {linked.price} (editable below)
+                        </p>
+                      ) : null;
+                    })()}
+                </div>
+              )}
+
+              {/* Production Output Configuration Card */}
+              {formData.recipe_type === "production" && (
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50/70 dark:from-amber-950/10 dark:to-orange-950/10 p-5 rounded-2xl border border-amber-200/50 dark:border-amber-900/30 space-y-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Hammer className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                    <span className="text-amber-700 dark:text-amber-300 font-semibold">
+                      Production Yield Config
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="output_inventory_item" className="text-gray-700 dark:text-gray-300 font-semibold flex items-center gap-1.5">
+                        Produced Inventory Item *
+                      </Label>
+                      <Select
+                        value={formData.output_inventory_item_id}
+                        onValueChange={(value) => {
+                          const item = inventoryItems.find((i: any) => i.id === value);
+                          handleInputChange("output_inventory_item_id", value);
+                          if (item) {
+                            handleInputChange("name", `Production: ${item.name}`);
+                            handleInputChange("output_unit", item.unit || "kg");
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="bg-white/80 dark:bg-gray-800/80 border-2 border-amber-200 dark:border-amber-500/30 rounded-xl focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-gray-900 dark:text-gray-100">
+                          <SelectValue placeholder="Select output inventory item" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-xl">
+                          {inventoryItems.map((item: any) => (
+                            <SelectItem key={item.id} value={item.id} className="rounded-lg">
+                              {item.name} ({item.unit})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 md:col-span-1">
+                      <div className="space-y-2">
+                        <Label htmlFor="output_quantity" className="text-gray-700 dark:text-gray-300 font-semibold">
+                          Yield Qty *
+                        </Label>
+                        <Input
+                          id="output_quantity"
+                          type="number"
+                          step="any"
+                          value={formData.output_quantity}
+                          onChange={(e) => handleInputChange("output_quantity", e.target.value)}
+                          className="bg-white/80 dark:bg-gray-800/80 border-2 border-amber-200 dark:border-amber-500/30 rounded-xl focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-gray-900 dark:text-gray-100"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="output_unit" className="text-gray-700 dark:text-gray-300 font-semibold">
+                          Yield Unit *
+                        </Label>
+                        <Input
+                          id="output_unit"
+                          value={formData.output_unit}
+                          onChange={(e) => handleInputChange("output_unit", e.target.value)}
+                          className="bg-white/80 dark:bg-gray-800/80 border-2 border-amber-200 dark:border-amber-500/30 rounded-xl focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-gray-900 dark:text-gray-100"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Recipe Name & Category */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1061,70 +1172,72 @@ IMPORTANT: For the ingredients array, try to match ingredient names EXACTLY to t
               </div>
 
               {/* Serving & Pricing Row */}
-              <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 p-5 rounded-2xl border border-emerald-100 dark:border-emerald-500/30">
-                <div className="flex items-center gap-2 mb-4">
-                  <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                  <span className="text-emerald-700 dark:text-emerald-300 font-semibold">
-                    Serving & Pricing
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="serving_size"
-                      className="text-gray-600 dark:text-gray-400 text-sm flex items-center gap-1"
-                    >
-                      <Users className="h-3 w-3" /> Serving Size *
-                    </Label>
-                    <Input
-                      id="serving_size"
-                      type="number"
-                      value={formData.serving_size}
-                      onChange={(e) =>
-                        handleInputChange("serving_size", e.target.value)
-                      }
-                      className="bg-white/80 dark:bg-gray-800/80 border-2 border-emerald-200 dark:border-emerald-500/30 rounded-xl focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 text-gray-900 dark:text-gray-100"
-                    />
+              {formData.recipe_type === "menu_item" && (
+                <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 p-5 rounded-2xl border border-emerald-100 dark:border-emerald-500/30">
+                  <div className="flex items-center gap-2 mb-4">
+                    <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-emerald-700 dark:text-emerald-300 font-semibold">
+                      Serving & Pricing
+                    </span>
                   </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="serving_size"
+                        className="text-gray-600 dark:text-gray-400 text-sm flex items-center gap-1"
+                      >
+                        <Users className="h-3 w-3" /> Serving Size *
+                      </Label>
+                      <Input
+                        id="serving_size"
+                        type="number"
+                        value={formData.serving_size}
+                        onChange={(e) =>
+                          handleInputChange("serving_size", e.target.value)
+                        }
+                        className="bg-white/80 dark:bg-gray-800/80 border-2 border-emerald-200 dark:border-emerald-500/30 rounded-xl focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="serving_unit"
-                      className="text-gray-600 dark:text-gray-400 text-sm"
-                    >
-                      Serving Unit
-                    </Label>
-                    <Input
-                      id="serving_unit"
-                      value={formData.serving_unit}
-                      onChange={(e) =>
-                        handleInputChange("serving_unit", e.target.value)
-                      }
-                      placeholder="e.g., portion, plate"
-                      className="bg-white/80 dark:bg-gray-800/80 border-2 border-emerald-200 dark:border-emerald-500/30 rounded-xl focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="serving_unit"
+                        className="text-gray-600 dark:text-gray-400 text-sm"
+                      >
+                        Serving Unit
+                      </Label>
+                      <Input
+                        id="serving_unit"
+                        value={formData.serving_unit}
+                        onChange={(e) =>
+                          handleInputChange("serving_unit", e.target.value)
+                        }
+                        placeholder="e.g., portion, plate"
+                        className="bg-white/80 dark:bg-gray-800/80 border-2 border-emerald-200 dark:border-emerald-500/30 rounded-xl focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="selling_price"
-                      className="text-gray-600 dark:text-gray-400 text-sm"
-                    >
-                      Selling Price ({currencySymbol}) *
-                    </Label>
-                    <Input
-                      id="selling_price"
-                      type="number"
-                      step="0.01"
-                      value={formData.selling_price}
-                      onChange={(e) =>
-                        handleInputChange("selling_price", e.target.value)
-                      }
-                      className="bg-white/80 dark:bg-gray-800/80 border-2 border-emerald-200 dark:border-emerald-500/30 rounded-xl focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 text-gray-900 dark:text-gray-100"
-                    />
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="selling_price"
+                        className="text-gray-600 dark:text-gray-400 text-sm"
+                      >
+                        Selling Price ({currencySymbol}) *
+                      </Label>
+                      <Input
+                        id="selling_price"
+                        type="number"
+                        step="0.01"
+                        value={formData.selling_price}
+                        onChange={(e) =>
+                          handleInputChange("selling_price", e.target.value)
+                        }
+                        className="bg-white/80 dark:bg-gray-800/80 border-2 border-emerald-200 dark:border-emerald-500/30 rounded-xl focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Active Switch */}
               <div className="flex items-center justify-between bg-white/80 dark:bg-gray-800/80 p-4 rounded-2xl border-2 border-gray-100 dark:border-gray-700">

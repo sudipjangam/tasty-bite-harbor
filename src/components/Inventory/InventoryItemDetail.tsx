@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,9 +30,11 @@ import {
   Edit,
   Calendar,
   Plus,
+  Hammer,
 } from "lucide-react";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { format, isPast, differenceInDays } from "date-fns";
+import ProduceMoreDialog from "./ProduceMoreDialog";
 
 interface InventoryItem {
   id: string;
@@ -43,6 +45,7 @@ interface InventoryItem {
   cost_per_unit: number | null;
   restaurant_id: string;
   category: string;
+  is_produced?: boolean;
 }
 
 interface Lot {
@@ -75,6 +78,16 @@ const InventoryItemDetail: React.FC<InventoryItemDetailProps> = ({
   onAddStock,
 }) => {
   const { symbol: currencySymbol } = useCurrencyContext();
+  const queryClient = useQueryClient();
+  const [produceMoreOpen, setProduceMoreOpen] = useState(false);
+
+  const handleProductionComplete = () => {
+    queryClient.invalidateQueries({ queryKey: ["inventory"] });
+    if (item?.id) {
+      queryClient.invalidateQueries({ queryKey: ["item-lots-detail", item.id] });
+      queryClient.invalidateQueries({ queryKey: ["production-logs", item.id] });
+    }
+  };
 
   const { data: lots = [], isLoading } = useQuery({
     queryKey: ["item-lots-detail", item?.id],
@@ -89,6 +102,21 @@ const InventoryItemDetail: React.FC<InventoryItemDetailProps> = ({
       return data as Lot[];
     },
     enabled: !!item && open,
+  });
+
+  const { data: productionLogs = [], isLoading: isLoadingLogs } = useQuery({
+    queryKey: ["production-logs", item?.id],
+    queryFn: async () => {
+      if (!item || !item.is_produced) return [];
+      const { data, error } = await supabase
+        .from("homemade_production_logs")
+        .select("*")
+        .eq("output_inventory_item_id", item.id)
+        .order("produced_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!item && open && !!item.is_produced,
   });
 
   // FIFO Costing Calculations
@@ -132,7 +160,8 @@ const InventoryItemDetail: React.FC<InventoryItemDetailProps> = ({
   const isLow = item.reorder_level != null && item.quantity <= item.reorder_level;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[720px] max-h-[90vh] bg-background text-foreground backdrop-blur-2xl border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl p-0 overflow-hidden">
         {/* Header */}
         <div className={`px-6 py-5 bg-gradient-to-r ${isLow ? "from-red-500 to-rose-600" : "from-emerald-500 to-green-600"}`}>
@@ -159,7 +188,7 @@ const InventoryItemDetail: React.FC<InventoryItemDetailProps> = ({
 
         <div className="overflow-y-auto max-h-[calc(90vh-180px)]">
           {/* Action Buttons */}
-          <div className="flex gap-2 px-6 pt-4 pb-2">
+          <div className="flex flex-wrap gap-2 px-6 pt-4 pb-2">
             <Button
               size="sm"
               onClick={() => { onOpenChange(false); onAddStock(item); }}
@@ -167,6 +196,15 @@ const InventoryItemDetail: React.FC<InventoryItemDetailProps> = ({
             >
               <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Stock
             </Button>
+            {item.is_produced && (
+              <Button
+                size="sm"
+                onClick={() => setProduceMoreOpen(true)}
+                className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl shadow-md text-xs"
+              >
+                <Hammer className="h-3.5 w-3.5 mr-1.5" /> Produce More
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -382,6 +420,50 @@ const InventoryItemDetail: React.FC<InventoryItemDetailProps> = ({
             </div>
           )}
 
+          {/* Production History */}
+          {item.is_produced && productionLogs.length > 0 && (
+            <div className="px-6 pb-4 pt-2">
+              <h3 className="text-sm font-bold text-gray-800 dark:text-gray-150 mb-2 flex items-center gap-2">
+                <Hammer className="h-4 w-4 text-amber-500" />
+                Production History ({productionLogs.length})
+              </h3>
+              <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50/80 dark:bg-gray-700/50">
+                      <TableHead className="text-xs font-bold py-2">Produced At</TableHead>
+                      <TableHead className="text-xs font-bold py-2 text-right">Quantity</TableHead>
+                      <TableHead className="text-xs font-bold py-2 text-right">Unit Cost</TableHead>
+                      <TableHead className="text-xs font-bold py-2 text-right">Total Cost</TableHead>
+                      <TableHead className="text-xs font-bold py-2">Notes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {productionLogs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="py-2 text-xs text-gray-600 dark:text-gray-400">
+                          {log.produced_at ? format(new Date(log.produced_at), "dd MMM yyyy HH:mm") : "-"}
+                        </TableCell>
+                        <TableCell className="text-right py-2 text-xs font-semibold">
+                          {log.output_quantity} {log.output_unit}
+                        </TableCell>
+                        <TableCell className="text-right py-2 text-xs text-gray-500">
+                          {currencySymbol}{log.cost_per_unit?.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right py-2 text-xs text-gray-500 font-medium">
+                          {currencySymbol}{log.total_cost?.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="py-2 text-xs text-gray-500 max-w-[150px] truncate" title={log.notes || ""}>
+                          {log.notes || "-"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+
           {/* Item Details Footer */}
           <div className="px-6 py-3 bg-gray-50/80 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700/50">
             <div className="flex flex-wrap gap-4 text-[11px] text-gray-500 dark:text-gray-400">
@@ -397,6 +479,14 @@ const InventoryItemDetail: React.FC<InventoryItemDetailProps> = ({
         </div>
       </DialogContent>
     </Dialog>
+
+    <ProduceMoreDialog
+      item={item}
+      open={produceMoreOpen}
+      onOpenChange={setProduceMoreOpen}
+      onProductionComplete={handleProductionComplete}
+    />
+    </>
   );
 };
 
