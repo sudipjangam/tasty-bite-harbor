@@ -30,6 +30,8 @@ import {
   startOfToday,
   subDays,
   subMonths,
+  startOfMonth,
+  endOfMonth,
   startOfDay,
   endOfDay,
   format,
@@ -97,14 +99,22 @@ const OrdersView = ({
     switch (filter) {
       case "today":
         return { start: startOfDay(now), end: endOfDay(now) };
-      case "yesterday":
-        return { start: startOfDay(subDays(now, 1)), end: endOfDay(subDays(now, 1)) };
+      case "yesterday": {
+        const yesterday = subDays(now, 1);
+        return { start: startOfDay(yesterday), end: endOfDay(yesterday) };
+      }
       case "last7days":
-        return { start: startOfDay(subDays(now, 7)), end: endOfDay(now) };
+        // Last 7 days: 6 days ago (start of day) → today (end of day) = 7 full days
+        return { start: startOfDay(subDays(now, 6)), end: endOfDay(now) };
       case "last30days":
-        return { start: startOfDay(subDays(now, 30)), end: endOfDay(now) };
-      case "lastMonth":
-        return { start: startOfDay(subMonths(now, 1)), end: endOfDay(subDays(now, 1)) };
+        // Last 30 days: 29 days ago (start of day) → today (end of day) = 30 full days
+        return { start: startOfDay(subDays(now, 29)), end: endOfDay(now) };
+      case "lastMonth": {
+        // Full calendar month: 1st → last day of previous month
+        const firstOfLastMonth = startOfMonth(subMonths(now, 1));
+        const lastOfLastMonth = endOfMonth(subMonths(now, 1));
+        return { start: startOfDay(firstOfLastMonth), end: endOfDay(lastOfLastMonth) };
+      }
       case "custom":
         if (customDateRange?.from && customDateRange?.to) {
           return { start: startOfDay(customDateRange.from), end: endOfDay(customDateRange.to) };
