@@ -960,6 +960,28 @@ export const useReportsData = (dateRange?: DateRange) => {
     enabled: !!restaurantId,
   });
 
+  // ── Helper: detect table-name / generic POS source names ──
+  // These are NOT real customer identities and should be excluded from
+  // repeat-customer analysis (they inflate repeat % because every order
+  // from "Table 1" looks like the same returning customer).
+  const isTableOrGenericName = (name: string): boolean => {
+    const normalized = name.trim().toLowerCase();
+    // "table 1", "table a", "table 01", "table abc", etc.
+    if (/^table\s+\w+$/i.test(normalized)) return true;
+    // Generic POS source names
+    if ([
+      "takeaway", "take away", "take-away",
+      "delivery",
+      "dine in", "dine-in", "dine_in",
+      "walk-in", "walkin", "walk in", "walk-in customer",
+      "non-chargeable", "nc",
+      "counter", "parcel",
+    ].includes(normalized)) return true;
+    // Null / empty
+    if (!normalized || normalized === "walk-in") return true;
+    return false;
+  };
+
   // Repeat Customers Day-Wise Report
   const repeatCustomersReport = useQuery({
     queryKey: ["report-repeat-customers", restaurantId, startDate, endDate],
@@ -986,44 +1008,63 @@ export const useReportsData = (dateRange?: DateRange) => {
       const customerVisitMap: Record<string, number> = {};
       (allCustomers || []).forEach((c) => {
         const key = (c.name || "").trim().toLowerCase();
-        customerVisitMap[key] = c.visit_count || 0;
+        if (!isTableOrGenericName(key)) {
+          customerVisitMap[key] = c.visit_count || 0;
+        }
       });
 
-      // Group orders by date → unique customers
-      const dayMap: Record<string, Set<string>> = {};
+      // Group orders by date → separate named customers vs anonymous/table orders
+      const dayMapNamed: Record<string, Set<string>> = {};
+      const dayAnonymousCount: Record<string, number> = {};
       const chargeableOrders = (orders || []).filter((o) => o.order_type !== "non-chargeable");
+
+      let totalAnonymousOrders = 0;
 
       chargeableOrders.forEach((o) => {
         const day = format(new Date(o.created_at), "yyyy-MM-dd");
         const customerName = (o.customer_name || o.Customer_Name || "Walk-in").trim();
-        if (!dayMap[day]) dayMap[day] = new Set();
-        dayMap[day].add(customerName);
+
+        if (isTableOrGenericName(customerName)) {
+          // Anonymous / table-name order — count but don't include in repeat analysis
+          dayAnonymousCount[day] = (dayAnonymousCount[day] || 0) + 1;
+          totalAnonymousOrders++;
+        } else {
+          // Real named customer
+          if (!dayMapNamed[day]) dayMapNamed[day] = new Set();
+          dayMapNamed[day].add(customerName);
+        }
       });
 
-      // Track first-seen date per customer across the date range
+      // Track first-seen date per NAMED customer across the date range
       const customerFirstSeen: Record<string, string> = {};
       chargeableOrders.forEach((o) => {
         const day = format(new Date(o.created_at), "yyyy-MM-dd");
         const customerName = (o.customer_name || o.Customer_Name || "Walk-in").trim();
-        if (!customerFirstSeen[customerName] || day < customerFirstSeen[customerName]) {
-          customerFirstSeen[customerName] = day;
+        if (!isTableOrGenericName(customerName)) {
+          if (!customerFirstSeen[customerName] || day < customerFirstSeen[customerName]) {
+            customerFirstSeen[customerName] = day;
+          }
         }
       });
 
-      // Build day-wise table
-      const sortedDays = Object.keys(dayMap).sort();
-      let totalCustomersAll = 0;
+      // Collect all days that had any orders (named or anonymous)
+      const allDaysSet = new Set<string>();
+      Object.keys(dayMapNamed).forEach((d) => allDaysSet.add(d));
+      Object.keys(dayAnonymousCount).forEach((d) => allDaysSet.add(d));
+      const sortedDays = Array.from(allDaysSet).sort();
+
+      let totalNamedCustomers = 0;
       let totalRepeatAll = 0;
       let totalNewAll = 0;
 
       const tableData = sortedDays.map((day) => {
-        const dayCustomers = Array.from(dayMap[day]);
-        const totalForDay = dayCustomers.length;
+        const namedCustomers = dayMapNamed[day] ? Array.from(dayMapNamed[day]) : [];
+        const namedCount = namedCustomers.length;
+        const anonCount = dayAnonymousCount[day] || 0;
+        const totalForDay = namedCount + anonCount;
 
-        // A customer is "repeat" if:
-        // 1. They have visit_count > 1 in customer DB, OR
-        // 2. They appeared on a previous day in this date range
-        const repeatCustomers = dayCustomers.filter((name) => {
+        // Repeat analysis only on named customers
+        const repeatCustomers = namedCustomers.filter((name) => {
           const key = name.toLowerCase();
           const hasMultipleVisits = (customerVisitMap[key] || 0) > 1;
           const firstSeenBefore = customerFirstSeen[name] && customerFirstSeen[name] < day;
@@ -1031,24 +1072,30 @@ export const useReportsData = (dateRange?: DateRange) => {
         });
 
         const repeatCount = repeatCustomers.length;
-        const newCount = totalForDay - repeatCount;
-        const repeatPct = totalForDay > 0 ? ((repeatCount / totalForDay) * 100).toFixed(1) : "0.0";
+        const newCount = namedCount - repeatCount;
+        // Repeat % is based on named customers only (excludes anonymous)
+        const repeatPct = namedCount > 0 ? ((repeatCount / namedCount) * 100).toFixed(1) : "0.0";
 
-        totalCustomersAll += totalForDay;
+        totalNamedCustomers += namedCount;
         totalRepeatAll += repeatCount;
         totalNewAll += newCount;
 
         return {
           Date: format(new Date(day), "MMM dd, yyyy (EEE)"),
-          "Total Customers": totalForDay,
+          "Total Orders": totalForDay,
+          "Named Customers": namedCount,
           "Repeat Customers": repeatCount,
           "New Customers": newCount,
+          "Anonymous (Table/Other)": anonCount,
           "Repeat %": `${repeatPct}%`,
         };
       });
 
-      const overallRepeatPct = totalCustomersAll > 0
-        ? ((totalRepeatAll / totalCustomersAll) * 100).toFixed(1)
+      const overallRepeatPct = totalNamedCustomers > 0
+        ? ((totalRepeatAll / totalNamedCustomers) * 100).toFixed(1)
+        : "0.0";
+      const anonymousPct = chargeableOrders.length > 0
+        ? ((totalAnonymousOrders / chargeableOrders.length) * 100).toFixed(1)
         : "0.0";
 
       return {
@@ -1056,15 +1103,18 @@ export const useReportsData = (dateRange?: DateRange) => {
         title: "Repeat Customers - Day Wise",
         summary: {
           "Total Days": sortedDays.length,
-          "Total Customers": totalCustomersAll,
+          "Named Customers": totalNamedCustomers,
           "Repeat Customers": totalRepeatAll,
           "Repeat Rate": `${overallRepeatPct}%`,
+          "Anonymous (Table/Other)": `${totalAnonymousOrders} (${anonymousPct}%)`,
         },
         tableData,
         chartData: tableData.map((d) => ({
           name: String(d.Date).replace(/ \(.*\)/, ""),
-          value: d["Total Customers"],
+          value: d["Named Customers"],
           repeat: d["Repeat Customers"],
+          new: d["New Customers"],
+          anonymous: d["Anonymous (Table/Other)"],
         })),
       } as ReportData;
     },

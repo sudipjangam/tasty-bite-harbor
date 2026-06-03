@@ -610,7 +610,26 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                   {report.title} — Visual Breakdown
                 </p>
                 <ResponsiveContainer width="100%" height={250}>
-                  {report.chartData.length <= 6 ? (
+                  {report.category === "repeat_customers" ? (
+                    <BarChart data={report.chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.08)" className="dark:!stroke-white/[0.06]" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#888" }} />
+                      <YAxis tick={{ fontSize: 10, fill: "#888" }} />
+                      <Tooltip
+                        contentStyle={{
+                          background: "rgba(17,19,32,0.9)",
+                          border: "1px solid rgba(249,115,22,0.3)",
+                          borderRadius: "12px",
+                          color: "#fff",
+                          fontSize: "12px",
+                        }}
+                      />
+                      <Legend />
+                      <Bar dataKey="repeat" name="Repeat Customers" stackId="a" fill="#f97316" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="new" name="New Customers" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="anonymous" name="Anonymous (Table/Other)" stackId="a" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  ) : report.chartData.length <= 6 ? (
                     <PieChart>
                       <Pie
                         data={report.chartData}
