@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -822,13 +822,19 @@ const Inventory = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/40 to-emerald-50/60 dark:from-gray-900 dark:via-slate-900 dark:to-emerald-950 p-3 md:p-6">
-      {/* Header */}
-      <div className="mb-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-2xl border border-white/30 dark:border-gray-700/30 rounded-2xl md:rounded-3xl shadow-xl shadow-emerald-500/5 p-4 md:p-8">
+    <div className="min-h-screen bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(16,185,129,0.12),transparent),radial-gradient(ellipse_60%_40%_at_80%_50%,rgba(139,92,246,0.08),transparent)] bg-gradient-to-br from-slate-50 via-emerald-50/30 to-violet-50/20 dark:from-gray-950 dark:via-gray-900 dark:to-emerald-950/40 p-3 md:p-6">
+      {/* Header — Glassmorphic Floating Card */}
+      <div className="mb-6 relative overflow-hidden bg-white/40 dark:bg-gray-900/40 backdrop-blur-2xl border border-white/40 dark:border-white/[0.06] rounded-2xl md:rounded-3xl shadow-xl shadow-black/[0.03] p-4 md:p-8">
+        {/* Gradient mesh decoration */}
+        <div className="absolute -top-24 -right-24 w-72 h-72 bg-gradient-to-br from-emerald-400/20 via-teal-300/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-gradient-to-tr from-violet-400/15 via-purple-300/10 to-transparent rounded-full blur-3xl pointer-events-none" />
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl shadow-lg shadow-emerald-500/30">
-              <Package className="h-6 md:h-8 w-6 md:w-8 text-white" />
+            <div
+              className="p-3 md:p-4 bg-gradient-to-br from-emerald-400 via-green-500 to-teal-600 rounded-2xl shadow-lg shadow-emerald-500/40 group-hover:shadow-xl transition-all duration-500"
+              style={{ boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.3), 0 8px 24px -4px rgba(16,185,129,0.35)' }}
+            >
+              <Package className="h-6 md:h-8 w-6 md:w-8 text-white drop-shadow-sm" />
             </div>
             <div>
               <h1 className="text-xl md:text-3xl font-extrabold bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 bg-clip-text text-transparent tracking-tight">
@@ -862,28 +868,37 @@ const Inventory = () => {
                   setEditingItem(null);
                   setNewItemCategory("Other");
                 }}
-                className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold px-5 py-2.5 rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30 transform hover:-translate-y-0.5 transition-all duration-300"
+                className="bg-gradient-to-r from-emerald-400 via-green-500 to-teal-600 hover:from-emerald-500 hover:via-green-600 hover:to-teal-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transform hover:-translate-y-1 hover:scale-[1.02] transition-all duration-300"
+                style={{ boxShadow: '0 8px 32px -4px rgba(16,185,129,0.35)' }}
               >
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 h-5 w-5" />
                 Add Item
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[540px] bg-background text-foreground backdrop-blur-2xl border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
-              {/* Dialog Header with gradient accent */}
-              <div className="bg-gradient-to-r from-emerald-500 to-green-600 px-6 py-4">
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
+            <DialogContent className="sm:max-w-[560px] bg-white/80 dark:bg-gray-900/80 backdrop-blur-3xl border border-white/40 dark:border-white/[0.06] rounded-3xl shadow-2xl shadow-black/10 p-0 overflow-hidden flex flex-col max-h-[90vh]">
+              {/* Dialog Header — Vibrant gradient with glass overlay */}
+              <div className="relative overflow-hidden bg-gradient-to-r from-emerald-500 via-green-500 to-teal-600 px-6 py-5">
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.2),transparent_70%)]" />
+                <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-xl" />
+                <DialogHeader className="relative">
+                  <DialogTitle className="text-xl font-black text-white flex items-center gap-3 drop-shadow-sm">
                     {editingItem ? (
                       <>
-                        <Edit className="h-5 w-5" /> Edit Inventory Item
+                        <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                          <Edit className="h-5 w-5" />
+                        </div>
+                        Edit Item
                       </>
                     ) : (
                       <>
-                        <Plus className="h-5 w-5" /> Add New Item
+                        <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                          <Plus className="h-5 w-5" />
+                        </div>
+                        Add New Item
                       </>
                     )}
                   </DialogTitle>
-                  <DialogDescription className="text-emerald-100 text-sm">
+                  <DialogDescription className="text-white/80 text-sm font-medium">
                     {editingItem
                       ? "Update the details below"
                       : "Fill in the details to add a new inventory item"}
@@ -894,7 +909,7 @@ const Inventory = () => {
               <form
                 key={editingItem?.id || "new"}
                 onSubmit={handleSubmit}
-                className="p-6 space-y-5 overflow-y-auto flex-1"
+                className="p-6 space-y-5 overflow-y-auto flex-1 bg-white/50 dark:bg-gray-900/50"
               >
                 {/* Item Name */}
                 <div className="space-y-1.5">
@@ -911,7 +926,7 @@ const Inventory = () => {
                     defaultValue={editingItem?.name}
                     required
                     placeholder="e.g., Olive Oil, Basmati Rice"
-                    className="bg-transparent border-gray-300 dark:border-gray-700 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 transition-all"
+                    className="bg-white/70 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/50 rounded-xl h-12 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400/60 transition-all backdrop-blur-sm shadow-sm"
                   />
                 </div>
 
@@ -929,7 +944,7 @@ const Inventory = () => {
                     value={newItemCategory}
                     onValueChange={setNewItemCategory}
                   >
-                    <SelectTrigger className="bg-transparent border-gray-300 dark:border-gray-700 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/30">
+                    <SelectTrigger className="bg-white/70 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/50 rounded-xl h-12 focus:ring-2 focus:ring-emerald-500/30 backdrop-blur-sm shadow-sm">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -1105,11 +1120,12 @@ const Inventory = () => {
                       rawMaterials.some(m => m.quantity > m.available_stock)
                     ))
                   }
-                  className={`w-full font-bold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 h-12 text-base ${
+                  className={`w-full font-black py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 h-13 text-base transform hover:-translate-y-0.5 ${
                     isHomemade && !editingItem
-                      ? "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-amber-500/25"
-                      : "bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-emerald-500/25"
+                      ? "bg-gradient-to-r from-amber-400 via-orange-500 to-rose-600 hover:from-amber-500 hover:via-orange-600 hover:to-rose-700 text-white shadow-amber-500/30"
+                      : "bg-gradient-to-r from-emerald-400 via-green-500 to-teal-600 hover:from-emerald-500 hover:via-green-600 hover:to-teal-700 text-white shadow-emerald-500/30"
                   }`}
+                  style={{ boxShadow: isHomemade && !editingItem ? '0 8px 32px -4px rgba(245,158,11,0.35)' : '0 8px 32px -4px rgba(16,185,129,0.35)' }}
                 >
                   {isSubmittingHomemade ? (
                     <>
@@ -1145,11 +1161,11 @@ const Inventory = () => {
         currencySymbol={currencySymbol}
       />
 
-      {/* Main Content with Tabs */}
-      <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/40 dark:border-gray-700/30 rounded-2xl md:rounded-3xl shadow-xl overflow-hidden">
+      {/* Main Content with Tabs — Glassmorphic Container */}
+      <div className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-2xl border border-white/40 dark:border-white/[0.06] rounded-2xl md:rounded-3xl shadow-xl shadow-black/[0.03] overflow-hidden">
         <Tabs defaultValue="overview" className="w-full">
-          <div className="bg-gradient-to-r from-emerald-500/5 to-green-500/5 dark:from-emerald-900/10 dark:to-green-900/10 px-3 pt-3 pb-1">
-            <TabsList className="flex w-full justify-start md:justify-center overflow-x-auto scrollbar-hide gap-1 bg-white/60 dark:bg-gray-700/50 backdrop-blur-sm rounded-xl p-1">
+          <div className="px-3 md:px-5 pt-4 pb-2">
+            <TabsList className="flex w-full justify-start md:justify-center overflow-x-auto scrollbar-hide gap-1.5 bg-white/40 dark:bg-white/[0.04] backdrop-blur-xl rounded-2xl p-1.5 border border-white/30 dark:border-white/[0.06]">
               {[
                 { value: "overview", icon: Package, label: "Overview" },
                 { value: "alerts", icon: Bell, label: "Alerts" },
@@ -1169,9 +1185,9 @@ const Inventory = () => {
                 <TabsTrigger
                   key={tab.value}
                   value={tab.value}
-                  className="flex-1 min-w-[70px] flex items-center justify-center gap-1.5 py-2.5 px-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg font-medium text-xs md:text-sm transition-all"
+                  className="flex-1 min-w-[70px] flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl font-semibold text-xs md:text-sm transition-all duration-300 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-400 data-[state=active]:via-green-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/25 data-[state=active]:scale-[1.02]"
                 >
-                  <tab.icon className="h-4 w-4" />
+                  <tab.icon className="h-4 w-4 transition-transform duration-300 group-hover:rotate-6" />
                   <span className="hidden sm:inline">{tab.label}</span>
                 </TabsTrigger>
               ))}
@@ -1183,12 +1199,12 @@ const Inventory = () => {
             <div className="flex flex-col gap-3">
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     placeholder="Search items..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 bg-gray-50/80 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600 rounded-xl h-10"
+                    className="pl-10 bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl border border-white/40 dark:border-white/[0.08] rounded-2xl h-11 shadow-sm focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400/50 transition-all"
                   />
                 </div>
 
@@ -1243,8 +1259,8 @@ const Inventory = () => {
                   value={filterCategory}
                   onValueChange={setFilterCategory}
                 >
-                  <SelectTrigger className="flex-1 min-w-[120px] md:w-[180px] md:flex-none bg-gray-50/80 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600 rounded-xl h-9 text-sm">
-                    <Filter className="h-3.5 w-3.5 mr-1.5" />
+                  <SelectTrigger className="flex-1 min-w-[120px] md:w-[180px] md:flex-none bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl border border-white/40 dark:border-white/[0.08] rounded-2xl h-10 text-sm shadow-sm">
+                    <Filter className="h-3.5 w-3.5 mr-1.5 text-emerald-500" />
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
@@ -1263,8 +1279,8 @@ const Inventory = () => {
                   size="sm"
                   className={
                     showLowStockOnly
-                      ? "bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-xl h-9"
-                      : "bg-gray-50/80 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600 rounded-xl hover:bg-red-50 h-9"
+                      ? "bg-gradient-to-r from-red-400 via-rose-500 to-pink-600 text-white rounded-2xl h-10 shadow-lg shadow-rose-500/25 font-semibold"
+                      : "bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl border border-white/40 dark:border-white/[0.08] rounded-2xl hover:bg-red-50/60 dark:hover:bg-red-950/20 h-10 font-semibold"
                   }
                 >
                   <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
@@ -1311,10 +1327,10 @@ const Inventory = () => {
               {Object.entries(groupedItems).map(([category, categoryItems]) => (
                 <button
                   key={category}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl shrink-0 border transition-all duration-200 text-sm font-medium ${
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl shrink-0 border transition-all duration-300 text-sm font-semibold ${
                     filterCategory === category
-                      ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 shadow-sm"
-                      : "bg-white/80 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600/50"
+                      ? "bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-emerald-300/60 dark:border-emerald-600/40 text-emerald-700 dark:text-emerald-300 shadow-md shadow-emerald-500/10 scale-[1.02]"
+                      : "bg-white/50 dark:bg-white/[0.04] backdrop-blur-xl border-white/40 dark:border-white/[0.06] text-gray-600 dark:text-gray-300 hover:bg-white/70 dark:hover:bg-white/[0.08] hover:scale-[1.01]"
                   }`}
                   onClick={() =>
                     setFilterCategory(
@@ -1324,7 +1340,11 @@ const Inventory = () => {
                 >
                   {getCategoryIcon(category)}
                   <span>{category}</span>
-                  <span className="text-xs bg-gray-100 dark:bg-gray-600 px-1.5 py-0.5 rounded-md font-semibold">
+                  <span className={`text-xs px-2 py-0.5 rounded-lg font-bold ${
+                    filterCategory === category
+                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                      : "bg-gray-100/80 dark:bg-gray-600/50 text-gray-500 dark:text-gray-400"
+                  }`}>
                     {categoryItems.length}
                   </span>
                 </button>
@@ -1361,43 +1381,49 @@ const Inventory = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5">
                     {paginatedItems.map((item) => {
                       const stock = getStockLevel(item);
                       const isLow =
                         item.reorder_level != null &&
                         item.quantity <= item.reorder_level;
                       return (
-                        <Card
+                        <div
                           key={item.id}
                           onClick={() => setSelectedDetailItem(item)}
-                          className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 cursor-pointer ${
+                          className={`group relative overflow-hidden rounded-2xl md:rounded-3xl border transition-all duration-500 hover:shadow-2xl hover:-translate-y-1.5 cursor-pointer ${
                             isLow
-                              ? "bg-gradient-to-br from-red-50/80 to-rose-50/80 dark:from-red-900/15 dark:to-rose-900/15 border-red-200/60 dark:border-red-800/40"
-                              : "bg-white/95 dark:bg-gray-800/95 border-gray-100 dark:border-gray-700/40 hover:border-emerald-200 dark:hover:border-emerald-700/50"
+                              ? "bg-gradient-to-br from-red-50/60 to-rose-50/40 dark:from-red-950/20 dark:to-rose-950/15 border-red-300/40 dark:border-red-700/30 shadow-lg shadow-red-500/[0.08] hover:shadow-red-500/20"
+                              : "bg-white/50 dark:bg-white/[0.04] backdrop-blur-xl border-white/40 dark:border-white/[0.06] hover:border-emerald-300/50 dark:hover:border-emerald-600/30 hover:shadow-emerald-500/10"
                           }`}
                         >
-                          {/* Top color accent bar */}
+                          {/* Top accent bar — gradient with glow */}
                           <div
                             className={`h-1 w-full bg-gradient-to-r ${
                               isLow
-                                ? "from-red-400 to-rose-400"
-                                : "from-emerald-400 to-green-400"
+                                ? "from-red-400 via-rose-500 to-pink-500"
+                                : "from-emerald-400 via-green-400 to-teal-400"
                             }`}
                           />
+                          {/* Subtle gradient overlay */}
+                          <div className={`absolute inset-0 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity duration-500 bg-gradient-to-br ${
+                            isLow ? "from-rose-500 to-pink-500" : "from-emerald-500 to-teal-500"
+                          }`} />
 
-                          <div className="p-4">
-                            {/* Header: Icon + Name + Actions */}
-                            <div className="flex items-start justify-between gap-2 mb-3">
-                              <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="relative p-4 md:p-5">
+                            {/* Header: 3D Icon + Name + Actions */}
+                            <div className="flex items-start justify-between gap-2 mb-4">
+                              <div className="flex items-center gap-3 min-w-0">
+                                {/* 3D Icon Sphere */}
                                 <div
-                                  className={`p-2 rounded-xl shrink-0 ${
+                                  className={`p-2.5 rounded-2xl shrink-0 shadow-md transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 ${
                                     isLow
-                                      ? "bg-red-100 dark:bg-red-900/40"
-                                      : "bg-emerald-50 dark:bg-emerald-900/30"
+                                      ? "bg-gradient-to-br from-red-400 to-rose-500 shadow-red-500/30"
+                                      : "bg-gradient-to-br from-emerald-400 to-teal-500 shadow-emerald-500/30"
                                   }`}
+                                  style={{ boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.3), inset 0 -1px 1px rgba(0,0,0,0.1)' }}
                                 >
-                                  {getCategoryIcon(item.category)}
+                                  {React.cloneElement(getCategoryIcon(item.category), { className: 'h-5 w-5 text-white drop-shadow-sm' })}
                                 </div>
                                 <div className="min-w-0">
                                   <h3
@@ -1406,11 +1432,11 @@ const Inventory = () => {
                                   >
                                     {item.name}
                                   </h3>
-                                  <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium flex items-center gap-1">
+                                  <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium flex items-center gap-1.5 mt-0.5">
                                     {item.category}
                                     {(item as any).is_produced && (
-                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[9px] font-bold">
-                                        🏠
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-lg bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 text-amber-700 dark:text-amber-400 text-[9px] font-bold shadow-sm">
+                                        🏠 Made
                                       </span>
                                     )}
                                   </p>
@@ -1418,7 +1444,7 @@ const Inventory = () => {
                               </div>
 
                               {/* Desktop actions */}
-                              <div className="hidden md:flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                              <div className="hidden md:flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 shrink-0">
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -1427,7 +1453,7 @@ const Inventory = () => {
                                     setEditingItem(item);
                                     setIsAddDialogOpen(true);
                                   }}
-                                  className="h-7 w-7 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
+                                  className="h-8 w-8 rounded-xl bg-white/60 dark:bg-white/[0.06] backdrop-blur-sm border border-white/40 dark:border-white/[0.08] hover:bg-emerald-50 dark:hover:bg-emerald-900/20 shadow-sm"
                                 >
                                   <Edit className="h-3.5 w-3.5 text-emerald-600" />
                                 </Button>
@@ -1438,7 +1464,7 @@ const Inventory = () => {
                                     e.stopPropagation();
                                     setItemToDelete(item);
                                   }}
-                                  className="h-7 w-7 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30"
+                                  className="h-8 w-8 rounded-xl bg-white/60 dark:bg-white/[0.06] backdrop-blur-sm border border-white/40 dark:border-white/[0.08] hover:bg-red-50 dark:hover:bg-red-900/20 shadow-sm"
                                 >
                                   <Trash2 className="h-3.5 w-3.5 text-red-500" />
                                 </Button>
@@ -1450,14 +1476,14 @@ const Inventory = () => {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="md:hidden h-7 w-7 rounded-lg shrink-0"
+                                    className="md:hidden h-8 w-8 rounded-xl bg-white/40 dark:bg-white/[0.04] shrink-0"
                                   >
                                     <MoreVertical className="h-3.5 w-3.5 text-gray-500" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent
                                   align="end"
-                                  className="w-32 rounded-xl"
+                                  className="w-36 rounded-2xl bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-white/40 dark:border-white/[0.06]"
                                 >
                                   <DropdownMenuItem
                                     onClick={(e) => {
@@ -1465,6 +1491,7 @@ const Inventory = () => {
                                       setEditingItem(item);
                                       setIsAddDialogOpen(true);
                                     }}
+                                    className="rounded-xl"
                                   >
                                     <Edit className="h-3.5 w-3.5 mr-2 text-emerald-600" />{" "}
                                     Edit
@@ -1474,7 +1501,7 @@ const Inventory = () => {
                                       e.stopPropagation();
                                       setItemToDelete(item);
                                     }}
-                                    className="text-red-600 focus:text-red-600"
+                                    className="text-red-600 focus:text-red-600 rounded-xl"
                                   >
                                     <Trash2 className="h-3.5 w-3.5 mr-2" />{" "}
                                     Delete
@@ -1483,31 +1510,31 @@ const Inventory = () => {
                               </DropdownMenu>
                             </div>
 
-                            {/* Quantity Display */}
-                            <div className="mb-3">
-                              <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                            {/* Quantity Display — Large + Bold */}
+                            <div className="mb-4">
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-black text-gray-900 dark:text-white tracking-tight tabular-nums">
                                   {Number(item.quantity).toFixed(
                                     item.quantity % 1 === 0 ? 0 : 2,
                                   )}
                                 </span>
-                                <span className="text-sm font-semibold text-gray-400 dark:text-gray-500">
+                                <span className="text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                                   {item.unit}
                                 </span>
                               </div>
 
-                              {/* Stock level progress bar */}
+                              {/* Animated stock level progress bar */}
                               {item.reorder_level != null &&
                                 item.reorder_level > 0 && (
-                                  <div className="mt-2">
-                                    <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                  <div className="mt-3">
+                                    <div className="h-2 w-full bg-gray-100/80 dark:bg-gray-700/50 rounded-full overflow-hidden backdrop-blur-sm">
                                       <div
-                                        className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${
+                                        className={`h-full rounded-full transition-all duration-700 ease-out bg-gradient-to-r ${
                                           stock.color === "red"
-                                            ? "from-red-400 to-rose-500"
+                                            ? "from-red-400 via-rose-500 to-pink-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]"
                                             : stock.color === "amber"
-                                              ? "from-amber-400 to-orange-500"
-                                              : "from-emerald-400 to-green-500"
+                                              ? "from-amber-400 via-orange-500 to-yellow-500 shadow-[0_0_8px_rgba(245,158,11,0.3)]"
+                                              : "from-emerald-400 via-green-400 to-teal-400 shadow-[0_0_8px_rgba(16,185,129,0.3)]"
                                         }`}
                                         style={{ width: `${stock.pct}%` }}
                                       />
@@ -1516,32 +1543,31 @@ const Inventory = () => {
                                 )}
                             </div>
 
-                            {/* Low Stock Badge */}
+                            {/* Low Stock Badge — Vibrant with glow */}
                             {isLow && (
                               <Badge
-                                variant="destructive"
-                                className="text-[10px] font-bold px-2 py-0.5 rounded-lg mb-2"
+                                className="text-[10px] font-bold px-2.5 py-1 rounded-xl mb-3 bg-gradient-to-r from-red-500 to-rose-600 text-white border-0 shadow-md shadow-red-500/25 animate-pulse"
                               >
                                 <AlertTriangle className="h-3 w-3 mr-1" /> Low
                                 Stock
                               </Badge>
                             )}
 
-                            {/* Footer: Price + Reorder */}
-                            <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700/50">
-                              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                            {/* Footer: Price + Reorder — Glassmorphic */}
+                            <div className="flex items-center justify-between pt-3 border-t border-white/20 dark:border-white/[0.04]">
+                              <span className="text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
                                 {item.cost_per_unit
                                   ? `${currencySymbol}${item.cost_per_unit}/${item.unit}`
                                   : "—"}
                               </span>
                               {item.reorder_level != null && (
-                                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                                <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
                                   Reorder: {item.reorder_level} {item.unit}
                                 </span>
                               )}
                             </div>
                           </div>
-                        </Card>
+                        </div>
                       );
                     })}
                   </div>
@@ -1549,7 +1575,7 @@ const Inventory = () => {
 
                 {/* Pagination */}
                 {filteredItems.length > ITEMS_PER_PAGE && (
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700/50">
+                  <div className="flex items-center justify-between pt-5 border-t border-white/20 dark:border-white/[0.04]">
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       Showing{" "}
                       <span className="font-bold text-gray-700 dark:text-gray-300">
@@ -1565,11 +1591,11 @@ const Inventory = () => {
                       </span>{" "}
                       items
                     </p>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <Button
                         variant="outline"
                         size="icon"
-                        className="h-8 w-8 rounded-lg"
+                        className="h-8 w-8 rounded-xl bg-white/50 dark:bg-white/[0.04] backdrop-blur-sm border-white/40 dark:border-white/[0.06]"
                         onClick={() => setCurrentPage(1)}
                         disabled={currentPage === 1}
                       >
@@ -1578,7 +1604,7 @@ const Inventory = () => {
                       <Button
                         variant="outline"
                         size="icon"
-                        className="h-8 w-8 rounded-lg"
+                        className="h-8 w-8 rounded-xl bg-white/50 dark:bg-white/[0.04] backdrop-blur-sm border-white/40 dark:border-white/[0.06]"
                         onClick={() =>
                           setCurrentPage((p) => Math.max(1, p - 1))
                         }
@@ -1606,10 +1632,10 @@ const Inventory = () => {
                                   currentPage === page ? "default" : "outline"
                                 }
                                 size="icon"
-                                className={`h-8 w-8 rounded-lg text-xs font-bold ${
+                                className={`h-8 w-8 rounded-xl text-xs font-bold transition-all ${
                                   currentPage === page
-                                    ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-md"
-                                    : ""
+                                    ? "bg-gradient-to-r from-emerald-400 via-green-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 scale-105"
+                                    : "bg-white/50 dark:bg-white/[0.04] backdrop-blur-sm border-white/40 dark:border-white/[0.06]"
                                 }`}
                                 onClick={() => setCurrentPage(page)}
                               >
@@ -1624,7 +1650,7 @@ const Inventory = () => {
                       <Button
                         variant="outline"
                         size="icon"
-                        className="h-8 w-8 rounded-lg"
+                        className="h-8 w-8 rounded-xl bg-white/50 dark:bg-white/[0.04] backdrop-blur-sm border-white/40 dark:border-white/[0.06]"
                         onClick={() =>
                           setCurrentPage((p) => Math.min(totalPages, p + 1))
                         }
@@ -1635,7 +1661,7 @@ const Inventory = () => {
                       <Button
                         variant="outline"
                         size="icon"
-                        className="h-8 w-8 rounded-lg"
+                        className="h-8 w-8 rounded-xl bg-white/50 dark:bg-white/[0.04] backdrop-blur-sm border-white/40 dark:border-white/[0.06]"
                         onClick={() => setCurrentPage(totalPages)}
                         disabled={currentPage === totalPages}
                       >
@@ -1713,11 +1739,15 @@ const Inventory = () => {
         open={!!itemToDelete}
         onOpenChange={() => setItemToDelete(null)}
       >
-        <AlertDialogContent className="bg-white/98 dark:bg-gray-800/98 backdrop-blur-2xl rounded-2xl border border-white/40 dark:border-gray-700/40 shadow-2xl overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-red-500 to-rose-600 px-6 py-4">
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-xl font-bold text-white flex items-center gap-2">
-                <Trash2 className="h-5 w-5" /> Delete Item?
+        <AlertDialogContent className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-3xl rounded-3xl border border-white/40 dark:border-white/[0.06] shadow-2xl shadow-black/10 overflow-hidden p-0">
+          <div className="relative overflow-hidden bg-gradient-to-r from-red-500 via-rose-500 to-pink-600 px-6 py-5">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.2),transparent_70%)]" />
+            <AlertDialogHeader className="relative">
+              <AlertDialogTitle className="text-xl font-black text-white flex items-center gap-3 drop-shadow-sm">
+                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <Trash2 className="h-5 w-5" />
+                </div>
+                Delete Item?
               </AlertDialogTitle>
             </AlertDialogHeader>
           </div>
@@ -1735,7 +1765,8 @@ const Inventory = () => {
             <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
-              className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white rounded-xl shadow-lg shadow-red-500/25"
+              className="bg-gradient-to-r from-red-400 via-rose-500 to-pink-600 hover:from-red-500 hover:via-rose-600 hover:to-pink-700 text-white rounded-2xl shadow-lg shadow-red-500/25 font-bold"
+              style={{ boxShadow: '0 8px 24px -4px rgba(244,63,94,0.35)' }}
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete Item
             </AlertDialogAction>
