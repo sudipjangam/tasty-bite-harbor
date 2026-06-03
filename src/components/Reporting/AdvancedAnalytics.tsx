@@ -67,13 +67,16 @@ const AdvancedAnalytics = () => {
       const allOrders = ordersResult.data || [];
       const customers = customersResult.data || [];
 
-      // Filter out non-chargeable orders for accurate revenue
-      const orders = allOrders.filter((o: any) => o.order_type !== 'non-chargeable');
+      // ── STANDARD REVENUE RULE (matches Orders Management & Financial/P&L) ──
+      // Revenue = completed + chargeable orders only
+      const orders = allOrders.filter((o: any) =>
+        o.status === 'completed' && o.order_type !== 'non-chargeable'
+      );
 
       // Calculate KPIs
       const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
-      const totalOrders = orders.length;
-      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+      const totalOrders = allOrders.length; // all orders placed (for order count display)
+      const avgOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0;
       const newCustomers = customers.length;
 
       // Group orders by date for daily revenue chart

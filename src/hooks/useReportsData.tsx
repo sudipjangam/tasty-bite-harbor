@@ -142,8 +142,8 @@ export const useReportsData = (dateRange?: DateRange) => {
     queryFn: async () => {
       if (!restaurantId) return null;
 
-      // Fetch orders with actual column names
-      const { data: orders, error } = await supabase
+      // Fetch ALL orders for table display, order count, and type breakdown
+      const { data: allOrders, error } = await supabase
         .from("orders")
         .select("*")
         .eq("restaurant_id", restaurantId)
@@ -153,26 +153,30 @@ export const useReportsData = (dateRange?: DateRange) => {
 
       if (error) throw error;
 
-      // Filter out non-chargeable orders from revenue calculations
-      const chargeableOrders =
-        orders?.filter((o) => o.order_type !== "non-chargeable") || [];
-      const totalRevenue = chargeableOrders.reduce(
+      // ── STANDARD REVENUE RULE (matches Orders Management & Financial/P&L) ──
+      // Revenue = completed + chargeable orders only
+      const revenueOrders = (allOrders || []).filter(
+        (o) => o.status === "completed" && o.order_type !== "non-chargeable"
+      );
+      const totalRevenue = revenueOrders.reduce(
         (sum, o) => sum + (o.total || 0),
         0,
       );
-      const orderCount = orders?.length || 0;
+      // Order count = all orders placed in the period (including pending/cancelled etc.)
+      const orderCount = allOrders?.length || 0;
+      const completedChargeableCount = revenueOrders.length;
       const avgOrderValue =
-        chargeableOrders.length > 0
-          ? totalRevenue / chargeableOrders.length
+        completedChargeableCount > 0
+          ? totalRevenue / completedChargeableCount
           : 0;
-      const totalDiscount = chargeableOrders.reduce(
+      const totalDiscount = revenueOrders.reduce(
         (sum, o) => sum + (o.discount_amount || 0),
         0,
       );
 
-      // Group by order type
+      // Group by order type (all orders)
       const byType =
-        orders?.reduce(
+        allOrders?.reduce(
           (acc, o) => {
             const type = o.order_type || "dine-in";
             acc[type] = (acc[type] || 0) + 1;
@@ -181,9 +185,9 @@ export const useReportsData = (dateRange?: DateRange) => {
           {} as Record<string, number>,
         ) || {};
 
-      // Format orders for display
+      // Format ALL orders for table display (show status column so user can see what's included)
       const formattedOrders =
-        orders?.map((o) => ({
+        allOrders?.map((o) => ({
           "Order Date": format(new Date(o.created_at), "MMM dd, yyyy HH:mm"),
           Customer: o.customer_name || o.Customer_Name || "Walk-in",
           Phone: o.customer_phone || o.Customer_MobileNumber || "-",
@@ -215,6 +219,7 @@ export const useReportsData = (dateRange?: DateRange) => {
     },
     enabled: !!restaurantId,
   });
+
 
   // Menu Report
   const menuReport = useQuery({
