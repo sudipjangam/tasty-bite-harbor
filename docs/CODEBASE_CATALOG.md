@@ -1,6 +1,6 @@
 # Tasty Bite Harbor - Codebase Catalog
 
-Last updated: 2026-04-11
+Last updated: 2026-06-04
 
 ## 1. Route and Permission Matrix
 
@@ -400,7 +400,7 @@ Primary route permissions from `src/components/Auth/AppRoutes.tsx`.
 
 Recent migration files (latest set) show active work in:
 - QR ordering
-- NC tracking
+- NC tracking (Migrated to premium tab inside `/reports` component with full filtering/sorting and 3D glassmorphic UI)
 - Paytm integration
 - critical RLS fixes
 - WhatsApp campaign/template support
