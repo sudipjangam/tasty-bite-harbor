@@ -487,8 +487,9 @@ export const QSRPosMain: React.FC = () => {
           : orderMode.charAt(0).toUpperCase() +
             orderMode.slice(1).replace("_", " ");
 
-      // Use customer name if provided (for takeaway/delivery/NC)
-      const finalCustomerName = customerName.trim() || orderSource;
+      // Use customer name if provided; null for anonymous dine-in orders
+      // Table identity is preserved in `source` field (e.g., 'QSR-Table 1')
+      const finalCustomerName = customerName.trim() || null;
 
       const kitchenItems = orderItems.map((item) => ({
         name: item.name,
@@ -644,8 +645,8 @@ export const QSRPosMain: React.FC = () => {
           : orderMode.charAt(0).toUpperCase() +
             orderMode.slice(1).replace("_", " ");
 
-      // Use customer name if provided (for takeaway/delivery/NC)
-      const finalCustomerName = customerName.trim() || orderSource;
+      // Use customer name if provided; null for anonymous orders
+      const finalCustomerName = customerName.trim() || null;
 
       const kitchenItems = orderItems.map((item) => ({
         name: item.name,
@@ -923,7 +924,7 @@ export const QSRPosMain: React.FC = () => {
             status: "completed", // Already completed since paid
             items: kitchenItems,
             order_type: currentMode === "nc" ? "takeaway" : currentMode,
-            customer_name: orderSource,
+            customer_name: customerName.trim() || null,
             server_name: attendantName,
             priority: "normal",
             bumped_at: new Date().toISOString(), // Mark as completed immediately
@@ -953,7 +954,7 @@ export const QSRPosMain: React.FC = () => {
           .from("orders")
           .insert({
             restaurant_id: restaurantId,
-            customer_name: orderSource, // Required field
+            customer_name: customerName.trim() || null,
             items: orderItemsFormatted, // Required field - array of strings
             status: "completed", // Already completed since paid
             total: isNC ? 0 : orderTotal,

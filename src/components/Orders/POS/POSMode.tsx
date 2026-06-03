@@ -616,7 +616,7 @@ const POSMode = () => {
           .from("orders")
           .insert({
             restaurant_id: profile.restaurant_id,
-            customer_name: orderSource,
+            customer_name: customerDetails?.name || null, // Don't use table name as customer identity
             items: currentOrderItems.map((item) =>
               formatOrderItemString(item.quantity, item.name, item.price, item.notes, item.modifiers)
             ),
@@ -669,7 +669,7 @@ const POSMode = () => {
           .from("orders")
           .insert({
             restaurant_id: profile.restaurant_id,
-            customer_name: orderSource,
+            customer_name: customerDetails?.name || null, // Don't use table name as customer identity
             items: currentOrderItems.map((item) =>
               formatOrderItemString(item.quantity, item.name, item.price, item.notes, item.modifiers)
             ),
