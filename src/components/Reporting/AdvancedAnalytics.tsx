@@ -495,17 +495,38 @@ const AdvancedAnalytics = () => {
                   data={charts.salesByCategory || []}
                   cx="50%"
                   cy="50%"
-                  labelLine={false}
-                  label={(entry) => `${entry.name}: ₹${Number(entry.value || 0).toLocaleString()}`}
+                  labelLine={true}
+                  label={({ name, value, percent }) =>
+                    `${name}: ₹${Number(value || 0).toLocaleString()} (${(percent * 100).toFixed(1)}%)`
+                  }
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
+                  isAnimationActive={true}
+                  animationDuration={600}
                 >
                   {(charts.salesByCategory || []).map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="rgba(255,255,255,0.3)" strokeWidth={1} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip
+                  wrapperStyle={{ zIndex: 1000, pointerEvents: "auto" }}
+                  contentStyle={{
+                    background: "rgba(17,19,32,0.95)",
+                    border: "1px solid rgba(249,115,22,0.4)",
+                    borderRadius: "12px",
+                    color: "#fff",
+                    fontSize: "12px",
+                    padding: "10px 14px",
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+                  }}
+                  formatter={(value: number, name: string, props: any) => {
+                    const pct = ((props.payload.percent ?? 0) * 100).toFixed(1);
+                    return [`₹${Number(value).toLocaleString()} (${pct}%)`, name];
+                  }}
+                  itemStyle={{ color: "#fff", fontWeight: 600 }}
+                />
+                <Legend />
               </PieChart>
             </ResponsiveContainer>
           </StandardizedCard>
