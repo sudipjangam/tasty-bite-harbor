@@ -97,6 +97,8 @@ export const generateEditablePPTX = async (
       { rect: { x: 0, y: 0, w: "100%", h: 0.15, fill: { color: BRAND_BLUE } } },
       // Thin accent bar (Orange)
       { rect: { x: 0, y: 0.15, w: "100%", h: 0.05, fill: { color: BRAND_ORANGE } } },
+      // Top right logo (below header lines, wide aspect ratio)
+      { image: { x: 9.1, y: 0.25, w: 0.55, h: 0.30, path: "/swadeshi-logo.png" } },
       // Diagonal watermark
       {
         text: {
@@ -129,14 +131,17 @@ export const generateEditablePPTX = async (
   coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: "30%", w: "100%", h: "40%", fill: { color: BRAND_LIGHT } });
   coverSlide.addShape(pptx.ShapeType.rect, { x: "10%", y: "30%", w: 0.1, h: "40%", fill: { color: BRAND_ORANGE } });
   
+  // Logo on cover slide (wide aspect ratio)
+  coverSlide.addImage({ path: "/swadeshi-logo.png", x: 1.0, y: 0.5, w: 2.2, h: 1.2 });
+
   coverSlide.addText("BUSINESS REPORT", {
-    x: 1, y: "40%", w: "80%", h: 1,
-    fontSize: 44, bold: true, color: BRAND_BLUE,
+    x: 1, y: "36%", w: "80%", h: 0.8,
+    fontSize: 40, bold: true, color: BRAND_BLUE,
   });
   
   coverSlide.addText(restaurantName || "Restaurant Performance", {
-    x: 1, y: "52%", w: "80%", h: 0.5,
-    fontSize: 24, color: TEXT_DARK,
+    x: 1, y: "48%", w: "80%", h: 0.5,
+    fontSize: 22, color: TEXT_DARK,
   });
 
   const dateText = dateRange?.from && dateRange?.to
@@ -144,8 +149,13 @@ export const generateEditablePPTX = async (
     : `Generated: ${format(new Date(), "MMM dd, yyyy")}`;
     
   coverSlide.addText(dateText, {
-    x: 1, y: "60%", w: "80%", h: 0.5,
-    fontSize: 14, color: TEXT_MUTED,
+    x: 1, y: "55%", w: "80%", h: 0.4,
+    fontSize: 13, color: TEXT_MUTED,
+  });
+
+  coverSlide.addText("Swadeshi Solutions • " + BRAND_TAGLINE, {
+    x: 1, y: "62%", w: "80%", h: 0.4,
+    fontSize: 11, italic: true, color: BRAND_ORANGE,
   });
 
   // --- 2. REPORT SLIDES ---
@@ -318,7 +328,7 @@ const addBrandedHeader = (
   const lc = colToLetter(Math.max(totalCols, 6));
 
   if (logoBuffer) {
-    sheet.getColumn(1).width = Math.max(sheet.getColumn(1).width || 0, 12);
+    sheet.getColumn(1).width = Math.max(sheet.getColumn(1).width || 0, 15);
   }
 
   // Company name
@@ -361,8 +371,8 @@ const addBrandedHeader = (
         extension: 'png',
       });
       sheet.addImage(imageId, {
-        tl: { col: 0.1, row: 0.1 },
-        ext: { width: 55, height: 55 }
+        tl: { col: 0.1, row: 0.15 },
+        ext: { width: 110, height: 60 }
       });
     } catch (err) {
       console.error("Error embedding logo in Excel sheet", err);
@@ -458,7 +468,7 @@ const addFooter = (sheet: ExcelJS.Worksheet, row: number, cols: number) => {
   const fr = row + 1;
   sheet.mergeCells(`A${fr}:${lc}${fr}`);
   const cell = sheet.getCell(`A${fr}`);
-  cell.value = "Powered by Swadeshi Solutions  •  www.swadeshisolutions.co.in";
+  cell.value = "Powered by Swadeshi Solutions  • www.swadeshisolutions.co.in";
   cell.font = { name: "Calibri", size: 9, italic: true, color: { argb: `FF${TEXT_MUTED}` } };
   cell.alignment = { horizontal: "center", vertical: "middle" };
 };
@@ -482,7 +492,7 @@ export const generateRichExcel = async (
 ) => {
   let logoBuffer: ArrayBuffer | null = null;
   try {
-    const response = await fetch('/swadeshi-logo2.png');
+    const response = await fetch('/swadeshi-logo.png');
     if (response.ok) {
       logoBuffer = await response.arrayBuffer();
     }
@@ -608,7 +618,7 @@ export const generateBrandedDataExcel = async (
 ) => {
   let logoBuffer: ArrayBuffer | null = null;
   try {
-    const response = await fetch('/swadeshi-logo2.png');
+    const response = await fetch('/swadeshi-logo.png');
     if (response.ok) {
       logoBuffer = await response.arrayBuffer();
     }
@@ -658,7 +668,7 @@ export const generateBrandedMultiSheetExcel = async (
 ) => {
   let logoBuffer: ArrayBuffer | null = null;
   try {
-    const response = await fetch('/swadeshi-logo2.png');
+    const response = await fetch('/swadeshi-logo.png');
     if (response.ok) {
       logoBuffer = await response.arrayBuffer();
     }
