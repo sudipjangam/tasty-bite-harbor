@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
-import { ReportData } from "@/hooks/useReportsData";
+import { ReportData, ReportCategory } from "@/hooks/useReportsData";
+import ReportHelpDialog from "./ReportHelpDialog";
 import { StandardizedButton } from "@/components/ui/standardized-button";
 import {
   Download,
@@ -13,6 +14,7 @@ import {
   ArrowUp,
   ArrowDown,
   X,
+  HelpCircle,
 } from "lucide-react";
 import { sanitizeOrderItemDisplay } from "@/lib/order-utils";
 import { DateRange } from "react-day-picker";
@@ -130,6 +132,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
   const [currentPages, setCurrentPages] = useState<Record<string, number>>({});
   const [sortConfigs, setSortConfigs] = useState<Record<string, SortConfig>>({});
   const [searchTerms, setSearchTerms] = useState<Record<string, string>>({});
+  const [helpCategory, setHelpCategory] = useState<ReportCategory | null>(null);
   const { toast } = useToast();
   const { restaurantName } = useRestaurantId();
 
@@ -520,46 +523,6 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Export buttons row */}
-      <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-end sm:gap-3">
-        <button
-          onClick={handleExportPPTX}
-          disabled={exporting !== null}
-          className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[11px] sm:text-sm font-semibold transition-all duration-200 bg-orange-500/10 dark:bg-orange-500/8 border border-orange-500/30 text-orange-500 hover:bg-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {exporting === "pptx" ? (
-            <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
-          ) : (
-            <Presentation className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          )}
-          <span className="hidden sm:inline">Export</span> PPT
-        </button>
-        <button
-          onClick={handleExportExcel}
-          disabled={exporting !== null}
-          className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[11px] sm:text-sm font-semibold transition-all duration-200 bg-emerald-500/10 dark:bg-emerald-500/8 border border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {exporting === "excel" ? (
-            <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
-          ) : (
-            <FileSpreadsheet className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          )}
-          <span className="hidden sm:inline">Export</span> Excel
-        </button>
-        <button
-          onClick={handleExportPDF}
-          disabled={exporting !== null}
-          className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[11px] sm:text-sm font-semibold transition-all duration-200 bg-blue-500/10 dark:bg-blue-500/8 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {exporting === "pdf" ? (
-            <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
-          ) : (
-            <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          )}
-          <span className="hidden sm:inline">Export</span> PDF
-        </button>
-      </div>
-
       {/* Reports */}
       {reports.map((report, index) => {
         const displayColumns = getDisplayColumns(
@@ -579,6 +542,49 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
 
         return (
           <div key={`${report.category}-${index}`} className="space-y-5">
+            {/* ═══ TOOLBAR: Title + Exports + Help ═══ */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h3 className="text-sm font-semibold text-muted-foreground">{report.title}</h3>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <button
+                  onClick={handleExportPPTX}
+                  disabled={exporting !== null}
+                  className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 hover:shadow-lg active:scale-95 text-white shadow-md shadow-orange-500/30"
+                  style={{ background: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)" }}
+                >
+                  {exporting === "pptx" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Presentation className="h-3 w-3" />}
+                  <span className="hidden sm:inline">PPT</span>
+                </button>
+                <button
+                  onClick={handleExportExcel}
+                  disabled={exporting !== null}
+                  className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 hover:shadow-lg active:scale-95 text-white shadow-md shadow-emerald-500/30"
+                  style={{ background: "linear-gradient(135deg, #10b981 0%, #059669 100%)" }}
+                >
+                  {exporting === "excel" ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileSpreadsheet className="h-3 w-3" />}
+                  <span className="hidden sm:inline">Excel</span>
+                </button>
+                <button
+                  onClick={handleExportPDF}
+                  disabled={exporting !== null}
+                  className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 hover:shadow-lg active:scale-95 text-white shadow-md shadow-blue-500/30"
+                  style={{ background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" }}
+                >
+                  {exporting === "pdf" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                  <span className="hidden sm:inline">PDF</span>
+                </button>
+                <div className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-0.5" />
+                <button
+                  onClick={() => setHelpCategory(report.category)}
+                  className="group inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all duration-200 hover:scale-105 hover:shadow-lg active:scale-95 text-white shadow-md shadow-violet-500/30"
+                  style={{ background: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)" }}
+                  title={`How is ${report.title} calculated?`}
+                >
+                  <HelpCircle className="h-3.5 w-3.5 group-hover:scale-110 transition-transform" />
+                  <span className="hidden sm:inline">Help</span>
+                </button>
+              </div>
+            </div>
             {/* ═══ STAT CARDS ═══ */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4">
               {Object.entries(report.summary).map(([key, value], sIdx) => (
@@ -602,6 +608,55 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                 </div>
               ))}
             </div>
+
+            {/* ═══ PAYMENT BREAKDOWN (for manual book reconciliation) ═══ */}
+            {report.category === "orders" && report.paymentBreakdown && (() => {
+              const pb = report.paymentBreakdown;
+              const collected = pb.cash + pb.upi + pb.card;
+              const fmt = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+              return (
+                <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-white/[0.04] backdrop-blur-xl border border-gray-200 dark:border-white/8 shadow-sm dark:shadow-none p-5">
+                  <h4 className="text-sm font-bold text-foreground flex items-center gap-2 mb-4">
+                    💰 Payment Breakdown
+                    <span className="text-[10px] font-medium text-muted-foreground bg-gray-100 dark:bg-white/10 px-2 py-0.5 rounded-full">Tally with your register</span>
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    {/* Cash */}
+                    <div className="rounded-xl bg-emerald-500/8 border border-emerald-500/20 p-3 text-center">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">💵 Cash</p>
+                      <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">{fmt(pb.cash)}</p>
+                    </div>
+                    {/* UPI */}
+                    <div className="rounded-xl bg-blue-500/8 border border-blue-500/20 p-3 text-center">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1">📱 UPI</p>
+                      <p className="text-lg font-extrabold text-blue-600 dark:text-blue-400">{fmt(pb.upi)}</p>
+                    </div>
+                    {/* Card */}
+                    <div className="rounded-xl bg-violet-500/8 border border-violet-500/20 p-3 text-center">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400 mb-1">💳 Card</p>
+                      <p className="text-lg font-extrabold text-violet-600 dark:text-violet-400">{fmt(pb.card)}</p>
+                    </div>
+                    {/* Credit/Outstanding */}
+                    {pb.credit > 0 && (
+                      <div className="rounded-xl bg-amber-500/8 border border-amber-500/20 p-3 text-center">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">📋 Credit/Pending</p>
+                        <p className="text-lg font-extrabold text-amber-600 dark:text-amber-400">{fmt(pb.credit)}</p>
+                      </div>
+                    )}
+                    {/* Collected Total */}
+                    <div className="rounded-xl bg-orange-500/8 border border-orange-500/20 p-3 text-center">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400 mb-1">✅ Collected</p>
+                      <p className="text-lg font-extrabold text-orange-600 dark:text-orange-400">{fmt(collected)}</p>
+                    </div>
+                  </div>
+                  {/* Reconciliation hint */}
+                  <div className="mt-3 px-3 py-2 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-[11px] text-muted-foreground leading-relaxed">
+                    <strong>📖 How to tally:</strong> Your manual register should match <strong>Collected ({fmt(collected)})</strong> = Cash + UPI + Card. 
+                    {pb.credit > 0 && <> The gap of <strong>{fmt(pb.credit)}</strong> is from credit/room charges not yet collected.</>}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* ═══ CHART BOX ═══ */}
             {report.chartData && report.chartData.length > 0 && (
@@ -635,29 +690,42 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                         data={report.chartData}
                         cx="50%"
                         cy="50%"
-                        labelLine={false}
-                        label={({ name, value }) =>
-                          `${name}: ${typeof value === "number" ? value.toLocaleString() : value}`
+                        labelLine={true}
+                        label={({ name, value, percent }) =>
+                          `${name}: ${typeof value === "number" ? value.toLocaleString() : value} (${(percent * 100).toFixed(1)}%)`
                         }
                         outerRadius={80}
                         fill="#8884d8"
                         dataKey="value"
+                        isAnimationActive={true}
+                        animationDuration={600}
                       >
                         {report.chartData.map((_, i) => (
                           <Cell
                             key={`cell-${i}`}
                             fill={COLORS[i % COLORS.length]}
+                            stroke="rgba(255,255,255,0.3)"
+                            strokeWidth={1}
                           />
                         ))}
                       </Pie>
                       <Tooltip
+                        wrapperStyle={{ zIndex: 1000, pointerEvents: "auto" }}
                         contentStyle={{
-                          background: "rgba(17,19,32,0.9)",
-                          border: "1px solid rgba(249,115,22,0.3)",
+                          background: "rgba(17,19,32,0.95)",
+                          border: "1px solid rgba(249,115,22,0.4)",
                           borderRadius: "12px",
                           color: "#fff",
                           fontSize: "12px",
+                          padding: "10px 14px",
+                          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
                         }}
+                        formatter={(value: number, name: string, props: any) => {
+                          const pct = ((props.payload.percent ?? 0) * 100).toFixed(1);
+                          return [`${typeof value === "number" ? value.toLocaleString() : value} (${pct}%)`, name];
+                        }}
+                        itemStyle={{ color: "#fff", fontWeight: 600 }}
+                        labelStyle={{ color: "#94a3b8", fontSize: "11px", marginBottom: "4px" }}
                       />
                       <Legend />
                     </PieChart>
@@ -768,7 +836,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                                     : "text-muted-foreground"
                                 }`}
                               >
-                                {/* Badge rendering for Yes/No values */}
+                                {/* Badge rendering for Yes/No, Paid/Pending, Status values */}
                                 {(() => {
                                   const val = formatCellValue(
                                     (row as Record<string, unknown>)[key],
@@ -784,6 +852,27 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                                     return (
                                       <span className="inline-flex items-center bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-muted-foreground text-[11px] font-medium px-2.5 py-0.5 rounded-full">
                                         No
+                                      </span>
+                                    );
+                                  }
+                                  if (val === "PAID" || val === "COMPLETED") {
+                                    return (
+                                      <span className="inline-flex items-center gap-1 bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                                        ✓ {val}
+                                      </span>
+                                    );
+                                  }
+                                  if (val === "PENDING") {
+                                    return (
+                                      <span className="inline-flex items-center gap-1 bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                                        ⚠ {val}
+                                      </span>
+                                    );
+                                  }
+                                  if (val === "CANCELLED") {
+                                    return (
+                                      <span className="inline-flex items-center gap-1 bg-rose-500/10 dark:bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                                        ✗ {val}
                                       </span>
                                     );
                                   }
@@ -848,6 +937,15 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
           </div>
         );
       })}
+
+      {/* Help Dialog */}
+      {helpCategory && (
+        <ReportHelpDialog
+          isOpen={!!helpCategory}
+          onClose={() => setHelpCategory(null)}
+          category={helpCategory}
+        />
+      )}
     </div>
   );
 };

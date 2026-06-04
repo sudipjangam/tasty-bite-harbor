@@ -124,6 +124,7 @@ export interface ReportData {
   summary: Record<string, number | string>;
   tableData: Record<string, unknown>[];
   chartData?: Record<string, unknown>[];
+  paymentBreakdown?: { cash: number; upi: number; card: number; credit: number };
 }
 
 export const useReportsData = (dateRange?: DateRange) => {
@@ -162,6 +163,19 @@ export const useReportsData = (dateRange?: DateRange) => {
         (sum, o) => sum + (o.total || 0),
         0,
       );
+
+      // ── PAYMENT METHOD BREAKDOWN (reliable — always set at payment time) ──
+      // This is what users tally against their manual book
+      const paymentBreakdown = { cash: 0, upi: 0, card: 0, credit: 0 };
+      revenueOrders.forEach((o) => {
+        const method = (o.payment_method || "").toLowerCase();
+        const amt = o.total || 0;
+        if (method.includes("cash")) paymentBreakdown.cash += amt;
+        else if (method.includes("upi")) paymentBreakdown.upi += amt;
+        else if (method.includes("card")) paymentBreakdown.card += amt;
+        else paymentBreakdown.credit += amt; // room charge, pending, unknown = credit/outstanding
+      });
+
       // Order count = all orders placed in the period (including pending/cancelled etc.)
       const orderCount = allOrders?.length || 0;
       const completedChargeableCount = revenueOrders.length;
@@ -185,7 +199,7 @@ export const useReportsData = (dateRange?: DateRange) => {
           {} as Record<string, number>,
         ) || {};
 
-      // Format ALL orders for table display (show status column so user can see what's included)
+      // Format ALL orders for table display
       const formattedOrders =
         allOrders?.map((o) => ({
           "Order Date": format(new Date(o.created_at), "MMM dd, yyyy HH:mm"),
@@ -197,6 +211,7 @@ export const useReportsData = (dateRange?: DateRange) => {
           Discount: o.discount_amount || 0,
           Total: o.total || 0,
           Status: o.status || "completed",
+          "Payment": o.payment_method ? o.payment_method.toUpperCase() : "-",
         })) || [];
 
       return {
@@ -215,6 +230,8 @@ export const useReportsData = (dateRange?: DateRange) => {
           name: name.charAt(0).toUpperCase() + name.slice(1),
           value,
         })),
+        // Extra data for reconciliation UI (consumed by ReportViewer)
+        paymentBreakdown,
       } as ReportData;
     },
     enabled: !!restaurantId,
@@ -543,6 +560,7 @@ export const useReportsData = (dateRange?: DateRange) => {
         .filter((o) => o.order_type !== "non-chargeable")
         .forEach((o) => {
           const name = (o.customer_name || o.Customer_Name || "Walk-in").trim();
+          if (isTableOrGenericName(name)) return;
           if (!customerOrderStats[name]) {
             customerOrderStats[name] = { spent: 0, orderCount: 0 };
           }
