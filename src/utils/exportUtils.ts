@@ -312,24 +312,63 @@ const fillRow = (sheet: ExcelJS.Worksheet, row: number, cols: number, color: str
 const thinBorder = (color = 'FFE2E8F0'): ExcelJS.Border => ({ style: 'thin', color: { argb: color } });
 
 const addBrandedHeader = (
-  sheet: ExcelJS.Worksheet, totalCols: number, title: string,
+  sheet: ExcelJS.Worksheet, workbook: ExcelJS.Workbook, logoBuffer: ArrayBuffer | null, totalCols: number, title: string,
   restaurant: string | null, dateRange?: { from?: Date; to?: Date }, reportType?: string
 ): number => {
   const lc = colToLetter(Math.max(totalCols, 6));
+
+  if (logoBuffer) {
+    sheet.getColumn(1).width = Math.max(sheet.getColumn(1).width || 0, 12);
+  }
+
   // Company name
-  sheet.mergeCells(`A1:${lc}2`);
-  const bc = sheet.getCell("A1");
-  bc.value = "SWADESHI SOLUTIONS";
-  bc.font = { name: "Calibri", size: 22, bold: true, color: { argb: `FF${BRAND_BLUE}` } };
-  bc.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+  if (logoBuffer) {
+    sheet.mergeCells(`B1:${lc}2`);
+    const bc = sheet.getCell("B1");
+    bc.value = "SWADESHI SOLUTIONS";
+    bc.font = { name: "Calibri", size: 22, bold: true, color: { argb: `FF${BRAND_BLUE}` } };
+    bc.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+  } else {
+    sheet.mergeCells(`A1:${lc}2`);
+    const bc = sheet.getCell("A1");
+    bc.value = "SWADESHI SOLUTIONS";
+    bc.font = { name: "Calibri", size: 22, bold: true, color: { argb: `FF${BRAND_BLUE}` } };
+    bc.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+  }
   sheet.getRow(1).height = 22; sheet.getRow(2).height = 22;
+
   // Tagline
-  sheet.mergeCells(`A3:${lc}3`);
-  const tc = sheet.getCell("A3");
-  tc.value = BRAND_TAGLINE;
-  tc.font = { name: "Calibri", size: 11, italic: true, color: { argb: `FF${BRAND_ORANGE}` } };
-  tc.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+  if (logoBuffer) {
+    sheet.mergeCells(`B3:${lc}3`);
+    const tc = sheet.getCell("B3");
+    tc.value = BRAND_TAGLINE;
+    tc.font = { name: "Calibri", size: 11, italic: true, color: { argb: `FF${BRAND_ORANGE}` } };
+    tc.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+  } else {
+    sheet.mergeCells(`A3:${lc}3`);
+    const tc = sheet.getCell("A3");
+    tc.value = BRAND_TAGLINE;
+    tc.font = { name: "Calibri", size: 11, italic: true, color: { argb: `FF${BRAND_ORANGE}` } };
+    tc.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+  }
   sheet.getRow(3).height = 18;
+
+  // Add logo image if buffer exists
+  if (logoBuffer) {
+    try {
+      const imageId = workbook.addImage({
+        buffer: logoBuffer,
+        extension: 'png',
+      });
+      sheet.addImage(imageId, {
+        tl: { col: 0.1, row: 0.1 },
+        ext: { width: 55, height: 55 }
+      });
+    } catch (err) {
+      console.error("Error embedding logo in Excel sheet", err);
+    }
+  }
+
   // Orange separator
   fillRow(sheet, 4, Math.max(totalCols, 6), BRAND_ORANGE, 4);
   sheet.getRow(5).height = 8;
@@ -419,7 +458,7 @@ const addFooter = (sheet: ExcelJS.Worksheet, row: number, cols: number) => {
   const fr = row + 1;
   sheet.mergeCells(`A${fr}:${lc}${fr}`);
   const cell = sheet.getCell(`A${fr}`);
-  cell.value = "Powered by Swadeshi Solutions  •  www.swadeshisolutions.com";
+  cell.value = "Powered by Swadeshi Solutions  •  www.swadeshisolutions.co.in";
   cell.font = { name: "Calibri", size: 9, italic: true, color: { argb: `FF${TEXT_MUTED}` } };
   cell.alignment = { horizontal: "center", vertical: "middle" };
 };
@@ -441,6 +480,16 @@ export const generateRichExcel = async (
   restaurantName: string | null,
   dateRange?: { from?: Date; to?: Date }
 ) => {
+  let logoBuffer: ArrayBuffer | null = null;
+  try {
+    const response = await fetch('/swadeshi-logo2.png');
+    if (response.ok) {
+      logoBuffer = await response.arrayBuffer();
+    }
+  } catch (e) {
+    console.error("Error loading logo for excel", e);
+  }
+
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Swadeshi Solutions";
   workbook.lastModifiedBy = "Swadeshi Solutions";
@@ -449,7 +498,7 @@ export const generateRichExcel = async (
   // ═══ COVER SHEET ═══
   const cover = workbook.addWorksheet("Summary", { views: [{ showGridLines: false }] });
   cover.properties.tabColor = { argb: `FF${BRAND_ORANGE}` };
-  let cr = addBrandedHeader(cover, 4, "Business Report", restaurantName, dateRange, "Multi-Category Analysis");
+  let cr = addBrandedHeader(cover, workbook, logoBuffer, 4, "Business Report", restaurantName, dateRange, "Multi-Category Analysis");
   // Table of contents
   cover.getCell(`A${cr}`).value = "REPORTS INCLUDED";
   cover.getCell(`A${cr}`).font = { name: "Calibri", size: 12, bold: true, color: { argb: `FF${BRAND_ORANGE}` } };
@@ -488,7 +537,7 @@ export const generateRichExcel = async (
     const sheet = workbook.addWorksheet(sheetName, { views: [{ showGridLines: false }] });
     sheet.properties.tabColor = { argb: `FF${BRAND_BLUE}` };
 
-    let row = addBrandedHeader(sheet, totalCols, report.title, restaurantName, dateRange, report.category);
+    let row = addBrandedHeader(sheet, workbook, logoBuffer, totalCols, report.title, restaurantName, dateRange, report.category);
 
     // KPI Summary
     const summaryEntries = Object.entries(report.summary);
@@ -557,6 +606,16 @@ export const generateBrandedDataExcel = async (
     fileName?: string;
   }
 ) => {
+  let logoBuffer: ArrayBuffer | null = null;
+  try {
+    const response = await fetch('/swadeshi-logo2.png');
+    if (response.ok) {
+      logoBuffer = await response.arrayBuffer();
+    }
+  } catch (e) {
+    console.error("Error loading logo for excel", e);
+  }
+
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Swadeshi Solutions";
   workbook.created = new Date();
@@ -566,7 +625,7 @@ export const generateBrandedDataExcel = async (
 
   const colKeys = columns.map(c => c.key);
   const totalCols = Math.max(columns.length, 4);
-  let row = addBrandedHeader(sheet, totalCols, options.title, options.restaurantName || null, options.dateRange, options.reportType);
+  let row = addBrandedHeader(sheet, workbook, logoBuffer, totalCols, options.title, options.restaurantName || null, options.dateRange, options.reportType);
 
   // Map data to use column keys
   const mappedData = data.map(d => {
@@ -597,6 +656,16 @@ export const generateBrandedMultiSheetExcel = async (
     fileName?: string;
   }
 ) => {
+  let logoBuffer: ArrayBuffer | null = null;
+  try {
+    const response = await fetch('/swadeshi-logo2.png');
+    if (response.ok) {
+      logoBuffer = await response.arrayBuffer();
+    }
+  } catch (e) {
+    console.error("Error loading logo for excel", e);
+  }
+
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Swadeshi Solutions";
   workbook.created = new Date();
@@ -606,7 +675,7 @@ export const generateBrandedMultiSheetExcel = async (
     const sheet = workbook.addWorksheet(s.name.substring(0, 31), { views: [{ showGridLines: false }] });
     sheet.properties.tabColor = { argb: `FF${BRAND_BLUE}` };
     const totalCols = Math.max(s.columns.length, 4);
-    let row = addBrandedHeader(sheet, totalCols, `${options.title} — ${s.name}`, options.restaurantName || null, options.dateRange);
+    let row = addBrandedHeader(sheet, workbook, logoBuffer, totalCols, `${options.title} — ${s.name}`, options.restaurantName || null, options.dateRange);
 
     const mappedData = s.data.map(d => {
       const m: Record<string, unknown> = {};
