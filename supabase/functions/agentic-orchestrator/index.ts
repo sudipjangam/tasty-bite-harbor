@@ -1,8 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { ChatGoogleGenerativeAI } from "npm:@langchain/google-genai@2.1.31";
-import { StateGraph, Annotation } from "npm:@langchain/langgraph@0.2.34";
-import { BaseMessage, HumanMessage, AIMessage } from "npm:@langchain/core@0.3.0/messages";
+import { createClient } from "@supabase/supabase-js";
+import { GoogleGenAI } from "@google/genai";
+import { StateGraph, Annotation } from "@langchain/langgraph";
+import { BaseMessage, HumanMessage, AIMessage } from "@langchain/core/messages";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -98,17 +98,29 @@ serve(async (req) => {
       return new AIMessage(m.content);
     });
 
-    // Initialize LangChain Gemini model
-    const model = new ChatGoogleGenerativeAI({
-      apiKey: apiKey,
-      modelName: "gemini-1.5-flash",
-      maxOutputTokens: 2048,
-    });
+    // Initialize Google GenAI SDK
+    const ai = new GoogleGenAI({ apiKey });
 
     // Define simple node agent
     const callModelNode = async (state: typeof AgentState.State) => {
-      const response = await model.invoke(state.messages);
-      return { messages: [response] };
+      const contents = state.messages.map(msg => {
+        let role = "user";
+        if (msg instanceof AIMessage || (msg as any)._getType?.() === "ai" || msg.type === "ai") {
+          role = "model";
+        }
+        return {
+          role: role,
+          parts: [{ text: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content) }]
+        };
+      });
+
+      const response = await ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: contents,
+      });
+
+      const replyText = response.text || "";
+      return { messages: [new AIMessage(replyText)] };
     };
 
     // Construct simple graph to test infrastructure

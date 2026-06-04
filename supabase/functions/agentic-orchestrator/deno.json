@@ -1,0 +1,8 @@
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai",
+    "@langchain/langgraph": "npm:@langchain/langgraph@0.2.34",
+    "@langchain/core/messages": "npm:@langchain/core@0.3.0/messages",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+  }
+}

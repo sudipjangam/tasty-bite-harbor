@@ -90,3 +90,6 @@ verify_jwt = false
 verify_jwt = true
 [functions.find-active-reservation]
 verify_jwt = true
+[functions.agentic-orchestrator]
+verify_jwt = true
+
