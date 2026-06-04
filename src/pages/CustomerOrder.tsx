@@ -47,34 +47,12 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [paymentData, setPaymentData] = useState<any>(null);
-  const [redirectCountdown, setRedirectCountdown] = useState<number | null>(
-    null,
-  );
+  const [placedOrderDetails, setPlacedOrderDetails] = useState<{
+    items: any[];
+    total: number;
+  } | null>(null);
 
   const { itemCount, clearCart, items, total } = useCart();
-
-  // Auto-redirect timer when order is successful
-  useEffect(() => {
-    if (currentStep === "success" && orderId) {
-      setRedirectCountdown(10); // 10 seconds countdown
-
-      const timer = setInterval(() => {
-        setRedirectCountdown((prev) => {
-          if (prev === null || prev <= 1) {
-            clearInterval(timer);
-            // Redirect to menu
-            setCurrentStep("menu");
-            setOrderId(null);
-            setPaymentData(null);
-            return null;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => clearInterval(timer);
-    }
-  }, [currentStep, orderId]);
 
   // Clear cart when switching to a different table/room
   useEffect(() => {
@@ -191,6 +169,12 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
 
       // Store payment data
       setPaymentData(data.payment);
+
+      // Store placed order details for success screen before clearing cart
+      setPlacedOrderDetails({
+        items: [...items],
+        total: total,
+      });
 
       // Clear cart and proceed to success/payment screen
       clearCart();
@@ -346,31 +330,33 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
                 </p>
 
                 {/* Order Summary */}
-                <div className="bg-white rounded-lg p-4 mb-4 border border-green-200 text-left">
-                  <h3 className="font-bold text-gray-900 mb-3">
-                    Order Summary
-                  </h3>
-                  <div className="space-y-2 mb-3">
-                    {items.map((item, index) => (
-                      <div key={index} className="flex justify-between text-sm">
-                        <span className="text-gray-700">
-                          {item.quantity}x {item.name}
-                        </span>
-                        <span className="font-medium text-gray-900">
-                          ₹{(item.price * item.quantity).toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
+                {placedOrderDetails && (
+                  <div className="bg-white rounded-lg p-4 mb-4 border border-green-200 text-left">
+                    <h3 className="font-bold text-gray-900 mb-3">
+                      Order Summary
+                    </h3>
+                    <div className="space-y-2 mb-3">
+                      {placedOrderDetails.items.map((item, index) => (
+                        <div key={index} className="flex justify-between text-sm">
+                          <span className="text-gray-700">
+                            {item.quantity}x {item.name}
+                          </span>
+                          <span className="font-medium text-gray-900">
+                            ₹{(item.price * item.quantity).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="pt-3 border-t border-gray-200 flex justify-between items-center">
+                      <span className="font-bold text-gray-900">
+                        Total Amount
+                      </span>
+                      <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-emerald-600">
+                        ₹{placedOrderDetails.total.toFixed(2)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="pt-3 border-t border-gray-200 flex justify-between items-center">
-                    <span className="font-bold text-gray-900">
-                      Total Amount
-                    </span>
-                    <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-emerald-600">
-                      ₹{total.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
+                )}
 
                 {/* Entity Location */}
                 <div className="bg-white rounded-lg p-4 border border-green-200">
@@ -488,12 +474,10 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
                 setCurrentStep("menu");
                 setOrderId(null);
                 setPaymentData(null);
-                setRedirectCountdown(null);
+                setPlacedOrderDetails(null);
               }}
             >
-              {redirectCountdown !== null
-                ? `Back to Menu (Auto-redirecting in ${redirectCountdown}s)`
-                : "Back to Menu"}
+              Back to Menu
             </Button>
           </div>
         )}
