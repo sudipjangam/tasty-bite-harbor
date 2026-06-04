@@ -87,7 +87,7 @@ If you cannot read a value clearly, use null for that field. For items array, in
     console.log("Sending request to Gemini API...");
     
     const response = await genAI.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: [
         {
           role: "user",

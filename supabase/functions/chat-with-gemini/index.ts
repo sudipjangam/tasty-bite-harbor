@@ -133,7 +133,41 @@ serve(async (req) => {
           { data: subscriptionPlans },
           { data: restaurantDetails },
           { data: restaurantSubscriptions },
-          { data: posTransactions }
+          { data: posTransactions },
+          // Financial & Reporting
+          { data: expenses },
+          { data: expenseCategories },
+          { data: invoices },
+          { data: paymentsData },
+          { data: budgetsData },
+          { data: monthlyBudgets },
+          { data: operationalCosts },
+          // Orders & Kitchen
+          { data: ordersUnified },
+          { data: kitchenOrders },
+          // Inventory & Purchasing
+          { data: inventoryTransactions },
+          { data: inventoryAlerts },
+          { data: purchaseOrders },
+          { data: purchaseOrderItems },
+          // CRM & Loyalty
+          { data: customersData },
+          { data: loyaltyPrograms },
+          { data: loyaltyTransactions },
+          // Staff & HR
+          { data: staffTimeClock },
+          { data: shiftsData },
+          { data: staffLeaveBalances },
+          // Hotel
+          { data: checkIns },
+          { data: guestProfiles },
+          // Recipes & Menu
+          { data: recipesData },
+          { data: recipeIngredients },
+          { data: categoriesData },
+          // Config
+          { data: taxConfigurations },
+          { data: paymentMethodsData }
         ] = await Promise.all([
           supabase.from("daily_revenue_stats").select("*")
             .eq("restaurant_id", verifiedRestaurantId)
@@ -211,7 +245,94 @@ serve(async (req) => {
           supabase.from("pos_transactions").select("*")
             .eq("restaurant_id", verifiedRestaurantId)
             .order("created_at", { ascending: false })
-            .limit(50)
+            .limit(50),
+          // Financial & Reporting
+          supabase.from("expenses").select("*")
+            .eq("restaurant_id", verifiedRestaurantId)
+            .order("expense_date", { ascending: false })
+            .limit(50),
+          supabase.from("expense_categories").select("*")
+            .eq("restaurant_id", verifiedRestaurantId),
+          supabase.from("invoices").select("*")
+            .eq("restaurant_id", verifiedRestaurantId)
+            .order("created_at", { ascending: false })
+            .limit(20),
+          supabase.from("payments").select("*")
+            .eq("restaurant_id", verifiedRestaurantId)
+            .order("created_at", { ascending: false })
+            .limit(20),
+          supabase.from("budgets").select("*")
+            .eq("restaurant_id", verifiedRestaurantId)
+            .limit(5),
+          supabase.from("monthly_budgets").select("*")
+            .eq("restaurant_id", verifiedRestaurantId)
+            .limit(12),
+          supabase.from("operational_costs").select("*")
+            .eq("restaurant_id", verifiedRestaurantId)
+            .limit(20),
+          // Orders & Kitchen
+          supabase.from("orders_unified").select("*")
+            .eq("restaurant_id", verifiedRestaurantId)
+            .order("created_at", { ascending: false })
+            .limit(30),
+          supabase.from("kitchen_orders").select("*")
+            .eq("restaurant_id", verifiedRestaurantId)
+            .order("created_at", { ascending: false })
+            .limit(30),
+          // Inventory & Purchasing
+          supabase.from("inventory_transactions").select("*")
+            .eq("restaurant_id", verifiedRestaurantId)
+            .order("created_at", { ascending: false })
+            .limit(30),
+          supabase.from("inventory_alerts").select("*")
+            .eq("restaurant_id", verifiedRestaurantId)
+            .limit(20),
+          supabase.from("purchase_orders").select("*")
+            .eq("restaurant_id", verifiedRestaurantId)
+            .order("created_at", { ascending: false })
+            .limit(20),
+          supabase.from("purchase_order_items").select("*")
+            .limit(50),
+          // CRM & Loyalty
+          supabase.from("customers").select("*")
+            .eq("restaurant_id", verifiedRestaurantId)
+            .order("total_spent", { ascending: false })
+            .limit(50),
+          supabase.from("loyalty_programs").select("*")
+            .eq("restaurant_id", verifiedRestaurantId),
+          supabase.from("loyalty_transactions").select("*")
+            .eq("restaurant_id", verifiedRestaurantId)
+            .order("created_at", { ascending: false })
+            .limit(30),
+          // Staff & HR
+          supabase.from("staff_time_clock").select("*")
+            .eq("restaurant_id", verifiedRestaurantId)
+            .order("clock_in", { ascending: false })
+            .limit(50),
+          supabase.from("shifts").select("*")
+            .eq("restaurant_id", verifiedRestaurantId),
+          supabase.from("staff_leave_balances").select("*")
+            .eq("restaurant_id", verifiedRestaurantId),
+          // Hotel
+          supabase.from("check_ins").select("*")
+            .eq("restaurant_id", verifiedRestaurantId)
+            .order("created_at", { ascending: false })
+            .limit(20),
+          supabase.from("guest_profiles").select("*")
+            .eq("restaurant_id", verifiedRestaurantId)
+            .limit(20),
+          // Recipes & Menu
+          supabase.from("recipes").select("*")
+            .eq("restaurant_id", verifiedRestaurantId),
+          supabase.from("recipe_ingredients").select("*")
+            .limit(50),
+          supabase.from("categories").select("*")
+            .eq("restaurant_id", verifiedRestaurantId),
+          // Config
+          supabase.from("tax_configurations").select("*")
+            .eq("restaurant_id", verifiedRestaurantId),
+          supabase.from("payment_methods").select("*")
+            .eq("restaurant_id", verifiedRestaurantId)
         ]);
         
         restaurantData = {
@@ -244,10 +365,44 @@ serve(async (req) => {
           
           restaurantDetails: restaurantDetails || {},
           restaurantSubscriptions: restaurantSubscriptions || [],
-          posTransactions: posTransactions || []
+          posTransactions: posTransactions || [],
+          // Financial & Reporting
+          expenses: expenses || [],
+          expenseCategories: expenseCategories || [],
+          invoices: invoices || [],
+          payments: paymentsData || [],
+          budgets: budgetsData || [],
+          monthlyBudgets: monthlyBudgets || [],
+          operationalCosts: operationalCosts || [],
+          // Orders & Kitchen
+          ordersUnified: ordersUnified || [],
+          kitchenOrders: kitchenOrders || [],
+          // Inventory & Purchasing
+          inventoryTransactions: inventoryTransactions || [],
+          inventoryAlerts: inventoryAlerts || [],
+          purchaseOrders: purchaseOrders || [],
+          purchaseOrderItems: purchaseOrderItems || [],
+          // CRM & Loyalty
+          customers: customersData || [],
+          loyaltyPrograms: loyaltyPrograms || [],
+          loyaltyTransactions: loyaltyTransactions || [],
+          // Staff & HR
+          staffTimeClock: staffTimeClock || [],
+          shifts: shiftsData || [],
+          staffLeaveBalances: staffLeaveBalances || [],
+          // Hotel
+          checkIns: checkIns || [],
+          guestProfiles: guestProfiles || [],
+          // Recipes & Menu
+          recipes: recipesData || [],
+          recipeIngredients: recipeIngredients || [],
+          categories: categoriesData || [],
+          // Config
+          taxConfigurations: taxConfigurations || [],
+          paymentMethods: paymentMethodsData || []
         };
         
-        console.log(`Successfully fetched restaurant data from all tables. Found ${revenueStats?.length || 0} revenue records, ${recentOrders?.length || 0} orders, ${qsrOrders?.length || 0} QSR orders, ${inventoryItems?.length || 0} inventory items, ${rooms?.length || 0} rooms, ${staff?.length || 0} staff members, ${posTransactions?.length || 0} POS transactions, etc.`);
+        console.log(`Successfully fetched restaurant data from 49 tables. Revenue: ${revenueStats?.length || 0}, Orders: ${recentOrders?.length || 0}, QSR: ${qsrOrders?.length || 0}, Inventory: ${inventoryItems?.length || 0}, Expenses: ${expenses?.length || 0}, Customers: ${customersData?.length || 0}, Recipes: ${recipesData?.length || 0}, Kitchen: ${kitchenOrders?.length || 0}, POs: ${purchaseOrders?.length || 0}, Staff Clock: ${staffTimeClock?.length || 0}, Check-ins: ${checkIns?.length || 0}`);
       } catch (error) {
         console.error("Error fetching restaurant data:", error);
       }
@@ -276,7 +431,7 @@ serve(async (req) => {
     let systemPrompt = "You are a restaurant assistant bot that provides SPECIFIC DATA-DRIVEN ANSWERS based on the restaurant's actual database records. You must ALWAYS analyze the provided restaurant data for insights rather than providing generic information. When asked about sales, inventory, customers, etc., respond with precise numbers and specifics from the data you have access to. DO NOT provide generic overviews that could apply to any restaurant.";
     
     if (restaurantData) {
-      systemPrompt += " You have direct access to the restaurant's database records, including comprehensive QSR POS data. Analyze this specific data carefully and provide precise insights. Format your responses in a visually appealing way with proper spacing, bullet points, and sections where appropriate. Be sure to use actual numbers and metrics from the data provided. The context may show samples, but you can rely on the precomputed KEY METRICS SUMMARY (MTD, QTD, YTD, last 60/90 days) for full-period insights. For QSR analysis, you can examine order patterns, popular items, peak hours, average order values, order status distribution (paid/held), and revenue trends specific to QSR operations.";
+      systemPrompt += " You have FULL direct access to ALL restaurant database tables (49 tables total) including: sales & revenue, expenses & financial reports, inventory & purchasing, recipes & food costing, customers & CRM, loyalty programs, staff HR & attendance, kitchen orders, POS transactions, hotel check-ins & rooms, budgets, invoices, payments, and more. Analyze this specific data carefully and provide precise insights. Format your responses in a visually appealing way with proper spacing, bullet points, and sections where appropriate. Be sure to use actual numbers and metrics from the data provided. The context includes precomputed KEY METRICS SUMMARY (MTD, QTD, YTD, last 60/90 days) and FINANCIAL SUMMARY for full-period insights. When asked about reports (P&L, expense reports, revenue reports, food cost, staff reports, etc.), use the actual data from the relevant tables. For QSR analysis, examine order patterns, popular items, peak hours, average order values, and revenue trends.";
       
       const hasNoData = 
         (!restaurantData.inventoryItems || restaurantData.inventoryItems.length === 0) &&
@@ -339,7 +494,46 @@ serve(async (req) => {
           averageOrderValue: qsrAvgOrderValue
         };
 
-        restaurantDataContext = `Here is the restaurant's actual database records to inform your answers. When giving sales overviews or inventory analysis, ALWAYS use this specific data.
+        // Pre-compute financial & operational summaries
+        const expensesArr = (restaurantData as any).expenses || [];
+        const totalExpensesMTD = expensesArr
+          .filter((e: any) => new Date(e.expense_date) >= startOfMonth)
+          .reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+        const totalExpensesYTD = expensesArr
+          .filter((e: any) => new Date(e.expense_date) >= startOfYear)
+          .reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+        const expenseByCat: Record<string, number> = {};
+        expensesArr.forEach((e: any) => {
+          const cat = e.category || 'Uncategorized';
+          expenseByCat[cat] = (expenseByCat[cat] || 0) + (Number(e.amount) || 0);
+        });
+
+        const customersArr = (restaurantData as any).customers || [];
+        const recipesArr = (restaurantData as any).recipes || [];
+        const avgFoodCost = recipesArr.length > 0
+          ? recipesArr.reduce((sum: number, r: any) => sum + (Number(r.food_cost_percentage) || 0), 0) / recipesArr.length
+          : 0;
+        const poArr = (restaurantData as any).purchaseOrders || [];
+        const openPOs = poArr.filter((po: any) => po.status === 'pending' || po.status === 'ordered').length;
+        const invoicesArr = (restaurantData as any).invoices || [];
+        const pendingInvoiceAmount = invoicesArr
+          .filter((inv: any) => inv.status === 'pending' || inv.status === 'unpaid')
+          .reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || 0), 0);
+        const alertsArr = (restaurantData as any).inventoryAlerts || [];
+
+        const financialSummary = {
+          expenses: { mtd: totalExpensesMTD, ytd: totalExpensesYTD, byCategory: expenseByCat, totalRecords: expensesArr.length },
+          customers: { total: customersArr.length },
+          recipes: { total: recipesArr.length, avgFoodCostPercentage: Math.round(avgFoodCost * 100) / 100 },
+          purchaseOrders: { total: poArr.length, open: openPOs },
+          invoices: { total: invoicesArr.length, pendingAmount: pendingInvoiceAmount },
+          inventoryAlerts: { active: alertsArr.length },
+          loyalty: { programs: ((restaurantData as any).loyaltyPrograms || []).length, transactions: ((restaurantData as any).loyaltyTransactions || []).length },
+          staffAttendance: { recentClockEntries: ((restaurantData as any).staffTimeClock || []).length },
+          hotel: { activeCheckIns: ((restaurantData as any).checkIns || []).length, guestProfiles: ((restaurantData as any).guestProfiles || []).length }
+        };
+
+        restaurantDataContext = `Here is the restaurant's COMPLETE database records from 49 tables to inform your answers. When giving sales overviews, expense reports, financial analysis, inventory analysis, or ANY report, ALWAYS use this specific data.
 
 KEY METRICS SUMMARY (computed on full available history):
 ${metricsSummaryText}
@@ -410,7 +604,101 @@ ${JSON.stringify(restaurantData.restaurantSubscriptions?.slice(0, 1), null, 2)}
 POS TRANSACTIONS (last 10):
 ${JSON.stringify((restaurantData as any).posTransactions?.slice(0, 10), null, 2)}
 
-ALWAYS base your answers on this specific data. When asked for MTD, QTD, or YTD, use the KEY METRICS SUMMARY above. When asked for a sales overview, calculate totals, trends, and metrics from the full REVENUE STATS history. For payment analytics, use the POS TRANSACTIONS data. Your answers should NEVER be generic - they should directly reflect the numbers and patterns in this data.`;
+=== FINANCIAL & REPORTING DATA ===
+
+FINANCIAL SUMMARY (pre-computed):
+${JSON.stringify(financialSummary, null, 2)}
+
+EXPENSES (last 10):
+${JSON.stringify((restaurantData as any).expenses?.slice(0, 10), null, 2)}
+
+EXPENSE CATEGORIES:
+${JSON.stringify((restaurantData as any).expenseCategories, null, 2)}
+
+INVOICES (last 10):
+${JSON.stringify((restaurantData as any).invoices?.slice(0, 10), null, 2)}
+
+PAYMENTS (last 10):
+${JSON.stringify((restaurantData as any).payments?.slice(0, 10), null, 2)}
+
+BUDGETS:
+${JSON.stringify((restaurantData as any).budgets?.slice(0, 5), null, 2)}
+
+MONTHLY BUDGETS (last 6):
+${JSON.stringify((restaurantData as any).monthlyBudgets?.slice(0, 6), null, 2)}
+
+OPERATIONAL COSTS (last 10):
+${JSON.stringify((restaurantData as any).operationalCosts?.slice(0, 10), null, 2)}
+
+=== ORDERS & KITCHEN ===
+
+UNIFIED ORDERS (last 10):
+${JSON.stringify((restaurantData as any).ordersUnified?.slice(0, 10), null, 2)}
+
+KITCHEN ORDERS (last 10):
+${JSON.stringify((restaurantData as any).kitchenOrders?.slice(0, 10), null, 2)}
+
+=== INVENTORY & PURCHASING ===
+
+INVENTORY TRANSACTIONS (last 10):
+${JSON.stringify((restaurantData as any).inventoryTransactions?.slice(0, 10), null, 2)}
+
+INVENTORY ALERTS (active):
+${JSON.stringify((restaurantData as any).inventoryAlerts?.slice(0, 10), null, 2)}
+
+PURCHASE ORDERS (last 10):
+${JSON.stringify((restaurantData as any).purchaseOrders?.slice(0, 10), null, 2)}
+
+=== CRM & LOYALTY ===
+
+CUSTOMERS (top 10 by spending):
+${JSON.stringify((restaurantData as any).customers?.slice(0, 10), null, 2)}
+
+LOYALTY PROGRAMS:
+${JSON.stringify((restaurantData as any).loyaltyPrograms, null, 2)}
+
+LOYALTY TRANSACTIONS (last 10):
+${JSON.stringify((restaurantData as any).loyaltyTransactions?.slice(0, 10), null, 2)}
+
+=== STAFF & HR ===
+
+STAFF TIME CLOCK (last 10 entries):
+${JSON.stringify((restaurantData as any).staffTimeClock?.slice(0, 10), null, 2)}
+
+SHIFT DEFINITIONS:
+${JSON.stringify((restaurantData as any).shifts, null, 2)}
+
+STAFF LEAVE BALANCES:
+${JSON.stringify((restaurantData as any).staffLeaveBalances?.slice(0, 10), null, 2)}
+
+=== HOTEL ===
+
+ACTIVE CHECK-INS (last 10):
+${JSON.stringify((restaurantData as any).checkIns?.slice(0, 10), null, 2)}
+
+GUEST PROFILES (last 10):
+${JSON.stringify((restaurantData as any).guestProfiles?.slice(0, 10), null, 2)}
+
+=== RECIPES & FOOD COSTING ===
+
+RECIPES (with food cost %):
+${JSON.stringify((restaurantData as any).recipes?.slice(0, 10), null, 2)}
+
+RECIPE INGREDIENTS (first 10):
+${JSON.stringify((restaurantData as any).recipeIngredients?.slice(0, 10), null, 2)}
+
+MENU CATEGORIES:
+${JSON.stringify((restaurantData as any).categories, null, 2)}
+
+=== CONFIG ===
+
+TAX CONFIGURATIONS:
+${JSON.stringify((restaurantData as any).taxConfigurations, null, 2)}
+
+PAYMENT METHODS:
+${JSON.stringify((restaurantData as any).paymentMethods, null, 2)}
+
+ALWAYS base your answers on this specific data. When asked for MTD, QTD, or YTD, use the KEY METRICS SUMMARY and FINANCIAL SUMMARY above. When asked for a sales overview, calculate totals and trends from REVENUE STATS. For expense reports use EXPENSES + FINANCIAL SUMMARY. For food cost analysis use RECIPES data. For staff reports use STAFF TIME CLOCK and LEAVE BALANCES. For P&L reports combine revenue, expenses, and operational costs. For payment analytics use POS TRANSACTIONS. For customer insights use CUSTOMERS + LOYALTY data. For inventory reports use INVENTORY ITEMS + ALERTS + TRANSACTIONS. For purchasing use PURCHASE ORDERS. For hotel reports use CHECK-INS + ROOMS + GUEST PROFILES. Your answers should NEVER be generic - they should directly reflect the numbers and patterns in this data.`;
       } catch (e) {
         console.error('Error computing metrics summary:', e);
       }
@@ -442,7 +730,7 @@ ALWAYS base your answers on this specific data. When asked for MTD, QTD, or YTD,
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: "gemini-3.5-flash",
           contents: contents,
           config: {
             systemInstruction: {
@@ -560,7 +848,7 @@ For each prediction, include a confidence level (0-100) and the key factors that
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: [
         {
           role: "user",
@@ -661,7 +949,7 @@ Only include items that need attention - don't include items with sufficient sto
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: [
         {
           role: "user",
