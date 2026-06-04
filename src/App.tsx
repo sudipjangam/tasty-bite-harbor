@@ -19,6 +19,7 @@ import { UpdateNotification } from "@/components/UpdateNotification";
 import { registerServiceWorker } from "@/utils/serviceWorkerUtils";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -84,6 +85,7 @@ function App() {
         </TooltipProvider>
       </ThemeProvider>
       <Analytics />
+      <SpeedInsights />
     </QueryClientProvider>
   );
 }
