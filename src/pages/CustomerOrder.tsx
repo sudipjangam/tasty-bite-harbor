@@ -9,6 +9,7 @@ import { MenuBrowser } from "@/components/CustomerOrder/MenuBrowser";
 import { CartDrawer } from "@/components/CustomerOrder/CartDrawer";
 import { CheckoutForm } from "@/components/CustomerOrder/CheckoutForm";
 import { supabase } from "@/integrations/supabase/client";
+import { OrderTracker } from "@/components/CustomerOrder/OrderTracker";
 
 type OrderStep = "menu" | "checkout" | "payment" | "success";
 
@@ -252,34 +253,7 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
     );
   }
 
-  if (currentStep === "success") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md border-green-200">
-          <CardContent className="p-8 text-center space-y-4">
-            <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto" />
-            <h2 className="text-2xl font-bold text-green-800">Order Placed!</h2>
-            <p className="text-gray-600">
-              Your order has been successfully placed and sent to the kitchen.
-            </p>
-            {orderId && (
-              <div className="bg-green-100 border border-green-200 rounded-lg p-4">
-                <p className="text-sm text-green-800">
-                  Order ID:{" "}
-                  <span className="font-mono font-semibold">{orderId}</span>
-                </p>
-              </div>
-            )}
-            <p className="text-sm text-gray-500">
-              Your order will be served at{" "}
-              {orderData.entityType === "table" ? "Table" : "Room"}{" "}
-              <span className="font-semibold">{orderData.entityName}</span>
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50">
@@ -354,6 +328,9 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
 
         {currentStep === ("success" as OrderStep) && orderId && (
           <div className="space-y-4 pb-8">
+            {/* Live Order Status Tracker */}
+            <OrderTracker orderId={orderId} />
+
             {/* Success Header */}
             <Card className="border-2 border-green-500 bg-gradient-to-br from-green-50 to-emerald-50">
               <CardContent className="pt-6 text-center">
