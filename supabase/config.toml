@@ -78,6 +78,8 @@ redirect_uri = ""
 url = ""
 
 [functions]
+[functions.send-order-update]
+verify_jwt = false
 [functions.record-clock-entry]
 verify_jwt = true
 [functions.validate-promo-code]
