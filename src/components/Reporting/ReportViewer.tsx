@@ -238,10 +238,10 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
       try {
         const logoImg = new Image();
         logoImg.crossOrigin = "anonymous";
-        logoImg.src = "/logo.png";
+        logoImg.src = "/swadeshi-logo.png";
         await new Promise<void>((resolve) => {
           logoImg.onload = () => {
-            try { doc.addImage(logoImg, "PNG", 14, 15, 30, 30); } catch {}
+            try { doc.addImage(logoImg, "PNG", 14, 15, 55, 30); } catch {}
             resolve();
           };
           logoImg.onerror = () => resolve();
@@ -255,12 +255,17 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(28);
       doc.setFont("helvetica", "bold");
-      doc.text("BUSINESS REPORT", pageWidth / 2 + 15, 30, { align: "center" });
+      doc.text("BUSINESS REPORT", pageWidth / 2 + 20, 26, { align: "center" });
 
-      // Subtitle - Swadeshi Solutions branding
+      // Subtitle - Swadeshi Solutions branding + motto
       doc.setFontSize(14);
-      doc.setFont("helvetica", "normal");
-      doc.text("Swadeshi Solutions", pageWidth / 2 + 15, 42, {
+      doc.setFont("helvetica", "bold");
+      doc.text("Swadeshi Solutions", pageWidth / 2 + 20, 36, {
+        align: "center",
+      });
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "italic");
+      doc.text("Empowering Restaurants, Enabling Growth", pageWidth / 2 + 20, 44, {
         align: "center",
       });
 
@@ -323,7 +328,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
               backgroundColor: "#ffffff",
               scale: 2,
             });
-            chartImages.push(canvas.toDataURL("image/png"));
+            chartImages.push(canvas.toDataURL("image/jpeg", 0.7));
           } catch (e) {
             console.log("Chart capture failed:", e);
           }
@@ -388,7 +393,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
             const imgHeight = 60;
             doc.addImage(
               chartImages[chartIndex],
-              "PNG",
+              "JPEG",
               14,
               yPos,
               imgWidth,
