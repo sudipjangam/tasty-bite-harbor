@@ -8,7 +8,7 @@ BEGIN
   -- Only trigger if status changed
   IF OLD.status IS DISTINCT FROM NEW.status THEN
     PERFORM net.http_post(
-      url := 'https://bpheiklhiwwcrugmxivp.supabase.co/functions/v1/send-order-update',
+      url := 'https://clmsoetktmvhazctlans.supabase.co/functions/v1/send-order-update',
       headers := '{"Content-Type": "application/json"}'::jsonb,
       body := jsonb_build_object(
         'record', row_to_json(NEW),
