@@ -68,6 +68,7 @@ const Routes = () => {
       <Route path="/order/:encodedData" element={<CustomerOrder />} />
       <Route path="/bill/:encodedData" element={<PublicBillPage />} />
       <Route path="/truck/:slug" element={<PublicTruckPage />} />
+      <Route path="/blog/zomato-swiggy-integration" element={<BlogZomatoSwiggyIntegration />} />
       <Route path="/invoice/*" element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
 
       {/* Standalone subscription page — NO sidebar, NO subscription gate */}
