@@ -13,6 +13,7 @@ import DeleteAccount from "@/pages/DeleteAccount";
 import CustomerOrder from "@/pages/CustomerOrder";
 import PublicBillPage from "@/pages/PublicBillPage";
 import PublicTruckPage from "@/pages/PublicTruckPage";
+import BlogZomatoSwiggyIntegration from "@/pages/BlogZomatoSwiggyIntegration";
 import { PageLoader } from "@/components/ui/page-loader";
 
 // Public invoice viewer (accessible without login)
