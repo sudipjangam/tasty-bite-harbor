@@ -13,6 +13,7 @@ import DeleteAccount from "@/pages/DeleteAccount";
 import CustomerOrder from "@/pages/CustomerOrder";
 import PublicBillPage from "@/pages/PublicBillPage";
 import PublicTruckPage from "@/pages/PublicTruckPage";
+import BlogZomatoSwiggyIntegration from "@/pages/BlogZomatoSwiggyIntegration";
 import { PageLoader } from "@/components/ui/page-loader";
 
 // Public invoice viewer (accessible without login)
@@ -47,6 +48,7 @@ const Routes = () => {
         <Route path="/order/:encodedData" element={<CustomerOrder />} />
         <Route path="/bill/:encodedData" element={<PublicBillPage />} />
         <Route path="/truck/:slug" element={<PublicTruckPage />} />
+        <Route path="/blog/zomato-swiggy-integration" element={<BlogZomatoSwiggyIntegration />} />
         <Route path="/reset-password" element={<Auth />} />
         <Route path="/invoice/*" element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
         <Route path="*" element={<LandingWebsite />} />
@@ -66,6 +68,7 @@ const Routes = () => {
       <Route path="/order/:encodedData" element={<CustomerOrder />} />
       <Route path="/bill/:encodedData" element={<PublicBillPage />} />
       <Route path="/truck/:slug" element={<PublicTruckPage />} />
+      <Route path="/blog/zomato-swiggy-integration" element={<BlogZomatoSwiggyIntegration />} />
       <Route path="/invoice/*" element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
 
       {/* Standalone subscription page — NO sidebar, NO subscription gate */}
