@@ -39,6 +39,7 @@ import {
   ChevronsUpDown,
   RefreshCw,
   Info,
+  Hammer,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -498,7 +499,7 @@ export const RecipeDialog = ({
         food_cost_percentage: formData.recipe_type === "production" ? 0 : foodCostPercentage,
         margin_percentage: formData.recipe_type === "production" ? 0 : marginPercentage,
         created_by: null,
-        recipe_type: formData.recipe_type,
+        recipe_type: formData.recipe_type as "menu_item" | "production",
         output_inventory_item_id: formData.recipe_type === "production" ? (formData.output_inventory_item_id || null) : null,
         output_quantity: formData.recipe_type === "production" ? parseFloat(formData.output_quantity) : null,
         output_unit: formData.recipe_type === "production" ? formData.output_unit : null,
