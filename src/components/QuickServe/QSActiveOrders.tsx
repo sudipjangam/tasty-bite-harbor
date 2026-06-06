@@ -45,7 +45,13 @@ interface QSActiveOrdersProps {
   onAddItems?: (order: ActiveOrder) => void;
 }
 
-type StatusFilter = "all" | "pending" | "preparing" | "completed" | "unpaid";
+type StatusFilter =
+  | "all"
+  | "pending"
+  | "preparing"
+  | "ready"
+  | "completed"
+  | "unpaid";
 
 const statusConfig: Record<
   string,
@@ -139,6 +145,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
     if (statusFilter === "unpaid" && order.payment_status !== "pending") return false;
     if (statusFilter === "pending" && order.status !== "pending") return false;
     if (statusFilter === "preparing" && order.status !== "preparing") return false;
+    if (statusFilter === "ready" && order.status !== "ready") return false;
     if (statusFilter === "completed" && order.status !== "completed") return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -402,7 +409,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
             />
           </div>
           <div className="flex gap-2 flex-wrap">
-            {(["all", "pending", "preparing", "unpaid", "completed"] as StatusFilter[]).map(
+            {(["all", "pending", "preparing", "ready", "unpaid", "completed"] as StatusFilter[]).map(
               (sf) => (
                 <button
                   key={sf}
@@ -422,6 +429,8 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                       ? `New (${newCount})`
                     : sf === "preparing"
                       ? `🔥 Preparing (${preparingCount})`
+                      : sf === "ready"
+                        ? `Ready (${readyCount})`
                       : sf === "unpaid"
                         ? `💰 Unpaid (${unpaidCount})`
                         : `✓ Done (${completedCount})`}
