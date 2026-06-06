@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -15,6 +15,26 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
+const CANONICAL = "https://tasty-bite-harbor.lovable.app/delete-account";
+
+const setMetaTag = (selector: string, attr: string, value: string) => {
+  let el = document.head.querySelector(selector) as HTMLMetaElement | HTMLLinkElement | null;
+  if (!el) {
+    if (selector.startsWith("link")) {
+      el = document.createElement("link");
+      (el as HTMLLinkElement).rel = selector.match(/rel="([^"]+)"/)?.[1] || "";
+    } else {
+      el = document.createElement("meta");
+      const name = selector.match(/name="([^"]+)"/)?.[1];
+      const prop = selector.match(/property="([^"]+)"/)?.[1];
+      if (name) (el as HTMLMetaElement).name = name;
+      if (prop) el.setAttribute("property", prop);
+    }
+    document.head.appendChild(el);
+  }
+  el.setAttribute(attr, value);
+};
+
 const DeleteAccount = () => {
   const { toast } = useToast();
   const [email, setEmail] = useState("");
@@ -22,6 +42,18 @@ const DeleteAccount = () => {
   const [confirmed, setConfirmed] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const prevTitle = document.title;
+    document.title = "Delete Account — Swadeshi Solutions";
+    setMetaTag('meta[name="description"]', "content", "Request permanent deletion of your Swadeshi Solutions account and associated restaurant data. Processed within 30 days per our privacy policy.");
+    setMetaTag('link[rel="canonical"]', "href", CANONICAL);
+    setMetaTag('meta[property="og:title"]', "content", "Delete Account — Swadeshi Solutions");
+    setMetaTag('meta[property="og:description"]', "content", "Submit a permanent account deletion request for Swadeshi Solutions.");
+    setMetaTag('meta[property="og:url"]', "content", CANONICAL);
+    return () => { document.title = prevTitle; };
+  }, []);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
