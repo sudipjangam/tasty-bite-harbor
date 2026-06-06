@@ -45,17 +45,29 @@ interface QSActiveOrdersProps {
   onAddItems?: (order: ActiveOrder) => void;
 }
 
-type StatusFilter = "all" | "preparing" | "completed" | "unpaid";
+type StatusFilter = "all" | "pending" | "preparing" | "completed" | "unpaid";
 
 const statusConfig: Record<
   string,
   { label: string; color: string; icon: React.ElementType; bg: string }
 > = {
+  pending: {
+    label: "New",
+    color: "text-indigo-600 dark:text-indigo-400",
+    icon: Clock,
+    bg: "bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/30 dark:to-blue-900/20 border-indigo-200 dark:border-indigo-700",
+  },
   preparing: {
     label: "Preparing",
     color: "text-orange-600 dark:text-orange-400",
     icon: ChefHat,
     bg: "bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/20 border-orange-200 dark:border-orange-700",
+  },
+  ready: {
+    label: "Ready",
+    color: "text-emerald-600 dark:text-emerald-400",
+    icon: Bell,
+    bg: "bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/30 dark:to-green-900/20 border-emerald-200 dark:border-emerald-700",
   },
   completed: {
     label: "Done",
@@ -112,7 +124,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
         .in("source", ["quickserve", "pos"])
         .gte("created_at", startOfDay(today).toISOString())
         .lte("created_at", endOfDay(today).toISOString())
-        .in("status", ["preparing", "ready", "completed"])
+        .in("status", ["pending", "preparing", "ready", "completed"])
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -125,6 +137,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
   // Filter orders
   const filteredOrders = orders.filter((order) => {
     if (statusFilter === "unpaid" && order.payment_status !== "pending") return false;
+    if (statusFilter === "pending" && order.status !== "pending") return false;
     if (statusFilter === "preparing" && order.status !== "preparing") return false;
     if (statusFilter === "completed" && order.status !== "completed") return false;
     if (searchQuery) {
@@ -139,7 +152,9 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
   });
 
   // Counts by status
+  const newCount = orders.filter((o) => o.status === "pending").length;
   const preparingCount = orders.filter((o) => o.status === "preparing").length;
+  const readyCount = orders.filter((o) => o.status === "ready").length;
   const completedCount = orders.filter((o) => o.status === "completed").length;
   const unpaidCount = orders.filter((o) => o.payment_status === "pending").length;
 
@@ -200,11 +215,20 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
 
       if (error) throw error;
 
-      // Also update kitchen_orders if completing
+      // Keep the linked KDS ticket aligned with front-of-house item checks.
       if (allDone) {
         await supabase
           .from("kitchen_orders")
-          .update({ status: "completed" })
+          .update({
+            item_completion_status: newStatus,
+            status: "completed",
+            bumped_at: new Date().toISOString(),
+          })
+          .eq("order_id", orderId);
+      } else {
+        await supabase
+          .from("kitchen_orders")
+          .update({ item_completion_status: newStatus })
           .eq("order_id", orderId);
       }
 
@@ -239,11 +263,14 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
 
       if (error) throw error;
 
-      // Also update kitchen_orders if completing
+      // Also bump linked kitchen tickets out of the live KDS when completing.
       if (newStatus === "completed") {
         await supabase
           .from("kitchen_orders")
-          .update({ status: "completed" })
+          .update({
+            status: "completed",
+            bumped_at: new Date().toISOString(),
+          })
           .eq("order_id", orderId);
       }
     },
@@ -330,7 +357,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                 Active Orders
               </h2>
               <p className="text-white/70 text-xs mt-0.5">
-                {preparingCount} preparing • {completedCount} done
+                {newCount} new, {preparingCount} preparing, {readyCount} ready
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -375,7 +402,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
             />
           </div>
           <div className="flex gap-2 flex-wrap">
-            {(["all", "preparing", "unpaid", "completed"] as StatusFilter[]).map(
+            {(["all", "pending", "preparing", "unpaid", "completed"] as StatusFilter[]).map(
               (sf) => (
                 <button
                   key={sf}
@@ -391,6 +418,8 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                 >
                   {sf === "all"
                     ? `All (${orders.length})`
+                    : sf === "pending"
+                      ? `New (${newCount})`
                     : sf === "preparing"
                       ? `🔥 Preparing (${preparingCount})`
                       : sf === "unpaid"

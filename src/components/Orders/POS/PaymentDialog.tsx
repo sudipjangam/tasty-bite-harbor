@@ -133,6 +133,15 @@ const PaymentDialog = ({
     requestPermission();
   }, [requestPermission]);
   const queryClient = useQueryClient();
+  const invalidateOrderQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+    queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+    queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+    queryClient.invalidateQueries({ queryKey: ["active-orders"] });
+    queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
+    queryClient.invalidateQueries({ queryKey: ["orders"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-orders"] });
+  };
   const { symbol: currencySymbol } = useCurrencyContext();
 
   // CRM auto-sync hook - upserts customer & awards loyalty points on payment
@@ -674,10 +683,7 @@ const PaymentDialog = ({
             console.error("Error deleting from orders table:", orderError);
         }
 
-        // Invalidate queries to refresh UI
-        queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
-        queryClient.invalidateQueries({ queryKey: ["orders"] });
-        queryClient.invalidateQueries({ queryKey: ["dashboard-orders"] });
+        invalidateOrderQueries();
       }
 
       toast({
@@ -2290,6 +2296,7 @@ const PaymentDialog = ({
         if (sendBillToEmail && customerMobile && restaurantInfo) {
           handleSendWhatsAppBill();
         }
+        invalidateOrderQueries();
         onSuccess();
         onClose();
       } else {

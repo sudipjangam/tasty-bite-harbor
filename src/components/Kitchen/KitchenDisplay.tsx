@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -87,6 +88,7 @@ const KitchenDisplay = () => {
   const [viewMode, setViewMode] = useState<"detailed" | "compact">("compact");
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Audio ref for notifications
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -553,6 +555,11 @@ const KitchenDisplay = () => {
           .update({ status: orderStatus })
           .eq("id", existingOrder.order_id);
       }
+
+      queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
 
       // Optimistic UI update - immediately move the order in local state
       setOrders((prev) =>

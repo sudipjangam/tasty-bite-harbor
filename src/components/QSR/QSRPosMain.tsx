@@ -616,6 +616,7 @@ export const QSRPosMain: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
       queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
       queryClient.invalidateQueries({ queryKey: ["active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["all-orders"] });
     } catch (error) {
       console.error("Error sending to kitchen:", error);
       toast({
