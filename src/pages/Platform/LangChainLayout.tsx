@@ -6,19 +6,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
-  Building2,
-  CreditCard,
-  Users,
   ArrowLeft,
   ChevronRight,
-  Settings,
-  BarChart3,
-  ShieldCheck,
   Menu,
   X,
-  Shield,
-  MessageCircle,
   Sparkles,
+  Bot,
+  TrendingUp,
+  ChefHat,
+  Terminal,
 } from "lucide-react";
 
 interface NavItem {
@@ -30,70 +26,40 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    title: "Dashboard",
-    href: "/platform",
+    title: "AI Dashboard",
+    href: "/langchain",
     icon: LayoutDashboard,
     description: "Overview & metrics",
   },
   {
-    title: "Restaurants",
-    href: "/platform/restaurants",
-    icon: Building2,
-    description: "Manage all restaurants",
+    title: "AI Waiter",
+    href: "/langchain/ordering",
+    icon: Bot,
+    description: "AI Order Assistant",
   },
   {
-    title: "Subscriptions",
-    href: "/platform/subscriptions",
-    icon: CreditCard,
-    description: "Plans & billing",
+    title: "Analytics Agent",
+    href: "/langchain/analytics",
+    icon: TrendingUp,
+    description: "Manager P&L Agent",
   },
   {
-    title: "Feature Permissions",
-    href: "/platform/feature-permissions",
-    icon: Shield,
-    description: "Granular plan controls",
-  },
-  {
-    title: "All Users",
-    href: "/platform/users",
-    icon: Users,
-    description: "Platform users",
-  },
-  {
-    title: "Template Approvals",
-    href: "/platform/templates",
-    icon: ShieldCheck,
-    description: "WhatsApp templates",
-  },
-  {
-    title: "WhatsApp",
-    href: "/platform/whatsapp",
-    icon: MessageCircle,
-    description: "API provider config",
-  },
-  {
-    title: "AI Agents",
-    href: "/platform/langchain",
-    icon: Sparkles,
-    description: "Monitor & test AI workflows",
-  },
-  {
-    title: "Analytics",
-    href: "/platform/analytics",
-    icon: BarChart3,
-    description: "Platform analytics",
+    title: "Kitchen Bot",
+    href: "/langchain/kitchen",
+    icon: ChefHat,
+    description: "Kitchen Router Agent",
   },
 ];
 
-const PlatformLayout = () => {
+const LangChainLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const isActive = (href: string) => {
-    if (href === "/platform") {
-      return location.pathname === "/platform";
+    if (href === "/langchain") {
+      return location.pathname === "/langchain";
     }
     return location.pathname.startsWith(href);
   };
@@ -113,7 +79,7 @@ const PlatformLayout = () => {
             const active = isActive(item.href);
             const colors = [
               {
-                bg: "from-violet-500 to-purple-600",
+                bg: "from-violet-500 to-indigo-600",
                 light: "violet",
                 shadow: "violet",
               },
@@ -123,19 +89,14 @@ const PlatformLayout = () => {
                 shadow: "emerald",
               },
               {
-                bg: "from-amber-500 to-orange-600",
-                light: "amber",
-                shadow: "amber",
+                bg: "from-pink-500 to-rose-600",
+                light: "pink",
+                shadow: "pink",
               },
               {
                 bg: "from-blue-500 to-indigo-600",
                 light: "blue",
                 shadow: "blue",
-              },
-              {
-                bg: "from-pink-500 to-rose-600",
-                light: "pink",
-                shadow: "pink",
               },
             ];
             const color = colors[index % colors.length];
@@ -148,7 +109,7 @@ const PlatformLayout = () => {
                   "w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300 text-left group relative overflow-hidden",
                   active
                     ? `bg-gradient-to-r ${color.bg} text-white shadow-lg shadow-${color.shadow}-500/30 transform scale-[1.02]`
-                    : "text-slate-600 dark:text-slate-400 hover:bg-white/80 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white hover:shadow-md hover:-translate-y-0.5",
+                    : "text-slate-650 dark:text-slate-400 hover:bg-white/80 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white hover:shadow-md hover:-translate-y-0.5",
                 )}
               >
                 {active && (
@@ -189,15 +150,16 @@ const PlatformLayout = () => {
       </ScrollArea>
 
       <div className="p-4 border-t border-white/20 dark:border-white/10 bg-white/30 dark:bg-slate-800/30 backdrop-blur-sm">
-        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-4 text-white shadow-lg shadow-indigo-500/20 relative overflow-hidden group cursor-pointer hover:shadow-indigo-500/40 transition-all duration-300">
+        <div className="bg-gradient-to-br from-violet-500 via-indigo-500 to-purple-650 rounded-xl p-4 text-white shadow-lg shadow-indigo-500/20 relative overflow-hidden group cursor-pointer hover:shadow-indigo-500/40 transition-all duration-300">
           <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
-            <LayoutDashboard className="h-12 w-12" />
+            <Terminal className="h-12 w-12" />
           </div>
-          <h3 className="font-semibold text-sm relative z-10">
-            Premium Admin
+          <h3 className="font-semibold text-sm relative z-10 flex items-center gap-1.5">
+            <Sparkles className="h-4 w-4 text-pink-300" />
+            LangGraph Console
           </h3>
           <p className="text-xs text-indigo-100 mt-1 relative z-10 opacity-80">
-            v2.0 dashboard active
+            Multi-agent state loops active
           </p>
         </div>
       </div>
@@ -205,10 +167,10 @@ const PlatformLayout = () => {
   );
 
   return (
-    <div className="min-h-screen bg-[conic-gradient(at_top_left,_var(--tw-gradient-stops))] from-indigo-100 via-slate-100 to-purple-100 dark:from-slate-950 dark:via-indigo-950 dark:to-slate-900 transition-colors duration-500">
+    <div className="min-h-screen bg-[conic-gradient(at_top_left,_var(--tw-gradient-stops))] from-violet-100 via-slate-100 to-indigo-100 dark:from-slate-950 dark:via-violet-950/30 dark:to-slate-900 transition-colors duration-500">
       {/* Background Blobs for Depth */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-purple-400/20 dark:bg-purple-600/10 rounded-full blur-[100px] -translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-violet-400/20 dark:bg-violet-600/10 rounded-full blur-[100px] -translate-x-1/2 -translate-y-1/2" />
         <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-indigo-400/20 dark:bg-indigo-600/10 rounded-full blur-[100px] translate-x-1/2 translate-y-1/2" />
       </div>
 
@@ -221,13 +183,13 @@ const PlatformLayout = () => {
               variant="ghost"
               size="icon"
               onClick={() => setIsMobileSidebarOpen(true)}
-              className="md:hidden text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30 h-9 w-9"
+              className="md:hidden text-violet-600 hover:bg-violet-100 dark:hover:bg-violet-900/30 h-9 w-9"
             >
               <Menu className="h-5 w-5" />
             </Button>
             <Button
               onClick={() => navigate("/")}
-              className="gap-2 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-700 hover:via-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300 rounded-full px-3 md:px-5 py-2 h-auto font-medium text-xs md:text-sm"
+              className="gap-2 bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-650 hover:from-violet-700 hover:via-indigo-700 hover:to-purple-700 text-white shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 transition-all duration-300 rounded-full px-3 md:px-5 py-2 h-auto font-medium text-xs md:text-sm"
             >
               <ArrowLeft className="h-4 w-4" />
               <span className="hidden sm:inline">Back to App</span>
@@ -235,16 +197,17 @@ const PlatformLayout = () => {
             </Button>
             <div className="h-8 w-px bg-gradient-to-b from-transparent via-slate-300 dark:via-slate-600 to-transparent hidden md:block" />
             <div>
-              <h1 className="text-base md:text-xl font-bold bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                Platform Admin
+              <h1 className="text-base md:text-xl font-bold bg-gradient-to-r from-violet-650 via-indigo-600 to-purple-650 bg-clip-text text-transparent flex items-center gap-1.5">
+                <Sparkles className="h-4.5 w-4.5 text-violet-600" />
+                AI Agentic Center
               </h1>
-              <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:block">
-                Manage restaurants & subscriptions
+              <p className="text-[10px] md:text-xs text-slate-550 dark:text-slate-400 font-medium hidden sm:block">
+                Orchestrate LangChain & LangGraph sub-agents
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/30 dark:to-purple-900/30 backdrop-blur-md px-2.5 md:px-4 py-1.5 md:py-2 rounded-full border border-violet-200/50 dark:border-violet-500/20 shadow-inner">
-            <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs md:text-sm shadow-lg shadow-purple-500/30">
+          <div className="flex items-center gap-2 bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-900/30 dark:to-indigo-900/30 backdrop-blur-md px-2.5 md:px-4 py-1.5 md:py-2 rounded-full border border-violet-200/50 dark:border-violet-500/20 shadow-inner">
+            <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs md:text-sm shadow-lg shadow-violet-500/30">
               {user?.first_name?.[0] || user?.email?.[0]?.toUpperCase() || "A"}
             </div>
             <div className="flex flex-col">
@@ -276,10 +239,10 @@ const PlatformLayout = () => {
             {/* Close button */}
             <div className="flex items-center justify-between p-4 border-b border-violet-200/20 dark:border-violet-500/10">
               <div>
-                <h2 className="font-bold text-lg bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
-                  Platform Admin
+                <h2 className="font-bold text-lg bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
+                  AI Orchestrator
                 </h2>
-                <p className="text-xs text-slate-500">Navigation</p>
+                <p className="text-xs text-slate-500 font-medium">Agent Console Navigation</p>
               </div>
               <Button
                 variant="ghost"
@@ -313,4 +276,4 @@ const PlatformLayout = () => {
   );
 };
 
-export default PlatformLayout;
+export default LangChainLayout;

@@ -94,7 +94,9 @@ const AdminTemplateReview = lazy(
 const WhatsAppProviderAdmin = lazy(
   () => import("@/components/Admin/WhatsAppProviderAdmin"),
 );
+const LangChainAgents = lazy(() => import("@/pages/Platform/LangChainAgents"));
 const DailySummaryHistory = lazy(() => import("@/pages/DailySummaryHistory"));
+
 
 // ============================================================================
 
@@ -554,6 +556,14 @@ export const AppRoutes = () => {
               element={
                 <LazyRoute>
                   <WhatsAppProviderAdmin />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="langchain"
+              element={
+                <LazyRoute>
+                  <LangChainAgents />
                 </LazyRoute>
               }
             />
