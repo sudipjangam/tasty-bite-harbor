@@ -13,6 +13,11 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  -- QuickServe / food truck: lifecycle managed by QS Active Orders, not KDS
+  IF NEW.source ILIKE 'QuickServe%' THEN
+    RETURN NEW;
+  END IF;
+
   IF NEW.status = 'preparing' THEN
     UPDATE public.orders SET status = 'preparing', updated_at = now() WHERE id = NEW.order_id;
   ELSIF NEW.status = 'ready' OR NEW.status = 'completed' THEN
