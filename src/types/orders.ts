@@ -3,6 +3,7 @@
 export interface Order {
   id: string;
   customer_name: string;
+  customer_phone?: string | null;
   items: string[];
   total: number;
   status: 'completed' | 'pending' | 'preparing' | 'ready' | 'cancelled' | 'held';

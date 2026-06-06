@@ -17,7 +17,21 @@ const supabaseUrl = rawSupabaseUrl.startsWith('http')
   ? rawSupabaseUrl
   : `${window.location.origin}${rawSupabaseUrl}`;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  realtime: {
+    // Netlify redirects only proxy HTTP, not WebSocket.
+    // Point Realtime directly at Supabase to avoid WSS failures through the proxy.
+    params: {
+      apikey: supabaseAnonKey,
+    },
+  },
+});
+
+// When using a proxy URL, override the realtime endpoint to connect directly to Supabase
+if (!rawSupabaseUrl.startsWith('http')) {
+  // @ts-ignore - accessing internal realtime client to set correct WSS endpoint
+  supabase.realtime.endPoint = `wss://clmsoetktmvhazctlans.supabase.co/realtime/v1/websocket`;
+}
 
 // Direct Supabase URL for OAuth flows.
 // Google OAuth requires the browser to redirect through Supabase's actual domain

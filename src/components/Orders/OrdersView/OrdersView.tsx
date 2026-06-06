@@ -614,7 +614,7 @@ const OrdersView = ({
       {/* Add/Edit Order Dialog */}
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
         <DialogContent
-          className={`${isMobile ? "w-[95%] max-w-lg" : "max-w-5xl"} max-h-[95vh] overflow-y-auto p-0 [&>button]:hidden`}
+          className={`${isMobile ? "w-[95%] max-w-lg" : "max-w-4xl"} max-h-[95vh] overflow-y-auto p-0 [&>button]:hidden`}
         >
           <AddOrderForm
             onSuccess={handleOrderAdded}
