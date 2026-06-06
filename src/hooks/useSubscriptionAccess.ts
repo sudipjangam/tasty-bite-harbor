@@ -57,8 +57,10 @@ export const useSubscriptionAccess = () => {
 
   // ─── Supabase Realtime: auto-invalidate when plan features change ──────
   useEffect(() => {
+    if (!user?.restaurant_id) return; // Don't open WSS without auth
+
     const channel = supabase
-      .channel('subscription-access-plan-changes')
+      .channel(`subscription-access-${user.restaurant_id}`)
       .on(
         'postgres_changes',
         {

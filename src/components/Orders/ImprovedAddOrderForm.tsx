@@ -3,6 +3,7 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Form,
@@ -27,6 +28,10 @@ import {
   ShoppingBag,
   Trash2,
   User,
+  CreditCard,
+  AlertTriangle,
+  FileText,
+  Banknote,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { Order } from "@/types/orders";
@@ -57,6 +62,10 @@ interface OrderFormValues {
   specialInstructions?: string;
   discountType: "percentage" | "amount";
   discountValue: number;
+  paymentMethod: string;
+  paymentStatus: string;
+  orderStatus: string;
+  priority: string;
 }
 
 const ImprovedAddOrderForm = ({
@@ -225,7 +234,7 @@ const ImprovedAddOrderForm = ({
         editingOrder && !editingOrder.customer_name.startsWith("Table")
           ? editingOrder.customer_name
           : "",
-      customerPhone: "",
+      customerPhone: editingOrder?.customer_phone || "",
       orderItems:
         editingOrder && menuItems
           ? parseEditingOrderItems()
@@ -238,11 +247,15 @@ const ImprovedAddOrderForm = ({
                 unitPrice: 0,
               },
             ],
-      attendant: attendantName,
+      attendant: editingOrder?.attendant || attendantName,
       specialInstructions: "",
       discountType: editingOrder?.discount_percentage ? "percentage" : "amount",
       discountValue:
         editingOrder?.discount_percentage || editingOrder?.discount_amount || 0,
+      paymentMethod: editingOrder?.payment_method || "cash",
+      paymentStatus: editingOrder?.payment_status || "unpaid",
+      orderStatus: editingOrder?.status || "pending",
+      priority: editingOrder?.priority || "normal",
     },
   });
 
@@ -258,7 +271,7 @@ const ImprovedAddOrderForm = ({
         customerName: !editingOrder.customer_name.startsWith("Table")
           ? editingOrder.customer_name
           : "",
-        customerPhone: "",
+        customerPhone: editingOrder?.customer_phone || "",
         orderItems:
           parsedItems.length > 0
             ? parsedItems
@@ -280,6 +293,10 @@ const ImprovedAddOrderForm = ({
           editingOrder?.discount_percentage ||
           editingOrder?.discount_amount ||
           0,
+        paymentMethod: editingOrder?.payment_method || "cash",
+        paymentStatus: editingOrder?.payment_status || "unpaid",
+        orderStatus: editingOrder?.status || "pending",
+        priority: editingOrder?.priority || "normal",
       });
     }
   }, [editingOrder, menuItems]);
@@ -325,6 +342,7 @@ const ImprovedAddOrderForm = ({
           values.orderType === "dineIn"
             ? `Table ${values.tableNumber}`
             : values.customerName || "Take Away",
+        customer_phone: values.customerPhone || null,
         items: values.orderItems.map((item) => {
           return formatOrderItemString(item.quantity, item.itemName, item.unitPrice, item.notes);
         }),
@@ -332,10 +350,13 @@ const ImprovedAddOrderForm = ({
         discount_amount: discountAmount || 0,
         discount_percentage:
           values.discountType === "percentage" ? values.discountValue : 0,
-        status: editingOrder ? editingOrder.status : "pending",
-        source: "manual",
+        status: editingOrder ? values.orderStatus : "pending",
+        source: editingOrder?.source || "manual",
         order_type: values.orderType === "dineIn" ? "dine-in" : "takeaway",
         attendant: values.attendant || attendantName || null,
+        payment_method: values.paymentMethod || null,
+        payment_status: values.paymentStatus || "unpaid",
+        priority: values.priority || "normal",
       };
 
       const kitchenItems = values.orderItems.map((item) => ({
@@ -455,7 +476,7 @@ const ImprovedAddOrderForm = ({
 
   return (
     <div
-      className="w-full max-w-[540px] mx-auto overflow-hidden flex flex-col"
+      className="w-full max-w-[720px] mx-auto overflow-hidden flex flex-col"
       style={{
         background: "rgba(255,255,255,0.9)",
         backdropFilter: "blur(40px)",
@@ -536,36 +557,56 @@ const ImprovedAddOrderForm = ({
 
             {/* ── Customer / Table Fields ── */}
             {watchedOrderType === "dineIn" ? (
-              <FormField
-                control={form.control}
-                name="tableNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      Table
-                    </FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger
-                          className="h-10 rounded-[10px] border-blue-100 bg-white/85 text-sm font-medium focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
-                        >
-                          <SelectValue placeholder="Select table..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {tables?.map((table) => (
-                          <SelectItem
-                            key={table.id}
-                            value={table.name || String(table.id)}
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="tableNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        Table
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger
+                            className="h-10 rounded-[10px] border-blue-100 bg-white/85 text-sm font-medium focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
                           >
-                            🪑 Table {table.name} ({table.capacity} seats)
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              />
+                            <SelectValue placeholder="Select table..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {tables?.map((table) => (
+                            <SelectItem
+                              key={table.id}
+                              value={table.name || String(table.id)}
+                            >
+                              🪑 Table {table.name} ({table.capacity} seats)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="customerPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        Phone Number
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="Enter phone number…"
+                          className="h-10 rounded-[10px] border-blue-100 bg-white/85 text-sm font-medium placeholder:text-slate-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 <FormField
@@ -887,6 +928,142 @@ const ImprovedAddOrderForm = ({
                 </span>
               </div>
             </div>
+
+            {/* ── Payment & Status Section (Edit mode) ── */}
+            {editingOrder && (
+              <>
+                <div className="h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(29,78,216,0.18), transparent)" }} />
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5 flex items-center gap-1">
+                    <CreditCard className="w-3 h-3" /> Payment & Status
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      control={form.control}
+                      name="paymentMethod"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            Payment Method
+                          </FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="h-10 rounded-[10px] border-blue-100 bg-white/85 text-sm font-medium">
+                                <SelectValue placeholder="Select method..." />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="cash">💵 Cash</SelectItem>
+                              <SelectItem value="card">💳 Card</SelectItem>
+                              <SelectItem value="upi">📱 UPI</SelectItem>
+                              <SelectItem value="qr">🔲 QR Payment</SelectItem>
+                              <SelectItem value="online">🌐 Online Banking</SelectItem>
+                              <SelectItem value="split">🔀 Split Payment</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="paymentStatus"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            Payment Status
+                          </FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="h-10 rounded-[10px] border-blue-100 bg-white/85 text-sm font-medium">
+                                <SelectValue placeholder="Select status..." />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="unpaid">⏳ Unpaid</SelectItem>
+                              <SelectItem value="paid">✅ Paid</SelectItem>
+                              <SelectItem value="partial">🔄 Partial</SelectItem>
+                              <SelectItem value="refunded">↩️ Refunded</SelectItem>
+                              <SelectItem value="nc">🚫 Non-Chargeable</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="orderStatus"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            Order Status
+                          </FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="h-10 rounded-[10px] border-blue-100 bg-white/85 text-sm font-medium">
+                                <SelectValue placeholder="Select status..." />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="pending">🟡 Pending</SelectItem>
+                              <SelectItem value="preparing">🔵 Preparing</SelectItem>
+                              <SelectItem value="ready">🟢 Ready</SelectItem>
+                              <SelectItem value="completed">✅ Completed</SelectItem>
+                              <SelectItem value="held">⏸️ Held</SelectItem>
+                              <SelectItem value="cancelled">❌ Cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="priority"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            Priority
+                          </FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="h-10 rounded-[10px] border-blue-100 bg-white/85 text-sm font-medium">
+                                <SelectValue placeholder="Select priority..." />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="normal">🟢 Normal</SelectItem>
+                              <SelectItem value="rush">🟠 Rush</SelectItem>
+                              <SelectItem value="vip">⭐ VIP</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ── Special Instructions ── */}
+            {editingOrder && (
+              <FormField
+                control={form.control}
+                name="specialInstructions"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                      <FileText className="w-3 h-3" /> Special Instructions / Notes
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        {...field}
+                        placeholder="Any special instructions, notes, or NC reason..."
+                        className="min-h-[60px] rounded-[10px] border-blue-100 bg-white/85 text-sm font-medium placeholder:text-slate-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 resize-none"
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            )}
 
             {/* ── Attendant ── */}
             <FormField

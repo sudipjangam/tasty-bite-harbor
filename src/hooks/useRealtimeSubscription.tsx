@@ -35,9 +35,10 @@ export const useRealtimeSubscription = ({
       subscriptionOptions.filter = `${filter.column}=eq.${filter.value}`;
     }
     
-    // Create the subscription channel
+    // Channel names must be globally unique across all subscriptions
+    const channelId = `${table}-${filter ? `${filter.column}-${filter.value}` : 'all'}-${Math.random().toString(36).slice(2, 8)}`;
     const channel = supabase
-      .channel(`${table}-changes`)
+      .channel(channelId)
       .on('postgres_changes', subscriptionOptions, () => {
         // Debounce the invalidation to prevent refetch thrashing
         if (debounceMs > 0) {

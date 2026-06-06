@@ -213,7 +213,7 @@ const OrderList: React.FC<OrderListProps> = ({
             }
           }}
         >
-          <div className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <AddOrderForm
               onSuccess={() => {
                 setShowEditForm(false);

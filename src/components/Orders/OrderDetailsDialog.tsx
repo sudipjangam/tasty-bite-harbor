@@ -415,7 +415,7 @@ const OrderDetailsDialog = ({
           onClose();
         }}
       >
-        <DialogContent className="max-w-2xl p-0 border-0 bg-transparent shadow-2xl overflow-hidden [&>button]:hidden">
+        <DialogContent className="max-w-4xl p-0 border-0 bg-transparent shadow-2xl overflow-hidden [&>button]:hidden">
           <AddOrderForm
             onSuccess={() => {
               setShowEditForm(false);
