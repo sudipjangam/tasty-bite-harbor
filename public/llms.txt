@@ -1,0 +1,14 @@
+# Swadeshi Solutions
+
+> Restaurant and hotel management platform for Indian businesses — POS, billing (GST-compliant), order management, inventory, KDS, WhatsApp notifications, and analytics for restaurants, QSRs, cloud kitchens, and hotels.
+
+## Pages
+
+- [Home](/): Product overview, features, pricing, and testimonials.
+- [Sign in / Sign up](/auth): Account access for restaurant owners and staff.
+- [Privacy Policy](/privacy): How customer and business data is collected, stored, and shared.
+- [Delete Account](/delete-account): Submit an account deletion request.
+
+## Guides
+
+- [How to Integrate Zomato and Swiggy with Your Restaurant POS](/blog/zomato-swiggy-integration): Step-by-step guide to tie up with Swiggy and Zomato and unify orders inside a restaurant billing software.
