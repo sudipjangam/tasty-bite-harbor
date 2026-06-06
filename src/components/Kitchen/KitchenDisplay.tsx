@@ -176,6 +176,7 @@ const KitchenDisplay = () => {
           .from("kitchen_orders")
           .select("*")
           .eq("restaurant_id", restaurantId)
+          .not("source", "ilike", "QuickServe%") // Food truck orders use QS Active Orders, not KDS
           .is("bumped_at", null) // Exclude bumped orders
           .order("priority", { ascending: true }) // VIP first, then rush, then normal (alphabetically vip < rush < normal is false, so we use custom)
           .order("created_at", { ascending: false })
@@ -312,8 +313,16 @@ const KitchenDisplay = () => {
           filter: `restaurant_id=eq.${restaurantId}`,
         },
         (payload) => {
+          const isQuickServeTicket = (source: unknown) =>
+            typeof source === "string" &&
+            source.toLowerCase().startsWith("quickserve");
+
           if (payload.eventType === "INSERT") {
             const newOrderData = payload.new;
+
+            if (isQuickServeTicket(newOrderData.source)) {
+              return;
+            }
 
             // Check if the new order falls within current date filter
             if (!isWithinDateFilter(newOrderData.created_at)) {
@@ -371,6 +380,13 @@ const KitchenDisplay = () => {
             }
           } else if (payload.eventType === "UPDATE") {
             const updatedOrderData = payload.new;
+
+            if (isQuickServeTicket(updatedOrderData.source)) {
+              setOrders((prev) =>
+                prev.filter((order) => order.id !== updatedOrderData.id),
+              );
+              return;
+            }
 
             // If order was bumped, remove from list
             if (updatedOrderData.bumped_at) {

@@ -451,7 +451,7 @@ const QuickServePOS: React.FC = () => {
           .update({
             items: allFormattedItems,
             total: fullTotal,
-            status: "pending",
+            status: "preparing",
             item_completion_status: newCompletionStatus,
           })
           .eq("id", editingOrderId);
@@ -500,7 +500,7 @@ const QuickServePOS: React.FC = () => {
             .insert({
               restaurant_id: restaurantId,
               source: "QuickServe",
-              status: "new",
+              status: "preparing",
               items: newKitchenItems,
               order_type: "takeaway",
               customer_name: finalCustomerName,
@@ -570,13 +570,13 @@ const QuickServePOS: React.FC = () => {
       }
       // ────────────────────────────────────────────────────────────────
 
-      // 1. Create kitchen order (new → KDS "New" column; inventory deducted when chef starts prep)
+      // 1. Create kitchen order (food truck: starts preparing immediately, no KDS step)
       const { data: kitchenOrder, error: kitchenError } = await supabase
         .from("kitchen_orders")
         .insert({
           restaurant_id: restaurantId,
           source: "QuickServe",
-          status: "new",
+          status: "preparing",
           items: kitchenItems,
           order_type: "takeaway",
           customer_name: finalCustomerName,
@@ -626,7 +626,7 @@ const QuickServePOS: React.FC = () => {
           customer_name: finalCustomerName,
           items: formattedItems,
           total: orderTotal,
-          status: "pending",
+          status: "preparing",
           payment_status: "pending",
           source: "quickserve",
           order_type: "takeaway",
@@ -647,13 +647,27 @@ const QuickServePOS: React.FC = () => {
 
       if (orderError) throw orderError;
 
-      // Link kitchen order → order (sync so status trigger can sync both tables)
+      // Link kitchen order → order & deduct inventory on send (food truck has no KDS)
       if (order?.id && kitchenOrder?.id) {
         const { error: linkError } = await supabase
           .from("kitchen_orders")
           .update({ order_id: order.id })
           .eq("id", kitchenOrder.id);
         if (linkError) console.error("Link kitchen→order error:", linkError);
+
+        (async () => {
+          try {
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+            await supabase.functions.invoke("deduct-inventory-on-prep", {
+              body: { order_id: kitchenOrder.id },
+              headers: { Authorization: `Bearer ${session?.access_token}` },
+            });
+          } catch (err) {
+            console.error("Inventory deduction failed:", err);
+          }
+        })();
       }
 
       // CRM sync (background)
@@ -694,9 +708,7 @@ const QuickServePOS: React.FC = () => {
       setCouponError(null);
 
       // Refresh active orders & stats
-      queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
       queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["all-orders"] });
       queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
       queryClient.invalidateQueries({ queryKey: ["food-truck-today-stats"] });
     } catch (error) {
