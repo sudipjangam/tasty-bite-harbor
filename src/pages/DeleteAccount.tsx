@@ -55,16 +55,16 @@ const DeleteAccount = () => {
         {/* Header */}
         <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
           <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
-            <Link to="/">
-              <Button variant="ghost" size="icon">
+            <Link to="/" aria-label="Back to home">
+              <Button variant="ghost" size="icon" aria-label="Back to home">
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
             <div className="flex items-center gap-2">
               <Trash2 className="h-6 w-6 text-red-600" />
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+              <span className="text-xl font-bold text-gray-900 dark:text-white">
                 Delete Account
-              </h1>
+              </span>
             </div>
           </div>
         </header>
@@ -115,16 +115,16 @@ const DeleteAccount = () => {
       {/* Header */}
       <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link to="/">
-            <Button variant="ghost" size="icon">
+          <Link to="/" aria-label="Back to home">
+            <Button variant="ghost" size="icon" aria-label="Back to home">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
           <div className="flex items-center gap-2">
             <Trash2 className="h-6 w-6 text-red-600" />
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+            <span className="text-xl font-bold text-gray-900 dark:text-white">
               Delete Account
-            </h1>
+            </span>
           </div>
         </div>
       </header>
@@ -152,7 +152,7 @@ const DeleteAccount = () => {
           {/* Header Section */}
           <div className="space-y-2">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Request Account Deletion
+              Delete Your Swadeshi Solutions Account
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
               Submit a request to permanently delete your Swadeshi Solutions
