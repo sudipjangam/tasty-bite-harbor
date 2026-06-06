@@ -146,7 +146,7 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
       // Fetch pos_transactions for revenue & payment breakdown
       const { data: transactions, error: txnError } = await supabase
         .from("pos_transactions")
-        .select("amount, payment_method, status, discount_amount, created_at")
+        .select("amount, payment_method, status, discount_amount, created_at, split_payments")
         .eq("restaurant_id", restaurantId)
         .gte("created_at", dayStart)
         .lte("created_at", dayEnd);
@@ -318,7 +318,19 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
       allTxns.forEach((t) => {
         const method = (t.payment_method || "cash").toLowerCase();
         const amt = Number(t.amount) || 0;
-        if (method.includes("cash")) paymentBreakdown.cash += amt;
+        if (method === "split" && (t as any).split_payments) {
+          const splits: Array<{method: string; amount: number}> = Array.isArray((t as any).split_payments)
+            ? (t as any).split_payments
+            : [];
+          splits.forEach((s) => {
+            const m = (s.method || "").toLowerCase();
+            const a = s.amount || 0;
+            if (m.includes("cash")) paymentBreakdown.cash += a;
+            else if (m.includes("upi")) paymentBreakdown.upi += a;
+            else if (m.includes("card")) paymentBreakdown.card += a;
+            else paymentBreakdown.other += a;
+          });
+        } else if (method.includes("cash")) paymentBreakdown.cash += amt;
         else if (method.includes("upi")) paymentBreakdown.upi += amt;
         else if (method.includes("card")) paymentBreakdown.card += amt;
         else paymentBreakdown.other += amt;

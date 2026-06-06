@@ -77,8 +77,13 @@ const PaymentDialog = ({
   isNonChargeable = false,
 }: PaymentDialogProps) => {
   const [currentStep, setCurrentStep] = useState<
-    "confirm" | "method" | "qr" | "success" | "edit"
+    "confirm" | "method" | "qr" | "success" | "edit" | "split"
   >("confirm");
+
+  // Split payment state
+  const [splitCash, setSplitCash] = useState<string>("");
+  const [splitUpi, setSplitUpi] = useState<string>("");
+  const [splitCard, setSplitCard] = useState<string>("");
   const [customerName, setCustomerName] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -642,6 +647,10 @@ const PaymentDialog = ({
       setQrExpiresAt(null);
       setIsGeneratingQR(false);
       setPaymentAutoDetected(false);
+      // Reset split state
+      setSplitCash("");
+      setSplitUpi("");
+      setSplitCard("");
     }
   }, [isOpen]);
 
@@ -1978,6 +1987,12 @@ const PaymentDialog = ({
         return;
       }
       setCurrentStep("qr");
+    } else if (method === "split") {
+      // Show split payment entry UI
+      setSplitCash("");
+      setSplitUpi("");
+      setSplitCard("");
+      setCurrentStep("split");
     } else if (method === "room") {
       // Handle charge to room
       handleChargeToRoom();
@@ -2076,7 +2091,7 @@ const PaymentDialog = ({
     }
   };
 
-  const handleMarkAsPaid = async (paymentMethod: string = "upi") => {
+  const handleMarkAsPaid = async (paymentMethod: string = "upi", splitPaymentsData?: Array<{method: string; amount: number}>) => {
     setIsProcessingPayment(true);
     try {
       // Here you would integrate with your payment verification system
@@ -2159,6 +2174,8 @@ const PaymentDialog = ({
               ...(finalOrderType && { order_type: finalOrderType }),
               // Save NC reason for non-chargeable orders
               ...(isNonChargeable && ncReason && { nc_reason: ncReason }),
+              // Save split payments breakdown for reporting
+              ...(splitPaymentsData && { split_payments: splitPaymentsData }),
               // Update customer details if provided
               ...(customerName.trim() && {
                 customer_name: customerName.trim(),
@@ -2257,6 +2274,7 @@ const PaymentDialog = ({
               staff_id: user?.id || null,
               discount_amount: totalDiscountAmount,
               promotion_id: appliedPromotion?.id || null,
+              ...(splitPaymentsData && { split_payments: splitPaymentsData }),
             });
           } catch (transactionError) {
             console.error("Error logging transaction:", transactionError);
@@ -2284,11 +2302,20 @@ const PaymentDialog = ({
       // Skip success screen — close immediately with toast
       const isDirectClose = true;
 
+      const splitDesc = splitPaymentsData?.length
+        ? splitPaymentsData
+            .filter(s => s.amount > 0)
+            .map(s => `${currencySymbol}${s.amount.toFixed(2)} ${s.method.toUpperCase()}`)
+            .join(" + ")
+        : null;
+
       toast({
         title: isNonChargeable ? "NC Order Completed" : "Payment Complete ✓",
         description: isNonChargeable
           ? "Complimentary order has been completed successfully."
-          : `${currencySymbol}${finalTotal.toFixed(2)} received via ${finalPaymentMethod.toUpperCase()}`,
+          : splitDesc
+            ? `Split: ${splitDesc}`
+            : `${currencySymbol}${finalTotal.toFixed(2)} received via ${finalPaymentMethod.toUpperCase()}`,
       });
 
       if (isDirectClose) {
@@ -3153,11 +3180,174 @@ const PaymentDialog = ({
                 </p>
               </div>
             </button>
+
+            {/* Split Payment */}
+            <button
+              onClick={() => handleMethodSelect("split")}
+              className="w-full h-14 rounded-xl flex items-center px-4 transition-all duration-200 hover:scale-[1.01] hover:shadow-lg bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/30 border border-orange-200 dark:border-orange-700 hover:border-orange-400 dark:hover:border-orange-500 group"
+            >
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 flex items-center justify-center shadow-md group-hover:scale-105 transition-all duration-200">
+                <span className="text-white font-bold text-base">&#8361;</span>
+              </div>
+              <div className="ml-3 text-left flex-1">
+                <span className="text-base font-bold text-gray-800 dark:text-white">Split Payment</span>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Pay with Cash + UPI + Card mix</p>
+              </div>
+              <span className="text-[10px] font-bold bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 px-2 py-0.5 rounded-full ml-2">NEW</span>
+            </button>
           </div>
         </>
       )}
     </div>
   );
+
+  const renderSplitStep = () => {
+    const cashAmt = parseFloat(splitCash) || 0;
+    const upiAmt = parseFloat(splitUpi) || 0;
+    const cardAmt = parseFloat(splitCard) || 0;
+    const splitSum = cashAmt + upiAmt + cardAmt;
+    const remaining = parseFloat((total - splitSum).toFixed(2));
+    const isValid = Math.abs(remaining) < 0.01 && splitSum > 0 && (cashAmt > 0 || upiAmt > 0 || cardAmt > 0);
+
+    const handleConfirmSplit = async () => {
+      if (!isValid) return;
+      const splits = [
+        ...(cashAmt > 0 ? [{ method: "cash", amount: cashAmt }] : []),
+        ...(upiAmt > 0 ? [{ method: "upi", amount: upiAmt }] : []),
+        ...(cardAmt > 0 ? [{ method: "card", amount: cardAmt }] : []),
+      ];
+      await handleMarkAsPaid("split", splits);
+    };
+
+    return (
+      <div className="flex flex-col h-full max-h-[80vh] overflow-y-auto p-5 space-y-4">
+        {/* Back */}
+        <button
+          onClick={() => setCurrentStep("method")}
+          className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors self-start"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Payment Methods
+        </button>
+
+        {/* Header */}
+        <div className="text-center py-4 px-6 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 shadow-lg">
+          <h2 className="text-lg font-bold text-white mb-1">Split Payment</h2>
+          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-1.5 rounded-full">
+            <span className="text-white/80 text-xs">Total to split:</span>
+            <span className="text-xl font-extrabold text-white">{currencySymbol}{total.toFixed(2)}</span>
+          </div>
+        </div>
+
+        {/* Split Inputs */}
+        <div className="space-y-3">
+          {/* Cash */}
+          <div className="flex items-center gap-3 p-3.5 rounded-xl border-2 border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 transition-all focus-within:border-green-500">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center shadow-sm flex-shrink-0">
+              <Wallet className="w-4 h-4 text-white" />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wide mb-1">Cash</label>
+              <div className="flex items-center">
+                <span className="text-sm font-bold text-gray-500 dark:text-gray-400 mr-1.5">{currencySymbol}</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  value={splitCash}
+                  onChange={e => setSplitCash(e.target.value)}
+                  className="h-8 text-base font-bold border-0 bg-transparent focus:ring-0 p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* UPI */}
+          <div className="flex items-center gap-3 p-3.5 rounded-xl border-2 border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 transition-all focus-within:border-purple-500">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 flex items-center justify-center shadow-sm flex-shrink-0">
+              <QrCode className="w-4 h-4 text-white" />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wide mb-1">UPI</label>
+              <div className="flex items-center">
+                <span className="text-sm font-bold text-gray-500 dark:text-gray-400 mr-1.5">{currencySymbol}</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  value={splitUpi}
+                  onChange={e => setSplitUpi(e.target.value)}
+                  className="h-8 text-base font-bold border-0 bg-transparent focus:ring-0 p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Card */}
+          <div className="flex items-center gap-3 p-3.5 rounded-xl border-2 border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 transition-all focus-within:border-blue-500">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center shadow-sm flex-shrink-0">
+              <CreditCard className="w-4 h-4 text-white" />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide mb-1">Card</label>
+              <div className="flex items-center">
+                <span className="text-sm font-bold text-gray-500 dark:text-gray-400 mr-1.5">{currencySymbol}</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  value={splitCard}
+                  onChange={e => setSplitCard(e.target.value)}
+                  className="h-8 text-base font-bold border-0 bg-transparent focus:ring-0 p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Balance Indicator */}
+        <div className={`rounded-xl p-3 text-center border-2 transition-all duration-200 ${
+          Math.abs(remaining) < 0.01 && splitSum > 0
+            ? "border-green-400 bg-green-50 dark:bg-green-900/20"
+            : remaining > 0
+              ? "border-orange-400 bg-orange-50 dark:bg-orange-900/20"
+              : "border-red-400 bg-red-50 dark:bg-red-900/20"
+        }`}>
+          {Math.abs(remaining) < 0.01 && splitSum > 0 ? (
+            <p className="text-green-700 dark:text-green-400 font-bold text-sm">&#10003; Amounts balance perfectly!</p>
+          ) : remaining > 0 ? (
+            <p className="text-orange-700 dark:text-orange-400 font-semibold text-sm">
+              Still needed: <span className="font-black">{currencySymbol}{remaining.toFixed(2)}</span>
+            </p>
+          ) : (
+            <p className="text-red-700 dark:text-red-400 font-semibold text-sm">
+              Over by: <span className="font-black">{currencySymbol}{Math.abs(remaining).toFixed(2)}</span>
+            </p>
+          )}
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            {currencySymbol}{splitSum.toFixed(2)} entered / {currencySymbol}{total.toFixed(2)} required
+          </p>
+        </div>
+
+        {/* Confirm Button */}
+        <Button
+          onClick={handleConfirmSplit}
+          disabled={!isValid || isProcessingPayment}
+          className="w-full h-12 bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white font-bold shadow-lg shadow-orange-200/60 dark:shadow-orange-900/30 disabled:opacity-50 transition-all"
+          size="lg"
+        >
+          {isProcessingPayment ? (
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</>
+          ) : (
+            <>Confirm Split — {currencySymbol}{total.toFixed(2)}</>
+          )}
+        </Button>
+      </div>
+    );
+  };
 
   const renderQRStep = () => (
     <div className="flex flex-col h-full max-h-[80vh]">
@@ -3667,6 +3857,7 @@ const PaymentDialog = ({
             {currentStep === "qr" && "UPI Payment"}
             {currentStep === "success" && "Payment Successful"}
             {currentStep === "edit" && "Edit Order"}
+            {currentStep === "split" && "Split Payment"}
           </DialogTitle>
         </VisuallyHidden>
         {currentStep === "confirm" && renderConfirmStep()}
@@ -3674,6 +3865,7 @@ const PaymentDialog = ({
         {currentStep === "qr" && renderQRStep()}
         {currentStep === "success" && renderSuccessStep()}
         {currentStep === "edit" && renderEditStep()}
+        {currentStep === "split" && renderSplitStep()}
       </DialogContent>
 
       <CustomItemDialog

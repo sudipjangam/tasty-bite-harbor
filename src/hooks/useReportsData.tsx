@@ -170,7 +170,20 @@ export const useReportsData = (dateRange?: DateRange) => {
       revenueOrders.forEach((o) => {
         const method = (o.payment_method || "").toLowerCase();
         const amt = o.total || 0;
-        if (method.includes("cash")) paymentBreakdown.cash += amt;
+        if (method === "split" && (o as any).split_payments) {
+          // Distribute split amounts to their respective buckets
+          const splits: Array<{method: string; amount: number}> = Array.isArray((o as any).split_payments)
+            ? (o as any).split_payments
+            : [];
+          splits.forEach((s) => {
+            const m = (s.method || "").toLowerCase();
+            const a = s.amount || 0;
+            if (m.includes("cash")) paymentBreakdown.cash += a;
+            else if (m.includes("upi")) paymentBreakdown.upi += a;
+            else if (m.includes("card")) paymentBreakdown.card += a;
+            else paymentBreakdown.credit += a;
+          });
+        } else if (method.includes("cash")) paymentBreakdown.cash += amt;
         else if (method.includes("upi")) paymentBreakdown.upi += amt;
         else if (method.includes("card")) paymentBreakdown.card += amt;
         else paymentBreakdown.credit += amt; // room charge, pending, unknown = credit/outstanding

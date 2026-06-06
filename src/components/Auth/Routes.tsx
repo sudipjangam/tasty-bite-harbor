@@ -9,6 +9,8 @@ import NotFound from "@/pages/NotFound";
 import LandingWebsite from "@/pages/LandingWebsite";
 import PublicEnrollmentPage from "@/pages/PublicEnrollmentPage";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import TermsAndConditions from "@/pages/TermsAndConditions";
+import RefundPolicy from "@/pages/RefundPolicy";
 import DeleteAccount from "@/pages/DeleteAccount";
 import CustomerOrder from "@/pages/CustomerOrder";
 import PublicBillPage from "@/pages/PublicBillPage";
@@ -44,6 +46,8 @@ const Routes = () => {
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/enroll/:slug" element={<PublicEnrollmentPage />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsAndConditions />} />
+        <Route path="/refund" element={<RefundPolicy />} />
         <Route path="/delete-account" element={<DeleteAccount />} />
         <Route path="/order/:encodedData" element={<CustomerOrder />} />
         <Route path="/bill/:encodedData" element={<PublicBillPage />} />
@@ -64,6 +68,8 @@ const Routes = () => {
       <Route path="/website" element={<LandingWebsite />} />
       <Route path="/enroll/:slug" element={<PublicEnrollmentPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsAndConditions />} />
+      <Route path="/refund" element={<RefundPolicy />} />
       <Route path="/delete-account" element={<DeleteAccount />} />
       <Route path="/order/:encodedData" element={<CustomerOrder />} />
       <Route path="/bill/:encodedData" element={<PublicBillPage />} />

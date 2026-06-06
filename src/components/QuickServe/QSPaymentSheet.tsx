@@ -96,7 +96,7 @@ const allPaymentMethods = [
     label: "UPI",
     icon: Smartphone,
     color: "from-purple-500 to-indigo-600",
-    offlineOk: false, // deep-link requires network
+    offlineOk: false,
   },
   {
     id: "card",
@@ -110,7 +110,14 @@ const allPaymentMethods = [
     label: "Non-Chargeable",
     icon: Gift,
     color: "from-pink-500 to-rose-600",
-    offlineOk: true, // NC can be queued offline
+    offlineOk: true,
+  },
+  {
+    id: "split",
+    label: "Split Payment",
+    icon: Banknote,
+    color: "from-orange-500 to-amber-600",
+    offlineOk: true,
   },
 ];
 
@@ -141,6 +148,11 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   const [isOfflineOrder, setIsOfflineOrder] = useState(false);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  // Split payment state
+  const [showSplitUI, setShowSplitUI] = useState(false);
+  const [splitCash, setSplitCash] = useState("");
+  const [splitUpi, setSplitUpi] = useState("");
+  const [splitCard, setSplitCard] = useState("");
   const { symbol: currencySymbol } = useCurrencyContext();
   const { restaurantId } = useRestaurantId();
   const { isOnline } = useNetworkStatus();
@@ -468,6 +480,10 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     setIsOfflineOrder(false);
     setPaymentConfirmed(false);
     setCreatedOrderId(null);
+    setShowSplitUI(false);
+    setSplitCash("");
+    setSplitUpi("");
+    setSplitCard("");
     onSuccess(typeof savedOrderNum === "number" ? savedOrderNum : undefined);
     onClose();
   };
@@ -484,6 +500,13 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
 
     setSelectedMethod(method);
     setStatus("processing");
+
+    // Split payment — show split UI instead of processing immediately
+    if (method === "split") {
+      setShowSplitUI(true);
+      setStatus("idle");
+      return;
+    }
 
     // ─── OFFLINE PATH ───────────────────────────────────────────────────────
     if (!isOnline) {
@@ -955,6 +978,125 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     }
   };
 
+  const handlePaySplit = async () => {
+    const cashAmt = parseFloat(splitCash) || 0;
+    const upiAmt = parseFloat(splitUpi) || 0;
+    const cardAmt = parseFloat(splitCard) || 0;
+    const splitSum = cashAmt + upiAmt + cardAmt;
+    if (Math.abs(subtotal - splitSum) >= 0.01 || splitSum <= 0) return;
+
+    const splitPaymentsData = [
+      ...(cashAmt > 0 ? [{ method: "cash", amount: cashAmt }] : []),
+      ...(upiAmt > 0 ? [{ method: "upi", amount: upiAmt }] : []),
+      ...(cardAmt > 0 ? [{ method: "card", amount: cardAmt }] : []),
+    ];
+
+    // Use the main handlePay flow but override method to "split" after setting split data
+    // We'll directly invoke the DB writes here
+    setSelectedMethod("split");
+    setStatus("processing");
+    try {
+      if (!restaurantId) throw new Error("No restaurant ID");
+      const attendantName = user
+        ? `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email
+        : "Staff";
+      const finalCustomerName = customerName.trim() || "Walk-in Customer";
+      const formattedItems = items.map(
+        (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
+      );
+      const kitchenItems = items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        menuItemId: item.menuItemId,
+        notes: [],
+      }));
+      const today = new Date();
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+      const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
+      const { data: maxOrderRow } = await supabase
+        .from("orders")
+        .select("order_number")
+        .eq("restaurant_id", restaurantId)
+        .gte("created_at", todayStart)
+        .lt("created_at", todayEnd)
+        .not("order_number", "is", null)
+        .order("order_number", { ascending: false })
+        .limit(1);
+      const nextOrderNumber = ((maxOrderRow?.[0]?.order_number as number) || 0) + 1;
+      const { data: kitchenOrder, error: kitchenError } = await supabase
+        .from("kitchen_orders")
+        .insert({
+          restaurant_id: restaurantId,
+          source: "QuickServe",
+          status: "preparing",
+          items: kitchenItems,
+          order_type: "takeaway",
+          customer_name: finalCustomerName,
+          server_name: attendantName,
+          priority: "normal",
+        })
+        .select()
+        .single();
+      if (kitchenError) throw kitchenError;
+      const totalDiscountAmount = discountValue + couponDiscountAmount + (loyaltyDiscountAmount || 0);
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          restaurant_id: restaurantId,
+          customer_name: finalCustomerName,
+          items: formattedItems,
+          total: subtotal,
+          status: "preparing",
+          payment_status: "pending",
+          payment_method: "split",
+          split_payments: splitPaymentsData,
+          source: "quickserve",
+          order_type: "takeaway",
+          attendant: attendantName,
+          order_number: nextOrderNumber,
+          item_completion_status: items.map(() => false),
+          ...(totalDiscountAmount > 0 && { discount_amount: totalDiscountAmount }),
+          ...(customerPhone && { customer_phone: customerPhone }),
+        })
+        .select()
+        .single();
+      if (orderError) throw orderError;
+      await supabase.from("pos_transactions").insert({
+        restaurant_id: restaurantId,
+        order_id: order?.id || null,
+        kitchen_order_id: kitchenOrder?.id || null,
+        amount: subtotal,
+        payment_method: "split",
+        split_payments: splitPaymentsData,
+        status: "pending",
+        customer_name: finalCustomerName || null,
+        customer_phone: customerPhone || null,
+        staff_id: user?.id || null,
+        discount_amount: 0,
+      });
+      if (kitchenOrder?.id && order?.id) {
+        supabase.from("kitchen_orders").update({ order_id: order.id }).eq("id", kitchenOrder.id);
+      }
+      setOrderNumber(nextOrderNumber);
+      setCreatedOrderId(order?.id || null);
+      setShowSplitUI(false);
+      setStatus("success");
+      toast({
+        title: "Order Created — Awaiting Payment",
+        description: splitPaymentsData
+          .map(s => `${currencySymbol}${s.amount.toFixed(2)} ${s.method.toUpperCase()}`)
+          .join(" + "),
+      });
+    } catch (err) {
+      console.error("Split payment error:", err);
+      toast({ title: "Payment Failed", description: "Could not complete split payment.", variant: "destructive" });
+      setStatus("idle");
+      setSelectedMethod(null);
+      setShowSplitUI(false);
+    }
+  };
+
   return (
     <Dialog
       open={isOpen}
@@ -1193,6 +1335,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             </div>
 
             {/* Payment Methods */}
+            {!showSplitUI && (
             <div className="p-5 space-y-2">
               <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-white/40 font-medium mb-1.5">
                 Select Payment Method
@@ -1209,9 +1352,11 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                     disabled={status === "processing"}
                     className={cn(
                       "w-full flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 active:scale-[0.98]",
-                      isProcessing
-                        ? "border-gray-300 dark:border-white/20 bg-gray-100 dark:bg-white/10"
-                        : "border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 hover:border-gray-300 dark:hover:border-white/15",
+                      pm.id === "split"
+                        ? "border-orange-200 dark:border-orange-700/50 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 hover:border-orange-400"
+                        : isProcessing
+                          ? "border-gray-300 dark:border-white/20 bg-gray-100 dark:bg-white/10"
+                          : "border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 hover:border-gray-300 dark:hover:border-white/15",
                     )}
                   >
                     <div
@@ -1222,9 +1367,12 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                     >
                       <Icon className="h-4 w-4 text-white" />
                     </div>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white flex-1 text-left">
                       {pm.label}
                     </span>
+                    {pm.id === "split" && (
+                      <span className="text-[10px] font-bold bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 px-2 py-0.5 rounded-full">NEW</span>
+                    )}
                     {isProcessing && (
                       <Loader2 className="h-4 w-4 text-gray-400 dark:text-white/60 animate-spin ml-auto" />
                     )}
@@ -1232,8 +1380,111 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                 );
               })}
             </div>
+            )}
+
+            {/* Split Payment Input UI */}
+            {showSplitUI && (() => {
+              const cashAmt = parseFloat(splitCash) || 0;
+              const upiAmt = parseFloat(splitUpi) || 0;
+              const cardAmt = parseFloat(splitCard) || 0;
+              const splitSum = cashAmt + upiAmt + cardAmt;
+              const remaining = parseFloat((subtotal - splitSum).toFixed(2));
+              const isValid = Math.abs(remaining) < 0.01 && splitSum > 0;
+              return (
+                <div className="p-5 space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <button
+                      onClick={() => setShowSplitUI(false)}
+                      className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1"
+                    >
+                      ← Back
+                    </button>
+                    <p className="text-xs uppercase tracking-wider text-orange-600 dark:text-orange-400 font-bold">Split Payment — {currencySymbol}{subtotal.toFixed(2)}</p>
+                  </div>
+
+                  {/* Cash */}
+                  <div className="flex items-center gap-3 p-3 rounded-xl border-2 border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center flex-shrink-0">
+                      <Banknote className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-bold text-green-700 dark:text-green-400 mb-0.5">Cash</label>
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm text-gray-500">{currencySymbol}</span>
+                        <input
+                          type="number" min="0" step="1" placeholder="0"
+                          value={splitCash}
+                          onChange={e => setSplitCash(e.target.value)}
+                          className="flex-1 h-7 text-sm font-bold bg-transparent border-0 outline-none p-0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* UPI */}
+                  <div className="flex items-center gap-3 p-3 rounded-xl border-2 border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 flex items-center justify-center flex-shrink-0">
+                      <Smartphone className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-bold text-purple-700 dark:text-purple-400 mb-0.5">UPI</label>
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm text-gray-500">{currencySymbol}</span>
+                        <input
+                          type="number" min="0" step="1" placeholder="0"
+                          value={splitUpi}
+                          onChange={e => setSplitUpi(e.target.value)}
+                          className="flex-1 h-7 text-sm font-bold bg-transparent border-0 outline-none p-0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card */}
+                  <div className="flex items-center gap-3 p-3 rounded-xl border-2 border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center flex-shrink-0">
+                      <CreditCard className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 mb-0.5">Card</label>
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm text-gray-500">{currencySymbol}</span>
+                        <input
+                          type="number" min="0" step="1" placeholder="0"
+                          value={splitCard}
+                          onChange={e => setSplitCard(e.target.value)}
+                          className="flex-1 h-7 text-sm font-bold bg-transparent border-0 outline-none p-0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Balance */}
+                  <div className={`rounded-xl p-2.5 text-center border-2 ${Math.abs(remaining) < 0.01 && splitSum > 0 ? "border-green-400 bg-green-50 dark:bg-green-900/20" : remaining > 0 ? "border-orange-300 bg-orange-50 dark:bg-orange-900/20" : "border-red-300 bg-red-50 dark:bg-red-900/20"}`}>
+                    {Math.abs(remaining) < 0.01 && splitSum > 0
+                      ? <p className="text-green-700 dark:text-green-400 font-bold text-xs">✓ Balanced!</p>
+                      : remaining > 0
+                        ? <p className="text-orange-700 dark:text-orange-400 text-xs font-semibold">Still needed: {currencySymbol}{remaining.toFixed(2)}</p>
+                        : <p className="text-red-700 dark:text-red-400 text-xs font-semibold">Over by: {currencySymbol}{Math.abs(remaining).toFixed(2)}</p>
+                    }
+                  </div>
+
+                  <button
+                    onClick={handlePaySplit}
+                    disabled={!isValid || status === "processing"}
+                    className="w-full py-3 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97] shadow-lg bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-50"
+                  >
+                    {status === "processing"
+                      ? <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Processing...</span>
+                      : `Confirm Split — ${currencySymbol}${subtotal.toFixed(2)}`
+                    }
+                  </button>
+                </div>
+              );
+            })()}
           </>
         )}
+
       </DialogContent>
     </Dialog>
   );

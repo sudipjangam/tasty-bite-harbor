@@ -1,6 +1,6 @@
 import React from 'react';
 import { Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin, Youtube, ArrowRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 export const FooterSection: React.FC = () => {
   const navigate = useNavigate();
@@ -87,17 +87,17 @@ export const FooterSection: React.FC = () => {
 
             {/* Contact Info */}
             <div className="space-y-3 mb-6">
-              <a href="tel:+919876543210" className="flex items-center gap-3 text-gray-400 hover:text-[#FF6B6B] transition-colors">
+              <a href="tel:+918308903224" className="flex items-center gap-3 text-gray-400 hover:text-[#FF6B6B] transition-colors">
                 <Phone className="w-5 h-5" />
-                <span>+91 98765 43210</span>
+                <span>+91 8308903224</span>
               </a>
-              <a href="mailto:info@swadeshisolutions.com" className="flex items-center gap-3 text-gray-400 hover:text-[#FF6B6B] transition-colors">
+              <a href="mailto:inquiry@swadeshisolutions.co.in" className="flex items-center gap-3 text-gray-400 hover:text-[#FF6B6B] transition-colors">
                 <Mail className="w-5 h-5" />
-                <span>info@swadeshisolutions.com</span>
+                <span>inquiry@swadeshisolutions.co.in</span>
               </a>
               <div className="flex items-start gap-3 text-gray-400">
                 <MapPin className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                <span>123 Business Park, Mumbai, Maharashtra 400001</span>
+                <span>1208, chilai nagar, ozarde, tal-wai,dist satara, MH 412803</span>
               </div>
             </div>
 
@@ -193,10 +193,9 @@ export const FooterSection: React.FC = () => {
             </p>
             
             <div className="flex flex-wrap gap-6 text-sm text-gray-400">
-              <a href="#" className="hover:text-[#FF6B6B] transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-[#FF6B6B] transition-colors">Terms of Service</a>
-              <a href="#" className="hover:text-[#FF6B6B] transition-colors">Cookie Policy</a>
-              <a href="#" className="hover:text-[#FF6B6B] transition-colors">Refund Policy</a>
+              <Link to="/privacy" className="hover:text-[#FF6B6B] transition-colors">Privacy Policy</Link>
+              <Link to="/terms" className="hover:text-[#FF6B6B] transition-colors">Terms of Service</Link>
+              <Link to="/refund" className="hover:text-[#FF6B6B] transition-colors">Refund Policy</Link>
             </div>
 
             {/* Made in India badge */}

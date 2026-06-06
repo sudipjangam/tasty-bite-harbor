@@ -573,24 +573,24 @@ const PrivacyPolicy = () => {
               <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
                 <Mail className="h-5 w-5 text-blue-600 flex-shrink-0" />
                 <a
-                  href="mailto:support@swadeshisolutions.in"
+                  href="mailto:inquiry@swadeshisolutions.co.in"
                   className="hover:underline"
                 >
-                  support@swadeshisolutions.in
+                  inquiry@swadeshisolutions.co.in
                 </a>
               </div>
               <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
                 <Phone className="h-5 w-5 text-blue-600 flex-shrink-0" />
-                <span>+91 9370505279</span>
+                <span>+91 8308903224</span>
               </div>
               <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
                 <MapPin className="h-5 w-5 text-blue-600 flex-shrink-0" />
-                <span>India</span>
+                <span>1208, chilai nagar, ozarde, tal-wai,dist satara, MH 412803</span>
               </div>
               <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
                 <MessageCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
                 <span>
-                  WhatsApp Data Inquiries: support@swadeshisolutions.in
+                  WhatsApp Data Inquiries: inquiry@swadeshisolutions.co.in
                 </span>
               </div>
             </div>
