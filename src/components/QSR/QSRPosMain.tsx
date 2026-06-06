@@ -487,9 +487,16 @@ export const QSRPosMain: React.FC = () => {
           : orderMode.charAt(0).toUpperCase() +
             orderMode.slice(1).replace("_", " ");
 
-      // Use customer name if provided; null for anonymous dine-in orders
-      // Table identity is preserved in `source` field (e.g., 'QSR-Table 1')
-      const finalCustomerName = customerName.trim() || null;
+      // Use customer name if provided; fallback to table/mode-based defaults to avoid null constraint errors on orders relation
+      const finalCustomerName =
+        customerName.trim() ||
+        (orderMode === "dine_in" && selectedTable
+          ? `Table ${selectedTable.name}`
+          : orderMode === "takeaway"
+          ? "Takeaway Customer"
+          : orderMode === "delivery"
+          ? "Delivery Customer"
+          : "Walk-in Customer");
 
       const kitchenItems = orderItems.map((item) => ({
         name: item.name,
@@ -645,8 +652,16 @@ export const QSRPosMain: React.FC = () => {
           : orderMode.charAt(0).toUpperCase() +
             orderMode.slice(1).replace("_", " ");
 
-      // Use customer name if provided; null for anonymous orders
-      const finalCustomerName = customerName.trim() || null;
+      // Use customer name if provided; fallback to table/mode-based defaults to avoid null constraint errors on orders relation
+      const finalCustomerName =
+        customerName.trim() ||
+        (orderMode === "dine_in" && selectedTable
+          ? `Table ${selectedTable.name}`
+          : orderMode === "takeaway"
+          ? "Takeaway Customer"
+          : orderMode === "delivery"
+          ? "Delivery Customer"
+          : "Walk-in Customer");
 
       const kitchenItems = orderItems.map((item) => ({
         name: item.name,
@@ -906,6 +921,16 @@ export const QSRPosMain: React.FC = () => {
                 ? "Delivery"
                 : "Non-Chargeable";
 
+        const paymentCustomerName =
+          customerName.trim() ||
+          (currentMode === "dine_in" && currentTable
+            ? `Table ${currentTable.name}`
+            : currentMode === "takeaway"
+            ? "Takeaway Customer"
+            : currentMode === "delivery"
+            ? "Delivery Customer"
+            : "Walk-in Customer");
+
         // Prepare kitchen items
         const kitchenItems = orderItems.map((item) => ({
           name: item.name,
@@ -924,7 +949,7 @@ export const QSRPosMain: React.FC = () => {
             status: "completed", // Already completed since paid
             items: kitchenItems,
             order_type: currentMode === "nc" ? "takeaway" : currentMode,
-            customer_name: customerName.trim() || null,
+            customer_name: paymentCustomerName,
             server_name: attendantName,
             priority: "normal",
             bumped_at: new Date().toISOString(), // Mark as completed immediately
@@ -954,7 +979,7 @@ export const QSRPosMain: React.FC = () => {
           .from("orders")
           .insert({
             restaurant_id: restaurantId,
-            customer_name: customerName.trim() || null,
+            customer_name: paymentCustomerName,
             items: orderItemsFormatted, // Required field - array of strings
             status: "completed", // Already completed since paid
             total: isNC ? 0 : orderTotal,

@@ -616,7 +616,11 @@ const POSMode = () => {
           .from("orders")
           .insert({
             restaurant_id: profile.restaurant_id,
-            customer_name: customerDetails?.name || null, // Don't use table name as customer identity
+            customer_name:
+              customerDetails?.name ||
+              (effectiveOrderType === "Dine-In" && tableNumber
+                ? `Table ${tableNumber}`
+                : "Walk-in Customer"), // Don't use table name as customer identity unless name is empty
             items: currentOrderItems.map((item) =>
               formatOrderItemString(item.quantity, item.name, item.price, item.notes, item.modifiers)
             ),
@@ -669,7 +673,11 @@ const POSMode = () => {
           .from("orders")
           .insert({
             restaurant_id: profile.restaurant_id,
-            customer_name: customerDetails?.name || null, // Don't use table name as customer identity
+            customer_name:
+              customerDetails?.name ||
+              (effectiveOrderType === "Dine-In" && tableNumber
+                ? `Table ${tableNumber}`
+                : "Walk-in Customer"), // Don't use table name as customer identity unless name is empty
             items: currentOrderItems.map((item) =>
               formatOrderItemString(item.quantity, item.name, item.price, item.notes, item.modifiers)
             ),
