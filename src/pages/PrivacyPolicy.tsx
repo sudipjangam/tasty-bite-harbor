@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -10,22 +10,53 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+const CANONICAL = "https://tasty-bite-harbor.lovable.app/privacy";
+
+const setMetaTag = (selector: string, attr: string, value: string) => {
+  let el = document.head.querySelector(selector) as HTMLMetaElement | HTMLLinkElement | null;
+  if (!el) {
+    if (selector.startsWith("link")) {
+      el = document.createElement("link");
+      (el as HTMLLinkElement).rel = selector.match(/rel="([^"]+)"/)?.[1] || "";
+    } else {
+      el = document.createElement("meta");
+      const name = selector.match(/name="([^"]+)"/)?.[1];
+      const prop = selector.match(/property="([^"]+)"/)?.[1];
+      if (name) (el as HTMLMetaElement).name = name;
+      if (prop) el.setAttribute("property", prop);
+    }
+    document.head.appendChild(el);
+  }
+  el.setAttribute(attr, value);
+};
+
 const PrivacyPolicy = () => {
+  useEffect(() => {
+    const prevTitle = document.title;
+    document.title = "Privacy Policy — Swadeshi Solutions";
+    setMetaTag('meta[name="description"]', "content", "How Swadeshi Solutions collects, uses, and protects restaurant and customer data — including WhatsApp messaging, consent, and data retention.");
+    setMetaTag('link[rel="canonical"]', "href", CANONICAL);
+    setMetaTag('meta[property="og:title"]', "content", "Privacy Policy — Swadeshi Solutions");
+    setMetaTag('meta[property="og:description"]', "content", "How we collect, use, and protect restaurant and customer data on the Swadeshi Solutions platform.");
+    setMetaTag('meta[property="og:url"]', "content", CANONICAL);
+    return () => { document.title = prevTitle; };
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
       {/* Header */}
       <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link to="/">
-            <Button variant="ghost" size="icon">
+          <Link to="/" aria-label="Back to home">
+            <Button variant="ghost" size="icon" aria-label="Back to home">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
           <div className="flex items-center gap-2">
             <Shield className="h-6 w-6 text-blue-600" />
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+            <span className="text-xl font-bold text-gray-900 dark:text-white">
               Privacy Policy
-            </h1>
+            </span>
           </div>
         </div>
       </header>
