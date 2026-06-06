@@ -302,6 +302,13 @@ const standaloneItems: NavigationItem[] = [
     requiredRole: "admin", // Only admin can access
   },
   {
+    title: "AI Agents Console",
+    icon: Sparkles,
+    href: "/platform/langchain",
+    description: "Orchestrate AI workflows",
+    requiredRole: "admin", // Only admin can access
+  },
+  {
     title: "AI Assistant",
     icon: MessageSquare,
     href: "/ai",
