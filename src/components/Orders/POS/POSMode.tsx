@@ -17,7 +17,7 @@ import MenuItemsGrid from "../MenuItemsGrid";
 import CurrentOrder from "../CurrentOrder";
 import PaymentDialog from "./PaymentDialog";
 import { Button } from "@/components/ui/button";
-import { useLoyaltyProgram } from "@/hooks/useLoyaltyProgram";
+
 import { formatOrderItemString } from "@/lib/order-utils";
 import { useToast } from "@/hooks/use-toast";
 import { POSPayment } from "../Payment/POSPayment";

@@ -53,7 +53,7 @@ export default function ProduceMoreDialog({
   onProductionComplete,
 }: ProduceMoreDialogProps) {
   const { toast } = useToast();
-  const { currencySymbol } = useCurrencyContext();
+  const { symbol: currencySymbol } = useCurrencyContext();
   const [batchQuantity, setBatchQuantity] = useState<number>(1);
   const [editedIngredients, setEditedIngredients] = useState<any[]>([]);
   const [autoScale, setAutoScale] = useState<boolean>(true);

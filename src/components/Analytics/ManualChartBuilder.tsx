@@ -343,7 +343,7 @@ export default function ManualChartBuilder({ orders, menuItems, revenueStats, cu
         credits: { enabled: false }, title: { text: undefined },
         xAxis: { categories: result.categories, labels: { style: { fontSize: "11px" }, rotation: result.categories.length > 12 ? -45 : 0 } },
         yAxis: { title: { text: yLabel } },
-        plotOptions: { series: { borderRadius: 3 }, column: { borderRadius: 4 } },
+        plotOptions: { series: { borderRadius: 3 } as any, column: { borderRadius: 4 } as any },
         series: [{ name: yLabel, type: chartType as any, data: result.values.map((v, i) => ({ y: v, color: (chartType === "column" || chartType === "bar") ? COLORS[i % COLORS.length] : undefined })), color: COLORS[0] }],
       });
     }
