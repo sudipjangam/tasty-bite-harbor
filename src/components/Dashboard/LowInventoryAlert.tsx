@@ -65,26 +65,27 @@ const LowInventoryAlert = () => {
 
       if (lotsError) throw lotsError;
 
-      (lotsData || []).forEach((lot) => {
+      (lotsData || []).forEach((lot: any) => {
         if (!lot.expiry_date) return;
         const expDate = new Date(lot.expiry_date);
+        const inv = Array.isArray(lot.inventory_items) ? lot.inventory_items[0] : lot.inventory_items;
 
         if (isPast(expDate)) {
           alerts.push({
             id: `exp_${lot.id}`,
-            name: lot.inventory_items?.name || "Unknown",
+            name: inv?.name || "Unknown",
             type: "expired",
             quantity: lot.quantity_remaining,
-            unit: lot.inventory_items?.unit || "",
+            unit: inv?.unit || "",
             details: `Expired: ${format(expDate, "MMM dd, yyyy")}`,
           });
         } else if (differenceInDays(expDate, new Date()) <= 7) {
           alerts.push({
             id: `exp_${lot.id}`,
-            name: lot.inventory_items?.name || "Unknown",
+            name: inv?.name || "Unknown",
             type: "expiring",
             quantity: lot.quantity_remaining,
-            unit: lot.inventory_items?.unit || "",
+            unit: inv?.unit || "",
             details: `Expiring: ${format(expDate, "MMM dd")}`,
           });
         }
