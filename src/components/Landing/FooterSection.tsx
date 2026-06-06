@@ -196,6 +196,8 @@ export const FooterSection: React.FC = () => {
               <Link to="/privacy" className="hover:text-[#FF6B6B] transition-colors">Privacy Policy</Link>
               <Link to="/terms" className="hover:text-[#FF6B6B] transition-colors">Terms of Service</Link>
               <Link to="/refund" className="hover:text-[#FF6B6B] transition-colors">Refund Policy</Link>
+              <Link to="/return" className="hover:text-[#FF6B6B] transition-colors">Return Policy</Link>
+              <Link to="/shipping" className="hover:text-[#FF6B6B] transition-colors">Shipping Policy</Link>
             </div>
 
             {/* Made in India badge */}
