@@ -228,20 +228,49 @@ export const useWhatsAppTemplates = () => {
       try {
         await updateTemplate(id, { status: "meta_pending" } as any);
 
-        const { data, error } = await supabase.functions.invoke(
-          "create-msg91-template",
-          {
-            body: {
-              templateName: template.name,
-              language: template.language,
-              category: template.category,
-              bodyText: template.body,
-              headerText: template.header_text,
-              footerText: template.footer_text,
-              variables: template.variables,
-              buttons: template.buttons,
-            },
+        const { data: configData } = await supabase
+          .from("platform_config" as any)
+          .select("value")
+          .eq("key", "whatsapp")
+          .maybeSingle();
+        const provider = configData?.value?.provider || "msg91";
+
+        let funcName = "create-msg91-template";
+        let funcOptions: any = {
+          body: {
+            templateName: template.name,
+            language: template.language,
+            category: template.category,
+            bodyText: template.body,
+            headerText: template.header_text,
+            footerText: template.footer_text,
+            variables: template.variables,
+            buttons: template.buttons,
           },
+        };
+
+        if (provider === "meta_cloud") {
+          funcName = "meta-whatsapp-templates";
+          const components = [
+            { type: "BODY", text: template.body }
+          ];
+          if (template.header_text) components.push({ type: "HEADER", format: "TEXT", text: template.header_text } as any);
+          if (template.footer_text) components.push({ type: "FOOTER", text: template.footer_text } as any);
+          
+          funcOptions = {
+            method: "POST",
+            body: {
+              name: template.name,
+              language: template.language,
+              category: template.category || "MARKETING",
+              components
+            }
+          };
+        }
+
+        const { data, error } = await supabase.functions.invoke(
+          funcName,
+          funcOptions
         );
 
         if (error) throw error;
