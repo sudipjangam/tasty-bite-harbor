@@ -49,7 +49,7 @@ export const useActiveKitchenOrders = (
       let query = supabase
         .from("kitchen_orders")
         .select(
-          "id, source, items, status, priority, created_at, order_id, item_completion_status, order_type",
+          "id, source, items, status, priority, created_at, order_id, item_completion_status, order_type, table_number",
         )
         .eq("restaurant_id", restaurantId)
         .gte("created_at", start)
@@ -82,10 +82,17 @@ export const useActiveKitchenOrders = (
             0,
           );
 
+          let displaySource = order.source || "Unknown";
+          if (displaySource.toLowerCase() === "qr") {
+            displaySource = order.table_number
+              ? `QSR-Table ${order.table_number} (QR)`
+              : "QSR-QR Order";
+          }
+
           return {
             id: order.id,
             orderId: order.order_id,
-            source: order.source || "Unknown",
+            source: displaySource,
             items,
             status: order.status as ActiveKitchenOrder["status"],
             priority: order.priority as ActiveKitchenOrder["priority"],
