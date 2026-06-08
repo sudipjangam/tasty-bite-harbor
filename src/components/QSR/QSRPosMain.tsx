@@ -799,14 +799,14 @@ export const QSRPosMain: React.FC = () => {
 
       // Try to extract and select table for dine-in orders
       if (order.orderType === "dine_in") {
-        const sourceMatch = order.source.match(/table\s+(\w+)/i);
-        if (sourceMatch) {
-          const table = tables.find(
-            (t) => t.name.toLowerCase() === sourceMatch[1].toLowerCase(),
-          );
-          if (table) {
-            setSelectedTable(table);
-          }
+        // Find the table by checking if its name is contained in the source string
+        // Sort by length descending to match longer names first (e.g. "Table 10" before "Table 1")
+        const sortedTables = [...tables].sort((a, b) => b.name.length - a.name.length);
+        const table = sortedTables.find((t) =>
+          order.source.toLowerCase().includes(t.name.toLowerCase())
+        );
+        if (table) {
+          setSelectedTable(table);
         }
       } else {
         // Clear table selection for non-dine-in orders
@@ -852,10 +852,10 @@ export const QSRPosMain: React.FC = () => {
       setRecalledKitchenOrderId(order.id);
 
       // Try to extract table from source
-      const sourceMatch = order.source.match(/table\s+(\w+)/i);
-      if (sourceMatch && orderMode === "dine_in") {
-        const table = tables.find(
-          (t) => t.name.toLowerCase() === sourceMatch[1].toLowerCase(),
+      if (orderMode === "dine_in") {
+        const sortedTables = [...tables].sort((a, b) => b.name.length - a.name.length);
+        const table = sortedTables.find((t) =>
+          order.source.toLowerCase().includes(t.name.toLowerCase())
         );
         if (table) {
           setSelectedTable(table);
