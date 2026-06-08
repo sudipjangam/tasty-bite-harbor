@@ -31,7 +31,7 @@ export const useQSRTables = () => {
       const { data: activeOrders, error: ordersError } = await supabase
         .from("kitchen_orders")
         .select(
-          "id, source, items, status, created_at, updated_at, customer_name, item_completion_status"
+          "id, source, items, status, created_at, updated_at, customer_name, item_completion_status, table_number",
         )
         .eq("restaurant_id", restaurantId)
         .in("status", ["new", "preparing", "ready", "held"]);
@@ -48,6 +48,14 @@ export const useQSRTables = () => {
           const source = order.source?.toLowerCase() || "";
           const customerName = order.customer_name?.toLowerCase() || "";
           const tableName = table.name?.toLowerCase() || "";
+
+          // Check table_number explicitly for QR orders
+          if (
+            order.table_number &&
+            order.table_number.toLowerCase() === tableName
+          ) {
+            return true;
+          }
 
           // Check source field
           const sourceMatch =
@@ -77,11 +85,11 @@ export const useQSRTables = () => {
 
           activeOrderTotal = items.reduce(
             (sum, item) => sum + item.price * item.quantity,
-            0
+            0,
           );
           activeOrderItems = items.reduce(
             (sum, item) => sum + item.quantity,
-            0
+            0,
           );
 
           items.forEach((item, index) => {
@@ -150,7 +158,7 @@ export const useQSRTables = () => {
           queryClient.invalidateQueries({
             queryKey: ["qsr-tables", restaurantId],
           });
-        }
+        },
       )
       .on(
         "postgres_changes",
@@ -167,7 +175,7 @@ export const useQSRTables = () => {
           });
           // Also trigger an immediate refetch for faster UI update
           refetch();
-        }
+        },
       )
       .on(
         "postgres_changes",
@@ -183,7 +191,7 @@ export const useQSRTables = () => {
             queryKey: ["qsr-tables", restaurantId],
           });
           refetch();
-        }
+        },
       )
       .subscribe();
 
@@ -195,7 +203,7 @@ export const useQSRTables = () => {
   // Update table status
   const updateTableStatus = async (
     tableId: string,
-    status: "available" | "occupied" | "reserved"
+    status: "available" | "occupied" | "reserved",
   ) => {
     const { error } = await supabase
       .from("restaurant_tables")
