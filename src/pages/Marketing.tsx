@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useMarketingData } from "@/hooks/useMarketingData";
+import { useMarketingData, DateRange } from "@/hooks/useMarketingData";
 import CampaignsList from "@/components/Marketing/CampaignsList";
 import CreateCampaignDialog from "@/components/Marketing/CreateCampaignDialog";
 import CustomerSegments from "@/components/Marketing/CustomerSegments";
@@ -8,7 +8,7 @@ import MarketingAnalytics from "@/components/Marketing/MarketingAnalytics";
 import WhatsAppCampaigns from "@/components/Marketing/WhatsAppCampaigns";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
-import { Target, Users, MessageSquare, TrendingUp, Coins, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 const statCards = [
   {
@@ -70,9 +70,10 @@ const tabs = [
 
 const Marketing = () => {
   const { user } = useAuth();
-  const { campaigns, customers, analytics, isLoading } = useMarketingData();
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
   const [activeTab, setActiveTab] = useState("campaigns");
+  const [dateRange, setDateRange] = useState<DateRange>('30d');
+  const { campaigns, customers, analytics, isLoading } = useMarketingData(dateRange);
   const { symbol: currencySymbol } = useCurrencyContext();
 
   const activeCampaigns = campaigns.filter((c) => {
@@ -197,7 +198,13 @@ const Marketing = () => {
 
         {activeTab === "whatsapp" && <WhatsAppCampaigns />}
         {activeTab === "segments" && <CustomerSegments customers={customers} />}
-        {activeTab === "analytics" && <MarketingAnalytics analytics={analytics} />}
+        {activeTab === "analytics" && (
+          <MarketingAnalytics
+            analytics={analytics}
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+          />
+        )}
       </div>
 
       <CreateCampaignDialog open={openCreateDialog} onOpenChange={setOpenCreateDialog} />
