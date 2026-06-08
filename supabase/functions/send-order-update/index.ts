@@ -97,6 +97,9 @@ serve(async (req) => {
           amount: variables.amount,
           contactNumber: restaurantPhone,
           variables: variables,
+          buttons: [
+            { type: "url", value: `https://swadeshisolutions.co.in/order-status/${record.id}` }
+          ]
         }),
       }
     );
