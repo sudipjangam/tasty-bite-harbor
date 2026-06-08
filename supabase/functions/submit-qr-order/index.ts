@@ -80,10 +80,10 @@ serve(async (req) => {
     if (entityType === 'table') {
       const { data: table } = await supabaseClient
         .from('restaurant_tables')
-        .select('table_number')
+        .select('name')
         .eq('id', entityId)
         .single();
-      entityName = table?.table_number || 'Unknown Table';
+      entityName = table?.name || 'Unknown Table';
     } else {
       const { data: room } = await supabaseClient
         .from('rooms')
