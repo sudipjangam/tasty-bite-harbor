@@ -65,6 +65,8 @@ const WhatsAppCampaigns: React.FC = () => {
     "invoice_with_contact",
   );
   const [showConfirm, setShowConfirm] = useState(false);
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<string>("all");
 
   // Get target customers
   const targetCustomers = useMemo(() => {
@@ -77,8 +79,11 @@ const WhatsAppCampaigns: React.FC = () => {
     [targetCustomers],
   );
 
-  // Estimated cost (Utility template: ~₹0.12/msg)
-  const estimatedCost = customersWithPhone.length * 0.12;
+  // Calculate cost based on template category (UTILITY: ₹0.12, MARKETING: ₹0.90)
+  const selectedTemplateObj = approvedTemplates.find(t => t.name === selectedTemplate);
+  const isMarketingTemplate = selectedTemplateObj?.category === 'MARKETING';
+  const costPerMsg = isMarketingTemplate ? 0.90 : 0.12;
+  const estimatedCost = customersWithPhone.length * costPerMsg;
 
   const handleTierToggle = (tierId: string) => {
     setSelectAll(false);
@@ -473,13 +478,51 @@ const WhatsAppCampaigns: React.FC = () => {
         </button>
 
         {showHistory && (
-          <div className="mt-4 space-y-2 max-h-96 overflow-y-auto">
+          <div className="mt-4 space-y-3">
+            {/* History filters */}
+            <div className="flex flex-col sm:flex-row gap-2 mb-3">
+              <Input
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                placeholder="Search by name or phone..."
+                className="flex-1 h-9 text-sm"
+              />
+              <div className="flex gap-1">
+                {['all', 'sent', 'delivered', 'failed'].map(status => (
+                  <button
+                    key={status}
+                    onClick={() => setHistoryStatusFilter(status)}
+                    className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                      historyStatusFilter === status
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200'
+                    }`}
+                  >
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="max-h-96 overflow-y-auto space-y-2">
             {sendHistory.length === 0 ? (
               <p className="text-center text-gray-500 py-8">
                 No WhatsApp messages sent yet. Send your first campaign above!
               </p>
             ) : (
-              sendHistory.map((send) => (
+              sendHistory
+                .filter(send => {
+                  if (historyStatusFilter !== 'all' && send.status !== historyStatusFilter) return false;
+                  if (historySearch) {
+                    const q = historySearch.toLowerCase();
+                    return (
+                      (send.customer_name || '').toLowerCase().includes(q) ||
+                      (send.customer_phone || '').toLowerCase().includes(q)
+                    );
+                  }
+                  return true;
+                })
+                .map((send) => (
                 <div
                   key={send.id}
                   className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
@@ -521,17 +564,60 @@ const WhatsAppCampaigns: React.FC = () => {
               ))
             )}
           </div>
+          </div>
         )}
       </StandardizedCard>
     </div>
 
       <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>Send WhatsApp Campaign</AlertDialogTitle>
-            <AlertDialogDescription>
-              Send to {customersWithPhone.length} customer{customersWithPhone.length > 1 ? 's' : ''}?{' '}
-              Estimated cost: {currencySymbol}{estimatedCost.toFixed(2)} · Template: {selectedTemplate}
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span>📤 Recipients: <strong>{customersWithPhone.length}</strong></span>
+                  <span>💰 Cost: <strong>{currencySymbol}{estimatedCost.toFixed(2)}</strong></span>
+                </div>
+                <div className="text-sm">
+                  <span>📝 Template: <strong>{selectedTemplate}</strong></span>
+                  {isMarketingTemplate && (
+                    <span className="ml-2 text-xs text-amber-600">⚠️ Marketing rate (~₹0.90/msg)</span>
+                  )}
+                </div>
+                {discountText && (
+                  <div className="text-sm">
+                    <span>🎁 Offer text: <strong>{discountText}</strong></span>
+                  </div>
+                )}
+
+                {/* Message Preview */}
+                <div className="mt-2">
+                  <p className="text-xs font-semibold text-gray-500 mb-1.5">📱 Sample Preview</p>
+                  <div className="bg-[#E5DDD5] dark:bg-gray-700 rounded-xl p-3">
+                    <div className="bg-white dark:bg-gray-600 rounded-lg p-3 max-w-[85%] shadow-sm">
+                      {selectedTemplateObj ? (
+                        <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                          {selectedTemplateObj.body
+                            .replace(/\{\{customer_name\}\}/g, customersWithPhone[0]?.name || 'Customer')
+                            .replace(/\{\{restaurant_name\}\}/g, restaurant?.name || 'Restaurant')
+                            .replace(/\{\{amount\}\}/g, discountText || '₹500')
+                            .replace(/\{\{discount_code\}\}/g, 'SAVE20')
+                            .replace(/\{\{1\}\}/g, customersWithPhone[0]?.name || 'Customer')
+                            .replace(/\{\{2\}\}/g, restaurant?.name || 'Restaurant')
+                            .replace(/\{\{3\}\}/g, discountText || '₹500')}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-gray-800 dark:text-gray-200">
+                          Hi {customersWithPhone[0]?.name || 'Customer'},
+                          {discountText ? ` ${discountText}` : ' Thank you for being our valued customer.'}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-gray-400 text-right mt-1">✓✓</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
