@@ -72,6 +72,56 @@ serve(async (req) => {
     if (req.method === "POST") {
       // Create template
       const payload = await req.json();
+
+      // Fix language codes — Meta requires specific format (en → en_US, etc.)
+      const LANG_MAP: Record<string, string> = {
+        en: "en_US",
+        hi: "hi",
+        mr: "mr",
+        gu: "gu",
+        ta: "ta",
+        te: "te",
+        kn: "kn",
+        bn: "bn",
+        ml: "ml",
+        pa: "pa",
+        ur: "ur",
+      };
+      if (payload.language && LANG_MAP[payload.language]) {
+        payload.language = LANG_MAP[payload.language];
+      } else if (payload.language && !payload.language.includes("_")) {
+        // Fallback: if 2-letter code without mapping, default to en_US
+        console.warn(`Unknown language code: ${payload.language}, defaulting to en_US`);
+        payload.language = "en_US";
+      }
+
+      // Sanitize HEADER components — Meta TEXT headers cannot have emojis, *, newlines
+      if (payload.components && Array.isArray(payload.components)) {
+        for (const comp of payload.components) {
+          if (comp.type === "HEADER" && comp.format === "TEXT" && comp.text) {
+            // Strip emojis (Unicode emoji ranges)
+            comp.text = comp.text
+              .replace(/[\u{1F600}-\u{1F64F}]/gu, "")  // Emoticons
+              .replace(/[\u{1F300}-\u{1F5FF}]/gu, "")  // Misc Symbols & Pictographs
+              .replace(/[\u{1F680}-\u{1F6FF}]/gu, "")  // Transport & Map
+              .replace(/[\u{1F1E0}-\u{1F1FF}]/gu, "")  // Flags
+              .replace(/[\u{2600}-\u{26FF}]/gu, "")     // Misc symbols
+              .replace(/[\u{2700}-\u{27BF}]/gu, "")     // Dingbats
+              .replace(/[\u{FE00}-\u{FE0F}]/gu, "")     // Variation Selectors
+              .replace(/[\u{1F900}-\u{1F9FF}]/gu, "")   // Supplemental Symbols
+              .replace(/[\u{1FA00}-\u{1FA6F}]/gu, "")   // Chess Symbols
+              .replace(/[\u{1FA70}-\u{1FAFF}]/gu, "")   // Symbols Extended-A
+              .replace(/[\u{200D}]/gu, "")               // Zero Width Joiner
+              .replace(/\*/g, "")                        // Asterisks (bold formatting)
+              .replace(/\n/g, " ")                       // Newlines
+              .replace(/\s{2,}/g, " ")                   // Multiple spaces
+              .trim();
+          }
+        }
+      }
+
+      console.log("Meta Template Payload:", JSON.stringify(payload, null, 2));
+
       const response = await fetch(BASE_URL, {
         method: "POST",
         headers: {
@@ -81,8 +131,13 @@ serve(async (req) => {
         body: JSON.stringify(payload),
       });
       const data = await response.json();
+
+      console.log("Meta Response:", JSON.stringify(data, null, 2));
+
+      // Return with success flag for easier client-side detection
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: response.ok ? 200 : response.status,
       });
     }
 

@@ -59,7 +59,7 @@ Return ONLY a valid JSON object (no markdown fences, no explanation) with this e
 {
   "display_name": "Template Name in English",
   "category": "MARKETING" or "UTILITY",
-  "header_text": "Short header with emoji (max 60 chars)",
+  "header_text": "Short plain text header, NO emojis/asterisks/formatting (max 60 chars)",
   "body": "The full message body with {{variable_name}} placeholders",
   "variables": [
     {"name": "variable_name", "sample": "realistic sample value"}

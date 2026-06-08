@@ -252,25 +252,34 @@ export const useWhatsAppTemplates = () => {
         if (provider === "meta_cloud") {
           funcName = "meta-whatsapp-templates";
 
-          // Build sample values array from variables for Meta's example field
           const vars = (template.variables || []) as VariableMapping[];
-          const sampleValues = vars
-            .sort((a, b) => a.position - b.position)
-            .map(v => v.sample || `sample_${v.name}`);
 
-          // Convert named variables {{name}} to positional {{1}}, {{2}} for Meta API
-          let metaBody = template.body;
-          vars
-            .sort((a, b) => a.position - b.position)
-            .forEach((v, i) => {
-              metaBody = metaBody.replace(`{{${v.name}}}`, `{{${i + 1}}}`);
-            });
+          // Scan body for ACTUALLY used variables ({{name}} patterns)
+          const usedVarRegex = /\{\{(\w+)\}\}/g;
+          const usedVarNames: string[] = [];
+          let match;
+          const bodyText = template.body;
+          while ((match = usedVarRegex.exec(bodyText)) !== null) {
+            if (!usedVarNames.includes(match[1])) {
+              usedVarNames.push(match[1]);
+            }
+          }
+
+          // Convert named variables to positional {{1}}, {{2}} — only for vars actually in body
+          let metaBody = bodyText;
+          const sampleValues: string[] = [];
+          usedVarNames.forEach((varName, i) => {
+            const varInfo = vars.find(v => v.name === varName);
+            sampleValues.push(varInfo?.sample || `sample_${varName}`);
+            // replaceAll to handle variable used multiple times
+            metaBody = metaBody.split(`{{${varName}}}`).join(`{{${i + 1}}}`);
+          });
 
           const bodyComponent: any = {
             type: "BODY",
             text: metaBody,
           };
-          // Attach example sample values if variables exist
+          // Attach example sample values ONLY if variables exist
           if (sampleValues.length > 0) {
             bodyComponent.example = {
               body_text: [sampleValues],
@@ -282,7 +291,6 @@ export const useWhatsAppTemplates = () => {
           if (template.footer_text) components.push({ type: "FOOTER", text: template.footer_text });
           
           funcOptions = {
-            method: "POST",
             body: {
               name: template.name,
               language: template.language,
@@ -299,38 +307,48 @@ export const useWhatsAppTemplates = () => {
 
         if (error) throw error;
 
-        if (data?.success) {
+        // Meta API returns { id, status, category } on success, or { error: {...} } on failure
+        // MSG91 returns { success: true } on success
+        const isMetaSuccess = provider === "meta_cloud"
+          ? (data?.id && !data?.error)
+          : data?.success;
+
+        if (isMetaSuccess) {
           await updateTemplate(id, {
             status: "meta_approved",
             admin_notes: "Approved by admin and submitted to Meta",
-            meta_response: data.data,
+            meta_response: data,
           } as any);
           toast({
             title: "Approved & Submitted ✅",
-            description: "Template approved and submitted to MSG91/Meta.",
+            description: provider === "meta_cloud"
+              ? `Template submitted to Meta (ID: ${data?.id}). Status: ${data?.status || "PENDING"}`
+              : "Template approved and submitted to MSG91.",
           });
         } else {
+          const errorMsg = provider === "meta_cloud"
+            ? JSON.stringify(data?.error?.message || data?.error || "Unknown error")
+            : JSON.stringify(data?.error || "Unknown error");
           await updateTemplate(id, {
             status: "admin_approved",
-            admin_notes: `Approved by admin. MSG91 submission returned: ${JSON.stringify(data?.error || "Unknown error")}`,
+            admin_notes: `Approved by admin. Submission returned: ${errorMsg}`,
             meta_response: data,
           } as any);
           toast({
             title: "Approved ✅",
-            description:
-              "Template approved. MSG91 submission had issues — check details.",
+            description: `Template approved but submission had issues: ${errorMsg}`,
             variant: "destructive",
           });
         }
       } catch (err) {
         await updateTemplate(id, {
           status: "admin_approved",
-          admin_notes: `Approved but MSG91 submission failed: ${err instanceof Error ? err.message : "Unknown"}`,
+          admin_notes: `Approved but submission failed: ${err instanceof Error ? err.message : "Unknown"}`,
         } as any);
         toast({
           title: "Approved ✅",
           description:
-            "Template approved but MSG91 auto-submit failed. Can retry later.",
+            "Template approved but auto-submit failed. Can retry later.",
         });
       }
     } else {
@@ -407,30 +425,53 @@ export const useWhatsAppTemplates = () => {
 export const useAdminTemplateReview = () => {
   const queryClient = useQueryClient();
 
-  const { data: pendingTemplates = [], isLoading } = useQuery({
-    queryKey: ["admin-pending-templates"],
+  const { data: allTemplates = [], isLoading } = useQuery({
+    queryKey: ["admin-all-templates"],
     queryFn: async () => {
+      // Fetch templates with restaurant name only (created_by join breaks when null)
       const { data, error } = await supabase
         .from("whatsapp_templates" as any)
         .select("*, restaurants(name)")
-        .in("status", ["pending_admin", "meta_pending"])
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: false });
       if (error) {
-        console.error("Error fetching pending templates:", error);
+        console.error("Error fetching templates:", error);
         return [];
       }
+
+      // Collect unique creator IDs to batch-fetch names
+      const creatorIds = [...new Set(
+        (data || []).map((t: any) => t.created_by).filter(Boolean)
+      )];
+      
+      let creatorMap: Record<string, string> = {};
+      if (creatorIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles" as any)
+          .select("id, first_name, last_name, email")
+          .in("id", creatorIds);
+        (profiles || []).forEach((p: any) => {
+          const name = [p.first_name, p.last_name].filter(Boolean).join(" ");
+          creatorMap[p.id] = name || p.email || "Unknown";
+        });
+      }
+
       return (data || []).map((t: any) => ({
         ...t,
         restaurant_name: t.restaurants?.name || "Unknown",
+        creator_name: t.created_by ? (creatorMap[t.created_by] || "Unknown") : "System",
         variables: t.variables || [],
         buttons: t.buttons || [],
-      })) as (WhatsAppTemplate & { restaurant_name: string })[];
+      })) as (WhatsAppTemplate & { restaurant_name: string; creator_name: string })[];
     },
   });
 
+  const pendingTemplates = allTemplates.filter(
+    (t) => t.status === "pending_admin" || t.status === "meta_pending"
+  );
+
   const refetch = () => {
-    queryClient.invalidateQueries({ queryKey: ["admin-pending-templates"] });
+    queryClient.invalidateQueries({ queryKey: ["admin-all-templates"] });
   };
 
-  return { pendingTemplates, isLoading, refetch };
+  return { allTemplates, pendingTemplates, isLoading, refetch };
 };
