@@ -122,9 +122,16 @@ const KitchenDisplay = () => {
           )),
     }));
 
+    let displaySource = order.source;
+    if (displaySource && displaySource.toLowerCase() === "qr") {
+      displaySource = order.table_number
+        ? `Table ${order.table_number} (QR)`
+        : "QR Order";
+    }
+
     return {
       id: order.id,
-      source: order.source,
+      source: displaySource,
       status: order.status as KitchenOrder["status"],
       created_at: order.created_at,
       priority: (order.priority as KitchenOrder["priority"]) || "normal",
