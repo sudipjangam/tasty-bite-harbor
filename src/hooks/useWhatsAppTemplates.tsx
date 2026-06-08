@@ -251,11 +251,35 @@ export const useWhatsAppTemplates = () => {
 
         if (provider === "meta_cloud") {
           funcName = "meta-whatsapp-templates";
-          const components = [
-            { type: "BODY", text: template.body }
-          ];
-          if (template.header_text) components.push({ type: "HEADER", format: "TEXT", text: template.header_text } as any);
-          if (template.footer_text) components.push({ type: "FOOTER", text: template.footer_text } as any);
+
+          // Build sample values array from variables for Meta's example field
+          const vars = (template.variables || []) as VariableMapping[];
+          const sampleValues = vars
+            .sort((a, b) => a.position - b.position)
+            .map(v => v.sample || `sample_${v.name}`);
+
+          // Convert named variables {{name}} to positional {{1}}, {{2}} for Meta API
+          let metaBody = template.body;
+          vars
+            .sort((a, b) => a.position - b.position)
+            .forEach((v, i) => {
+              metaBody = metaBody.replace(`{{${v.name}}}`, `{{${i + 1}}}`);
+            });
+
+          const bodyComponent: any = {
+            type: "BODY",
+            text: metaBody,
+          };
+          // Attach example sample values if variables exist
+          if (sampleValues.length > 0) {
+            bodyComponent.example = {
+              body_text: [sampleValues],
+            };
+          }
+
+          const components: any[] = [bodyComponent];
+          if (template.header_text) components.push({ type: "HEADER", format: "TEXT", text: template.header_text });
+          if (template.footer_text) components.push({ type: "FOOTER", text: template.footer_text });
           
           funcOptions = {
             method: "POST",
