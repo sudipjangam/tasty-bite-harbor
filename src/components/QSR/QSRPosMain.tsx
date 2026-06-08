@@ -989,10 +989,6 @@ export const QSRPosMain: React.FC = () => {
             discount_amount: isNC ? orderTotal : 0, // Original value for NC orders
             discount_percentage: isNC ? 100 : 0,
             attendant: attendantName,
-            table_number:
-              currentMode === "dine_in" && currentTable
-                ? currentTable.name
-                : null,
           })
           .select()
           .single();
