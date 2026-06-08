@@ -12,18 +12,17 @@ export const OrderTracker = ({ orderId }: OrderTrackerProps) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch initial order status
+    // Fetch initial order status via edge function (bypasses RLS for anonymous users)
     const fetchInitialStatus = async () => {
       try {
-        const { data, error } = await supabase
-          .from("orders")
-          .select("status")
-          .eq("id", orderId)
-          .single();
+        const { data: fnData, error: fnError } = await supabase.functions.invoke(
+          "get-order-status",
+          { body: { orderId } }
+        );
 
-        if (error) throw error;
-        if (data) {
-          setStatus(data.status);
+        if (fnError) throw fnError;
+        if (fnData?.order) {
+          setStatus(fnData.order.status);
         }
       } catch (err) {
         console.error("Error fetching order status:", err);

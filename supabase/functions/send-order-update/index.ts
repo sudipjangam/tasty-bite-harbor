@@ -19,7 +19,6 @@ serve(async (req) => {
 
     const body = await req.json();
     const { record, old_record } = body;
-    console.log(`[order-update] Invoked for order ${record?.id}, status: ${record?.status}, old_status: ${old_record?.status}`);
 
     if (!record || !old_record) {
       return new Response(JSON.stringify({ error: "Missing records" }), {
@@ -30,7 +29,6 @@ serve(async (req) => {
 
     // Only proceed if status changed
     if (record.status === old_record.status) {
-      console.log(`[order-update] Status unchanged (${record.status}), skipping`);
       return new Response(JSON.stringify({ success: true, message: "Status unchanged" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -43,7 +41,6 @@ serve(async (req) => {
 
     // If no phone, we can't send alert
     if (!phone) {
-      console.log(`[order-update] No phone number for order ${orderNum}, skipping`);
       return new Response(JSON.stringify({ success: true, message: "No phone number on order" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -67,7 +64,6 @@ serve(async (req) => {
       .maybeSingle();
 
     if (!subscription?.plan_id) {
-      console.log(`[order-update] Restaurant ${record.restaurant_id} has no active subscription plan`);
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'No active subscription — skipping notification' 
@@ -76,15 +72,14 @@ serve(async (req) => {
 
     const { data: plan } = await supabase
       .from('subscription_plans')
-      .select('allowed_features')
+      .select('components')
       .eq('id', subscription.plan_id)
       .single();
 
-    const allowedFeatures: string[] = plan?.allowed_features || [];
+    const allowedFeatures: string[] = Array.isArray(plan?.components) ? plan.components : [];
     const hasFeature = allowedFeatures.includes('orders.whatsapp_status_updates');
 
     if (!hasFeature) {
-      console.log(`[order-update] Plan ${subscription.plan_id} lacks 'orders.whatsapp_status_updates' feature`);
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'WhatsApp order status updates not enabled for this plan' 

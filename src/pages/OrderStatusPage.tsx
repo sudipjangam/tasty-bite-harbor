@@ -33,30 +33,31 @@ const OrderStatusPage = () => {
       try {
         if (!orderId) throw new Error("Order ID is missing");
 
-        const { data, error: fetchError } = await supabase
-          .from("orders")
-          .select(`
-            id,
-            status,
-            total,
-            restaurant_id,
-            table_number,
-            order_type,
-            created_at,
-            customer_name,
-            restaurants (
-              name,
-              phone
-            )
-          `)
-          .eq("id", orderId)
-          .single();
+        // Use edge function (service role) to bypass RLS for anonymous customers
+        const { data: fnData, error: fnError } = await supabase.functions.invoke(
+          "get-order-status",
+          { body: { orderId } }
+        );
 
-        if (fetchError || !data) {
+        if (fnError || !fnData?.success || !fnData?.order) {
           throw new Error("Order not found or invalid.");
         }
 
-        setOrder(data as unknown as OrderDetails);
+        const o = fnData.order;
+        setOrder({
+          id: o.id,
+          status: o.status,
+          total: o.total,
+          restaurant_id: o.restaurant_id || "",
+          table_number: o.table_number,
+          order_type: o.order_type,
+          created_at: o.created_at,
+          customer_name: o.customer_name,
+          restaurants: {
+            name: o.restaurant_name,
+            phone: o.restaurant_phone,
+          },
+        });
       } catch (err: any) {
         console.error("Error fetching order:", err);
         setError("Unable to find your order. Please check the link.");
