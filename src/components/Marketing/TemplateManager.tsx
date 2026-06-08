@@ -75,6 +75,7 @@ const TemplateManager: React.FC = () => {
     body: "",
     category: "",
   });
+  const [editVariables, setEditVariables] = useState<VariableMapping[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleDelete = async (id: string) => {
@@ -119,6 +120,7 @@ const TemplateManager: React.FC = () => {
       body: template.body,
       category: template.category,
     });
+    setEditVariables((template.variables || []).map((v: VariableMapping) => ({ ...v })));
   };
 
   const startEditing = () => {
@@ -129,6 +131,7 @@ const TemplateManager: React.FC = () => {
       body: viewTemplate.body,
       category: viewTemplate.category,
     });
+    setEditVariables((viewTemplate.variables || []).map((v: VariableMapping) => ({ ...v })));
     setIsEditing(true);
   };
 
@@ -148,6 +151,7 @@ const TemplateManager: React.FC = () => {
         header_text: editForm.header_text || null,
         body: editForm.body,
         category: editForm.category,
+        variables: editVariables,
       } as any);
 
       toast({ title: "Saved ✅", description: "Template updated." });
@@ -506,21 +510,33 @@ const TemplateManager: React.FC = () => {
                 </div>
 
                 {/* Variables */}
-                {viewTemplate.variables &&
-                  viewTemplate.variables.length > 0 && (
+                {((isEditing ? editVariables : viewTemplate.variables) || []).length > 0 && (
                     <div>
-                      <Label>Variables ({viewTemplate.variables.length})</Label>
-                      <div className="mt-1 space-y-1">
-                        {viewTemplate.variables.map(
+                      <Label>Variables ({(isEditing ? editVariables : viewTemplate.variables).length})</Label>
+                      <div className="mt-1 space-y-2">
+                        {(isEditing ? editVariables : viewTemplate.variables).map(
                           (v: VariableMapping, i: number) => (
                             <div
                               key={i}
-                              className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 rounded px-3 py-1.5 text-sm"
+                              className="flex items-center gap-3 bg-blue-50 dark:bg-blue-900/20 rounded px-3 py-2 text-sm"
                             >
-                              <code className="text-blue-600">{`{{${v.name}}}`}</code>
-                              <span className="text-gray-400">
-                                sample: {v.sample}
-                              </span>
+                              <code className="text-blue-600 whitespace-nowrap">{`{{${v.name}}}`}</code>
+                              {isEditing ? (
+                                <Input
+                                  value={v.sample}
+                                  onChange={(e) => {
+                                    const updated = [...editVariables];
+                                    updated[i] = { ...updated[i], sample: e.target.value };
+                                    setEditVariables(updated);
+                                  }}
+                                  placeholder={`Sample for ${v.name}`}
+                                  className="flex-1 h-8 text-sm"
+                                />
+                              ) : (
+                                <span className="text-gray-400 ml-auto">
+                                  sample: {v.sample}
+                                </span>
+                              )}
                             </div>
                           )
                         )}
