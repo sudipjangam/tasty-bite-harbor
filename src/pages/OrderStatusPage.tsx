@@ -39,8 +39,12 @@ const OrderStatusPage = () => {
           { body: { orderId } }
         );
 
-        if (fnError || !fnData?.success || !fnData?.order) {
-          throw new Error("Order not found or invalid.");
+        if (fnError) {
+          throw new Error(`Edge function error: ${fnError.message}`);
+        }
+
+        if (!fnData?.success || !fnData?.order) {
+          throw new Error(fnData?.error || "Order not found or invalid.");
         }
 
         const o = fnData.order;
