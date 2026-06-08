@@ -97,6 +97,7 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
       { key: 'orders.analytics', label: 'Order Analytics', description: 'Advanced order breakdowns' },
       { key: 'orders.third_party_sync', label: 'Third-Party Sync', description: 'Zomato, Swiggy integration' },
       { key: 'orders.nc_orders', label: 'NC Orders', description: 'Non-chargeable order management' },
+      { key: 'orders.whatsapp_status_updates', label: 'WhatsApp Order Status Updates', description: 'Send automated WhatsApp notifications when order status changes (preparing, ready, completed)' },
     ],
   },
 

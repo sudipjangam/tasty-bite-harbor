@@ -54,6 +54,41 @@ serve(async (req) => {
       });
     }
 
+    // --- FEATURE ACCESS CHECK ---
+    // Check if restaurant has WhatsApp order status feature enabled
+    const { data: subscription } = await supabase
+      .from('restaurant_subscriptions')
+      .select('plan_id')
+      .eq('restaurant_id', record.restaurant_id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (!subscription?.plan_id) {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'No active subscription — skipping notification' 
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const { data: plan } = await supabase
+      .from('subscription_plans')
+      .select('allowed_features')
+      .eq('id', subscription.plan_id)
+      .single();
+
+    const allowedFeatures: string[] = plan?.allowed_features || [];
+    const hasFeature = allowedFeatures.includes('orders.whatsapp_status_updates');
+
+    if (!hasFeature) {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'WhatsApp order status updates not enabled for this plan' 
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    // --- END FEATURE ACCESS CHECK ---
+
+
+
     // Get restaurant name for the message template variables
     const { data: restaurant } = await supabase
       .from("restaurants")
