@@ -230,18 +230,19 @@ export const QSRPosMain: React.FC = () => {
       if (mode !== "dine_in") {
         setSelectedTable(null);
       }
-      // Clear cart when switching modes (only if no pending/recalled order)
-      if (
-        orderItems.length > 0 &&
-        !pendingKitchenOrderId &&
-        !recalledKitchenOrderId
-      ) {
+      // Clear cart when switching modes
+      if (orderItems.length > 0) {
         setOrderItems([]);
         setCustomerName(""); // Clear customer name when switching modes
         setNcReason(""); // Clear NC reason when switching modes
+        setRecalledKitchenOrderId(null);
+        setItemCompletionStatus([]);
+        setPendingKitchenOrderId(null);
+        setPendingOrderId(null);
+        setPaymentOrderItems([]);
       }
     },
-    [orderItems.length, pendingKitchenOrderId, recalledKitchenOrderId],
+    [orderItems.length],
   );
 
   // Table selection handler
@@ -764,15 +765,12 @@ export const QSRPosMain: React.FC = () => {
   // Recall order from active orders drawer
   const handleRecallOrder = useCallback(
     (order: ActiveKitchenOrder) => {
-      if (orderItems.length > 0) {
-        toast({
-          variant: "destructive",
-          title: "Clear Current Order",
-          description:
-            "Please clear the current order before recalling another",
-        });
-        return;
-      }
+      // Clear previous order data if any
+      setCustomerName("");
+      setNcReason("");
+      setPendingKitchenOrderId(null);
+      setPendingOrderId(null);
+      setPaymentOrderItems([]);
 
       const mappedItems: QSROrderItem[] = order.items.map((item, idx) => {
         const menuItem = menuItems.find(
@@ -821,7 +819,6 @@ export const QSRPosMain: React.FC = () => {
       });
     },
     [
-      orderItems.length,
       menuItems,
       tables,
       setOrderMode,
