@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCurrencyContext } from '@/contexts/CurrencyContext';
 import EditCampaignDialog from './EditCampaignDialog';
+import { useRestaurantId } from '@/hooks/useRestaurantId';
 
 interface Campaign {
   id: string;
@@ -67,28 +68,64 @@ const CampaignsList: React.FC<CampaignsListProps> = ({ campaigns }) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { symbol: currencySymbol } = useCurrencyContext();
+  const { restaurantId } = useRestaurantId();
   const [editOpen, setEditOpen] = useState(false);
   const [selected, setSelected] = useState<Campaign | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
-  // Fix: Use useQuery instead of useMemo for async data fetch (React rules)
-  const { data: reach = {} } = useQuery({
+  // Track campaign reach: WhatsApp sends + promo code redemptions from orders
+  const { data: reachData = { sends: {}, redemptions: {} } } = useQuery({
     queryKey: ['campaign-reach', campaigns.map(c => c.id).join(',')],
     queryFn: async () => {
-      if (!campaigns.length) return {};
-      const { data } = await supabase
+      if (!campaigns.length) return { sends: {}, redemptions: {} };
+
+      // 1. WhatsApp sends count
+      const { data: sendData } = await supabase
         .from('sent_promotions')
         .select('promotion_campaign_id')
         .in('promotion_campaign_id', campaigns.map(c => c.id));
-      if (!data) return {};
-      const counts: Record<string, number> = {};
-      data.forEach((row: any) => {
+
+      const sends: Record<string, number> = {};
+      (sendData || []).forEach((row: any) => {
         const id = row.promotion_campaign_id;
-        if (id) counts[id] = (counts[id] || 0) + 1;
+        if (id) sends[id] = (sends[id] || 0) + 1;
       });
-      return counts;
+
+      // 2. Promo code redemptions from orders (discount_notes contains the code OR name)
+      const codesMap = campaigns
+        .filter(c => c.promotion_code || c.name)
+        .map(c => ({
+          id: c.id,
+          code: (c.promotion_code || '').toLowerCase(),
+          name: (c.name || '').toLowerCase(),
+        }));
+
+      const redemptions: Record<string, number> = {};
+
+      if (codesMap.length > 0) {
+        // Fetch orders that have discount_notes set
+        const { data: orders } = await supabase
+          .from('orders')
+          .select('discount_notes')
+          .eq('restaurant_id', restaurantId)
+          .not('discount_notes', 'is', null);
+
+        (orders || []).forEach((order: any) => {
+          const notes = (order.discount_notes || '').toLowerCase();
+          codesMap.forEach(({ id, code, name }) => {
+            // Match either the promo code or the campaign name in discount_notes
+            const codeMatch = code && notes.includes(code);
+            const nameMatch = name && name.length >= 3 && notes.includes(name);
+            if (codeMatch || nameMatch) {
+              redemptions[id] = (redemptions[id] || 0) + 1;
+            }
+          });
+        });
+      }
+
+      return { sends, redemptions };
     },
     enabled: campaigns.length > 0,
   });
@@ -233,7 +270,8 @@ const CampaignsList: React.FC<CampaignsListProps> = ({ campaigns }) => {
           {filteredCampaigns.map((campaign) => {
             const derivedStatus = getDerivedStatus(campaign);
             const isActive = campaign.is_active || campaign.status === 'active';
-            const reachCount = reach[campaign.id] || 0;
+            const sendCount = reachData.sends[campaign.id] || 0;
+            const redemptionCount = reachData.redemptions[campaign.id] || 0;
             const sc = statusConfig[derivedStatus] || statusConfig.expired;
 
             // Days remaining for active campaigns
@@ -343,7 +381,11 @@ const CampaignsList: React.FC<CampaignsListProps> = ({ campaigns }) => {
                       {
                         icon: "🎯",
                         label: "Reach",
-                        value: `${reachCount} ${reachCount === 1 ? 'customer' : 'customers'}`,
+                        value: redemptionCount > 0
+                          ? `${redemptionCount} redeemed${sendCount > 0 ? ` · ${sendCount} sent` : ''}`
+                          : sendCount > 0
+                            ? `${sendCount} sent`
+                            : '0 customers',
                       },
                     ].map((meta) => (
                       <div key={meta.label}>

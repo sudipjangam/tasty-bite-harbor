@@ -66,8 +66,6 @@ const CreateCampaignDialog: React.FC<CreateCampaignDialogProps> = ({
         .insert([{
           name: formData.name,
           description: formData.description,
-          campaign_type: formData.campaign_type,
-          target_audience: formData.target_audience,
           discount_percentage: formData.discount_type === 'percentage' ? formData.discount_percentage : 0,
           discount_amount: formData.discount_type === 'fixed' ? formData.discount_amount : 0,
           start_date: formData.start_date,
