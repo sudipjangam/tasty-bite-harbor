@@ -15,6 +15,7 @@ interface OrderDetails {
   order_type?: string;
   created_at: string;
   customer_name?: string;
+  items: any[];
   restaurants: {
     name: string;
     phone: string;
@@ -62,6 +63,7 @@ const OrderStatusPage = () => {
           order_type: o.order_type,
           created_at: o.created_at,
           customer_name: o.customer_name,
+          items: o.items || [],
           restaurants: {
             name: o.restaurant_name,
             phone: o.restaurant_phone,
@@ -80,9 +82,9 @@ const OrderStatusPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-blue-50/30 to-white flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-10 h-10 animate-spin text-purple-600" />
+          <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
           <p className="text-gray-500 font-medium animate-pulse">
             Fetching order details...
           </p>
@@ -93,7 +95,7 @@ const OrderStatusPage = () => {
 
   if (error || !order) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-blue-50/30 to-white flex items-center justify-center p-4">
         <Card className="w-full max-w-md border-red-200 shadow-xl rounded-2xl overflow-hidden">
           <div className="h-2 bg-red-500" />
           <CardContent className="p-8 text-center space-y-6">
@@ -175,6 +177,37 @@ const OrderStatusPage = () => {
                   <span className="font-medium text-gray-700">
                     {order.customer_name}
                   </span>
+                </div>
+              )}
+
+              {/* Order Items List */}
+              {order.items && order.items.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <h4 className="font-semibold text-gray-800 mb-2">Items Ordered</h4>
+                  <ul className="space-y-2">
+                    {order.items.map((item: any, idx: number) => {
+                      // Items can be stored as formatted strings (QR) or objects (POS)
+                      if (typeof item === "string") {
+                        return (
+                          <li key={idx} className="text-sm flex gap-2 text-gray-700">
+                            <span className="text-orange-500 font-medium">•</span>
+                            <span>{item}</span>
+                          </li>
+                        );
+                      }
+                      
+                      // Handle object format
+                      return (
+                        <li key={idx} className="text-sm flex justify-between text-gray-700">
+                          <div className="flex gap-2">
+                            <span className="text-orange-500 font-medium">{item.quantity}x</span>
+                            <span>{item.name || item.menuItemName}</span>
+                          </div>
+                          {item.price && <span className="text-gray-500">₹{item.price * (item.quantity || 1)}</span>}
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
               )}
             </div>

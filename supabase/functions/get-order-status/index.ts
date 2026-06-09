@@ -28,7 +28,7 @@ serve(async (req) => {
     // Fetch order using service role (bypasses RLS)
     const { data: order, error } = await supabase
       .from("orders")
-      .select("id, status, total, restaurant_id, entity_name, order_type, created_at, customer_name")
+      .select("id, status, total, restaurant_id, entity_name, order_type, created_at, customer_name, items")
       .eq("id", orderId)
       .single();
 
@@ -65,6 +65,7 @@ serve(async (req) => {
           order_type: order.order_type,
           created_at: order.created_at,
           customer_name: order.customer_name,
+          items: order.items || [],
           restaurant_name: restaurantName,
           restaurant_phone: restaurantPhone,
         },
