@@ -19,6 +19,7 @@ import {
   Sparkles,
   Zap,
   Megaphone,
+  Tv,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +43,11 @@ const navigationItems = [
     title: "Menu",
     icon: MenuIcon,
     href: "/menu",
+  },
+  {
+    title: "Kitchen TV",
+    icon: Tv,
+    href: "/kitchen-tv",
   },
   {
     title: "Staff",
@@ -130,6 +136,7 @@ export const SimpleSidebarNavigation = () => {
     "/quickserve-pos": "quickserve-pos",
     "/marketing": "marketing",
     "/kitchen": "kitchen",
+    "/kitchen-tv": "kitchen",
     "/recipes": "recipes",
   };
 

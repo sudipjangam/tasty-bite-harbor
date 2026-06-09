@@ -34,6 +34,7 @@ import {
   Building2,
   Ban,
   Store,
+  Tv,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ const hrefToComponentMap: Record<string, string> = {
   "/quickserve-pos": "quickserve",
   "/orders": "orders",
   "/kitchen": "kitchen",
+  "/kitchen-tv": "kitchen",
   "/recipes": "menu", // Recipes fall under menu
   "/menu": "menu",
   "/tables": "tables",
@@ -143,6 +145,13 @@ const navigationGroups: NavigationGroup[] = [
         icon: ChefHat,
         href: "/kitchen",
         description: "Kitchen display system",
+        requiredPermissions: ["kitchen.view"],
+      },
+      {
+        title: "Kitchen TV",
+        icon: Tv,
+        href: "/kitchen-tv",
+        description: "HDMI TV Display Screen",
         requiredPermissions: ["kitchen.view"],
       },
       {

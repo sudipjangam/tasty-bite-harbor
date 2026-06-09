@@ -4884,6 +4884,7 @@ export type Database = {
           currency_id: string | null
           date_format: string | null
           id: string
+          kitchen_pin: string | null
           restaurant_id: string
           settings: Json | null
           time_format: string | null
@@ -4898,6 +4899,7 @@ export type Database = {
           currency_id?: string | null
           date_format?: string | null
           id?: string
+          kitchen_pin?: string | null
           restaurant_id: string
           settings?: Json | null
           time_format?: string | null
@@ -4912,6 +4914,7 @@ export type Database = {
           currency_id?: string | null
           date_format?: string | null
           id?: string
+          kitchen_pin?: string | null
           restaurant_id?: string
           settings?: Json | null
           time_format?: string | null

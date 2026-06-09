@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   LayoutGrid,
   List,
+  Tv,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HelpProvider from "@/components/Help/HelpProvider";
@@ -25,6 +26,7 @@ import {
 import OrderTicket from "./OrderTicket";
 import OrdersColumn from "./OrdersColumn";
 import DateFilter from "./DateFilter";
+import { useKitchenSounds } from "@/hooks/useKitchenSounds";
 import {
   startOfDay,
   endOfDay,
@@ -54,6 +56,9 @@ export interface KitchenOrder {
     quantity: number;
     notes?: string[];
     has_allergy?: boolean;
+    priority?: "first" | "normal" | "last";
+    is_addition?: boolean;
+    parent_order_number?: string | number;
   }[];
   item_completion_status?: boolean[];
 }
@@ -77,7 +82,15 @@ const LATE_ORDER_THRESHOLD = 15;
 
 const KitchenDisplay = () => {
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const {
+    isAudioEnabled,
+    enableAudio,
+    disableAudio,
+    playNewOrder,
+    playModified,
+    playRushOrder,
+    playReadyChime
+  } = useKitchenSounds();
   const [dateFilter, setDateFilter] = useState("today");
   const [stationFilter, setStationFilter] = useState("all");
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -90,19 +103,6 @@ const KitchenDisplay = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Audio ref for notifications
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Initialize audio on mount
-  useEffect(() => {
-    try {
-      audioRef.current = new Audio("/notification.mp3");
-      audioRef.current.volume = 0.5;
-    } catch (error) {
-      console.error("Audio initialization failed:", error);
-    }
-  }, []);
-
   // Transform raw order data to KitchenOrder type
   const transformOrderData = useCallback((order: any): KitchenOrder => {
     const itemsArray = Array.isArray(order.items) ? order.items : [];
@@ -114,6 +114,9 @@ const KitchenDisplay = () => {
       name: typeof item.name === "string" ? item.name : "Unknown Item",
       quantity: typeof item.quantity === "number" ? item.quantity : 1,
       notes: Array.isArray(item.notes) ? item.notes : undefined,
+      priority: item.priority || "normal",
+      is_addition: !!item.is_addition,
+      parent_order_number: item.parent_order_number,
       has_allergy:
         item.has_allergy ||
         (Array.isArray(item.notes) &&
@@ -361,30 +364,23 @@ const KitchenDisplay = () => {
               });
             });
 
-            if (soundEnabled && audioRef.current) {
-              try {
-                audioRef.current.play().catch((err) => {
-                  console.error("Error playing notification sound:", err);
-                });
-                toast({
-                  title:
-                    newOrder.priority === "vip"
-                      ? "🌟 VIP Order!"
-                      : newOrder.priority === "rush"
-                        ? "🔥 RUSH Order!"
-                        : "New Order",
-                  description: `Order from ${newOrder.source}${
-                    newOrder.customer_name ? ` - ${newOrder.customer_name}` : ""
-                  }`,
-                });
-              } catch (e) {
-                console.error("Could not play notification:", e);
-                toast({
-                  title: "New Order",
-                  description: `New order from ${newOrder.source}`,
-                });
-              }
+            if (newOrder.priority === "vip" || newOrder.priority === "rush") {
+              playRushOrder();
+            } else {
+              playNewOrder();
             }
+
+            toast({
+              title:
+                newOrder.priority === "vip"
+                  ? "🌟 VIP Order!"
+                  : newOrder.priority === "rush"
+                    ? "🔥 RUSH Order!"
+                    : "New Order",
+              description: `Order from ${newOrder.source}${
+                newOrder.customer_name ? ` - ${newOrder.customer_name}` : ""
+              }`,
+            });
           } else if (payload.eventType === "UPDATE") {
             const updatedOrderData = payload.new;
 
@@ -415,10 +411,17 @@ const KitchenDisplay = () => {
 
             const updatedOrder = transformOrderData(updatedOrderData);
 
+            let itemsChanged = false;
+
             setOrders((prev) => {
               const existingIndex = prev.findIndex(
                 (order) => order.id === updatedOrder.id,
               );
+
+              if (existingIndex >= 0) {
+                const oldOrder = prev[existingIndex];
+                itemsChanged = JSON.stringify(oldOrder.items) !== JSON.stringify(updatedOrder.items);
+              }
 
               if (nowWithinDateFilter && matchesStationFilter) {
                 if (existingIndex >= 0) {
@@ -450,25 +453,31 @@ const KitchenDisplay = () => {
               }
             });
 
-            // Play notification if order was "refreshed" (status changed to new and now visible)
-            if (
+            // Play notification on item modifications or status refreshes
+            if (itemsChanged) {
+              if (updatedOrder.priority === "vip" || updatedOrder.priority === "rush") {
+                playRushOrder();
+              } else {
+                playModified();
+              }
+              toast({
+                title: "Order Items Modified",
+                description: `Items for ${updatedOrder.source} have been updated`,
+              });
+            } else if (
               updatedOrderData.status === "new" &&
               nowWithinDateFilter &&
-              matchesStationFilter &&
-              soundEnabled &&
-              audioRef.current
+              matchesStationFilter
             ) {
-              try {
-                audioRef.current.play().catch((err) => {
-                  console.error("Error playing notification sound:", err);
-                });
-                toast({
-                  title: "Order Updated",
-                  description: `Order from ${updatedOrder.source} has been updated`,
-                });
-              } catch (e) {
-                console.error("Could not play notification:", e);
+              if (updatedOrder.priority === "vip" || updatedOrder.priority === "rush") {
+                playRushOrder();
+              } else {
+                playNewOrder();
               }
+              toast({
+                title: "Order Updated",
+                description: `Order from ${updatedOrder.source} status is updated`,
+              });
             }
           } else if (payload.eventType === "DELETE") {
             const deletedId = payload.old.id;
@@ -483,13 +492,14 @@ const KitchenDisplay = () => {
     };
   }, [
     restaurantId,
-    soundEnabled,
     toast,
-    // notification removed from dependencies
     dateFilter,
     stationFilter,
     isWithinDateFilter,
     transformOrderData,
+    playNewOrder,
+    playModified,
+    playRushOrder,
   ]);
 
   // Handle status update with time tracking
@@ -838,14 +848,14 @@ const KitchenDisplay = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setSoundEnabled(!soundEnabled)}
+                onClick={() => isAudioEnabled ? disableAudio() : enableAudio()}
                 className={`rounded-xl transition-all duration-300 ${
-                  soundEnabled
+                  isAudioEnabled
                     ? "bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900"
                     : "bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
                 }`}
               >
-                {soundEnabled ? (
+                {isAudioEnabled ? (
                   <Volume2 className="h-5 w-5" />
                 ) : (
                   <VolumeX className="h-5 w-5" />
@@ -884,6 +894,16 @@ const KitchenDisplay = () => {
                 className="rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900 transition-all duration-300"
               >
                 <Maximize2 className="h-5 w-5" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => window.open("/kitchen-tv", "_blank")}
+                className="rounded-xl bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-all duration-300"
+                title="Open Kitchen TV Mode"
+              >
+                <Tv className="h-5 w-5" />
               </Button>
             </div>
           </div>
@@ -976,6 +996,15 @@ const KitchenDisplay = () => {
           >
             {isLoading ? "Loading..." : "Load More Orders"}
           </Button>
+        </div>
+      )}
+      {!isAudioEnabled && (
+        <div 
+          className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-amber-500 text-white font-semibold px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-bounce cursor-pointer hover:bg-amber-600 transition-all border border-amber-400" 
+          onClick={enableAudio}
+        >
+          <VolumeX className="w-5 h-5 animate-pulse" />
+          <span>Click to enable sound alerts for new/modified orders</span>
         </div>
       )}
     </div>

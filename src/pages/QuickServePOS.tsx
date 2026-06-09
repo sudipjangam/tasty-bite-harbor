@@ -248,6 +248,12 @@ const QuickServePOS: React.FC = () => {
     );
   }, []);
 
+  const handleSetItemPriority = useCallback((id: string, priority: 'first' | 'normal' | 'last') => {
+    setOrderItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, priority } : item)),
+    );
+  }, []);
+
   const handleClear = useCallback(() => {
     setOrderItems([]);
     setCustomerName("");
@@ -373,6 +379,7 @@ const QuickServePOS: React.FC = () => {
         price: item.price,
         menuItemId: item.menuItemId,
         notes: item.notes ? [item.notes] : [],
+        priority: item.priority || "normal",
       }));
       const formattedItems = orderItems.map(
         (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
@@ -478,17 +485,32 @@ const QuickServePOS: React.FC = () => {
           }
         });
 
-        const newKitchenItems: { name: string; quantity: number; price: number; menuItemId?: string; notes: string[] }[] = [];
+        const newKitchenItems: { 
+          name: string; 
+          quantity: number; 
+          price: number; 
+          menuItemId?: string; 
+          notes: string[];
+          priority?: string;
+          is_addition?: boolean;
+          parent_order_number?: string | number;
+        }[] = [];
         currentMap.forEach((current, key) => {
           const origQty = originalMap.get(key) || 0;
           const netNew = current.quantity - origQty;
           if (netNew > 0) {
+            const cartItem = orderItems.find(
+              (item) => `${item.name}@@${item.price}@@${item.notes || ""}` === key
+            );
             newKitchenItems.push({
               name: current.name,
               quantity: netNew,
               price: current.price,
               menuItemId: current.menuItemId,
               notes: current.notes ? [current.notes] : [],
+              priority: cartItem?.priority || "normal",
+              is_addition: true,
+              parent_order_number: orderNumber,
             });
           }
         });
@@ -1053,6 +1075,7 @@ const QuickServePOS: React.FC = () => {
             onProceedToPayment={() => setShowPayment(true)}
             onHoldOrder={handleHoldOrder}
             onSendToKitchen={handleSendToKitchen}
+            onSetItemPriority={handleSetItemPriority}
             discountAmount={discountAmount}
             discountPercentage={discountPercentage}
             onDiscountChange={handleDiscountChange}
@@ -1137,6 +1160,7 @@ const QuickServePOS: React.FC = () => {
               }}
               onHoldOrder={handleHoldOrder}
               onSendToKitchen={handleSendToKitchen}
+              onSetItemPriority={handleSetItemPriority}
               discountAmount={discountAmount}
               discountPercentage={discountPercentage}
               onDiscountChange={handleDiscountChange}

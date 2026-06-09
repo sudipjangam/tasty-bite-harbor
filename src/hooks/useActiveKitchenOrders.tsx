@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { ActiveKitchenOrder } from "@/types/qsr";
 import { useToast } from "@/hooks/use-toast";
 import { getDateRange, DateFilter } from "@/utils/dateRangeUtils";
+import { useKitchenSounds } from "@/hooks/useKitchenSounds";
 
 export type { DateFilter } from "@/utils/dateRangeUtils";
 export type StatusFilter = "all" | "new" | "preparing" | "ready" | "held";
@@ -21,6 +22,7 @@ export const useActiveKitchenOrders = (
   const { restaurantId } = useRestaurantId();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { playReadyChime } = useKitchenSounds();
   const [searchQuery, setSearchQuery] = useState(options.searchQuery || "");
   const [dateFilter, setDateFilter] = useState<DateFilter>(
     options.dateFilter || "today",
@@ -132,10 +134,20 @@ export const useActiveKitchenOrders = (
           schema: "public",
           table: "kitchen_orders",
         },
-        () => {
+        (payload: any) => {
           queryClient.invalidateQueries({
             queryKey: ["active-kitchen-orders"],
           });
+
+          if (
+            payload.eventType === "UPDATE" &&
+            payload.new &&
+            payload.old &&
+            payload.new.status === "ready" &&
+            payload.old.status !== "ready"
+          ) {
+            playReadyChime();
+          }
         },
       )
       .subscribe();
@@ -143,7 +155,7 @@ export const useActiveKitchenOrders = (
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [restaurantId, queryClient]);
+  }, [restaurantId, queryClient, playReadyChime]);
 
   // Get order by ID for recall
   const getOrderById = async (

@@ -40,6 +40,7 @@ interface QSROrderPadProps {
   itemCompletionStatus?: boolean[];
   onToggleItemCompletion?: (index: number) => void;
   isRecalledOrder?: boolean;
+  onSetItemPriority?: (id: string, priority: 'first' | 'normal' | 'last') => void;
 }
 
 const modeIcons: Record<
@@ -80,6 +81,7 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
   itemCompletionStatus = [],
   onToggleItemCompletion,
   isRecalledOrder = false,
+  onSetItemPriority,
 }) => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
@@ -243,6 +245,27 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
 
                         {/* Actions */}
                         <div className="flex items-center gap-1">
+                          {onSetItemPriority && (
+                            <button
+                              onClick={() => {
+                                const priorities: ('first' | 'normal' | 'last')[] = ['normal', 'first', 'last'];
+                                const current = item.priority || 'normal';
+                                const nextIndex = (priorities.indexOf(current) + 1) % priorities.length;
+                                onSetItemPriority(item.id, priorities[nextIndex]);
+                              }}
+                              className={cn(
+                                "p-1.5 rounded-lg transition-colors touch-manipulation font-medium text-[10px] h-7 px-1.5 flex items-center justify-center border",
+                                item.priority === 'first'
+                                  ? "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/50 dark:text-rose-300 dark:border-rose-700 font-bold"
+                                  : item.priority === 'last'
+                                    ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700 font-bold"
+                                    : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 border-gray-250 dark:border-gray-650"
+                              )}
+                              title="Set Priority"
+                            >
+                              {item.priority === 'first' ? '🔴 1st' : item.priority === 'last' ? '🔵 Lst' : '⚪ Norm'}
+                            </button>
+                          )}
                           <button
                             onClick={() => {
                               const splitTag = "1/2";

@@ -24,6 +24,7 @@ import {
   Utensils,
   Target,
   FileText,
+  Tv,
 } from "lucide-react";
 
 interface SidebarNavigationProps {
@@ -43,6 +44,7 @@ const SidebarNavigation = ({ allowedComponents = [] }: SidebarNavigationProps) =
     '/orders': 'orders',
     '/qsr-pos': 'qsr-pos',
     '/kitchen': 'kitchen',
+    '/kitchen-tv': 'kitchen',
     '/menu': 'menu',
     '/recipes': 'recipes',
     '/staff': 'staff',
@@ -69,6 +71,7 @@ const SidebarNavigation = ({ allowedComponents = [] }: SidebarNavigationProps) =
     { icon: UtensilsCrossed, label: "POS", path: "/pos" },
     { icon: UtensilsCrossed, label: "Orders", path: "/orders" },
     { icon: ChefHat, label: "Kitchen", path: "/kitchen" },
+    { icon: Tv, label: "Kitchen TV", path: "/kitchen-tv" },
     { icon: BookOpen, label: "Menu", path: "/menu" },
     { icon: Utensils, label: "Recipes & Costing", path: "/recipes" },
     { icon: Users, label: "Staff", path: "/staff" },
