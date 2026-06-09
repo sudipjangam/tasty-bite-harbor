@@ -25,31 +25,32 @@ serve(async (req) => {
       );
     }
 
-    // Fetch order with restaurant info using service role (bypasses RLS)
+    // Fetch order using service role (bypasses RLS)
     const { data: order, error } = await supabase
       .from("orders")
-      .select(`
-        id,
-        status,
-        total,
-        restaurant_id,
-        table_number,
-        order_type,
-        created_at,
-        customer_name,
-        restaurants (
-          name,
-          phone
-        )
-      `)
+      .select("id, status, total, restaurant_id, table_number, order_type, created_at, customer_name")
       .eq("id", orderId)
       .single();
 
     if (error || !order) {
+      console.error("[get-order-status] Order query error:", JSON.stringify(error), "orderId:", orderId);
       return new Response(
-        JSON.stringify({ success: false, error: "Order not found" }),
+        JSON.stringify({ success: false, error: "Order not found", detail: error?.message }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Fetch restaurant info separately
+    let restaurantName = "Restaurant";
+    let restaurantPhone = "";
+    if (order.restaurant_id) {
+      const { data: restaurant } = await supabase
+        .from("restaurants")
+        .select("name, phone")
+        .eq("id", order.restaurant_id)
+        .single();
+      restaurantName = restaurant?.name || "Restaurant";
+      restaurantPhone = restaurant?.phone || "";
     }
 
     // Return only safe, non-sensitive fields
@@ -64,8 +65,8 @@ serve(async (req) => {
           order_type: order.order_type,
           created_at: order.created_at,
           customer_name: order.customer_name,
-          restaurant_name: order.restaurants?.name || "Restaurant",
-          restaurant_phone: order.restaurants?.phone || "",
+          restaurant_name: restaurantName,
+          restaurant_phone: restaurantPhone,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

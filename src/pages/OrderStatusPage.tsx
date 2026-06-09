@@ -22,7 +22,8 @@ interface OrderDetails {
 }
 
 const OrderStatusPage = () => {
-  const { orderId } = useParams<{ orderId: string }>();
+  const params = useParams();
+  const rawOrderId = params["*"] || "";
   const navigate = useNavigate();
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,12 +32,16 @@ const OrderStatusPage = () => {
   useEffect(() => {
     const fetchOrderDetails = async () => {
       try {
-        if (!orderId) throw new Error("Order ID is missing");
+        if (!rawOrderId) throw new Error("Order ID is missing");
+
+        // Extract valid UUID if the URL was malformed (e.g. from older whatsapp templates)
+        const uuidMatch = rawOrderId.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+        const cleanOrderId = uuidMatch ? uuidMatch[0] : rawOrderId;
 
         // Use edge function (service role) to bypass RLS for anonymous customers
         const { data: fnData, error: fnError } = await supabase.functions.invoke(
           "get-order-status",
-          { body: { orderId } }
+          { body: { orderId: cleanOrderId } }
         );
 
         if (fnError) {
@@ -71,7 +76,7 @@ const OrderStatusPage = () => {
     };
 
     fetchOrderDetails();
-  }, [orderId]);
+  }, [rawOrderId]);
 
   if (loading) {
     return (
