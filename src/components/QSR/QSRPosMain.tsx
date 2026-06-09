@@ -413,6 +413,12 @@ export const QSRPosMain: React.FC = () => {
     );
   }, []);
 
+  const handleSetItemPriority = useCallback((id: string, priority: 'first' | 'normal' | 'last') => {
+    setOrderItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, priority } : item)),
+    );
+  }, []);
+
   const handleClearOrder = useCallback(() => {
     setOrderItems([]);
     setRecalledKitchenOrderId(null);
@@ -505,6 +511,7 @@ export const QSRPosMain: React.FC = () => {
         price: item.price,
         menuItemId: item.menuItemId,
         notes: item.notes ? [item.notes] : [],
+        priority: item.priority || "normal",
       }));
 
       if (recalledKitchenOrderId) {
@@ -1294,6 +1301,7 @@ export const QSRPosMain: React.FC = () => {
             isRecalledOrder={
               !!(recalledKitchenOrderId || pendingKitchenOrderId)
             }
+            onSetItemPriority={handleSetItemPriority}
           />
         </div>
 
@@ -1366,6 +1374,7 @@ export const QSRPosMain: React.FC = () => {
         onNcReasonChange={setNcReason}
         customerName={customerName}
         onCustomerNameChange={setCustomerName}
+        onSetItemPriority={handleSetItemPriority}
       />
 
       {/* Active Orders Drawer */}

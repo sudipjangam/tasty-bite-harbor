@@ -17,6 +17,7 @@ export interface QSROrderItem {
   calculatedPrice?: number;
   pricingType?: 'fixed' | 'weight' | 'volume' | 'unit';
   baseUnitQuantity?: number;
+  priority?: 'first' | 'normal' | 'last';
 }
 
 // Table with order status for QSR

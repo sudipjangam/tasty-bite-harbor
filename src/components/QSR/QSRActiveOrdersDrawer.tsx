@@ -14,8 +14,10 @@ import {
   Star,
   Zap,
   CheckCircle2,
+  Volume2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useKitchenSounds } from "@/hooks/useKitchenSounds";
 import { ActiveKitchenOrder } from "@/types/qsr";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { Input } from "@/components/ui/input";
@@ -113,6 +115,7 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
   const { toast } = useToast();
   const { user } = useAuth();
   const { symbol: currencySymbol } = useCurrencyContext();
+  const { isAudioEnabled: soundEnabled, enableAudio, disableAudio } = useKitchenSounds();
 
   // Maximum items to show before "Show more"
   const MAX_VISIBLE_ITEMS = 3;
@@ -231,12 +234,26 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
             <h2 className="text-lg font-bold text-white">
               Active Kitchen Orders
             </h2>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5 text-white" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => soundEnabled ? disableAudio() : enableAudio()}
+                className={cn(
+                  "p-2 rounded-lg transition-colors",
+                  soundEnabled
+                    ? "bg-white/20 text-white"
+                    : "bg-white/10 text-white/40",
+                )}
+                title={soundEnabled ? "Sound ON" : "Sound OFF"}
+              >
+                <Volume2 className="w-4 h-4 text-white" />
+              </button>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
           </div>
         </div>
 

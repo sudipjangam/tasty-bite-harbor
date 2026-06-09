@@ -194,6 +194,11 @@ const OrderTicket = ({
                   LATE
                 </Badge>
               )}
+              {order.items.some((item: any) => item.is_addition) && (
+                <Badge className="bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold border border-amber-600 shadow-md">
+                  📎 MODIFIED
+                </Badge>
+              )}
               <div
                 className={`px-3 py-1 rounded-full text-sm font-semibold ${styles.statusBadge} shadow-lg`}
               >
@@ -346,84 +351,113 @@ const OrderTicket = ({
         {/* Order Items - only show if expanded (or not in compact mode) */}
         {(!isCompact || isExpanded) && (
           <div className="space-y-3">
-            {order.items.map((item, index) => {
-              const isCompleted = completedItems.has(index);
-              const hasAllergy =
-                item.has_allergy ||
-                (item.notes &&
-                  item.notes.some((note) =>
-                    /allerg|gluten|dairy|nut|vegan|vegetarian/i.test(note),
-                  ));
+            {(() => {
+              const itemsWithIndex = order.items.map((item, originalIndex) => ({ item, originalIndex }));
+              const sortedItems = [...itemsWithIndex].sort((a, b) => {
+                const aPriority = a.item.priority || "normal";
+                const bPriority = b.item.priority || "normal";
+                const priorityMap = { first: 0, normal: 1, last: 2 };
+                return (priorityMap[aPriority] ?? 1) - (priorityMap[bPriority] ?? 1);
+              });
 
-              return (
-                <div
-                  key={index}
-                  className={`flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all duration-200 ${
-                    isCompleted
-                      ? "bg-green-50 dark:bg-green-900/30 border-2 border-green-200 dark:border-green-700"
-                      : hasAllergy
-                        ? "bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 border-2 border-red-300 dark:border-red-700"
-                        : "bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 border-2 border-transparent hover:border-gray-200 dark:hover:border-gray-600"
-                  }`}
-                  onClick={() => toggleItemComplete(index)}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div
-                      className={`font-semibold text-lg ${
-                        isCompleted
-                          ? "line-through text-gray-500 dark:text-gray-400"
-                          : "text-gray-800 dark:text-gray-100"
-                      }`}
-                    >
-                      <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent font-bold mr-2">
-                        {item.quantity}x
-                      </span>
-                      {item.name}
-                      {hasAllergy && !isCompleted && (
-                        <span className="ml-2 text-red-500">⚠️</span>
+              return sortedItems.map(({ item, originalIndex }) => {
+                const isCompleted = completedItems.has(originalIndex);
+                const hasAllergy =
+                  item.has_allergy ||
+                  (item.notes &&
+                    item.notes.some((note) =>
+                      /allerg|gluten|dairy|nut|vegan|vegetarian/i.test(note),
+                    ));
+
+                return (
+                  <div
+                    key={originalIndex}
+                    className={`flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all duration-200 ${
+                      isCompleted
+                        ? "bg-green-50 dark:bg-green-900/30 border-2 border-green-200 dark:border-green-700"
+                        : hasAllergy
+                          ? "bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 border-2 border-red-300 dark:border-red-700"
+                          : item.priority === "first"
+                            ? "bg-rose-50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-950/30 border-2 border-rose-200 dark:border-rose-800"
+                            : item.priority === "last"
+                              ? "bg-blue-50 dark:bg-blue-950/20 hover:bg-blue-100 dark:hover:bg-blue-950/30 border-2 border-blue-200 dark:border-blue-800"
+                              : "bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 border-2 border-transparent hover:border-gray-200 dark:hover:border-gray-600"
+                    }`}
+                    onClick={() => toggleItemComplete(originalIndex)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div
+                        className={`font-semibold text-lg flex flex-wrap items-center gap-1.5 ${
+                          isCompleted
+                            ? "line-through text-gray-500 dark:text-gray-400"
+                            : "text-gray-800 dark:text-gray-100"
+                        }`}
+                      >
+                        <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent font-bold mr-1">
+                          {item.quantity}x
+                        </span>
+                        <span>{item.name}</span>
+                        {hasAllergy && !isCompleted && (
+                          <span className="text-red-500">⚠️</span>
+                        )}
+                        {!isCompleted && item.priority === "first" && (
+                          <Badge className="bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs uppercase px-2 py-0.5 shadow-sm">
+                            🔴 First
+                          </Badge>
+                        )}
+                        {!isCompleted && item.priority === "last" && (
+                          <Badge className="bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs uppercase px-2 py-0.5 shadow-sm">
+                            🔵 Last
+                          </Badge>
+                        )}
+                        {item.is_addition && (
+                          <Badge className="bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-xs font-semibold px-2 py-0.5">
+                            📎 Addition {item.parent_order_number ? `#${item.parent_order_number}` : ""}
+                          </Badge>
+                        )}
+                      </div>
+                      {item.notes && item.notes.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {item.notes.map((note, noteIndex) => {
+                            const isAllergyNote =
+                              /allerg|gluten|dairy|nut|vegan|vegetarian/i.test(
+                                note,
+                              );
+                            return (
+                              <div
+                                key={noteIndex}
+                                className={`text-sm p-2 rounded-lg ${
+                                  isCompleted
+                                    ? "text-gray-400 dark:text-gray-500 bg-green-100 dark:bg-green-900/50"
+                                    : isAllergyNote
+                                      ? "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-600 font-semibold"
+                                      : "text-gray-600 dark:text-gray-300 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700"
+                                }`}
+                              >
+                                <span className="font-medium">
+                                  {isAllergyNote ? "⚠️ ALLERGY:" : "Note:"}
+                                </span>{" "}
+                                {note}
+                              </div>
+                            );
+                          })}
+                        </div>
                       )}
                     </div>
-                    {item.notes && item.notes.length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        {item.notes.map((note, noteIndex) => {
-                          const isAllergyNote =
-                            /allerg|gluten|dairy|nut|vegan|vegetarian/i.test(
-                              note,
-                            );
-                          return (
-                            <div
-                              key={noteIndex}
-                              className={`text-sm p-2 rounded-lg ${
-                                isCompleted
-                                  ? "text-gray-400 dark:text-gray-500 bg-green-100 dark:bg-green-900/50"
-                                  : isAllergyNote
-                                    ? "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-600 font-semibold"
-                                    : "text-gray-600 dark:text-gray-300 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700"
-                              }`}
-                            >
-                              <span className="font-medium">
-                                {isAllergyNote ? "⚠️ ALLERGY:" : "Note:"}
-                              </span>{" "}
-                              {note}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
 
-                  <div
-                    className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${
-                      isCompleted
-                        ? "bg-green-500 text-white shadow-lg"
-                        : "bg-white dark:bg-gray-600 border-2 border-gray-300 dark:border-gray-500 text-gray-400 dark:text-gray-300 hover:border-green-400 dark:hover:border-green-500"
-                    }`}
-                  >
-                    {isCompleted && <Check className="w-5 h-5" />}
+                    <div
+                      className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${
+                        isCompleted
+                          ? "bg-green-500 text-white shadow-lg"
+                          : "bg-white dark:bg-gray-600 border-2 border-gray-300 dark:border-gray-500 text-gray-400 dark:text-gray-300 hover:border-green-400 dark:hover:border-green-500"
+                      }`}
+                    >
+                      {isCompleted && <Check className="w-5 h-5" />}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
         )}
       </div>

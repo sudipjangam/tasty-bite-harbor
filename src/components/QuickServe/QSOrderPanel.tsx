@@ -37,6 +37,7 @@ export interface QSOrderItem {
   quantity: number;
   isCustom?: boolean;
   notes?: string;
+  priority?: 'first' | 'normal' | 'last';
 }
 
 interface QSOrderPanelProps {
@@ -69,6 +70,7 @@ interface QSOrderPanelProps {
   // Edit mode
   editingOrderItems?: QSOrderItem[];
   onCancelEdit?: () => void;
+  onSetItemPriority?: (id: string, priority: 'first' | 'normal' | 'last') => void;
 }
 
 export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
@@ -99,6 +101,7 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
   availableCoupons = [],
   editingOrderItems = [],
   onCancelEdit,
+  onSetItemPriority,
 }) => {
   const { symbol: currencySymbol } = useCurrencyContext();
   const [discountMode, setDiscountMode] = useState<"flat" | "percent">("flat");
@@ -287,6 +290,28 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
                 >
                   <Plus className="h-3 w-3" />
                 </button>
+                {/* Priority Toggle Button */}
+                {onSetItemPriority && (
+                  <button
+                    onClick={() => {
+                      const priorities: ('first' | 'normal' | 'last')[] = ['normal', 'first', 'last'];
+                      const current = item.priority || 'normal';
+                      const nextIndex = (priorities.indexOf(current) + 1) % priorities.length;
+                      onSetItemPriority(item.id, priorities[nextIndex]);
+                    }}
+                    className={cn(
+                      "w-12 h-7 rounded-xl text-[9px] font-bold flex items-center justify-center border transition-all active:scale-90",
+                      item.priority === 'first'
+                        ? "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/55 dark:text-rose-300 dark:border-rose-800"
+                        : item.priority === 'last'
+                          ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/55 dark:text-blue-300 dark:border-blue-800"
+                          : "bg-gray-100 dark:bg-white/10 text-gray-500 border-transparent"
+                    )}
+                    title="Set Priority"
+                  >
+                    {item.priority === 'first' ? '1st 🔴' : item.priority === 'last' ? 'Lst 🔵' : 'Norm ⚪'}
+                  </button>
+                )}
                 {/* Note Edit Button */}
                 {onAddNote && (
                   <button

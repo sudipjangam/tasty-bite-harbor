@@ -23,6 +23,7 @@ import { PageLoader } from "@/components/ui/page-loader";
 // Public invoice viewer (accessible without login)
 const InvoicePage = lazy(() => import("@/pages/InvoicePage"));
 const OrderStatusPage = lazy(() => import("@/pages/OrderStatusPage"));
+const KitchenTV = lazy(() => import("@/pages/KitchenTV"));
 
 // Standalone subscription page (outside dashboard layout — no sidebar)
 const SubscriptionPage = lazy(
@@ -61,6 +62,7 @@ const Routes = () => {
         <Route path="/reset-password" element={<Auth />} />
         <Route path="/invoice/*" element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
         <Route path="/order-status/*" element={<Suspense fallback={<PageLoader />}><OrderStatusPage /></Suspense>} />
+        <Route path="/kitchen-tv" element={<Suspense fallback={<PageLoader />}><KitchenTV /></Suspense>} />
         <Route path="*" element={<LandingWebsite />} />
       </RouterRoutes>
     );
@@ -85,6 +87,7 @@ const Routes = () => {
       <Route path="/blog/zomato-swiggy-integration" element={<BlogZomatoSwiggyIntegration />} />
       <Route path="/invoice/*" element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
       <Route path="/order-status/*" element={<Suspense fallback={<PageLoader />}><OrderStatusPage /></Suspense>} />
+      <Route path="/kitchen-tv" element={<Suspense fallback={<PageLoader />}><KitchenTV /></Suspense>} />
 
       {/* Standalone subscription page — NO sidebar, NO subscription gate */}
       <Route

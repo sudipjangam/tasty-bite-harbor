@@ -13,6 +13,7 @@ import {
   Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useKitchenSounds } from "@/hooks/useKitchenSounds";
 import { sanitizeOrderItemDisplay } from "@/lib/order-utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
@@ -103,7 +104,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const { isAudioEnabled: soundEnabled, enableAudio, disableAudio, playReadyChime } = useKitchenSounds();
   const readyAudioRef = useRef<HTMLAudioElement | null>(null);
   const { restaurantId } = useRestaurantId();
   const { symbol: currencySymbol } = useCurrencyContext();
@@ -178,7 +179,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
           schema: "public",
           table: "orders",
         },
-        () => {
+        (payload: any) => {
           queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
           queryClient.invalidateQueries({
             queryKey: ["quickserve-todays-count"],
@@ -186,6 +187,16 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
           queryClient.invalidateQueries({
             queryKey: ["quickserve-todays-revenue"],
           });
+
+          if (
+            payload.eventType === "UPDATE" &&
+            payload.new &&
+            payload.old &&
+            payload.new.status === "ready" &&
+            payload.old.status !== "ready"
+          ) {
+            playReadyChime();
+          }
         },
       )
       .subscribe();
@@ -193,7 +204,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [restaurantId, isOpen, queryClient]);
+  }, [restaurantId, isOpen, queryClient, playReadyChime]);
 
   // Toggle item completion
   const toggleItemMutation = useMutation({
@@ -249,7 +260,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
       });
 
       if (result.allDone && soundEnabled) {
-        playReadySound();
+        playReadyChime();
       }
     },
   });
@@ -321,27 +332,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
     [changeStatusMutation, toast],
   );
 
-  // Play notification sound
-  const playReadySound = () => {
-    try {
-      const ctx = new (
-        window.AudioContext || (window as any).webkitAudioContext
-      )();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.setValueAtTime(1175, ctx.currentTime + 0.1);
-      osc.frequency.setValueAtTime(1320, ctx.currentTime + 0.2);
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.5);
-    } catch (e) {
-      console.warn("Sound not available:", e);
-    }
-  };
+
 
   if (!isOpen) return null;
 
@@ -369,7 +360,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setSoundEnabled(!soundEnabled)}
+                onClick={() => soundEnabled ? disableAudio() : enableAudio()}
                 className={cn(
                   "p-2 rounded-lg transition-colors",
                   soundEnabled
