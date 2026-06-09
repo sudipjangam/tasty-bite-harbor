@@ -118,12 +118,12 @@ const OrderStatusPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-blue-50/30 to-white py-8 px-4">
       <div className="max-w-md mx-auto space-y-6">
         
         {/* Header section */}
         <div className="text-center space-y-2 mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white shadow-md text-purple-600 mb-2">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white shadow-md text-orange-500 mb-2">
             <Utensils className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">
@@ -140,7 +140,7 @@ const OrderStatusPage = () => {
         </div>
 
         {/* Order Details Summary */}
-        <Card className="border border-purple-100/50 bg-white/70 backdrop-blur-md shadow-lg rounded-2xl overflow-hidden mt-6 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
+        <Card className="border border-orange-100/50 bg-white/70 backdrop-blur-md shadow-lg rounded-2xl overflow-hidden mt-6 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
           <CardContent className="p-5">
             <h3 className="font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">
               Order Information
@@ -186,7 +186,7 @@ const OrderStatusPage = () => {
           <div className="text-center mt-8 animate-in fade-in duration-700 delay-200">
             <p className="text-sm text-gray-500 mb-3">Need help with your order?</p>
             <a href={`tel:${order.restaurants.phone}`}>
-              <Button variant="outline" className="rounded-xl border-purple-200 text-purple-700 hover:bg-purple-50">
+              <Button variant="outline" className="rounded-xl border-orange-200 text-orange-700 hover:bg-orange-50 transition-colors">
                 Call Restaurant
               </Button>
             </a>

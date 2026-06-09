@@ -59,7 +59,7 @@ export const OrderTracker = ({ orderId }: OrderTrackerProps) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-6">
-        <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+        <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
         <span className="ml-2 text-sm text-gray-500">Connecting to kitchen...</span>
       </div>
     );
@@ -110,12 +110,12 @@ export const OrderTracker = ({ orderId }: OrderTrackerProps) => {
   }
 
   return (
-    <Card className="border border-purple-100/50 bg-white/70 backdrop-blur-md shadow-xl rounded-2xl overflow-hidden">
+    <Card className="border border-orange-100/50 bg-white/70 backdrop-blur-md shadow-xl rounded-2xl overflow-hidden">
       <CardContent className="p-6 space-y-6">
         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
           <h4 className="font-bold text-gray-800">Live Kitchen Tracker</h4>
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-700 animate-pulse">
-            <span className="w-2 h-2 rounded-full bg-purple-600" />
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 animate-pulse">
+            <span className="w-2 h-2 rounded-full bg-orange-600" />
             Live Updates
           </div>
         </div>
@@ -133,9 +133,9 @@ export const OrderTracker = ({ orderId }: OrderTrackerProps) => {
                 <div
                   className={`absolute -left-[33px] w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
                     isCompleted
-                      ? "bg-gradient-to-br from-purple-600 to-pink-500 border-transparent text-white shadow-md shadow-purple-200"
+                      ? "bg-gradient-to-br from-orange-500 to-blue-600 border-transparent text-white shadow-md shadow-orange-200"
                       : "bg-white border-gray-200 text-gray-400"
-                  } ${isCurrent ? "scale-110 ring-4 ring-purple-100" : ""}`}
+                  } ${isCurrent ? "scale-110 ring-4 ring-orange-100" : ""}`}
                 >
                   {isCompleted && idx < currentStep ? (
                     <span className="text-xs font-bold">✓</span>
@@ -148,7 +148,7 @@ export const OrderTracker = ({ orderId }: OrderTrackerProps) => {
                 <div className="flex-1 space-y-1">
                   <h5
                     className={`font-bold text-sm transition-colors duration-300 ${
-                      isCompleted ? "text-purple-900" : "text-gray-400"
+                      isCompleted ? "text-orange-900" : "text-gray-400"
                     }`}
                   >
                     {step.label}
