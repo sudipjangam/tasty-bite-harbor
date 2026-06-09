@@ -60,7 +60,7 @@ const Routes = () => {
         <Route path="/blog/zomato-swiggy-integration" element={<BlogZomatoSwiggyIntegration />} />
         <Route path="/reset-password" element={<Auth />} />
         <Route path="/invoice/*" element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
-        <Route path="/order-status/:orderId" element={<Suspense fallback={<PageLoader />}><OrderStatusPage /></Suspense>} />
+        <Route path="/order-status/*" element={<Suspense fallback={<PageLoader />}><OrderStatusPage /></Suspense>} />
         <Route path="*" element={<LandingWebsite />} />
       </RouterRoutes>
     );
@@ -84,7 +84,7 @@ const Routes = () => {
       <Route path="/truck/:slug" element={<PublicTruckPage />} />
       <Route path="/blog/zomato-swiggy-integration" element={<BlogZomatoSwiggyIntegration />} />
       <Route path="/invoice/*" element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
-      <Route path="/order-status/:orderId" element={<Suspense fallback={<PageLoader />}><OrderStatusPage /></Suspense>} />
+      <Route path="/order-status/*" element={<Suspense fallback={<PageLoader />}><OrderStatusPage /></Suspense>} />
 
       {/* Standalone subscription page — NO sidebar, NO subscription gate */}
       <Route
