@@ -38,16 +38,16 @@ export const MenuItemCard = ({ item }: MenuItemCardProps) => {
 
   const handleIncrement = () => {
     if (cartItem) {
-      updateQuantity(cartItem.menuItemId, quantity + 1);
+      updateQuantity(cartItem.id, quantity + 1);
     }
   };
 
   const handleDecrement = () => {
     if (cartItem) {
       if (quantity === 1) {
-        removeItem(cartItem.menuItemId);
+        removeItem(cartItem.id);
       } else {
-        updateQuantity(cartItem.menuItemId, quantity - 1);
+        updateQuantity(cartItem.id, quantity - 1);
       }
     }
   };
@@ -55,9 +55,9 @@ export const MenuItemCard = ({ item }: MenuItemCardProps) => {
   const hasImage = item.image && !imageError;
 
   return (
-    <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 bg-white">
+    <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 bg-white/70 backdrop-blur-md border border-white/40 shadow-sm">
       {/* Image Section */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-purple-100 via-pink-100 to-orange-100">
+      <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-orange-50 via-blue-50/30 to-white">
         {hasImage ? (
           <img
             src={item.image}
@@ -103,7 +103,7 @@ export const MenuItemCard = ({ item }: MenuItemCardProps) => {
             )}
           </div>
           <div className="flex-shrink-0">
-            <p className="text-lg font-bold text-purple-600">₹{item.price}</p>
+            <p className="text-lg font-bold text-orange-600">₹{item.price}</p>
           </div>
         </div>
 
@@ -111,7 +111,7 @@ export const MenuItemCard = ({ item }: MenuItemCardProps) => {
         {quantity === 0 ? (
           <Button
             onClick={handleAdd}
-            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-300"
+            className="w-full bg-gradient-to-r from-orange-500 to-blue-600 hover:from-orange-600 hover:to-blue-700 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-300"
             size="sm"
           >
             <Plus className="w-4 h-4 mr-1" />
@@ -123,12 +123,12 @@ export const MenuItemCard = ({ item }: MenuItemCardProps) => {
               onClick={handleDecrement}
               variant="outline"
               size="icon"
-              className="h-9 w-9 rounded-full border-2 border-purple-200 hover:bg-purple-50 hover:border-purple-300"
+              className="h-9 w-9 rounded-full border-2 border-orange-200 hover:bg-orange-50 hover:border-orange-300 transition-colors"
             >
               {quantity === 1 ? (
                 <Trash2 className="w-4 h-4 text-red-500" />
               ) : (
-                <Minus className="w-4 h-4 text-purple-600" />
+                <Minus className="w-4 h-4 text-orange-600" />
               )}
             </Button>
 
@@ -141,7 +141,7 @@ export const MenuItemCard = ({ item }: MenuItemCardProps) => {
             <Button
               onClick={handleIncrement}
               size="icon"
-              className="h-9 w-9 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              className="h-9 w-9 rounded-full bg-gradient-to-r from-orange-500 to-blue-600 hover:from-orange-600 hover:to-blue-700 shadow-md transition-transform active:scale-95"
             >
               <Plus className="w-4 h-4" />
             </Button>

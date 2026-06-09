@@ -49,7 +49,7 @@ export const CartDrawer = ({
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent
         side="bottom"
-        className="h-[90vh] flex flex-col rounded-t-3xl border-t-4 border-purple-500 p-0"
+        className="h-[90vh] flex flex-col rounded-t-3xl border-t-4 border-orange-500 p-0 bg-white/95 backdrop-blur-xl"
       >
         {/* Pull Handle */}
         <div className="flex justify-center pt-3 pb-2">
@@ -60,7 +60,7 @@ export const CartDrawer = ({
         <SheetHeader className="flex-shrink-0 px-6 pb-4">
           <div className="flex items-center justify-between">
             <SheetTitle className="flex items-center gap-3 text-2xl">
-              <div className="p-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl">
+              <div className="p-2 bg-gradient-to-r from-orange-500 to-blue-600 rounded-xl shadow-md">
                 <ShoppingCart className="w-6 h-6 text-white" />
               </div>
               <span>Your Cart</span>
@@ -94,7 +94,7 @@ export const CartDrawer = ({
               </p>
               <Button
                 onClick={onClose}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                className="bg-gradient-to-r from-orange-500 to-blue-600 hover:from-orange-600 hover:to-blue-700 text-white shadow-lg transition-transform active:scale-95"
               >
                 Browse Menu
               </Button>
@@ -107,7 +107,7 @@ export const CartDrawer = ({
               {items.map((item) => (
                 <div
                   key={item.id}
-                  className="flex gap-3 p-3 bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl border border-purple-100 hover:shadow-md transition-shadow"
+                  className="flex gap-3 p-3 bg-gradient-to-br from-orange-50/50 to-blue-50/50 rounded-2xl border border-white/60 shadow-sm hover:shadow-md transition-shadow backdrop-blur-md"
                 >
                   {/* Item Image */}
                   {item.image ? (
@@ -119,7 +119,7 @@ export const CartDrawer = ({
                       />
                     </div>
                   ) : (
-                    <div className="w-20 h-20 flex-shrink-0 rounded-xl bg-gradient-to-br from-purple-200 to-pink-200 flex items-center justify-center shadow-sm">
+                    <div className="w-20 h-20 flex-shrink-0 rounded-xl bg-gradient-to-br from-orange-100 to-blue-100 flex items-center justify-center shadow-sm">
                       <span className="text-2xl">🍽️</span>
                     </div>
                   )}
@@ -129,7 +129,7 @@ export const CartDrawer = ({
                     <h4 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-1">
                       {item.name}
                     </h4>
-                    <p className="text-purple-600 font-bold text-base">
+                    <p className="text-orange-600 font-bold text-base">
                       ₹{item.price} × {item.quantity}
                     </p>
                     <p className="text-xs text-gray-600 font-medium mt-0.5">
@@ -140,16 +140,16 @@ export const CartDrawer = ({
                   {/* Controls */}
                   <div className="flex flex-col items-end justify-between gap-2">
                     {/* Quantity Controls */}
-                    <div className="flex items-center gap-1.5 bg-white border-2 border-purple-200 rounded-full shadow-sm">
+                    <div className="flex items-center gap-1.5 bg-white border-2 border-orange-200 rounded-full shadow-sm">
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8 rounded-full hover:bg-purple-50"
+                        className="h-8 w-8 rounded-full hover:bg-orange-50 transition-colors"
                         onClick={() =>
-                          updateQuantity(item.menuItemId, item.quantity - 1)
+                          updateQuantity(item.id, item.quantity - 1)
                         }
                       >
-                        <Minus className="w-4 h-4 text-purple-600" />
+                        <Minus className="w-4 h-4 text-orange-600" />
                       </Button>
                       <span className="text-sm font-bold w-7 text-center text-gray-900">
                         {item.quantity}
@@ -157,12 +157,12 @@ export const CartDrawer = ({
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8 rounded-full hover:bg-purple-50"
+                        className="h-8 w-8 rounded-full hover:bg-orange-50 transition-colors"
                         onClick={() =>
-                          updateQuantity(item.menuItemId, item.quantity + 1)
+                          updateQuantity(item.id, item.quantity + 1)
                         }
                       >
-                        <Plus className="w-4 h-4 text-purple-600" />
+                        <Plus className="w-4 h-4 text-orange-600" />
                       </Button>
                     </div>
 
@@ -170,8 +170,8 @@ export const CartDrawer = ({
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full"
-                      onClick={() => removeItem(item.menuItemId)}
+                      className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors"
+                      onClick={() => removeItem(item.id)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -194,7 +194,7 @@ export const CartDrawer = ({
             </div>
 
             {/* Cart Summary - Sticky Footer */}
-            <div className="flex-shrink-0 space-y-4 px-6 py-5 bg-gradient-to-t from-white via-purple-50/50 to-transparent border-t-2 border-purple-100">
+            <div className="flex-shrink-0 space-y-4 px-6 py-5 bg-gradient-to-t from-white via-orange-50/30 to-transparent border-t-2 border-orange-100 backdrop-blur-md">
               <div className="space-y-3">
                 {/* Subtotal */}
                 <div className="flex justify-between text-base">
@@ -211,7 +211,7 @@ export const CartDrawer = ({
                 {serviceCharge > 0 && (
                   <div className="flex justify-between text-base">
                     <span className="text-gray-700 font-medium flex items-center gap-2">
-                      <PercentCircle className="w-4 h-4 text-purple-500" />
+                      <PercentCircle className="w-4 h-4 text-orange-500" />
                       Service Charge
                     </span>
                     <span className="font-semibold text-gray-900">
@@ -220,12 +220,12 @@ export const CartDrawer = ({
                   </div>
                 )}
 
-                <Separator className="bg-purple-200" />
+                <Separator className="bg-orange-200" />
 
                 {/* Total */}
                 <div className="flex justify-between text-xl">
                   <span className="font-bold text-gray-900">Total</span>
-                  <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
+                  <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-blue-600">
                     ₹{total.toFixed(2)}
                   </span>
                 </div>
@@ -233,7 +233,7 @@ export const CartDrawer = ({
 
               {/* Checkout Button */}
               <Button
-                className="w-full bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 hover:from-purple-700 hover:via-pink-700 hover:to-orange-600 text-white font-bold py-6 text-lg shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl"
+                className="w-full bg-gradient-to-r from-orange-500 to-blue-600 hover:from-orange-600 hover:to-blue-700 text-white font-bold py-6 text-lg shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl"
                 onClick={handleCheckout}
               >
                 <ShoppingCart className="w-5 h-5 mr-2" />
