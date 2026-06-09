@@ -210,6 +210,42 @@ serve(async (req) => {
       upiPaymentLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(businessName)}&am=${amount}&cu=INR&tn=Order%20${orderRef}`;
     }
 
+    // Send WhatsApp notification
+    try {
+      const { data: restaurant } = await supabaseClient
+        .from('restaurants')
+        .select('name')
+        .eq('id', restaurantId)
+        .single();
+
+      const restaurantNameStr = restaurant?.name || 'Our Restaurant';
+      const totalItemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+
+      const whatsappPayload = {
+        action: 'send_template',
+        templateName: 'qr_order_created',
+        recipientType: 'customer',
+        customerPhone: customerPhone,
+        restaurantId: restaurantId,
+        orderId: order.id,
+        templateParams: [
+          customerName, // {{1}} Customer Name
+          restaurantNameStr, // {{2}} Restaurant Name
+          order.id.substring(0, 8).toUpperCase(), // {{3}} Order Number
+          totalItemCount.toString(), // {{4}} Item count
+          `₹${totalAmount.toFixed(2)}` // {{5}} Total Amount
+        ],
+        buttonValues: [order.id] // Dynamic URL button for tracking
+      };
+
+      await supabaseClient.functions.invoke('send-whatsapp-unified', {
+        body: whatsappPayload
+      });
+    } catch (waError) {
+      console.error('Error sending WhatsApp notification:', waError);
+      // Don't fail the order creation if WA fails
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

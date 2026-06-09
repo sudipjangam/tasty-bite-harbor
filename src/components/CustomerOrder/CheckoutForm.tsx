@@ -106,10 +106,10 @@ export const CheckoutForm = ({
       </div>
 
       {/* Order Location Info */}
-      <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+      <Card className="border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-blue-50/30">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <div className="p-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg">
+            <div className="p-2 bg-gradient-to-r from-orange-500 to-blue-600 rounded-lg">
               <svg
                 className="w-4 h-4 text-white"
                 fill="none"
@@ -134,12 +134,12 @@ export const CheckoutForm = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
-          <div className="bg-white rounded-lg p-4 border border-purple-200">
+          <div className="bg-white rounded-lg p-4 border border-orange-200">
             <div className="flex items-center justify-between">
               <span className="text-gray-600 font-medium">
                 {orderData.entityType === "table" ? "Table" : "Room"}:
               </span>
-              <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
+              <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-blue-600">
                 {orderData.entityName}
               </span>
             </div>
@@ -297,7 +297,7 @@ export const CheckoutForm = ({
             <Separator />
             <div className="flex justify-between text-lg font-bold">
               <span>Total Amount</span>
-              <span className="text-purple-600">₹{total.toFixed(2)}</span>
+              <span className="text-orange-600">₹{total.toFixed(2)}</span>
             </div>
           </div>
         </CardContent>
@@ -314,7 +314,7 @@ export const CheckoutForm = ({
 
       {/* Submit Button */}
       <Button
-        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-6"
+        className="w-full bg-gradient-to-r from-orange-500 to-blue-600 hover:from-orange-600 hover:to-blue-700 text-white font-semibold py-6 shadow-md"
         onClick={handleSubmit}
         disabled={isSubmitting}
       >
