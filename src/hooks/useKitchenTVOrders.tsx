@@ -92,8 +92,12 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
     });
 
     if (hasNew) {
-    };
-  }, []);
+      if (isRush) playRushOrder();
+      else playNewOrder();
+    } else if (hasModified) {
+      playModified();
+    }
+  }, [playNewOrder, playModified, playRushOrder]);
 
 
 
@@ -310,6 +314,47 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
     }
   };
 
+  // ── Order Items array ──
+  const updateOrderItems = async (orderId: string, newItems: any[], newCompletionStatus?: boolean[]) => {
+    if (!restaurantId) return;
+    try {
+      if (useDirectQuery) {
+        const payload: any = { items: newItems };
+        if (newCompletionStatus) payload.item_completion_status = newCompletionStatus;
+        
+        const { error } = await supabase
+          .from("kitchen_orders")
+          .update(payload)
+          .eq("id", orderId)
+          .eq("restaurant_id", restaurantId);
+        if (error) throw error;
+      } else {
+        const payload: any = {
+          p_order_id: orderId,
+          p_restaurant_id: restaurantId,
+          p_pin: pin,
+          p_items: newItems,
+        };
+        if (newCompletionStatus) payload.p_item_completion_status = newCompletionStatus;
+
+        const { error } = await supabase.rpc("update_kitchen_order_items_by_pin", payload);
+        if (error) throw error;
+      }
+
+      setOrders(prev =>
+        prev.map(o => (o.id === orderId ? { 
+          ...o, 
+          items: newItems, 
+          ...(newCompletionStatus ? { item_completion_status: newCompletionStatus } : {}) 
+        } : o))
+      );
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error", description: "Failed to update items." });
+    }
+  };
+
+
   // ── Bump order ──
   const bumpOrder = async (orderId: string) => {
     if (!restaurantId) return;
@@ -377,8 +422,10 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
     refetch: fetchOrders,
     updateStatus,
     updateItemComplete,
-    bumpOrder,
     updatePriority,
+    bumpOrder,
+    refreshOrders: () => fetchOrders(true),
+    setPin,
+    updateOrderItems,
   };
 };
-

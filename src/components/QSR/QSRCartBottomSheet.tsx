@@ -16,7 +16,9 @@ import {
   ChevronRight,
   ChevronDown,
   MessageSquare,
+  GripVertical,
 } from "lucide-react";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { cn } from "@/lib/utils";
 import { QSROrderItem, QSROrderMode, QSRTable } from "@/types/qsr";
 import { QSRMenuItem } from "@/hooks/useQSRMenuItems";
@@ -62,6 +64,7 @@ interface QSRCartBottomSheetProps {
   customerName?: string;
   onCustomerNameChange?: (name: string) => void;
   onSetItemPriority?: (id: string, priority: 'first' | 'normal' | 'last') => void;
+  onReorderItems?: (startIndex: number, endIndex: number) => void;
 }
 
 const modeIcons: Record<
@@ -108,6 +111,7 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
   customerName = "",
   onCustomerNameChange,
   onSetItemPriority,
+  onReorderItems,
 }) => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
@@ -115,6 +119,15 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
 
   const ModeIcon = modeIcons[mode];
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    if (result.source.index === result.destination.index) return;
+    
+    if (onReorderItems) {
+      onReorderItems(result.source.index, result.destination.index);
+    }
+  };
 
   // Filter menu items by search
   const filteredMenuItems = useMemo(() => {
@@ -210,31 +223,52 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto px-4">
           {/* Cart Items */}
-          <div className="space-y-2 pb-4">
-            {items.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
-                  <Package className="w-8 h-8 text-gray-400" />
-                </div>
-                <p className="text-gray-500 dark:text-gray-400 font-medium">
-                  Order is empty
-                </p>
-                <p className="text-sm text-gray-400 dark:text-gray-500">
-                  Add items below or from the menu
-                </p>
-              </div>
-            ) : (
-              items.map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700"
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="qsr-cart-bottom-sheet-items">
+              {(provided) => (
+                <div 
+                  className="space-y-2 pb-4"
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    {/* Item Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-800 dark:text-gray-200 truncate">
-                          {item.name}
+                  {items.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
+                        <Package className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <p className="text-gray-500 dark:text-gray-400 font-medium">
+                        Order is empty
+                      </p>
+                      <p className="text-sm text-gray-400 dark:text-gray-500">
+                        Add items below or from the menu
+                      </p>
+                    </div>
+                  ) : (
+                    items.map((item, index) => (
+                      <Draggable key={item.id} draggableId={item.id} index={index} isDragDisabled={isLoading}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className={cn(
+                              "bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700",
+                              snapshot.isDragging ? "shadow-xl ring-2 ring-indigo-500/50 rotate-1 z-50" : ""
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              {/* Drag Handle */}
+                              <div 
+                                {...provided.dragHandleProps}
+                                className="mt-1 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-100 transition-opacity"
+                              >
+                                <GripVertical className="w-5 h-5 text-gray-500" />
+                              </div>
+
+                              {/* Item Info */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-gray-800 dark:text-gray-200 truncate">
+                                    {item.name}
                         </span>
                         {item.isCustom && (
                           <span className="px-1.5 py-0.5 text-[10px] bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400 rounded-full font-medium">
@@ -354,9 +388,14 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
                     </div>
                   )}
                 </div>
-              ))
-            )}
-          </div>
+              )}
+            </Draggable>
+          ))
+        )}
+      </div>
+      )}
+    </Droppable>
+  </DragDropContext>
 
           {/* Add More Items Section */}
           <div className="pb-4">

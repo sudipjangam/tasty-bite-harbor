@@ -22,6 +22,11 @@ interface OrdersColumnProps {
     orderId: string,
     priority: KitchenOrder["priority"],
   ) => void;
+  onUpdateItems?: (
+    orderId: string,
+    items: any[],
+    completionStatus: boolean[],
+  ) => void;
   variant: "new" | "preparing" | "ready";
   isOrderLate: (order: KitchenOrder) => boolean;
   isCompact?: boolean;
@@ -36,6 +41,7 @@ const OrdersColumn = ({
   onBumpOrder,
   onItemComplete,
   onPriorityChange,
+  onUpdateItems,
   variant,
   isOrderLate,
   isCompact = false,
@@ -146,6 +152,7 @@ const OrdersColumn = ({
                 onBumpOrder={onBumpOrder}
                 onItemComplete={onItemComplete}
                 onPriorityChange={onPriorityChange}
+                onUpdateItems={onUpdateItems}
                 isLate={isOrderLate(order)}
                 isCompact={isCompact}
                 isExpanded={!isCompact || expandedOrders.has(order.id)}
