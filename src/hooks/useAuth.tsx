@@ -14,6 +14,13 @@ import {
   AuthContextType,
 } from "@/types/auth";
 
+const ROLE_TIMEOUTS_HOURS = {
+  admin: 24,
+  owner: 24,
+  manager: 18,
+  staff: 12,
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 interface AuthProviderProps {
@@ -55,6 +62,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Enforce role-based session timeout
+  useEffect(() => {
+    if (!user) return;
+
+    const currentRole = (user.role_name_text || user.role || "staff").toLowerCase();
+    const timeoutHours = (ROLE_TIMEOUTS_HOURS as any)[currentRole] || 12;
+    const timeoutMs = timeoutHours * 60 * 60 * 1000;
+
+    const sessionStartStr = localStorage.getItem("session_start_time");
+    let sessionStart = sessionStartStr ? parseInt(sessionStartStr, 10) : 0;
+
+    if (!sessionStart) {
+      sessionStart = Date.now();
+      localStorage.setItem("session_start_time", sessionStart.toString());
+    }
+
+    const checkSessionTimeout = async () => {
+      const elapsed = Date.now() - sessionStart;
+      if (elapsed >= timeoutMs) {
+        console.log(`Session expired (${timeoutHours} hours limit). Forcing logout.`);
+        // Call the local signOut function
+        await signOut();
+        // Force reload to redirect to login and clear all state completely
+        window.location.href = "/auth";
+      }
+    };
+
+    // Check immediately
+    checkSessionTimeout();
+
+    // Check periodically (every minute)
+    const interval = setInterval(checkSessionTimeout, 60000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const fetchUserProfile = async (userId: string, email?: string) => {
     try {
@@ -213,6 +255,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Clear any localStorage session data (but keep theme preference)
     const theme = localStorage.getItem("restaurant-pro-theme");
     sessionStorage.clear();
+    localStorage.removeItem("session_start_time");
     if (theme) localStorage.setItem("restaurant-pro-theme", theme);
 
     console.log("Signed out: cleared auth, cache, and session data");

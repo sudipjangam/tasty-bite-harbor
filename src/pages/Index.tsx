@@ -25,7 +25,6 @@ import RevenuePieChart from "@/components/Dashboard/RevenuePieChart";
 import RecentOrdersTable from "@/components/Dashboard/RecentOrdersTable";
 import TimeClockDialog from "@/components/Staff/TimeClockDialog";
 import LeaveRequestDialog from "@/components/Staff/LeaveRequestDialog";
-import AutoClockInPrompt from "@/components/Staff/AutoClockInPrompt";
 import { useRefetchOnNavigation } from "@/hooks/useRefetchOnNavigation";
 import { useAutoClockOut } from "@/hooks/useAutoClockOut";
 import type { StaffMember } from "@/types/staff";
@@ -70,7 +69,6 @@ const Index = () => {
   // Self-service dialog states
   const [isTimeClockDialogOpen, setIsTimeClockDialogOpen] = useState(false);
   const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false);
-  const [isAutoClockPromptOpen, setIsAutoClockPromptOpen] = useState(false);
 
   // Get current staff data using the custom hook
   const {
@@ -111,30 +109,73 @@ const Index = () => {
     setIsLeaveDialogOpen(false);
   };
 
-  // Auto clock-in prompt: Show when staff is logged in but not clocked in
-  // AND has not already completed a shift today
+  // Auto clock-in: Automatically clock in staff when they log in if not already clocked in
   useEffect(() => {
-    if (
-      !isLoadingStaff &&
-      isStaff &&
-      staff &&
-      !activeClockEntry &&
-      !hasCompletedShiftToday &&
-      restaurantId
-    ) {
-      // Check if already dismissed today
-      const today = new Date().toISOString().split("T")[0];
-      const dismissedKey = `auto-clock-dismissed-${today}`;
-      const wasDismissed = sessionStorage.getItem(dismissedKey);
+    const autoClockInStaff = async () => {
+      if (
+        !isLoadingStaff &&
+        isStaff &&
+        staff &&
+        !activeClockEntry &&
+        !hasCompletedShiftToday &&
+        restaurantId
+      ) {
+        // Check if we already auto-clocked in this session to prevent infinite loops
+        const today = new Date().toISOString().split("T")[0];
+        const autoClockedKey = `auto-clocked-in-${today}`;
 
-      if (!wasDismissed) {
-        // Small delay to let the page load first
-        const timer = setTimeout(() => {
-          setIsAutoClockPromptOpen(true);
-        }, 1000);
-        return () => clearTimeout(timer);
+        if (!sessionStorage.getItem(autoClockedKey)) {
+          try {
+            // First mark as attempted to prevent duplicate calls
+            sessionStorage.setItem(autoClockedKey, "true");
+
+            // Double check if already clocked in to prevent race conditions
+            const { data: activeSessions } = await supabase
+              .from("staff_time_clock")
+              .select("*")
+              .eq("staff_id", staff.id)
+              .is("clock_out", null)
+              .limit(1);
+
+            if (activeSessions && activeSessions.length > 0) {
+              return; // Already clocked in
+            }
+
+            // Create clock-in record
+            const { error } = await supabase.from("staff_time_clock").insert([
+              {
+                staff_id: staff.id,
+                restaurant_id: restaurantId,
+                clock_in: new Date().toISOString(),
+                notes: "Auto clock-in on login",
+                clock_in_status: "no_shift",
+              },
+            ]);
+
+            if (error) throw error;
+
+            // Update staff status
+            await supabase
+              .from("staff")
+              .update({ status: "working" })
+              .eq("id", staff.id);
+
+            toast({
+              title: "✓ Shift Started",
+              description: `Automatically clocked in at ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}. Have a great shift!`,
+            });
+
+            refetchTimeEntries();
+          } catch (error: any) {
+            console.error("Auto clock-in failed:", error);
+            // Optionally clear session storage so it tries again later if it failed?
+            // sessionStorage.removeItem(autoClockedKey);
+          }
+        }
       }
-    }
+    };
+
+    autoClockInStaff();
   }, [
     isLoadingStaff,
     isStaff,
@@ -142,13 +183,9 @@ const Index = () => {
     activeClockEntry,
     hasCompletedShiftToday,
     restaurantId,
+    refetchTimeEntries,
+    toast,
   ]);
-
-  // Handle auto clock-in success
-  const handleAutoClockSuccess = () => {
-    refetchTimeEntries();
-    setIsAutoClockPromptOpen(false);
-  };
 
   const handleNavigationWithPermission = (
     path: string,
@@ -370,20 +407,7 @@ const Index = () => {
         />
       )}
 
-      {/* Auto Clock-In Prompt - Shows when staff is not clocked in */}
-      {staff && restaurantId && (
-        <AutoClockInPrompt
-          isOpen={isAutoClockPromptOpen}
-          onClose={() => setIsAutoClockPromptOpen(false)}
-          staffId={staff.id}
-          staffName={
-            `${staff.first_name || ""} ${staff.last_name || ""}`.trim() ||
-            "there"
-          }
-          restaurantId={restaurantId}
-          onSuccess={handleAutoClockSuccess}
-        />
-      )}
+      {/* Removed AutoClockInPrompt as it is now handled automatically */}
     </div>
   );
 };
