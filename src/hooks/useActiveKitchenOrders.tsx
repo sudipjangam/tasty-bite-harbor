@@ -227,6 +227,40 @@ export const useActiveKitchenOrders = (
     }
   };
 
+  // Update order items array (for drag and drop reordering)
+  const updateOrderItems = async (
+    orderId: string,
+    newItems: any[],
+    newCompletionStatus?: boolean[]
+  ) => {
+    try {
+      const payload: any = { items: newItems };
+      if (newCompletionStatus) {
+        payload.item_completion_status = newCompletionStatus;
+      }
+
+      const { error } = await supabase
+        .from("kitchen_orders")
+        .update(payload)
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({
+        queryKey: ["active-kitchen-orders", restaurantId],
+      });
+      return true;
+    } catch (error) {
+      console.error("Error updating order items:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update items order.",
+      });
+      return false;
+    }
+  };
+
   // Update order priority
   const handlePriorityChange = async (
     orderId: string,
@@ -258,6 +292,37 @@ export const useActiveKitchenOrders = (
     }
   };
 
+  // Update order status
+  const handleStatusChange = async (
+    orderId: string,
+    status: ActiveKitchenOrder["status"],
+  ) => {
+    try {
+      const { error } = await supabase
+        .from("kitchen_orders")
+        .update({ status })
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Status Updated",
+        description: `Order marked as ${status}`,
+      });
+
+      // Refetch to update the list
+      await refetch();
+    } catch (error) {
+      console.error("Error updating status:", error);
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: "Could not update order status",
+      });
+      throw error;
+    }
+  };
+
   return {
     orders,
     isLoading,
@@ -271,5 +336,7 @@ export const useActiveKitchenOrders = (
     getOrderById,
     toggleItemCompletion,
     handlePriorityChange,
+    handleStatusChange,
+    updateOrderItems,
   };
 };

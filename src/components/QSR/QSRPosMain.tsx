@@ -419,6 +419,24 @@ export const QSRPosMain: React.FC = () => {
     );
   }, []);
 
+  const handleReorderItems = useCallback((startIndex: number, endIndex: number) => {
+    setOrderItems((prev) => {
+      const result = Array.from(prev);
+      const [removed] = result.splice(startIndex, 1);
+      result.splice(endIndex, 0, removed);
+      
+      // Auto-assign priorities based on new positions
+      return result.map((item, index) => {
+        let newPriority: 'first' | 'normal' | 'last' = 'normal';
+        if (result.length > 1) {
+          if (index === 0) newPriority = 'first';
+          else if (index === result.length - 1) newPriority = 'last';
+        }
+        return { ...item, priority: newPriority };
+      });
+    });
+  }, []);
+
   const handleClearOrder = useCallback(() => {
     setOrderItems([]);
     setRecalledKitchenOrderId(null);
@@ -1302,6 +1320,7 @@ export const QSRPosMain: React.FC = () => {
               !!(recalledKitchenOrderId || pendingKitchenOrderId)
             }
             onSetItemPriority={handleSetItemPriority}
+            onReorderItems={handleReorderItems}
           />
         </div>
 
@@ -1375,6 +1394,7 @@ export const QSRPosMain: React.FC = () => {
         customerName={customerName}
         onCustomerNameChange={setCustomerName}
         onSetItemPriority={handleSetItemPriority}
+        onReorderItems={handleReorderItems}
       />
 
       {/* Active Orders Drawer */}

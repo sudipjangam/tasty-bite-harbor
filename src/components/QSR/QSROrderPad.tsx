@@ -12,7 +12,9 @@ import {
   ChevronRight,
   Edit2,
   Check,
+  GripVertical,
 } from "lucide-react";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { cn } from "@/lib/utils";
 import { QSROrderItem, QSROrderMode, QSRTable } from "@/types/qsr";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
@@ -41,6 +43,7 @@ interface QSROrderPadProps {
   onToggleItemCompletion?: (index: number) => void;
   isRecalledOrder?: boolean;
   onSetItemPriority?: (id: string, priority: 'first' | 'normal' | 'last') => void;
+  onReorderItems?: (startIndex: number, endIndex: number) => void;
 }
 
 const modeIcons: Record<
@@ -82,11 +85,21 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
   onToggleItemCompletion,
   isRecalledOrder = false,
   onSetItemPriority,
+  onReorderItems,
 }) => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
 
   const ModeIcon = modeIcons[mode];
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    if (result.source.index === result.destination.index) return;
+    
+    if (onReorderItems) {
+      onReorderItems(result.source.index, result.destination.index);
+    }
+  };
 
   const handleSaveNote = (id: string) => {
     onAddNote(id, noteText);
@@ -119,37 +132,56 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
 
       {/* Items List */}
       <ScrollArea className="flex-1">
-        <div className="p-4 space-y-2">
-          {items.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
-                <Package className="w-8 h-8 text-gray-400" />
-              </div>
-              <p className="text-gray-500 dark:text-gray-400 font-medium">
-                Order is empty
-              </p>
-              <p className="text-sm text-gray-400 dark:text-gray-500">
-                Add items from the menu
-              </p>
-            </div>
-          ) : (
-            items.map((item, index) => {
-              const isCompleted = itemCompletionStatus[index] === true;
-              const canToggle = isRecalledOrder && onToggleItemCompletion;
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Droppable droppableId="qsr-order-pad-items">
+            {(provided) => (
+              <div 
+                className="p-4 space-y-2"
+                {...provided.droppableProps}
+                ref={provided.innerRef}
+              >
+                {items.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
+                      <Package className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-gray-500 dark:text-gray-400 font-medium">
+                      Order is empty
+                    </p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500">
+                      Add items from the menu
+                    </p>
+                  </div>
+                ) : (
+                  items.map((item, index) => {
+                    const isCompleted = itemCompletionStatus[index] === true;
+                    const canToggle = isRecalledOrder && onToggleItemCompletion;
 
-              return (
-                <div
-                  key={item.id}
-                  className={cn(
-                    "bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border transition-all",
-                    isCompleted
-                      ? "border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20"
-                      : "border-gray-100 dark:border-gray-700",
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    {/* Completion indicator for recalled orders */}
-                    {isRecalledOrder && (
+                    return (
+                      <Draggable key={item.id} draggableId={item.id} index={index} isDragDisabled={isLoading}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className={cn(
+                              "bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border transition-all",
+                              isCompleted
+                                ? "border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20"
+                                : "border-gray-100 dark:border-gray-700",
+                              snapshot.isDragging ? "shadow-xl ring-2 ring-indigo-500/50 rotate-1 z-50" : ""
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              {/* Drag Handle */}
+                              <div 
+                                {...provided.dragHandleProps}
+                                className="mt-1 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-100 transition-opacity"
+                              >
+                                <GripVertical className="w-5 h-5 text-gray-500" />
+                              </div>
+
+                              {/* Completion indicator for recalled orders */}
+                              {isRecalledOrder && (
                       <button
                         onClick={() => onToggleItemCompletion?.(index)}
                         className={cn(
@@ -335,10 +367,15 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
                     </div>
                   )}
                 </div>
-              );
-            })
-          )}
-        </div>
+              )}
+            </Draggable>
+          );
+        })
+      )}
+    </div>
+            )}
+          </Droppable>
+        </DragDropContext>
       </ScrollArea>
 
       {/* Calculations & Actions */}

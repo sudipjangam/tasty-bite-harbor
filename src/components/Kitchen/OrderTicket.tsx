@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { formatDistanceToNow, differenceInMinutes } from "date-fns";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import {
   Check,
   ChevronRight,
@@ -13,6 +14,7 @@ import {
   Archive,
   ChevronDown,
   ChevronUp,
+  GripVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -39,6 +41,11 @@ interface OrderTicketProps {
     orderId: string,
     priority: KitchenOrder["priority"],
   ) => void;
+  onUpdateItems?: (
+    orderId: string,
+    items: any[],
+    completionStatus: boolean[],
+  ) => void;
   isLate: boolean;
   isCompact?: boolean;
   isExpanded?: boolean;
@@ -51,6 +58,7 @@ const OrderTicket = ({
   onBumpOrder,
   onItemComplete,
   onPriorityChange,
+  onUpdateItems,
   isLate,
   isCompact = false,
   isExpanded = true,
@@ -62,6 +70,29 @@ const OrderTicket = ({
       .map((completed, idx) => (completed ? idx : -1))
       .filter((idx) => idx !== -1),
   );
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination || !onUpdateItems) return;
+
+    const sourceIndex = result.source.index;
+    const destinationIndex = result.destination.index;
+
+    if (sourceIndex === destinationIndex) return;
+
+    // Create copies of the arrays
+    const newItems = Array.from(order.items);
+    const newCompletionStatus = Array.from(order.item_completion_status || new Array(order.items.length).fill(false));
+
+    // Reorder items
+    const [reorderedItem] = newItems.splice(sourceIndex, 1);
+    newItems.splice(destinationIndex, 0, reorderedItem);
+
+    // Reorder completion status to match
+    const [reorderedStatus] = newCompletionStatus.splice(sourceIndex, 1);
+    newCompletionStatus.splice(destinationIndex, 0, reorderedStatus);
+
+    onUpdateItems(order.id, newItems, newCompletionStatus);
+  };
 
   const orderAge = formatDistanceToNow(new Date(order.created_at), {
     addSuffix: true,
@@ -350,115 +381,134 @@ const OrderTicket = ({
 
         {/* Order Items - only show if expanded (or not in compact mode) */}
         {(!isCompact || isExpanded) && (
-          <div className="space-y-3">
-            {(() => {
-              const itemsWithIndex = order.items.map((item, originalIndex) => ({ item, originalIndex }));
-              const sortedItems = [...itemsWithIndex].sort((a, b) => {
-                const aPriority = a.item.priority || "normal";
-                const bPriority = b.item.priority || "normal";
-                const priorityMap = { first: 0, normal: 1, last: 2 };
-                return (priorityMap[aPriority] ?? 1) - (priorityMap[bPriority] ?? 1);
-              });
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId={`order-${order.id}-items`}>
+              {(provided) => (
+                <div 
+                  className="space-y-3"
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
+                >
+                  {order.items.map((item, originalIndex) => {
+                    const isCompleted = completedItems.has(originalIndex);
+                    const hasAllergy =
+                      item.has_allergy ||
+                      (item.notes &&
+                        item.notes.some((note: string) =>
+                          /allerg|gluten|dairy|nut|vegan|vegetarian/i.test(note),
+                        ));
 
-              return sortedItems.map(({ item, originalIndex }) => {
-                const isCompleted = completedItems.has(originalIndex);
-                const hasAllergy =
-                  item.has_allergy ||
-                  (item.notes &&
-                    item.notes.some((note) =>
-                      /allerg|gluten|dairy|nut|vegan|vegetarian/i.test(note),
-                    ));
+                    return (
+                      <Draggable key={`${order.id}-item-${originalIndex}`} draggableId={`${order.id}-item-${originalIndex}`} index={originalIndex} isDragDisabled={!onUpdateItems}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className={`flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all duration-200 ${
+                              snapshot.isDragging ? "shadow-xl ring-2 ring-indigo-500/50 rotate-1 z-50" : ""
+                            } ${
+                              isCompleted
+                                ? "bg-green-50 dark:bg-green-900/30 border-2 border-green-200 dark:border-green-700"
+                                : hasAllergy
+                                  ? "bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 border-2 border-red-300 dark:border-red-700"
+                                  : item.priority === "first"
+                                    ? "bg-rose-50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-950/30 border-2 border-rose-200 dark:border-rose-800"
+                                    : item.priority === "last"
+                                      ? "bg-blue-50 dark:bg-blue-950/20 hover:bg-blue-100 dark:hover:bg-blue-950/30 border-2 border-blue-200 dark:border-blue-800"
+                                      : "bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 border-2 border-transparent hover:border-gray-200 dark:hover:border-gray-600"
+                            }`}
+                            onClick={() => toggleItemComplete(originalIndex)}
+                          >
+                            {/* Drag Handle */}
+                            {onUpdateItems && (
+                              <div 
+                                {...provided.dragHandleProps}
+                                className="mt-1 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-100 transition-opacity"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <GripVertical className="w-5 h-5 text-gray-500" />
+                              </div>
+                            )}
 
-                return (
-                  <div
-                    key={originalIndex}
-                    className={`flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all duration-200 ${
-                      isCompleted
-                        ? "bg-green-50 dark:bg-green-900/30 border-2 border-green-200 dark:border-green-700"
-                        : hasAllergy
-                          ? "bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 border-2 border-red-300 dark:border-red-700"
-                          : item.priority === "first"
-                            ? "bg-rose-50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-950/30 border-2 border-rose-200 dark:border-rose-800"
-                            : item.priority === "last"
-                              ? "bg-blue-50 dark:bg-blue-950/20 hover:bg-blue-100 dark:hover:bg-blue-950/30 border-2 border-blue-200 dark:border-blue-800"
-                              : "bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 border-2 border-transparent hover:border-gray-200 dark:hover:border-gray-600"
-                    }`}
-                    onClick={() => toggleItemComplete(originalIndex)}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div
-                        className={`font-semibold text-lg flex flex-wrap items-center gap-1.5 ${
-                          isCompleted
-                            ? "line-through text-gray-500 dark:text-gray-400"
-                            : "text-gray-800 dark:text-gray-100"
-                        }`}
-                      >
-                        <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent font-bold mr-1">
-                          {item.quantity}x
-                        </span>
-                        <span>{item.name}</span>
-                        {hasAllergy && !isCompleted && (
-                          <span className="text-red-500">⚠️</span>
-                        )}
-                        {!isCompleted && item.priority === "first" && (
-                          <Badge className="bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs uppercase px-2 py-0.5 shadow-sm">
-                            🔴 First
-                          </Badge>
-                        )}
-                        {!isCompleted && item.priority === "last" && (
-                          <Badge className="bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs uppercase px-2 py-0.5 shadow-sm">
-                            🔵 Last
-                          </Badge>
-                        )}
-                        {item.is_addition && (
-                          <Badge className="bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-xs font-semibold px-2 py-0.5">
-                            📎 Addition {item.parent_order_number ? `#${item.parent_order_number}` : ""}
-                          </Badge>
-                        )}
-                      </div>
-                      {item.notes && item.notes.length > 0 && (
-                        <div className="mt-2 space-y-1">
-                          {item.notes.map((note, noteIndex) => {
-                            const isAllergyNote =
-                              /allerg|gluten|dairy|nut|vegan|vegetarian/i.test(
-                                note,
-                              );
-                            return (
+                            <div className="flex-1 min-w-0">
                               <div
-                                key={noteIndex}
-                                className={`text-sm p-2 rounded-lg ${
+                                className={`font-semibold text-lg flex flex-wrap items-center gap-1.5 ${
                                   isCompleted
-                                    ? "text-gray-400 dark:text-gray-500 bg-green-100 dark:bg-green-900/50"
-                                    : isAllergyNote
-                                      ? "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-600 font-semibold"
-                                      : "text-gray-600 dark:text-gray-300 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700"
+                                    ? "line-through text-gray-500 dark:text-gray-400"
+                                    : "text-gray-800 dark:text-gray-100"
                                 }`}
                               >
-                                <span className="font-medium">
-                                  {isAllergyNote ? "⚠️ ALLERGY:" : "Note:"}
-                                </span>{" "}
-                                {note}
+                                <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent font-bold mr-1">
+                                  {item.quantity}x
+                                </span>
+                                <span>{item.name}</span>
+                                {hasAllergy && !isCompleted && (
+                                  <span className="text-red-500">⚠️</span>
+                                )}
+                                {!isCompleted && item.priority === "first" && (
+                                  <Badge className="bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs uppercase px-2 py-0.5 shadow-sm">
+                                    🔴 First
+                                  </Badge>
+                                )}
+                                {!isCompleted && item.priority === "last" && (
+                                  <Badge className="bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs uppercase px-2 py-0.5 shadow-sm">
+                                    🔵 Last
+                                  </Badge>
+                                )}
+                                {item.is_addition && (
+                                  <Badge className="bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-xs font-semibold px-2 py-0.5">
+                                    📎 Addition {item.parent_order_number ? `#${item.parent_order_number}` : ""}
+                                  </Badge>
+                                )}
                               </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                              {item.notes && item.notes.length > 0 && (
+                                <div className="mt-2 space-y-1">
+                                  {item.notes.map((note: string, noteIndex: number) => {
+                                    const isAllergyNote =
+                                      /allerg|gluten|dairy|nut|vegan|vegetarian/i.test(
+                                        note,
+                                      );
+                                    return (
+                                      <div
+                                        key={noteIndex}
+                                        className={`text-sm p-2 rounded-lg ${
+                                          isCompleted
+                                            ? "text-gray-400 dark:text-gray-500 bg-green-100 dark:bg-green-900/50"
+                                            : isAllergyNote
+                                              ? "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-600 font-semibold"
+                                              : "text-gray-600 dark:text-gray-300 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700"
+                                        }`}
+                                      >
+                                        <span className="font-medium">
+                                          {isAllergyNote ? "⚠️ ALLERGY:" : "Note:"}
+                                        </span>{" "}
+                                        {note}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
 
-                    <div
-                      className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${
-                        isCompleted
-                          ? "bg-green-500 text-white shadow-lg"
-                          : "bg-white dark:bg-gray-600 border-2 border-gray-300 dark:border-gray-500 text-gray-400 dark:text-gray-300 hover:border-green-400 dark:hover:border-green-500"
-                      }`}
-                    >
-                      {isCompleted && <Check className="w-5 h-5" />}
-                    </div>
-                  </div>
-                );
-              });
-            })()}
-          </div>
+                            <div
+                              className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${
+                                isCompleted
+                                  ? "bg-green-500 text-white shadow-lg"
+                                  : "bg-white dark:bg-gray-600 border-2 border-gray-300 dark:border-gray-500 text-gray-400 dark:text-gray-300 hover:border-green-400 dark:hover:border-green-500"
+                              }`}
+                            >
+                              {isCompleted && <Check className="w-5 h-5" />}
+                            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    );
+                  })}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
         )}
       </div>
     </Card>

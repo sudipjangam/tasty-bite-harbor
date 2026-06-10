@@ -853,6 +853,7 @@ const KitchenTV = () => {
           onBumpOrder={bumpOrder}
           onItemComplete={updateItemComplete}
           onPriorityChange={updatePriority}
+          onUpdateItems={updateOrderItems}
           variant="new"
           isOrderLate={() => false}
           isCompact={false}
@@ -866,6 +867,7 @@ const KitchenTV = () => {
           onBumpOrder={bumpOrder}
           onItemComplete={updateItemComplete}
           onPriorityChange={updatePriority}
+          onUpdateItems={updateOrderItems}
           variant="preparing"
           isOrderLate={() => false}
           isCompact={false}
@@ -878,6 +880,7 @@ const KitchenTV = () => {
           onStatusUpdate={handleStatusUpdateAndPlay}
           onBumpOrder={bumpOrder}
           onItemComplete={updateItemComplete}
+          onUpdateItems={updateOrderItems}
           variant="ready"
           isOrderLate={() => false}
           isCompact={false}

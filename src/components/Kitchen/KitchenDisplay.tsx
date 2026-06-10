@@ -694,6 +694,41 @@ const KitchenDisplay = () => {
     }
   };
 
+  // Handle item order update (DND)
+  const handleUpdateItems = async (
+    orderId: string,
+    newItems: any[],
+    newCompletionStatus: boolean[],
+  ) => {
+    try {
+      const { error } = await supabase
+        .from("kitchen_orders")
+        .update({
+          items: newItems,
+          item_completion_status: newCompletionStatus,
+        })
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      // Update local state optimistically
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? { ...o, items: newItems, item_completion_status: newCompletionStatus }
+            : o,
+        ),
+      );
+    } catch (error) {
+      console.error("Error updating item order:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update item order",
+      });
+    }
+  };
+
   // Handle priority change
   const handlePriorityChange = async (
     orderId: string,
@@ -953,6 +988,7 @@ const KitchenDisplay = () => {
           onBumpOrder={handleBumpOrder}
           onItemComplete={handleItemComplete}
           onPriorityChange={handlePriorityChange}
+          onUpdateItems={handleUpdateItems}
           variant="new"
           isOrderLate={isOrderLate}
           isCompact={viewMode === "compact"}
@@ -966,6 +1002,7 @@ const KitchenDisplay = () => {
           onBumpOrder={handleBumpOrder}
           onItemComplete={handleItemComplete}
           onPriorityChange={handlePriorityChange}
+          onUpdateItems={handleUpdateItems}
           variant="preparing"
           isOrderLate={isOrderLate}
           isCompact={viewMode === "compact"}
@@ -978,6 +1015,7 @@ const KitchenDisplay = () => {
           onStatusUpdate={handleStatusUpdate}
           onBumpOrder={handleBumpOrder}
           onItemComplete={handleItemComplete}
+          onUpdateItems={handleUpdateItems}
           variant="ready"
           isOrderLate={isOrderLate}
           isCompact={viewMode === "compact"}
