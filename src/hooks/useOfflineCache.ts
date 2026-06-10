@@ -53,7 +53,7 @@ export function useOfflineCache() {
     queryKey: ["offline-cache-tables", restaurantId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("tables")
+        .from("restaurant_tables")
         .select("*")
         .eq("restaurant_id", restaurantId!);
       if (error) throw error;
