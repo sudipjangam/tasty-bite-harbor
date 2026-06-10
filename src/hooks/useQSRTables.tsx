@@ -84,16 +84,16 @@ export const useQSRTables = () => {
             (tableOrder?.item_completion_status as boolean[]) || [];
 
           activeOrderTotal = items.reduce(
-            (sum, item) => sum + item.price * item.quantity,
+            (sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 0),
             0,
           );
           activeOrderItems = items.reduce(
-            (sum, item) => sum + item.quantity,
+            (sum, item) => sum + (Number(item.quantity) || 0),
             0,
           );
 
           items.forEach((item, index) => {
-            const qty = item.quantity || 0;
+            const qty = Number(item.quantity) || 0;
             totalItemsCount += qty;
             if (itemCompletionStatus[index] === true) {
               servedItemsCount += qty;
