@@ -109,6 +109,8 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
     color: 'from-red-500 to-rose-600',
     features: [
       { key: 'kitchen.kds', label: 'Kitchen Display', description: 'Standard KDS ticket view' },
+      { key: 'kitchen.tv', label: 'Kitchen TV', description: 'HDMI TV display screen for kitchen orders with PIN login' },
+      { key: 'kitchen.tv_drag_reorder', label: 'Kitchen TV Drag & Reorder', description: 'Drag-and-drop item reordering on KDS and Kitchen TV' },
       { key: 'kitchen.multi_station', label: 'Multi-Station', description: 'Route tickets to specific stations' },
       { key: 'kitchen.analytics', label: 'Kitchen Analytics', description: 'Prep times, throughput metrics' },
     ],
