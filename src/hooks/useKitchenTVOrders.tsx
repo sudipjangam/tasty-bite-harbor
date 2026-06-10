@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { KitchenOrder } from "@/components/Kitchen/KitchenDisplay";
 import { useToast } from "@/hooks/use-toast";
 import { useKitchenSounds } from "@/hooks/useKitchenSounds";
+import { startOfDay, endOfDay } from "date-fns";
 
 export const useKitchenTVOrders = (restaurantId: string | null, pin: string | null) => {
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
@@ -14,6 +15,8 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
   const useDirectQuery = !pin;
 
   const ordersRef = useRef<KitchenOrder[]>([]);
+  const lastUpdateRef = useRef<number>(0);
+  
   useEffect(() => {
     ordersRef.current = orders;
   }, [orders]);
@@ -89,38 +92,54 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
     });
 
     if (hasNew) {
-      if (isRush) playRushOrder(); else playNewOrder();
-    } else if (hasModified) {
-      if (isRush) playRushOrder(); else playModified();
-    }
-  }, [playNewOrder, playModified, playRushOrder]);
+    };
+  }, []);
 
-  // ── Fetch via direct table query (email auth) ──
+
+
+  // ── Direct Query (Email Auth) ──
   const fetchOrdersDirect = useCallback(async (isSilent = false) => {
     if (!restaurantId) return;
     if (!isSilent) setIsLoading(true);
     try {
+      const now = new Date();
+      // Only fetch today's orders by default (like regular KDS)
+      const start = startOfDay(now).toISOString();
+      const end = endOfDay(now).toISOString();
+
       const { data, error } = await supabase
         .from("kitchen_orders")
         .select("*")
         .eq("restaurant_id", restaurantId)
-        .in("status", ["new", "preparing", "ready", "held"])
+        .gte("created_at", start)
+        .lte("created_at", end)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-
+      
       if (data) {
-        const mapped = (data as any[]).map(transformOrderData);
+        // Filter out bumped or completed orders locally
+        const activeOrders = (data as any[]).filter(o => 
+          !o.bumped_at && 
+          ["new", "preparing", "ready", "held"].includes(o.status?.toLowerCase() || "new")
+        );
+        
+        const mapped = activeOrders.map(transformOrderData);
         const sorted = sortOrders(mapped);
-        triggerSounds(sorted);
+        
+        if (sorted.length > orders.length && isSilent) {
+           console.log("New order detected!");
+        }
+        
         setOrders(sorted);
       }
     } catch (err) {
       console.error("Error fetching TV orders (direct):", err);
     } finally {
       setIsLoading(false);
+      lastUpdateRef.current = Date.now();
     }
-  }, [restaurantId, transformOrderData, sortOrders, triggerSounds]);
+  }, [restaurantId, transformOrderData, orders.length]);
 
   // ── Fetch via PIN RPC ──
   const fetchOrdersPin = useCallback(async (isSilent = false) => {
@@ -135,18 +154,25 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
       if (error) throw error;
 
       if (data) {
-        const mapped = (data as any[]).map(transformOrderData);
+        // Additional local filtering to handle potential RPC bugs (like null sources or missing statuses)
+        const activeOrders = (data as any[]).filter(o => 
+          !o.bumped_at && 
+          ["new", "preparing", "ready", "held"].includes(o.status?.toLowerCase() || "new")
+        );
+
+        const mapped = activeOrders.map(transformOrderData);
         const sorted = sortOrders(mapped);
-        triggerSounds(sorted);
         setOrders(sorted);
       }
     } catch (err) {
-      console.error("Error fetching TV orders (pin):", err);
+      console.error("Error fetching TV orders (PIN):", err);
     } finally {
       setIsLoading(false);
+      lastUpdateRef.current = Date.now();
     }
-  }, [restaurantId, pin, transformOrderData, sortOrders, triggerSounds]);
+  }, [restaurantId, pin, transformOrderData]);
 
+  // Switch between fetching modes
   const fetchOrders = useCallback(async (isSilent = false) => {
     if (useDirectQuery) {
       return fetchOrdersDirect(isSilent);
@@ -154,38 +180,44 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
     return fetchOrdersPin(isSilent);
   }, [useDirectQuery, fetchOrdersDirect, fetchOrdersPin]);
 
-  // Polling + realtime
+  // Initial fetch and polling setup
   useEffect(() => {
     if (!restaurantId) return;
-    // Need either pin or direct query mode
     if (!useDirectQuery && !pin) return;
 
     fetchOrders(false);
 
+    // Polling fallback
     const interval = setInterval(() => {
       fetchOrders(true);
     }, 5000);
 
-    // Also subscribe to realtime for immediate updates
-    const channel = supabase
-      .channel("kitchen-tv-orders-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "kitchen_orders",
-          filter: `restaurant_id=eq.${restaurantId}`,
-        },
-        () => {
-          fetchOrders(true);
-        }
-      )
-      .subscribe();
+    // Realtime subscription (Direct query mode only!)
+    // If using PIN, user lacks RLS permissions to subscribe to the table
+    let channel: any = null;
+    if (useDirectQuery) {
+      channel = supabase
+        .channel("tv_kitchen_orders_changes")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "kitchen_orders",
+            filter: `restaurant_id=eq.${restaurantId}`,
+          },
+          () => {
+            fetchOrders(true);
+          }
+        )
+        .subscribe();
+    }
 
     return () => {
       clearInterval(interval);
-      supabase.removeChannel(channel);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, [restaurantId, pin, useDirectQuery, fetchOrders]);
 
@@ -210,14 +242,16 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
 
         if (error) throw error;
       } else {
-        const { error } = await supabase.rpc("update_kitchen_order_status_by_pin", {
+        const payload: any = {
           p_order_id: orderId,
           p_restaurant_id: restaurantId,
           p_pin: pin,
           p_status: newStatus,
-          p_started_at: startedAt,
-          p_completed_at: completedAt,
-        });
+        };
+        if (startedAt) payload.p_started_at = startedAt;
+        if (completedAt) payload.p_completed_at = completedAt;
+
+        const { error } = await supabase.rpc("update_kitchen_order_status_by_pin", payload);
         if (error) throw error;
       }
 
