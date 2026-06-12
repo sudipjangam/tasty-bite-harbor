@@ -140,14 +140,23 @@ export const GDPRCompliance = () => {
 
     try {
       setForm(prev => ({ ...prev, loading: true }));
+
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const userRestaurantId = user?.restaurant_id;
+
+      if (!userRestaurantId) {
+        throw new Error("User has no associated restaurant");
+      }
       
-      const { error } = await supabase.functions.invoke('gdpr-data-request', {
-        body: {
+      const { error } = await supabase
+        .from('gdpr_requests')
+        .insert({
+          restaurant_id: userRestaurantId,
           type,
           user_email: form.email,
-          reason: form.reason
-        }
-      });
+          reason: form.reason,
+          status: 'pending'
+        });
 
       if (error) throw error;
 
@@ -158,11 +167,11 @@ export const GDPRCompliance = () => {
 
       setForm(initialFormState);
       fetchDataRequests();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting GDPR request:', error);
       toast({
         title: "Error",
-        description: "Failed to submit request",
+        description: error.message || "Failed to submit request",
         variant: "destructive"
       });
     } finally {
@@ -170,7 +179,7 @@ export const GDPRCompliance = () => {
     }
   };
 
-  const exportUserData = async (email: string) => {
+  const exportUserData = async (email: string, requestId?: string) => {
     if (!hasPermission('gdpr.export')) {
       toast({
         title: "Access Denied",
@@ -181,14 +190,29 @@ export const GDPRCompliance = () => {
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke('export-user-data', {
-        body: { user_email: email }
-      });
+      // Fetch user profile from db
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle();
 
-      if (error) throw error;
+      const { data: staff } = await supabase
+        .from('staff')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle();
+
+      // Combined data format
+      const combinedData = {
+        exported_at: new Date().toISOString(),
+        user_email: email,
+        profile: profile || null,
+        staff: staff || null,
+      };
 
       // Create download link
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(combinedData, null, 2)], { type: 'application/json' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -196,21 +220,32 @@ export const GDPRCompliance = () => {
       a.click();
       window.URL.revokeObjectURL(url);
 
+      if (requestId) {
+        // Mark request as completed
+        const { error } = await supabase
+          .from('gdpr_requests')
+          .update({ status: 'completed', completed_at: new Date().toISOString() })
+          .eq('id', requestId);
+        
+        if (error) throw error;
+      }
+
       toast({
         title: "Success",
         description: "User data exported successfully"
       });
-    } catch (error) {
+      fetchDataRequests();
+    } catch (error: any) {
       console.error('Error exporting user data:', error);
       toast({
         title: "Error",
-        description: "Failed to export user data",
+        description: error.message || "Failed to export user data",
         variant: "destructive"
       });
     }
   };
 
-  const deleteUserData = async (email: string) => {
+  const deleteUserData = async (email: string, requestId?: string) => {
     if (!hasPermission('gdpr.delete')) {
       toast({
         title: "Access Denied",
@@ -228,11 +263,21 @@ export const GDPRCompliance = () => {
       variant: 'danger',
       onConfirm: async () => {
         try {
-          const { error } = await supabase.functions.invoke('delete-user-data', {
-            body: { user_email: email }
-          });
+          // Delete from staff
+          await supabase.from('staff').delete().eq('email', email);
+          
+          // Delete from profiles
+          await supabase.from('profiles').delete().eq('email', email);
 
-          if (error) throw error;
+          if (requestId) {
+            // Mark request as completed
+            const { error } = await supabase
+              .from('gdpr_requests')
+              .update({ status: 'completed', completed_at: new Date().toISOString() })
+              .eq('id', requestId);
+
+            if (error) throw error;
+          }
 
           toast({
             title: "Success",
@@ -240,11 +285,11 @@ export const GDPRCompliance = () => {
           });
 
           fetchDataRequests();
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error deleting user data:', error);
           toast({
             title: "Error",
-            description: "Failed to delete user data",
+            description: error.message || "Failed to delete user data",
             variant: "destructive"
           });
         }
@@ -620,10 +665,41 @@ export const GDPRCompliance = () => {
                             <Download className="h-4 w-4" />
                           </Button>
                         )}
+                        {request.type === 'export' && request.status === 'pending' && (
+                          <Button
+                            size="sm"
+                            onClick={() => exportUserData(request.user_email, request.id)}
+                            className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            Process & Export
+                          </Button>
+                        )}
+                        {request.type === 'rectification' && request.status === 'pending' && (
+                          <Button
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const { error } = await supabase
+                                  .from('gdpr_requests')
+                                  .update({ status: 'completed', completed_at: new Date().toISOString() })
+                                  .eq('id', request.id);
+                                if (error) throw error;
+                                toast({ title: "Success", description: "Request marked as completed" });
+                                fetchDataRequests();
+                              } catch (e) {
+                                toast({ title: "Error", description: "Failed to update request", variant: "destructive" });
+                              }
+                            }}
+                            className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white"
+                          >
+                            Mark Completed
+                          </Button>
+                        )}
                         {request.type === 'delete' && request.status === 'pending' && hasPermission('gdpr.delete') && (
                           <Button
                             size="sm"
-                            onClick={() => deleteUserData(request.user_email)}
+                            onClick={() => deleteUserData(request.user_email, request.id)}
                             className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white"
                           >
                             <Trash2 className="h-4 w-4" />

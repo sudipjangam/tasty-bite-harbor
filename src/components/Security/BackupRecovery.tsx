@@ -38,8 +38,8 @@ interface BackupRecord {
   id: string;
   name: string;
   type: 'full' | 'incremental' | 'manual';
-  status: 'running' | 'completed' | 'failed';
-  size_mb: number;
+  status: 'running' | 'completed' | 'failed' | 'in_progress';
+  file_size: number | null;
   created_at: string;
   completed_at?: string;
   error_message?: string;
@@ -160,32 +160,39 @@ export const BackupRecovery = () => {
 
     try {
       setIsBackupRunning(true);
-      setBackupProgress(0);
+      setBackupProgress(20);
 
-      // Simulate progress updates
-      const progressInterval = setInterval(() => {
-        setBackupProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 200);
-
-      const { data, error } = await supabase.functions.invoke('backup-restore', {
-        body: { 
-          action: 'backup',
+      // Create backup record in 'in_progress' state
+      const { data: backupRecord, error: insertError } = await supabase
+        .from('backups')
+        .insert({
           restaurant_id: user.restaurant_id,
           backup_type: type,
-          backup_name: finalBackupName
+          name: finalBackupName,
+          status: 'in_progress',
+          created_by: user.id
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      
+      setBackupProgress(50);
+
+      // Trigger Edge Function to perform backup operations & storage upload
+      const { data: edgeData, error: invokeError } = await supabase.functions.invoke('backup-restore', {
+        body: {
+          action: 'backup',
+          restaurant_id: user.restaurant_id,
+          backup_id: backupRecord.id,
+          name: finalBackupName
         }
       });
 
-      clearInterval(progressInterval);
-      setBackupProgress(100);
+      if (invokeError) throw invokeError;
+      if (edgeData?.error) throw new Error(edgeData.error);
 
-      if (error) throw error;
+      setBackupProgress(100);
 
       toast({
         title: "Backup Created",
@@ -194,12 +201,12 @@ export const BackupRecovery = () => {
 
       await fetchBackups();
       setBackupName('');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating backup:', error);
       toast({
         variant: "destructive",
         title: "Backup Failed",
-        description: "Failed to create backup. Please try again.",
+        description: error.message || "Failed to create backup. Please try again.",
       });
     } finally {
       setIsBackupRunning(false);
@@ -230,22 +237,30 @@ export const BackupRecovery = () => {
     try {
       setLoading(true);
       setConfirmDialog(prev => ({ ...prev, open: false }));
-      
-      const { error } = await supabase.functions.invoke('restore-backup', {
-        body: { backup_id: confirmDialog.backupId }
+
+      // Trigger Edge Function to download backup and perform DB restore operations
+      const { data: edgeData, error: invokeError } = await supabase.functions.invoke('backup-restore', {
+        body: {
+          action: 'restore',
+          restaurant_id: user?.restaurant_id,
+          backup_id: confirmDialog.backupId
+        }
       });
 
-      if (error) throw error;
+      if (invokeError) throw invokeError;
+      if (edgeData?.error) throw new Error(edgeData.error);
 
       toast({
-        title: "Restore Started",
-        description: "Backup restoration has begun. This may take a few minutes."
+        title: "Restore Completed",
+        description: "Your data has been restored successfully."
       });
-    } catch (error) {
+      
+      await fetchBackups();
+    } catch (error: any) {
       console.error('Error restoring backup:', error);
       toast({
         title: "Error",
-        description: "Failed to restore backup",
+        description: error.message || "Failed to restore backup",
         variant: "destructive"
       });
     } finally {
@@ -255,30 +270,48 @@ export const BackupRecovery = () => {
 
   const downloadBackup = async (backupId: string, name: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('download-backup', {
-        body: { backup_id: backupId }
-      });
+      // Fetch backup record to get file_path
+      const { data: backup, error: fetchError } = await supabase
+        .from('backups')
+        .select('file_path')
+        .eq('id', backupId)
+        .single();
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
+      if (!backup || !backup.file_path) {
+        throw new Error("Backup file path is empty or not found");
+      }
 
-      // Create download link
-      const blob = new Blob([data], { type: 'application/octet-stream' });
-      const url = window.URL.createObjectURL(blob);
+      // Generate signed URL from storage bucket
+      const { data: signedUrlData, error: signedUrlError } = await supabase
+        .storage
+        .from('backups')
+        .createSignedUrl(backup.file_path, 60, {
+          download: `${name}.json`
+        });
+
+      if (signedUrlError) throw signedUrlError;
+      if (!signedUrlData?.signedUrl) {
+        throw new Error("Failed to generate download URL");
+      }
+
+      // Trigger browser download via dynamic link
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `${name}.backup`;
+      a.href = signedUrlData.signedUrl;
+      a.download = `${name}.json`;
+      document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
 
       toast({
         title: "Success",
         description: "Backup downloaded successfully"
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error downloading backup:', error);
       toast({
         title: "Error",
-        description: "Failed to download backup",
+        description: error.message || "Failed to download backup",
         variant: "destructive"
       });
     }
@@ -340,6 +373,7 @@ export const BackupRecovery = () => {
           </Badge>
         );
       case 'running':
+      case 'in_progress':
         return (
           <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0">
             <Loader2 className="h-3 w-3 mr-1 animate-spin" />
@@ -611,7 +645,9 @@ export const BackupRecovery = () => {
                         {getTypeBadge(backup.type)}
                         <span className="font-medium">{backup.name}</span>
                         <span className="text-sm text-muted-foreground px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">
-                          {(backup.size_mb / 1024).toFixed(2)} GB
+                          {backup.file_size
+                            ? `${(backup.file_size / (1024 * 1024)).toFixed(2)} MB`
+                            : "0.00 MB"}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground">

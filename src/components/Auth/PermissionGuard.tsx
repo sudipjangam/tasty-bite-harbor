@@ -52,6 +52,8 @@ const systemBypassRoutes = new Set([
   "/auth",
   "/qr-menu",
   "/bill",
+  "/security",
+  "/settings",
 ]);
 
 interface PermissionGuardProps {
