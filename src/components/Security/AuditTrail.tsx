@@ -1,23 +1,38 @@
-
 import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { 
-  CalendarIcon, 
-  Download, 
-  Eye, 
-  Search, 
+import {
+  CalendarIcon,
+  Download,
+  Eye,
+  Search,
   Filter,
   Loader2,
   ChevronLeft,
@@ -26,7 +41,7 @@ import {
   User,
   Clock,
   Globe,
-  RefreshCw
+  RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
@@ -37,6 +52,7 @@ interface AuditLogEntry {
   id: string;
   user_id: string | null;
   user_email?: string; // Fetched from profiles join
+  user_name?: string; // Fetched from profiles join
   action: string;
   table_name: string | null; // Was resource_type
   record_id: string | null;
@@ -59,14 +75,14 @@ export const AuditTrail = () => {
   const [actionFilter, setActionFilter] = useState("all");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   useEffect(() => {
-    if (hasPermission('audit.view')) {
+    if (hasPermission("audit.view")) {
       fetchAuditLogs();
     }
   }, [user, hasPermission, currentPage]);
@@ -74,35 +90,37 @@ export const AuditTrail = () => {
   const fetchAuditLogs = async () => {
     try {
       setLoading(true);
-      
+
       // Get total count first
       let countQuery = supabase
-        .from('audit_logs')
-        .select('*', { count: 'exact', head: true });
+        .from("audit_logs")
+        .select("*", { count: "exact", head: true });
 
       if (searchTerm) {
-        countQuery = countQuery.or(`action.ilike.%${searchTerm}%,table_name.ilike.%${searchTerm}%`);
+        countQuery = countQuery.or(
+          `action.ilike.%${searchTerm}%,table_name.ilike.%${searchTerm}%`,
+        );
       }
-      if (actionFilter !== 'all') {
-        countQuery = countQuery.eq('action', actionFilter);
+      if (actionFilter !== "all") {
+        countQuery = countQuery.eq("action", actionFilter);
       }
       if (dateRange.from) {
-        countQuery = countQuery.gte('created_at', dateRange.from.toISOString());
+        countQuery = countQuery.gte("created_at", dateRange.from.toISOString());
       }
       if (dateRange.to) {
-        countQuery = countQuery.lte('created_at', dateRange.to.toISOString());
+        countQuery = countQuery.lte("created_at", dateRange.to.toISOString());
       }
 
       const { count, error: countError } = await countQuery;
-      
+
       if (countError) {
         // Table might not exist or access denied
-        console.log('Audit logs not available:', countError.message);
+        console.log("Audit logs not available:", countError.message);
         setAuditLogs([]);
         setTotalCount(0);
         return;
       }
-      
+
       setTotalCount(count || 0);
 
       // Fetch paginated data WITHOUT profiles join (FK doesn't exist)
@@ -110,44 +128,66 @@ export const AuditTrail = () => {
       const to = from + ITEMS_PER_PAGE - 1;
 
       let query = supabase
-        .from('audit_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
+        .from("audit_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
         .range(from, to);
 
       if (searchTerm) {
-        query = query.or(`action.ilike.%${searchTerm}%,table_name.ilike.%${searchTerm}%`);
+        query = query.or(
+          `action.ilike.%${searchTerm}%,table_name.ilike.%${searchTerm}%`,
+        );
       }
 
-      if (actionFilter !== 'all') {
-        query = query.eq('action', actionFilter);
+      if (actionFilter !== "all") {
+        query = query.eq("action", actionFilter);
       }
 
       if (dateRange.from) {
-        query = query.gte('created_at', dateRange.from.toISOString());
+        query = query.gte("created_at", dateRange.from.toISOString());
       }
 
       if (dateRange.to) {
-        query = query.lte('created_at', dateRange.to.toISOString());
+        query = query.lte("created_at", dateRange.to.toISOString());
       }
 
       const { data, error } = await query;
 
       if (error) {
-        console.log('Error fetching audit logs:', error.message);
+        console.log("Error fetching audit logs:", error.message);
         setAuditLogs([]);
         return;
       }
-      
+
+      // Fetch profiles to map user_id to email and name
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, email, first_name, last_name");
+
+      const profileMap = new Map<string, { email: string; name: string }>();
+      if (profiles) {
+        profiles.forEach((p) => {
+          const email = p.email || "";
+          const name = p.first_name || p.last_name
+            ? `${p.first_name || ""} ${p.last_name || ""}`.trim()
+            : "";
+          profileMap.set(p.id, { email, name });
+        });
+      }
+
       // Use the data directly without profile join
-      const mappedData = (data || []).map((log: any) => ({
-        ...log,
-        user_email: log.user_email || null // Use user_email directly if it exists in table
-      }));
-      
+      const mappedData = (data || []).map((log: any) => {
+        const profile = log.user_id ? profileMap.get(log.user_id) : null;
+        return {
+          ...log,
+          user_email: log.user_email || profile?.email || null,
+          user_name: profile?.name || null,
+        };
+      });
+
       setAuditLogs(mappedData);
     } catch (error) {
-      console.log('Audit logs feature not available');
+      console.log("Audit logs feature not available");
       setAuditLogs([]);
     } finally {
       setLoading(false);
@@ -160,72 +200,75 @@ export const AuditTrail = () => {
   };
 
   const exportAuditLogs = async () => {
-    if (!hasPermission('audit.export')) {
+    if (!hasPermission("audit.export")) {
       toast({
         title: "Access Denied",
         description: "You don't have permission to export audit logs",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke('export-audit-logs', {
-        body: { filters: { searchTerm, actionFilter, dateRange } }
-      });
+      const { data, error } = await supabase.functions.invoke(
+        "export-audit-logs",
+        {
+          body: { filters: { searchTerm, actionFilter, dateRange } },
+        },
+      );
 
       if (error) throw error;
 
       // Create download link
-      const blob = new Blob([data], { type: 'text/csv' });
+      const blob = new Blob([data], { type: "text/csv" });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = `audit-logs-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      a.download = `audit-logs-${format(new Date(), "yyyy-MM-dd")}.csv`;
       a.click();
       window.URL.revokeObjectURL(url);
 
       toast({
         title: "Success",
-        description: "Audit logs exported successfully"
+        description: "Audit logs exported successfully",
       });
     } catch (error) {
-      console.error('Error exporting audit logs:', error);
+      console.error("Error exporting audit logs:", error);
       toast({
         title: "Error",
         description: "Failed to export audit logs",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
 
   const getActionBadge = (action: string) => {
     switch (action.toLowerCase()) {
-      case 'create':
+      case "create":
         return (
           <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white border-0">
             Create
           </Badge>
         );
-      case 'update':
+      case "update":
         return (
           <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0">
             Update
           </Badge>
         );
-      case 'delete':
+      case "delete":
         return (
           <Badge className="bg-gradient-to-r from-red-500 to-rose-500 text-white border-0">
             Delete
           </Badge>
         );
-      case 'login':
+      case "login":
         return (
           <Badge className="bg-gradient-to-r from-purple-500 to-violet-500 text-white border-0">
             Login
           </Badge>
         );
-      case 'logout':
+      case "logout":
         return (
           <Badge className="bg-gradient-to-r from-gray-500 to-slate-500 text-white border-0">
             Logout
@@ -243,25 +286,32 @@ export const AuditTrail = () => {
   // Format JSON for display with syntax highlighting
   const formatJsonForDisplay = (obj: any) => {
     if (!obj) return null;
-    
+
     return Object.entries(obj).map(([key, value]) => (
-      <div key={key} className="flex gap-2 py-1 border-b border-gray-100 dark:border-gray-800 last:border-0">
-        <span className="font-medium text-purple-600 dark:text-purple-400 min-w-[120px]">{key}:</span>
+      <div
+        key={key}
+        className="flex gap-2 py-1 border-b border-gray-100 dark:border-gray-800 last:border-0"
+      >
+        <span className="font-medium text-purple-600 dark:text-purple-400 min-w-[120px]">
+          {key}:
+        </span>
         <span className="text-gray-700 dark:text-gray-300 break-all">
-          {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+          {typeof value === "object" ? JSON.stringify(value) : String(value)}
         </span>
       </div>
     ));
   };
 
-  if (!hasPermission('audit.view')) {
+  if (!hasPermission("audit.view")) {
     return (
       <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl border border-white/20 dark:border-gray-700/50">
         <CardContent className="p-6 text-center">
           <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center mb-4">
             <FileText className="h-8 w-8 text-muted-foreground" />
           </div>
-          <p className="text-muted-foreground">You don't have permission to view audit logs.</p>
+          <p className="text-muted-foreground">
+            You don't have permission to view audit logs.
+          </p>
         </CardContent>
       </Card>
     );
@@ -280,7 +330,7 @@ export const AuditTrail = () => {
               Audit Log Details
             </DialogTitle>
           </DialogHeader>
-          
+
           {selectedLog && (
             <div className="space-y-6">
               {/* Basic Info - Improved Grid */}
@@ -291,7 +341,14 @@ export const AuditTrail = () => {
                     User
                   </div>
                   <p className="font-medium text-sm break-all">
-                    {selectedLog.user_email || <span className="text-muted-foreground italic">Not recorded</span>}
+                    {selectedLog.user_name
+                      ? `${selectedLog.user_name} (${selectedLog.user_email})`
+                      : (selectedLog.user_email || (
+                          <span className="text-muted-foreground italic">
+                            Not recorded
+                          </span>
+                        ))
+                    }
                   </p>
                 </div>
                 <div className="space-y-1.5">
@@ -299,22 +356,36 @@ export const AuditTrail = () => {
                     <Clock className="h-3.5 w-3.5" />
                     Timestamp
                   </div>
-                  <p className="font-medium text-sm">{format(new Date(selectedLog.created_at), 'PPpp')}</p>
-                </div>
-                <div className="space-y-1.5">
-                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Action</div>
-                  {getActionBadge(selectedLog.action)}
-                </div>
-                <div className="space-y-1.5">
-                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Table / Resource</div>
                   <p className="font-medium text-sm">
-                    {selectedLog.table_name || <span className="text-muted-foreground italic">Not specified</span>}
+                    {format(new Date(selectedLog.created_at), "PPpp")}
                   </p>
                 </div>
                 <div className="space-y-1.5">
-                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Record ID</div>
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Action
+                  </div>
+                  {getActionBadge(selectedLog.action)}
+                </div>
+                <div className="space-y-1.5">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Table / Resource
+                  </div>
+                  <p className="font-medium text-sm">
+                    {selectedLog.table_name || (
+                      <span className="text-muted-foreground italic">
+                        Not specified
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Record ID
+                  </div>
                   <p className="font-medium text-sm font-mono">
-                    {selectedLog.record_id || <span className="text-muted-foreground italic">N/A</span>}
+                    {selectedLog.record_id || (
+                      <span className="text-muted-foreground italic">N/A</span>
+                    )}
                   </p>
                 </div>
                 <div className="space-y-1.5">
@@ -323,44 +394,54 @@ export const AuditTrail = () => {
                     IP Address
                   </div>
                   <p className="font-medium text-sm font-mono">
-                    {selectedLog.ip_address || <span className="text-muted-foreground italic">Not captured</span>}
+                    {selectedLog.ip_address || (
+                      <span className="text-muted-foreground italic">
+                        Not captured
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
 
               {/* Changes - Dynamic Layout */}
               {(selectedLog.old_values || selectedLog.new_values) && (
-                <div className={`grid gap-4 ${
-                  selectedLog.old_values && selectedLog.new_values 
-                    ? 'grid-cols-1 md:grid-cols-2' 
-                    : 'grid-cols-1'
-                }`}>
-                  {selectedLog.old_values && Object.keys(selectedLog.old_values).length > 0 && (
-                    <div className="space-y-3">
-                      <h4 className="font-semibold text-red-600 dark:text-red-400 flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full bg-gradient-to-r from-red-500 to-rose-500" />
-                        Previous Values
-                      </h4>
-                      <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
-                        <div className="space-y-2">
-                          {formatJsonForDisplay(selectedLog.old_values)}
+                <div
+                  className={`grid gap-4 ${
+                    selectedLog.old_values && selectedLog.new_values
+                      ? "grid-cols-1 md:grid-cols-2"
+                      : "grid-cols-1"
+                  }`}
+                >
+                  {selectedLog.old_values &&
+                    Object.keys(selectedLog.old_values).length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="font-semibold text-red-600 dark:text-red-400 flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-gradient-to-r from-red-500 to-rose-500" />
+                          Previous Values
+                        </h4>
+                        <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
+                          <div className="space-y-2">
+                            {formatJsonForDisplay(selectedLog.old_values)}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                  {selectedLog.new_values && Object.keys(selectedLog.new_values).length > 0 && (
-                    <div className="space-y-3">
-                      <h4 className="font-semibold text-green-600 dark:text-green-400 flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full bg-gradient-to-r from-emerald-500 to-green-500" />
-                        {selectedLog.old_values ? 'New Values' : 'Record Data'}
-                      </h4>
-                      <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
-                        <div className="space-y-2">
-                          {formatJsonForDisplay(selectedLog.new_values)}
+                    )}
+                  {selectedLog.new_values &&
+                    Object.keys(selectedLog.new_values).length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="font-semibold text-green-600 dark:text-green-400 flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-gradient-to-r from-emerald-500 to-green-500" />
+                          {selectedLog.old_values
+                            ? "New Values"
+                            : "Record Data"}
+                        </h4>
+                        <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+                          <div className="space-y-2">
+                            {formatJsonForDisplay(selectedLog.new_values)}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
                 </div>
               )}
 
@@ -403,7 +484,7 @@ export const AuditTrail = () => {
                 placeholder="Search logs..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 className="bg-white/50 dark:bg-gray-900/50"
               />
             </div>
@@ -427,17 +508,26 @@ export const AuditTrail = () => {
               <label className="text-sm font-medium">From Date</label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal bg-white/50 dark:bg-gray-900/50">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal bg-white/50 dark:bg-gray-900/50"
+                  >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange.from ? format(dateRange.from, "PPP") : "Select date"}
+                    {dateRange.from
+                      ? format(dateRange.from, "PPP")
+                      : "Select date"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="single"
                     selected={dateRange.from}
-                    onSelect={(date) => setDateRange(prev => ({ ...prev, from: date }))}
-                    disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                    onSelect={(date) =>
+                      setDateRange((prev) => ({ ...prev, from: date }))
+                    }
+                    disabled={(date) =>
+                      date > new Date() || date < new Date("1900-01-01")
+                    }
                     initialFocus
                   />
                 </PopoverContent>
@@ -446,16 +536,16 @@ export const AuditTrail = () => {
             <div className="space-y-2">
               <label className="text-sm font-medium">&nbsp;</label>
               <div className="flex gap-2">
-                <Button 
-                  onClick={handleSearch} 
+                <Button
+                  onClick={handleSearch}
                   className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
                 >
                   <Search className="h-4 w-4 mr-2" />
                   Search
                 </Button>
-                {hasPermission('audit.export') && (
-                  <Button 
-                    onClick={exportAuditLogs} 
+                {hasPermission("audit.export") && (
+                  <Button
+                    onClick={exportAuditLogs}
                     variant="outline"
                     className="border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-400"
                   >
@@ -483,13 +573,15 @@ export const AuditTrail = () => {
                 </CardDescription>
               </div>
             </div>
-            <Button 
-              onClick={fetchAuditLogs} 
+            <Button
+              onClick={fetchAuditLogs}
               variant="outline"
               disabled={loading}
               className="border-gray-200 dark:border-gray-700"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
+              />
               Refresh
             </Button>
           </div>
@@ -505,28 +597,42 @@ export const AuditTrail = () => {
                 <FileText className="h-8 w-8 text-muted-foreground" />
               </div>
               <p className="text-muted-foreground">No audit logs found</p>
-              <p className="text-sm text-muted-foreground mt-1">Try adjusting your filters</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Try adjusting your filters
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
               {auditLogs.map((log) => (
-                <div 
-                  key={log.id} 
+                <div
+                  key={log.id}
                   className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-white/50 dark:bg-gray-900/50 hover:shadow-md transition-all duration-200"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 flex-wrap">
                       {getActionBadge(log.action)}
-                      <span className="font-medium">{log.user_email || <span className="text-muted-foreground italic">Unknown user</span>}</span>
+                      <span className="font-medium">
+                        {log.user_name
+                          ? `${log.user_name} (${log.user_email})`
+                          : (log.user_email || (
+                              <span className="text-muted-foreground italic">
+                                Unknown user
+                              </span>
+                            ))
+                        }
+                      </span>
                       {log.table_name && (
                         <span className="text-muted-foreground text-sm">
-                          {log.table_name}{log.record_id ? ` #${log.record_id.slice(0, 8)}...` : ''}
+                          {log.table_name}
+                          {log.record_id
+                            ? ` #${log.record_id.slice(0, 8)}...`
+                            : ""}
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">
-                        {format(new Date(log.created_at), 'PPpp')}
+                        {format(new Date(log.created_at), "PPpp")}
                       </span>
                       <Button
                         size="sm"
@@ -553,7 +659,9 @@ export const AuditTrail = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(1, prev - 1))
+                  }
                   disabled={currentPage === 1}
                 >
                   <ChevronLeft className="h-4 w-4 mr-1" />
@@ -562,7 +670,9 @@ export const AuditTrail = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                  }
                   disabled={currentPage === totalPages}
                 >
                   Next
