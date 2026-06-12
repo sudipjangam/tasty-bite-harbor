@@ -6,51 +6,97 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const TABLES_TO_BACKUP = [
+// All 61 tables in dependency order (parents first)
+const ALL_TABLES_ORDERED = [
+  // Core Settings
   'restaurant_settings',
+  'payment_settings',
   'payment_methods',
   'shift_types',
-  'customers',
-  'staff',
+  'shifts',
+  'qr_codes',
+  
+  // Menu & Recipes
+  'categories',
   'menu_items',
-  'inventory_items',
-  'rooms',
-  'expenses',
-  'reservations',
-  'orders',
-  'loyalty_transactions'
-]
+  'menu_item_variants',
+  'recipes',
+  'recipe_ingredients',
+  'batch_productions',
+  'homemade_production_logs',
+  'homemade_production_log_items',
 
-// Delete child tables first to avoid foreign key violations
-const DELETION_ORDER = [
+  // Inventory & Suppliers
+  'storage_locations',
+  'inventory_items',
+  'inventory_lots',
+  'inventory_transactions',
+  'inventory_alerts',
+  'suppliers',
+  'purchase_orders',
+  'purchase_order_items',
+
+  // Staff & HR
+  'staff',
+  'staff_shifts',
+  'staff_shift_assignments',
+  'staff_time_clock',
+  'staff_leaves',
+  'staff_leave_requests',
+  'staff_documents',
+  'staff_notifications',
+
+  // Guests & Loyalty
+  'customers',
+  'loyalty_programs',
+  'loyalty_tiers',
+  'loyalty_enrollments',
   'loyalty_transactions',
-  'orders',
-  'reservations',
-  'expenses',
-  'rooms',
-  'inventory_items',
-  'menu_items',
-  'staff',
-  'customers',
-  'shift_types',
-  'payment_methods',
-  'restaurant_settings'
-]
+  'guest_profiles',
+  'guest_loyalty',
 
-// Insert parent tables first to avoid foreign key violations
-const INSERTION_ORDER = [
-  'restaurant_settings',
-  'payment_methods',
-  'shift_types',
-  'customers',
-  'staff',
-  'menu_items',
-  'inventory_items',
+  // Rooms & Housekeeping
   'rooms',
-  'expenses',
-  'reservations',
+  'check_ins',
+  'room_billings',
+  'room_food_orders',
+  'room_cleaning_schedules',
+  'room_maintenance_requests',
+  'room_moves',
+  'room_waitlist',
+  'lost_found_items',
+  'room_amenities',
+  'room_amenity_inventory',
+  'guest_feedback',
+  'night_audit_logs',
+  'split_bills',
+  'split_bill_portions',
+
+  // POS & Orders
   'orders',
-  'loyalty_transactions'
+  'orders_unified',
+  'kitchen_orders',
+  'pos_transactions',
+  'shared_bills',
+
+  // Reservations & Tables
+  'restaurant_tables',
+  'reservations',
+  'table_reservations',
+  'waitlist',
+
+  // Finance & Expenses
+  'expenses',
+  'expense_categories',
+  'invoices',
+  'invoice_line_items',
+  'operational_costs',
+
+  // Marketing
+  'promotion_campaigns',
+  'sent_promotions',
+  'whatsapp_templates',
+  'whatsapp_campaign_sends'
 ]
 
 serve(async (req) => {
@@ -81,6 +127,7 @@ serve(async (req) => {
     activeBackupId = body.backup_id ?? null
     const name = body.name ?? null
     const backup_data = body.backup_data ?? null
+    const requestedTables = body.tables ?? null // Array of tables to backup for partial backup
     
     console.log('Action:', action, 'Restaurant ID:', restaurant_id, 'Backup ID:', activeBackupId)
 
@@ -91,17 +138,122 @@ serve(async (req) => {
       )
     }
 
+    // Helper to fetch table data securely keeping parent-child integrity
+    const fetchTableData = async (tableName: string, backupData: any) => {
+      const getParentIds = async (parentTable: string, idField = 'id') => {
+        const parentData = backupData[parentTable];
+        if (Array.isArray(parentData)) {
+          return parentData.map((row: any) => row[idField]).filter(Boolean);
+        }
+        // Fallback: fetch parent IDs from database
+        const { data, error } = await supabaseClient
+          .from(parentTable)
+          .select(idField)
+          .eq('restaurant_id', restaurant_id);
+        if (error) {
+          console.error(`Error fetching parent IDs for ${parentTable}:`, error);
+          return [];
+        }
+        return data.map((row: any) => row[idField]).filter(Boolean);
+      };
+
+      if (tableName === 'recipe_ingredients' || tableName === 'recipe_nutrition') {
+        const recipeIds = await getParentIds('recipes');
+        if (recipeIds.length === 0) return [];
+        const { data, error } = await supabaseClient.from(tableName).select('*').in('recipe_id', recipeIds);
+        if (error) throw error;
+        return data;
+      }
+
+      if (tableName === 'purchase_order_items') {
+        const poIds = await getParentIds('purchase_orders');
+        if (poIds.length === 0) return [];
+        const { data, error } = await supabaseClient.from(tableName).select('*').in('purchase_order_id', poIds);
+        if (error) throw error;
+        return data;
+      }
+
+      if (tableName === 'menu_item_variants') {
+        const itemIds = await getParentIds('menu_items');
+        if (itemIds.length === 0) return [];
+        const { data, error } = await supabaseClient.from(tableName).select('*').in('menu_item_id', itemIds);
+        if (error) throw error;
+        return data;
+      }
+
+      if (tableName === 'homemade_production_log_items') {
+        const logIds = await getParentIds('homemade_production_logs');
+        if (logIds.length === 0) return [];
+        const { data, error } = await supabaseClient.from(tableName).select('*').in('log_id', logIds);
+        if (error) throw error;
+        return data;
+      }
+
+      if (tableName === 'split_bill_portions') {
+        const billIds = await getParentIds('split_bills');
+        if (billIds.length === 0) return [];
+        const { data, error } = await supabaseClient.from(tableName).select('*').in('split_bill_id', billIds);
+        if (error) throw error;
+        return data;
+      }
+
+      if (tableName === 'role_components') {
+        const roleIds = await getParentIds('roles');
+        if (roleIds.length === 0) return [];
+        const { data, error } = await supabaseClient.from(tableName).select('*').in('role_id', roleIds);
+        if (error) throw error;
+        return data;
+      }
+
+      if (tableName === 'invoice_line_items') {
+        const invoiceIds = await getParentIds('invoices');
+        if (invoiceIds.length === 0) return [];
+        const { data, error } = await supabaseClient.from(tableName).select('*').in('invoice_id', invoiceIds);
+        if (error) throw error;
+        return data;
+      }
+
+      if (tableName === 'staff_shift_assignments') {
+        const shiftIds = await getParentIds('shifts');
+        if (shiftIds.length === 0) return [];
+        const { data, error } = await supabaseClient.from(tableName).select('*').in('shift_id', shiftIds);
+        if (error) throw error;
+        return data;
+      }
+
+      const staffChildTables = [
+        'staff_documents', 'staff_shifts', 'staff_time_clock', 
+        'staff_leaves', 'staff_leave_requests', 'staff_notifications'
+      ];
+      if (staffChildTables.includes(tableName)) {
+        const staffIds = await getParentIds('staff');
+        if (staffIds.length === 0) return [];
+        const { data, error } = await supabaseClient.from(tableName).select('*').in('staff_id', staffIds);
+        if (error) throw error;
+        return data;
+      }
+
+      // Default query for tables with restaurant_id
+      const { data, error } = await supabaseClient.from(tableName).select('*').eq('restaurant_id', restaurant_id);
+      if (error) throw error;
+      return data;
+    };
+
     if (action === 'backup') {
       console.log(`Creating backup for restaurant: ${restaurant_id}`)
       
-      // If backup_id is not passed, create a backup record
+      const tablesToProcess = Array.isArray(requestedTables) 
+        ? ALL_TABLES_ORDERED.filter(t => requestedTables.includes(t))
+        : ALL_TABLES_ORDERED;
+
+      // Create backup record in DB if not exist
       if (!activeBackupId) {
         const { data: backup, error: backupError } = await supabaseClient
           .from('backups')
           .insert({
             restaurant_id,
-            backup_type: 'full',
-            name: name || `full-backup-${new Date().toISOString().split('T')[0]}`,
+            backup_type: Array.isArray(requestedTables) ? 'incremental' : 'full',
+            name: name || `backup-${new Date().toISOString().split('T')[0]}`,
             status: 'in_progress',
             created_by: userId
           })
@@ -111,26 +263,23 @@ serve(async (req) => {
         if (backupError) throw backupError
         activeBackupId = backup.id
       } else {
-        // Update existing record to in_progress
         await supabaseClient
           .from('backups')
           .update({ status: 'in_progress' })
           .eq('id', activeBackupId)
       }
 
-      // Export restaurant data
+      // Export data
       const backupData: any = { restaurant_id, timestamp: new Date().toISOString() }
 
-      for (const table of TABLES_TO_BACKUP) {
-        const { data, error } = await supabaseClient
-          .from(table)
-          .select('*')
-          .eq('restaurant_id', restaurant_id)
-
-        if (!error && data) {
-          backupData[table] = data
-        } else if (error) {
-          console.error(`Error selecting from ${table}:`, error)
+      for (const table of tablesToProcess) {
+        try {
+          const data = await fetchTableData(table, backupData);
+          if (data) {
+            backupData[table] = data;
+          }
+        } catch (error) {
+          console.error(`Error backing up table ${table}:`, error);
         }
       }
 
@@ -178,7 +327,6 @@ serve(async (req) => {
       let finalBackupData = backup_data
       
       if (!finalBackupData && activeBackupId) {
-        // Fetch backup record to get file_path
         const { data: backupRecord, error: fetchRecordError } = await supabaseClient
           .from('backups')
           .select('file_path')
@@ -190,7 +338,6 @@ serve(async (req) => {
           throw new Error(`Backup record not found or file_path is missing for ID ${activeBackupId}`)
         }
         
-        // Download from storage
         const { data: fileData, error: downloadError } = await supabaseClient
           .storage
           .from('backups')
@@ -212,8 +359,9 @@ serve(async (req) => {
         )
       }
 
-      // Delete child tables first
-      for (const table of DELETION_ORDER) {
+      // Delete child tables first (Reverse dependency order)
+      const tablesToDelete = ALL_TABLES_ORDERED.slice().reverse();
+      for (const table of tablesToDelete) {
         if (finalBackupData[table]) {
           const { error: deleteError } = await supabaseClient
             .from(table)
@@ -226,8 +374,8 @@ serve(async (req) => {
         }
       }
 
-      // Insert parent tables first
-      for (const table of INSERTION_ORDER) {
+      // Insert parent tables first (Forward dependency order)
+      for (const table of ALL_TABLES_ORDERED) {
         const tableData = finalBackupData[table]
         if (Array.isArray(tableData) && tableData.length > 0) {
           const { error: insertError } = await supabaseClient
