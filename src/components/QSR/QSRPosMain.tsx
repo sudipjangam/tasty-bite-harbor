@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { thermalPrinterService } from "@/services/thermalPrinterService";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useQSRMenuItems, QSRMenuItem } from "@/hooks/useQSRMenuItems";
 import { useQSRTables } from "@/hooks/useQSRTables";
@@ -36,6 +37,7 @@ import {
   TrendingUp,
   Receipt,
   Trash2,
+  Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HelpProvider from "@/components/Help/HelpProvider";
@@ -523,23 +525,62 @@ export const QSRPosMain: React.FC = () => {
           ? "Delivery Customer"
           : "Walk-in Customer");
 
-      const kitchenItems = orderItems.map((item) => ({
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-        menuItemId: item.menuItemId,
-        notes: item.notes ? [item.notes] : [],
-        priority: item.priority || "normal",
-      }));
+      let deltaItemsToPrint: any[] = [];
+      let finalKitchenItems: any[] = [];
+      let currentRound = 1;
+      let existingOrderId: string | null = null;
 
       if (recalledKitchenOrderId) {
-        // Update existing kitchen order - preserve original created_at for timing display
+        // Fetch existing kitchen order to get previous items and round
+        const { data: existingKitchenOrder, error: fetchError } = await supabase
+          .from("kitchen_orders")
+          .select("id, items, order_id, round_number")
+          .eq("id", recalledKitchenOrderId)
+          .single();
+          
+        if (fetchError) throw fetchError;
+
+        currentRound = (existingKitchenOrder.round_number || 1) + 1;
+        existingOrderId = existingKitchenOrder.order_id;
+        
+        // Ensure items is an array
+        const existingItems = Array.isArray(existingKitchenOrder.items) ? existingKitchenOrder.items : [];
+        
+        finalKitchenItems = orderItems.map((item) => {
+          // Find existing item by name and price
+          const existingItem = existingItems.find((ei: any) => ei.name === item.name && ei.price === item.price);
+          const previouslyPrinted = existingItem?.printed_qty || 0;
+          const delta = item.quantity - previouslyPrinted;
+          
+          if (delta > 0) {
+            deltaItemsToPrint.push({
+              name: item.name,
+              quantity: item.quantity,
+              printed_qty: previouslyPrinted, // Important: pass previous qty to calculate delta in printer service
+              price: item.price,
+              notes: item.notes
+            });
+          }
+          
+          return {
+            name: item.name,
+            quantity: item.quantity,
+            printed_qty: item.quantity, // Mark as fully printed now
+            price: item.price,
+            menuItemId: item.menuItemId,
+            notes: item.notes ? [item.notes] : [],
+            priority: item.priority || "normal",
+          };
+        });
+
+        // Update existing kitchen order
         const { error: updateError } = await supabase
           .from("kitchen_orders")
           .update({
-            items: kitchenItems,
+            items: finalKitchenItems,
             status: "new",
             source: `QSR-${orderSource}`,
+            round_number: currentRound,
             // Note: NOT resetting created_at - preserves original order timing
             started_at: null, // Reset preparation status
             completed_at: null,
@@ -548,10 +589,24 @@ export const QSRPosMain: React.FC = () => {
           .eq("id", recalledKitchenOrderId);
 
         if (updateError) throw updateError;
-        console.log(
-          "[QSR POS] Kitchen order updated and reset:",
-          recalledKitchenOrderId,
-        );
+        console.log("[QSR POS] Kitchen order updated with delta:", recalledKitchenOrderId);
+
+        // Update linked order total
+        if (existingOrderId) {
+          const { error: orderUpdateError } = await supabase
+            .from("orders")
+            .update({
+              items: orderItems.map((item) =>
+                formatOrderItemString(item.quantity, item.name, item.price, item.notes)
+              ),
+              total: total
+            })
+            .eq("id", existingOrderId);
+            
+          if (orderUpdateError) {
+            console.error("Failed to update linked order:", orderUpdateError);
+          }
+        }
       } else {
         // Build order type for KDS
         const orderTypeMap: Record<QSROrderMode, string> = {
@@ -561,18 +616,40 @@ export const QSRPosMain: React.FC = () => {
           nc: "nc", // NC stored as 'nc' for proper recall
         };
 
-        // Create new kitchen order with all required fields
+        // First round: all items are new
+        finalKitchenItems = orderItems.map((item) => {
+          deltaItemsToPrint.push({
+            name: item.name,
+            quantity: item.quantity,
+            printed_qty: 0,
+            price: item.price,
+            notes: item.notes
+          });
+          
+          return {
+            name: item.name,
+            quantity: item.quantity,
+            printed_qty: item.quantity,
+            price: item.price,
+            menuItemId: item.menuItemId,
+            notes: item.notes ? [item.notes] : [],
+            priority: item.priority || "normal",
+          };
+        });
+
+        // Create new kitchen order
         const { data: kitchenOrder, error: kitchenError } = await supabase
           .from("kitchen_orders")
           .insert({
             restaurant_id: restaurantId,
             source: `QSR-${orderSource}`,
             status: "new",
-            items: kitchenItems,
+            items: finalKitchenItems,
             order_type: orderTypeMap[orderMode],
             customer_name: finalCustomerName, // Use actual customer name
             server_name: attendantName,
             priority: "normal",
+            round_number: 1,
           })
           .select()
           .single();
@@ -605,6 +682,8 @@ export const QSRPosMain: React.FC = () => {
 
         if (orderError) throw orderError;
 
+        existingOrderId = createdOrder?.id;
+
         // Link kitchen order to order record
         if (createdOrder?.id && kitchenOrder?.id) {
           await supabase
@@ -616,6 +695,26 @@ export const QSRPosMain: React.FC = () => {
           setPendingOrderId(createdOrder.id);
           setPendingKitchenOrderId(kitchenOrder.id);
           setPaymentOrderItems([...orderItems]); // Copy for payment dialog
+        }
+      }
+
+      // Send to thermal printer if connected
+      if (thermalPrinterService.isConnected() && deltaItemsToPrint.length > 0) {
+        try {
+          await thermalPrinterService.printKOT({
+            tableName: selectedTable ? selectedTable.name : orderSource,
+            serverName: attendantName,
+            items: deltaItemsToPrint,
+            isAddition: currentRound > 1,
+            roundNumber: currentRound,
+          });
+        } catch (printErr) {
+          console.error("Printer failed:", printErr);
+          toast({
+            variant: "destructive",
+            title: "Print Failed",
+            description: "Could not print KOT receipt",
+          });
         }
       }
 
@@ -807,6 +906,7 @@ export const QSRPosMain: React.FC = () => {
           name: item.name,
           price: item.price,
           quantity: item.quantity,
+          printed_qty: item.printed_qty || 0,
           isCustom: !menuItem,
           notes: Array.isArray(item.notes) ? item.notes.join(", ") : item.notes,
         };
@@ -866,6 +966,7 @@ export const QSRPosMain: React.FC = () => {
           name: item.name,
           price: item.price,
           quantity: item.quantity,
+          printed_qty: item.printed_qty || 0,
           isCustom: !menuItem,
           notes: Array.isArray(item.notes) ? item.notes.join(", ") : item.notes,
         };
@@ -1216,6 +1317,29 @@ export const QSRPosMain: React.FC = () => {
               </h1>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await thermalPrinterService.connect();
+                    toast({
+                      title: "Printer Connected",
+                      description: "Thermal printer is ready for KOTs",
+                    });
+                  } catch (err: any) {
+                    toast({
+                      variant: "destructive",
+                      title: "Connection Failed",
+                      description: err.message || "Failed to connect to printer",
+                    });
+                  }
+                }}
+                className="flex items-center gap-1.5 border-dashed"
+              >
+                <Printer className="w-4 h-4 text-indigo-500" />
+                <span className="hidden sm:inline text-xs">Connect Printer</span>
+              </Button>
               <HelpProvider />
               {/* Refresh Tables Button */}
               <Button

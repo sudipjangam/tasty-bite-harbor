@@ -8,6 +8,7 @@ export interface QSROrderItem {
   name: string;
   price: number;
   quantity: number;
+  printed_qty?: number;
   category?: string;
   notes?: string;
   modifiers?: string[];
