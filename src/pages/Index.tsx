@@ -27,6 +27,7 @@ import TimeClockDialog from "@/components/Staff/TimeClockDialog";
 import LeaveRequestDialog from "@/components/Staff/LeaveRequestDialog";
 import { useRefetchOnNavigation } from "@/hooks/useRefetchOnNavigation";
 import { useAutoClockOut } from "@/hooks/useAutoClockOut";
+import { useAutoClockIn } from "@/hooks/useAutoClockIn";
 import type { StaffMember } from "@/types/staff";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
@@ -109,74 +110,8 @@ const Index = () => {
     setIsLeaveDialogOpen(false);
   };
 
-  // Auto clock-in: Automatically clock in staff when they log in if not already clocked in
-  useEffect(() => {
-    const autoClockInStaff = async () => {
-      if (
-        !isLoadingStaff &&
-        isStaff &&
-        staff &&
-        !activeClockEntry &&
-        !hasCompletedShiftToday &&
-        restaurantId
-      ) {
-        // Check if we already auto-clocked in this session to prevent infinite loops
-        const today = new Date().toISOString().split("T")[0];
-        const autoClockedKey = `auto-clocked-in-${today}`;
-
-        if (!sessionStorage.getItem(autoClockedKey)) {
-          try {
-            // First mark as attempted to prevent duplicate calls
-            sessionStorage.setItem(autoClockedKey, "true");
-
-            // Double check if already clocked in to prevent race conditions
-            const { data: activeSessions } = await supabase
-              .from("staff_time_clock")
-              .select("*")
-              .eq("staff_id", staff.id)
-              .is("clock_out", null)
-              .limit(1);
-
-            if (activeSessions && activeSessions.length > 0) {
-              return; // Already clocked in
-            }
-
-            // Create clock-in record
-            const { error } = await supabase.from("staff_time_clock").insert([
-              {
-                staff_id: staff.id,
-                restaurant_id: restaurantId,
-                clock_in: new Date().toISOString(),
-                notes: "Auto clock-in on login",
-                clock_in_status: "no_shift",
-              },
-            ]);
-
-            if (error) throw error;
-
-            // Update staff status
-            await supabase
-              .from("staff")
-              .update({ status: "working" })
-              .eq("id", staff.id);
-
-            toast({
-              title: "✓ Shift Started",
-              description: `Automatically clocked in at ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}. Have a great shift!`,
-            });
-
-            refetchTimeEntries();
-          } catch (error: any) {
-            console.error("Auto clock-in failed:", error);
-            // Optionally clear session storage so it tries again later if it failed?
-            // sessionStorage.removeItem(autoClockedKey);
-          }
-        }
-      }
-    };
-
-    autoClockInStaff();
-  }, [
+  // Auto clock-in
+  useAutoClockIn({
     isLoadingStaff,
     isStaff,
     staff,
@@ -184,8 +119,7 @@ const Index = () => {
     hasCompletedShiftToday,
     restaurantId,
     refetchTimeEntries,
-    toast,
-  ]);
+  });
 
   const handleNavigationWithPermission = (
     path: string,
