@@ -13,6 +13,7 @@ export interface KOTData {
   isAddition?: boolean;
   roundNumber?: number;
   orderId?: string;
+  orderType?: string;
 }
 
 class ThermalPrinterService {
@@ -169,62 +170,84 @@ class ThermalPrinterService {
       throw new Error("Printer is not connected");
     }
 
-    let receipt = this.INIT;
-    
-    // Header
-    receipt += this.ALIGN_CENTER;
-    receipt += this.TEXT_DOUBLE_BOTH + this.BOLD_ON;
-    receipt += data.isAddition ? "*** ADDITION ***\n" : "KITCHEN ORDER\n";
-    receipt += this.TEXT_NORMAL + this.BOLD_OFF;
-    
-    receipt += `Table: ${data.tableName}\n`;
-    if (data.roundNumber && data.roundNumber > 1) {
-      receipt += `Round: ${data.roundNumber}\n`;
-    }
-    receipt += `Server: ${data.serverName}\n`;
-    
+    const W = 32; // 58mm paper ≈ 32 chars
+    const SEP = "-".repeat(W) + "\n";
     const now = new Date();
-    receipt += `${now.toLocaleDateString()} ${now.toLocaleTimeString()}\n`;
-    
-    receipt += "------------------------------------------------\n";
-    receipt += this.ALIGN_LEFT;
-    
-    // Items
+    const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+
+    const typeLabels: Record<string, string> = {
+      dine_in: "Dine In", takeaway: "Takeaway",
+      delivery: "Delivery", nc: "NC",
+    };
+
+    // Helper: fit two values on one line, right-pad left side
+    const row2 = (l: string, r: string) => {
+      const pad = Math.max(1, W - l.length - r.length);
+      return l + " ".repeat(pad) + r + "\n";
+    };
+
+    let receipt = this.INIT;
+
+    // Title - bold, centered
+    receipt += this.ALIGN_CENTER;
     receipt += this.BOLD_ON;
-    receipt += this.formatLineLR("Qty  Item", "");
+    receipt += data.isAddition ? "*** ADDITION ***\n" : "*** KOT ***\n";
     receipt += this.BOLD_OFF;
-    receipt += "------------------------------------------------\n";
-    
-    receipt += this.TEXT_DOUBLE_HEIGHT;
-    
+    receipt += SEP;
+
+    // Info block - compact, 2 items per line
+    receipt += this.ALIGN_LEFT;
+
+    // Line 1: Table + Round (or just Table if round 1)
+    const tableStr = `Table: ${data.tableName}`;
+    if (data.roundNumber && data.roundNumber > 1) {
+      receipt += row2(tableStr, `Round: ${data.roundNumber}`);
+    } else {
+      receipt += tableStr + "\n";
+    }
+
+    // Line 2: Server + Type
+    const serverStr = `Server: ${data.serverName}`;
+    const typeStr = data.orderType ? typeLabels[data.orderType] || data.orderType : "";
+    if (typeStr) {
+      receipt += row2(serverStr, typeStr);
+    } else {
+      receipt += serverStr + "\n";
+    }
+
+    // Line 3: Date + Time (single line)
+    receipt += row2(dateStr, timeStr);
+
+    receipt += SEP;
+
+    // Items - "1x  Item Name" format
     let totalItems = 0;
     for (const item of data.items) {
       const deltaQty = item.quantity - (item.printed_qty || 0);
       if (deltaQty > 0) {
-        // Only print positive deltas
-        const qtyStr = `${deltaQty}x`;
         receipt += this.BOLD_ON;
-        receipt += `${qtyStr.padEnd(5)} ${item.name}\n`;
+        receipt += `${deltaQty}x  ${item.name}\n`;
         receipt += this.BOLD_OFF;
         if (item.notes) {
-          receipt += `      * ${item.notes}\n`;
+          receipt += `    * ${item.notes}\n`;
         }
         totalItems += deltaQty;
       }
     }
-    
-    receipt += this.TEXT_NORMAL;
-    receipt += "------------------------------------------------\n";
-    receipt += this.ALIGN_CENTER;
-    receipt += `Total Items Printed: ${totalItems}\n`;
-    
+
+    // Footer - compact
+    receipt += SEP;
+    receipt += `Total: ${totalItems} items\n`;
+
     if (data.isAddition) {
-      receipt += this.TEXT_DOUBLE_BOTH + this.BOLD_ON;
-      receipt += "*** ADDITION ONLY ***\n";
-      receipt += this.TEXT_NORMAL + this.BOLD_OFF;
+      receipt += this.ALIGN_CENTER;
+      receipt += this.BOLD_ON;
+      receipt += "** ADDITION ONLY **\n";
+      receipt += this.BOLD_OFF;
     }
-    
-    receipt += "\n\n\n\n"; // Feed paper
+
+    receipt += "\n\n"; // Feed paper
     receipt += this.CUT_PAPER;
 
     await this.writeBytes(this.encodeText(receipt));

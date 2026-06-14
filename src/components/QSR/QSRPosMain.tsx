@@ -707,6 +707,7 @@ export const QSRPosMain: React.FC = () => {
             items: deltaItemsToPrint,
             isAddition: currentRound > 1,
             roundNumber: currentRound,
+            orderType: orderMode,
           });
         } catch (printErr) {
           console.error("Printer failed:", printErr);
