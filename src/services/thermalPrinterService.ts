@@ -53,12 +53,22 @@ class ThermalPrinterService {
         throw new Error("Web Bluetooth API is not supported in this browser. Please use Chrome/Edge.");
       }
 
-      // Request any bluetooth device (many printers don't advertise standard services correctly)
-      // Usually, printers expose service 0x18F0 or similar, but we'll try to accept all
-      // and filter by name or let user pick.
+      // Common BLE printer service UUIDs (various Chinese/generic thermal printers)
+      const PRINTER_SERVICE_UUIDS = [
+        '000018f0-0000-1000-8000-00805f9b34fb', // Common generic printer
+        'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Another common printer
+        '0000ff00-0000-1000-8000-00805f9b34fb', // Chinese printer (FF00)
+        '0000ffe0-0000-1000-8000-00805f9b34fb', // HM-10 / JDY-type modules
+        '49535343-fe7d-4ae5-8fa9-9fafd205e455', // ISSC (Microchip) transparent UART
+        '0000fff0-0000-1000-8000-00805f9b34fb', // FFF0 service (some Goojprt/Xprinter)
+        '0000ae30-0000-1000-8000-00805f9b34fb', // AE30 service
+        '0000fee7-0000-1000-8000-00805f9b34fb', // FEE7 (Tencent)
+        '6e400001-b5a3-f393-e0a9-e50e24dcca9e', // Nordic UART Service (NUS)
+      ];
+
       this.device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
-        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2'] // Common printer services
+        optionalServices: PRINTER_SERVICE_UUIDS,
       });
 
       this.device.addEventListener('gattserverdisconnected', this.onDisconnected);
@@ -66,19 +76,35 @@ class ThermalPrinterService {
       this.server = await this.device.gatt?.connect() || null;
       if (!this.server) throw new Error("Could not connect to GATT server.");
 
-      const services = await this.server.getPrimaryServices();
+      // Try known services first
+      let services = await this.server.getPrimaryServices();
+      
+      if (services.length === 0) {
+        // Some printers need a small delay after connection before services are available
+        await new Promise(resolve => setTimeout(resolve, 500));
+        services = await this.server.getPrimaryServices();
+      }
+
+      if (services.length === 0) {
+        throw new Error("No BLE services found on this device. It may not be a supported printer.");
+      }
       
       // Find the first service with a writable characteristic
       for (const service of services) {
-        const characteristics = await service.getCharacteristics();
-        for (const char of characteristics) {
-          if (char.properties.write || char.properties.writeWithoutResponse) {
-            this.characteristic = char;
-            console.log("Found writable characteristic:", char.uuid);
-            break;
+        try {
+          const characteristics = await service.getCharacteristics();
+          for (const char of characteristics) {
+            if (char.properties.write || char.properties.writeWithoutResponse) {
+              this.characteristic = char;
+              console.log("Found writable characteristic:", char.uuid);
+              break;
+            }
           }
+          if (this.characteristic) break;
+        } catch (charErr) {
+          // Some services may not allow characteristic enumeration, skip
+          console.warn("Could not enumerate characteristics for service:", service.uuid, charErr);
         }
-        if (this.characteristic) break;
       }
 
       if (!this.characteristic) {
@@ -92,6 +118,7 @@ class ThermalPrinterService {
       throw error;
     }
   }
+
 
   async disconnect() {
     if (this.device && this.device.gatt?.connected) {
