@@ -449,8 +449,26 @@ const QuickServePOS: React.FC = () => {
           (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
         );
 
-        // Reset completion status for ALL items
-        const newCompletionStatus = orderItems.map(() => false);
+        // Preserve completion status for existing (served) items, set false for NEW items only
+        // This keeps strikethrough on already-served items while new additions show as unserved
+        const existingCompletionStatus = (existingOrder?.item_completion_status as boolean[]) || [];
+
+        // Track consumed indices to handle duplicate items correctly
+        const consumedIndices = new Set<number>();
+        const preciseCompletionStatus = orderItems.map((item) => {
+          // Find first unconsumed matching original item
+          const matchIdx = editingOrderItems.findIndex((orig, origIdx) => {
+            if (consumedIndices.has(origIdx)) return false;
+            return orig.name === item.name && orig.price === item.price;
+          });
+
+          if (matchIdx !== -1) {
+            consumedIndices.add(matchIdx);
+            return existingCompletionStatus[matchIdx] ?? false;
+          }
+          // New item — not served
+          return false;
+        });
 
         // 1. Replace the entire order items and total
         const { error: updateErr } = await supabase
@@ -459,7 +477,7 @@ const QuickServePOS: React.FC = () => {
             items: allFormattedItems,
             total: fullTotal,
             status: "preparing",
-            item_completion_status: newCompletionStatus,
+            item_completion_status: preciseCompletionStatus,
           })
           .eq("id", editingOrderId);
 
