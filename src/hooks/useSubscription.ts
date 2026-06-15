@@ -44,22 +44,19 @@ export const useSubscription = () => {
 
   const restaurantId = user?.restaurant_id;
 
-  // ── Query: Active Discount ──
-  const { data: activeDiscount } = useQuery({
-    queryKey: ['active-discount', restaurantId],
+  // ── Query: Active Discounts ──
+  const { data: activeDiscounts } = useQuery({
+    queryKey: ['active-discounts', restaurantId],
     queryFn: async () => {
-      if (!restaurantId) return null;
+      if (!restaurantId) return [];
       const { data, error } = await supabase
         .from('subscription_discounts')
         .select('*')
         .eq('restaurant_id', restaurantId)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .eq('status', 'active');
       
-      if (error) return null;
-      return data;
+      if (error) return [];
+      return data || [];
     },
     enabled: !!restaurantId,
   });
@@ -380,7 +377,7 @@ export const useSubscription = () => {
     isExpired,
     isPending,
     isLoadingSubscription,
-    activeDiscount,
+    activeDiscounts,
 
     // Actions
     handleSubscribe,
