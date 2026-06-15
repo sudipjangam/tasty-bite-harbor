@@ -131,14 +131,14 @@ const CustomerList: React.FC<CustomerListProps> = ({
   const filteredCustomers = useMemo(() => {
     let result = customers.filter((customer) => {
       // Search filter - using debounced search term
+      const searchLower = debouncedSearchTerm.toLowerCase();
+      const searchDigits = debouncedSearchTerm.replace(/\D/g, "");
+
       const matchesSearch =
-        customer.name
-          .toLowerCase()
-          .includes(debouncedSearchTerm.toLowerCase()) ||
-        customer.email
-          ?.toLowerCase()
-          .includes(debouncedSearchTerm.toLowerCase()) ||
-        customer.phone?.includes(debouncedSearchTerm);
+        customer.name.toLowerCase().includes(searchLower) ||
+        customer.email?.toLowerCase().includes(searchLower) ||
+        customer.phone?.includes(debouncedSearchTerm) ||
+        (searchDigits.length > 0 && customer.phone?.replace(/\D/g, "").includes(searchDigits));
 
       if (!matchesSearch) return false;
 
