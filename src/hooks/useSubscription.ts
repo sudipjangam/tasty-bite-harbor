@@ -44,6 +44,26 @@ export const useSubscription = () => {
 
   const restaurantId = user?.restaurant_id;
 
+  // ── Query: Active Discount ──
+  const { data: activeDiscount } = useQuery({
+    queryKey: ['active-discount', restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return null;
+      const { data, error } = await supabase
+        .from('subscription_discounts')
+        .select('*')
+        .eq('restaurant_id', restaurantId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) return null;
+      return data;
+    },
+    enabled: !!restaurantId,
+  });
+
   // ── Query: Current subscription + plan details ──
   const {
     data: subscription,
@@ -256,7 +276,7 @@ export const useSubscription = () => {
         key: orderData.key_id,
         amount: orderData.order.amount,
         currency: orderData.order.currency,
-        name: 'Restaurant Pro',
+        name: 'Swadeshi Solutions',
         description: `${orderData.plan.name} Subscription`,
         order_id: orderData.order.id,
         handler: async (response: RazorpayResponse) => {
@@ -360,6 +380,7 @@ export const useSubscription = () => {
     isExpired,
     isPending,
     isLoadingSubscription,
+    activeDiscount,
 
     // Actions
     handleSubscribe,

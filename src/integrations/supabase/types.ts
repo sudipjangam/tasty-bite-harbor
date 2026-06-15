@@ -6846,6 +6846,92 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      subscription_discounts: {
+        Row: {
+          id: string
+          restaurant_id: string
+          restaurant_name: string
+          plan_id: string
+          discount_type: string
+          discount_value: number
+          original_price: number
+          discounted_price: number
+          discount_amount: number
+          discount_percentage: number | null
+          razorpay_payment_link_id: string | null
+          razorpay_payment_link_url: string | null
+          razorpay_payment_link_status: string | null
+          whatsapp_sent: boolean | null
+          whatsapp_sent_at: string | null
+          status: string | null
+          expires_at: string | null
+          notes: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          restaurant_id: string
+          restaurant_name: string
+          plan_id: string
+          discount_type: string
+          discount_value: number
+          original_price: number
+          discounted_price: number
+          discount_amount: number
+          discount_percentage?: number | null
+          razorpay_payment_link_id?: string | null
+          razorpay_payment_link_url?: string | null
+          razorpay_payment_link_status?: string | null
+          whatsapp_sent?: boolean | null
+          whatsapp_sent_at?: string | null
+          status?: string | null
+          expires_at?: string | null
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          restaurant_id?: string
+          restaurant_name?: string
+          plan_id?: string
+          discount_type?: string
+          discount_value?: number
+          original_price?: number
+          discounted_price?: number
+          discount_amount?: number
+          discount_percentage?: number | null
+          razorpay_payment_link_id?: string | null
+          razorpay_payment_link_url?: string | null
+          razorpay_payment_link_status?: string | null
+          whatsapp_sent?: boolean | null
+          whatsapp_sent_at?: string | null
+          status?: string | null
+          expires_at?: string | null
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_discounts_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_discounts_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subscription_plans: {
         Row: {

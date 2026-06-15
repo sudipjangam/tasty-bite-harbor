@@ -113,12 +113,12 @@ const SubscriptionManager = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isPermissionsOpen, setIsPermissionsOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(
-    null
+    null,
   );
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
   const [featureSearchQuery, setFeatureSearchQuery] = useState("");
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [formData, setFormData] = useState({
     name: "",
@@ -318,26 +318,22 @@ const SubscriptionManager = () => {
     setSelectedFeatures((prev) =>
       prev.includes(featureKey)
         ? prev.filter((f) => f !== featureKey)
-        : [...prev, featureKey]
+        : [...prev, featureKey],
     );
   };
 
   const toggleCategory = (category: FeatureCategory) => {
     const categoryKeys = category.features.map((f) => f.key);
-    const allSelected = categoryKeys.every((k) =>
-      selectedFeatures.includes(k)
-    );
+    const allSelected = categoryKeys.every((k) => selectedFeatures.includes(k));
 
     if (allSelected) {
       // Deselect all in this category
       setSelectedFeatures((prev) =>
-        prev.filter((f) => !categoryKeys.includes(f))
+        prev.filter((f) => !categoryKeys.includes(f)),
       );
     } else {
       // Select all in this category
-      setSelectedFeatures((prev) => [
-        ...new Set([...prev, ...categoryKeys]),
-      ]);
+      setSelectedFeatures((prev) => [...new Set([...prev, ...categoryKeys])]);
     }
   };
 
@@ -364,7 +360,7 @@ const SubscriptionManager = () => {
         (f) =>
           f.label.toLowerCase().includes(q) ||
           f.key.toLowerCase().includes(q) ||
-          f.description.toLowerCase().includes(q)
+          f.description.toLowerCase().includes(q),
       ),
     })).filter((c) => c.features.length > 0);
   }, [featureSearchQuery]);
@@ -425,28 +421,28 @@ const SubscriptionManager = () => {
                     text: "slate",
                   }
                 : plan.price < 1000
-                ? {
-                    gradient: "from-emerald-500 to-teal-600",
-                    light: "emerald",
-                    text: "emerald",
-                  }
-                : plan.price < 2000
-                ? {
-                    gradient: "from-blue-500 to-indigo-600",
-                    light: "blue",
-                    text: "indigo",
-                  }
-                : plan.price < 5000
-                ? {
-                    gradient: "from-violet-500 to-purple-600",
-                    light: "violet",
-                    text: "purple",
-                  }
-                : {
-                    gradient: "from-amber-500 to-orange-600",
-                    light: "amber",
-                    text: "orange",
-                  };
+                  ? {
+                      gradient: "from-emerald-500 to-teal-600",
+                      light: "emerald",
+                      text: "emerald",
+                    }
+                  : plan.price < 2000
+                    ? {
+                        gradient: "from-blue-500 to-indigo-600",
+                        light: "blue",
+                        text: "indigo",
+                      }
+                    : plan.price < 5000
+                      ? {
+                          gradient: "from-violet-500 to-purple-600",
+                          light: "violet",
+                          text: "purple",
+                        }
+                      : {
+                          gradient: "from-amber-500 to-orange-600",
+                          light: "amber",
+                          text: "orange",
+                        };
 
             return (
               <div
@@ -588,7 +584,7 @@ const SubscriptionManager = () => {
                         onClick={() => {
                           if (count > 0) {
                             toast.error(
-                              "Cannot delete plan with active subscribers"
+                              "Cannot delete plan with active subscribers",
                             );
                             return;
                           }
@@ -674,7 +670,7 @@ const SubscriptionManager = () => {
                   const Icon = ICON_MAP[category.icon] || Shield;
                   const categoryKeys = category.features.map((f) => f.key);
                   const selectedCount = categoryKeys.filter((k) =>
-                    selectedFeatures.includes(k)
+                    selectedFeatures.includes(k),
                   ).length;
                   const totalCount = categoryKeys.length;
                   const allSelected = selectedCount === totalCount;
@@ -714,8 +710,8 @@ const SubscriptionManager = () => {
                               allSelected
                                 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
                                 : someSelected
-                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                                : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+                                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                  : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
                             }`}
                           >
                             {selectedCount}/{totalCount}
@@ -741,7 +737,7 @@ const SubscriptionManager = () => {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                             {category.features.map((feature) => {
                               const isChecked = selectedFeatures.includes(
-                                feature.key
+                                feature.key,
                               );
                               return (
                                 <div
@@ -838,7 +834,7 @@ const SubscriptionManager = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                placeholder="e.g., Restaurant Pro"
+                placeholder="e.g., Swadeshi Solutions"
                 className="mt-1"
               />
             </div>

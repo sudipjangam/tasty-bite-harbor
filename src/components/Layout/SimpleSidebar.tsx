@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { X, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,20 +23,22 @@ const SimpleSidebar = () => {
 
       {/* Mobile overlay */}
       {isOpen && (
-        <div 
+        <div
           className="lg:hidden fixed inset-0 bg-black/50 z-40"
           onClick={() => setIsOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <aside className={`
+      <aside
+        className={`
         fixed top-0 left-0 z-40 h-full w-64 
         bg-gradient-to-b from-sidebar-purple to-sidebar-purple-dark 
         transform transition-transform duration-300 ease-in-out
         lg:translate-x-0 lg:static lg:z-auto
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
+        ${isOpen ? "translate-x-0" : "-translate-x-full"}
+      `}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/10">
           <div className="flex items-center space-x-3">
@@ -45,11 +46,13 @@ const SimpleSidebar = () => {
               <span className="text-sidebar-purple font-bold text-lg">R</span>
             </div>
             <div>
-              <h2 className="text-white font-semibold text-sm">Restaurant Pro</h2>
+              <h2 className="text-white font-semibold text-sm">
+                Swadeshi Solutions
+              </h2>
               <p className="text-white/70 text-xs">Management System</p>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <ThemeToggle />
             <Button
@@ -72,11 +75,9 @@ const SimpleSidebar = () => {
         <div className="p-4 border-t border-white/10">
           <div className="text-center">
             <p className="text-white/60 text-xs">
-              © {new Date().getFullYear()} Restaurant Pro
+              © {new Date().getFullYear()} Swadeshi Solutions
             </p>
-            <p className="text-white/60 text-xs">
-              Version 2.0
-            </p>
+            <p className="text-white/60 text-xs">Version 2.0</p>
           </div>
         </div>
       </aside>
