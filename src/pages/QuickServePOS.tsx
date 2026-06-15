@@ -880,6 +880,27 @@ const QuickServePOS: React.FC = () => {
     [toast],
   );
 
+  // Reorder last order items
+  const handleReorderLastOrder = useCallback(
+    (items: { name: string; quantity: number; price: number }[]) => {
+      const newOrderItems: QSOrderItem[] = items.map((item) => ({
+        id: crypto.randomUUID(),
+        menuItemId: "",
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        isCustom: true,
+      }));
+      setOrderItems(newOrderItems);
+      toast({
+        title: "Last Order Loaded",
+        description: `Loaded ${items.length} items from previous order`,
+        duration: 2000,
+      });
+    },
+    [toast],
+  );
+
   // ─── Add Items to Existing Order ──────────────────────────────────────
   const handleAddItemsToOrder = useCallback(
     (order: import("@/components/QuickServe/QSActiveOrders").ActiveOrder) => {
@@ -1082,6 +1103,7 @@ const QuickServePOS: React.FC = () => {
             onNameChange={setCustomerName}
             onPhoneChange={setCustomerPhone}
             onCustomerFound={handleCustomerFound}
+            onReorder={handleReorderLastOrder}
           />
           <QSOrderPanel
             items={orderItems}
@@ -1164,6 +1186,7 @@ const QuickServePOS: React.FC = () => {
               onNameChange={setCustomerName}
               onPhoneChange={setCustomerPhone}
               onCustomerFound={handleCustomerFound}
+              onReorder={handleReorderLastOrder}
             />
             <QSOrderPanel
               items={orderItems}

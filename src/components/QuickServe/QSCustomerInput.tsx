@@ -1,10 +1,13 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { User, Phone, Star, Gift, UserPlus, Loader2 } from "lucide-react";
+import { User, Phone, Star, Gift, UserPlus, Loader2, RotateCcw, ChevronDown, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
+import { sanitizeOrderItemDisplay } from "@/lib/order-utils";
+import { Button } from "@/components/ui/button";
 
 export interface LoyaltyCustomerInfo {
   id: string;
@@ -17,12 +20,20 @@ export interface LoyaltyCustomerInfo {
   total_spent: number;
 }
 
+export interface LastOrderInfo {
+  id: string;
+  items: string[];
+  total: number;
+  created_at: string;
+}
+
 interface QSCustomerInputProps {
   customerName: string;
   customerPhone: string;
   onNameChange: (name: string) => void;
   onPhoneChange: (phone: string) => void;
   onCustomerFound?: (customer: LoyaltyCustomerInfo | null) => void;
+  onReorder?: (items: { name: string; quantity: number; price: number }[]) => void;
 }
 
 // ─── In-memory LRU cache for customer lookups ───────────────────────────────
@@ -32,28 +43,29 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 min
 
 interface CacheEntry {
   customer: LoyaltyCustomerInfo | null;
+  lastOrder: LastOrderInfo | null;
   timestamp: number;
 }
 
 const customerCache = new Map<string, CacheEntry>();
 
-function getCached(key: string): LoyaltyCustomerInfo | null | undefined {
+function getCached(key: string): CacheEntry | undefined {
   const entry = customerCache.get(key);
   if (!entry) return undefined;
   if (Date.now() - entry.timestamp > CACHE_TTL) {
     customerCache.delete(key);
     return undefined;
   }
-  return entry.customer;
+  return entry;
 }
 
-function setCache(key: string, customer: LoyaltyCustomerInfo | null) {
+function setCache(key: string, customer: LoyaltyCustomerInfo | null, lastOrder: LastOrderInfo | null) {
   // Evict oldest if full
   if (customerCache.size >= CACHE_MAX) {
     const firstKey = customerCache.keys().next().value;
     if (firstKey) customerCache.delete(firstKey);
   }
-  customerCache.set(key, { customer, timestamp: Date.now() });
+  customerCache.set(key, { customer, lastOrder, timestamp: Date.now() });
 }
 
 export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
@@ -62,10 +74,13 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
   onNameChange,
   onPhoneChange,
   onCustomerFound,
+  onReorder,
 }) => {
   const { restaurantId } = useRestaurantId();
   const { symbol: currencySymbol } = useCurrencyContext();
   const [foundCustomer, setFoundCustomer] = useState<LoyaltyCustomerInfo | null>(null);
+  const [lastOrder, setLastOrder] = useState<LastOrderInfo | null>(null);
+  const [isLastOrderExpanded, setIsLastOrderExpanded] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isNewCustomer, setIsNewCustomer] = useState(false);
   const [lookupDone, setLookupDone] = useState(false);
@@ -86,6 +101,8 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
     // Reset state when phone changes
     setIsNewCustomer(false);
     setLookupDone(false);
+    setLastOrder(null);
+    setIsLastOrderExpanded(false);
 
     // Only search at exactly 10 digits
     if (customerPhone.length !== 10 || !restaurantId) {
@@ -102,14 +119,16 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
     const cacheKey = `${restaurantId}:${customerPhone}`;
 
     // Check cache first — skip DB entirely if hit
-    const cached = getCached(cacheKey);
-    if (cached !== undefined) {
-      setFoundCustomer(cached);
-      onCustomerFoundRef.current?.(cached);
-      setIsNewCustomer(cached === null);
+    const cachedEntry = getCached(cacheKey);
+    if (cachedEntry !== undefined) {
+      const cachedCustomer = cachedEntry.customer;
+      setFoundCustomer(cachedCustomer);
+      setLastOrder(cachedEntry.lastOrder);
+      onCustomerFoundRef.current?.(cachedCustomer);
+      setIsNewCustomer(cachedCustomer === null);
       setLookupDone(true);
-      if (cached && !customerNameRef.current && cached.name) {
-        onNameChangeRef.current(cached.name);
+      if (cachedCustomer && !customerNameRef.current && cachedCustomer.name) {
+        onNameChangeRef.current(cachedCustomer.name);
       }
       return;
     }
@@ -141,7 +160,29 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
           return;
         }
 
+        let lastOrderData: LastOrderInfo | null = null;
+
         if (data) {
+          // Fetch last order
+          const { data: orderData, error: orderError } = await supabase
+            .from("orders")
+            .select("id, items, total, created_at")
+            .eq("restaurant_id", restaurantId)
+            .eq("customer_phone", customerPhone)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+            .abortSignal(controller.signal);
+
+          if (!orderError && orderData) {
+            lastOrderData = {
+              id: orderData.id,
+              items: Array.isArray(orderData.items) ? orderData.items : [],
+              total: Number(orderData.total) || 0,
+              created_at: orderData.created_at,
+            };
+          }
+
           const tierData = data.loyalty_tiers as any;
           const customerInfo: LoyaltyCustomerInfo = {
             id: data.id,
@@ -154,9 +195,10 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
             total_spent: data.total_spent || 0,
           };
           setFoundCustomer(customerInfo);
+          setLastOrder(lastOrderData);
           onCustomerFoundRef.current?.(customerInfo);
           setIsNewCustomer(false);
-          setCache(cacheKey, customerInfo);
+          setCache(cacheKey, customerInfo, lastOrderData);
           // Auto-fill name if empty
           if (!customerNameRef.current && data.name) {
             onNameChangeRef.current(data.name);
@@ -166,7 +208,7 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
           setFoundCustomer(null);
           onCustomerFoundRef.current?.(null);
           setIsNewCustomer(true);
-          setCache(cacheKey, null);
+          setCache(cacheKey, null, null);
         }
         setLookupDone(true);
       } catch (err: any) {
@@ -187,6 +229,24 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
       abortRef.current?.abort();
     };
   }, [customerPhone, restaurantId]);
+
+  // Parse order items for display and reordering
+  const parseOrderItems = (items: any) => {
+    if (!Array.isArray(items)) return [];
+    return items
+      .map((itemStr: string) => {
+        const match = itemStr.match(/^(\d+)x\s+(.+)\s+@(\d+(?:\.\d+)?)$/);
+        if (match) {
+          return {
+            quantity: parseInt(match[1], 10),
+            name: sanitizeOrderItemDisplay(match[2]),
+            price: parseFloat(match[3]),
+          };
+        }
+        return { quantity: 1, name: String(itemStr), price: 0 };
+      })
+      .filter(Boolean);
+  };
 
   return (
     <div className="px-4 py-2.5 space-y-2 border-b border-gray-200/50 dark:border-white/5">
@@ -286,6 +346,64 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
               First visit — will be added to loyalty program on order
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Last Order Panel */}
+      {foundCustomer && lastOrder && (
+        <div className="flex flex-col gap-1.5 p-2 bg-gradient-to-r from-orange-50 to-pink-50 dark:from-orange-500/10 dark:to-pink-500/10 rounded-xl border border-orange-200/50 dark:border-orange-500/20 animate-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center justify-between text-xs">
+            <button
+              onClick={() => setIsLastOrderExpanded(!isLastOrderExpanded)}
+              className="flex items-center gap-1 font-bold text-orange-700 dark:text-orange-300 hover:text-orange-600 transition-colors"
+            >
+              {isLastOrderExpanded ? (
+                <ChevronDown className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5" />
+              )}
+              <span>Last Order • {currencySymbol}{lastOrder.total.toFixed(0)}</span>
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] text-gray-500 dark:text-white/40">
+                {formatDistanceToNow(new Date(lastOrder.created_at), { addSuffix: true })}
+              </span>
+              {!isLastOrderExpanded && onReorder && (
+                <Button
+                  onClick={() => onReorder(parseOrderItems(lastOrder.items))}
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-1.5 text-[10px] font-bold text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-500/20"
+                >
+                  Repeat
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {isLastOrderExpanded && (
+            <div className="mt-1 space-y-1.5 border-t border-orange-200/30 dark:border-orange-500/10 pt-1.5 animate-in fade-in duration-200">
+              <div className="text-[11px] text-gray-600 dark:text-white/70 max-h-20 overflow-y-auto space-y-0.5 pr-1">
+                {parseOrderItems(lastOrder.items).map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-center">
+                    <span>{item.quantity}x {sanitizeOrderItemDisplay(item.name)}</span>
+                    <span className="text-gray-400 dark:text-white/40">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+              {onReorder && (
+                <Button
+                  onClick={() => onReorder(parseOrderItems(lastOrder.items))}
+                  size="sm"
+                  variant="outline"
+                  className="w-full mt-1 border-orange-300 dark:border-orange-500/30 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-500/10 h-7 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Repeat Last Order
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
