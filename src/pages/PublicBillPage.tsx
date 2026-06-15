@@ -716,13 +716,20 @@ const PublicBillPage = () => {
               )}
 
               {/* Points Earned */}
-              {billData.pointsEarned && billData.pointsEarned > 0 && (
-                <div className="flex justify-center pt-1">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-xs text-amber-400">
-                    ⭐ You earned <strong>{billData.pointsEarned}</strong> loyalty points from this order!
-                  </span>
+              {(billData.pointsEarned && billData.pointsEarned > 0) || (billData.totalLoyaltyPoints !== undefined) ? (
+                <div className="flex flex-col items-center gap-1.5 pt-2">
+                  {billData.pointsEarned && billData.pointsEarned > 0 && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-xs text-amber-400">
+                      ⭐ You earned <strong>{billData.pointsEarned}</strong> loyalty points from this order!
+                    </span>
+                  )}
+                  {billData.totalLoyaltyPoints !== undefined && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-xs text-blue-400">
+                      🎁 Total Loyalty Balance: <strong>{billData.totalLoyaltyPoints}</strong> points
+                    </span>
+                  )}
                 </div>
-              )}
+              ) : null}
             </div>
 
             {/* Footer */}

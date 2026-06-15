@@ -21,6 +21,7 @@ export interface BillFormatParams {
   manualDiscountPercent?: number;
   discountNotes?: string;
   pointsEarned?: number;
+  totalLoyaltyPoints?: number;
   paymentMethod?: string;
   tableNumber?: string;
   customerName?: string;
@@ -53,6 +54,8 @@ export function formatBillText(params: BillFormatParams): string {
     orderDate,
     currencySymbol = "₹",
     isNonChargeable = false,
+    pointsEarned,
+    totalLoyaltyPoints,
   } = params;
 
   const lines: string[] = [];
@@ -123,6 +126,14 @@ export function formatBillText(params: BillFormatParams): string {
   if (paymentMethod) {
     const methodLabel = getPaymentMethodLabel(paymentMethod);
     lines.push(`💳 Paid via: ${methodLabel}`);
+  }
+
+  // Loyalty Points
+  if (pointsEarned && pointsEarned > 0) {
+    lines.push(`⭐ You earned ${pointsEarned} loyalty points from this order!`);
+  }
+  if (totalLoyaltyPoints !== undefined) {
+    lines.push(`⭐ Total Loyalty Balance: ${totalLoyaltyPoints} points`);
   }
 
   lines.push("");
@@ -215,6 +226,7 @@ const COMPACT_KEYS: Record<string, string> = {
   isNonChargeable: "nc",
   discountNotes: "dn",
   pointsEarned: "pe",
+  totalLoyaltyPoints: "tlp",
   // Item sub-keys
   name: "n",
   quantity: "q",
