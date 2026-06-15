@@ -65,64 +65,35 @@ async function sendWhatsApp(
   phone: string,
   variables: Record<string, string>,
   invoicePath: string,  // Just the path suffix for the dynamic URL button (e.g. "restaurantId/INV-SUB-XXX.html")
+  restaurantId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const authKey = Deno.env.get('MSG91_AUTH_KEY');
-  const integratedNumber = Deno.env.get('MSG91_INTEGRATED_NUMBER') || '918329540398';
-  if (!authKey) {
-    return { success: false, error: 'MSG91 not configured' };
-  }
-  let cleanPhone = phone.replace(/[\+\-\s]/g, '');
-  if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
-  // Build components from variables
-  const components: Record<string, any> = {};
-  for (const [key, value] of Object.entries(variables)) {
-    components[`body_${key}`] = {
-      type: 'text',
-      value,
-    };
-  }
-  // Invoice URL button — MSG91 dynamic URL appends this value to the template base URL
-  // Template URL: https://swadeshisolutions.co.in/invoice/{{1}}
-  // We send ONLY the dynamic suffix, e.g. "a89cea4a.../INV-SUB-ABC123.html"
-  components.button_1 = {
-    subtype: 'url',
-    type: 'text',
-    value: invoicePath,
-  };
   try {
-    const response = await fetch(
-      'https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/',
-      {
-        method: 'POST',
-        headers: {
-          accept: 'application/json',
-          authkey: authKey,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          integrated_number: integratedNumber,
-          content_type: 'template',
-          payload: {
-            messaging_product: 'whatsapp',
-            type: 'template',
-            template: {
-              name: 'subscription_confirmation',
-              language: { code: 'en', policy: 'deterministic' },
-              namespace: '7991fb14_798f_46ac_86b2_b0c79f284695',
-              to_and_components: [{ to: [cleanPhone], components }],
-            },
-          },
-        }),
-      },
-    );
-    const data = await response.json();
-    console.log('MSG91 response headers:', response.headers);
-    console.log('MSG91 response status:', response.status);
-    console.log('MSG91 response data:', JSON.stringify(data));
-    if (!response.ok || data.hasError === true) {
-      console.error('MSG91 API rejected the message:', data);
-      return { success: false, error: `MSG91: ${JSON.stringify(data)}` };
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
+
+    const { data, error } = await supabaseAdmin.functions.invoke("send-whatsapp-unified", {
+      body: {
+        phoneNumber: phone,
+        restaurantId: restaurantId,
+        templateName: "subscription_confirmation",
+        variables: variables,
+        buttons: [
+          { type: "url", value: invoicePath }
+        ]
+      }
+    });
+
+    if (error) {
+      console.error('Unified WhatsApp edge function error:', error);
+      return { success: false, error: String(error) };
     }
+    
+    if (data && data.success === false) {
+       console.error('Unified WhatsApp failed:', data);
+       return { success: false, error: data.error };
+    }
+
     return { success: true };
   } catch (error) {
     console.error('WhatsApp error:', error);
@@ -536,6 +507,7 @@ serve(async (req) => {
           payment_id: razorpay_payment_id,
         },
         encodeURIComponent(invoiceFileName),
+        restaurant_id
       );
       console.log('WhatsApp result:', whatsappResult);
     } else {
