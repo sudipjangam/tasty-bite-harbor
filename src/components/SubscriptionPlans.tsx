@@ -20,6 +20,7 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
     isActive,
     handleSubscribe,
     isProcessing,
+    activeDiscount,
   } = useSubscription();
 
   const [planType, setPlanType] = useState<
@@ -142,6 +143,10 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
 
             const isFree = plan.price === "0";
             const isCurrentPlan = subscription?.plan_id === plan.id && isActive;
+            
+            // Apply active discount if available for this plan and not expired
+            const discount = activeDiscount?.plan_id === plan.id && 
+              new Date(activeDiscount.expires_at) > new Date() ? activeDiscount : null;
 
             return (
               <Card
@@ -152,7 +157,7 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
                     : plan.name.toLowerCase().includes("pro")
                       ? "border-primary/50"
                       : "border-transparent"
-                }`}
+                } ${discount ? "border-rose-400 ring-2 ring-rose-100" : ""}`}
               >
                 {isCurrentPlan && (
                   <div className="absolute top-0 right-0 bg-emerald-500 text-white px-4 py-1 rounded-bl-xl text-xs font-bold uppercase tracking-wider">
@@ -174,11 +179,29 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
                   <h3 className="text-xl font-bold text-primary">
                     {displayName}
                   </h3>
-                  <div className="mt-4 flex items-baseline gap-1">
-                    <span className="text-3xl font-bold">{formatPrice(plan.price)}</span>
-                    <span className="text-sm text-muted-foreground font-medium">
-                      / {isFree ? "14 days" : formatInterval(billingCycle)}
-                    </span>
+                  <div className="mt-4 flex flex-col gap-1">
+                    {discount ? (
+                      <>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-bold text-rose-600">
+                            {formatPrice(discount.discounted_price.toString())}
+                          </span>
+                          <span className="text-lg text-slate-400 line-through">
+                            {formatPrice(plan.price)}
+                          </span>
+                        </div>
+                        <span className="text-sm font-medium text-rose-500 bg-rose-50 dark:bg-rose-950/30 px-2 py-0.5 rounded-md w-fit">
+                          Special Offer • Save {formatPrice((parseFloat(plan.price) - discount.discounted_price).toString())}
+                        </span>
+                      </>
+                    ) : (
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-bold">{formatPrice(plan.price)}</span>
+                        <span className="text-sm text-muted-foreground font-medium">
+                          / {isFree ? "14 days" : formatInterval(billingCycle)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
                     {plan.description}
@@ -204,12 +227,14 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
                   className={`mt-6 w-full ${
                     isCurrentPlan
                       ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 cursor-default"
+                      : discount
+                        ? "bg-rose-600 hover:bg-rose-700 text-white"
                       : plan.name.toLowerCase().includes("pro")
                         ? "bg-primary hover:bg-primary/90"
                         : "bg-secondary hover:bg-secondary/80 text-foreground"
                   }`}
                   size="lg"
-                  onClick={() => onSubscribeClick(plan.id, plan.price, plan.name)}
+                  onClick={() => onSubscribeClick(plan.id, discount ? discount.discounted_price.toString() : plan.price, plan.name)}
                   disabled={isProcessing || isCurrentPlan}
                 >
                   {isProcessing ? (
@@ -219,6 +244,8 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
                     </>
                   ) : isCurrentPlan ? (
                     "✓ Current Plan"
+                  ) : discount ? (
+                    "Claim Special Offer"
                   ) : isFree ? (
                     "Start Free Trial"
                   ) : (

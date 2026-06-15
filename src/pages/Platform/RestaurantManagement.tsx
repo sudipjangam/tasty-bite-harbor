@@ -87,6 +87,7 @@ import {
   Lock,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DiscountDialog } from "@/components/Platform/DiscountDialog";
 
 interface Restaurant {
   id: string;
@@ -158,6 +159,7 @@ const RestaurantManagement = () => {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isSubscriptionOpen, setIsSubscriptionOpen] = useState(false);
+  const [isDiscountOpen, setIsDiscountOpen] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] =
     useState<Restaurant | null>(null);
   const [isManageUsersOpen, setIsManageUsersOpen] = useState(false);
@@ -708,6 +710,11 @@ const RestaurantManagement = () => {
     setIsSubscriptionOpen(true);
   };
 
+  const openDiscount = (restaurant: Restaurant) => {
+    setSelectedRestaurant(restaurant);
+    setIsDiscountOpen(true);
+  };
+
   const getStatusBadge = (status: string) => {
     const styles = {
       active:
@@ -988,6 +995,11 @@ const RestaurantManagement = () => {
                           }} className="rounded-xl font-medium focus:bg-slate-100 dark:focus:bg-slate-800"
                         >
                           <Users className="h-4 w-4 mr-2 text-emerald-500" /> Manage Users
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => openDiscount(restaurant)} className="rounded-xl font-medium focus:bg-slate-100 dark:focus:bg-slate-800"
+                        >
+                          <IndianRupee className="h-4 w-4 mr-2 text-rose-500" /> Apply Discount
                         </DropdownMenuItem>
                         <DropdownMenuSeparator className="bg-slate-200/50 dark:bg-slate-700/50" />
                         <DropdownMenuItem
@@ -2904,6 +2916,19 @@ const RestaurantManagement = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {selectedRestaurant && (
+        <DiscountDialog
+          isOpen={isDiscountOpen}
+          onClose={() => {
+            setIsDiscountOpen(false);
+            setSelectedRestaurant(null);
+          }}
+          restaurantId={selectedRestaurant.id}
+          restaurantName={selectedRestaurant.name}
+          ownerPhone={selectedRestaurant.owner_phone || selectedRestaurant.phone || ""}
+        />
+      )}
       </div>
     </div>
   );

@@ -626,7 +626,7 @@ export const ImprovedSidebarNavigation = ({
         </div>
         <div className="text-center">
           <span className="text-xs text-white/60">
-            © {new Date().getFullYear()} Restaurant Pro
+            © {new Date().getFullYear()} Swadeshi Solutions
           </span>
         </div>
       </div>

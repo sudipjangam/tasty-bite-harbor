@@ -60,8 +60,32 @@ serve(async (req) => {
       );
     }
 
-    // 2. Verify plan has a price > 0 (free trials should bypass)
-    const priceInPaise = Math.round(Number(plan.price) * 100);
+    // 2. Check for active discount for this restaurant+plan
+    let finalPrice = Number(plan.price);
+    let activeDiscount = null;
+    
+    const { data: discount } = await supabaseAdmin
+      .from('subscription_discounts')
+      .select('*')
+      .eq('restaurant_id', restaurantId)
+      .eq('plan_id', planId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (discount) {
+      // Check expiry
+      const isExpired = discount.expires_at && new Date(discount.expires_at) <= new Date();
+      if (!isExpired) {
+        finalPrice = Number(discount.discounted_price);
+        activeDiscount = discount;
+        console.log(`Active discount found: original=${plan.price}, discounted=${finalPrice}`);
+      }
+    }
+
+    // 3. Verify plan has a price > 0 (free trials should bypass)
+    const priceInPaise = Math.round(finalPrice * 100);
     if (priceInPaise <= 0) {
       return new Response(
         JSON.stringify({ error: 'Free plans do not require payment. Use direct activation.' }),
@@ -94,6 +118,9 @@ serve(async (req) => {
           plan_id: planId,
           plan_name: plan.name,
           billing_interval: plan.interval,
+          discount_id: activeDiscount?.id || null,
+          original_price: plan.price,
+          discounted_price: activeDiscount ? finalPrice.toString() : null,
         },
       }),
     });
@@ -119,13 +146,16 @@ serve(async (req) => {
           plan_id: planId,
           status: 'pending',
           razorpay_order_id: razorpayOrder.id,
-          amount_paid: Number(plan.price),
+          amount_paid: finalPrice,
           currency: 'INR',
           receipt: receipt,
           payment_notes: {
             plan_name: plan.name,
             billing_interval: plan.interval,
             order_created_at: new Date().toISOString(),
+            discount_id: activeDiscount?.id || null,
+            original_price: plan.price,
+            discounted_price: activeDiscount ? finalPrice : null,
           },
           updated_at: new Date().toISOString(),
         },
@@ -158,6 +188,12 @@ serve(async (req) => {
           price: plan.price,
           interval: plan.interval,
         },
+        discount: activeDiscount ? {
+          id: activeDiscount.id,
+          original_price: plan.price,
+          discounted_price: finalPrice,
+          discount_type: activeDiscount.discount_type,
+        } : null,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
