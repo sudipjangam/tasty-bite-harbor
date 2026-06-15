@@ -123,7 +123,7 @@ interface Restaurant {
   created_at: string;
   updated_at: string | null;
   // Supabase returns object for one-to-one, array for one-to-many
-  restaurant_subscriptions: {
+  restaurant_subscriptions: Array<{
     id: string;
     status: string;
     current_period_end: string;
@@ -133,7 +133,7 @@ interface Restaurant {
       name: string;
       price: number;
     } | null;
-  } | null;
+  }> | any;
   profiles: Array<{
     id: string;
     first_name: string | null;
@@ -294,7 +294,8 @@ const RestaurantManagement = () => {
       let filtered = data || [];
       if (statusFilter !== "all") {
         filtered = filtered.filter((r: any) => {
-          const sub = r.restaurant_subscriptions;
+          const subArray = r.restaurant_subscriptions;
+          const sub = Array.isArray(subArray) ? subArray[0] : subArray;
           return sub?.status === statusFilter;
         });
       }
@@ -698,9 +699,11 @@ const RestaurantManagement = () => {
 
   const openSubscription = (restaurant: Restaurant) => {
     setSelectedRestaurant(restaurant);
+    const subArray = restaurant.restaurant_subscriptions;
+    const sub = Array.isArray(subArray) ? subArray[0] : subArray;
     setFormData({
       ...formData,
-      planId: restaurant.restaurant_subscriptions?.[0]?.plan_id || "",
+      planId: sub?.plan_id || "",
     });
     setIsSubscriptionOpen(true);
   };
@@ -736,7 +739,10 @@ const RestaurantManagement = () => {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="relative min-h-[calc(100vh-4rem)] p-4 sm:p-6 lg:p-8 space-y-8 animate-in fade-in duration-500 bg-gradient-to-br from-slate-50 via-white to-purple-50/50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950/20 rounded-[2rem] shadow-sm border border-slate-200/50 dark:border-slate-800/50 overflow-hidden">
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/2" />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-3xl pointer-events-none translate-y-1/2 -translate-x-1/2" />
+      <div className="relative z-10 space-y-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -757,32 +763,33 @@ const RestaurantManagement = () => {
       </div>
 
       {/* Filters Glass Bar */}
-      <div className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl p-4 shadow-sm">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+      <div className="bg-gradient-to-r from-white/60 via-white/40 to-white/60 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-slate-900/60 backdrop-blur-2xl border-2 border-white/50 dark:border-white/10 rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-violet-500/10 via-fuchsia-500/10 to-indigo-500/10 opacity-50 pointer-events-none" />
+        <div className="flex flex-col md:flex-row gap-4 relative z-10">
+          <div className="flex-1 relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-purple-500 transition-colors" />
             <Input
               placeholder="Search by name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-white/50 dark:bg-slate-800/50 border-white/20 dark:border-white/10"
+              className="pl-11 h-12 bg-white/50 dark:bg-slate-800/50 border-white/50 dark:border-white/10 focus-visible:ring-2 focus-visible:ring-purple-500/50 rounded-2xl shadow-inner transition-all"
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full md:w-[200px] bg-white/50 dark:bg-slate-800/50 border-white/20 dark:border-white/10">
+            <SelectTrigger className="w-full md:w-[220px] h-12 bg-white/50 dark:bg-slate-800/50 border-white/50 dark:border-white/10 focus:ring-2 focus:ring-purple-500/50 rounded-2xl shadow-inner transition-all">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="trial">Trial</SelectItem>
-              <SelectItem value="expired">Expired</SelectItem>
+            <SelectContent className="rounded-2xl border-white/20 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl">
+              <SelectItem value="all" className="rounded-xl">All Status</SelectItem>
+              <SelectItem value="active" className="rounded-xl">Active</SelectItem>
+              <SelectItem value="trial" className="rounded-xl">Trial</SelectItem>
+              <SelectItem value="expired" className="rounded-xl">Expired</SelectItem>
             </SelectContent>
           </Select>
           <Button
             variant="outline"
             onClick={() => refetch()}
-            className="bg-white/50 dark:bg-slate-800/50 border-white/20 dark:border-white/10"
+            className="h-12 px-6 rounded-2xl bg-white/50 dark:bg-slate-800/50 border-white/50 dark:border-white/10 hover:bg-white hover:shadow-md transition-all text-slate-700 dark:text-slate-200"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
@@ -824,7 +831,8 @@ const RestaurantManagement = () => {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {restaurants.map((restaurant, index) => {
-            const sub = restaurant.restaurant_subscriptions;
+            const subArray = restaurant.restaurant_subscriptions;
+            const sub = Array.isArray(subArray) ? subArray[0] : subArray;
             const userCount = restaurant.profiles?.length || 0;
             const expiry = sub?.current_period_end
               ? new Date(sub.current_period_end).toLocaleDateString()
@@ -834,31 +842,43 @@ const RestaurantManagement = () => {
             const colors = [
               {
                 gradient: "from-violet-500 to-purple-600",
+                bgGlass: "bg-violet-50/50 dark:bg-violet-900/20",
+                borderGlass: "border-violet-200/60 dark:border-violet-700/50",
                 bg: "violet",
                 shadow: "purple",
               },
               {
                 gradient: "from-emerald-500 to-teal-600",
+                bgGlass: "bg-emerald-50/50 dark:bg-emerald-900/20",
+                borderGlass: "border-emerald-200/60 dark:border-emerald-700/50",
                 bg: "emerald",
                 shadow: "teal",
               },
               {
                 gradient: "from-blue-500 to-indigo-600",
+                bgGlass: "bg-blue-50/50 dark:bg-blue-900/20",
+                borderGlass: "border-blue-200/60 dark:border-blue-700/50",
                 bg: "blue",
                 shadow: "indigo",
               },
               {
                 gradient: "from-rose-500 to-pink-600",
+                bgGlass: "bg-rose-50/50 dark:bg-rose-900/20",
+                borderGlass: "border-rose-200/60 dark:border-rose-700/50",
                 bg: "rose",
                 shadow: "pink",
               },
               {
                 gradient: "from-amber-500 to-orange-600",
+                bgGlass: "bg-amber-50/50 dark:bg-amber-900/20",
+                borderGlass: "border-amber-200/60 dark:border-amber-700/50",
                 bg: "amber",
                 shadow: "orange",
               },
               {
                 gradient: "from-cyan-500 to-blue-600",
+                bgGlass: "bg-cyan-50/50 dark:bg-cyan-900/20",
+                borderGlass: "border-cyan-200/60 dark:border-cyan-700/50",
                 bg: "cyan",
                 shadow: "blue",
               },
@@ -868,13 +888,15 @@ const RestaurantManagement = () => {
             return (
               <div
                 key={restaurant.id}
-                className="group relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 overflow-hidden"
+                className={`group relative ${color.bgGlass} backdrop-blur-2xl rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.12)] border-2 ${color.borderGlass} transition-all duration-500 hover:-translate-y-2 overflow-hidden`}
               >
+                {/* 3D Glass Highlight */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent dark:from-white/5 dark:to-transparent opacity-50 pointer-events-none" />
+                
                 {/* Gradient border effect */}
                 <div
-                  className={`absolute inset-0 bg-gradient-to-br ${color.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl`}
+                  className={`absolute inset-0 bg-gradient-to-br ${color.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-500 rounded-3xl`}
                 />
-                <div className="absolute inset-[2px] bg-white dark:bg-slate-900 rounded-2xl" />
 
                 {/* Top accent line */}
                 <div
@@ -902,75 +924,74 @@ const RestaurantManagement = () => {
                     {getStatusBadge(sub?.status || "none")}
                   </div>
 
-                  <div className="space-y-3 py-4 border-t border-b border-slate-100 dark:border-slate-800/50">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-500 font-medium">Plan</span>
+                  <div className="space-y-4 py-5 border-t border-b border-white/30 dark:border-white/10 relative z-10">
+                    <div className="flex items-center justify-between text-sm group/item">
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">Plan</span>
                       <span
-                        className={`font-semibold px-3 py-1 rounded-full text-xs bg-gradient-to-r ${color.gradient} text-white shadow-sm`}
+                        className={`font-semibold px-4 py-1.5 rounded-xl text-xs bg-gradient-to-r ${color.gradient} text-white shadow-md shadow-${color.shadow}-500/20 group-hover/item:scale-105 transition-transform`}
                       >
                         {sub?.subscription_plans?.name || "Free/None"}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-500 font-medium">Users</span>
-                      <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">
-                        <Users className="h-3.5 w-3.5 text-blue-500" />{" "}
+                    <div className="flex items-center justify-between text-sm group/item">
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">Users</span>
+                      <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-200 bg-white/60 dark:bg-slate-800/60 backdrop-blur-md border border-white/50 dark:border-white/10 px-4 py-1.5 rounded-xl shadow-inner group-hover/item:bg-white transition-colors">
+                        <Users className="h-3.5 w-3.5 text-blue-500 drop-shadow-sm" />{" "}
                         {userCount}
                       </div>
                     </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-500 font-medium">
+                    <div className="flex items-center justify-between text-sm group/item">
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">
                         Expires
                       </span>
-                      <span className="font-mono text-xs bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-900 px-3 py-1 rounded-full text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                      <span className="font-mono text-xs bg-white/60 dark:bg-slate-800/60 backdrop-blur-md border border-white/50 dark:border-white/10 px-4 py-1.5 rounded-xl text-slate-700 dark:text-slate-200 shadow-inner group-hover/item:bg-white transition-colors">
                         {expiry}
                       </span>
                     </div>
                   </div>
 
-                  <div className="pt-4 flex items-center justify-between gap-2">
+                  <div className="pt-5 flex items-center justify-between gap-3 relative z-10">
                     <Button
                       variant="outline"
-                      size="sm"
-                      className="flex-1 hover:bg-purple-50 hover:text-purple-600 dark:hover:bg-purple-900/20 border-slate-200 dark:border-slate-700"
+                      className="flex-1 h-10 rounded-xl bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 border-white/50 dark:border-white/20 shadow-sm hover:shadow-md transition-all font-medium text-slate-700 dark:text-slate-200"
                       onClick={() => {
                         setSelectedRestaurant(restaurant);
                         setIsViewOpen(true);
                       }}
                     >
-                      <Eye className="h-4 w-4 mr-1" /> View
+                      <Eye className="h-4 w-4 mr-2 text-slate-400" /> View Details
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="icon"
-                          className="h-9 w-9 data-[state=open]:bg-slate-100 dark:data-[state=open]:bg-slate-800"
+                          className="h-10 w-10 rounded-xl bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 border-white/50 dark:border-white/20 shadow-sm hover:shadow-md transition-all"
                         >
-                          <MoreVertical className="h-4 w-4" />
+                          <MoreVertical className="h-4 w-4 text-slate-500" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEdit(restaurant)}>
-                          <Edit className="h-4 w-4 mr-2" /> Edit Details
+                      <DropdownMenuContent align="end" className="w-56 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-white/50 dark:border-white/10 shadow-xl shadow-purple-500/10 rounded-2xl p-2">
+                        <DropdownMenuItem onClick={() => openEdit(restaurant)} className="rounded-xl font-medium focus:bg-slate-100 dark:focus:bg-slate-800">
+                          <Edit className="h-4 w-4 mr-2 text-blue-500" /> Edit Details
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => openSubscription(restaurant)}
+                          onClick={() => openSubscription(restaurant)} className="rounded-xl font-medium focus:bg-slate-100 dark:focus:bg-slate-800"
                         >
-                          <CreditCard className="h-4 w-4 mr-2" /> Manage
+                          <CreditCard className="h-4 w-4 mr-2 text-purple-500" /> Manage
                           Subscription
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
                             setSelectedRestaurant(restaurant);
                             setIsManageUsersOpen(true);
-                          }}
+                          }} className="rounded-xl font-medium focus:bg-slate-100 dark:focus:bg-slate-800"
                         >
-                          <Users className="h-4 w-4 mr-2" /> Manage Users
+                          <Users className="h-4 w-4 mr-2 text-emerald-500" /> Manage Users
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
+                        <DropdownMenuSeparator className="bg-slate-200/50 dark:bg-slate-700/50" />
                         <DropdownMenuItem
-                          className="text-red-600"
+                          className="text-red-600 rounded-xl font-medium focus:bg-red-50 dark:focus:bg-red-900/20 focus:text-red-700"
                           onClick={() => {
                             setSelectedRestaurant(restaurant);
                             setIsDeleteOpen(true);
@@ -1589,22 +1610,39 @@ const RestaurantManagement = () => {
       </Dialog>
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Edit Restaurant</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 bg-gradient-to-br from-slate-50 via-white to-purple-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950/20">
+          <div className="p-6 pb-0 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-200/40 to-indigo-200/40 dark:from-purple-800/20 dark:to-indigo-800/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <DialogHeader className="mb-6 relative z-10">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 via-indigo-500 to-blue-500 flex items-center justify-center text-white shadow-xl shadow-purple-500/30">
+                  <Edit className="h-7 w-7" />
+                </div>
+                <div>
+                  <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 bg-clip-text text-transparent">
+                    Edit Restaurant
+                  </DialogTitle>
+                  <DialogDescription className="text-slate-500 dark:text-slate-400">
+                    Update details for {selectedRestaurant?.name}
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+          </div>
           <Tabs
             defaultValue="basic"
-            className="flex-1 overflow-hidden flex flex-col"
+            className="flex-1 overflow-hidden flex flex-col bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800"
           >
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="basic">Basic</TabsTrigger>
-              <TabsTrigger value="legal">Legal</TabsTrigger>
-              <TabsTrigger value="owner">Owner</TabsTrigger>
-              <TabsTrigger value="bank">Bank</TabsTrigger>
-            </TabsList>
+            <div className="px-6 pt-4">
+              <TabsList className="grid w-full grid-cols-4 bg-slate-100/50 dark:bg-slate-800/50 p-1 rounded-xl">
+                <TabsTrigger value="basic" className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-md transition-all">Basic</TabsTrigger>
+                <TabsTrigger value="legal" className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-md transition-all">Legal</TabsTrigger>
+                <TabsTrigger value="owner" className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-md transition-all">Owner</TabsTrigger>
+                <TabsTrigger value="bank" className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-md transition-all">Bank</TabsTrigger>
+              </TabsList>
+            </div>
 
-            <ScrollArea className="flex-1 mt-4 px-1">
+            <ScrollArea className="flex-1 mt-4 px-8 pb-8">
               <TabsContent value="basic" className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
@@ -2113,44 +2151,36 @@ const RestaurantManagement = () => {
                 </div>
 
                 {/* Subscription */}
-                {selectedRestaurant?.restaurant_subscriptions && (
-                  <div className="border-t pt-4">
-                    <h4 className="font-medium flex items-center gap-2 mb-3">
-                      <CreditCard className="h-4 w-4 text-emerald-500" />
-                      Subscription
-                    </h4>
-                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="font-medium text-lg">
-                            {
-                              selectedRestaurant.restaurant_subscriptions
-                                .subscription_plans?.name
-                            }
-                          </span>
-                          <p className="text-sm text-slate-500">
-                            ₹
-                            {
-                              selectedRestaurant.restaurant_subscriptions
-                                .subscription_plans?.price
-                            }
-                            /month
-                          </p>
+                {(() => {
+                  const subArray = selectedRestaurant?.restaurant_subscriptions;
+                  const sub = Array.isArray(subArray) ? subArray[0] : subArray;
+                  if (!sub) return null;
+                  return (
+                    <div className="border-t pt-4">
+                      <h4 className="font-medium flex items-center gap-2 mb-3">
+                        <CreditCard className="h-4 w-4 text-emerald-500" />
+                        Subscription
+                      </h4>
+                      <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-medium text-lg">
+                              {sub.subscription_plans?.name}
+                            </span>
+                            <p className="text-sm text-slate-500">
+                              ₹{sub.subscription_plans?.price}/month
+                            </p>
+                          </div>
+                          {getStatusBadge(sub.status)}
                         </div>
-                        {getStatusBadge(
-                          selectedRestaurant.restaurant_subscriptions.status,
-                        )}
+                        <p className="text-sm text-slate-500 mt-2">
+                          Expires:{" "}
+                          {new Date(sub.current_period_end).toLocaleDateString()}
+                        </p>
                       </div>
-                      <p className="text-sm text-slate-500 mt-2">
-                        Expires:{" "}
-                        {new Date(
-                          selectedRestaurant.restaurant_subscriptions
-                            .current_period_end,
-                        ).toLocaleDateString()}
-                      </p>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </TabsContent>
 
               {/* Owner Tab */}
@@ -2379,60 +2409,146 @@ const RestaurantManagement = () => {
 
       {/* Subscription Dialog */}
       <Dialog open={isSubscriptionOpen} onOpenChange={setIsSubscriptionOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Manage Subscription</DialogTitle>
-            <DialogDescription>
-              Change subscription plan for {selectedRestaurant?.name}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Label>Subscription Plan</Label>
-            <Select
-              value={formData.planId}
-              onValueChange={(v) => setFormData({ ...formData, planId: v })}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Select a plan" />
-              </SelectTrigger>
-              <SelectContent>
-                {plans.map((plan) => (
-                  <SelectItem key={plan.id} value={plan.id}>
-                    {plan.name} - ₹{plan.price}/{plan.interval}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 bg-gradient-to-br from-slate-50 via-white to-purple-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950/20">
+          <div className="p-6 pb-4 relative overflow-hidden bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border-b border-white/20 dark:border-white/10 z-10">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-500/20 to-indigo-500/20 dark:from-purple-800/40 dark:to-indigo-800/40 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            
+            <DialogHeader className="relative z-10">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 via-indigo-500 to-blue-500 flex items-center justify-center text-white shadow-xl shadow-purple-500/30">
+                  <CreditCard className="h-7 w-7" />
+                </div>
+                <div>
+                  <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 bg-clip-text text-transparent">
+                    Manage Subscription
+                  </DialogTitle>
+                  <DialogDescription className="text-slate-500 dark:text-slate-400 text-base">
+                    Upgrade or change plan for <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedRestaurant?.name}</span>
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+
+            {/* Current Subscription Highlight */}
+            {(() => {
+              const subArray = selectedRestaurant?.restaurant_subscriptions;
+              const sub = Array.isArray(subArray) ? subArray[0] : subArray;
+              if (!sub) return null;
+              return (
+                <div className="mt-6 p-4 rounded-2xl bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900/30 dark:to-indigo-900/30 border border-purple-200/50 dark:border-purple-500/30 shadow-inner flex items-center justify-between relative z-10">
+                   <div>
+                     <p className="text-xs text-purple-600 dark:text-purple-400 font-semibold uppercase tracking-wider mb-1">Current Active Plan</p>
+                     <h4 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                       {sub.subscription_plans?.name || "Free/None"}
+                       {getStatusBadge(sub.status)}
+                     </h4>
+                     <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 flex items-center gap-1">
+                       <Clock className="h-3 w-3" /> Expires: {new Date(sub.current_period_end).toLocaleDateString()}
+                     </p>
+                   </div>
+                   <div className="text-right">
+                      <div className="text-2xl font-black bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                        ₹{sub.subscription_plans?.price}
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium">/ {sub.subscription_plans?.interval || 'month'}</p>
+                   </div>
+                </div>
+              );
+            })()}
           </div>
-          <DialogFooter>
+
+          <div className="max-h-[50vh] overflow-y-auto flex-1 p-6 relative styled-scrollbar">
+            {/* Background elements */}
+            <div className="absolute top-20 left-10 w-72 h-72 bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-20 right-10 w-72 h-72 bg-purple-400/10 rounded-full blur-3xl pointer-events-none" />
+            
+            <Label className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-4 block relative z-10">Select a New Plan</Label>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10 pb-4">
+              {plans.map((plan) => {
+                const isSelected = formData.planId === plan.id;
+                
+                // Determine styling based on plan type or randomly
+                const isPremium = plan.price > 1000;
+                const gradient = isPremium 
+                  ? "from-rose-500 via-purple-500 to-indigo-500" 
+                  : "from-blue-500 to-cyan-500";
+                  
+                return (
+                  <div
+                    key={plan.id}
+                    onClick={() => setFormData({ ...formData, planId: plan.id })}
+                    className={`relative group cursor-pointer rounded-2xl overflow-hidden transition-all duration-300 ${
+                      isSelected 
+                        ? "scale-[1.02] shadow-xl shadow-purple-500/20" 
+                        : "hover:scale-[1.01] hover:shadow-lg opacity-90 hover:opacity-100"
+                    }`}
+                  >
+                    {/* Border Gradient wrapper for 3D effect */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-100 ${isSelected ? '' : 'hidden group-hover:block group-hover:opacity-50'} transition-opacity`} />
+                    
+                    {/* Inner Card */}
+                    <div className={`relative m-[2px] h-[calc(100%-4px)] rounded-[14px] p-5 flex flex-col justify-between ${
+                      isSelected 
+                        ? "bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl" 
+                        : "bg-white dark:bg-slate-900"
+                    }`}>
+                      {isSelected && (
+                         <div className="absolute top-3 right-3 w-6 h-6 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center text-white shadow-md shadow-purple-500/30 animate-in zoom-in">
+                           <Check className="h-3 w-3" />
+                         </div>
+                      )}
+                      
+                      <div>
+                        <h4 className="font-bold text-lg text-slate-800 dark:text-white pr-8">{plan.name}</h4>
+                        <div className="inline-block mt-2 px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 capitalize">
+                           {plan.interval === "month" ? "Monthly" : plan.interval?.replace('_', ' ')} Billing
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4 flex items-end justify-between">
+                        <div>
+                          <span className="text-3xl font-black bg-gradient-to-br from-slate-800 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+                            ₹{plan.price}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="p-6 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border-t border-white/20 dark:border-white/10 flex justify-between items-center z-20">
             <Button
               variant="outline"
               onClick={() => setIsSubscriptionOpen(false)}
+              className="w-32 bg-white/50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-700"
             >
               Cancel
             </Button>
             <Button
               onClick={() => {
                 if (selectedRestaurant && formData.planId) {
+                  const subArray = selectedRestaurant.restaurant_subscriptions;
+                  const sub = Array.isArray(subArray) ? subArray[0] : subArray;
                   updateSubscriptionMutation.mutate({
                     restaurantId: selectedRestaurant.id,
                     planId: formData.planId,
-                    existingSubId:
-                      selectedRestaurant.restaurant_subscriptions?.id,
+                    existingSubId: sub?.id,
                   });
                 }
               }}
-              disabled={
-                !formData.planId || updateSubscriptionMutation.isPending
-              }
-              className="bg-purple-600 hover:bg-purple-700"
+              disabled={!formData.planId || updateSubscriptionMutation.isPending}
+              className="w-48 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-lg shadow-purple-500/25 text-white transition-all hover:scale-105 active:scale-95"
             >
               {updateSubscriptionMutation.isPending && (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}
               Update Subscription
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -2788,6 +2904,7 @@ const RestaurantManagement = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 };
