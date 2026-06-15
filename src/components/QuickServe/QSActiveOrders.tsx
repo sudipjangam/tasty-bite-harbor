@@ -11,6 +11,7 @@ import {
   Volume2,
   Wallet,
   Plus,
+  UtensilsCrossed,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useKitchenSounds } from "@/hooks/useKitchenSounds";
@@ -51,6 +52,7 @@ type StatusFilter =
   | "pending"
   | "preparing"
   | "ready"
+  | "served"
   | "completed"
   | "unpaid";
 
@@ -75,6 +77,12 @@ const statusConfig: Record<
     color: "text-emerald-600 dark:text-emerald-400",
     icon: Bell,
     bg: "bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/30 dark:to-green-900/20 border-emerald-200 dark:border-emerald-700",
+  },
+  served: {
+    label: "Served",
+    color: "text-emerald-600 dark:text-emerald-400",
+    icon: UtensilsCrossed,
+    bg: "bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/20 border-emerald-200 dark:border-emerald-700",
   },
   completed: {
     label: "Done",
@@ -131,7 +139,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
         .in("source", ["quickserve", "pos"])
         .gte("created_at", startOfDay(today).toISOString())
         .lte("created_at", endOfDay(today).toISOString())
-        .in("status", ["pending", "preparing", "ready", "completed"])
+        .in("status", ["pending", "preparing", "ready", "served", "completed"])
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -147,6 +155,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
     if (statusFilter === "pending" && order.status !== "pending") return false;
     if (statusFilter === "preparing" && order.status !== "preparing") return false;
     if (statusFilter === "ready" && order.status !== "ready") return false;
+    if (statusFilter === "served" && order.status !== "served") return false;
     if (statusFilter === "completed" && order.status !== "completed") return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -163,6 +172,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
   const newCount = orders.filter((o) => o.status === "pending").length;
   const preparingCount = orders.filter((o) => o.status === "preparing").length;
   const readyCount = orders.filter((o) => o.status === "ready").length;
+  const servedCount = orders.filter((o) => o.status === "served").length;
   const completedCount = orders.filter((o) => o.status === "completed").length;
   const unpaidCount = orders.filter((o) => o.payment_status === "pending").length;
 
@@ -220,14 +230,15 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
       const newStatus = [...currentStatus];
       newStatus[itemIndex] = !newStatus[itemIndex];
 
-      // Auto-set order to "completed" when all items are done
+      // Auto-set order to "served" when all items are done (NOT "completed")
+      // "completed" only happens when bill is paid
       const allDone = newStatus.every((s) => s === true);
 
       const { error } = await supabase
         .from("orders")
         .update({
           item_completion_status: newStatus,
-          ...(allDone ? { status: "completed" } : {}),
+          ...(allDone ? { status: "served" } : {}),
         })
         .eq("id", orderId);
 
@@ -239,7 +250,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
           .from("kitchen_orders")
           .update({
             item_completion_status: newStatus,
-            status: "completed",
+            status: "served",
             bumped_at: new Date().toISOString(),
           })
           .eq("order_id", orderId);
@@ -400,7 +411,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
             />
           </div>
           <div className="flex gap-2 flex-wrap">
-            {(["all", "pending", "preparing", "ready", "unpaid", "completed"] as StatusFilter[]).map(
+            {(["all", "pending", "preparing", "ready", "served", "unpaid", "completed"] as StatusFilter[]).map(
               (sf) => (
                 <button
                   key={sf}
@@ -410,7 +421,9 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                     statusFilter === sf
                       ? sf === "unpaid"
                         ? "bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-md"
-                        : "bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-md"
+                        : sf === "served"
+                          ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md"
+                          : "bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-md"
                       : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700",
                   )}
                 >
@@ -422,6 +435,8 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                       ? `🔥 Preparing (${preparingCount})`
                       : sf === "ready"
                         ? `Ready (${readyCount})`
+                      : sf === "served"
+                        ? `🍽️ Served (${servedCount})`
                       : sf === "unpaid"
                         ? `💰 Unpaid (${unpaidCount})`
                         : `✓ Done (${completedCount})`}
@@ -514,7 +529,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                       </div>
 
                       {/* Progress Bar */}
-                      {totalItems > 0 && order.status !== "completed" && (
+                      {totalItems > 0 && order.status !== "completed" && order.status !== "served" && (
                         <div className="px-3 pb-1">
                           <div className="flex items-center gap-2">
                             <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
@@ -541,16 +556,17 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                               key={idx}
                               onClick={() =>
                                 order.status !== "completed" &&
+                                order.status !== "served" &&
                                 handleToggleItem(
                                   order.id,
                                   idx,
                                   completionStatus,
                                 )
                               }
-                              disabled={order.status === "completed"}
+                              disabled={order.status === "completed" || order.status === "served"}
                               className={cn(
                                 "w-full flex items-center gap-2 py-1.5 px-2.5 rounded-lg transition-all duration-200 text-left",
-                                order.status === "completed"
+                                order.status === "completed" || order.status === "served"
                                   ? "cursor-default"
                                   : "cursor-pointer hover:bg-white/60 dark:hover:bg-gray-700/60 active:scale-[0.98]",
                                 isCompleted
@@ -625,7 +641,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                           )}
                         </div>
                         <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-1.5 max-w-[70%] sm:max-w-none">
-                          {/* Add Items to existing order */}
+                          {/* Add Items to existing order — visible for all non-completed */}
                           {order.status !== "completed" && onAddItems && (
                             <Button
                               size="sm"
@@ -647,7 +663,21 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                               <span className="whitespace-nowrap">Pay</span>
                             </Button>
                           )}
-                          {order.status !== "completed" && (
+                          {/* Done button — only for non-completed, non-served orders OR served+paid */}
+                          {order.status !== "completed" && order.status !== "served" && (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                handleStatusChange(order.id, "completed")
+                              }
+                              className="flex-1 sm:flex-none bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-[11px] sm:text-xs font-bold rounded-lg px-2 sm:px-2.5 h-8 sm:h-7"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1 shrink-0" />
+                              <span className="whitespace-nowrap">Done</span>
+                            </Button>
+                          )}
+                          {/* Served orders that are paid — show Done to finalize */}
+                          {order.status === "served" && order.payment_status === "paid" && (
                             <Button
                               size="sm"
                               onClick={() =>
