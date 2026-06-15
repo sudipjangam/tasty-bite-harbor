@@ -39,13 +39,16 @@ export function DiscountDialog({ isOpen, onClose, restaurantId, restaurantName, 
   const [notes, setNotes] = useState("");
   const [discountSaved, setDiscountSaved] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [savedDiscountId, setSavedDiscountId] = useState<string | null>(null);
   
   // Calculate expiry date
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + parseInt(expiryDays));
 
-  // The subscription page URL — the restaurant owner logs in and sees discounted price
-  const appSubscriptionUrl = `${window.location.origin}/subscription`;
+  // The offer page URL — dynamic per discount
+  const offerUrl = savedDiscountId
+    ? `${window.location.origin}/offer/${savedDiscountId}`
+    : `${window.location.origin}/subscription`;
 
   // Reset state when opened for a new restaurant
   useEffect(() => {
@@ -57,6 +60,7 @@ export function DiscountDialog({ isOpen, onClose, restaurantId, restaurantName, 
       setNotes("");
       setDiscountSaved(false);
       setCopied(false);
+      setSavedDiscountId(null);
     }
   }, [isOpen, restaurantId]);
 
@@ -135,9 +139,10 @@ export function DiscountDialog({ isOpen, onClose, restaurantId, restaurantName, 
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       toast.success("Discount applied successfully!");
       setDiscountSaved(true);
+      setSavedDiscountId(data?.id || null);
     },
     onError: (error: any) => {
       toast.error(`Failed to save discount: ${error.message}`);
@@ -182,7 +187,7 @@ export function DiscountDialog({ isOpen, onClose, restaurantId, restaurantName, 
       `✅ Special Price: ₹${discountedPrice}\n` +
       `💰 You Save: ₹${savings}\n\n` +
       `This offer is valid until ${expiresAt.toLocaleDateString('en-IN')}.\n\n` +
-      `Login to Swadeshi Solutions to activate your plan:\n${appSubscriptionUrl}`;
+      `Click below to claim your offer:\n${offerUrl}`;
 
     if (navigator.share) {
       try {
@@ -212,7 +217,7 @@ export function DiscountDialog({ isOpen, onClose, restaurantId, restaurantName, 
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(appSubscriptionUrl);
+    navigator.clipboard.writeText(offerUrl);
     setCopied(true);
     toast.success("Subscription link copied!");
     setTimeout(() => setCopied(false), 2000);
@@ -356,7 +361,7 @@ export function DiscountDialog({ isOpen, onClose, restaurantId, restaurantName, 
             
             <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-between gap-2 break-all text-left">
               <span className="text-sm font-mono truncate text-slate-700 dark:text-slate-300">
-                {appSubscriptionUrl}
+              {offerUrl}
               </span>
               <Button size="icon" variant="ghost" onClick={handleCopyLink} className="shrink-0">
                 {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
@@ -364,7 +369,7 @@ export function DiscountDialog({ isOpen, onClose, restaurantId, restaurantName, 
             </div>
 
             <p className="text-xs text-slate-400">
-              Share this link with the restaurant owner. They need to login first, then they'll see the special pricing.
+              Share this link with the restaurant owner. They'll see the discounted offer directly — no need to hunt for plans.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
