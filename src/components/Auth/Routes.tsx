@@ -30,6 +30,11 @@ const SubscriptionPage = lazy(
   () => import("@/components/Subscription/SubscriptionPage"),
 );
 
+// Dynamic special offer page
+const SpecialOfferPage = lazy(
+  () => import("@/pages/SpecialOfferPage"),
+);
+
 const Routes = () => {
   const { user, loading } = useAuth();
 
@@ -63,6 +68,7 @@ const Routes = () => {
         <Route path="/invoice/*" element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
         <Route path="/order-status/*" element={<Suspense fallback={<PageLoader />}><OrderStatusPage /></Suspense>} />
         <Route path="/kitchen-tv" element={<Suspense fallback={<PageLoader />}><KitchenTV /></Suspense>} />
+        <Route path="/offer/:discountId" element={<Suspense fallback={<PageLoader />}><SpecialOfferPage /></Suspense>} />
         <Route path="*" element={<LandingWebsite />} />
       </RouterRoutes>
     );
@@ -88,6 +94,7 @@ const Routes = () => {
       <Route path="/invoice/*" element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
       <Route path="/order-status/*" element={<Suspense fallback={<PageLoader />}><OrderStatusPage /></Suspense>} />
       <Route path="/kitchen-tv" element={<Suspense fallback={<PageLoader />}><KitchenTV /></Suspense>} />
+      <Route path="/offer/:discountId" element={<Suspense fallback={<PageLoader />}><SpecialOfferPage /></Suspense>} />
 
       {/* Standalone subscription page — NO sidebar, NO subscription gate */}
       <Route

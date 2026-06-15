@@ -19,9 +19,10 @@ import { CardContent, CardFooter } from "@/components/ui/card";
 interface AuthFormProps {
   authMode: "signin" | "signup" | "inquiry" | "forgot" | "reset";
   setAuthMode: React.Dispatch<React.SetStateAction<"signin" | "signup" | "inquiry" | "forgot" | "reset">>;
+  onSuccess?: () => void;
 }
 
-const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
+const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode, onSuccess }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -53,7 +54,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
 
           // Small delay to ensure auth state is updated
           setTimeout(() => {
-            navigate("/dashboard");
+            if (onSuccess) {
+              onSuccess();
+            } else {
+              navigate("/dashboard");
+            }
           }, 100);
         }
       } else {
@@ -84,6 +89,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode }) => {
               "Please check your email to confirm your registration.",
             className: "bg-green-50 border-green-200 text-green-800",
           });
+          if (onSuccess) onSuccess();
         }
       }
     } catch (error: any) {
