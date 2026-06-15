@@ -544,6 +544,9 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
         const endIdx = startIdx + ROWS_PER_PAGE;
         const paginatedData = processedData.slice(startIdx, endIdx);
         const searchTerm = searchTerms[report.category] || "";
+        const columnsToRender = report.title === "Customized Orders Report"
+          ? displayColumns
+          : displayColumns.slice(0, 8);
 
         return (
           <div key={`${report.category}-${index}`} className="space-y-5">
@@ -601,7 +604,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                   {/* Decorative radial glow */}
                   <div className="absolute -top-7 -right-7 w-20 h-20 rounded-full bg-orange-500/8 pointer-events-none" />
                   <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 sm:mb-2">
-                    {key}
+                     {key}
                   </p>
                   <p className={`text-base sm:text-xl md:text-2xl font-extrabold tracking-tight ${
                     /revenue|total.*sales|total.*spent|total.*expenses/i.test(key)
@@ -812,7 +815,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-orange-50 dark:bg-orange-500/6">
-                          {displayColumns.slice(0, 8).map((key) => (
+                          {columnsToRender.map((key) => (
                             <th
                               key={key}
                               className="text-left p-3.5 font-bold text-[11px] uppercase tracking-wider text-orange-600 dark:text-orange-400 whitespace-nowrap cursor-pointer select-none hover:bg-orange-100 dark:hover:bg-orange-500/10 transition-colors border-b border-orange-200/60 dark:border-orange-500/15"
@@ -832,7 +835,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                             key={i}
                             className="border-b border-gray-100 dark:border-white/[0.03] hover:bg-orange-50/50 dark:hover:bg-white/[0.02] transition-colors"
                           >
-                            {displayColumns.slice(0, 8).map((key, j) => (
+                            {columnsToRender.map((key, j) => (
                               <td
                                 key={`${i}-${j}`}
                                 className={`p-3.5 max-w-[200px] truncate ${
@@ -890,7 +893,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                         {paginatedData.length === 0 && (
                           <tr>
                             <td
-                              colSpan={Math.min(displayColumns.length, 8)}
+                              colSpan={columnsToRender.length}
                               className="p-8 text-center text-muted-foreground"
                             >
                               No matching records found
