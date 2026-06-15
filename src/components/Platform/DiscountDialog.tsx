@@ -160,10 +160,7 @@ export function DiscountDialog({ isOpen, onClose, restaurantId, restaurantName, 
             discounted_price: discountedPrice.toString(),
             savings: savings.toString(),
             expiry_date: expiresAt.toLocaleDateString('en-IN'),
-          },
-          buttons: [
-            { type: "url", value: appSubscriptionUrl }
-          ]
+          }
         }
       });
       
