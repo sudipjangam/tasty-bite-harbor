@@ -319,6 +319,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
 
         // Calculate expected points earned for this order
         let pointsEarned = 0;
+        let totalLoyaltyPoints: number | undefined;
         if (subtotal > 0 && restaurantId) {
           try {
             const { data: loyaltyProgram } = await supabase
@@ -333,14 +334,16 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               let multiplier = 1;
 
               // Try to get customer's tier multiplier if they exist
+              let fetchedLoyaltyPoints = 0;
               if (customerPhone) {
                 const { data: customerRows } = await supabase
                   .from("customers")
-                  .select("loyalty_tier_id")
+                  .select("loyalty_tier_id, loyalty_points")
                   .eq("restaurant_id", restaurantId)
                   .eq("phone", customerPhone.trim())
                   .limit(1);
 
+                fetchedLoyaltyPoints = customerRows?.[0]?.loyalty_points || 0;
                 const tierId = customerRows?.[0]?.loyalty_tier_id;
                 if (tierId) {
                   const { data: tier } = await supabase
@@ -355,6 +358,9 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               }
 
               pointsEarned = Math.floor((subtotal / spendThreshold) * pointsPerAmount * multiplier);
+              if (customerPhone) {
+                totalLoyaltyPoints = fetchedLoyaltyPoints - (loyaltyPointsUsed || 0) + pointsEarned;
+              }
             }
           } catch (err) {
             console.error("Points calculation error (non-blocking):", err);
@@ -399,6 +405,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             return parts.length > 0 ? parts.join(' + ') : undefined;
           })(),
           pointsEarned: pointsEarned > 0 ? pointsEarned : undefined,
+          totalLoyaltyPoints: totalLoyaltyPoints,
           cgst: 0,
           sgst: 0,
           total: subtotal,
