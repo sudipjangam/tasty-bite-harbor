@@ -61,8 +61,7 @@ async function sendEmailViaGmailSMTP(
       from: `${fromName} <${smtpUser}>`,
       to: to,
       subject: subject,
-      content: "Please view this email in an HTML-compatible client.",
-      html: htmlContent,
+      html: htmlContent.replace(/\r?\n/g, '\r\n'),
     });
 
     await client.close();
