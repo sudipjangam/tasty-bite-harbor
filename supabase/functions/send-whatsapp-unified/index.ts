@@ -95,9 +95,15 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      // Clean phone number for Meta Cloud
+      let cleanPhoneMeta = phoneNumber.replace(/[\+\-\s]/g, "");
+      if (cleanPhoneMeta.length === 10) {
+        cleanPhoneMeta = "91" + cleanPhoneMeta;
+      }
+
       const metaPayload = {
         messaging_product: "whatsapp",
-        to: phoneNumber,
+        to: cleanPhoneMeta,
         type: "template",
         template: {
           name: usedTemplateName,

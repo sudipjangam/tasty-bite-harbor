@@ -47,8 +47,7 @@ async function sendEmail(
       from: `${COMPANY_NAME} <${smtpUser}>`,
       to,
       subject,
-      content: 'Please view this email in an HTML-capable client.',
-      html,
+      html: html.replace(/\r?\n/g, '\r\n'),
     });
     await client.close();
     console.log('✅ Email sent to', to);

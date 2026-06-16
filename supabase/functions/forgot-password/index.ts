@@ -122,8 +122,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
     from: `Swadeshi Solutions <${smtpUser}>`,
     to,
     subject,
-    content: "Please view this email in an HTML-compatible client.",
-    html,
+    html: html.replace(/\r?\n/g, '\r\n'),
   });
 
   await client.close();
