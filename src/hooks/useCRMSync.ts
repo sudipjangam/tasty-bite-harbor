@@ -203,7 +203,8 @@ export const useCRMSync = () => {
         if (orderTotal > 0) {
           if (loyaltyProgram?.is_enabled !== false) {
             const pointsPerAmount = loyaltyProgram?.points_per_amount ?? 1;
-            const spendThreshold = (loyaltyProgram as any)?.spend_threshold ?? 100;
+            // Use 1 as ultimate fallback instead of 100, but preserve 0 if it was explicitly set.
+            const spendThreshold = (loyaltyProgram as any)?.spend_threshold ?? 10;
 
             // Fetch customer's current tier to get multiplier
             let multiplier = 1;
