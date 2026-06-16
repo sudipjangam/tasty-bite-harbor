@@ -123,7 +123,7 @@ const Customers = () => {
   useEffect(() => {
     if (loyaltyProgram) {
       setPointsPerAmount(loyaltyProgram.points_per_amount ?? 1);
-      setSpendThreshold((loyaltyProgram as any).spend_threshold ?? 100);
+      setSpendThreshold((loyaltyProgram as any).spend_threshold ?? 10);
       setAmountPerPoint(loyaltyProgram.amount_per_point ?? 1);
       setPointsExpiryDays(loyaltyProgram.points_expiry_days ?? null);
       setLoyaltyEnabled(loyaltyProgram.is_enabled ?? true);

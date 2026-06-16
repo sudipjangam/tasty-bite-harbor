@@ -330,7 +330,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
 
             if (loyaltyProgram?.is_enabled !== false) {
               const pointsPerAmount = loyaltyProgram?.points_per_amount ?? 1;
-              const spendThreshold = (loyaltyProgram as any)?.spend_threshold ?? 100;
+              const spendThreshold = (loyaltyProgram as any)?.spend_threshold ?? 10;
               let multiplier = 1;
 
               // Try to get customer's tier multiplier if they exist

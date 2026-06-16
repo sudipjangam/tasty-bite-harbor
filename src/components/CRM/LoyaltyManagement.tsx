@@ -1009,7 +1009,7 @@ const ProgramSettingsForm: React.FC<{
   const [settings, setSettings] = useState({
     is_enabled: program?.is_enabled ?? true,
     points_per_amount: program?.points_per_amount ?? 1,
-    spend_threshold: program?.spend_threshold ?? 100,
+    spend_threshold: program?.spend_threshold ?? 10,
     amount_per_point: program?.amount_per_point ?? 1,
     points_expiry_days: program?.points_expiry_days ?? null,
   });
