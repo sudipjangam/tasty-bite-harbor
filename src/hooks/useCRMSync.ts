@@ -102,14 +102,22 @@ export const useCRMSync = () => {
         }
 
         // Fallback: try case-insensitive name match if no phone match found
+        // ONLY match customers that don't already have a phone number (if we have one), to avoid merging different customers with the same name.
         if (!existingCustomer) {
-          const { data, error: nameLookupErr } = await supabase
+          let query = supabase
             .from("customers")
             .select("id, name, phone, loyalty_points, loyalty_tier_id, visit_count, total_spent")
             .eq("restaurant_id", restaurantId)
-            .ilike("name", trimmedName)
+            .ilike("name", trimmedName);
+
+          if (trimmedPhone) {
+            query = query.is("phone", null);
+          }
+
+          const { data, error: nameLookupErr } = await query
             .order("created_at", { ascending: true })
             .limit(1);
+
           if (nameLookupErr) {
             console.error("❌ CRM Sync - Name lookup error:", nameLookupErr);
           }
