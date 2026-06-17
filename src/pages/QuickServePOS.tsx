@@ -138,7 +138,7 @@ const QuickServePOS: React.FC = () => {
     isRestoring,
   } = useQSRMenuItems();
 
-  // Today's revenue
+  // Today's revenue — counts all chargeable orders (pending + paid), excludes NC
   const { data: todaysRevenue = 0 } = useQuery({
     queryKey: ["quickserve-todays-revenue", restaurantId],
     queryFn: async () => {
@@ -149,7 +149,7 @@ const QuickServePOS: React.FC = () => {
         .select("total")
         .eq("restaurant_id", restaurantId)
         .in("status", ["preparing", "ready", "completed"])
-        .eq("payment_status", "paid")
+        .neq("payment_status", "nc")
         .neq("order_type", "non-chargeable")
         .gte("created_at", startOfDay(today).toISOString())
         .lte("created_at", endOfDay(today).toISOString());
@@ -160,7 +160,7 @@ const QuickServePOS: React.FC = () => {
     refetchInterval: 30000,
   });
 
-  // Today's order count
+  // Today's order count — counts all non-NC orders processed today
   const { data: todaysOrderCount = 0 } = useQuery({
     queryKey: ["quickserve-todays-count", restaurantId],
     queryFn: async () => {
@@ -171,7 +171,7 @@ const QuickServePOS: React.FC = () => {
         .select("id", { count: "exact", head: true })
         .eq("restaurant_id", restaurantId)
         .in("status", ["preparing", "ready", "completed"])
-        .eq("payment_status", "paid")
+        .neq("payment_status", "nc")
         .gte("created_at", startOfDay(today).toISOString())
         .lte("created_at", endOfDay(today).toISOString());
       return count || 0;
