@@ -556,17 +556,16 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                               key={idx}
                               onClick={() =>
                                 order.status !== "completed" &&
-                                order.status !== "served" &&
                                 handleToggleItem(
                                   order.id,
                                   idx,
                                   completionStatus,
                                 )
                               }
-                              disabled={order.status === "completed" || order.status === "served"}
+                              disabled={order.status === "completed"}
                               className={cn(
                                 "w-full flex items-center gap-2 py-1.5 px-2.5 rounded-lg transition-all duration-200 text-left",
-                                order.status === "completed" || order.status === "served"
+                                order.status === "completed"
                                   ? "cursor-default"
                                   : "cursor-pointer hover:bg-white/60 dark:hover:bg-gray-700/60 active:scale-[0.98]",
                                 isCompleted

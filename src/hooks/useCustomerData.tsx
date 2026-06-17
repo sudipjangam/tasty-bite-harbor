@@ -688,9 +688,10 @@ export const useCustomerData = () => {
             email: customer.email,
             phone: customer.phone,
             address: customer.address,
-            birthday: customer.birthday,
+            birthday: customer.birthday === "" ? null : customer.birthday,
             preferences: customer.preferences,
             tags: customer.tags || [],
+            loyalty_points: customer.loyalty_points,
           })
           .eq("id", customer.id)
           .select();
@@ -724,10 +725,11 @@ export const useCustomerData = () => {
               email: customer.email,
               phone: customer.phone,
               address: customer.address,
-              birthday: customer.birthday,
+              birthday: customer.birthday === "" ? null : customer.birthday,
               preferences: customer.preferences,
               restaurant_id: restaurantId,
               tags: customer.tags || [],
+              loyalty_points: customer.loyalty_points || 0,
             },
           ])
           .select();

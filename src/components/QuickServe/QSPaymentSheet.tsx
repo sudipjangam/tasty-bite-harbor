@@ -1232,7 +1232,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                   try {
                     const { error } = await supabase
                       .from("orders")
-                      .update({ payment_status: "paid", status: "completed" })
+                      .update({ payment_status: "paid" })
                       .eq("id", createdOrderId);
                     if (error) throw error;
 
@@ -1240,12 +1240,6 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                     await supabase
                       .from("pos_transactions")
                       .update({ status: "completed" })
-                      .eq("order_id", createdOrderId);
-
-                    // Also mark linked kitchen orders as completed
-                    await supabase
-                      .from("kitchen_orders")
-                      .update({ status: "completed", bumped_at: new Date().toISOString() })
                       .eq("order_id", createdOrderId);
 
                     setPaymentConfirmed(true);
