@@ -102,22 +102,14 @@ export const useCRMSync = () => {
         }
 
         // Fallback: try case-insensitive name match if no phone match found
-        // ONLY match customers that don't already have a phone number (if we have one), to avoid merging different customers with the same name.
         if (!existingCustomer) {
-          let query = supabase
+          const { data, error: nameLookupErr } = await supabase
             .from("customers")
             .select("id, name, phone, loyalty_points, loyalty_tier_id, visit_count, total_spent")
             .eq("restaurant_id", restaurantId)
-            .ilike("name", trimmedName);
-
-          if (trimmedPhone) {
-            query = query.is("phone", null);
-          }
-
-          const { data, error: nameLookupErr } = await query
+            .ilike("name", trimmedName)
             .order("created_at", { ascending: true })
             .limit(1);
-
           if (nameLookupErr) {
             console.error("❌ CRM Sync - Name lookup error:", nameLookupErr);
           }
@@ -148,10 +140,13 @@ export const useCRMSync = () => {
             updates.phone = trimmedPhone;
           }
 
-          await supabase
+          const { error: updateErr } = await supabase
             .from("customers")
             .update(updates)
             .eq("id", customerId);
+          if (updateErr) {
+            console.error("❌ CRM Sync - Failed to update customer:", updateErr, "Updates:", updates);
+          }
         } else {
           // Create new customer
           isNewCustomer = true;
@@ -183,18 +178,22 @@ export const useCRMSync = () => {
         // --- Step 2: Link customer_id to the order ---
         if (orderId) {
           // Try updating orders table first
-          await supabase
+          const { error: orderLinkErr } = await supabase
             .from("orders")
             .update({ customer_name: trimmedName, customer_phone: trimmedPhone })
-            .eq("id", orderId)
-            .then(() => {});
+            .eq("id", orderId);
+          if (orderLinkErr) {
+            console.error("❌ CRM Sync - Failed to link order:", orderLinkErr);
+          }
 
           // Also try kitchen_orders (orderId might be a kitchen_order ID)
-          await supabase
+          const { error: kitchenLinkErr } = await supabase
             .from("kitchen_orders")
             .update({ customer_name: trimmedName, customer_phone: trimmedPhone })
-            .eq("id", orderId)
-            .then(() => {});
+            .eq("id", orderId);
+          if (kitchenLinkErr) {
+            console.error("❌ CRM Sync - Failed to link kitchen order:", kitchenLinkErr);
+          }
         }
 
         // --- Step 3: Award loyalty points ---
