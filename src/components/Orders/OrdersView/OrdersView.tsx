@@ -162,6 +162,7 @@ const OrdersView = ({
       if (ordersError) throw ordersError;
       return (allOrders || []) as Order[];
     },
+    staleTime: 0, // Always fetch fresh — orders change frequently
   });
 
   useRealtimeSubscription({
@@ -488,7 +489,7 @@ const OrdersView = ({
                     <SelectItem value="pos">POS</SelectItem>
                     <SelectItem value="table">Table Order</SelectItem>
                     <SelectItem value="manual">Manual</SelectItem>
-                    <SelectItem value="qsr">QSR</SelectItem>
+                    <SelectItem value="quickserve">QSR / QuickServe</SelectItem>
                     <SelectItem value="room_service">Room Service</SelectItem>
                   </SelectContent>
                 </Select>

@@ -9,10 +9,10 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_customer_id uuid;
   v_trimmed_name text;
   v_trimmed_phone text;
-  v_existing_customer RECORD;
+  v_existing_customer_id uuid;
+  v_existing_customer_phone text;
 BEGIN
   v_trimmed_name := TRIM(NEW.customer_name);
   v_trimmed_phone := NULLIF(TRIM(COALESCE(NEW.customer_phone, '')), '');
@@ -32,7 +32,7 @@ BEGIN
 
   -- Try find existing customer by phone first
   IF v_trimmed_phone IS NOT NULL THEN
-    SELECT id, phone INTO v_existing_customer
+    SELECT id, phone INTO v_existing_customer_id, v_existing_customer_phone
     FROM public.customers
     WHERE restaurant_id = NEW.restaurant_id
       AND phone = v_trimmed_phone
@@ -40,8 +40,8 @@ BEGIN
   END IF;
 
   -- Fallback: find by name (case-insensitive)
-  IF v_existing_customer.id IS NULL THEN
-    SELECT id, phone INTO v_existing_customer
+  IF v_existing_customer_id IS NULL THEN
+    SELECT id, phone INTO v_existing_customer_id, v_existing_customer_phone
     FROM public.customers
     WHERE restaurant_id = NEW.restaurant_id
       AND LOWER(TRIM(name)) = LOWER(v_trimmed_name)
@@ -49,15 +49,15 @@ BEGIN
   END IF;
 
   -- If customer exists, only backfill phone if missing
-  IF v_existing_customer.id IS NOT NULL THEN
-    IF v_trimmed_phone IS NOT NULL AND v_existing_customer.phone IS NULL THEN
+  IF v_existing_customer_id IS NOT NULL THEN
+    IF v_trimmed_phone IS NOT NULL AND v_existing_customer_phone IS NULL THEN
       IF NOT EXISTS (
         SELECT 1 FROM public.customers
         WHERE restaurant_id = NEW.restaurant_id
           AND phone = v_trimmed_phone
-          AND id != v_existing_customer.id
+          AND id != v_existing_customer_id
       ) THEN
-        UPDATE public.customers SET phone = v_trimmed_phone WHERE id = v_existing_customer.id;
+        UPDATE public.customers SET phone = v_trimmed_phone WHERE id = v_existing_customer_id;
       END IF;
     END IF;
     RETURN NEW;
