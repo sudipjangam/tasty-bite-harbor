@@ -16,10 +16,15 @@ export interface KOTData {
   orderType?: string;
 }
 
+const STORAGE_KEY = "thermal_printer_device_id";
+const CHAR_STORAGE_KEY = "thermal_printer_char_uuid";
+const SERVICE_STORAGE_KEY = "thermal_printer_service_uuid";
+
 class ThermalPrinterService {
   private device: BluetoothDevice | null = null;
   private server: BluetoothRemoteGATTServer | null = null;
   private characteristic: BluetoothRemoteGATTCharacteristic | null = null;
+  private connectionListeners: Array<(connected: boolean) => void> = [];
 
   // Standard ESC/POS commands
   private ESC = "\x1b";
@@ -44,8 +49,38 @@ class ThermalPrinterService {
   // Paper Cut
   private CUT_PAPER = `${this.GS}V\x41\x03`; // Partial cut
 
+  // Common BLE printer service UUIDs
+  private PRINTER_SERVICE_UUIDS = [
+    '000018f0-0000-1000-8000-00805f9b34fb',
+    'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+    '0000ff00-0000-1000-8000-00805f9b34fb',
+    '0000ffe0-0000-1000-8000-00805f9b34fb',
+    '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+    '0000fff0-0000-1000-8000-00805f9b34fb',
+    '0000ae30-0000-1000-8000-00805f9b34fb',
+    '0000fee7-0000-1000-8000-00805f9b34fb',
+    '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+  ];
+
+  /** Subscribe to connection state changes */
+  onConnectionChange(listener: (connected: boolean) => void): () => void {
+    this.connectionListeners.push(listener);
+    return () => {
+      this.connectionListeners = this.connectionListeners.filter(l => l !== listener);
+    };
+  }
+
+  private notifyListeners(connected: boolean) {
+    this.connectionListeners.forEach(l => l(connected));
+  }
+
   isConnected(): boolean {
     return this.device !== null && this.device.gatt?.connected === true;
+  }
+
+  /** Get connected device name */
+  getDeviceName(): string | null {
+    return this.device?.name || null;
   }
 
   async connect(): Promise<boolean> {
@@ -54,69 +89,160 @@ class ThermalPrinterService {
         throw new Error("Web Bluetooth API is not supported in this browser. Please use Chrome/Edge.");
       }
 
-      // Common BLE printer service UUIDs (various Chinese/generic thermal printers)
-      const PRINTER_SERVICE_UUIDS = [
-        '000018f0-0000-1000-8000-00805f9b34fb', // Common generic printer
-        'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Another common printer
-        '0000ff00-0000-1000-8000-00805f9b34fb', // Chinese printer (FF00)
-        '0000ffe0-0000-1000-8000-00805f9b34fb', // HM-10 / JDY-type modules
-        '49535343-fe7d-4ae5-8fa9-9fafd205e455', // ISSC (Microchip) transparent UART
-        '0000fff0-0000-1000-8000-00805f9b34fb', // FFF0 service (some Goojprt/Xprinter)
-        '0000ae30-0000-1000-8000-00805f9b34fb', // AE30 service
-        '0000fee7-0000-1000-8000-00805f9b34fb', // FEE7 (Tencent)
-        '6e400001-b5a3-f393-e0a9-e50e24dcca9e', // Nordic UART Service (NUS)
-      ];
-
       this.device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
-        optionalServices: PRINTER_SERVICE_UUIDS,
+        optionalServices: this.PRINTER_SERVICE_UUIDS,
       });
 
       this.device.addEventListener('gattserverdisconnected', this.onDisconnected);
 
-      this.server = await this.device.gatt?.connect() || null;
-      if (!this.server) throw new Error("Could not connect to GATT server.");
+      await this.connectToGATT();
 
-      // Try known services first
-      let services = await this.server.getPrimaryServices();
-      
-      if (services.length === 0) {
-        // Some printers need a small delay after connection before services are available
-        await new Promise(resolve => setTimeout(resolve, 500));
-        services = await this.server.getPrimaryServices();
-      }
-
-      if (services.length === 0) {
-        throw new Error("No BLE services found on this device. It may not be a supported printer.");
-      }
-      
-      // Find the first service with a writable characteristic
-      for (const service of services) {
-        try {
-          const characteristics = await service.getCharacteristics();
-          for (const char of characteristics) {
-            if (char.properties.write || char.properties.writeWithoutResponse) {
-              this.characteristic = char;
-              console.log("Found writable characteristic:", char.uuid);
-              break;
-            }
-          }
-          if (this.characteristic) break;
-        } catch (charErr) {
-          // Some services may not allow characteristic enumeration, skip
-          console.warn("Could not enumerate characteristics for service:", service.uuid, charErr);
-        }
-      }
-
-      if (!this.characteristic) {
-        throw new Error("Could not find a writable characteristic on this device.");
+      // Save device ID for auto-reconnect after page reload
+      if (this.device.id) {
+        localStorage.setItem(STORAGE_KEY, this.device.id);
       }
 
       console.log("Bluetooth Printer Connected:", this.device.name);
+      this.notifyListeners(true);
       return true;
     } catch (error) {
       console.error("Printer connection failed:", error);
       throw error;
+    }
+  }
+
+  /**
+   * Auto-reconnect to previously paired printer after page reload.
+   * Uses navigator.bluetooth.getDevices() — no user gesture needed.
+   * Returns true if reconnected, false if no saved device or reconnect failed.
+   */
+  async tryAutoReconnect(): Promise<boolean> {
+    try {
+      const savedDeviceId = localStorage.getItem(STORAGE_KEY);
+      if (!savedDeviceId) return false;
+
+      // getDevices() returns previously-granted devices without user gesture
+      if (!navigator.bluetooth?.getDevices) {
+        console.warn("navigator.bluetooth.getDevices() not supported. Auto-reconnect unavailable.");
+        return false;
+      }
+
+      const devices = await navigator.bluetooth.getDevices();
+      const device = devices.find(d => d.id === savedDeviceId);
+
+      if (!device) {
+        console.log("Saved printer device not found in granted devices list.");
+        // Don't clear storage — device might appear later
+        return false;
+      }
+
+      this.device = device;
+      this.device.addEventListener('gattserverdisconnected', this.onDisconnected);
+
+      // Wait for device to be available (it may take a moment after page load)
+      // Use watchAdvertisements if available, otherwise direct connect
+      try {
+        await this.connectToGATT();
+        console.log("Auto-reconnected to printer:", this.device.name);
+        this.notifyListeners(true);
+        return true;
+      } catch (gattError) {
+        console.warn("GATT connect failed, trying with advertisement watch...", gattError);
+        
+        // Some browsers/devices need watchAdvertisements before GATT connect works
+        if ('watchAdvertisements' in device) {
+          return new Promise<boolean>((resolve) => {
+            const timeout = setTimeout(() => {
+              console.log("Auto-reconnect timed out waiting for advertisements.");
+              resolve(false);
+            }, 5000);
+
+            const onAdvert = async () => {
+              device.removeEventListener('advertisementreceived', onAdvert as any);
+              clearTimeout(timeout);
+              try {
+                await this.connectToGATT();
+                console.log("Auto-reconnected to printer via advertisement:", this.device!.name);
+                this.notifyListeners(true);
+                resolve(true);
+              } catch (err) {
+                console.error("GATT connect after advertisement failed:", err);
+                resolve(false);
+              }
+            };
+
+            device.addEventListener('advertisementreceived', onAdvert as any);
+            (device as any).watchAdvertisements({ signal: AbortSignal.timeout(5000) }).catch(() => {
+              clearTimeout(timeout);
+              resolve(false);
+            });
+          });
+        }
+
+        return false;
+      }
+    } catch (error) {
+      console.error("Auto-reconnect failed:", error);
+      return false;
+    }
+  }
+
+  /** Connect to GATT server and find writable characteristic */
+  private async connectToGATT(): Promise<void> {
+    if (!this.device?.gatt) throw new Error("No GATT on device");
+
+    this.server = await this.device.gatt.connect();
+    if (!this.server) throw new Error("Could not connect to GATT server.");
+
+    // Try to reconnect to the exact same service+characteristic we used before
+    const savedServiceUuid = localStorage.getItem(SERVICE_STORAGE_KEY);
+    const savedCharUuid = localStorage.getItem(CHAR_STORAGE_KEY);
+
+    if (savedServiceUuid && savedCharUuid) {
+      try {
+        const service = await this.server.getPrimaryService(savedServiceUuid);
+        this.characteristic = await service.getCharacteristic(savedCharUuid);
+        console.log("Reconnected to saved characteristic:", savedCharUuid);
+        return;
+      } catch {
+        console.log("Saved characteristic not found, scanning all services...");
+      }
+    }
+
+    // Fallback: scan all services for writable characteristic
+    let services = await this.server.getPrimaryServices();
+    
+    if (services.length === 0) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      services = await this.server.getPrimaryServices();
+    }
+
+    if (services.length === 0) {
+      throw new Error("No BLE services found on this device. It may not be a supported printer.");
+    }
+    
+    for (const service of services) {
+      try {
+        const characteristics = await service.getCharacteristics();
+        for (const char of characteristics) {
+          if (char.properties.write || char.properties.writeWithoutResponse) {
+            this.characteristic = char;
+            // Save for fast reconnect next time
+            localStorage.setItem(SERVICE_STORAGE_KEY, service.uuid);
+            localStorage.setItem(CHAR_STORAGE_KEY, char.uuid);
+            console.log("Found writable characteristic:", char.uuid);
+            break;
+          }
+        }
+        if (this.characteristic) break;
+      } catch (charErr) {
+        console.warn("Could not enumerate characteristics for service:", service.uuid, charErr);
+      }
+    }
+
+    if (!this.characteristic) {
+      throw new Error("Could not find a writable characteristic on this device.");
     }
   }
 
@@ -125,12 +251,18 @@ class ThermalPrinterService {
     if (this.device && this.device.gatt?.connected) {
       this.device.gatt.disconnect();
     }
+    // Clear saved device so it doesn't auto-reconnect
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(CHAR_STORAGE_KEY);
+    localStorage.removeItem(SERVICE_STORAGE_KEY);
     this.cleanup();
+    this.notifyListeners(false);
   }
 
   private onDisconnected = () => {
     console.log("Printer disconnected");
     this.cleanup();
+    this.notifyListeners(false);
   }
 
   private cleanup() {
