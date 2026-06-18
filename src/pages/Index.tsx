@@ -299,22 +299,50 @@ const Index = () => {
           )
         )}
 
-        {/* Business Statistics - Top Priority */}
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl p-6 sm:p-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl shadow-lg shadow-emerald-500/20">
-              <TrendingUp className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Business Overview
-              </h2>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">
-                Key performance metrics • Last 30 days
-              </p>
+        {/* Business Statistics - Premium Design */}
+        <div className="relative group/section">
+          {/* Animated gradient border glow */}
+          <div className="absolute -inset-[1px] bg-gradient-to-r from-emerald-500 via-blue-500 via-purple-500 to-orange-500 rounded-[26px] opacity-20 blur-sm group-hover/section:opacity-30 transition-opacity duration-700 animate-pulse-gentle" />
+          
+          <div className="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-2xl border border-white/40 dark:border-gray-700/30 rounded-3xl shadow-2xl overflow-hidden">
+            {/* Decorative floating orbs */}
+            <div className="absolute top-0 right-0 w-72 h-72 bg-gradient-to-br from-purple-400/10 via-blue-400/5 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-56 h-56 bg-gradient-to-tr from-emerald-400/10 via-teal-400/5 to-transparent rounded-full blur-3xl translate-y-1/3 -translate-x-1/4 pointer-events-none" />
+            
+            <div className="relative p-6 sm:p-8">
+              {/* Section header */}
+              <div className="flex items-center justify-between mb-7">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl blur-md opacity-40" />
+                    <div className="relative p-2.5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg">
+                      <TrendingUp className="h-5 w-5 text-white" />
+                    </div>
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-700 dark:from-white dark:via-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
+                      Business Overview
+                    </h2>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm flex items-center gap-2">
+                      <span className="inline-block w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                      Key performance metrics • Last 30 days
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Live indicator */}
+                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/50 dark:border-emerald-700/30 rounded-full">
+                  <div className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  </div>
+                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Live</span>
+                </div>
+              </div>
+
+              <Stats />
             </div>
           </div>
-          <Stats />
         </div>
 
         {/* Charts & Activity - High Priority */}

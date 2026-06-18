@@ -3098,6 +3098,8 @@ export type Database = {
           discount_amount: number | null
           discount_notes: string | null
           discount_percentage: number | null
+          promotion_code: string | null
+          promotion_name: string | null
           entity_name: string | null
           id: string
           is_qr_order: boolean | null
@@ -3131,6 +3133,8 @@ export type Database = {
           discount_amount?: number | null
           discount_notes?: string | null
           discount_percentage?: number | null
+          promotion_code?: string | null
+          promotion_name?: string | null
           entity_name?: string | null
           id?: string
           is_qr_order?: boolean | null
@@ -3164,6 +3168,8 @@ export type Database = {
           discount_amount?: number | null
           discount_notes?: string | null
           discount_percentage?: number | null
+          promotion_code?: string | null
+          promotion_name?: string | null
           entity_name?: string | null
           id?: string
           is_qr_order?: boolean | null
