@@ -38,6 +38,7 @@ import {
   Receipt,
   Trash2,
   Printer,
+  PrinterCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HelpProvider from "@/components/Help/HelpProvider";
@@ -88,6 +89,11 @@ export const QSRPosMain: React.FC = () => {
     type: "active" | "past" | null;
   }>({ order: null, type: null });
 
+  // Printer connection state
+  const [isPrinterConnected, setIsPrinterConnected] = useState(thermalPrinterService.isConnected());
+  const [printerName, setPrinterName] = useState<string | null>(thermalPrinterService.getDeviceName());
+  const [isReconnecting, setIsReconnecting] = useState(false);
+
   // NC (Non-Chargeable) Reason state
   const [ncReason, setNcReason] = useState<string>("");
 
@@ -134,6 +140,33 @@ export const QSRPosMain: React.FC = () => {
   const attendantName = user
     ? `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email
     : "Staff";
+
+  // Auto-reconnect printer on page load
+  useEffect(() => {
+    // Listen for connection state changes
+    const unsubscribe = thermalPrinterService.onConnectionChange((connected) => {
+      setIsPrinterConnected(connected);
+      setPrinterName(connected ? thermalPrinterService.getDeviceName() : null);
+    });
+
+    // Try auto-reconnect if not already connected
+    if (!thermalPrinterService.isConnected()) {
+      setIsReconnecting(true);
+      thermalPrinterService.tryAutoReconnect()
+        .then((reconnected) => {
+          if (reconnected) {
+            toast({
+              title: "Printer Reconnected",
+              description: `Auto-connected to ${thermalPrinterService.getDeviceName() || "printer"}`,
+            });
+          }
+        })
+        .catch(() => {})
+        .finally(() => setIsReconnecting(false));
+    }
+
+    return unsubscribe;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Query for today's revenue
   const queryClient = useQueryClient();
@@ -1323,11 +1356,19 @@ export const QSRPosMain: React.FC = () => {
                 size="sm"
                 onClick={async () => {
                   try {
-                    await thermalPrinterService.connect();
-                    toast({
-                      title: "Printer Connected",
-                      description: "Thermal printer is ready for KOTs",
-                    });
+                    if (isPrinterConnected) {
+                      await thermalPrinterService.disconnect();
+                      toast({
+                        title: "Printer Disconnected",
+                        description: "Thermal printer has been disconnected",
+                      });
+                    } else {
+                      await thermalPrinterService.connect();
+                      toast({
+                        title: "Printer Connected",
+                        description: "Thermal printer is ready for KOTs",
+                      });
+                    }
                   } catch (err: any) {
                     toast({
                       variant: "destructive",
@@ -1336,10 +1377,27 @@ export const QSRPosMain: React.FC = () => {
                     });
                   }
                 }}
-                className="flex items-center gap-1.5 border-dashed"
+                className={`flex items-center gap-1.5 ${
+                  isPrinterConnected
+                    ? "border-green-400 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-950/50"
+                    : isReconnecting
+                    ? "border-amber-400 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400"
+                    : "border-dashed"
+                }`}
+                disabled={isReconnecting}
               >
-                <Printer className="w-4 h-4 text-indigo-500" />
-                <span className="hidden sm:inline text-xs">Connect Printer</span>
+                {isPrinterConnected ? (
+                  <PrinterCheck className="w-4 h-4 text-green-600 dark:text-green-400" />
+                ) : (
+                  <Printer className={`w-4 h-4 ${isReconnecting ? "animate-pulse text-amber-500" : "text-indigo-500"}`} />
+                )}
+                <span className="hidden sm:inline text-xs">
+                  {isPrinterConnected
+                    ? printerName || "Connected"
+                    : isReconnecting
+                    ? "Reconnecting..."
+                    : "Connect Printer"}
+                </span>
               </Button>
               <HelpProvider />
               {/* Refresh Tables Button */}
