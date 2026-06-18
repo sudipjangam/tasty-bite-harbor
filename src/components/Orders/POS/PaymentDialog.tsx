@@ -495,7 +495,7 @@ const PaymentDialog = ({
             const { data: order } = await supabase
               .from("orders")
               .select(
-                "Customer_Name, Customer_MobileNumber, customer_name, customer_phone, discount_percentage, discount_amount",
+                "Customer_Name, Customer_MobileNumber, customer_name, customer_phone, discount_percentage, discount_amount, promotion_code, promotion_name",
               )
               .eq("id", kitchenOrder.order_id)
               .maybeSingle();
@@ -533,8 +533,39 @@ const PaymentDialog = ({
                 parseFloat((order as any).discount_percentage) || 0;
               setManualDiscountPercent(discountPercent);
 
-              // Reset promotion state since we're loading fresh order data
-              if (discountPercent === 0) {
+              // Also restore cash discount: stored discount_amount minus the %-based portion
+              const storedDiscountAmount =
+                parseFloat((order as any).discount_amount) || 0;
+              const percentBasedAmount = discountPercent > 0
+                ? (subtotal * discountPercent) / 100
+                : 0;
+              const cashDiscount = Math.max(
+                0,
+                storedDiscountAmount - percentBasedAmount,
+              );
+              if (cashDiscount > 0) {
+                setManualDiscountCash(cashDiscount);
+              }
+
+              // Restore promotion state if present, otherwise clear it
+              const storedPromoCode = (order as any).promotion_code;
+              const storedPromoName = (order as any).promotion_name;
+              
+              if (storedPromoCode) {
+                setPromotionCode(storedPromoCode);
+                setAppliedPromotion({
+                  name: storedPromoName || "Applied Promotion",
+                  code: storedPromoCode,
+                  promotion_code: storedPromoCode,
+                  discount_percentage: discountPercent,
+                  discount_amount: cashDiscount > 0 ? cashDiscount : undefined,
+                });
+                setManualDiscountPercent(0);
+                setManualDiscountCash(0);
+              } else if (discountPercent === 0 && cashDiscount === 0) {
+                setAppliedPromotion(null);
+                setPromotionCode("");
+              } else {
                 setAppliedPromotion(null);
                 setPromotionCode("");
               }
@@ -1476,6 +1507,48 @@ const PaymentDialog = ({
       return;
     }
 
+    // ── Persist discount to orders table on Print ─────────────────────────
+    // Covers all 3 discount types:
+    //  1. % manual discount   → discount_percentage=N,  discount_amount=calculated
+    //  2. ₹ cash flat         → discount_percentage=0,  discount_amount=N
+    //  3. Promo code (% type) → discount_percentage=N,  discount_amount=calculated
+    //  4. Promo code (₹ type) → discount_percentage=0,  discount_amount=N
+    if (orderId && totalDiscountAmount > 0) {
+      try {
+        const { data: kitchenOrder } = await supabase
+          .from("kitchen_orders")
+          .select("order_id")
+          .eq("id", orderId)
+          .maybeSingle();
+
+        const targetOrderId = kitchenOrder?.order_id ?? null;
+
+        if (targetOrderId) {
+          // Determine effective discount_percentage:
+          // manual % wins → else promo % → else 0 (flat cash / flat promo)
+          const effectiveDiscountPct =
+            manualDiscountPercent > 0
+              ? manualDiscountPercent
+              : (appliedPromotion?.discount_percentage ?? 0);
+
+          await supabase
+            .from("orders")
+            .update({
+              discount_percentage: effectiveDiscountPct,
+              discount_amount: totalDiscountAmount,   // always the full ₹ value saved
+              promotion_code: (appliedPromotion as any)?.promotion_code || (appliedPromotion as any)?.code || null,
+              promotion_name: appliedPromotion?.name || null,
+              total: total,                            // discounted total persisted
+            })
+            .eq("id", targetOrderId);
+        }
+      } catch (discountSaveError) {
+        // Non-fatal — log but don't block printing
+        console.error("Failed to persist discount on print:", discountSaveError);
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     try {
       const doc = new jsPDF({
         format: [58, 297], // 58mm thermal printer width
@@ -2038,6 +2111,8 @@ const PaymentDialog = ({
                 manualDiscountPercent > 0
                   ? manualDiscountPercent
                   : appliedPromotion?.discount_percentage || 0,
+              promotion_code: (appliedPromotion as any)?.promotion_code || (appliedPromotion as any)?.code || null,
+              promotion_name: appliedPromotion?.name || null,
             })
             .eq("id", kitchenOrder.order_id);
 
@@ -2170,6 +2245,8 @@ const PaymentDialog = ({
               discount_percentage: isNonChargeable
                 ? 100
                 : effectiveDiscountPct,
+              promotion_code: isNonChargeable ? null : ((appliedPromotion as any)?.promotion_code || (appliedPromotion as any)?.code || null),
+              promotion_name: isNonChargeable ? null : (appliedPromotion?.name || null),
               ...(discountNotes && { discount_notes: isNonChargeable ? 'Non-Chargeable (100% off)' : discountNotes }),
               ...(finalOrderType && { order_type: finalOrderType }),
               // Save NC reason for non-chargeable orders
@@ -2215,6 +2292,8 @@ const PaymentDialog = ({
                 discount_percentage: isNonChargeable
                   ? 100
                   : effectiveDiscountPct,
+                promotion_code: isNonChargeable ? null : ((appliedPromotion as any)?.promotion_code || (appliedPromotion as any)?.code || null),
+                promotion_name: isNonChargeable ? null : (appliedPromotion?.name || null),
                 ...(discountNotes && { discount_notes: isNonChargeable ? 'Non-Chargeable (100% off)' : discountNotes }),
                 // Save NC reason for non-chargeable orders
                 ...(isNonChargeable && ncReason && { nc_reason: ncReason }),

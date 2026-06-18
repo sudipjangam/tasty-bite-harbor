@@ -183,6 +183,70 @@ const Stats = () => {
     Number(revenueTrendPercent) >= 0 ? "+" : ""
   }${revenueTrendPercent}%`;
 
+  // Generate sparkline data from last 7 days of revenue
+  const getLast7DaysSpark = () => {
+    const spark: number[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dayStr = d.toDateString();
+      const dayTotal = completedRevenue
+        .filter((item) => new Date(item.created_at).toDateString() === dayStr)
+        .reduce((sum, item) => sum + getActualRevenue(item), 0);
+      spark.push(dayTotal);
+    }
+    return spark;
+  };
+
+  // Generate sparkline for orders (last 7 days count)
+  const getLast7DaysOrdersSpark = () => {
+    const spark: number[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dayStr = d.toDateString();
+      const dayCount = orders.filter(
+        (order) => new Date(order.created_at).toDateString() === dayStr
+      ).length;
+      spark.push(dayCount);
+    }
+    return spark;
+  };
+
+  // Generate sparkline for customers (last 7 days unique)
+  const getLast7DaysCustomersSpark = () => {
+    const spark: number[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dayStr = d.toDateString();
+      const dayCustomers = new Set(
+        orders
+          .filter((order) => new Date(order.created_at).toDateString() === dayStr)
+          .map((order) => order.customer_name)
+          .filter(Boolean)
+      ).size;
+      spark.push(dayCustomers);
+    }
+    return spark;
+  };
+
+  // Hourly revenue sparkline for today
+  const getTodayHourlySpark = () => {
+    const spark: number[] = [];
+    const currentHour = new Date().getHours();
+    for (let h = Math.max(0, currentHour - 7); h <= currentHour; h++) {
+      const hourTotal = completedRevenue
+        .filter((item) => {
+          const d = new Date(item.created_at);
+          return d.toDateString() === today && d.getHours() === h;
+        })
+        .reduce((sum, item) => sum + getActualRevenue(item), 0);
+      spark.push(hourTotal);
+    }
+    return spark;
+  };
+
   const stats = [
     {
       title: "Total Sales (30d)",
@@ -190,11 +254,12 @@ const Stats = () => {
       icon: DollarSign,
       trend: salesTrend,
       color: "text-emerald-600 dark:text-emerald-400",
-      gradient: "from-emerald-500 via-teal-500 to-emerald-600",
+      gradient: "from-emerald-500 via-teal-500 to-cyan-600",
       shadow: "shadow-emerald-500/20",
       type: "sales" as const,
       // Use monthly aggregation for Sales chart
       chart: getMonthlyRevenue(completedRevenue),
+      sparklineData: getLast7DaysSpark(),
     },
     {
       title: "Active Orders",
@@ -202,10 +267,11 @@ const Stats = () => {
       icon: ShoppingBag,
       trend: ordersTrend,
       color: "text-blue-600 dark:text-blue-400",
-      gradient: "from-blue-500 via-indigo-500 to-blue-600",
+      gradient: "from-blue-500 via-indigo-500 to-violet-600",
       shadow: "shadow-blue-500/20",
       type: "orders" as const,
       data: activeOrdersList,
+      sparklineData: getLast7DaysOrdersSpark(),
     },
     {
       title: "Customers (30d)",
@@ -221,6 +287,7 @@ const Stats = () => {
         orders: 1,
         total: order.total,
       })),
+      sparklineData: getLast7DaysCustomersSpark(),
     },
     {
       title: "Today's Revenue",
@@ -228,7 +295,7 @@ const Stats = () => {
       icon: TrendingUp,
       trend: revenueTrend,
       color: "text-orange-600 dark:text-orange-400",
-      gradient: "from-orange-500 via-amber-500 to-orange-600",
+      gradient: "from-orange-500 via-amber-500 to-rose-500",
       shadow: "shadow-orange-500/20",
       type: "revenue" as const,
       chart: completedRevenue
@@ -237,6 +304,7 @@ const Stats = () => {
           time: new Date(item.created_at).toLocaleTimeString(),
           amount: getActualRevenue(item),
         })),
+      sparklineData: getTodayHourlySpark(),
     },
   ];
 
@@ -258,6 +326,8 @@ const Stats = () => {
             gradient={stat.gradient}
             shadow={stat.shadow}
             onClick={() => setSelectedStat(stat.title)}
+            index={index}
+            sparklineData={stat.sparklineData}
           />
         ))}
       </div>
