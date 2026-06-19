@@ -2167,6 +2167,8 @@ const PaymentDialog = ({
   };
 
   const handleMarkAsPaid = async (paymentMethod: string = "upi", splitPaymentsData?: Array<{method: string; amount: number}>) => {
+    // ✅ Prevent double-click: if already processing, bail out
+    if (isProcessingPayment) return;
     setIsProcessingPayment(true);
     try {
       // Here you would integrate with your payment verification system
@@ -2265,55 +2267,99 @@ const PaymentDialog = ({
             console.error("Error updating order payment status:", orderError);
           }
         } else {
-          // No linked order_id - create a new order record in the orders table
-          // This ensures QSR orders appear in Order Management
+          // No linked order_id — FIRST search for an existing orphaned order
+          // that matches this kitchen order (prevents creating duplicates)
           try {
-            // Format items for the orders table (string array format)
-            const formattedItems = orderItems.map(
-              (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
-            );
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            const finalCustName = customerName.trim() || tableNumber || "QSR-Order";
 
-            const { data: newOrder, error: insertError } = await supabase
+            // Look for an existing order with same customer + restaurant + today + similar total
+            const { data: existingOrders } = await supabase
               .from("orders")
-              .insert({
-                restaurant_id: restaurantIdToUse,
-                customer_name:
-                  customerName.trim() || tableNumber || "QSR-Order",
-                items: formattedItems,
-                total: finalTotal,
-                status: "completed",
-                payment_status: isNonChargeable ? "nc" : "paid",
-                payment_method: finalPaymentMethod,
-                source: "qsr",
-                order_type: finalOrderType || "dine-in",
-                discount_amount: isNonChargeable
-                  ? subtotal
-                  : totalDiscountAmount,
-                discount_percentage: isNonChargeable
-                  ? 100
-                  : effectiveDiscountPct,
-                promotion_code: isNonChargeable ? null : ((appliedPromotion as any)?.promotion_code || (appliedPromotion as any)?.code || null),
-                promotion_name: isNonChargeable ? null : (appliedPromotion?.name || null),
-                ...(discountNotes && { discount_notes: isNonChargeable ? 'Non-Chargeable (100% off)' : discountNotes }),
-                // Save NC reason for non-chargeable orders
-                ...(isNonChargeable && ncReason && { nc_reason: ncReason }),
-                // Save customer phone if provided
-                ...(customerMobile && { customer_phone: customerMobile }),
-              })
-              .select()
-              .single();
+              .select("id")
+              .eq("restaurant_id", restaurantIdToUse)
+              .ilike("customer_name", finalCustName)
+              .gte("created_at", todayStart.toISOString())
+              .in("status", ["preparing", "ready", "pending", "served"])
+              .order("created_at", { ascending: false })
+              .limit(1);
 
-            if (insertError) {
-              console.error("Error creating order record:", insertError);
-            } else if (newOrder) {
-              // Link the new order back to the kitchen_order
+            if (existingOrders && existingOrders.length > 0) {
+              // Found orphaned order — update it instead of creating duplicate
+              const orphanedId = existingOrders[0].id;
+              console.log("✅ Found orphaned order, updating instead of creating duplicate:", orphanedId);
+
+              await supabase
+                .from("orders")
+                .update({
+                  payment_status: isNonChargeable ? "nc" : "paid",
+                  payment_method: finalPaymentMethod,
+                  status: "completed",
+                  total: finalTotal,
+                  discount_amount: isNonChargeable ? subtotal : totalDiscountAmount,
+                  discount_percentage: isNonChargeable ? 100 : effectiveDiscountPct,
+                  promotion_code: isNonChargeable ? null : ((appliedPromotion as any)?.promotion_code || (appliedPromotion as any)?.code || null),
+                  promotion_name: isNonChargeable ? null : (appliedPromotion?.name || null),
+                  ...(discountNotes && { discount_notes: isNonChargeable ? 'Non-Chargeable (100% off)' : discountNotes }),
+                  ...(finalOrderType && { order_type: finalOrderType }),
+                  ...(isNonChargeable && ncReason && { nc_reason: ncReason }),
+                  ...(splitPaymentsData && { split_payments: splitPaymentsData }),
+                  ...(customerName.trim() && { customer_name: customerName.trim() }),
+                  ...(customerMobile && { customer_phone: customerMobile }),
+                })
+                .eq("id", orphanedId);
+
+              // Link it back
               await supabase
                 .from("kitchen_orders")
-                .update({ order_id: newOrder.id })
+                .update({ order_id: orphanedId })
                 .eq("id", orderId);
+            } else {
+              // Truly no existing order — create one
+              const formattedItems = orderItems.map(
+                (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
+              );
+
+              const { data: newOrder, error: insertError } = await supabase
+                .from("orders")
+                .insert({
+                  restaurant_id: restaurantIdToUse,
+                  customer_name: finalCustName,
+                  items: formattedItems,
+                  total: finalTotal,
+                  status: "completed",
+                  payment_status: isNonChargeable ? "nc" : "paid",
+                  payment_method: finalPaymentMethod,
+                  source: "qsr",
+                  order_type: finalOrderType || "dine-in",
+                  discount_amount: isNonChargeable
+                    ? subtotal
+                    : totalDiscountAmount,
+                  discount_percentage: isNonChargeable
+                    ? 100
+                    : effectiveDiscountPct,
+                  promotion_code: isNonChargeable ? null : ((appliedPromotion as any)?.promotion_code || (appliedPromotion as any)?.code || null),
+                  promotion_name: isNonChargeable ? null : (appliedPromotion?.name || null),
+                  ...(discountNotes && { discount_notes: isNonChargeable ? 'Non-Chargeable (100% off)' : discountNotes }),
+                  ...(isNonChargeable && ncReason && { nc_reason: ncReason }),
+                  ...(customerMobile && { customer_phone: customerMobile }),
+                })
+                .select()
+                .single();
+
+              if (insertError) {
+                console.error("Error creating order record:", insertError);
+              } else if (newOrder) {
+                // Link the new order back to the kitchen_order
+                await supabase
+                  .from("kitchen_orders")
+                  .update({ order_id: newOrder.id })
+                  .eq("id", orderId);
+              }
             }
           } catch (createOrderError) {
-            console.error("Error creating order for QSR:", createOrderError);
+            console.error("Error creating/finding order for QSR:", createOrderError);
             // Don't fail the payment if order creation fails
           }
         }
