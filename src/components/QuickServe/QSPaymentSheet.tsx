@@ -496,6 +496,9 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   };
 
   const handlePay = async (method: string) => {
+    // ✅ Prevent double-click: if already processing, bail out
+    if (status === "processing") return;
+
     // For NC, prompt for reason first
     let ncReason: string | null = null;
     if (method === "nc") {
@@ -838,7 +841,19 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       setCreatedOrderId(order?.id || null);
       setPaymentConfirmed(isNC); // NC orders are auto-confirmed
 
-      // ✅ Show success screen IMMEDIATELY after critical writes
+      // ✅ CRITICAL: Link kitchen order → order SYNCHRONOUSLY before success
+      // This MUST complete before showing success, otherwise order_id stays null
+      // and PaymentDialog creates a duplicate order when "Mark as Paid" is clicked
+      if (order?.id && kitchenOrder?.id) {
+        const { error: linkError } = await supabase
+          .from("kitchen_orders")
+          .update({ order_id: order.id })
+          .eq("id", kitchenOrder.id);
+        if (linkError) {
+          console.error("❌ Critical: kitchen→order link failed:", linkError);
+        }
+      }
+
       setStatus("success");
       toast({
         title: isNC ? "Order Created" : "Order Created — Awaiting Payment",
@@ -850,22 +865,6 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       // 🔥 Fire-and-forget: non-critical tasks run in background
       // Errors are logged but never block the UI
       const bgTasks: Promise<void>[] = [];
-
-      // Link kitchen order → order
-      if (order?.id && kitchenOrder?.id) {
-        bgTasks.push(
-          (async () => {
-            try {
-              await supabase
-                .from("kitchen_orders")
-                .update({ order_id: order.id })
-                .eq("id", kitchenOrder.id);
-            } catch (err) {
-              console.error("Link kitchen→order error:", err);
-            }
-          })(),
-        );
-      }
 
       // Deduct inventory
       if (kitchenOrder?.id) {
@@ -1229,6 +1228,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               <button
                 onClick={async () => {
                   if (!createdOrderId) return;
+                  // ✅ Prevent double-click: disable immediately
+                  setPaymentConfirmed(true);
                   try {
                     const { error } = await supabase
                       .from("orders")
@@ -1242,7 +1243,6 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                       .update({ status: "completed" })
                       .eq("order_id", createdOrderId);
 
-                    setPaymentConfirmed(true);
                     toast({
                       title: "Payment Confirmed ✓",
                       description: `${currencySymbol}${subtotal.toFixed(2)} marked as paid via ${selectedMethod?.toUpperCase()}`,
@@ -1257,6 +1257,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                     handleCloseSuccess();
                   } catch (err) {
                     console.error("Mark as paid error:", err);
+                    setPaymentConfirmed(false); // Re-enable on failure
                     toast({
                       title: "Failed to mark as paid",
                       description: "Please try again.",
@@ -1264,7 +1265,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                     });
                   }
                 }}
-                className="w-full max-w-xs mt-2 py-3 rounded-xl font-bold text-sm text-white transition-all duration-200 active:scale-[0.97] shadow-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25"
+                disabled={paymentConfirmed}
+                className="w-full max-w-xs mt-2 py-3 rounded-xl font-bold text-sm text-white transition-all duration-200 active:scale-[0.97] shadow-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="flex items-center justify-center gap-2">
                   <CheckCircle2 className="h-4 w-4" />
