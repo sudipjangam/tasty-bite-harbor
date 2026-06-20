@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { encode } from 'https://deno.land/std@0.168.0/encoding/base64.ts';
+import { signQRPayload, buildSignablePayload } from '../_shared/qr-signing.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -93,15 +94,36 @@ serve(async (req) => {
       );
     }
 
-    // Generate unique token
+    // Generate unique token and timestamp for this QR
     const token = crypto.randomUUID();
+    const timestamp = Date.now();
+
+    // Build signable payload (deterministic field order, no 'sig' field)
+    const signableData = buildSignablePayload({
+      restaurantId,
+      entityType,
+      entityId,
+      entityName: entity.name,
+      token,
+      timestamp,
+    });
+
+    // Sign the payload with HMAC-SHA256
+    let sig = '';
+    try {
+      sig = await signQRPayload(signableData);
+    } catch (signErr) {
+      console.warn('Could not sign QR token (QR_SIGNING_SECRET missing?):', signErr);
+    }
+
     const qrCodeData = JSON.stringify({
       restaurantId,
       entityType,
       entityId,
       entityName: entity.name,
       token,
-      timestamp: Date.now(),
+      timestamp,
+      ...(sig ? { sig } : {}),  // Include signature only if signing succeeded
     });
 
     // Generate QR code URL dynamically - intelligently detect environment

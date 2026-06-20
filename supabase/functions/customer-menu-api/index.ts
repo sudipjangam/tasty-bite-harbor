@@ -1,6 +1,13 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { decode } from 'https://deno.land/std@0.168.0/encoding/base64.ts';
+import { verifyQRSignature, buildSignablePayload } from '../_shared/qr-signing.ts';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRequestIdentifier,
+  RATE_LIMITS,
+} from '../_shared/rate-limit.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,6 +18,13 @@ serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Rate limiting — prevent menu scraping
+  const identifier = getRequestIdentifier(req);
+  const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.STANDARD);
+  if (!rateLimitResult.allowed) {
+    return createRateLimitResponse(rateLimitResult, corsHeaders);
   }
 
   try {
@@ -50,10 +64,41 @@ serve(async (req) => {
       );
     }
 
-    const { restaurantId, entityType, entityId } = qrData;
+    const { restaurantId, entityType, entityId, entityName, token, timestamp, sig } = qrData;
 
-    // NOTE: We don't need to validate QR code in database since the QR data
-    // itself contains all necessary information. This makes the system more flexible.
+    // Verify HMAC signature if present (new signed QRs)
+    // Old unsigned QRs fall through to DB validation only
+    if (sig) {
+      const signablePayload = buildSignablePayload({ restaurantId, entityType, entityId, entityName, token, timestamp });
+      const signatureValid = await verifyQRSignature(signablePayload, sig);
+      if (!signatureValid) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid QR code signature. Please regenerate your QR code.' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+        );
+      }
+    }
+
+    // Always validate entity against DB to prevent table/room ID manipulation
+    // Even with a valid signature, entity must exist and be active
+    const { data: qrRecord } = await supabaseClient
+      .from('qr_codes')
+      .select('id, is_active')
+      .eq('entity_type', entityType)
+      .eq('entity_id', entityId)
+      .eq('restaurant_id', restaurantId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (!qrRecord) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or deactivated QR code. Please scan a valid QR code.' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 403,
+        }
+      );
+    }
 
     // Get restaurant info and settings
     const { data: restaurant, error: restaurantError } = await supabaseClient
@@ -155,7 +200,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in customer-menu-api function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      JSON.stringify({ error: 'Internal server error' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,

@@ -42,7 +42,7 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({ setAuthMod
     setLoading(true);
 
     try {
-      const SUPABASE_URL = 'https://clmsoetktmvhazctlans.supabase.co';
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
       const response = await fetch(`${SUPABASE_URL}/functions/v1/reset-password`, {
         method: 'POST',
         headers: {

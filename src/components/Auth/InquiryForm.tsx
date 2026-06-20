@@ -81,7 +81,7 @@ export const InquiryForm: React.FC<InquiryFormProps> = ({ setAuthMode }) => {
         : formData.businessType;
 
     try {
-      const SUPABASE_URL = 'https://clmsoetktmvhazctlans.supabase.co';
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
       const response = await fetch(`${SUPABASE_URL}/functions/v1/send-inquiry`, {
         method: 'POST',
         headers: {
