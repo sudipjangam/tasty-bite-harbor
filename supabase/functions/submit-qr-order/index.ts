@@ -1,5 +1,11 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRequestIdentifier,
+  RATE_LIMITS,
+} from '../_shared/rate-limit.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,6 +34,13 @@ serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Rate limiting — prevent DDoS / fake order flooding
+  const identifier = getRequestIdentifier(req);
+  const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.STANDARD);
+  if (!rateLimitResult.allowed) {
+    return createRateLimitResponse(rateLimitResult, corsHeaders);
   }
 
   try {
@@ -75,6 +88,23 @@ serve(async (req) => {
       );
     }
 
+    // Validate the QR entity exists and is active — blocks table/room ID manipulation
+    const { data: qrRecord } = await supabaseClient
+      .from('qr_codes')
+      .select('id, is_active')
+      .eq('entity_type', entityType)
+      .eq('entity_id', entityId)
+      .eq('restaurant_id', restaurantId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (!qrRecord) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or deactivated QR code' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+      );
+    }
+
     // Get entity name for display
     let entityName = '';
     if (entityType === 'table') {
@@ -93,32 +123,56 @@ serve(async (req) => {
       entityName = room?.room_number || 'Unknown Room';
     }
 
-    // Fetch menu item details to build order items with names
+    // Fetch menu item details to build order items with names and AUTHORITATIVE prices
     const menuItemIds = items.map((item) => item.menuItemId);
-    const { data: menuItems } = await supabaseClient
+    const { data: menuItems, error: menuFetchError } = await supabaseClient
       .from('menu_items')
       .select('id, name, price')
-      .in('id', menuItemIds);
+      .in('id', menuItemIds)
+      .eq('restaurant_id', restaurantId);  // Ensure items belong to this restaurant
 
-    // Format items for display (matching POS format)
+    if (menuFetchError || !menuItems) {
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch menu item details' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
+    }
+
+    // Validate all requested items exist in this restaurant's menu
+    for (const item of items) {
+      const menuItem = menuItems.find((mi) => mi.id === item.menuItemId);
+      if (!menuItem) {
+        return new Response(
+          JSON.stringify({ error: `Invalid menu item: ${item.menuItemId}` }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+    }
+
+    // Server-side total calculation using DB prices (ignore client-provided prices)
+    const calculatedTotal = items.reduce((sum, item) => {
+      const menuItem = menuItems.find((mi) => mi.id === item.menuItemId)!;
+      return sum + (menuItem.price * item.quantity);
+    }, 0);
+
+    // Format items for display (matching POS format) — use DB price
     const formattedItems = items.map((item) => {
-      const menuItem = menuItems?.find((mi) => mi.id === item.menuItemId);
-      const itemName = menuItem?.name || 'Unknown Item';
-      const price = item.price;
-      return `${item.quantity}x ${itemName} @${price}`;
+      const menuItem = menuItems.find((mi) => mi.id === item.menuItemId)!;
+      return `${item.quantity}x ${menuItem.name} @${menuItem.price}`;
     });
 
-    // Keep detailed items for kitchen order
+    // Keep detailed items for kitchen order — use DB price
     const orderItems = items.map((item) => {
-      const menuItem = menuItems?.find((mi) => mi.id === item.menuItemId);
+      const menuItem = menuItems.find((mi) => mi.id === item.menuItemId)!;
       return {
         id: item.menuItemId,
-        name: menuItem?.name || 'Unknown Item',
+        name: menuItem.name,
         quantity: item.quantity,
-        price: item.price,
+        price: menuItem.price,  // Server-authoritative price, NOT client-provided
         modifiers: item.modifiers || [],
       };
     });
+
 
     // Create order in orders table
     const { data: order, error: orderError } = await supabaseClient
@@ -128,7 +182,7 @@ serve(async (req) => {
         customer_name: customerName,
         customer_phone: customerPhone,
         items: formattedItems, // Use formatted strings like POS orders
-        total: totalAmount,
+        total: calculatedTotal,  // Server-recalculated total — never trust client
         status: 'pending',
         source: 'qr',
         order_type: entityType === 'table' ? 'dine-in' : 'room_service',
@@ -220,6 +274,7 @@ serve(async (req) => {
 
       const restaurantNameStr = restaurant?.name || 'Our Restaurant';
       const totalItemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+      const displayTotal = calculatedTotal;  // Use server-calculated total in notifications
 
       const whatsappPayload = {
         action: 'send_template',
@@ -233,7 +288,7 @@ serve(async (req) => {
           restaurantNameStr, // {{2}} Restaurant Name
           order.id.substring(0, 8).toUpperCase(), // {{3}} Order Number
           totalItemCount.toString(), // {{4}} Item count
-          `₹${totalAmount.toFixed(2)}` // {{5}} Total Amount
+          `₹${displayTotal.toFixed(2)}` // {{5}} Total Amount
         ],
         buttonValues: [order.id] // Dynamic URL button for tracking
       };
@@ -259,7 +314,7 @@ serve(async (req) => {
             id: paymentSettings.upi_id,
             name: paymentSettings.upi_name,
             paymentLink: upiPaymentLink,
-            amount: totalAmount,
+            amount: calculatedTotal,  // Server-calculated amount for payment
           } : null,
         },
       }),
@@ -271,10 +326,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in submit-qr-order function:', error);
     return new Response(
-      JSON.stringify({
-        error: 'Internal server error',
-        details: error.message,
-      }),
+      JSON.stringify({ error: 'Internal server error' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
