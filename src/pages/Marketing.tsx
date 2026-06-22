@@ -152,7 +152,15 @@ const Marketing = () => {
       </div>
 
       {/* ── Tabs ── */}
-      <div className="flex gap-1 w-fit p-1 rounded-2xl border bg-white/50 dark:bg-white/[0.05] border-black/[0.06] dark:border-white/[0.08] backdrop-blur-xl flex-wrap">
+      <div 
+        className="flex gap-1 w-full sm:w-fit p-1 rounded-2xl border bg-white/50 dark:bg-white/[0.05] border-black/[0.06] dark:border-white/[0.08] backdrop-blur-xl overflow-x-auto flex-nowrap sm:flex-wrap scrollbar-none"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        <style>{`
+          .scrollbar-none::-webkit-scrollbar {
+            display: none;
+          }
+        `}</style>
         {tabs.map((tab) => (
           <FeatureLock key={tab.id} feature={tab.feature} interceptClicks={true}>
             <button
@@ -175,7 +183,7 @@ const Marketing = () => {
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
         {activeTab === "campaigns" && (
           <div className="space-y-5">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <h2 className="text-lg font-bold text-foreground">Marketing Campaigns</h2>
               <button
                 onClick={() => setOpenCreateDialog(true)}
@@ -186,6 +194,7 @@ const Marketing = () => {
                   hover:shadow-[0_8px_28px_rgba(168,85,247,0.5)]
                   hover:-translate-y-0.5
                   transition-all duration-200
+                  w-full sm:w-auto justify-center
                 "
               >
                 <Plus className="h-4 w-4" />

@@ -52,6 +52,7 @@ interface CustomerFullProfileProps {
   notes: CustomerNote[];
   activities: CustomerActivity[];
   loading?: boolean;
+  onBack?: () => void;
   onEditCustomer: (customer: Customer) => void;
   onDeleteCustomer: (customerId: string) => void;
   onAddNote: (customerId: string, content: string) => void;
@@ -65,6 +66,7 @@ const CustomerFullProfile: React.FC<CustomerFullProfileProps> = ({
   notes,
   activities,
   loading = false,
+  onBack,
   onEditCustomer,
   onDeleteCustomer,
   onAddNote,
@@ -140,8 +142,7 @@ const getOrderInsights = (orders: any[]) => {
             Select a Customer
           </h3>
           <p className="text-gray-500 dark:text-gray-400">
-            Choose a customer from the list to view their complete profile and
-            history.
+            Choose a customer from the list to view their complete profile and history.
           </p>
         </CardContent>
       </Card>
@@ -213,212 +214,167 @@ const getOrderInsights = (orders: any[]) => {
   };
 
   return (
-    <div className="h-full flex flex-col space-y-4 overflow-hidden">
-      {/* Customer Header Card */}
-      <Card className="bg-white/80 backdrop-blur-xl border-white/20 shadow-xl overflow-hidden">
-        <div
-          className={cn(
-            "h-24 bg-gradient-to-r",
-            getTierGradient(customer.loyalty_tier)
-          )}
-        />
-        <CardHeader className="-mt-12 pb-4">
-          <div className="flex items-end justify-between">
-            <div className="flex items-end gap-4">
-              <div className="w-20 h-20 bg-white rounded-2xl shadow-lg flex items-center justify-center border-4 border-white">
-                <User className="h-10 w-10 text-gray-600" />
-              </div>
-              <div className="pb-1">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+    <div className="h-full flex flex-col space-y-2 overflow-y-auto lg:overflow-hidden">
+      {/* Customer Header Card — compact flat design, no tall banner */}
+      <Card className="bg-white/80 backdrop-blur-xl border-white/20 shadow-xl overflow-hidden flex-shrink-0">
+        {/* Thin gradient accent bar — purely decorative, only 6px */}
+        <div className={cn("h-1.5 bg-gradient-to-r", getTierGradient(customer.loyalty_tier))} />
+
+        {/* Compact single-row header */}
+        <div className="px-4 py-3 flex items-center justify-between gap-3">
+          {/* Avatar + name + meta */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={cn(
+              "w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-gradient-to-br shadow-md",
+              getTierGradient(customer.loyalty_tier)
+            )}>
+              <User className="h-5 w-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base font-bold text-gray-900 dark:text-white leading-tight truncate">
                   {customer.name}
                 </h1>
-                <div className="flex items-center gap-2 mt-1">
-                  <LoyaltyBadge tier={customer.loyalty_tier} showIcon />
-                  <Badge variant="outline" className="text-xs bg-white/50">
-                    <Gift className="h-3 w-3 mr-1" />
-                    {customer.loyalty_points.toLocaleString()} pts
-                  </Badge>
-                  <span className="text-sm text-gray-500">
-                    Customer since {formatDate(customer.created_at)}
-                  </span>
-                </div>
+                <LoyaltyBadge tier={customer.loyalty_tier} showIcon />
+              </div>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                <span className="text-xs text-gray-500 flex items-center gap-1">
+                  <Gift className="h-3 w-3 text-purple-400" />
+                  {customer.loyalty_points.toLocaleString()} pts
+                </span>
+                <span className="text-xs text-gray-400">·</span>
+                <span className="text-xs text-gray-500">
+                  Since {formatDate(customer.created_at)}
+                </span>
+                {customer.phone && (
+                  <>
+                    <span className="text-xs text-gray-400 hidden sm:inline">·</span>
+                    <span className="text-xs text-gray-500 hidden sm:flex items-center gap-1">
+                      <Phone className="h-3 w-3 text-gray-400" />
+                      {customer.phone}
+                    </span>
+                  </>
+                )}
+                {customer.email && (
+                  <>
+                    <span className="text-xs text-gray-400 hidden md:inline">·</span>
+                    <span className="text-xs text-gray-500 hidden md:inline truncate max-w-[160px]">
+                      {customer.email}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {customer.id !== 'walk-in-customer' && (
-                <>
+          </div>
+
+          {/* Action buttons */}
+          {customer.id !== 'walk-in-customer' && (
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <Button
+                onClick={() => onEditCustomer(customer)}
+                size="sm"
+                className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white h-8 px-3 gap-1.5 shadow-sm"
+              >
+                <Edit className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-xs font-medium">Edit</span>
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
                   <Button
-                    onClick={() => onEditCustomer(customer)}
                     variant="outline"
                     size="sm"
-                    className="bg-white/80"
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200 h-8 w-8 p-0"
                   >
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-white/80 text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Customer</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete{" "}
-                          <strong>{customer.name}</strong>? This action cannot be
-                          undone. All customer data including notes, activities, and
-                          loyalty points will be permanently removed.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => onDeleteCustomer(customer.id)}
-                          className="bg-red-600 hover:bg-red-700"
-                        >
-                          Delete Customer
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </>
-              )}
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete <strong>{customer.name}</strong>? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => onDeleteCustomer(customer.id)}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      Delete Customer
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
+          )}
+        </div>
+
+        {/* Stats strip — always horizontal scroll, compact height */}
+        <div className="px-3 pb-3">
+          <div className="flex gap-2 overflow-x-auto scrollbar-none snap-x snap-mandatory">
+            {[
+              { label: "Lifetime", icon: Sparkles, value: <CurrencyDisplay amount={stats.totalLifetimeValue} className="text-sm font-bold text-white" />, from: "from-indigo-500", to: "to-violet-600" },
+              { label: "POS Spend", icon: ShoppingBag, value: <CurrencyDisplay amount={stats.totalPosSpend} className="text-sm font-bold text-white" />, from: "from-blue-500", to: "to-cyan-500" },
+              { label: "Room Spend", icon: Hotel, value: <CurrencyDisplay amount={stats.totalRoomSpend} className="text-sm font-bold text-white" />, from: "from-purple-500", to: "to-pink-500" },
+              { label: "Orders", icon: UtensilsCrossed, value: <span className="text-sm font-bold">{stats.posOrderCount + stats.roomFoodOrderCount}</span>, from: "from-green-500", to: "to-emerald-500" },
+              { label: "Avg Order", icon: TrendingUp, value: <CurrencyDisplay amount={stats.avgOrderValue} className="text-sm font-bold text-white" />, from: "from-orange-500", to: "to-amber-500" },
+              { label: "Last Visit", icon: Clock, value: <span className="text-xs font-bold leading-tight">{formatDate(stats.lastVisit)}</span>, from: "from-teal-500", to: "to-cyan-600" },
+            ].map(({ label, icon: Icon, value, from, to }) => (
+              <div key={label} className={cn("snap-start flex-shrink-0 bg-gradient-to-br rounded-lg p-2.5 text-white min-w-[100px] flex-1", from, to)}>
+                <div className="flex items-center gap-1 mb-1">
+                  <Icon className="h-3 w-3 opacity-80" />
+                  <span className="text-[10px] font-medium opacity-90">{label}</span>
+                </div>
+                {value}
+              </div>
+            ))}
           </div>
-        </CardHeader>
-
-        {/* Stats Grid */}
-        <CardContent className="pt-0">
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-            {/* Total Lifetime Value */}
-            <div className="bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl p-4 text-white">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="h-4 w-4 opacity-80" />
-                <span className="text-xs font-medium opacity-80">
-                  Lifetime Value
-                </span>
-              </div>
-              <CurrencyDisplay
-                amount={stats.totalLifetimeValue}
-                className="text-xl font-bold text-white"
-              />
-            </div>
-
-            {/* POS Spend */}
-            <div className="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl p-4 text-white">
-              <div className="flex items-center gap-2 mb-2">
-                <ShoppingBag className="h-4 w-4 opacity-80" />
-                <span className="text-xs font-medium opacity-80">
-                  POS Spend
-                </span>
-              </div>
-              <CurrencyDisplay
-                amount={stats.totalPosSpend}
-                className="text-xl font-bold text-white"
-              />
-            </div>
-
-            {/* Room Spend */}
-            <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl p-4 text-white">
-              <div className="flex items-center gap-2 mb-2">
-                <Hotel className="h-4 w-4 opacity-80" />
-                <span className="text-xs font-medium opacity-80">
-                  Room Spend
-                </span>
-              </div>
-              <CurrencyDisplay
-                amount={stats.totalRoomSpend}
-                className="text-xl font-bold text-white"
-              />
-            </div>
-
-            {/* Total Orders */}
-            <div className="bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl p-4 text-white">
-              <div className="flex items-center gap-2 mb-2">
-                <UtensilsCrossed className="h-4 w-4 opacity-80" />
-                <span className="text-xs font-medium opacity-80">Orders</span>
-              </div>
-              <p className="text-xl font-bold">
-                {stats.posOrderCount + stats.roomFoodOrderCount}
-              </p>
-            </div>
-
-            {/* Avg Order Value */}
-            <div className="bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl p-4 text-white">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="h-4 w-4 opacity-80" />
-                <span className="text-xs font-medium opacity-80">
-                  Avg Order
-                </span>
-              </div>
-              <CurrencyDisplay
-                amount={stats.avgOrderValue}
-                className="text-xl font-bold text-white"
-              />
-            </div>
-
-            {/* Last Visit */}
-            <div className="bg-gradient-to-br from-teal-500 to-cyan-600 rounded-xl p-4 text-white">
-              <div className="flex items-center gap-2 mb-2">
-                <Clock className="h-4 w-4 opacity-80" />
-                <span className="text-xs font-medium opacity-80">
-                  Last Visit
-                </span>
-              </div>
-              <p className="text-sm font-bold truncate">
-                {formatDate(stats.lastVisit)}
-              </p>
-            </div>
-          </div>
-        </CardContent>
+        </div>
       </Card>
 
-      {/* Tabs Section */}
+      {/* Tabs Section — flex-1 so it fills remaining space */}
       <Card className="flex-1 bg-white/80 backdrop-blur-xl border-white/20 shadow-xl overflow-hidden flex flex-col min-h-0">
         <Tabs
           value={activeTab}
           onValueChange={setActiveTab}
           className="flex-1 flex flex-col min-h-0"
         >
-          <TabsList className="w-full justify-start border-b bg-transparent px-4 pt-4 gap-2">
-            <TabsTrigger
-              value="overview"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-lg"
-            >
-              Overview
-            </TabsTrigger>
-            <TabsTrigger
-              value="pos-orders"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white rounded-lg"
-            >
-              POS Orders ({stats.posOrderCount})
-            </TabsTrigger>
-            <TabsTrigger
-              value="room-stays"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-500 data-[state=active]:text-white rounded-lg"
-            >
-              Room Stays ({stats.roomStayCount})
-            </TabsTrigger>
-            <TabsTrigger
-              value="notes"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white rounded-lg"
-            >
-              Notes ({notes.length})
-            </TabsTrigger>
-            <TabsTrigger
-              value="activity"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-500 data-[state=active]:text-white rounded-lg"
-            >
-              Activity
-            </TabsTrigger>
-          </TabsList>
+          {/* Tabs list — horizontally scrollable on mobile */}
+          <div className="overflow-x-auto flex-shrink-0 border-b scrollbar-none">
+            <TabsList className="w-max min-w-full justify-start bg-transparent px-3 pt-3 pb-0 gap-1.5 h-auto">
+              <TabsTrigger
+                value="overview"
+                className="text-xs sm:text-sm whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-lg px-3 py-1.5"
+              >
+                Overview
+              </TabsTrigger>
+              <TabsTrigger
+                value="pos-orders"
+                className="text-xs sm:text-sm whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white rounded-lg px-3 py-1.5"
+              >
+                POS Orders ({stats.posOrderCount})
+              </TabsTrigger>
+              <TabsTrigger
+                value="room-stays"
+                className="text-xs sm:text-sm whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-500 data-[state=active]:text-white rounded-lg px-3 py-1.5"
+              >
+                Room Stays ({stats.roomStayCount})
+              </TabsTrigger>
+              <TabsTrigger
+                value="notes"
+                className="text-xs sm:text-sm whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white rounded-lg px-3 py-1.5"
+              >
+                Notes ({notes.length})
+              </TabsTrigger>
+              <TabsTrigger
+                value="activity"
+                className="text-xs sm:text-sm whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-500 data-[state=active]:text-white rounded-lg px-3 py-1.5"
+              >
+                Activity
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <ScrollArea className="flex-1 min-h-0">
             {/* Overview Tab */}

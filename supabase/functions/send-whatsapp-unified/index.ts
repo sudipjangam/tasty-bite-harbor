@@ -47,7 +47,24 @@ Deno.serve(async (req: Request) => {
       metaConfig = cfg.meta_config || {};
     }
 
-    console.log(`[unified] provider=${provider}, template=${templateName}, phone=${phoneNumber}, hasToken=${!!metaConfig.access_token}, phoneId=${metaConfig.phone_number_id}`);
+    // Look up the template's language from DB (if available)
+    let templateLanguage = "en"; // default
+    const usedTemplateName = templateName || "invoice_with_contact";
+
+    if (restaurantId) {
+      const { data: templateDef } = await supabase
+        .from("whatsapp_templates")
+        .select("language")
+        .eq("name", usedTemplateName)
+        .eq("restaurant_id", restaurantId)
+        .maybeSingle();
+
+      if (templateDef?.language) {
+        templateLanguage = templateDef.language;
+      }
+    }
+
+    console.log(`[unified] provider=${provider}, template=${usedTemplateName}, lang=${templateLanguage}, phone=${phoneNumber}, hasToken=${!!metaConfig.access_token}, phoneId=${metaConfig.phone_number_id}`);
 
     // --- META CLOUD API PATH ---
     if (provider === "meta_cloud") {
@@ -60,8 +77,6 @@ Deno.serve(async (req: Request) => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-
-      const usedTemplateName = templateName || "invoice_with_contact";
 
       const params = variables || {
         customer_name: customerName || "Customer",
@@ -79,14 +94,14 @@ Deno.serve(async (req: Request) => {
           text: String(val || "-"),
         }));
 
-      const components: any[] = bodyParams.length > 0
+      const metaComponents: any[] = bodyParams.length > 0
         ? [{ type: "body", parameters: bodyParams }]
         : [];
 
       if (billUrl || (buttons && buttons.length > 0)) {
         const urlValue = billUrl || buttons?.[0]?.value || "";
         if (urlValue) {
-          components.push({
+          metaComponents.push({
             type: "button",
             sub_type: "url",
             index: 0,
@@ -101,32 +116,62 @@ Deno.serve(async (req: Request) => {
         cleanPhoneMeta = "91" + cleanPhoneMeta;
       }
 
-      const metaPayload = {
+      // Helper: build Meta payload for a given language code
+      const buildMetaPayload = (langCode: string) => ({
         messaging_product: "whatsapp",
         to: cleanPhoneMeta,
         type: "template",
         template: {
           name: usedTemplateName,
-          language: { code: "en" },
-          components: components.length > 0 ? components : undefined,
+          language: { code: langCode },
+          components: metaComponents.length > 0 ? metaComponents : undefined,
         },
+      });
+
+      // Helper: send to Meta Cloud API
+      const sendToMeta = async (langCode: string) => {
+        const payload = buildMetaPayload(langCode);
+        console.log(`[meta] Sending with lang=${langCode}:`, JSON.stringify(payload));
+        const res = await fetch(
+          `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          }
+        );
+        const data = await res.json();
+        return { res, data };
       };
 
-      console.log("[meta] Sending payload:", JSON.stringify(metaPayload));
+      // Attempt 1: use the resolved language from DB
+      let { res: metaRes, data: metaData } = await sendToMeta(templateLanguage);
 
-      const metaRes = await fetch(
-        `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(metaPayload),
+      // If 132001 (template not found in translation), auto-retry with alternate language
+      // This permanently handles en vs en_US mismatch regardless of how template was created
+      if (!metaRes.ok && metaData?.error?.code === 132001) {
+        const ALT_LANGS: Record<string, string> = { en: "en_US", en_US: "en" };
+        const altLang = ALT_LANGS[templateLanguage];
+        if (altLang) {
+          console.log(`[meta] Template not found with lang=${templateLanguage}, retrying with lang=${altLang}`);
+          const retry = await sendToMeta(altLang);
+          metaRes = retry.res;
+          metaData = retry.data;
+
+          // If retry succeeded, update DB so future calls use the correct language directly
+          if (metaRes.ok && restaurantId) {
+            console.log(`[meta] Retry succeeded. Updating DB language to: ${altLang}`);
+            await supabase
+              .from("whatsapp_templates")
+              .update({ language: altLang })
+              .eq("name", usedTemplateName)
+              .eq("restaurant_id", restaurantId);
+          }
         }
-      );
-
-      const metaData = await metaRes.json();
+      }
 
       if (!metaRes.ok) {
         console.error("[meta] Error:", JSON.stringify(metaData));
@@ -153,7 +198,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const usedTemplate = templateName || "invoice_with_contact";
+    // usedTemplateName already declared above
     const vars = variables || {};
     const components: Record<string, any> = {};
 
@@ -233,9 +278,9 @@ Deno.serve(async (req: Request) => {
         messaging_product: "whatsapp",
         type: "template",
         template: {
-          name: usedTemplate,
+          name: usedTemplateName,
           language: {
-            code: "en",
+            code: templateLanguage,
             policy: "deterministic",
           },
           namespace: "7991fb14_798f_46ac_86b2_b0c79f284695",
