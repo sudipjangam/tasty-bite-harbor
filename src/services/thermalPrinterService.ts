@@ -128,6 +128,9 @@ class ThermalPrinterService {
         return false;
       }
 
+      // Add a 1000ms delay to let the browser clean up previous connection
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       const devices = await navigator.bluetooth.getDevices();
       const device = devices.find(d => d.id === savedDeviceId);
 
@@ -140,48 +143,54 @@ class ThermalPrinterService {
       this.device = device;
       this.device.addEventListener('gattserverdisconnected', this.onDisconnected);
 
-      // Wait for device to be available (it may take a moment after page load)
-      // Use watchAdvertisements if available, otherwise direct connect
-      try {
-        await this.connectToGATT();
-        console.log("Auto-reconnected to printer:", this.device.name);
-        this.notifyListeners(true);
-        return true;
-      } catch (gattError) {
-        console.warn("GATT connect failed, trying with advertisement watch...", gattError);
-        
-        // Some browsers/devices need watchAdvertisements before GATT connect works
-        if ('watchAdvertisements' in device) {
-          return new Promise<boolean>((resolve) => {
-            const timeout = setTimeout(() => {
-              console.log("Auto-reconnect timed out waiting for advertisements.");
-              resolve(false);
-            }, 5000);
+      const maxAttempts = 3;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          console.log(`Auto-reconnect attempt ${attempt}/${maxAttempts} for device:`, device.name);
+          await this.connectToGATT();
+          console.log("Auto-reconnected to printer:", this.device.name);
+          this.notifyListeners(true);
+          return true;
+        } catch (gattError) {
+          console.warn(`GATT connect attempt ${attempt} failed:`, gattError);
+          if (attempt === maxAttempts) {
+            // Last resort: check if watchAdvertisements can help
+            if ('watchAdvertisements' in device) {
+              console.log("Trying watchAdvertisements as last resort...");
+              return new Promise<boolean>((resolve) => {
+                const timeout = setTimeout(() => {
+                  console.log("Auto-reconnect timed out waiting for advertisements.");
+                  resolve(false);
+                }, 5000);
 
-            const onAdvert = async () => {
-              device.removeEventListener('advertisementreceived', onAdvert as any);
-              clearTimeout(timeout);
-              try {
-                await this.connectToGATT();
-                console.log("Auto-reconnected to printer via advertisement:", this.device!.name);
-                this.notifyListeners(true);
-                resolve(true);
-              } catch (err) {
-                console.error("GATT connect after advertisement failed:", err);
-                resolve(false);
-              }
-            };
+                const onAdvert = async () => {
+                  device.removeEventListener('advertisementreceived', onAdvert as any);
+                  clearTimeout(timeout);
+                  try {
+                    await this.connectToGATT();
+                    console.log("Auto-reconnected to printer via advertisement:", this.device!.name);
+                    this.notifyListeners(true);
+                    resolve(true);
+                  } catch (err) {
+                    console.error("GATT connect after advertisement failed:", err);
+                    resolve(false);
+                  }
+                };
 
-            device.addEventListener('advertisementreceived', onAdvert as any);
-            (device as any).watchAdvertisements({ signal: AbortSignal.timeout(5000) }).catch(() => {
-              clearTimeout(timeout);
-              resolve(false);
-            });
-          });
+                device.addEventListener('advertisementreceived', onAdvert as any);
+                (device as any).watchAdvertisements({ signal: AbortSignal.timeout(5000) }).catch(() => {
+                  clearTimeout(timeout);
+                  resolve(false);
+                });
+              });
+            }
+            return false;
+          }
+          // Delay between retries
+          await new Promise(resolve => setTimeout(resolve, 1500));
         }
-
-        return false;
       }
+      return false;
     } catch (error) {
       console.error("Auto-reconnect failed:", error);
       return false;
