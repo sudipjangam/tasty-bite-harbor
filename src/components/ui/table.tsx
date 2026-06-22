@@ -81,17 +81,37 @@ const TableHead = React.forwardRef<
 ))
 TableHead.displayName = "TableHead"
 
+// Helper: extract plain text from React children for tooltip
+const extractText = (children: React.ReactNode): string => {
+  if (children === null || children === undefined) return "";
+  if (typeof children === "string" || typeof children === "number" || typeof children === "boolean")
+    return String(children);
+  if (Array.isArray(children)) return children.map(extractText).join("");
+  if (React.isValidElement(children)) {
+    const el = children as React.ReactElement<{ children?: React.ReactNode }>;
+    return extractText(el.props.children);
+  }
+  return "";
+};
+
 const TableCell = React.forwardRef<
   HTMLTableCellElement,
   React.TdHTMLAttributes<HTMLTableCellElement>
->(({ className, ...props }, ref) => (
-  <td
-    ref={ref}
-    className={cn("p-2 md:p-4 align-middle text-xs md:text-sm [&:has([role=checkbox])]:pr-0", className)}
-    {...props}
-  />
-))
+>(({ className, children, title, ...props }, ref) => {
+  const autoTitle = title ?? extractText(children);
+  return (
+    <td
+      ref={ref}
+      title={autoTitle || undefined}
+      className={cn("p-2 md:p-4 align-middle text-xs md:text-sm [&:has([role=checkbox])]:pr-0", className)}
+      {...props}
+    >
+      {children}
+    </td>
+  );
+})
 TableCell.displayName = "TableCell"
+
 
 const TableCaption = React.forwardRef<
   HTMLTableCaptionElement,
