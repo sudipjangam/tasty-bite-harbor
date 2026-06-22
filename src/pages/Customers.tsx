@@ -24,6 +24,7 @@ import {
   GripVertical,
   Star,
   Gift,
+  ChevronLeft,
 } from "lucide-react";
 import { useCustomerData } from "@/hooks/useCustomerData";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
@@ -59,6 +60,8 @@ const Customers = () => {
   const [editingTier, setEditingTier] = useState<LoyaltyTierDB | null>(null);
   const { restaurantId } = useRestaurantId();
   const queryClient = useQueryClient();
+  // Mobile navigation: 'list' shows customer list, 'detail' shows customer profile
+  const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
 
   const {
     customers,
@@ -329,6 +332,10 @@ const Customers = () => {
     const enriched =
       displayCustomers.find((c) => c.id === customer.id) || customer;
     setSelectedCustomer(enriched);
+    // On mobile, slide to detail view
+    if (window.innerWidth < 1024) {
+      setMobileView('detail');
+    }
   };
 
   // Handle add customer button
@@ -435,63 +442,70 @@ const Customers = () => {
       <RealtimeCustomers />
 
       {/* Modern Header with Stats */}
-      <div className="p-6 pb-4 flex-shrink-0 overflow-y-auto">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl shadow-lg">
-              <Heart className="h-6 w-6 text-white" />
+      <div className="p-4 sm:p-6 pb-3 sm:pb-4 flex-shrink-0 overflow-y-auto">
+        <div className="mb-4 sm:mb-6">
+          {/* Title Row */}
+          <div className="flex items-center gap-3 mb-1">
+            <div className="p-2 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl shadow-lg flex-shrink-0">
+              <Heart className="h-5 w-5 text-white" />
             </div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 bg-clip-text text-transparent">
-              Customer Relationship Management
-            </h1>
+            <div>
+              <h1 className="text-xl sm:text-3xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 bg-clip-text text-transparent leading-tight">
+                Customer Relationship
+                <span className="sm:hidden"> Mgmt</span>
+                <span className="hidden sm:inline"> Management</span>
+              </h1>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                Build lasting relationships and track customer data
+              </p>
+            </div>
           </div>
-          <p className="text-gray-600 dark:text-gray-400 ml-12">
-            Build lasting relationships and track customer data
-          </p>
 
-          {/* QR Code Button */}
-          <Dialog open={showQRGenerator} onOpenChange={setShowQRGenerator}>
-            <DialogTrigger asChild>
-              <Button className="ml-12 mt-3 gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700">
-                <QrCode className="h-4 w-4" />
-                Get Enrollment QR Code
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>Customer Self-Enrollment</DialogTitle>
-              </DialogHeader>
-              <QRCodeGenerator />
-            </DialogContent>
-          </Dialog>
+          {/* Action Buttons — responsive flex-wrap row */}
+          <div className="flex flex-wrap gap-2 mt-3">
+            {/* QR Code Button */}
+            <Dialog open={showQRGenerator} onOpenChange={setShowQRGenerator}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-1.5 text-xs sm:text-sm bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 shadow-md shadow-indigo-200 dark:shadow-indigo-900/30">
+                  <QrCode className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline">Get Enrollment</span> QR Code
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                  <DialogTitle>Customer Self-Enrollment</DialogTitle>
+                </DialogHeader>
+                <QRCodeGenerator />
+              </DialogContent>
+            </Dialog>
 
-          {/* Merge Duplicates Button */}
-          <Button
-            variant="outline"
-            className="ml-2 mt-3 gap-2 border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-900/20"
-            onClick={() => mergeDuplicateCustomers.mutate()}
-            disabled={mergeDuplicateCustomers.isPending}
-          >
-            <Merge className="h-4 w-4" />
-            {mergeDuplicateCustomers.isPending
-              ? "Merging..."
-              : "Merge Duplicates"}
-          </Button>
+            {/* Merge Duplicates Button */}
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs sm:text-sm border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-900/20"
+              onClick={() => mergeDuplicateCustomers.mutate()}
+              disabled={mergeDuplicateCustomers.isPending}
+            >
+              <Merge className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              {mergeDuplicateCustomers.isPending ? "Merging..." : "Merge Duplicates"}
+            </Button>
 
-          {/* Loyalty Points Settings */}
-          <Dialog
-            open={showPointsSettings}
-            onOpenChange={setShowPointsSettings}
-          >
-            <DialogTrigger asChild>
-              <Button
-                variant="outline"
-                className="ml-2 mt-3 gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
-              >
-                <Settings className="h-4 w-4" />
-                Loyalty Settings
-              </Button>
-            </DialogTrigger>
+            {/* Loyalty Points Settings */}
+            <Dialog
+              open={showPointsSettings}
+              onOpenChange={setShowPointsSettings}
+            >
+              <DialogTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-xs sm:text-sm border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
+                >
+                  <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  Loyalty Settings
+                </Button>
+              </DialogTrigger>
             <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto p-0 gap-0 border-0">
               {/* Premium gradient header */}
               <div className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 p-5 sm:p-6 rounded-t-lg">
@@ -737,23 +751,24 @@ const Customers = () => {
             </DialogContent>
           </Dialog>
 
-          {/* Manage Tiers */}
-          <Dialog
-            open={showTierManager}
-            onOpenChange={(open) => {
-              setShowTierManager(open);
-              if (!open) setEditingTier(null);
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button
-                variant="outline"
-                className="ml-2 mt-3 gap-2 border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-400 dark:hover:bg-purple-900/20"
-              >
-                <Crown className="h-4 w-4" />
-                Manage Tiers
-              </Button>
-            </DialogTrigger>
+            {/* Manage Tiers */}
+            <Dialog
+              open={showTierManager}
+              onOpenChange={(open) => {
+                setShowTierManager(open);
+                if (!open) setEditingTier(null);
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-xs sm:text-sm border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-400 dark:hover:bg-purple-900/20"
+                >
+                  <Crown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  Manage Tiers
+                </Button>
+              </DialogTrigger>
             <DialogContent className="sm:max-w-[650px] max-h-[85vh]">
               <DialogHeader>
                 <DialogTitle>
@@ -950,116 +965,99 @@ const Customers = () => {
                   </div>
                 </ScrollArea>
               )}
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          </div>{/* end action buttons */}
         </div>
 
-        {/* Quick Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
-          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl p-4 lg:p-6 shadow-xl">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
-                <Users className="h-4 w-4 md:h-5 md:w-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                  Total Customers
-                </p>
-                <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
+        {/* Quick Stats Cards — horizontal scroll on mobile, grid on md+ */}
+        <div className="-mx-4 sm:mx-0 mb-4 sm:mb-6">
+          <div className="flex gap-3 overflow-x-auto px-4 sm:px-0 pb-2 sm:pb-0 sm:grid sm:grid-cols-3 md:grid-cols-6 snap-x snap-mandatory scrollbar-none">
+            {/* Total Customers */}
+            <div className="snap-start flex-shrink-0 w-36 sm:w-auto bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl p-3.5 shadow-lg shadow-blue-200/60 dark:shadow-blue-900/30">
+              <div className="flex flex-col gap-1">
+                <div className="p-1.5 bg-white/20 rounded-lg w-fit">
+                  <Users className="h-4 w-4 text-white" />
+                </div>
+                <p className="text-[10px] sm:text-xs text-blue-100 font-medium mt-1">Total Customers</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">
                   {customers.filter(c => c.id !== "walk-in-customer").length}
                 </p>
               </div>
             </div>
-          </div>
 
-          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl p-4 lg:p-6 shadow-xl">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg">
-                <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                  Registered Rev
-                </p>
-                <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
+            {/* Registered Rev */}
+            <div className="snap-start flex-shrink-0 w-36 sm:w-auto bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-3.5 shadow-lg shadow-indigo-200/60 dark:shadow-indigo-900/30">
+              <div className="flex flex-col gap-1">
+                <div className="p-1.5 bg-white/20 rounded-lg w-fit">
+                  <TrendingUp className="h-4 w-4 text-white" />
+                </div>
+                <p className="text-[10px] sm:text-xs text-indigo-100 font-medium mt-1">Registered Rev</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">
                   <CurrencyDisplay
                     amount={totalSpent - (displayCustomers.find(c => c.id === 'walk-in-customer')?.total_spent || 0)}
-                    className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white"
+                    className="text-xl sm:text-2xl font-bold text-white"
                   />
                 </p>
               </div>
             </div>
-          </div>
 
-          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl p-4 lg:p-6 shadow-xl">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg">
-                <Users className="h-4 w-4 md:h-5 md:w-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                  Walk In Rev
-                </p>
-                <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
+            {/* Walk In Rev */}
+            <div className="snap-start flex-shrink-0 w-36 sm:w-auto bg-gradient-to-br from-teal-500 to-emerald-500 rounded-2xl p-3.5 shadow-lg shadow-teal-200/60 dark:shadow-teal-900/30">
+              <div className="flex flex-col gap-1">
+                <div className="p-1.5 bg-white/20 rounded-lg w-fit">
+                  <Users className="h-4 w-4 text-white" />
+                </div>
+                <p className="text-[10px] sm:text-xs text-teal-100 font-medium mt-1">Walk In Rev</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">
                   <CurrencyDisplay
                     amount={displayCustomers.find(c => c.id === 'walk-in-customer')?.total_spent || 0}
-                    className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white"
+                    className="text-xl sm:text-2xl font-bold text-white"
                   />
                 </p>
               </div>
             </div>
-          </div>
 
-          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl p-4 lg:p-6 shadow-xl">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg">
-                <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                  Total Revenue
-                </p>
-                <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
+            {/* Total Revenue */}
+            <div className="snap-start flex-shrink-0 w-36 sm:w-auto bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-3.5 shadow-lg shadow-green-200/60 dark:shadow-green-900/30">
+              <div className="flex flex-col gap-1">
+                <div className="p-1.5 bg-white/20 rounded-lg w-fit">
+                  <TrendingUp className="h-4 w-4 text-white" />
+                </div>
+                <p className="text-[10px] sm:text-xs text-green-100 font-medium mt-1">Total Revenue</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">
                   <CurrencyDisplay
                     amount={totalSpent}
-                    className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white"
+                    className="text-xl sm:text-2xl font-bold text-white"
                   />
                 </p>
               </div>
             </div>
-          </div>
 
-          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl p-4 lg:p-6 shadow-xl">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg">
-                <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                  Avg Order Val
-                </p>
-                <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
+            {/* Avg Order Val */}
+            <div className="snap-start flex-shrink-0 w-36 sm:w-auto bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl p-3.5 shadow-lg shadow-orange-200/60 dark:shadow-orange-900/30">
+              <div className="flex flex-col gap-1">
+                <div className="p-1.5 bg-white/20 rounded-lg w-fit">
+                  <TrendingUp className="h-4 w-4 text-white" />
+                </div>
+                <p className="text-[10px] sm:text-xs text-orange-100 font-medium mt-1">Avg Order Val</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">
                   <CurrencyDisplay
                     amount={Number(averageOrderValue.toFixed(2))}
-                    className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white"
+                    className="text-xl sm:text-2xl font-bold text-white"
                   />
                 </p>
               </div>
             </div>
-          </div>
 
-          <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl p-4 lg:p-6 shadow-xl">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg">
-                <Heart className="h-4 w-4 md:h-5 md:w-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                  Loyal Users
-                </p>
-                <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
-                  {loyalCustomers}
-                </p>
+            {/* Loyal Users */}
+            <div className="snap-start flex-shrink-0 w-36 sm:w-auto bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-3.5 shadow-lg shadow-purple-200/60 dark:shadow-purple-900/30">
+              <div className="flex flex-col gap-1">
+                <div className="p-1.5 bg-white/20 rounded-lg w-fit">
+                  <Heart className="h-4 w-4 text-white" />
+                </div>
+                <p className="text-[10px] sm:text-xs text-purple-100 font-medium mt-1">Loyal Users</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">{loyalCustomers}</p>
               </div>
             </div>
           </div>
@@ -1075,8 +1073,81 @@ const Customers = () => {
           </div>
         </div>
       ) : (
-        <div className="px-6 pb-6 flex-1 min-h-0">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
+        <div className="px-4 sm:px-6 pb-4 sm:pb-6 flex-1 min-h-0">
+
+          {/* ── MOBILE: single panel at a time (hidden on lg+) ── */}
+          <div className="lg:hidden h-full flex flex-col min-h-0">
+            {mobileView === 'list' ? (
+              /* Mobile List Screen */
+              <div className="flex-1 min-h-0">
+                {customers.length === 0 ? (
+                  <div className="h-full bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-xl flex flex-col items-center justify-center text-center p-8">
+                    <div className="rounded-full bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900 dark:to-indigo-900 p-6 mb-4">
+                      <User className="h-12 w-12 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <h3 className="text-xl font-medium text-gray-900 dark:text-white">No Customers Found</h3>
+                    <p className="text-gray-500 dark:text-gray-400 mt-2 max-w-md">
+                      Your customer database is empty. Add your first customer to get started.
+                    </p>
+                    <button
+                      className="mt-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-6 py-3 rounded-xl shadow-lg transition-all duration-200"
+                      onClick={handleAddCustomer}
+                    >
+                      Add Your First Customer
+                    </button>
+                  </div>
+                ) : (
+                  <CustomerList
+                    customers={displayCustomers}
+                    loading={isLoadingCustomers}
+                    selectedCustomerId={selectedCustomer?.id || null}
+                    onSelectCustomer={handleSelectCustomer}
+                    onAddCustomer={handleAddCustomer}
+                    onFilterCustomers={handleFilterCustomers}
+                  />
+                )}
+              </div>
+            ) : (
+              /* Mobile Detail Screen */
+              <div className="flex-1 min-h-0 flex flex-col">
+                {/* Mobile back bar */}
+                <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+                  <button
+                    onClick={() => setMobileView('list')}
+                    className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 font-semibold text-sm hover:text-purple-800 dark:hover:text-purple-200 transition-colors"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                    Back to Customers
+                  </button>
+                </div>
+                <div className="flex-1 min-h-0">
+                  <CustomerFullProfile
+                    customer={selectedCustomer}
+                    notes={customerNotes}
+                    activities={customerActivities}
+                    loading={isLoadingOrders}
+                    onBack={() => setMobileView('list')}
+                    onEditCustomer={handleEditCustomer}
+                    onDeleteCustomer={(customerId) => {
+                      deleteCustomer.mutate(customerId, {
+                        onSuccess: () => {
+                          setSelectedCustomer(null);
+                          setMobileView('list');
+                        },
+                      });
+                    }}
+                    onAddNote={handleAddNote}
+                    onAddTag={handleAddTag}
+                    onRemoveTag={handleRemoveTag}
+                    onUpdateCustomer={handleUpdateCustomer}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── DESKTOP lg+: side-by-side (UNCHANGED) ── */}
+          <div className="hidden lg:grid lg:grid-cols-12 gap-6 h-full">
             <div className="lg:col-span-5 xl:col-span-4 h-full min-h-0">
               <CustomerList
                 customers={displayCustomers}
@@ -1087,19 +1158,15 @@ const Customers = () => {
                 onFilterCustomers={handleFilterCustomers}
               />
             </div>
-
             <div className="lg:col-span-7 xl:col-span-8 h-full min-h-0">
               {customers.length === 0 ? (
                 <div className="h-full bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-xl flex flex-col items-center justify-center text-center p-8">
                   <div className="rounded-full bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900 dark:to-indigo-900 p-6 mb-4">
                     <User className="h-12 w-12 text-purple-600 dark:text-purple-400" />
                   </div>
-                  <h3 className="text-xl font-medium text-gray-900 dark:text-white">
-                    No Customers Found
-                  </h3>
+                  <h3 className="text-xl font-medium text-gray-900 dark:text-white">No Customers Found</h3>
                   <p className="text-gray-500 dark:text-gray-400 mt-2 max-w-md">
-                    Your customer database is empty. Add your first customer to
-                    get started with the CRM module.
+                    Your customer database is empty. Add your first customer to get started with the CRM module.
                   </p>
                   <button
                     className="mt-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-6 py-3 rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl transform hover:scale-105"

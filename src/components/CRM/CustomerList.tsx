@@ -33,6 +33,7 @@ import {
   X,
   SlidersHorizontal,
   ChevronDown,
+  ChevronRight,
   Loader2,
   Download,
   CheckSquare,
@@ -812,64 +813,70 @@ const CustomerList: React.FC<CustomerListProps> = ({
                 >
                   <div className="space-y-3">
                     <div className="flex items-start justify-between">
-                      <div className="flex-1 flex items-start gap-3">
-                        {/* Checkbox for bulk selection */}
-                        {bulkMode && (
-                          <div
-                            className="pt-1"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleSelectCustomer(customer.id);
-                            }}
-                          >
-                            <Checkbox
-                              checked={selectedIds.has(customer.id)}
-                              className="h-5 w-5 rounded-md border-purple-300"
-                            />
+                        <div className="flex-1 flex items-start gap-3">
+                         {/* Checkbox for bulk selection */}
+                         {bulkMode && (
+                           <div
+                             className="pt-1"
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               toggleSelectCustomer(customer.id);
+                             }}
+                           >
+                             <Checkbox
+                               checked={selectedIds.has(customer.id)}
+                               className="h-5 w-5 rounded-md border-purple-300"
+                             />
+                           </div>
+                         )}
+                         <div className="flex-1">
+                           <div className="flex items-center gap-2 mb-2">
+                             <h3 className="font-semibold text-gray-900 dark:text-white">
+                               {customer.name}
+                             </h3>
+                             {(customer.loyalty_tier === "Diamond" ||
+                               customer.loyalty_tier === "Platinum" ||
+                               customer.loyalty_tier === "Gold") && (
+                               <Star className="h-4 w-4 text-yellow-500" />
+                             )}
+                           </div>
+                           <div className="flex items-center gap-2 flex-wrap">
+                             <LoyaltyBadge
+                               tier={customer.loyalty_tier}
+                               showIcon={true}
+                             />
+                             <Badge
+                               variant="outline"
+                               className="text-xs border-purple-200 dark:border-purple-700 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30"
+                             >
+                               {customer.loyalty_points.toLocaleString()} pts
+                             </Badge>
+                             {customer.tags && customer.tags.length > 0 && (
+                               <Badge
+                                 variant="outline"
+                                 className="text-xs border-purple-200 dark:border-purple-700 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30"
+                               >
+                                 +{customer.tags.length} tags
+                               </Badge>
+                             )}
+                           </div>
+                         </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <div className="text-right">
+                            <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                              <CurrencyDisplay amount={customer.total_spent} />
+                            </div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">
+                              {customer.visit_count} orders
+                            </div>
                           </div>
-                        )}
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className="font-semibold text-gray-900 dark:text-white">
-                              {customer.name}
-                            </h3>
-                            {(customer.loyalty_tier === "Diamond" ||
-                              customer.loyalty_tier === "Platinum" ||
-                              customer.loyalty_tier === "Gold") && (
-                              <Star className="h-4 w-4 text-yellow-500" />
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <LoyaltyBadge
-                              tier={customer.loyalty_tier}
-                              showIcon={true}
-                            />
-                            <Badge
-                              variant="outline"
-                              className="text-xs border-purple-200 dark:border-purple-700 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30"
-                            >
-                              {customer.loyalty_points.toLocaleString()} pts
-                            </Badge>
-                            {customer.tags && customer.tags.length > 0 && (
-                              <Badge
-                                variant="outline"
-                                className="text-xs border-purple-200 dark:border-purple-700 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30"
-                              >
-                                +{customer.tags.length} tags
-                              </Badge>
-                            )}
-                          </div>
+                          {/* Mobile chevron — tap cue */}
+                          {!bulkMode && (
+                            <ChevronRight className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0 lg:hidden" />
+                          )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-sm font-semibold text-gray-900 dark:text-white">
-                          <CurrencyDisplay amount={customer.total_spent} />
-                        </div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">
-                          {customer.visit_count} orders
-                        </div>
-                      </div>
-                    </div>
 
                     <div className="grid grid-cols-2 gap-3 text-xs text-gray-600 dark:text-gray-400">
                       {customer.email && (
