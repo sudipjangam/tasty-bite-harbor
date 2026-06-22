@@ -255,7 +255,7 @@ const CustomReportBuilder: React.FC = () => {
         supabase.from("suppliers").select("*").eq("restaurant_id", restaurantId),
         supabase.from("inventory_items").select("*").eq("restaurant_id", restaurantId),
         supabase.from("expenses").select("*").eq("restaurant_id", restaurantId).gte("expense_date", startDate.split("T")[0]).lte("expense_date", endDate.split("T")[0]),
-        supabase.from("promotion_campaigns").select("*").eq("restaurant_id", restaurantId),
+        supabase.from("promotion_campaigns").select("id, name, discount_percentage, discount_amount, promotion_code").eq("restaurant_id", restaurantId),
       ]);
 
       const normalizePhone = (num: string | null | undefined) => num ? num.replace(/\D/g, "") : "";
@@ -275,11 +275,42 @@ const CustomReportBuilder: React.FC = () => {
       const menuMap = new Map();
       (menuRes.data || []).forEach((m) => menuMap.set(m.name.toLowerCase().trim(), m));
 
-      const recipeMap = new Map();
+      const recipeByMenuItemId = new Map();
+      const recipeByName = new Map();
       (recipesRes.data || []).forEach((rec) => {
-        if (rec.menu_item_id) recipeMap.set(rec.menu_item_id, rec);
-        recipeMap.set(rec.name.toLowerCase().trim(), rec);
+        // Key by menu_item_id (UUID) for direct FK lookup
+        if (rec.menu_item_id) recipeByMenuItemId.set(rec.menu_item_id, rec);
+        // Key by lowercased name for name-based lookup
+        recipeByName.set(rec.name.toLowerCase().trim(), rec);
       });
+
+      // Helper: find recipe for a given order item name
+      const findRecipeForItem = (itemName: string) => {
+        const norm = itemName.toLowerCase().trim();
+        // 1. Match menu item by name, then recipe by menu_item_id FK
+        const mi = menuMap.get(norm);
+        if (mi) {
+          const r = recipeByMenuItemId.get(mi.id);
+          if (r) return r;
+        }
+        // 2. Direct recipe name match
+        const byName = recipeByName.get(norm);
+        if (byName) return byName;
+        // 3. Fuzzy: recipe name starts with or contains order item name
+        for (const [rname, rec] of recipeByName.entries()) {
+          if (rname.includes(norm) || norm.includes(rname)) return rec;
+        }
+        // 4. Fuzzy: menu item name contains order item name
+        for (const [mname, m] of menuMap.entries()) {
+          if (mname.includes(norm) || norm.includes(mname)) {
+            const r = recipeByMenuItemId.get(m.id);
+            if (r) return r;
+            const rByName = recipeByName.get(mname);
+            if (rByName) return rByName;
+          }
+        }
+        return null;
+      };
 
       const recipeIngMap = new Map();
       (recipeIngredientsRes.data || []).forEach((ri) => {
@@ -301,6 +332,16 @@ const CustomReportBuilder: React.FC = () => {
           expenseDayMap.set(e.expense_date, current + (e.amount || 0));
         }
       });
+
+      // Build phone -> count of orders map for is_repeat detection
+      const phoneOrderCountMap = new Map<string, number>();
+      orders.forEach((o) => {
+        const ph = normalizePhone(o.customer_phone);
+        if (ph) phoneOrderCountMap.set(ph, (phoneOrderCountMap.get(ph) || 0) + 1);
+      });
+
+      // Promotion campaigns lookup helpers
+      const allPromos = promotionsRes.data || [];
 
       // Build rows
       const compiledRows = orders.map((o) => {
@@ -339,18 +380,54 @@ const CustomReportBuilder: React.FC = () => {
             .join(", ");
         }
 
+        // ---- Recipe cost/margin: average across ALL items in the order ----
+        const allItemNames: string[] = [];
+        if (o.items && Array.isArray(o.items)) {
+          o.items.forEach((item: any) => {
+            let name = "";
+            if (typeof item === "string") {
+              try { name = JSON.parse(item)?.name || ""; } catch { name = item; }
+            } else {
+              name = item?.name || "";
+            }
+            if (name) allItemNames.push(name);
+          });
+        }
+
         const normFirstItemName = firstItemName.toLowerCase().trim();
         const mItem = menuMap.get(normFirstItemName);
-        const recipe = mItem ? recipeMap.get(mItem.id) : recipeMap.get(normFirstItemName);
+
+        // Collect all recipes found for items in this order using improved lookup
+        const foundRecipes = allItemNames
+          .map((n) => findRecipeForItem(n))
+          .filter(Boolean);
+
+        // Use first recipe found for ingredient/supplier lookup
+        const recipe = foundRecipes.length > 0 ? foundRecipes[0] : null;
+
+        // Compute average cost% and margin% across all found recipes
+        let recipeCostPct = "-";
+        let recipeMarginPct = "-";
+        if (foundRecipes.length > 0) {
+          const avgCost = foundRecipes.reduce((s: number, r: any) => s + Number(r.food_cost_percentage || 0), 0) / foundRecipes.length;
+          const avgMargin = foundRecipes.reduce((s: number, r: any) => s + Number(r.margin_percentage || 0), 0) / foundRecipes.length;
+          recipeCostPct = `${avgCost.toFixed(1)}%`;
+          recipeMarginPct = `${avgMargin.toFixed(1)}%`;
+        }
+
         const dayStr = format(orderDate, "yyyy-MM-dd");
         const dailyExp = expenseDayMap.get(dayStr) || 0;
-        const isRepeat = (c?.visit_count && c.visit_count > 1) ? "Yes" : "No";
+
+        // ---- is_repeat: phone seen more than once in this dataset OR customer visit_count > 1 ----
+        const phoneNormForRepeat = normalizePhone(o.customer_phone);
+        const seenCount = phoneNormForRepeat ? (phoneOrderCountMap.get(phoneNormForRepeat) || 0) : 0;
+        const isRepeat = (seenCount > 1 || (c?.visit_count && c.visit_count > 1)) ? "Yes" : "No";
 
         const orderStaff = o.staff_id ? staffMap.get(o.staff_id) : null;
         const staffName = orderStaff ? `${orderStaff.first_name || ''} ${orderStaff.last_name || ''}`.trim() : "POS Operator";
         const staffRole = orderStaff?.role || "Cashier";
 
-        let ingredientStock = "OK";
+        let ingredientStock = "-";
         let ingredientReorder = "-";
         let supplierName = "-";
         let supplierContact = "-";
@@ -371,7 +448,23 @@ const CustomReportBuilder: React.FC = () => {
           }
         }
 
-        const matchingPromo = promotionsRes.data && promotionsRes.data.length > 0 ? promotionsRes.data[0] : null;
+        // ---- Campaign: match by promotion_code in discount_notes, then by discount % ----
+        let matchingPromo: any = null;
+        const discountNotes = (o.discount_notes || "").toLowerCase();
+        if (discountNotes && allPromos.length > 0) {
+          // Primary: match promo code stored in discount_notes
+          matchingPromo = allPromos.find((p: any) =>
+            p.promotion_code && discountNotes.includes(p.promotion_code.toLowerCase())
+          ) || null;
+        }
+        if (!matchingPromo && o.discount_amount && o.discount_amount > 0 && o.total) {
+          // Fallback: match by discount % ratio (within ±5%)
+          const orderDiscountPct = (o.discount_amount / (o.total + o.discount_amount)) * 100;
+          matchingPromo = allPromos.find((p: any) => {
+            const campaignPct = Number(p.discount_percentage || 0);
+            return campaignPct > 0 && Math.abs(campaignPct - orderDiscountPct) <= 5;
+          }) || null;
+        }
 
         const fullRowData: Record<string, any> = {
           order_date: formattedDate,
@@ -398,7 +491,7 @@ const CustomReportBuilder: React.FC = () => {
           customer_total_spent: c?.total_spent || o.total || 0,
           loyalty_member: c?.loyalty_enrolled ? "Yes" : "No",
 
-          menu_category: mItem?.category || "Beverages",
+          menu_category: mItem?.category || "-",
           menu_price: mItem ? Number(mItem.price) : 0,
           menu_available: mItem?.is_available ? "Yes" : "No",
 
@@ -419,11 +512,11 @@ const CustomReportBuilder: React.FC = () => {
           room_type: rm?.room_type || "-",
           room_status: rm?.status || "-",
 
-          recipe_cost_pct: recipe ? `${Number(recipe.food_cost_percentage || 0).toFixed(1)}%` : "35.0%",
-          recipe_margin_pct: recipe ? `${Number(recipe.margin_percentage || 0).toFixed(1)}%` : "65.0%",
+          recipe_cost_pct: recipeCostPct,
+          recipe_margin_pct: recipeMarginPct,
 
-          campaign_name: matchingPromo?.name || "Standard Discount",
-          campaign_discount: matchingPromo ? `${matchingPromo.discount_percentage || 0}%` : "0%",
+          campaign_name: matchingPromo?.name || "-",
+          campaign_discount: matchingPromo ? `${matchingPromo.discount_percentage || 0}%` : "-",
 
           is_repeat: isRepeat,
         };

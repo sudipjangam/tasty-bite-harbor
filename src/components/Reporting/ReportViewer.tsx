@@ -3,6 +3,13 @@ import { ReportData, ReportCategory } from "@/hooks/useReportsData";
 import ReportHelpDialog from "./ReportHelpDialog";
 import { StandardizedButton } from "@/components/ui/standardized-button";
 import {
+  Tooltip as RadixTooltip,
+  TooltipContent as RadixTooltipContent,
+  TooltipProvider as RadixTooltipProvider,
+  TooltipTrigger as RadixTooltipTrigger,
+} from "@/components/ui/tooltip";
+
+import {
   Download,
   FileSpreadsheet,
   Loader2,
@@ -32,6 +39,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -835,59 +843,76 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                             key={i}
                             className="border-b border-gray-100 dark:border-white/[0.03] hover:bg-orange-50/50 dark:hover:bg-white/[0.02] transition-colors"
                           >
-                            {columnsToRender.map((key, j) => (
-                              <td
-                                key={`${i}-${j}`}
-                                className={`p-3.5 max-w-[200px] truncate ${
-                                  j === 0
-                                    ? "font-semibold text-foreground"
-                                    : "text-muted-foreground"
-                                }`}
-                              >
-                                {/* Badge rendering for Yes/No, Paid/Pending, Status values */}
-                                {(() => {
-                                  const val = formatCellValue(
-                                    (row as Record<string, unknown>)[key],
+                            {columnsToRender.map((key, j) => {
+                              const val = formatCellValue(
+                                (row as Record<string, unknown>)[key],
+                              );
+                              const renderBadge = () => {
+                                if (val === "Yes") {
+                                  return (
+                                    <span className="inline-flex items-center gap-1 bg-orange-50 dark:bg-orange-500/12 border border-orange-300 dark:border-orange-400/30 text-orange-600 dark:text-orange-400 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                                      ✓ Yes
+                                    </span>
                                   );
-                                  if (val === "Yes") {
-                                    return (
-                                      <span className="inline-flex items-center gap-1 bg-orange-50 dark:bg-orange-500/12 border border-orange-300 dark:border-orange-400/30 text-orange-600 dark:text-orange-400 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                                        ✓ Yes
-                                      </span>
-                                    );
-                                  }
-                                  if (val === "No") {
-                                    return (
-                                      <span className="inline-flex items-center bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-muted-foreground text-[11px] font-medium px-2.5 py-0.5 rounded-full">
-                                        No
-                                      </span>
-                                    );
-                                  }
-                                  if (val === "PAID" || val === "COMPLETED") {
-                                    return (
-                                      <span className="inline-flex items-center gap-1 bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                                        ✓ {val}
-                                      </span>
-                                    );
-                                  }
-                                  if (val === "PENDING") {
-                                    return (
-                                      <span className="inline-flex items-center gap-1 bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                                        ⚠ {val}
-                                      </span>
-                                    );
-                                  }
-                                  if (val === "CANCELLED") {
-                                    return (
-                                      <span className="inline-flex items-center gap-1 bg-rose-500/10 dark:bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                                        ✗ {val}
-                                      </span>
-                                    );
-                                  }
-                                  return val;
-                                })()}
-                              </td>
-                            ))}
+                                }
+                                if (val === "No") {
+                                  return (
+                                    <span className="inline-flex items-center bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-muted-foreground text-[11px] font-medium px-2.5 py-0.5 rounded-full">
+                                      No
+                                    </span>
+                                  );
+                                }
+                                if (val === "PAID" || val === "COMPLETED") {
+                                  return (
+                                    <span className="inline-flex items-center gap-1 bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                                      ✓ {val}
+                                    </span>
+                                  );
+                                }
+                                if (val === "PENDING") {
+                                  return (
+                                    <span className="inline-flex items-center gap-1 bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                                      ⚠ {val}
+                                    </span>
+                                  );
+                                }
+                                if (val === "CANCELLED") {
+                                  return (
+                                    <span className="inline-flex items-center gap-1 bg-rose-500/10 dark:bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                                      ✗ {val}
+                                    </span>
+                                  );
+                                }
+                                return <span className="truncate block max-w-[200px]">{val}</span>;
+                              };
+                              return (
+                                <td
+                                  key={`${i}-${j}`}
+                                  className={`p-0 max-w-[200px] ${
+                                    j === 0
+                                      ? "font-semibold text-foreground"
+                                      : "text-muted-foreground"
+                                  }`}
+                                >
+                                  <RadixTooltipProvider delayDuration={200}>
+                                    <RadixTooltip>
+                                      <RadixTooltipTrigger asChild>
+                                        <div className="px-3.5 py-3.5 truncate max-w-[200px] cursor-default w-full h-full">
+                                          {renderBadge()}
+                                        </div>
+                                      </RadixTooltipTrigger>
+                                      <RadixTooltipContent
+                                        side="top"
+                                        className="max-w-xs break-words text-xs font-medium z-[9999] bg-gray-900 text-white border-gray-700"
+                                      >
+                                        {val}
+                                      </RadixTooltipContent>
+                                    </RadixTooltip>
+                                  </RadixTooltipProvider>
+                                </td>
+                              );
+                            })}
+
                           </tr>
                         ))}
                         {paginatedData.length === 0 && (
