@@ -25,6 +25,7 @@ Deno.serve(async (req: Request) => {
       billUrl,
       variables,
       buttons,
+      instagramUrl,
     } = body;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -61,38 +62,55 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      const usedTemplateName = templateName || "invoice_with_contact";
+      const usedTemplateName = templateName || "invoice_with_review";
 
-      const params = variables || {
-        customer_name: customerName || "Customer",
-        restaurant_name: restaurantName || "Restaurant",
-        amount: amount || "-",
-        order_date: billDate || new Date().toLocaleDateString("en-IN"),
-        contact_number: contactNumber || "-",
-      };
+      // Positional numbered params:
+      // {{1}}=customer_name, {{2}}=restaurant_name, {{3}}=amount,
+      // {{4}}=order_date, {{5}}=contact_number, {{6}}=instagram_url (tappable link in body)
+      const instagramUrlValue = instagramUrl || "-";
+      const positionalValues = variables
+        ? Object.values(variables).map((v: any) => String(v || "-"))
+        : [
+            customerName || "Customer",
+            restaurantName || "Restaurant",
+            amount || "-",
+            billDate || new Date().toLocaleDateString("en-IN"),
+            contactNumber || "-",
+            instagramUrlValue,
+          ];
 
-      // Meta Cloud API requires parameter_name for named template variables
-      const bodyParams = Object.entries(params)
-        .map(([key, val]: [string, any]) => ({
-          type: "text",
-          parameter_name: key,
-          text: String(val || "-"),
-        }));
+      const bodyParams = positionalValues.map((val) => ({
+        type: "text",
+        text: val,
+      }));
 
       const components: any[] = bodyParams.length > 0
         ? [{ type: "body", parameters: bodyParams }]
         : [];
 
-      if (billUrl || (buttons && buttons.length > 0)) {
-        const urlValue = billUrl || buttons?.[0]?.value || "";
-        if (urlValue) {
-          components.push({
-            type: "button",
-            sub_type: "url",
-            index: 0,
-            parameters: [{ type: "text", text: String(urlValue) }],
-          });
-        }
+      // Only 2 URL buttons allowed by Meta: View Bill (index 0) + Google Review (index 1)
+      // Instagram is in body as {{6}} — tappable link, no button needed
+      if (buttons && buttons.length > 0) {
+        // Take only first 2 buttons (Meta hard limit for URL type)
+        buttons.slice(0, 2).forEach((btn: any, idx: number) => {
+          const urlValue = btn.value || "";
+          if (urlValue) {
+            components.push({
+              type: "button",
+              sub_type: "url",
+              index: idx,
+              parameters: [{ type: "text", text: String(urlValue) }],
+            });
+          }
+        });
+      } else if (billUrl) {
+        // Backward compat: single billUrl as button 0
+        components.push({
+          type: "button",
+          sub_type: "url",
+          index: 0,
+          parameters: [{ type: "text", text: String(billUrl) }],
+        });
       }
 
       // Clean phone number for Meta Cloud
@@ -107,7 +125,7 @@ Deno.serve(async (req: Request) => {
         type: "template",
         template: {
           name: usedTemplateName,
-          language: { code: "en" },
+          language: { code: "en_US" },
           components: components.length > 0 ? components : undefined,
         },
       };
@@ -153,71 +171,49 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const usedTemplate = templateName || "invoice_with_contact";
+    const usedTemplate = templateName || "invoice_with_review";
     const vars = variables || {};
     const components: Record<string, any> = {};
 
-    // Build body components as structured objects (MSG91 requires type/value/parameter_name)
-    if (Object.keys(vars).length > 0) {
-      for (const [key, val] of Object.entries(vars)) {
-        components[`body_${key}`] = {
-          type: "text",
-          value: String(val) || "-",
-          parameter_name: key,
-        };
-      }
-    } else {
-      components.body_customer_name = {
-        type: "text",
-        value: customerName || "Customer",
-        parameter_name: "customer_name",
-      };
-      components.body_restaurant_name = {
-        type: "text",
-        value: restaurantName || "Restaurant",
-        parameter_name: "restaurant_name",
-      };
-      components.body_amount = {
-        type: "text",
-        value: amount || "0",
-        parameter_name: "amount",
-      };
-      components.body_order_date = {
-        type: "text",
-        value: billDate || new Date().toLocaleDateString("en-IN"),
-        parameter_name: "order_date",
-      };
-      components.body_contact_number = {
-        type: "text",
-        value: contactNumber || "-",
-        parameter_name: "contact_number",
-      };
-    }
+    // Positional numbered params:
+    // {{1}}=customer_name, {{2}}=restaurant_name, {{3}}=amount,
+    // {{4}}=order_date, {{5}}=contact_number, {{6}}=instagram_url (tappable in body)
+    const instagramUrlValue = instagramUrl || "-";
+    const positionalEntries = Object.keys(vars).length > 0
+      ? Object.values(vars)
+      : [
+          customerName || "Customer",
+          restaurantName || "Restaurant",
+          amount || "0",
+          billDate || new Date().toLocaleDateString("en-IN"),
+          contactNumber || "-",
+          instagramUrlValue,
+        ];
 
-    // Ensure contact_number is always present
-    if (!components.body_contact_number) {
-      components.body_contact_number = {
+    positionalEntries.forEach((val: any, idx: number) => {
+      components[`body_${idx + 1}`] = {
         type: "text",
-        value: contactNumber || "N/A",
-        parameter_name: "contact_number",
+        value: String(val || "-"),
       };
-    }
+    });
 
-    // Build button components as structured objects
-    if (billUrl) {
-      components.button_1 = {
-        subtype: "url",
-        type: "text",
-        value: billUrl,
-      };
-    } else if (buttons && buttons.length > 0) {
-      buttons.forEach((btn: any, idx: number) => {
+    // Only 2 URL buttons: View Bill (button_1) + Google Review (button_2)
+    // Instagram is {{6}} in body — tappable link, no button needed
+    if (buttons && buttons.length > 0) {
+      // Take only first 2 buttons (Meta limit)
+      buttons.slice(0, 2).forEach((btn: any, idx: number) => {
         components[`button_${idx + 1}`] = {
           subtype: btn.type || "url",
           type: "text",
           value: btn.value || "",
         };
       });
+    } else if (billUrl) {
+      components.button_1 = {
+        subtype: "url",
+        type: "text",
+        value: billUrl,
+      };
     }
 
     // Clean phone number
@@ -235,7 +231,7 @@ Deno.serve(async (req: Request) => {
         template: {
           name: usedTemplate,
           language: {
-            code: "en",
+            code: "en_US",
             policy: "deterministic",
           },
           namespace: "7991fb14_798f_46ac_86b2_b0c79f284695",

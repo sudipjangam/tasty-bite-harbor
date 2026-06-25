@@ -44,7 +44,7 @@ interface CreateTemplateDialogProps {
   onCreated?: () => void;
 }
 
-const DEFAULT_FOOTER = "billed by Swadeshi Solutions";
+const DEFAULT_FOOTER = "Powered by Swadeshi Solutions";
 
 const AVAILABLE_VARIABLES = [
   { name: "customer_name", sample: "John Doe" },

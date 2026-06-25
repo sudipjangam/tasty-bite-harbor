@@ -1456,11 +1456,20 @@ const PaymentDialog = ({
             restaurantId: restaurantInfo?.id,
             customerName: customerName || "Customer",
             restaurantName,
-            templateName: "invoice_with_contact",
+            templateName: "invoice_with_review",
             amount: formattedAmount,
             billDate: formattedDate,
             contactNumber: restaurantInfo?.phone || "N/A",
-            billUrl: billUrlSuffix || "pending",
+            // Instagram URL goes into body as {{6}} — tappable link (Meta 2-button limit)
+            instagramUrl: (restaurantInfo?.social_media as any)?.instagram_url || "-",
+            buttons: [
+              // Button 0: View Bill (dynamic suffix)
+              { type: "url", value: billUrlSuffix || "pending" },
+              // Button 1: Google Review (full URL)
+              ...((restaurantInfo?.social_media as any)?.google_review_url
+                ? [{ type: "url", value: (restaurantInfo?.social_media as any).google_review_url }]
+                : []),
+            ],
           },
         });
 
