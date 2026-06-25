@@ -125,7 +125,7 @@ Deno.serve(async (req: Request) => {
         type: "template",
         template: {
           name: usedTemplateName,
-          language: { code: "en_US" },
+          language: { code: "en" },
           components: components.length > 0 ? components : undefined,
         },
       };
@@ -231,7 +231,7 @@ Deno.serve(async (req: Request) => {
         template: {
           name: usedTemplate,
           language: {
-            code: "en_US",
+            code: "en",
             policy: "deterministic",
           },
           namespace: "7991fb14_798f_46ac_86b2_b0c79f284695",
@@ -260,9 +260,58 @@ Deno.serve(async (req: Request) => {
     const msg91Data = await msg91Res.json();
 
     if (!msg91Res.ok || msg91Data?.message === "error") {
-      console.error("[msg91] Error:", JSON.stringify(msg91Data));
+      console.error("[msg91] Error with template", usedTemplate, ":", JSON.stringify(msg91Data));
+
+      // If the new template is pending approval, fall back to the old working template
+      const FALLBACK_TEMPLATE = "invoice_with_contact";
+      if (usedTemplate !== FALLBACK_TEMPLATE) {
+        console.log(`[msg91] Retrying with fallback template: ${FALLBACK_TEMPLATE}`);
+        const fallbackPayload = {
+          ...msg91Payload,
+          payload: {
+            ...msg91Payload.payload,
+            template: {
+              ...msg91Payload.payload.template,
+              name: FALLBACK_TEMPLATE,
+              // Fallback uses 5 body params + 1 button (invoice_with_contact format)
+              to_and_components: [
+                {
+                  to: [cleanPhone],
+                  components: {
+                    body_1: { type: "text", value: String(positionalEntries[0] || "Customer") },
+                    body_2: { type: "text", value: String(positionalEntries[1] || "Restaurant") },
+                    body_3: { type: "text", value: String(positionalEntries[2] || "-") },
+                    body_4: { type: "text", value: String(positionalEntries[3] || "-") },
+                    body_5: { type: "text", value: String(positionalEntries[4] || "-") },
+                    ...(components.button_1 ? { button_1: components.button_1 } : {}),
+                  },
+                },
+              ],
+            },
+          },
+        };
+
+        const fallbackRes = await fetch(
+          "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+          {
+            method: "POST",
+            headers: { authkey: msg91AuthKey, "Content-Type": "application/json" },
+            body: JSON.stringify(fallbackPayload),
+          }
+        );
+        const fallbackData = await fallbackRes.json();
+        console.log("[msg91] Fallback result:", JSON.stringify(fallbackData));
+
+        if (fallbackRes.ok && fallbackData?.message !== "error") {
+          return new Response(
+            JSON.stringify({ success: true, provider: "msg91", data: fallbackData, usedFallback: true }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
       return new Response(
-        JSON.stringify({ success: false, error: msg91Data?.msg || "MSG91 API error", details: msg91Data }),
+        JSON.stringify({ success: false, error: msg91Data?.msg || msg91Data?.message || "MSG91 API error", details: msg91Data }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
