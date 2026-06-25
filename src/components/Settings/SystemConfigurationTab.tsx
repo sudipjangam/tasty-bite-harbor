@@ -12,7 +12,7 @@ import { useRestaurantId } from '@/hooks/useRestaurantId';
 import { 
   Settings, Download, Upload, Database, Shield, 
   Loader2, Check, AlertTriangle, DollarSign, RefreshCw,
-  HardDrive, FileJson, Calendar
+  HardDrive, FileJson, Calendar, Star, Instagram, Save
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -34,12 +34,18 @@ export function SystemConfigurationTab() {
   const [loading, setLoading] = useState(true);
   const [lastBackup, setLastBackup] = useState<any>(null);
 
+  // Social links state
+  const [googleReviewUrl, setGoogleReviewUrl] = useState('');
+  const [instagramUrl, setInstagramUrl] = useState('');
+  const [isSavingSocial, setIsSavingSocial] = useState(false);
+
   // Load data
   useEffect(() => {
     if (restaurantId) {
       loadCurrencies();
       loadRestaurantSettings();
       loadLastBackup();
+      loadSocialLinks();
     }
   }, [restaurantId]);
 
@@ -57,6 +63,53 @@ export function SystemConfigurationTab() {
       .eq('restaurant_id', restaurantId)
       .maybeSingle();
     if (!error && data) setSelectedCurrency(data.currency_id || '');
+  };
+
+  const loadSocialLinks = async () => {
+    if (!restaurantId) return;
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('social_media')
+      .eq('id', restaurantId)
+      .maybeSingle();
+    if (!error && data?.social_media) {
+      const social = data.social_media as any;
+      setGoogleReviewUrl(social.google_review_url || '');
+      setInstagramUrl(social.instagram_url || '');
+    }
+  };
+
+  const handleSaveSocialLinks = async () => {
+    if (!restaurantId) return;
+    setIsSavingSocial(true);
+    try {
+      // Fetch existing social_media to merge (preserve other keys)
+      const { data: existing } = await supabase
+        .from('restaurants')
+        .select('social_media')
+        .eq('id', restaurantId)
+        .maybeSingle();
+
+      const currentSocial = (existing?.social_media as any) || {};
+
+      const { error } = await supabase
+        .from('restaurants')
+        .update({
+          social_media: {
+            ...currentSocial,
+            google_review_url: googleReviewUrl.trim(),
+            instagram_url: instagramUrl.trim(),
+          },
+        })
+        .eq('id', restaurantId);
+
+      if (error) throw error;
+      toast({ title: "Saved ✅", description: "Social links updated successfully." });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to save social links", variant: "destructive" });
+    } finally {
+      setIsSavingSocial(false);
+    }
   };
 
   const loadLastBackup = async () => {
@@ -231,6 +284,105 @@ export function SystemConfigurationTab() {
                 </div>
               </div>
             )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Social Links — Google Review & Instagram */}
+      <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-2xl">
+        <CardHeader className="pb-4 border-b border-gray-100 dark:border-gray-700">
+          <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+            <div className="p-3 bg-gradient-to-r from-pink-500 to-rose-600 rounded-xl shadow-lg">
+              <Star className="h-6 w-6 text-white" />
+            </div>
+            Social & Review Links
+          </CardTitle>
+          <CardDescription className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
+            Add your Google Review and Instagram links. These will be sent as buttons in WhatsApp invoice messages.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-8">
+          <div className="space-y-6">
+            {/* Google Review URL */}
+            <div className="space-y-2">
+              <Label htmlFor="google-review-url" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                <Star className="h-4 w-4 text-yellow-500" />
+                Google Review URL
+              </Label>
+              <Input
+                id="google-review-url"
+                type="url"
+                value={googleReviewUrl}
+                onChange={(e) => setGoogleReviewUrl(e.target.value)}
+                placeholder="https://g.page/r/YOUR_PLACE_ID/review"
+                className="h-12 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 rounded-xl"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Paste your Google Business review link. Customers will see a "⭐ Google Review" button on their WhatsApp invoice.
+              </p>
+            </div>
+
+            {/* Instagram URL */}
+            <div className="space-y-2">
+              <Label htmlFor="instagram-url" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                <Instagram className="h-4 w-4 text-pink-500" />
+                Instagram Profile URL
+              </Label>
+              <Input
+                id="instagram-url"
+                type="url"
+                value={instagramUrl}
+                onChange={(e) => setInstagramUrl(e.target.value)}
+                placeholder="https://www.instagram.com/your_handle"
+                className="h-12 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 rounded-xl"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Paste your Instagram profile link. Customers will see a "📸 Follow us on Instagram" button on their WhatsApp invoice.
+              </p>
+            </div>
+
+            {/* Preview */}
+            {(googleReviewUrl || instagramUrl) && (
+              <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-800">
+                <p className="text-sm font-semibold text-green-800 dark:text-green-200 mb-2">WhatsApp Invoice Buttons Preview</p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 p-2 bg-white/60 dark:bg-gray-800/60 rounded-lg text-sm">
+                    <span>📋</span> <span className="text-blue-600 font-medium">View Bill</span>
+                    <span className="text-gray-400 ml-auto text-xs">always shown</span>
+                  </div>
+                  {googleReviewUrl && (
+                    <div className="flex items-center gap-2 p-2 bg-white/60 dark:bg-gray-800/60 rounded-lg text-sm">
+                      <span>⭐</span> <span className="text-blue-600 font-medium">Google Review</span>
+                      <span className="text-green-500 ml-auto text-xs">✓ configured</span>
+                    </div>
+                  )}
+                  {instagramUrl && (
+                    <div className="flex items-center gap-2 p-2 bg-white/60 dark:bg-gray-800/60 rounded-lg text-sm">
+                      <span>📸</span> <span className="text-blue-600 font-medium">Follow us on Instagram</span>
+                      <span className="text-green-500 ml-auto text-xs">✓ configured</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <Button
+              onClick={handleSaveSocialLinks}
+              disabled={isSavingSocial}
+              className="bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg"
+            >
+              {isSavingSocial ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Social Links
+                </>
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>
