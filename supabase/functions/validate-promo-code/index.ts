@@ -1,4 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRequestIdentifier,
+  RATE_LIMITS,
+} from '../_shared/rate-limit.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,6 +21,13 @@ Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Rate limiting — prevent promo code brute-force (SENSITIVE: 10 req/min)
+  const identifier = getRequestIdentifier(req);
+  const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.SENSITIVE);
+  if (!rateLimitResult.allowed) {
+    return createRateLimitResponse(rateLimitResult, corsHeaders);
   }
 
   try {
@@ -47,16 +60,13 @@ Deno.serve(async (req) => {
     console.log('Today:', today);
 
     // Query promotion_campaigns table for matching code
-    // First, let's get all matching promotions to debug
     const { data: allPromotions, error: debugError } = await supabase
       .from('promotion_campaigns')
-      .select('*')
+      .select('id, name, is_active, start_date, end_date, promotion_code')  // no sensitive fields
       .eq('restaurant_id', restaurantId)
       .ilike('promotion_code', code.trim());
 
-    console.log('All matching promotions:', allPromotions);
-
-    // Now query with date filters
+    // Detailed date-filtered query
     const { data: promotion, error: promoError } = await supabase
       .from('promotion_campaigns')
       .select('*')
@@ -68,7 +78,6 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (promoError || !promotion) {
-      console.log('Promo code not found or expired:', promoError);
       return new Response(
         JSON.stringify({ 
           valid: false, 
@@ -96,12 +105,6 @@ Deno.serve(async (req) => {
     } else if (promotion.discount_amount > 0) {
       discountAmount = promotion.discount_amount;
     }
-
-    console.log('Promo code validated successfully:', {
-      id: promotion.id,
-      name: promotion.name,
-      discountAmount
-    });
 
     // Return valid promotion details
     return new Response(

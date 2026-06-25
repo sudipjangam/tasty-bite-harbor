@@ -40,7 +40,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ setAuthM
 
     try {
       // Step 1: Check if user exists via our Edge Function
-      const SUPABASE_URL = 'https://clmsoetktmvhazctlans.supabase.co';
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
       const response = await fetch(`${SUPABASE_URL}/functions/v1/forgot-password`, {
         method: 'POST',
         headers: {

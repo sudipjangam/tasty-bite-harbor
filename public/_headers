@@ -1,3 +1,14 @@
+# ── Security Headers (Cloudflare Pages) ───────────────────────────────────────
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(self), payment=()
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com; frame-ancestors 'none'; media-src 'self' blob:
+
+# ── Cache Rules ────────────────────────────────────────────────────────────────
 # Service Worker - never cache, always check for updates
 /sw.js
   Cache-Control: max-age=0, no-cache, no-store, must-revalidate

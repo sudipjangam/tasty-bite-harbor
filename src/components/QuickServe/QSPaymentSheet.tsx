@@ -441,11 +441,20 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               restaurantId,
               customerName: customerName || "Customer",
               restaurantName: restaurantNameForMsg,
-              templateName: "invoice_with_contact",
+              templateName: "invoice_with_review",
               amount: formattedAmount,
               billDate: formattedDate,
               contactNumber: restaurantDetails?.phone || "N/A",
-              billUrl: billUrlSuffix || "pending",
+              // Instagram URL goes into body as {{6}} — tappable link (Meta 2-button limit)
+              instagramUrl: (restaurantDetails?.social_media as any)?.instagram_url || "-",
+              buttons: [
+                // Button 0: View Bill (dynamic suffix)
+                { type: "url", value: billUrlSuffix || "pending" },
+                // Button 1: Google Review (full URL)
+                ...((restaurantDetails?.social_media as any)?.google_review_url
+                  ? [{ type: "url", value: (restaurantDetails?.social_media as any).google_review_url }]
+                  : []),
+              ],
             },
           });
 

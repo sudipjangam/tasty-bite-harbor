@@ -1,5 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRequestIdentifier,
+  RATE_LIMITS,
+} from '../_shared/rate-limit.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -43,6 +49,13 @@ serve(async (req: Request) => {
       JSON.stringify({ success: false, error: 'Method not allowed' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 405 }
     );
+  }
+
+  // Rate limiting — prevent spam enrollments (SENSITIVE: 10 req/min)
+  const identifier = getRequestIdentifier(req);
+  const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.SENSITIVE);
+  if (!rateLimitResult.allowed) {
+    return createRateLimitResponse(rateLimitResult, corsHeaders);
   }
 
   try {
@@ -296,7 +309,6 @@ serve(async (req: Request) => {
       JSON.stringify({ 
         success: false, 
         error: 'Failed to complete enrollment. Please try again.',
-        details: error instanceof Error ? error.message : String(error)
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
