@@ -25,6 +25,7 @@ Deno.serve(async (req: Request) => {
       billUrl,
       variables,
       buttons,
+      instagramUrl,
     } = body;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -49,7 +50,7 @@ Deno.serve(async (req: Request) => {
 
     // Look up the template's language from DB (if available)
     let templateLanguage = "en"; // default
-    const usedTemplateName = templateName || "invoice_with_contact";
+    const usedTemplateName = templateName || "invoice_with_review";
 
     if (restaurantId) {
       const { data: templateDef } = await supabase
@@ -78,36 +79,53 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      const params = variables || {
-        customer_name: customerName || "Customer",
-        restaurant_name: restaurantName || "Restaurant",
-        amount: amount || "-",
-        order_date: billDate || new Date().toLocaleDateString("en-IN"),
-        contact_number: contactNumber || "-",
-      };
+      // Positional numbered params:
+      // {{1}}=customer_name, {{2}}=restaurant_name, {{3}}=amount,
+      // {{4}}=order_date, {{5}}=contact_number, {{6}}=instagram_url (tappable link in body)
+      const instagramUrlValue = instagramUrl || "-";
+      const positionalValues = variables
+        ? Object.values(variables).map((v: any) => String(v || "-"))
+        : [
+            customerName || "Customer",
+            restaurantName || "Restaurant",
+            amount || "-",
+            billDate || new Date().toLocaleDateString("en-IN"),
+            contactNumber || "-",
+            instagramUrlValue,
+          ];
 
-      // Meta Cloud API requires parameter_name for named template variables
-      const bodyParams = Object.entries(params)
-        .map(([key, val]: [string, any]) => ({
-          type: "text",
-          parameter_name: key,
-          text: String(val || "-"),
-        }));
+      const bodyParams = positionalValues.map((val) => ({
+        type: "text",
+        text: val,
+      }));
 
       const metaComponents: any[] = bodyParams.length > 0
         ? [{ type: "body", parameters: bodyParams }]
         : [];
 
-      if (billUrl || (buttons && buttons.length > 0)) {
-        const urlValue = billUrl || buttons?.[0]?.value || "";
-        if (urlValue) {
-          metaComponents.push({
-            type: "button",
-            sub_type: "url",
-            index: 0,
-            parameters: [{ type: "text", text: String(urlValue) }],
-          });
-        }
+      // Only 2 URL buttons allowed by Meta: View Bill (index 0) + Google Review (index 1)
+      // Instagram is in body as {{6}} — tappable link, no button needed
+      if (buttons && buttons.length > 0) {
+        // Take only first 2 buttons (Meta hard limit for URL type)
+        buttons.slice(0, 2).forEach((btn: any, idx: number) => {
+          const urlValue = btn.value || "";
+          if (urlValue) {
+            metaComponents.push({
+              type: "button",
+              sub_type: "url",
+              index: idx,
+              parameters: [{ type: "text", text: String(urlValue) }],
+            });
+          }
+        });
+      } else if (billUrl) {
+        // Backward compat: single billUrl as button 0
+        metaComponents.push({
+          type: "button",
+          sub_type: "url",
+          index: 0,
+          parameters: [{ type: "text", text: String(billUrl) }],
+        });
       }
 
       // Clean phone number for Meta Cloud
@@ -198,71 +216,49 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // usedTemplateName already declared above
+    const usedTemplate = templateName || "invoice_with_review";
     const vars = variables || {};
     const components: Record<string, any> = {};
 
-    // Build body components as structured objects (MSG91 requires type/value/parameter_name)
-    if (Object.keys(vars).length > 0) {
-      for (const [key, val] of Object.entries(vars)) {
-        components[`body_${key}`] = {
-          type: "text",
-          value: String(val) || "-",
-          parameter_name: key,
-        };
-      }
-    } else {
-      components.body_customer_name = {
-        type: "text",
-        value: customerName || "Customer",
-        parameter_name: "customer_name",
-      };
-      components.body_restaurant_name = {
-        type: "text",
-        value: restaurantName || "Restaurant",
-        parameter_name: "restaurant_name",
-      };
-      components.body_amount = {
-        type: "text",
-        value: amount || "0",
-        parameter_name: "amount",
-      };
-      components.body_order_date = {
-        type: "text",
-        value: billDate || new Date().toLocaleDateString("en-IN"),
-        parameter_name: "order_date",
-      };
-      components.body_contact_number = {
-        type: "text",
-        value: contactNumber || "-",
-        parameter_name: "contact_number",
-      };
-    }
+    // Positional numbered params:
+    // {{1}}=customer_name, {{2}}=restaurant_name, {{3}}=amount,
+    // {{4}}=order_date, {{5}}=contact_number, {{6}}=instagram_url (tappable in body)
+    const instagramUrlValue = instagramUrl || "-";
+    const positionalEntries = Object.keys(vars).length > 0
+      ? Object.values(vars)
+      : [
+          customerName || "Customer",
+          restaurantName || "Restaurant",
+          amount || "0",
+          billDate || new Date().toLocaleDateString("en-IN"),
+          contactNumber || "-",
+          instagramUrlValue,
+        ];
 
-    // Ensure contact_number is always present
-    if (!components.body_contact_number) {
-      components.body_contact_number = {
+    positionalEntries.forEach((val: any, idx: number) => {
+      components[`body_${idx + 1}`] = {
         type: "text",
-        value: contactNumber || "N/A",
-        parameter_name: "contact_number",
+        value: String(val || "-"),
       };
-    }
+    });
 
-    // Build button components as structured objects
-    if (billUrl) {
-      components.button_1 = {
-        subtype: "url",
-        type: "text",
-        value: billUrl,
-      };
-    } else if (buttons && buttons.length > 0) {
-      buttons.forEach((btn: any, idx: number) => {
+    // Only 2 URL buttons: View Bill (button_1) + Google Review (button_2)
+    // Instagram is {{6}} in body — tappable link, no button needed
+    if (buttons && buttons.length > 0) {
+      // Take only first 2 buttons (Meta limit)
+      buttons.slice(0, 2).forEach((btn: any, idx: number) => {
         components[`button_${idx + 1}`] = {
           subtype: btn.type || "url",
           type: "text",
           value: btn.value || "",
         };
       });
+    } else if (billUrl) {
+      components.button_1 = {
+        subtype: "url",
+        type: "text",
+        value: billUrl,
+      };
     }
 
     // Clean phone number
@@ -309,9 +305,58 @@ Deno.serve(async (req: Request) => {
     const msg91Data = await msg91Res.json();
 
     if (!msg91Res.ok || msg91Data?.message === "error") {
-      console.error("[msg91] Error:", JSON.stringify(msg91Data));
+      console.error("[msg91] Error with template", usedTemplate, ":", JSON.stringify(msg91Data));
+
+      // If the new template is pending approval, fall back to the old working template
+      const FALLBACK_TEMPLATE = "invoice_with_contact";
+      if (usedTemplate !== FALLBACK_TEMPLATE) {
+        console.log(`[msg91] Retrying with fallback template: ${FALLBACK_TEMPLATE}`);
+        const fallbackPayload = {
+          ...msg91Payload,
+          payload: {
+            ...msg91Payload.payload,
+            template: {
+              ...msg91Payload.payload.template,
+              name: FALLBACK_TEMPLATE,
+              // Fallback uses 5 body params + 1 button (invoice_with_contact format)
+              to_and_components: [
+                {
+                  to: [cleanPhone],
+                  components: {
+                    body_1: { type: "text", value: String(positionalEntries[0] || "Customer") },
+                    body_2: { type: "text", value: String(positionalEntries[1] || "Restaurant") },
+                    body_3: { type: "text", value: String(positionalEntries[2] || "-") },
+                    body_4: { type: "text", value: String(positionalEntries[3] || "-") },
+                    body_5: { type: "text", value: String(positionalEntries[4] || "-") },
+                    ...(components.button_1 ? { button_1: components.button_1 } : {}),
+                  },
+                },
+              ],
+            },
+          },
+        };
+
+        const fallbackRes = await fetch(
+          "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+          {
+            method: "POST",
+            headers: { authkey: msg91AuthKey, "Content-Type": "application/json" },
+            body: JSON.stringify(fallbackPayload),
+          }
+        );
+        const fallbackData = await fallbackRes.json();
+        console.log("[msg91] Fallback result:", JSON.stringify(fallbackData));
+
+        if (fallbackRes.ok && fallbackData?.message !== "error") {
+          return new Response(
+            JSON.stringify({ success: true, provider: "msg91", data: fallbackData, usedFallback: true }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
       return new Response(
-        JSON.stringify({ success: false, error: msg91Data?.msg || "MSG91 API error", details: msg91Data }),
+        JSON.stringify({ success: false, error: msg91Data?.msg || msg91Data?.message || "MSG91 API error", details: msg91Data }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

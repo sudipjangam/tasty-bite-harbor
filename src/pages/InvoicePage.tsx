@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Download, Loader2, FileX } from 'lucide-react';
+import DOMPurify from 'dompurify';
 
 const InvoicePage = () => {
   const { '*': invoicePath } = useParams();
@@ -117,11 +118,32 @@ const InvoicePage = () => {
   // Extract just the body content from the stored HTML for embedding
   // We render it inside our own page with a download button
   const bodyMatch = invoiceHTML.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-  const bodyContent = bodyMatch ? bodyMatch[1] : invoiceHTML;
+  const rawBodyContent = bodyMatch ? bodyMatch[1] : invoiceHTML;
 
   // Extract styles from the stored HTML
   const styleMatch = invoiceHTML.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
-  const styles = styleMatch ? styleMatch[1] : '';
+  const rawStyles = styleMatch ? styleMatch[1] : '';
+
+  // Sanitize HTML to prevent XSS from malicious invoice content
+  const bodyContent = DOMPurify.sanitize(rawBodyContent, {
+    ALLOWED_TAGS: ['div', 'span', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'tfoot',
+                   'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'b', 'em', 'i',
+                   'br', 'hr', 'ul', 'ol', 'li', 'img', 'section', 'article', 'header',
+                   'footer', 'main', 'address'],
+    ALLOWED_ATTR: ['class', 'style', 'src', 'alt', 'width', 'height', 'colspan',
+                   'rowspan', 'cellpadding', 'cellspacing', 'border', 'align', 'valign'],
+    FORBID_TAGS: ['script', 'iframe', 'form', 'input', 'button', 'link', 'meta', 'object', 'embed'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'href'],
+  });
+  // Strip everything from styles — only allow plain CSS text, no expressions
+  const styles = rawStyles
+    .replace(/<[^>]*>/g, '')           // remove any tags injected into style block
+    .replace(/expression\s*\(/gi, '')  // block CSS expression() (IE attack)
+    .replace(/javascript:/gi, '')      // block javascript: URIs in CSS
+    .replace(/url\s*\([^)]*\)/gi, (m) =>
+      m.replace(/javascript:/gi, '').replace(/data:text\/html/gi, ''));
+    // Note: styles are rendered inside a <style> tag. CSS itself can't execute JS
+    // in modern browsers, but we sanitize above to remove legacy attack vectors.
 
   return (
     <div className="min-h-screen bg-gray-100 py-6 px-4">
