@@ -21,11 +21,10 @@ Deno.serve(async (req: Request) => {
       templateName,
       amount,
       billDate,
-      contactNumber,
+      googleReviewUrl,
       billUrl,
       variables,
       buttons,
-      instagramUrl,
     } = body;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -81,8 +80,7 @@ Deno.serve(async (req: Request) => {
 
       // Positional numbered params:
       // {{1}}=customer_name, {{2}}=restaurant_name, {{3}}=amount,
-      // {{4}}=order_date, {{5}}=contact_number, {{6}}=instagram_url (tappable link in body)
-      const instagramUrlValue = instagramUrl || "-";
+      // {{4}}=order_date, {{5}}=google_review_url
       const positionalValues = variables
         ? Object.values(variables).map((v: any) => String(v || "-"))
         : [
@@ -90,8 +88,7 @@ Deno.serve(async (req: Request) => {
             restaurantName || "Restaurant",
             amount || "-",
             billDate || new Date().toLocaleDateString("en-IN"),
-            contactNumber || "-",
-            instagramUrlValue,
+            googleReviewUrl || "-",
           ];
 
       const bodyParams = positionalValues.map((val) => ({
@@ -103,8 +100,8 @@ Deno.serve(async (req: Request) => {
         ? [{ type: "body", parameters: bodyParams }]
         : [];
 
-      // Only 2 URL buttons allowed by Meta: View Bill (index 0) + Google Review (index 1)
-      // Instagram is in body as {{6}} — tappable link, no button needed
+      // 2 URL buttons: View Bill (index 0) + Instagram (index 1)
+      // Google Review is in body as {{5}} — tappable link
       if (buttons && buttons.length > 0) {
         // Take only first 2 buttons (Meta hard limit for URL type)
         buttons.slice(0, 2).forEach((btn: any, idx: number) => {
@@ -222,8 +219,7 @@ Deno.serve(async (req: Request) => {
 
     // Positional numbered params:
     // {{1}}=customer_name, {{2}}=restaurant_name, {{3}}=amount,
-    // {{4}}=order_date, {{5}}=contact_number, {{6}}=instagram_url (tappable in body)
-    const instagramUrlValue = instagramUrl || "-";
+    // {{4}}=order_date, {{5}}=google_review_url
     const positionalEntries = Object.keys(vars).length > 0
       ? Object.values(vars)
       : [
@@ -231,8 +227,7 @@ Deno.serve(async (req: Request) => {
           restaurantName || "Restaurant",
           amount || "0",
           billDate || new Date().toLocaleDateString("en-IN"),
-          contactNumber || "-",
-          instagramUrlValue,
+          googleReviewUrl || "-",
         ];
 
     positionalEntries.forEach((val: any, idx: number) => {
@@ -242,8 +237,8 @@ Deno.serve(async (req: Request) => {
       };
     });
 
-    // Only 2 URL buttons: View Bill (button_1) + Google Review (button_2)
-    // Instagram is {{6}} in body — tappable link, no button needed
+    // 2 URL buttons: View Bill (button_1) + Instagram (button_2)
+    // Google Review is {{5}} in body — tappable link
     if (buttons && buttons.length > 0) {
       // Take only first 2 buttons (Meta limit)
       buttons.slice(0, 2).forEach((btn: any, idx: number) => {
