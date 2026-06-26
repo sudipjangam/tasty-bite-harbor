@@ -434,18 +434,15 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             ? "91" + customerPhone.replace(/[\+\-\s]/g, "")
             : customerPhone.replace(/[\+\-\s]/g, "");
 
-        // Instagram: encode underscores (%5F) to prevent WhatsApp italic markdown (_text_ = italic)
-        const rawInstagramUrl = (restaurantDetails?.social_media as any)?.instagram_url || "-";
-        const safeInstagramUrl = rawInstagramUrl.replace(/_/g, "%5F");
+        // Instagram: extract handle from full URL in DB
+        // "https://www.instagram.com/_brewbites_" → "_brewbites_"
+        const rawIgUrl = (restaurantDetails?.social_media as any)?.instagram_url || "";
+        const igHandle = rawIgUrl
+          .replace(/^https?:\/\/(www\.)?instagram\.com\//, "")
+          .replace(/\/$/, "") || "";
 
-        // Google Review: template button base is "https://g.page/r/" — pass ONLY the suffix
-        // Full URL in DB: "https://g.page/r/CZzopziQUSVoEBM/review"
-        // Suffix to pass: "CZzopziQUSVoEBM/review"
-        const rawGoogleUrl = (restaurantDetails?.social_media as any)?.google_review_url || "";
-        const googleSuffix = rawGoogleUrl
-          .replace(/^https?:\/\/(www\.)?g\.page\/r\//, "")
-          .replace(/^https?:\/\/(www\.)?g\.page\//, "r/")
-          || rawGoogleUrl;
+        // Google Review: body {{5}} — full URL, no underscores = safe in body text
+        const googleReviewUrl = (restaurantDetails?.social_media as any)?.google_review_url || "-";
 
         const { data: waResponse, error: waError } =
           await supabase.functions.invoke("send-whatsapp-unified", {
@@ -457,15 +454,13 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               templateName: "invoice_with_review",
               amount: formattedAmount,
               billDate: formattedDate,
-              contactNumber: restaurantDetails?.phone || "N/A",
-              instagramUrl: safeInstagramUrl,
+              // {{5}} = Google Review full URL (safe in body)
+              googleReviewUrl,
               buttons: [
-                // Button 0: View Bill (dynamic suffix after base URL)
+                // Button 0: View Bill
                 { type: "url", value: billUrlSuffix || "pending" },
-                // Button 1: Google Review — SUFFIX ONLY (base already in template)
-                ...(googleSuffix
-                  ? [{ type: "url", value: googleSuffix }]
-                  : []),
+                // Button 1: Instagram (handle after https://instagram.com/)
+                ...(igHandle ? [{ type: "url", value: igHandle }] : []),
               ],
             },
           });

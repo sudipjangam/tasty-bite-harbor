@@ -1449,19 +1449,17 @@ const PaymentDialog = ({
       const phoneWithCountryCode =
         cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone;
 
-            // Instagram URL goes into body as {{6}}
-            // Encode underscores (%5F) to prevent WhatsApp italic markdown (_text_ = italic)
-            const rawInstagramUrl = (restaurantInfo?.social_media as any)?.instagram_url || "-";
-            const safeInstagramUrl = rawInstagramUrl.replace(/_/g, "%5F");
+            // Instagram: extract handle from full URL stored in DB
+            // DB stores: "https://www.instagram.com/_brewbites_"
+            // Button base: "https://instagram.com/", suffix {{1}} = "_brewbites_"
+            // Button URLs never render in body → underscores are safe
+            const rawIgUrl = (restaurantInfo?.social_media as any)?.instagram_url || "";
+            const igHandle = rawIgUrl
+              .replace(/^https?:\/\/(www\.)?instagram\.com\//, "")
+              .replace(/\/$/, "") || "";
 
-            // Google Review: template button base is "https://g.page/r/" — pass ONLY the suffix
-            // Full URL stored in DB: "https://g.page/r/CZzopziQUSVoEBM/review"
-            // Suffix to pass: "CZzopziQUSVoEBM/review"
-            const rawGoogleUrl = (restaurantInfo?.social_media as any)?.google_review_url || "";
-            const googleSuffix = rawGoogleUrl
-              .replace(/^https?:\/\/(www\.)?g\.page\/r\//, "")
-              .replace(/^https?:\/\/(www\.)?g\.page\//, "r/")
-              || rawGoogleUrl;
+            // Google Review: body {{5}} — full URL, no underscores = safe in body text
+            const googleReviewUrl = (restaurantInfo?.social_media as any)?.google_review_url || "-";
 
             const { data: waResponse, error: waError } =
               await supabase.functions.invoke("send-whatsapp-unified", {
@@ -1473,18 +1471,17 @@ const PaymentDialog = ({
                   templateName: "invoice_with_review",
                   amount: formattedAmount,
                   billDate: formattedDate,
-                  contactNumber: restaurantInfo?.phone || "N/A",
-                  instagramUrl: safeInstagramUrl,
+                  // {{5}} = Google Review full URL (safe in body — no underscores)
+                  googleReviewUrl,
                   buttons: [
-                    // Button 0: View Bill (dynamic suffix after base URL)
+                    // Button 0: View Bill (suffix after https://swadeshisolutions.co.in/bill/)
                     { type: "url", value: billUrlSuffix || "pending" },
-                    // Button 1: Google Review — SUFFIX ONLY (base already in template)
-                    ...(googleSuffix
-                      ? [{ type: "url", value: googleSuffix }]
-                      : []),
+                    // Button 1: Instagram (handle after https://instagram.com/)
+                    ...(igHandle ? [{ type: "url", value: igHandle }] : []),
                   ],
                 },
               });
+
 
       if (waError || !waResponse?.success) {
         throw new Error(
