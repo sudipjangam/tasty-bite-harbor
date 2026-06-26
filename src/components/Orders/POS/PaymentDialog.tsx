@@ -1449,29 +1449,42 @@ const PaymentDialog = ({
       const phoneWithCountryCode =
         cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone;
 
-      const { data: waResponse, error: waError } =
-        await supabase.functions.invoke("send-whatsapp-unified", {
-          body: {
-            phoneNumber: phoneWithCountryCode,
-            restaurantId: restaurantInfo?.id,
-            customerName: customerName || "Customer",
-            restaurantName,
-            templateName: "invoice_with_review",
-            amount: formattedAmount,
-            billDate: formattedDate,
-            contactNumber: restaurantInfo?.phone || "N/A",
-            // Instagram URL goes into body as {{6}} — tappable link (Meta 2-button limit)
-            instagramUrl: (restaurantInfo?.social_media as any)?.instagram_url || "-",
-            buttons: [
-              // Button 0: View Bill (dynamic suffix)
-              { type: "url", value: billUrlSuffix || "pending" },
-              // Button 1: Google Review (full URL)
-              ...((restaurantInfo?.social_media as any)?.google_review_url
-                ? [{ type: "url", value: (restaurantInfo?.social_media as any).google_review_url }]
-                : []),
-            ],
-          },
-        });
+            // Instagram URL goes into body as {{6}}
+            // Encode underscores (%5F) to prevent WhatsApp italic markdown (_text_ = italic)
+            const rawInstagramUrl = (restaurantInfo?.social_media as any)?.instagram_url || "-";
+            const safeInstagramUrl = rawInstagramUrl.replace(/_/g, "%5F");
+
+            // Google Review: template button base is "https://g.page/r/" — pass ONLY the suffix
+            // Full URL stored in DB: "https://g.page/r/CZzopziQUSVoEBM/review"
+            // Suffix to pass: "CZzopziQUSVoEBM/review"
+            const rawGoogleUrl = (restaurantInfo?.social_media as any)?.google_review_url || "";
+            const googleSuffix = rawGoogleUrl
+              .replace(/^https?:\/\/(www\.)?g\.page\/r\//, "")
+              .replace(/^https?:\/\/(www\.)?g\.page\//, "r/")
+              || rawGoogleUrl;
+
+            const { data: waResponse, error: waError } =
+              await supabase.functions.invoke("send-whatsapp-unified", {
+                body: {
+                  phoneNumber: phoneWithCountryCode,
+                  restaurantId: restaurantInfo?.id,
+                  customerName: customerName || "Customer",
+                  restaurantName,
+                  templateName: "invoice_with_review",
+                  amount: formattedAmount,
+                  billDate: formattedDate,
+                  contactNumber: restaurantInfo?.phone || "N/A",
+                  instagramUrl: safeInstagramUrl,
+                  buttons: [
+                    // Button 0: View Bill (dynamic suffix after base URL)
+                    { type: "url", value: billUrlSuffix || "pending" },
+                    // Button 1: Google Review — SUFFIX ONLY (base already in template)
+                    ...(googleSuffix
+                      ? [{ type: "url", value: googleSuffix }]
+                      : []),
+                  ],
+                },
+              });
 
       if (waError || !waResponse?.success) {
         throw new Error(

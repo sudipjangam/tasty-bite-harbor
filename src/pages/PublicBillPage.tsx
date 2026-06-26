@@ -458,11 +458,6 @@ const PublicBillPage = () => {
                     📍 {billData.restaurantAddress}
                   </p>
                 )}
-                {billData.restaurantPhone && (
-                  <p className="text-white/70 text-xs mt-1">
-                    📞 {billData.restaurantPhone}
-                  </p>
-                )}
                 {billData.gstin && (
                   <p className="text-white/60 text-[10px] mt-1.5 font-mono bg-white/10 px-3 py-0.5 rounded-full inline-block">
                     GSTIN: {billData.gstin}

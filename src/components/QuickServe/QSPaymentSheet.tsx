@@ -434,6 +434,19 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             ? "91" + customerPhone.replace(/[\+\-\s]/g, "")
             : customerPhone.replace(/[\+\-\s]/g, "");
 
+        // Instagram: encode underscores (%5F) to prevent WhatsApp italic markdown (_text_ = italic)
+        const rawInstagramUrl = (restaurantDetails?.social_media as any)?.instagram_url || "-";
+        const safeInstagramUrl = rawInstagramUrl.replace(/_/g, "%5F");
+
+        // Google Review: template button base is "https://g.page/r/" — pass ONLY the suffix
+        // Full URL in DB: "https://g.page/r/CZzopziQUSVoEBM/review"
+        // Suffix to pass: "CZzopziQUSVoEBM/review"
+        const rawGoogleUrl = (restaurantDetails?.social_media as any)?.google_review_url || "";
+        const googleSuffix = rawGoogleUrl
+          .replace(/^https?:\/\/(www\.)?g\.page\/r\//, "")
+          .replace(/^https?:\/\/(www\.)?g\.page\//, "r/")
+          || rawGoogleUrl;
+
         const { data: waResponse, error: waError } =
           await supabase.functions.invoke("send-whatsapp-unified", {
             body: {
@@ -445,18 +458,18 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               amount: formattedAmount,
               billDate: formattedDate,
               contactNumber: restaurantDetails?.phone || "N/A",
-              // Instagram URL goes into body as {{6}} — tappable link (Meta 2-button limit)
-              instagramUrl: (restaurantDetails?.social_media as any)?.instagram_url || "-",
+              instagramUrl: safeInstagramUrl,
               buttons: [
-                // Button 0: View Bill (dynamic suffix)
+                // Button 0: View Bill (dynamic suffix after base URL)
                 { type: "url", value: billUrlSuffix || "pending" },
-                // Button 1: Google Review (full URL)
-                ...((restaurantDetails?.social_media as any)?.google_review_url
-                  ? [{ type: "url", value: (restaurantDetails?.social_media as any).google_review_url }]
+                // Button 1: Google Review — SUFFIX ONLY (base already in template)
+                ...(googleSuffix
+                  ? [{ type: "url", value: googleSuffix }]
                   : []),
               ],
             },
           });
+
 
         if (waError || !waResponse.success) {
           throw new Error(
