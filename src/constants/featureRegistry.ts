@@ -346,6 +346,25 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
       { key: 'marketing.loyalty', label: 'Loyalty Manager', description: 'Configure loyalty tiers & rewards' },
     ],
   },
+
+  // ─── Franchise Management ─────────────────────────────────────────────
+  {
+    id: 'franchise',
+    label: 'Franchise Management',
+    icon: 'Network',
+    color: 'from-violet-600 to-purple-700',
+    features: [
+      { key: 'franchise.dashboard', label: 'Franchise Dashboard', description: 'Cross-branch revenue, orders & rating dashboard' },
+      { key: 'franchise.branches', label: 'Branch Management', description: 'Manage and link physical branch restaurants' },
+      { key: 'franchise.team', label: 'Team & Roles', description: 'Manage franchise-level members & access limits' },
+      { key: 'franchise.menu_sync', label: 'Menu Sync & Origin', description: 'HQ master menu sync & price customization' },
+      { key: 'franchise.orders', label: 'Cross-Branch Orders', description: 'View and track orders across all locations' },
+      { key: 'franchise.inventory', label: 'Inventory & Transfers', description: 'Central stock overview, transfers & bulk purchasing' },
+      { key: 'franchise.staff', label: 'Staff & Roaming', description: 'Roaming employee schedules & daily attendance' },
+      { key: 'franchise.pnl', label: 'Cross-Branch P&L Report', description: 'Custom diverging P&L report & cost heatmap' },
+      { key: 'franchise.settings', label: 'Franchise Settings', description: 'Configure organization name, menu modes & logs' },
+    ],
+  },
 ];
 
 /**

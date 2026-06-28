@@ -74,6 +74,9 @@ const buildComponentMap = (): Record<string, ComponentMapping> => {
     'security': 'settings',
     'recipes': 'recipes',
     'recipes & costing': 'recipes',
+    'franchise': 'franchise',
+    'franchise portal': 'franchise',
+    'franchise management': 'franchise',
   };
 
   for (const [alias, categoryId] of Object.entries(aliases)) {
