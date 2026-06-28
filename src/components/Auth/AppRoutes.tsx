@@ -1,5 +1,5 @@
 import React, { useState, Suspense, lazy } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ImprovedSidebarNavigation } from "@/components/Layout/ImprovedSidebarNavigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { MobileNavigation } from "@/components/ui/mobile-navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { PageLoader } from "@/components/ui/page-loader";
 import { PermissionGuard } from "./PermissionGuard";
+import { FranchiseProvider } from "@/contexts/FranchiseContext";
 
 // ============================================================================
 // LAZY LOADED PAGES - Each page is now a separate chunk
@@ -96,6 +97,18 @@ const WhatsAppProviderAdmin = lazy(
 );
 const DailySummaryHistory = lazy(() => import("@/pages/DailySummaryHistory"));
 
+// Franchise pages (lazy-loaded, no DB impact)
+const FranchiseLayout = lazy(() => import("@/components/Franchise/FranchiseLayout").then(m => ({ default: m.FranchiseLayout })));
+const FranchiseDashboard = lazy(() => import("@/pages/Franchise/FranchiseDashboard"));
+const BranchManagement = lazy(() => import("@/pages/Franchise/BranchManagement"));
+const TeamManagement = lazy(() => import("@/pages/Franchise/TeamManagement"));
+const MenuSync = lazy(() => import("@/pages/Franchise/MenuSync"));
+const CrossBranchOrders = lazy(() => import("@/pages/Franchise/CrossBranchOrders"));
+const CrossBranchInventory = lazy(() => import("@/pages/Franchise/CrossBranchInventory"));
+const CrossBranchStaff = lazy(() => import("@/pages/Franchise/CrossBranchStaff"));
+const CrossBranchPnL = lazy(() => import("@/pages/Franchise/CrossBranchPnL"));
+const FranchiseSettings = lazy(() => import("@/pages/Franchise/FranchiseSettings"));
+
 // ============================================================================
 
 // Role-based guard for admin-only routes
@@ -122,34 +135,40 @@ const LazyRoute = ({ children }: { children: React.ReactNode }) => (
  */
 export const AppRoutes = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const location = useLocation();
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-100 dark:bg-gray-900">
-      {/* Sidebar - Hidden on mobile */}
-      <div
-        className={cn(
-          "bg-sidebar-purple transition-all duration-300 ease-in-out relative hidden md:block",
-          isSidebarCollapsed ? "w-16" : "w-64",
-        )}
-      >
-        {isSidebarCollapsed && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsSidebarCollapsed(false)}
-            className="absolute top-4 left-4 text-white hover:bg-white/10 w-8 h-8"
-          >
-            <MenuIcon className="h-5 w-5" />
-          </Button>
-        )}
-        <ImprovedSidebarNavigation
-          isSidebarCollapsed={isSidebarCollapsed}
-          setIsSidebarCollapsed={setIsSidebarCollapsed}
-        />
-      </div>
+      {/* Sidebar - Hidden on mobile, hidden on franchise routes */}
+      {!location.pathname.startsWith("/franchise") && (
+        <div
+          className={cn(
+            "bg-sidebar-purple transition-all duration-300 ease-in-out relative hidden md:block",
+            isSidebarCollapsed ? "w-16" : "w-64",
+          )}
+        >
+          {isSidebarCollapsed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsSidebarCollapsed(false)}
+              className="absolute top-4 left-4 text-white hover:bg-white/10 w-8 h-8"
+            >
+              <MenuIcon className="h-5 w-5" />
+            </Button>
+          )}
+          <ImprovedSidebarNavigation
+            isSidebarCollapsed={isSidebarCollapsed}
+            setIsSidebarCollapsed={setIsSidebarCollapsed}
+          />
+        </div>
+      )}
 
-      {/* Main Content - Add padding bottom for mobile navigation */}
-      <div className="flex-1 overflow-y-auto pb-16 md:pb-0">
+      {/* Main Content - Add padding bottom for mobile navigation, no padding for franchise routes */}
+      <div className={cn(
+        "flex-1 overflow-y-auto",
+        location.pathname.startsWith("/franchise") ? "" : "pb-16 md:pb-0"
+      )}>
         <Routes>
           <Route
             path="/"
@@ -569,11 +588,35 @@ export const AppRoutes = () => {
             }
           />
 
+          {/* ── Franchise Management ── */}
+          <Route
+            path="/franchise"
+            element={
+              <FranchiseProvider>
+                <LazyRoute>
+                  <FranchiseLayout />
+                </LazyRoute>
+              </FranchiseProvider>
+            }
+          >
+            <Route index element={<LazyRoute><FranchiseDashboard /></LazyRoute>} />
+            <Route path="branches" element={<LazyRoute><BranchManagement /></LazyRoute>} />
+            <Route path="team" element={<LazyRoute><TeamManagement /></LazyRoute>} />
+            <Route path="menu-sync" element={<LazyRoute><MenuSync /></LazyRoute>} />
+            <Route path="orders" element={<LazyRoute><CrossBranchOrders /></LazyRoute>} />
+            <Route path="inventory" element={<LazyRoute><CrossBranchInventory /></LazyRoute>} />
+            <Route path="staff" element={<LazyRoute><CrossBranchStaff /></LazyRoute>} />
+            <Route path="pnl" element={<LazyRoute><CrossBranchPnL /></LazyRoute>} />
+            <Route path="settings" element={<LazyRoute><FranchiseSettings /></LazyRoute>} />
+          </Route>
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
 
         {/* Global Mobile Navigation */}
-        <MobileNavigation className="md:hidden" />
+        {!location.pathname.startsWith("/franchise") && (
+          <MobileNavigation className="md:hidden" />
+        )}
       </div>
     </div>
   );

@@ -35,6 +35,7 @@ import {
   Ban,
   Store,
   Tv,
+  Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -303,6 +304,13 @@ const navigationGroups: NavigationGroup[] = [
 
 // Standalone items outside of groups
 const standaloneItems: NavigationItem[] = [
+  {
+    title: "Franchise Portal",
+    icon: Network,
+    href: "/franchise",
+    description: "Multi-branch management",
+    requiredRole: "admin", // Mock: swap to org membership check
+  },
   {
     title: "Platform Admin",
     icon: Building2,
