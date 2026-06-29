@@ -1,0 +1,1553 @@
+import { useState, useMemo } from "react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import {
+  Plus,
+  Building2,
+  Search,
+  Edit,
+  Trash2,
+  Eye,
+  ChevronRight,
+  MapPin,
+  Phone,
+  Mail,
+  Users,
+  CreditCard,
+  ShieldCheck,
+  GitBranch,
+  Crown,
+  Star,
+  TrendingUp,
+  IndianRupee,
+  Calendar,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Settings,
+  FileText,
+  UserPlus,
+  Store,
+  Layers,
+  BarChart3,
+  Globe,
+  Utensils,
+  ArrowRight,
+  ArrowLeft,
+  Save,
+  Upload,
+  AlertTriangle,
+  Zap,
+  Shield,
+  Package,
+  Lock,
+  Unlock,
+} from "lucide-react";
+
+// ─── Types ───────────────────────────────────────────
+interface FranchiseOrg {
+  id: string;
+  name: string;
+  ownerName: string;
+  ownerEmail: string;
+  ownerPhone: string;
+  plan: string;
+  planTier: "starter" | "growth" | "professional" | "enterprise";
+  branches: number;
+  maxBranches: number;
+  status: "active" | "pending" | "suspended" | "trial";
+  gstNumber: string;
+  fssaiNumber: string;
+  createdAt: string;
+  revenue: number;
+  city: string;
+  state: string;
+}
+
+interface FranchiseBranch {
+  id: string;
+  orgId: string;
+  name: string;
+  code: string;
+  city: string;
+  address: string;
+  manager: string;
+  managerPhone: string;
+  status: "active" | "inactive" | "setup";
+  orders: number;
+  revenue: number;
+}
+
+interface FranchisePlan {
+  id: string;
+  name: string;
+  tier: "starter" | "growth" | "professional" | "enterprise";
+  priceMonthly: number;
+  priceYearly: number;
+  maxBranches: number;
+  features: string[];
+  isActive: boolean;
+  subscriberCount: number;
+}
+
+interface StaffMember {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  orgId: string;
+  branchAccess: string[];
+  status: "active" | "invited" | "disabled";
+  joinedAt: string;
+}
+
+// ─── Mock Data ───────────────────────────────────────
+const MOCK_FRANCHISES: FranchiseOrg[] = [
+  {
+    id: "org-1",
+    name: "Spice Route Restaurants",
+    ownerName: "Rajesh Sharma",
+    ownerEmail: "rajesh@spiceroute.in",
+    ownerPhone: "+91 98765 43210",
+    plan: "Franchise Professional",
+    planTier: "professional",
+    branches: 5,
+    maxBranches: 10,
+    status: "active",
+    gstNumber: "27AABCS1234D1Z5",
+    fssaiNumber: "11219999000123",
+    createdAt: "2024-03-15",
+    revenue: 4850000,
+    city: "Mumbai",
+    state: "Maharashtra",
+  },
+  {
+    id: "org-2",
+    name: "Tandoori Tales",
+    ownerName: "Priya Patel",
+    ownerEmail: "priya@tandooritales.com",
+    ownerPhone: "+91 87654 32109",
+    plan: "Franchise Growth",
+    planTier: "growth",
+    branches: 3,
+    maxBranches: 5,
+    status: "active",
+    gstNumber: "24AABCT5678E2Z6",
+    fssaiNumber: "11219999000456",
+    createdAt: "2024-06-20",
+    revenue: 2100000,
+    city: "Ahmedabad",
+    state: "Gujarat",
+  },
+  {
+    id: "org-3",
+    name: "Biryani House Chain",
+    ownerName: "Mohammed Iqbal",
+    ownerEmail: "iqbal@biryanihouse.co",
+    ownerPhone: "+91 76543 21098",
+    plan: "Franchise Enterprise",
+    planTier: "enterprise",
+    branches: 12,
+    maxBranches: 50,
+    status: "active",
+    gstNumber: "36AABCB9012F3Z7",
+    fssaiNumber: "11219999000789",
+    createdAt: "2023-11-10",
+    revenue: 12500000,
+    city: "Hyderabad",
+    state: "Telangana",
+  },
+  {
+    id: "org-4",
+    name: "Fresh Bowl Kitchen",
+    ownerName: "Anita Desai",
+    ownerEmail: "anita@freshbowl.in",
+    ownerPhone: "+91 65432 10987",
+    plan: "Franchise Starter",
+    planTier: "starter",
+    branches: 1,
+    maxBranches: 2,
+    status: "trial",
+    gstNumber: "29AABCF3456G4Z8",
+    fssaiNumber: "11219999001012",
+    createdAt: "2026-06-01",
+    revenue: 180000,
+    city: "Bangalore",
+    state: "Karnataka",
+  },
+  {
+    id: "org-5",
+    name: "Chai & Chaat Co.",
+    ownerName: "Vikram Singh",
+    ownerEmail: "vikram@chaichaat.in",
+    ownerPhone: "+91 54321 09876",
+    plan: "Franchise Growth",
+    planTier: "growth",
+    branches: 2,
+    maxBranches: 5,
+    status: "pending",
+    gstNumber: "07AABCC7890H5Z9",
+    fssaiNumber: "",
+    createdAt: "2026-06-25",
+    revenue: 0,
+    city: "Delhi",
+    state: "Delhi",
+  },
+];
+
+const MOCK_BRANCHES: FranchiseBranch[] = [
+  { id: "br-1", orgId: "org-1", name: "Spice Route - Andheri", code: "SR-MUM-01", city: "Mumbai", address: "123 Link Road, Andheri West", manager: "Amit Kumar", managerPhone: "+91 99887 11001", status: "active", orders: 2450, revenue: 1250000 },
+  { id: "br-2", orgId: "org-1", name: "Spice Route - Bandra", code: "SR-MUM-02", city: "Mumbai", address: "45 Hill Road, Bandra", manager: "Sneha Joshi", managerPhone: "+91 99887 11002", status: "active", orders: 3100, revenue: 1600000 },
+  { id: "br-3", orgId: "org-1", name: "Spice Route - Pune", code: "SR-PUN-01", city: "Pune", address: "78 FC Road, Shivajinagar", manager: "Rohan Deshmukh", managerPhone: "+91 99887 11003", status: "active", orders: 1800, revenue: 920000 },
+  { id: "br-4", orgId: "org-1", name: "Spice Route - Thane", code: "SR-THN-01", city: "Thane", address: "12 Ghodbunder Road", manager: "Pooja Nair", managerPhone: "+91 99887 11004", status: "active", orders: 1500, revenue: 680000 },
+  { id: "br-5", orgId: "org-1", name: "Spice Route - Nagpur", code: "SR-NGP-01", city: "Nagpur", address: "34 Dharampeth", manager: "Vijay Patil", managerPhone: "+91 99887 11005", status: "setup", orders: 0, revenue: 0 },
+  { id: "br-6", orgId: "org-2", name: "Tandoori Tales - SG Highway", code: "TT-AHM-01", city: "Ahmedabad", address: "SG Highway, Bodakdev", manager: "Ravi Mehta", managerPhone: "+91 98765 22001", status: "active", orders: 1900, revenue: 850000 },
+  { id: "br-7", orgId: "org-2", name: "Tandoori Tales - Vastrapur", code: "TT-AHM-02", city: "Ahmedabad", address: "Vastrapur Lake Road", manager: "Kavita Shah", managerPhone: "+91 98765 22002", status: "active", orders: 1600, revenue: 720000 },
+  { id: "br-8", orgId: "org-2", name: "Tandoori Tales - Surat", code: "TT-SRT-01", city: "Surat", address: "Athwa Gate", manager: "Deepak Patel", managerPhone: "+91 98765 22003", status: "active", orders: 1200, revenue: 530000 },
+];
+
+const MOCK_FRANCHISE_PLANS: FranchisePlan[] = [
+  {
+    id: "fp-1",
+    name: "Franchise Starter",
+    tier: "starter",
+    priceMonthly: 2999,
+    priceYearly: 29990,
+    maxBranches: 2,
+    features: [
+      "Up to 2 branches",
+      "Basic cross-branch reports",
+      "Centralized menu management",
+      "Email support",
+      "Basic inventory sync",
+    ],
+    isActive: true,
+    subscriberCount: 8,
+  },
+  {
+    id: "fp-2",
+    name: "Franchise Growth",
+    tier: "growth",
+    priceMonthly: 6999,
+    priceYearly: 69990,
+    maxBranches: 5,
+    features: [
+      "Up to 5 branches",
+      "Advanced P&L reports",
+      "Cross-branch inventory transfer",
+      "Staff roaming",
+      "Bulk vendor orders",
+      "Priority email & chat support",
+      "Menu sync with overrides",
+    ],
+    isActive: true,
+    subscriberCount: 15,
+  },
+  {
+    id: "fp-3",
+    name: "Franchise Professional",
+    tier: "professional",
+    priceMonthly: 14999,
+    priceYearly: 149990,
+    maxBranches: 10,
+    features: [
+      "Up to 10 branches",
+      "Real-time cross-branch analytics",
+      "Audit trail & compliance",
+      "Custom role management",
+      "API access",
+      "Dedicated account manager",
+      "White-label branding",
+      "Advanced inventory & vendor management",
+    ],
+    isActive: true,
+    subscriberCount: 6,
+  },
+  {
+    id: "fp-4",
+    name: "Franchise Enterprise",
+    tier: "enterprise",
+    priceMonthly: 49999,
+    priceYearly: 499990,
+    maxBranches: 50,
+    features: [
+      "Up to 50 branches",
+      "Everything in Professional",
+      "Multi-city operations",
+      "SLA guarantee (99.9%)",
+      "Custom integrations",
+      "On-premise deployment option",
+      "24/7 phone + video support",
+      "Custom training & onboarding",
+      "Regulatory compliance pack",
+    ],
+    isActive: true,
+    subscriberCount: 2,
+  },
+];
+
+const MOCK_STAFF: StaffMember[] = [
+  { id: "s1", name: "Rajesh Sharma", email: "rajesh@spiceroute.in", role: "Organization Owner", orgId: "org-1", branchAccess: ["All Branches"], status: "active", joinedAt: "2024-03-15" },
+  { id: "s2", name: "Amit Kumar", email: "amit@spiceroute.in", role: "Branch Manager", orgId: "org-1", branchAccess: ["Andheri"], status: "active", joinedAt: "2024-04-01" },
+  { id: "s3", name: "Sneha Joshi", email: "sneha@spiceroute.in", role: "Branch Manager", orgId: "org-1", branchAccess: ["Bandra"], status: "active", joinedAt: "2024-04-15" },
+  { id: "s4", name: "Rohan Deshmukh", email: "rohan@spiceroute.in", role: "Regional Manager", orgId: "org-1", branchAccess: ["Pune", "Nagpur"], status: "active", joinedAt: "2024-05-01" },
+  { id: "s5", name: "Finance Team", email: "finance@spiceroute.in", role: "Finance Viewer", orgId: "org-1", branchAccess: ["All Branches"], status: "active", joinedAt: "2024-06-01" },
+  { id: "s6", name: "New Hire", email: "newhire@spiceroute.in", role: "Staff", orgId: "org-1", branchAccess: ["Thane"], status: "invited", joinedAt: "2026-06-20" },
+];
+
+const FRANCHISE_ROLES = [
+  { name: "Organization Owner", description: "Full access to all branches and settings", level: "org", color: "from-amber-500 to-yellow-500" },
+  { name: "Regional Manager", description: "Manage multiple branches in a region", level: "org", color: "from-purple-500 to-indigo-500" },
+  { name: "Branch Manager", description: "Full access to assigned branch only", level: "branch", color: "from-blue-500 to-cyan-500" },
+  { name: "Finance Viewer", description: "Read-only access to P&L and financial data", level: "org", color: "from-emerald-500 to-green-500" },
+  { name: "Inventory Manager", description: "Manage stock across assigned branches", level: "branch", color: "from-orange-500 to-red-500" },
+  { name: "Staff", description: "Basic POS access at assigned branch", level: "branch", color: "from-gray-500 to-slate-500" },
+];
+
+// ─── Formatters ──────────────────────────────────────
+const fmt = (n: number) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(n);
+
+type Tab = "franchises" | "onboarding" | "branches" | "staff" | "plans";
+
+const TIER_COLORS: Record<string, string> = {
+  starter: "from-gray-500 to-slate-600",
+  growth: "from-blue-500 to-indigo-600",
+  professional: "from-purple-500 to-violet-600",
+  enterprise: "from-amber-500 to-orange-600",
+};
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
+  active: { label: "Active", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400", icon: CheckCircle2 },
+  pending: { label: "Pending", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400", icon: Clock },
+  suspended: { label: "Suspended", color: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400", icon: XCircle },
+  trial: { label: "Trial", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400", icon: Zap },
+  setup: { label: "Setting Up", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400", icon: Settings },
+  inactive: { label: "Inactive", color: "bg-gray-100 text-gray-700 dark:bg-gray-900/40 dark:text-gray-400", icon: XCircle },
+  invited: { label: "Invited", color: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400", icon: Mail },
+  disabled: { label: "Disabled", color: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400", icon: XCircle },
+};
+
+// ═════════════════════════════════════════════════════════════
+// Main Component
+// ═════════════════════════════════════════════════════════════
+const FranchiseAdmin = () => {
+  const [activeTab, setActiveTab] = useState<Tab>("franchises");
+  const [search, setSearch] = useState("");
+
+  // Onboarding wizard
+  const [wizardStep, setWizardStep] = useState(0);
+  const [onboardingData, setOnboardingData] = useState({
+    orgName: "",
+    ownerName: "",
+    ownerEmail: "",
+    ownerPhone: "",
+    gstNumber: "",
+    fssaiNumber: "",
+    city: "",
+    state: "",
+    plan: "",
+    branchName: "",
+    branchCode: "",
+    branchAddress: "",
+    branchCity: "",
+  });
+
+  // Detail dialog
+  const [selectedFranchise, setSelectedFranchise] = useState<FranchiseOrg | null>(null);
+  const [detailDialog, setDetailDialog] = useState(false);
+  const [editDialog, setEditDialog] = useState(false);
+  const [editData, setEditData] = useState<FranchiseOrg | null>(null);
+
+  // Plan editing
+  const [editPlan, setEditPlan] = useState<FranchisePlan | null>(null);
+
+  const tabs: { id: Tab; label: string; icon: any; count?: number }[] = [
+    { id: "franchises", label: "All Franchises", icon: Building2, count: MOCK_FRANCHISES.length },
+    { id: "onboarding", label: "Onboard New", icon: UserPlus },
+    { id: "branches", label: "Branches", icon: GitBranch, count: MOCK_BRANCHES.length },
+    { id: "staff", label: "Staff & Roles", icon: Users, count: MOCK_STAFF.length },
+    { id: "plans", label: "Franchise Plans", icon: CreditCard, count: MOCK_FRANCHISE_PLANS.length },
+  ];
+
+  // ── KPI Cards ──────────────────────────────────────
+  const kpis = useMemo(() => {
+    const totalRevenue = MOCK_FRANCHISES.reduce((s, f) => s + f.revenue, 0);
+    const totalBranches = MOCK_FRANCHISES.reduce((s, f) => s + f.branches, 0);
+    const activeFranchises = MOCK_FRANCHISES.filter((f) => f.status === "active").length;
+    const mrr = MOCK_FRANCHISE_PLANS.reduce(
+      (s, p) => s + p.priceMonthly * p.subscriberCount,
+      0
+    );
+    return [
+      { label: "Total Franchises", value: MOCK_FRANCHISES.length.toString(), sub: `${activeFranchises} active`, gradient: "from-violet-500 to-purple-600", icon: Building2 },
+      { label: "Total Branches", value: totalBranches.toString(), sub: "across all orgs", gradient: "from-blue-500 to-indigo-600", icon: GitBranch },
+      { label: "Franchise MRR", value: fmt(mrr), sub: "monthly recurring", gradient: "from-emerald-500 to-teal-600", icon: IndianRupee },
+      { label: "Total Revenue", value: fmt(totalRevenue), sub: "all franchises", gradient: "from-amber-500 to-orange-600", icon: TrendingUp },
+    ];
+  }, []);
+
+  // ── Filtered franchises ────────────────────────────
+  const filteredFranchises = useMemo(() => {
+    if (!search) return MOCK_FRANCHISES;
+    const q = search.toLowerCase();
+    return MOCK_FRANCHISES.filter(
+      (f) =>
+        f.name.toLowerCase().includes(q) ||
+        f.ownerName.toLowerCase().includes(q) ||
+        f.city.toLowerCase().includes(q)
+    );
+  }, [search]);
+
+  // ── Wizard Steps ───────────────────────────────────
+  const WIZARD_STEPS = [
+    { title: "Organization Details", icon: Building2 },
+    { title: "Owner Information", icon: Crown },
+    { title: "Compliance & Location", icon: FileText },
+    { title: "Select Plan", icon: CreditCard },
+    { title: "First Branch", icon: Store },
+    { title: "Review & Confirm", icon: CheckCircle2 },
+  ];
+
+  const handleOnboardSubmit = () => {
+    toast.success("Franchise onboarded successfully!", {
+      description: `${onboardingData.orgName} has been created with ${onboardingData.plan} plan.`,
+    });
+    setWizardStep(0);
+    setOnboardingData({
+      orgName: "", ownerName: "", ownerEmail: "", ownerPhone: "",
+      gstNumber: "", fssaiNumber: "", city: "", state: "",
+      plan: "", branchName: "", branchCode: "", branchAddress: "", branchCity: "",
+    });
+    setActiveTab("franchises");
+  };
+
+  // ─── Render ────────────────────────────────────────
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-lg shadow-purple-500/30">
+              <Building2 className="h-6 w-6" />
+            </div>
+            Franchise Management
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Onboard, manage, and monitor all franchise organizations
+          </p>
+        </div>
+      </div>
+
+      {/* KPI Row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        {kpis.map((kpi) => {
+          const Icon = kpi.icon;
+          return (
+            <div
+              key={kpi.label}
+              className={cn(
+                "relative overflow-hidden rounded-2xl p-4 md:p-5 text-white shadow-lg",
+                `bg-gradient-to-br ${kpi.gradient}`
+              )}
+            >
+              <div className="absolute top-2 right-2 opacity-20">
+                <Icon className="h-10 w-10 md:h-12 md:w-12" />
+              </div>
+              <p className="text-xs md:text-sm font-medium text-white/80">{kpi.label}</p>
+              <p className="text-xl md:text-2xl font-bold mt-1">{kpi.value}</p>
+              <p className="text-[11px] md:text-xs text-white/60 mt-0.5">{kpi.sub}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Tab Bar */}
+      <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl overflow-x-auto">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const active = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "flex items-center gap-2 px-3 md:px-4 py-2.5 rounded-lg text-xs md:text-sm font-medium transition-all whitespace-nowrap",
+                active
+                  ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              <span className="hidden sm:inline">{tab.label}</span>
+              {tab.count !== undefined && (
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    "text-[10px] px-1.5 py-0",
+                    active
+                      ? "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300"
+                      : ""
+                  )}
+                >
+                  {tab.count}
+                </Badge>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* TAB: ALL FRANCHISES                            */}
+      {/* ═══════════════════════════════════════════════ */}
+      {activeTab === "franchises" && (
+        <div className="space-y-4">
+          {/* Search + Actions */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Search franchises by name, owner, city..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+              />
+            </div>
+            <Button
+              onClick={() => setActiveTab("onboarding")}
+              className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-lg shadow-purple-500/20 gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Onboard Franchise
+            </Button>
+          </div>
+
+          {/* Franchise Cards */}
+          <div className="grid gap-4">
+            {filteredFranchises.map((f) => {
+              const statusCfg = STATUS_CONFIG[f.status];
+              const StatusIcon = statusCfg.icon;
+              return (
+                <div
+                  key={f.id}
+                  className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-4 md:p-5 hover:shadow-lg hover:border-violet-300 dark:hover:border-violet-500/30 transition-all duration-300 group"
+                >
+                  <div className="flex flex-col md:flex-row md:items-center gap-4">
+                    {/* Left: Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className={cn("p-2 rounded-xl bg-gradient-to-br text-white shadow-md", TIER_COLORS[f.planTier])}>
+                          <Building2 className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-bold text-slate-900 dark:text-white text-base md:text-lg truncate">
+                            {f.name}
+                          </h3>
+                          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                            <Crown className="h-3 w-3" />
+                            <span>{f.ownerName}</span>
+                            <span className="text-slate-300 dark:text-slate-600">•</span>
+                            <MapPin className="h-3 w-3" />
+                            <span>{f.city}, {f.state}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Tags row */}
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                        <Badge className={cn("text-[10px] font-semibold border-0", statusCfg.color)}>
+                          <StatusIcon className="h-3 w-3 mr-1" />
+                          {statusCfg.label}
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px] border-slate-200 dark:border-slate-700">
+                          <CreditCard className="h-3 w-3 mr-1" />
+                          {f.plan}
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px] border-slate-200 dark:border-slate-700">
+                          <GitBranch className="h-3 w-3 mr-1" />
+                          {f.branches}/{f.maxBranches} branches
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px] border-slate-200 dark:border-slate-700">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          Since {new Date(f.createdAt).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Right: Revenue + Actions */}
+                    <div className="flex items-center gap-3 md:flex-col md:items-end">
+                      <div className="text-right">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Revenue</p>
+                        <p className="text-lg md:text-xl font-bold text-slate-900 dark:text-white">
+                          {fmt(f.revenue)}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 gap-1.5 text-xs"
+                          onClick={() => {
+                            setSelectedFranchise(f);
+                            setDetailDialog(true);
+                          }}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">View</span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 gap-1.5 text-xs"
+                          onClick={() => {
+                            setEditData({ ...f });
+                            setEditDialog(true);
+                          }}
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Edit</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* TAB: ONBOARDING WIZARD                         */}
+      {/* ═══════════════════════════════════════════════ */}
+      {activeTab === "onboarding" && (
+        <div className="space-y-6">
+          {/* Step indicator */}
+          <div className="flex items-center justify-between gap-1 px-2 overflow-x-auto">
+            {WIZARD_STEPS.map((step, i) => {
+              const StepIcon = step.icon;
+              const done = i < wizardStep;
+              const current = i === wizardStep;
+              return (
+                <div key={i} className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => i <= wizardStep && setWizardStep(i)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2 md:px-3 py-2 rounded-lg text-xs font-medium transition-all",
+                      current
+                        ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-purple-500/20"
+                        : done
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
+                        : "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500"
+                    )}
+                  >
+                    {done ? (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    ) : (
+                      <StepIcon className="h-3.5 w-3.5" />
+                    )}
+                    <span className="hidden md:inline">{step.title}</span>
+                    <span className="md:hidden">{i + 1}</span>
+                  </button>
+                  {i < WIZARD_STEPS.length - 1 && (
+                    <ChevronRight className={cn("h-4 w-4 flex-shrink-0", done ? "text-emerald-400" : "text-slate-300 dark:text-slate-600")} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Wizard Content Card */}
+          <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5 md:p-8 shadow-sm">
+            <h2 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white mb-1">
+              {WIZARD_STEPS[wizardStep].title}
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+              {wizardStep === 0 && "Enter the franchise organization's basic details."}
+              {wizardStep === 1 && "Who will own and manage this franchise?"}
+              {wizardStep === 2 && "GST, FSSAI, and location details for compliance."}
+              {wizardStep === 3 && "Choose the right franchise subscription plan."}
+              {wizardStep === 4 && "Set up the first branch / headquarters."}
+              {wizardStep === 5 && "Review all details before creating the franchise."}
+            </p>
+
+            {/* Step 0: Organization Details */}
+            {wizardStep === 0 && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Organization Name *</Label>
+                  <Input
+                    className="mt-1.5 bg-slate-50 dark:bg-slate-900"
+                    placeholder="e.g. Spice Route Restaurants"
+                    value={onboardingData.orgName}
+                    onChange={(e) => setOnboardingData((d) => ({ ...d, orgName: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Step 1: Owner Info */}
+            {wizardStep === 1 && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Owner Full Name *</Label>
+                  <Input
+                    className="mt-1.5 bg-slate-50 dark:bg-slate-900"
+                    placeholder="e.g. Rajesh Sharma"
+                    value={onboardingData.ownerName}
+                    onChange={(e) => setOnboardingData((d) => ({ ...d, ownerName: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Email *</Label>
+                  <Input
+                    type="email"
+                    className="mt-1.5 bg-slate-50 dark:bg-slate-900"
+                    placeholder="owner@franchise.com"
+                    value={onboardingData.ownerEmail}
+                    onChange={(e) => setOnboardingData((d) => ({ ...d, ownerEmail: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Phone *</Label>
+                  <Input
+                    className="mt-1.5 bg-slate-50 dark:bg-slate-900"
+                    placeholder="+91 98765 43210"
+                    value={onboardingData.ownerPhone}
+                    onChange={(e) => setOnboardingData((d) => ({ ...d, ownerPhone: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Compliance */}
+            {wizardStep === 2 && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">GST Number</Label>
+                  <Input
+                    className="mt-1.5 bg-slate-50 dark:bg-slate-900"
+                    placeholder="27AABCS1234D1Z5"
+                    value={onboardingData.gstNumber}
+                    onChange={(e) => setOnboardingData((d) => ({ ...d, gstNumber: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">FSSAI License</Label>
+                  <Input
+                    className="mt-1.5 bg-slate-50 dark:bg-slate-900"
+                    placeholder="11219999000123"
+                    value={onboardingData.fssaiNumber}
+                    onChange={(e) => setOnboardingData((d) => ({ ...d, fssaiNumber: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">City *</Label>
+                  <Input
+                    className="mt-1.5 bg-slate-50 dark:bg-slate-900"
+                    placeholder="Mumbai"
+                    value={onboardingData.city}
+                    onChange={(e) => setOnboardingData((d) => ({ ...d, city: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">State *</Label>
+                  <Input
+                    className="mt-1.5 bg-slate-50 dark:bg-slate-900"
+                    placeholder="Maharashtra"
+                    value={onboardingData.state}
+                    onChange={(e) => setOnboardingData((d) => ({ ...d, state: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Select Plan */}
+            {wizardStep === 3 && (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {MOCK_FRANCHISE_PLANS.map((plan) => {
+                  const selected = onboardingData.plan === plan.name;
+                  return (
+                    <button
+                      key={plan.id}
+                      onClick={() => setOnboardingData((d) => ({ ...d, plan: plan.name }))}
+                      className={cn(
+                        "text-left rounded-2xl border-2 p-4 md:p-5 transition-all duration-300 relative overflow-hidden",
+                        selected
+                          ? "border-violet-500 bg-violet-50 dark:bg-violet-900/20 shadow-lg shadow-violet-500/20 scale-[1.02]"
+                          : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 hover:border-violet-300 dark:hover:border-violet-500/30 hover:shadow-md"
+                      )}
+                    >
+                      {selected && (
+                        <div className="absolute top-2 right-2">
+                          <CheckCircle2 className="h-5 w-5 text-violet-600" />
+                        </div>
+                      )}
+                      <div className={cn("inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold text-white mb-3", `bg-gradient-to-r ${TIER_COLORS[plan.tier]}`)}>
+                        {plan.tier.toUpperCase()}
+                      </div>
+                      <h3 className="font-bold text-slate-900 dark:text-white text-sm">{plan.name}</h3>
+                      <div className="mt-2">
+                        <span className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">{fmt(plan.priceMonthly)}</span>
+                        <span className="text-xs text-slate-500">/month</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        Up to {plan.maxBranches} branches
+                      </p>
+                      <ul className="mt-3 space-y-1">
+                        {plan.features.slice(0, 4).map((feat) => (
+                          <li key={feat} className="flex items-start gap-1.5 text-[11px] text-slate-600 dark:text-slate-400">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />
+                            {feat}
+                          </li>
+                        ))}
+                        {plan.features.length > 4 && (
+                          <li className="text-[10px] text-slate-400">+{plan.features.length - 4} more</li>
+                        )}
+                      </ul>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Step 4: First Branch */}
+            {wizardStep === 4 && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Branch Name *</Label>
+                  <Input
+                    className="mt-1.5 bg-slate-50 dark:bg-slate-900"
+                    placeholder="e.g. Main Branch - Andheri"
+                    value={onboardingData.branchName}
+                    onChange={(e) => setOnboardingData((d) => ({ ...d, branchName: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Branch Code *</Label>
+                  <Input
+                    className="mt-1.5 bg-slate-50 dark:bg-slate-900"
+                    placeholder="e.g. SR-MUM-01"
+                    value={onboardingData.branchCode}
+                    onChange={(e) => setOnboardingData((d) => ({ ...d, branchCode: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">City *</Label>
+                  <Input
+                    className="mt-1.5 bg-slate-50 dark:bg-slate-900"
+                    placeholder="Mumbai"
+                    value={onboardingData.branchCity}
+                    onChange={(e) => setOnboardingData((d) => ({ ...d, branchCity: e.target.value }))}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Full Address *</Label>
+                  <Textarea
+                    className="mt-1.5 bg-slate-50 dark:bg-slate-900"
+                    placeholder="123 Link Road, Andheri West, Mumbai - 400053"
+                    value={onboardingData.branchAddress}
+                    onChange={(e) => setOnboardingData((d) => ({ ...d, branchAddress: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Step 5: Review */}
+            {wizardStep === 5 && (
+              <div className="space-y-4">
+                <div className="bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 rounded-xl p-5 border border-violet-200/50 dark:border-violet-500/20">
+                  <h3 className="font-bold text-slate-900 dark:text-white text-lg mb-4 flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-violet-600" />
+                    Review Summary
+                  </h3>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {[
+                      { label: "Organization", value: onboardingData.orgName },
+                      { label: "Owner", value: onboardingData.ownerName },
+                      { label: "Email", value: onboardingData.ownerEmail },
+                      { label: "Phone", value: onboardingData.ownerPhone },
+                      { label: "GST", value: onboardingData.gstNumber || "—" },
+                      { label: "FSSAI", value: onboardingData.fssaiNumber || "—" },
+                      { label: "Location", value: `${onboardingData.city}, ${onboardingData.state}` },
+                      { label: "Plan", value: onboardingData.plan || "—" },
+                      { label: "Branch", value: onboardingData.branchName },
+                      { label: "Branch Code", value: onboardingData.branchCode },
+                      { label: "Branch City", value: onboardingData.branchCity },
+                    ].map((item) => (
+                      <div key={item.label} className="flex justify-between items-center py-1.5 border-b border-violet-200/30 dark:border-violet-500/10">
+                        <span className="text-xs text-slate-500 dark:text-slate-400">{item.label}</span>
+                        <span className="text-sm font-medium text-slate-900 dark:text-white">{item.value || "—"}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-500/20">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    This will create the organization, invite the owner via email, set up the first branch, and activate the selected subscription plan.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Navigation */}
+            <div className="flex justify-between mt-8 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <Button
+                variant="outline"
+                disabled={wizardStep === 0}
+                onClick={() => setWizardStep((s) => s - 1)}
+                className="gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              {wizardStep < WIZARD_STEPS.length - 1 ? (
+                <Button
+                  onClick={() => setWizardStep((s) => s + 1)}
+                  className="gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white"
+                >
+                  Next
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleOnboardSubmit}
+                  className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/20"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  Create Franchise
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* TAB: BRANCHES                                  */}
+      {/* ═══════════════════════════════════════════════ */}
+      {activeTab === "branches" && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Search branches..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+              />
+            </div>
+          </div>
+
+          {/* Group by Org */}
+          {MOCK_FRANCHISES.map((org) => {
+            const orgBranches = MOCK_BRANCHES.filter((b) => b.orgId === org.id);
+            if (!orgBranches.length) return null;
+            const q = search.toLowerCase();
+            const filtered = q
+              ? orgBranches.filter((b) => b.name.toLowerCase().includes(q) || b.city.toLowerCase().includes(q))
+              : orgBranches;
+            if (!filtered.length) return null;
+
+            return (
+              <div key={org.id} className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className={cn("p-1.5 rounded-lg bg-gradient-to-br text-white", TIER_COLORS[org.planTier])}>
+                    <Building2 className="h-3.5 w-3.5" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 dark:text-white text-sm">{org.name}</h3>
+                  <Badge variant="outline" className="text-[10px]">{filtered.length} branches</Badge>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {filtered.map((br) => {
+                    const statusCfg = STATUS_CONFIG[br.status];
+                    const StatusIcon = statusCfg.icon;
+                    return (
+                      <div
+                        key={br.id}
+                        className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-xl p-4 hover:shadow-md hover:border-violet-300 dark:hover:border-violet-500/30 transition-all"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h4 className="font-bold text-sm text-slate-900 dark:text-white">{br.name}</h4>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                              <MapPin className="h-3 w-3" /> {br.city} • {br.code}
+                            </p>
+                          </div>
+                          <Badge className={cn("text-[10px] border-0", statusCfg.color)}>
+                            <StatusIcon className="h-3 w-3 mr-1" /> {statusCfg.label}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          <Users className="h-3 w-3" /> {br.manager}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mt-3 pt-2 border-t border-slate-100 dark:border-slate-700/50">
+                          <div>
+                            <p className="text-[10px] text-slate-400">Orders</p>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">{br.orders.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-slate-400">Revenue</p>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">{fmt(br.revenue)}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 mt-3">
+                          <Button size="sm" variant="outline" className="h-7 text-[11px] flex-1 gap-1">
+                            <Eye className="h-3 w-3" /> View
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-7 text-[11px] flex-1 gap-1">
+                            <Edit className="h-3 w-3" /> Edit
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* TAB: STAFF & ROLES                             */}
+      {/* ═══════════════════════════════════════════════ */}
+      {activeTab === "staff" && (
+        <div className="space-y-6">
+          {/* Roles Grid */}
+          <div>
+            <h3 className="font-bold text-slate-900 dark:text-white text-base mb-3 flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-violet-500" />
+              Franchise Roles
+            </h3>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {FRANCHISE_ROLES.map((role) => (
+                <div
+                  key={role.name}
+                  className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-xl p-4 hover:shadow-md transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={cn("p-2 rounded-lg bg-gradient-to-br text-white", role.color)}>
+                      <Shield className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-slate-900 dark:text-white">{role.name}</h4>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">{role.description}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px]">
+                      {role.level === "org" ? "Organization Level" : "Branch Level"}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Staff Table */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+                <Users className="h-5 w-5 text-blue-500" />
+                Staff Members (Spice Route Restaurants)
+              </h3>
+              <Button size="sm" className="gap-1.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white text-xs">
+                <UserPlus className="h-3.5 w-3.5" />
+                Add Staff
+              </Button>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-900/50">
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400">Name</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400">Email</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400">Role</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400">Branch Access</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400">Status</th>
+                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {MOCK_STAFF.map((s) => {
+                      const statusCfg = STATUS_CONFIG[s.status];
+                      const StatusIcon = statusCfg.icon;
+                      return (
+                        <tr
+                          key={s.id}
+                          className="border-t border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                        >
+                          <td className="py-3 px-4 font-medium text-slate-900 dark:text-white">{s.name}</td>
+                          <td className="py-3 px-4 text-slate-600 dark:text-slate-400 text-xs">{s.email}</td>
+                          <td className="py-3 px-4">
+                            <Badge variant="outline" className="text-[10px]">{s.role}</Badge>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex flex-wrap gap-1">
+                              {s.branchAccess.map((b) => (
+                                <Badge key={b} variant="secondary" className="text-[10px]">{b}</Badge>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <Badge className={cn("text-[10px] border-0", statusCfg.color)}>
+                              <StatusIcon className="h-3 w-3 mr-1" /> {statusCfg.label}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
+                                <Edit className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* TAB: FRANCHISE PLANS                           */}
+      {/* ═══════════════════════════════════════════════ */}
+      {activeTab === "plans" && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-amber-500" />
+              Franchise Subscription Plans
+            </h3>
+            <Button size="sm" className="gap-1.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white text-xs">
+              <Plus className="h-3.5 w-3.5" />
+              New Plan
+            </Button>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {MOCK_FRANCHISE_PLANS.map((plan) => (
+              <div
+                key={plan.id}
+                className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl overflow-hidden hover:shadow-lg transition-all group"
+              >
+                {/* Plan header gradient */}
+                <div className={cn("p-4 md:p-5 text-white relative overflow-hidden", `bg-gradient-to-br ${TIER_COLORS[plan.tier]}`)}>
+                  <div className="absolute top-2 right-2 opacity-20">
+                    <CreditCard className="h-10 w-10" />
+                  </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Badge className="bg-white/20 text-white border-0 text-[10px] font-bold">
+                      {plan.tier.toUpperCase()}
+                    </Badge>
+                    <Badge className={cn("border-0 text-[10px]", plan.isActive ? "bg-emerald-500/30 text-white" : "bg-red-500/30 text-white")}>
+                      {plan.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
+                  <h3 className="font-bold text-lg">{plan.name}</h3>
+                  <div className="mt-2">
+                    <span className="text-2xl font-bold">{fmt(plan.priceMonthly)}</span>
+                    <span className="text-sm text-white/60">/mo</span>
+                  </div>
+                  <p className="text-xs text-white/70 mt-0.5">
+                    or {fmt(plan.priceYearly)}/year (save {Math.round(100 - (plan.priceYearly / (plan.priceMonthly * 12)) * 100)}%)
+                  </p>
+                </div>
+
+                {/* Plan body */}
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-500 dark:text-slate-400">Max Branches</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{plan.maxBranches}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-500 dark:text-slate-400">Subscribers</span>
+                    <Badge variant="secondary" className="text-xs">{plan.subscriberCount}</Badge>
+                  </div>
+                  <div className="border-t border-slate-100 dark:border-slate-700/50 pt-3">
+                    <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-2">FEATURES:</p>
+                    <ul className="space-y-1.5">
+                      {plan.features.map((feat) => (
+                        <li key={feat} className="flex items-start gap-1.5 text-[11px] text-slate-600 dark:text-slate-400">
+                          <CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />
+                          {feat}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-[11px] flex-1 gap-1"
+                      onClick={() => setEditPlan(plan)}
+                    >
+                      <Edit className="h-3 w-3" /> Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-[11px] gap-1"
+                    >
+                      {plan.isActive ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Feature Matrix */}
+          <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5">
+            <h3 className="font-bold text-slate-900 dark:text-white text-base mb-4 flex items-center gap-2">
+              <Layers className="h-5 w-5 text-violet-500" />
+              Feature Comparison Matrix
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-700">
+                    <th className="text-left py-3 px-3 text-xs font-semibold text-slate-500 min-w-[200px]">Feature</th>
+                    {MOCK_FRANCHISE_PLANS.map((p) => (
+                      <th key={p.id} className="text-center py-3 px-3 text-xs font-semibold text-slate-500 min-w-[100px]">
+                        <Badge className={cn("text-white border-0 text-[10px]", `bg-gradient-to-r ${TIER_COLORS[p.tier]}`)}>{p.tier}</Badge>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { feat: "Max Branches", vals: ["2", "5", "10", "50"] },
+                    { feat: "Cross-Branch Reports", vals: ["Basic", "Advanced", "Real-time", "Real-time"] },
+                    { feat: "Inventory Transfer", vals: ["—", "✓", "✓", "✓"] },
+                    { feat: "Staff Roaming", vals: ["—", "✓", "✓", "✓"] },
+                    { feat: "Audit Trail", vals: ["—", "—", "✓", "✓"] },
+                    { feat: "API Access", vals: ["—", "—", "✓", "✓"] },
+                    { feat: "White-Label", vals: ["—", "—", "✓", "✓"] },
+                    { feat: "Custom Integrations", vals: ["—", "—", "—", "✓"] },
+                    { feat: "SLA Guarantee", vals: ["—", "—", "—", "99.9%"] },
+                    { feat: "On-Premise Option", vals: ["—", "—", "—", "✓"] },
+                    { feat: "Support", vals: ["Email", "Email + Chat", "Dedicated AM", "24/7 Phone"] },
+                  ].map((row) => (
+                    <tr key={row.feat} className="border-t border-slate-100 dark:border-slate-700/30 hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                      <td className="py-2.5 px-3 text-xs font-medium text-slate-700 dark:text-slate-300">{row.feat}</td>
+                      {row.vals.map((val, i) => (
+                        <td key={i} className="py-2.5 px-3 text-center text-xs">
+                          {val === "✓" ? (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-500 mx-auto" />
+                          ) : val === "—" ? (
+                            <span className="text-slate-300 dark:text-slate-600">—</span>
+                          ) : (
+                            <span className="text-slate-700 dark:text-slate-300 font-medium">{val}</span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* DIALOGS                                        */}
+      {/* ═══════════════════════════════════════════════ */}
+
+      {/* Detail Dialog */}
+      <Dialog open={detailDialog} onOpenChange={setDetailDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-violet-500" />
+              {selectedFranchise?.name}
+            </DialogTitle>
+            <DialogDescription>Full franchise organization details</DialogDescription>
+          </DialogHeader>
+          {selectedFranchise && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: "Owner", value: selectedFranchise.ownerName, icon: Crown },
+                  { label: "Email", value: selectedFranchise.ownerEmail, icon: Mail },
+                  { label: "Phone", value: selectedFranchise.ownerPhone, icon: Phone },
+                  { label: "Plan", value: selectedFranchise.plan, icon: CreditCard },
+                  { label: "Branches", value: `${selectedFranchise.branches}/${selectedFranchise.maxBranches}`, icon: GitBranch },
+                  { label: "Revenue", value: fmt(selectedFranchise.revenue), icon: IndianRupee },
+                  { label: "GST", value: selectedFranchise.gstNumber, icon: FileText },
+                  { label: "FSSAI", value: selectedFranchise.fssaiNumber || "—", icon: ShieldCheck },
+                  { label: "Location", value: `${selectedFranchise.city}, ${selectedFranchise.state}`, icon: MapPin },
+                  { label: "Since", value: new Date(selectedFranchise.createdAt).toLocaleDateString("en-IN"), icon: Calendar },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <div key={item.label} className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3">
+                      <p className="text-[10px] text-slate-400 flex items-center gap-1 mb-0.5">
+                        <Icon className="h-3 w-3" /> {item.label}
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{item.value}</p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Branches under this org */}
+              <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
+                <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">BRANCHES</h4>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {MOCK_BRANCHES.filter((b) => b.orgId === selectedFranchise.id).map((br) => {
+                    const statusCfg = STATUS_CONFIG[br.status];
+                    return (
+                      <div key={br.id} className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 rounded-lg p-2.5">
+                        <div>
+                          <p className="text-xs font-medium text-slate-900 dark:text-white">{br.name}</p>
+                          <p className="text-[10px] text-slate-500">{br.city} • {br.code}</p>
+                        </div>
+                        <Badge className={cn("text-[10px] border-0", statusCfg.color)}>{statusCfg.label}</Badge>
+                      </div>
+                    );
+                  })}
+                  {MOCK_BRANCHES.filter((b) => b.orgId === selectedFranchise.id).length === 0 && (
+                    <p className="text-xs text-slate-400 italic">No branches configured yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Franchise Dialog */}
+      <Dialog open={editDialog} onOpenChange={setEditDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5 text-violet-500" />
+              Edit Franchise
+            </DialogTitle>
+            <DialogDescription>Update franchise organization details</DialogDescription>
+          </DialogHeader>
+          {editData && (
+            <div className="space-y-4">
+              <div className="grid gap-3 grid-cols-2">
+                <div className="col-span-2">
+                  <Label className="text-xs">Organization Name</Label>
+                  <Input
+                    className="mt-1 bg-slate-50 dark:bg-slate-900"
+                    value={editData.name}
+                    onChange={(e) => setEditData((d) => d ? { ...d, name: e.target.value } : d)}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Owner Name</Label>
+                  <Input
+                    className="mt-1 bg-slate-50 dark:bg-slate-900"
+                    value={editData.ownerName}
+                    onChange={(e) => setEditData((d) => d ? { ...d, ownerName: e.target.value } : d)}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Owner Email</Label>
+                  <Input
+                    className="mt-1 bg-slate-50 dark:bg-slate-900"
+                    value={editData.ownerEmail}
+                    onChange={(e) => setEditData((d) => d ? { ...d, ownerEmail: e.target.value } : d)}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Phone</Label>
+                  <Input
+                    className="mt-1 bg-slate-50 dark:bg-slate-900"
+                    value={editData.ownerPhone}
+                    onChange={(e) => setEditData((d) => d ? { ...d, ownerPhone: e.target.value } : d)}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Status</Label>
+                  <Select
+                    value={editData.status}
+                    onValueChange={(v: any) => setEditData((d) => d ? { ...d, status: v } : d)}
+                  >
+                    <SelectTrigger className="mt-1 bg-slate-50 dark:bg-slate-900">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="trial">Trial</SelectItem>
+                      <SelectItem value="suspended">Suspended</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Plan</Label>
+                  <Select
+                    value={editData.plan}
+                    onValueChange={(v) => setEditData((d) => d ? { ...d, plan: v } : d)}
+                  >
+                    <SelectTrigger className="mt-1 bg-slate-50 dark:bg-slate-900">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MOCK_FRANCHISE_PLANS.map((p) => (
+                        <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Max Branches</Label>
+                  <Input
+                    type="number"
+                    className="mt-1 bg-slate-50 dark:bg-slate-900"
+                    value={editData.maxBranches}
+                    onChange={(e) => setEditData((d) => d ? { ...d, maxBranches: parseInt(e.target.value) || 0 } : d)}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">GST Number</Label>
+                  <Input
+                    className="mt-1 bg-slate-50 dark:bg-slate-900"
+                    value={editData.gstNumber}
+                    onChange={(e) => setEditData((d) => d ? { ...d, gstNumber: e.target.value } : d)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialog(false)}>Cancel</Button>
+            <Button
+              className="bg-gradient-to-r from-violet-600 to-purple-600 text-white gap-2"
+              onClick={() => {
+                toast.success("Franchise updated!", { description: editData?.name });
+                setEditDialog(false);
+              }}
+            >
+              <Save className="h-4 w-4" />
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Plan Dialog */}
+      <Dialog open={!!editPlan} onOpenChange={(o) => !o && setEditPlan(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-amber-500" />
+              Edit Plan
+            </DialogTitle>
+            <DialogDescription>Modify franchise subscription plan</DialogDescription>
+          </DialogHeader>
+          {editPlan && (
+            <div className="space-y-4">
+              <div className="grid gap-3 grid-cols-2">
+                <div className="col-span-2">
+                  <Label className="text-xs">Plan Name</Label>
+                  <Input className="mt-1 bg-slate-50 dark:bg-slate-900" value={editPlan.name} readOnly />
+                </div>
+                <div>
+                  <Label className="text-xs">Monthly Price (₹)</Label>
+                  <Input
+                    type="number"
+                    className="mt-1 bg-slate-50 dark:bg-slate-900"
+                    value={editPlan.priceMonthly}
+                    onChange={(e) => setEditPlan((p) => p ? { ...p, priceMonthly: parseInt(e.target.value) || 0 } : p)}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Yearly Price (₹)</Label>
+                  <Input
+                    type="number"
+                    className="mt-1 bg-slate-50 dark:bg-slate-900"
+                    value={editPlan.priceYearly}
+                    onChange={(e) => setEditPlan((p) => p ? { ...p, priceYearly: parseInt(e.target.value) || 0 } : p)}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Max Branches</Label>
+                  <Input
+                    type="number"
+                    className="mt-1 bg-slate-50 dark:bg-slate-900"
+                    value={editPlan.maxBranches}
+                    onChange={(e) => setEditPlan((p) => p ? { ...p, maxBranches: parseInt(e.target.value) || 0 } : p)}
+                  />
+                </div>
+                <div className="flex items-center gap-2 pt-4">
+                  <Switch checked={editPlan.isActive} onCheckedChange={(v) => setEditPlan((p) => p ? { ...p, isActive: v } : p)} />
+                  <Label className="text-xs">Plan Active</Label>
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Features (one per line)</Label>
+                <Textarea
+                  className="mt-1 bg-slate-50 dark:bg-slate-900 min-h-[120px]"
+                  value={editPlan.features.join("\n")}
+                  onChange={(e) => setEditPlan((p) => p ? { ...p, features: e.target.value.split("\n").filter(Boolean) } : p)}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditPlan(null)}>Cancel</Button>
+            <Button
+              className="bg-gradient-to-r from-amber-600 to-orange-600 text-white gap-2"
+              onClick={() => {
+                toast.success("Plan updated!", { description: editPlan?.name });
+                setEditPlan(null);
+              }}
+            >
+              <Save className="h-4 w-4" />
+              Save Plan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default FranchiseAdmin;

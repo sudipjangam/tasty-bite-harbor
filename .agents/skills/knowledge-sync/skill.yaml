@@ -1,0 +1,20 @@
+id: "workspace-docs-sync"
+name: "Project Knowledge Synchronizer"
+description: "Locks the local docs directory into the agent's memory cache to prevent context loss regarding project layout and components."
+version: "1.0.0"
+
+# This forces the agent to read and cache these files automatically on start
+activation:
+  always_on: true
+  trigger_phrase: "/sync" # Shortcut command you can type in the chat panel
+
+# Explicitly mapping your existing markdown docs to the agent's context window
+resources:
+  - name: codebase_catalog
+    path: "./docs/CODEBASE_CATALOG.md"
+  - name: component_details
+    path: "./docs/COMPONENTS_DETAILS.md"
+  - name: file_reference_map
+    path: "./docs/FILE_REFERENCE_MAP.md"
+  - name: franchise_migration
+    path: "./docs/franchise_migration_analysis.md"

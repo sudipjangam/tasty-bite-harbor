@@ -18,6 +18,7 @@ import {
   X,
   Shield,
   MessageCircle,
+  GitBranch,
 } from "lucide-react";
 
 interface NavItem {
@@ -45,6 +46,12 @@ const navItems: NavItem[] = [
     href: "/platform/subscriptions",
     icon: CreditCard,
     description: "Plans & billing",
+  },
+  {
+    title: "Franchises",
+    href: "/platform/franchise-admin",
+    icon: GitBranch,
+    description: "Onboarding & plans",
   },
   {
     title: "Feature Permissions",
