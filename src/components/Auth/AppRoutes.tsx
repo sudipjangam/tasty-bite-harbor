@@ -85,6 +85,9 @@ const SubscriptionManager = lazy(
 const FeaturePermissions = lazy(
   () => import("@/pages/Platform/FeaturePermissions"),
 );
+const FranchiseAdmin = lazy(
+  () => import("@/pages/Platform/FranchiseAdmin"),
+);
 const AllUsers = lazy(() => import("@/pages/Platform/AllUsers"));
 const PlatformAnalytics = lazy(
   () => import("@/pages/Platform/PlatformAnalytics"),
@@ -533,6 +536,14 @@ export const AppRoutes = () => {
               element={
                 <LazyRoute>
                   <SubscriptionManager />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="franchise-admin"
+              element={
+                <LazyRoute>
+                  <FranchiseAdmin />
                 </LazyRoute>
               }
             />
