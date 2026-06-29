@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { User, Phone, Star, Gift, UserPlus, Loader2, RotateCcw, ChevronDown, ChevronRight } from "lucide-react";
+import { User, Phone, Star, Gift, UserPlus, Loader2, RotateCcw, ChevronDown, ChevronRight, Lock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
@@ -255,13 +255,31 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
       </p>
       <div className="flex gap-2">
         <div className="relative flex-1">
-          <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-orange-400/60 dark:text-orange-500/40" />
-          <Input
-            placeholder="Name"
-            value={customerName}
-            onChange={(e) => onNameChange(e.target.value)}
-            className="pl-8 bg-white/70 dark:bg-white/5 backdrop-blur-sm border-gray-200/50 dark:border-white/[0.08] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/20 h-9 rounded-xl text-xs focus:border-orange-300 dark:focus:border-orange-500/40 focus:ring-orange-400/20 transition-all"
-          />
+          {/* Lock icon when name disabled, user icon otherwise */}
+          {(() => {
+            // Name locked: as soon as phone has digits, until lookup confirms NEW customer
+            const nameDisabled = customerPhone.length > 0 && (!lookupDone || isSearching || !!foundCustomer);
+            return (
+              <>
+                {nameDisabled ? (
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400/60 dark:text-white/20" />
+                ) : (
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-orange-400/60 dark:text-orange-500/40" />
+                )}
+                <Input
+                  placeholder={isSearching ? "Looking up..." : customerPhone.length > 0 && !lookupDone ? "Enter 10-digit phone first" : "Name"}
+                  value={customerName}
+                  onChange={(e) => onNameChange(e.target.value)}
+                  disabled={nameDisabled}
+                  className={cn(
+                    "pl-8 bg-white/70 dark:bg-white/5 backdrop-blur-sm border-gray-200/50 dark:border-white/[0.08] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/20 h-9 rounded-xl text-xs focus:border-orange-300 dark:focus:border-orange-500/40 focus:ring-orange-400/20 transition-all",
+                    nameDisabled && "opacity-60 cursor-not-allowed bg-gray-100/80 dark:bg-white/[0.03]",
+                    lookupDone && foundCustomer && "border-green-300/60 dark:border-green-500/30",
+                  )}
+                />
+              </>
+            );
+          })()}
         </div>
         <div className="relative flex-1">
           <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-orange-400/60 dark:text-orange-500/40" />
