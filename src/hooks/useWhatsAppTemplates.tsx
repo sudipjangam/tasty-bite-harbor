@@ -100,11 +100,13 @@ export const useWhatsAppTemplates = () => {
         console.error("Error fetching templates:", error);
         return [];
       }
-      return (data || []).map((t: any) => ({
-        ...t,
-        variables: t.variables || [],
-        buttons: t.buttons || [],
-      })) as WhatsAppTemplate[];
+      return (data || [])
+        .map((t: any) => ({
+          ...t,
+          variables: t.variables || [],
+          buttons: t.buttons || [],
+        }))
+        .filter((t: any) => !t.is_default) as WhatsAppTemplate[];
     },
     enabled: !!restaurantId,
   });
