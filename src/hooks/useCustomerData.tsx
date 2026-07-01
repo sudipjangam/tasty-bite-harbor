@@ -112,111 +112,51 @@ export const useCustomerData = () => {
         return [];
       }
 
-      // STEP 2: Batch fetch ALL orders, room_food_orders, and reservations for this restaurant
-      // This is 3 queries total instead of 3*N queries!
-      const [ordersResult, roomOrdersResult, reservationsResult] =
+      // STEP 2: Fetch Walk-in stats directly
+      const [walkInOrdersResult, walkInRoomOrdersResult, walkInReservationsResult] =
         await Promise.all([
           supabase
             .from("orders")
-            .select("customer_name, total, created_at")
-            .eq("restaurant_id", restaurantId),
+            .select("total, created_at")
+            .eq("restaurant_id", restaurantId)
+            .or("customer_name.is.null,customer_name.eq.,customer_name.ilike.%walk%"),
           supabase
             .from("room_food_orders")
-            .select("customer_name, total, created_at")
-            .eq("restaurant_id", restaurantId),
+            .select("total, created_at")
+            .eq("restaurant_id", restaurantId)
+            .or("customer_name.is.null,customer_name.eq.,customer_name.ilike.%walk%"),
           supabase
             .from("reservations")
-            .select("customer_name, created_at")
-            .eq("restaurant_id", restaurantId),
+            .select("created_at")
+            .eq("restaurant_id", restaurantId)
+            .or("customer_name.is.null,customer_name.eq.,customer_name.ilike.%walk%"),
         ]);
 
-      // Create lookup maps for efficient O(1) access by customer name
-      const ordersByCustomer = new Map<
-        string,
-        Array<{ total: number; created_at: string }>
-      >();
-      const roomOrdersByCustomer = new Map<
-        string,
-        Array<{ total: number; created_at: string }>
-      >();
-      const reservationsByCustomer = new Map<
-        string,
-        Array<{ created_at: string }>
-      >();
+      const walkInDates: number[] = [];
+      let walkInTotalSpent = 0;
+      let walkInVisitCount = 0;
 
-      // Populate orders map (case-insensitive keys)
-      (ordersResult.data || []).forEach((order) => {
-        const name = (order.customer_name || "").toLowerCase();
-        if (!ordersByCustomer.has(name)) {
-          ordersByCustomer.set(name, []);
-        }
-        ordersByCustomer.get(name)!.push({
-          total: Number(order.total) || 0,
-          created_at: order.created_at,
-        });
+      (walkInOrdersResult.data || []).forEach((o) => {
+        walkInTotalSpent += Number(o.total) || 0;
+        walkInVisitCount++;
+        walkInDates.push(new Date(o.created_at).getTime());
       });
 
-      // Populate room orders map (case-insensitive keys)
-      (roomOrdersResult.data || []).forEach((order) => {
-        const name = (order.customer_name || "").toLowerCase();
-        if (!roomOrdersByCustomer.has(name)) {
-          roomOrdersByCustomer.set(name, []);
-        }
-        roomOrdersByCustomer.get(name)!.push({
-          total: Number(order.total) || 0,
-          created_at: order.created_at,
-        });
+      (walkInRoomOrdersResult.data || []).forEach((o) => {
+        walkInTotalSpent += Number(o.total) || 0;
+        walkInVisitCount++;
+        walkInDates.push(new Date(o.created_at).getTime());
       });
 
-      // Populate reservations map (case-insensitive keys)
-      (reservationsResult.data || []).forEach((res) => {
-        const name = (res.customer_name || "").toLowerCase();
-        if (!reservationsByCustomer.has(name)) {
-          reservationsByCustomer.set(name, []);
-        }
-        reservationsByCustomer.get(name)!.push({
-          created_at: res.created_at,
-        });
+      (walkInReservationsResult.data || []).forEach((r) => {
+        walkInVisitCount++;
+        walkInDates.push(new Date(r.created_at).getTime());
       });
 
-      // STEP 3: Enrich customers using the pre-fetched data (in-memory processing)
+      const walkInLastVisit = walkInDates.length > 0 ? new Date(Math.max(...walkInDates)).toISOString() : null;
+
+      // STEP 3: Map registered customers using database values directly
       const enrichedCustomers = customersData.map((customer) => {
-        const nameKey = customer.name.toLowerCase();
-        const customerOrders = ordersByCustomer.get(nameKey) || [];
-        const customerRoomOrders = roomOrdersByCustomer.get(nameKey) || [];
-        const customerReservations = reservationsByCustomer.get(nameKey) || [];
-
-        // Combine all orders
-        const allOrders = [
-          ...customerOrders.map((o) => ({
-            total: o.total,
-            date: o.created_at,
-          })),
-          ...customerRoomOrders.map((o) => ({
-            total: o.total,
-            date: o.created_at,
-          })),
-        ];
-
-        // Calculate metrics
-        const totalSpent = allOrders.reduce(
-          (sum, order) => sum + order.total,
-          0,
-        );
-        const visitCount = allOrders.length + customerReservations.length;
-        const averageOrderValue = visitCount > 0 ? totalSpent / visitCount : 0;
-
-        // Find most recent interaction date
-        const allDates = [
-          ...allOrders.map((o) => new Date(o.date).getTime()),
-          ...customerReservations.map((r) => new Date(r.created_at).getTime()),
-        ];
-
-        const lastVisitDate =
-          allDates.length > 0
-            ? new Date(Math.max(...allDates)).toISOString()
-            : customer.last_visit_date;
-
         return {
           id: customer.id,
           name: customer.name,
@@ -228,53 +168,18 @@ export const useCustomerData = () => {
           restaurant_id: customer.restaurant_id,
           loyalty_points: customer.loyalty_points || 0,
           loyalty_tier: calculateLoyaltyTierFromDB(
-            totalSpent,
-            visitCount,
+            customer.total_spent || 0,
+            customer.visit_count || 0,
             customer.loyalty_points || 0,
           ),
           tags: customer.tags || [],
           preferences: customer.preferences || null,
-          last_visit_date: lastVisitDate || null,
-          total_spent: totalSpent,
-          visit_count: visitCount,
-          average_order_value: averageOrderValue,
+          last_visit_date: customer.last_visit_date || null,
+          total_spent: customer.total_spent || 0,
+          visit_count: customer.visit_count || 0,
+          average_order_value: customer.average_order_value || 0,
         };
       });
-
-      // Find Walk-in stats by searching unmapped orders
-      const registeredNames = new Set(customersData.map((c) => c.name.toLowerCase()));
-      let walkInTotalSpent = 0;
-      let walkInVisitCount = 0;
-      let walkInDates: number[] = [];
-
-      ordersByCustomer.forEach((orders, name) => {
-        if (!name || !registeredNames.has(name) || name.includes("walk")) {
-          orders.forEach((o) => {
-            walkInTotalSpent += o.total;
-            walkInVisitCount++;
-            walkInDates.push(new Date(o.created_at).getTime());
-          });
-        }
-      });
-
-      roomOrdersByCustomer.forEach((orders, name) => {
-        if (!name || !registeredNames.has(name) || name.includes("walk")) {
-          orders.forEach((o) => {
-            walkInTotalSpent += o.total;
-            walkInVisitCount++;
-            walkInDates.push(new Date(o.created_at).getTime());
-          });
-        }
-      });
-
-      reservationsByCustomer.forEach((res, name) => {
-        if (!name || !registeredNames.has(name) || name.includes("walk")) {
-          walkInVisitCount += res.length;
-          res.forEach((r) => walkInDates.push(new Date(r.created_at).getTime()));
-        }
-      });
-
-      const walkInLastVisit = walkInDates.length > 0 ? new Date(Math.max(...walkInDates)).toISOString() : null;
 
       if (walkInVisitCount > 0) {
         enrichedCustomers.push({
