@@ -411,7 +411,7 @@ export const useWhatsAppTemplates = () => {
 
       toast({
         title: "Synced ✅",
-        description: `Found ${data?.totalFromMsg91 || 0} templates from Meta. ${inserted ? `${inserted} imported, ` : ""}${updated ? `${updated} updated.` : "All up to date."}`,
+        description: `Found ${data?.totalFromMeta || data?.totalFromMsg91 || 0} templates from Meta. ${inserted ? `${inserted} imported, ` : ""}${updated ? `${updated} updated.` : "All up to date."}`,
       });
       return data;
     } catch (err) {

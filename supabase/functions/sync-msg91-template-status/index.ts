@@ -35,82 +35,117 @@ serve(async (req) => {
       );
     }
 
-    const MSG91_AUTH_KEY = Deno.env.get("MSG91_AUTH_KEY");
-    const MSG91_INTEGRATED_NUMBER = Deno.env.get("MSG91_INTEGRATED_NUMBER") || "918329540398";
+    // Meta Cloud API credentials
+    const WHATSAPP_ACCESS_TOKEN = Deno.env.get("WHATSAPP_ACCESS_TOKEN");
+    const WHATSAPP_PHONE_NUMBER_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID");
 
-    if (!MSG91_AUTH_KEY) {
-      throw new Error("Missing MSG91_AUTH_KEY");
+    if (!WHATSAPP_ACCESS_TOKEN) {
+      throw new Error("Missing WHATSAPP_ACCESS_TOKEN secret");
     }
 
-    // Optional: filter by specific template name
+    // Read request body
     const body = await req.json().catch(() => ({}));
-    const { templateName, restaurantId } = body;
+    const { restaurantId } = body;
 
-    // Fetch template statuses from MSG91
-    let url = `https://control.msg91.com/api/v5/whatsapp/get-template-client/${MSG91_INTEGRATED_NUMBER}`;
-    if (templateName) {
-      url += `?template_name=${encodeURIComponent(templateName)}`;
-    }
-
-    console.log("Fetching MSG91 template statuses:", url);
-
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        authkey: MSG91_AUTH_KEY,
-      },
-    });
-
-    const rawText = await response.text();
-    console.log("MSG91 get-templates response:", response.status, rawText.substring(0, 500));
-
-    let data;
-    try {
-      data = JSON.parse(rawText);
-    } catch {
-      throw new Error(`MSG91 returned non-JSON: ${rawText}`);
-    }
-
-    if (!response.ok) {
-      return new Response(
-        JSON.stringify({ success: false, error: data, status: response.status }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-      );
-    }
-
-    // Parse the templates and update status in our DB
-    // MSG91 returns templates with status like "APPROVED", "PENDING", "REJECTED"
-    const msg91Templates = Array.isArray(data) ? data : (data?.data || data?.templates || []);
-    const updates: any[] = [];
-
-    // Use service role to update any restaurant's templates
+    // Use service role for DB writes
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    for (const mt of msg91Templates) {
-      const msg91Status = (mt.status || "").toUpperCase();
-      const templateSlug = mt.name || mt.template_name;
-      
+    // Resolve WABA ID from phone number ID if not directly available.
+    // Meta Graph API: GET /{phone-number-id}?fields=whatsapp_business_account
+    // Then GET /{waba-id}/message_templates to list templates.
+    let wabaId: string | null = null;
+
+    // Step 1: Get WABA ID from Phone Number ID
+    const phoneInfoUrl = `https://graph.facebook.com/v23.0/${WHATSAPP_PHONE_NUMBER_ID}?fields=whatsapp_business_account`;
+    console.log("Fetching WABA ID from:", phoneInfoUrl);
+
+    const phoneInfoResp = await fetch(phoneInfoUrl, {
+      headers: { Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}` },
+    });
+    const phoneInfoText = await phoneInfoResp.text();
+    console.log("Phone info response:", phoneInfoResp.status, phoneInfoText.substring(0, 300));
+
+    let phoneInfo: any = {};
+    try {
+      phoneInfo = JSON.parse(phoneInfoText);
+    } catch {
+      console.error("Failed to parse phone info:", phoneInfoText);
+    }
+
+    wabaId = phoneInfo?.whatsapp_business_account?.id || null;
+
+    if (!wabaId) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Could not resolve WhatsApp Business Account ID from phone number ID",
+          phoneInfo,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
+
+    console.log("WABA ID:", wabaId);
+
+    // Step 2: Fetch all templates from Meta
+    const templatesUrl = `https://graph.facebook.com/v23.0/${wabaId}/message_templates?limit=100&fields=name,status,category,language,components`;
+    console.log("Fetching templates from:", templatesUrl);
+
+    const templatesResp = await fetch(templatesUrl, {
+      headers: { Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}` },
+    });
+    const templatesText = await templatesResp.text();
+    console.log("Templates response:", templatesResp.status, templatesText.substring(0, 500));
+
+    if (!templatesResp.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: `Meta API error: ${templatesText}` }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
+
+    let templatesData: any = {};
+    try {
+      templatesData = JSON.parse(templatesText);
+    } catch {
+      throw new Error(`Meta API returned non-JSON: ${templatesText}`);
+    }
+
+    const metaTemplates: any[] = templatesData?.data || [];
+    console.log(`Found ${metaTemplates.length} templates from Meta`);
+
+    const updates: any[] = [];
+
+    for (const mt of metaTemplates) {
+      const templateSlug = mt.name;
+      const metaStatus = (mt.status || "").toUpperCase();
+
       if (!templateSlug) continue;
 
-      // Map MSG91 status to our status
+      // Map Meta status to our status
       let ourStatus: string | null = null;
-      if (msg91Status === "APPROVED" || msg91Status === "ENABLED") {
+      if (metaStatus === "APPROVED") {
         ourStatus = "meta_approved";
-      } else if (msg91Status === "REJECTED" || msg91Status === "DISABLED") {
+      } else if (metaStatus === "REJECTED" || metaStatus === "DISABLED") {
         ourStatus = "meta_rejected";
-      } else if (msg91Status === "PENDING" || msg91Status === "IN_REVIEW") {
+      } else if (metaStatus === "PENDING" || metaStatus === "IN_APPEAL" || metaStatus === "PENDING_DELETION") {
         ourStatus = "meta_pending";
+      } else if (metaStatus === "DRAFT") {
+        ourStatus = "draft";
       }
 
-      if (!ourStatus) continue;
+      if (!ourStatus) {
+        console.log(`Skipping template ${templateSlug} with unknown status ${metaStatus}`);
+        continue;
+      }
 
       // Check if template already exists in DB
       let existsQuery = supabaseAdmin
         .from("whatsapp_templates")
-        .select("id")
+        .select("id, status")
         .eq("name", templateSlug);
 
       if (restaurantId) {
@@ -122,7 +157,7 @@ serve(async (req) => {
       if (!existingRows || existingRows.length === 0) {
         // Template exists in Meta but NOT in our DB — insert it
         if (!restaurantId) {
-          console.warn(`Skipping upsert for ${templateSlug}: no restaurantId provided`);
+          console.warn(`Skipping insert for ${templateSlug}: no restaurantId provided`);
           continue;
         }
 
@@ -131,7 +166,6 @@ serve(async (req) => {
           .replace(/_/g, " ")
           .replace(/\b\w/g, (c: string) => c.toUpperCase());
 
-        // Detect category from Meta data
         const metaCategory = (mt.category || "UTILITY").toUpperCase();
 
         // Extract body text from Meta template components
@@ -139,27 +173,21 @@ serve(async (req) => {
         const bodyComponent = (mt.components || []).find(
           (c: any) => c.type === "BODY"
         );
-        if (bodyComponent) {
-          bodyText = bodyComponent.text || "";
-        }
+        if (bodyComponent) bodyText = bodyComponent.text || "";
 
-        // Extract header text
-        let headerText = null;
+        // Extract header
+        let headerText: string | null = null;
         const headerComponent = (mt.components || []).find(
           (c: any) => c.type === "HEADER" && c.format === "TEXT"
         );
-        if (headerComponent) {
-          headerText = headerComponent.text || null;
-        }
+        if (headerComponent) headerText = headerComponent.text || null;
 
-        // Extract footer text
-        let footerText = null;
+        // Extract footer
+        let footerText: string | null = null;
         const footerComponent = (mt.components || []).find(
           (c: any) => c.type === "FOOTER"
         );
-        if (footerComponent) {
-          footerText = footerComponent.text || null;
-        }
+        if (footerComponent) footerText = footerComponent.text || null;
 
         // Extract buttons
         const buttonComponent = (mt.components || []).find(
@@ -167,7 +195,7 @@ serve(async (req) => {
         );
         const buttons = buttonComponent?.buttons || [];
 
-        // Build variables from body placeholders {{1}}, {{2}}, etc
+        // Build variables array from {{1}}, {{2}} placeholders in body
         const varMatches = bodyText.match(/\{\{(\d+)\}\}/g) || [];
         const variables = [...new Set(varMatches)].map((v: string) => {
           const pos = parseInt(v.replace(/[{}]/g, ""));
@@ -199,13 +227,13 @@ serve(async (req) => {
           updates.push({ template: templateSlug, status: ourStatus, action: "inserted" });
         }
       } else {
-        // Template exists — update its status
+        // Template exists — update its status from Meta
         const { error: updateError } = await supabaseAdmin
           .from("whatsapp_templates")
           .update({
             status: ourStatus,
             meta_response: mt,
-            admin_notes: `Meta status: ${msg91Status} (synced ${new Date().toISOString()})`,
+            admin_notes: `Meta status: ${metaStatus} (synced ${new Date().toISOString()})`,
             updated_at: new Date().toISOString(),
           })
           .eq("id", existingRows[0].id);
@@ -218,19 +246,20 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Synced ${updates.length} template statuses`);
+    console.log(`Processed ${updates.length} templates`);
 
     return new Response(
       JSON.stringify({
         success: true,
         synced: updates.length,
         updates,
-        totalFromMsg91: msg91Templates.length,
+        totalFromMeta: metaTemplates.length,
+        wabaId,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
   } catch (error) {
-    console.error("Error in sync-msg91-template-status:", error);
+    console.error("Error in sync-meta-templates:", error);
     return new Response(
       JSON.stringify({
         success: false,
