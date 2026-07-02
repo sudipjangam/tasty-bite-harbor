@@ -6,6 +6,26 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Smart variable resolver: maps template name → ordered list of variable names
+// When variables arrive as a named object { customer_name: "X" }, this mapping
+// ensures they are converted to the correct positional order for {{1}}, {{2}}, etc.
+const TEMPLATE_VAR_MAPS: Record<string, string[]> = {
+  "invoice_with_contact": ["customer_name", "restaurant_name", "amount", "order_date", "contact_number"],
+  "invoice_with_review": ["customer_name", "restaurant_name", "amount", "order_date", "contact_number"],
+  "loyalty_points_earned_notification": ["customer_name", "restaurant_name", "order_date", "amount", "discount_code", "contact_number"],
+  "subscription_confirmation": ["customer_name", "restaurant_name"],
+  "subscription_special_offer": ["customer_name", "amount"],
+  "order_completed": ["customer_name", "restaurant_name", "amount"],
+  "order_preparing": ["customer_name", "restaurant_name"],
+  "order_ready": ["customer_name", "restaurant_name"],
+  "qr_order_created": ["customer_name", "restaurant_name", "amount"],
+  "points_expiry_warning": ["customer_name", "amount", "order_date"],
+  "welcome_message": ["customer_name", "restaurant_name"],
+  "reservation_confirmed": ["customer_name", "restaurant_name", "order_date"],
+  "reservation_reminder": ["customer_name", "restaurant_name", "order_date"],
+  "hello_world": [],
+};
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -78,18 +98,67 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      // Positional numbered params:
-      // {{1}}=customer_name, {{2}}=restaurant_name, {{3}}=amount,
-      // {{4}}=order_date, {{5}}=google_review_url
-      const positionalValues = variables
-        ? Object.values(variables).map((v: any) => String(v || "-"))
-        : [
-            customerName || "Customer",
-            restaurantName || "Restaurant",
-            amount || "-",
-            billDate || new Date().toLocaleDateString("en-IN"),
-            googleReviewUrl || "-",
-          ];
+      // Smart variable resolution:
+      // 1. If variables is an array of { position, value } → use directly (from new campaign hook)
+      // 2. If variables is an object with positional keys ("1", "2", ...) → sort by key and use values
+      // 3. If variables is a named object { customer_name: "X" } → use template mapping to order
+      // 4. Fallback: legacy positional defaults
+      let positionalValues: string[] = [];
+
+      if (variables) {
+        const varKeys = Object.keys(variables);
+        const allNumericKeys = varKeys.length > 0 && varKeys.every(k => /^\d+$/.test(k));
+
+        if (allNumericKeys) {
+          // Case 2: Positional keys like { "1": "John", "2": "Restaurant" }
+          positionalValues = varKeys
+            .sort((a, b) => parseInt(a) - parseInt(b))
+            .map(k => String(variables[k] || "-"));
+        } else {
+          // Case 3: Named keys like { customer_name: "John" }
+          // Look up template variable ordering from DB first, then fallback to hardcoded map
+          let varOrder: string[] | null = null;
+
+          // Try DB lookup
+          if (restaurantId) {
+            const { data: templateDef } = await supabase
+              .from("whatsapp_templates")
+              .select("variables")
+              .eq("name", usedTemplateName)
+              .eq("restaurant_id", restaurantId)
+              .maybeSingle();
+            if (templateDef?.variables && Array.isArray(templateDef.variables)) {
+              varOrder = (templateDef.variables as any[])
+                .sort((a: any, b: any) => (a.position || 0) - (b.position || 0))
+                .map((v: any) => v.name);
+            }
+          }
+
+          // Fallback to hardcoded map
+          if (!varOrder) {
+            varOrder = TEMPLATE_VAR_MAPS[usedTemplateName] || null;
+          }
+
+          if (varOrder) {
+            positionalValues = varOrder.map(name => String(variables[name] || "-"));
+          } else {
+            // Last resort: just use values in insertion order
+            console.warn(`[unified] No variable mapping found for template: ${usedTemplateName}, using insertion order`);
+            positionalValues = Object.values(variables).map((v: any) => String(v || "-"));
+          }
+        }
+      } else {
+        // No variables provided — use legacy defaults
+        positionalValues = [
+          customerName || "Customer",
+          restaurantName || "Restaurant",
+          amount || "-",
+          billDate || new Date().toLocaleDateString("en-IN"),
+          googleReviewUrl || "-",
+        ];
+      }
+
+      console.log(`[unified] Resolved ${positionalValues.length} positional values for template ${usedTemplateName}:`, positionalValues);
 
       const bodyParams = positionalValues.map((val) => ({
         type: "text",
@@ -148,7 +217,7 @@ Deno.serve(async (req: Request) => {
         const payload = buildMetaPayload(langCode);
         console.log(`[meta] Sending with lang=${langCode}:`, JSON.stringify(payload));
         const res = await fetch(
-          `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+          `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`,
           {
             method: "POST",
             headers: {
@@ -191,7 +260,14 @@ Deno.serve(async (req: Request) => {
       if (!metaRes.ok) {
         console.error("[meta] Error:", JSON.stringify(metaData));
         return new Response(
-          JSON.stringify({ success: false, error: metaData.error?.message || "Meta API error", details: metaData }),
+          JSON.stringify({
+            success: false,
+            error: metaData.error?.message || "Meta API error",
+            details: metaData,
+            template: usedTemplateName,
+            variableCount: positionalValues.length,
+            language: templateLanguage,
+          }),
           { status: metaRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

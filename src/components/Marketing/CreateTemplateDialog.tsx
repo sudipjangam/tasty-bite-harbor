@@ -607,6 +607,27 @@ const CreateTemplateDialog: React.FC<CreateTemplateDialogProps> = ({
                   {form.body.length}/1024
                 </p>
               </div>
+              {/* Meta MARKETING variable position warning */}
+              {form.category === "MARKETING" && form.body && (() => {
+                const bodyTrimmed = form.body.trim();
+                const strippedLeading = bodyTrimmed.replace(/^(Hi|Hey|Hello|Dear|Namaste)[,!]?\s*/i, "");
+                const strippedTrailing = bodyTrimmed.replace(/[.!?\s]+$/, "");
+                const hasLeadingVar = strippedLeading.startsWith("{{");
+                const hasTrailingVar = /\{\{\w+\}\}$/.test(strippedTrailing);
+                if (hasLeadingVar || hasTrailingVar) {
+                  return (
+                    <div className="mt-1.5 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-[11px] text-red-600 dark:text-red-400 font-medium flex items-start gap-2">
+                      <span className="text-red-500 mt-0.5">⚠️</span>
+                      <span>
+                        <strong>Meta will reject this:</strong> MARKETING templates cannot have variables ({"{{...}}"}) at the{" "}
+                        {hasLeadingVar && "start"}{hasLeadingVar && hasTrailingVar && " or "}{hasTrailingVar && "end"}{" "}
+                        of the body. Add more text {hasLeadingVar && "before the first variable"}{hasLeadingVar && hasTrailingVar && " and "}{hasTrailingVar && "after the last variable"}.
+                      </span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
             {/* Variable Insertion Buttons */}

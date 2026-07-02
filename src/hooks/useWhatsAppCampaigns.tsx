@@ -234,10 +234,13 @@ export const useWhatsAppCampaigns = () => {
       if (!customer.phone) continue;
 
       try {
-        // Build ONLY the variables this template needs
-        const variables: Record<string, string> = {};
-        for (const v of templateVars) {
-          variables[v.name] = resolveVariable(v.name, customer, {
+        // Build ONLY the variables this template needs — as positionally ordered array
+        // This ensures Object.values() in the edge function produces correct {{1}}, {{2}} order
+        const sortedVars = [...templateVars].sort((a, b) => a.position - b.position);
+        const orderedVariables: Record<string, string> = {};
+        for (const v of sortedVars) {
+          // Use position as key to guarantee deterministic ordering
+          orderedVariables[String(v.position)] = resolveVariable(v.name, customer, {
             discountText,
             promoCode,
           });
@@ -260,7 +263,7 @@ export const useWhatsAppCampaigns = () => {
               phoneNumber: customer.phone,
               restaurantId,
               templateName: useTemplate,
-              variables,
+              variables: orderedVariables,
               buttons: buttons.length > 0 ? buttons : undefined,
             },
           },
@@ -332,6 +335,11 @@ export const useWhatsAppCampaigns = () => {
         : 0,
   };
 
+  // Refetch customers on demand
+  const refetchCustomers = () => {
+    queryClient.invalidateQueries({ queryKey: ["wa-customers", restaurantId] });
+  };
+
   return {
     loyaltyTiers,
     customers,
@@ -340,6 +348,7 @@ export const useWhatsAppCampaigns = () => {
     analytics,
     getCustomersByTiers,
     sendCampaign,
+    refetchCustomers,
     isLoading: tiersLoading || customersLoading || sendsLoading,
     restaurantId,
   };

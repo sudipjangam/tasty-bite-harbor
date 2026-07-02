@@ -45,7 +45,20 @@ serve(async (req) => {
 
     // Read request body
     const body = await req.json().catch(() => ({}));
-    const { restaurantId } = body;
+    let { restaurantId } = body;
+
+    // Fix 6.1: If no restaurantId provided, look up user's restaurant from profiles
+    if (!restaurantId) {
+      const { data: profile } = await supabaseClient
+        .from("profiles")
+        .select("restaurant_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profile?.restaurant_id) {
+        restaurantId = profile.restaurant_id;
+        console.log(`No restaurantId in request, resolved from user profile: ${restaurantId}`);
+      }
+    }
 
     // Use service role for DB writes
     const supabaseAdmin = createClient(
@@ -196,10 +209,19 @@ serve(async (req) => {
         const buttons = buttonComponent?.buttons || [];
 
         // Build variables array from {{1}}, {{2}} placeholders in body
+        // Use meaningful default names based on common positional patterns
+        const POSITION_NAME_DEFAULTS: Record<number, string> = {
+          1: "customer_name",
+          2: "restaurant_name",
+          3: "amount",
+          4: "order_date",
+          5: "contact_number",
+          6: "discount_code",
+        };
         const varMatches = bodyText.match(/\{\{(\d+)\}\}/g) || [];
         const variables = [...new Set(varMatches)].map((v: string) => {
           const pos = parseInt(v.replace(/[{}]/g, ""));
-          return { position: pos, name: `var_${pos}`, sample: "" };
+          return { position: pos, name: POSITION_NAME_DEFAULTS[pos] || `var_${pos}`, sample: "" };
         });
 
         const { error: insertError } = await supabaseAdmin
