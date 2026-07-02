@@ -118,15 +118,22 @@ export const useWhatsAppTemplates = () => {
           restaurant_name: t.restaurants?.name || null,
           variables: t.variables || [],
           buttons: t.buttons || [],
-        }))
-        .filter((t: any) => isAdmin || !t.is_default) as WhatsAppTemplate[];
+          // Normalize category to uppercase for consistent filtering
+          category: (t.category || "UTILITY").toUpperCase(),
+        })) as WhatsAppTemplate[];
     },
     enabled: isAdmin || !!restaurantId,
   });
 
   // Get only approved templates (for campaign builder)
+  // Marketing tab only shows MARKETING category; admin sees all, restaurant user sees own
   const approvedTemplates = templates.filter(
     (t) => t.status === "meta_approved" || t.status === "admin_approved",
+  );
+
+  // Marketing-only approved templates (MARKETING category, approved status)
+  const marketingTemplates = approvedTemplates.filter(
+    (t) => t.category.toUpperCase() === "MARKETING",
   );
 
   // Create template
@@ -290,6 +297,31 @@ export const useWhatsAppTemplates = () => {
             metaBody = metaBody.split(`{{${varName}}}`).join(`{{${i + 1}}}`);
           });
 
+          // Meta MARKETING rule: Variables can't be at start or end of body text.
+          // Auto-pad if needed to prevent error 2388299.
+          const metaCategory = (template.category || "MARKETING").toUpperCase();
+          if (metaCategory === "MARKETING" && sampleValues.length > 0) {
+            // Check leading: strip trivial prefixes like "Hi ", "Hey ", "Dear " then check if variable is first
+            const leadingCheck = metaBody.replace(/^(Hi|Hey|Hello|Dear|Namaste)\s*/i, "").trim();
+            if (leadingCheck.startsWith("{{")) {
+              // Pad the greeting to include the restaurant/brand name before the variable
+              metaBody = metaBody.replace(
+                /^(Hi|Hey|Hello|Dear|Namaste)\s*(\{\{\d+\}\})/i,
+                "$1, welcome! $2"
+              );
+              // If no greeting prefix at all (body starts directly with variable)
+              if (metaBody.trim().startsWith("{{")) {
+                metaBody = "Hello! " + metaBody;
+              }
+            }
+
+            // Check trailing: body ends with {{N}} possibly followed by . or !
+            const trailingCheck = metaBody.replace(/[.!?\s]+$/, "").trim();
+            if (/\{\{\d+\}\}$/.test(trailingCheck)) {
+              metaBody = metaBody.replace(/(\{\{\d+\}\})([.!?\s]*)$/, "$1 for assistance.$2");
+            }
+          }
+
           const bodyComponent: any = {
             type: "BODY",
             text: metaBody,
@@ -309,7 +341,7 @@ export const useWhatsAppTemplates = () => {
             body: {
               name: template.name,
               language: template.language,
-              category: template.category || "MARKETING",
+              category: metaCategory,
               components
             }
           };
@@ -427,6 +459,7 @@ export const useWhatsAppTemplates = () => {
   return {
     templates,
     approvedTemplates,
+    marketingTemplates,
     isLoading,
     refetch,
     createTemplate,

@@ -46,6 +46,7 @@ import {
   TrendingUp,
   Globe,
   Settings,
+  RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -62,9 +63,10 @@ const WhatsAppCampaigns: React.FC = () => {
     analytics,
     getCustomersByTiers,
     sendCampaign,
+    refetchCustomers,
     isLoading,
   } = useWhatsAppCampaigns();
-  const { approvedTemplates } = useWhatsAppTemplates();
+  const { approvedTemplates, marketingTemplates } = useWhatsAppTemplates();
 
   const [selectedTierIds, setSelectedTierIds] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(true);
@@ -80,6 +82,14 @@ const WhatsAppCampaigns: React.FC = () => {
   const [historyStatusFilter, setHistoryStatusFilter] = useState<string>("all");
   const [showRecipients, setShowRecipients] = useState(false);
   const [recipientSearch, setRecipientSearch] = useState("");
+  const [promoCode, setPromoCode] = useState("");
+  const [campaignErrors, setCampaignErrors] = useState<string[]>([]);
+  const [showErrors, setShowErrors] = useState(false);
+
+  // Individual customer selection
+  const [individualCustomerIds, setIndividualCustomerIds] = useState<Set<string>>(new Set());
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [showCustomerPicker, setShowCustomerPicker] = useState(false);
 
   // Template Search and Filters
   const [templateSearch, setTemplateSearch] = useState("");
@@ -91,8 +101,12 @@ const WhatsAppCampaigns: React.FC = () => {
     [customers],
   );
 
-  // Get target customers
+  // Get target customers — tier-based + individually selected
   const targetCustomers = useMemo(() => {
+    if (individualCustomerIds.size > 0) {
+      // Individual selection mode: use only explicitly picked customers
+      return customers.filter(c => individualCustomerIds.has(c.id));
+    }
     if (selectAll) return customers;
     let result = getCustomersByTiers(selectedTierIds);
     if (includeUntiered) {
@@ -101,16 +115,26 @@ const WhatsAppCampaigns: React.FC = () => {
       result = [...result, ...untiered.filter((c) => !existingIds.has(c.id))];
     }
     return result;
-  }, [selectAll, selectedTierIds, includeUntiered, customers, getCustomersByTiers]);
+  }, [selectAll, selectedTierIds, includeUntiered, customers, getCustomersByTiers, individualCustomerIds]);
 
   const customersWithPhone = useMemo(
     () => targetCustomers.filter((c) => c.phone && c.phone.trim().length >= 10),
     [targetCustomers],
   );
 
-  // Calculate cost based on template category (UTILITY: ₹0.12, MARKETING: ₹0.90)
+  // Filtered customers for the multi-select picker
+  const filteredPickerCustomers = useMemo(() => {
+    if (!customerSearchQuery) return customers.filter(c => c.phone && c.phone.trim().length >= 10);
+    const q = customerSearchQuery.toLowerCase();
+    return customers.filter(c => 
+      c.phone && c.phone.trim().length >= 10 &&
+      ((c.name || "").toLowerCase().includes(q) || (c.phone || "").includes(q))
+    );
+  }, [customers, customerSearchQuery]);
+
+  // Calculate cost based on template category (UTILITY: ₹0.12, MARKETING: ₹0.90) — case insensitive
   const selectedTemplateObj = approvedTemplates.find(t => t.name === selectedTemplate);
-  const isMarketingTemplate = selectedTemplateObj?.category === 'MARKETING';
+  const isMarketingTemplate = selectedTemplateObj?.category?.toUpperCase() === 'MARKETING';
   const costPerMsg = isMarketingTemplate ? 0.90 : 0.12;
   const estimatedCost = customersWithPhone.length * costPerMsg;
 
@@ -132,6 +156,37 @@ const WhatsAppCampaigns: React.FC = () => {
     setSelectAll(true);
     setSelectedTierIds([]);
     setIncludeUntiered(false);
+    setIndividualCustomerIds(new Set());
+  };
+
+  const toggleIndividualCustomer = (customerId: string) => {
+    setSelectAll(false);
+    setIndividualCustomerIds(prev => {
+      const next = new Set(prev);
+      if (next.has(customerId)) {
+        next.delete(customerId);
+      } else {
+        next.add(customerId);
+      }
+      return next;
+    });
+  };
+
+  const selectAllFiltered = () => {
+    setSelectAll(false);
+    setIndividualCustomerIds(prev => {
+      const next = new Set(prev);
+      filteredPickerCustomers.forEach(c => next.add(c.id));
+      return next;
+    });
+  };
+
+  const deselectAllFiltered = () => {
+    setIndividualCustomerIds(prev => {
+      const next = new Set(prev);
+      filteredPickerCustomers.forEach(c => next.delete(c.id));
+      return next;
+    });
   };
 
   const handleSendCampaign = async () => {
@@ -153,14 +208,20 @@ const WhatsAppCampaigns: React.FC = () => {
     setSendProgress({ sent: 0, total: customersWithPhone.length });
 
     try {
+      setCampaignErrors([]);
       const results = await sendCampaign(
         customersWithPhone,
         null,
-        undefined,
+        promoCode || undefined,
         discountText || promoMessage || undefined,
         (sent, total) => setSendProgress({ sent, total }),
         selectedTemplate,
       );
+
+      if (results.errors.length > 0) {
+        setCampaignErrors(results.errors);
+        setShowErrors(true);
+      }
 
       if (results.success > 0) {
         toast({
@@ -261,7 +322,8 @@ const WhatsAppCampaigns: React.FC = () => {
     const allOptions = [defaultTemplate, ...approvedTemplates.filter(t => t.name !== "invoice_with_contact")];
 
     return allOptions.filter(t => {
-      if (templateCategoryFilter !== "all" && t.category !== templateCategoryFilter) return false;
+      // Case-insensitive category comparison
+      if (templateCategoryFilter !== "all" && (t.category || "").toUpperCase() !== templateCategoryFilter) return false;
       if (templateSearch) {
         const q = templateSearch.toLowerCase();
         return t.display_name.toLowerCase().includes(q) || t.name.toLowerCase().includes(q) || t.body.toLowerCase().includes(q);
@@ -390,15 +452,36 @@ const WhatsAppCampaigns: React.FC = () => {
                       Target Audience
                     </Label>
                   </div>
-                  {!selectAll && (selectedTierIds.length > 0 || includeUntiered) && (
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setShowRecipients(!showRecipients)}
-                      className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-500 transition-colors"
+                      onClick={refetchCustomers}
+                      className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-500 transition-colors"
+                      title="Refresh customer list from database"
                     >
-                      {showRecipients ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                      {showRecipients ? "Hide" : "Preview"} ({customersWithPhone.length})
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Sync
                     </button>
-                  )}
+                    <button
+                      onClick={() => setShowCustomerPicker(!showCustomerPicker)}
+                      className={`flex items-center gap-1 text-[11px] font-bold transition-colors ${
+                        individualCustomerIds.size > 0
+                          ? "text-purple-600 hover:text-purple-500"
+                          : "text-gray-500 hover:text-gray-400"
+                      }`}
+                    >
+                      <UserCheck className="h-3.5 w-3.5" />
+                      Pick Individual{individualCustomerIds.size > 0 ? ` (${individualCustomerIds.size})` : ""}
+                    </button>
+                    {!selectAll && (selectedTierIds.length > 0 || includeUntiered) && (
+                      <button
+                        onClick={() => setShowRecipients(!showRecipients)}
+                        className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-500 transition-colors"
+                      >
+                        {showRecipients ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        {showRecipients ? "Hide" : "Preview"} ({customersWithPhone.length})
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2.5">
@@ -480,6 +563,84 @@ const WhatsAppCampaigns: React.FC = () => {
                     <AlertTriangle className="h-4.5 w-4.5 flex-shrink-0" />
                     No loyalty tiers configured. Create tiers in CRM Loyalty module.
                   </p>
+                )}
+
+                {/* Individual Customer Multi-Select Picker */}
+                {showCustomerPicker && (
+                  <div className="mt-3.5 border border-purple-500/20 rounded-2xl bg-black/[0.01] dark:bg-white/[0.01] overflow-hidden shadow-inner">
+                    <div className="px-4 py-2.5 bg-purple-500/5 dark:bg-purple-500/10 flex items-center justify-between border-b border-purple-500/10">
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="h-4 w-4 text-purple-500" />
+                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                          Select Individual Customers
+                        </span>
+                        {individualCustomerIds.size > 0 && (
+                          <Badge className="bg-purple-500/15 text-purple-600 dark:text-purple-400 border-none text-[10px] h-5">
+                            {individualCustomerIds.size} selected
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={selectAllFiltered} className="text-[10px] font-bold text-purple-600 hover:text-purple-500">
+                          Select All
+                        </button>
+                        <span className="text-gray-300">|</span>
+                        <button onClick={deselectAllFiltered} className="text-[10px] font-bold text-gray-500 hover:text-gray-400">
+                          Deselect All
+                        </button>
+                      </div>
+                    </div>
+                    <div className="px-4 py-2 border-b border-black/[0.04] dark:border-white/[0.04]">
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input
+                          value={customerSearchQuery}
+                          onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                          placeholder="Search by name or phone..."
+                          className="h-8 pl-8 text-xs bg-white dark:bg-gray-800 border-black/[0.08] dark:border-white/[0.08] rounded-lg"
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto divide-y divide-black/[0.03] dark:divide-white/[0.03]">
+                      {filteredPickerCustomers.length === 0 ? (
+                        <div className="px-4 py-6 text-center text-xs text-muted-foreground">No customers with phone numbers found</div>
+                      ) : (
+                        filteredPickerCustomers.map(c => {
+                          const isChecked = individualCustomerIds.has(c.id);
+                          return (
+                            <div
+                              key={c.id}
+                              onClick={() => toggleIndividualCustomer(c.id)}
+                              className={`px-4 py-2 flex items-center justify-between cursor-pointer transition-colors ${
+                                isChecked
+                                  ? "bg-purple-500/5 hover:bg-purple-500/10"
+                                  : "hover:bg-black/[0.01] dark:hover:bg-white/[0.01]"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <Checkbox checked={isChecked} className="h-4 w-4" />
+                                <div className="w-7 h-7 rounded-xl flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 bg-gradient-to-br from-purple-500 to-violet-500">
+                                  {(c.name || "?").charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-gray-800 dark:text-gray-200 truncate">{c.name || "Unknown"}</p>
+                                  <p className="text-[10px] text-muted-foreground font-mono">{c.phone}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {c.loyalty_tier && (
+                                  <Badge variant="outline" className="text-[9px] h-4 px-1">{c.loyalty_tier}</Badge>
+                                )}
+                                {c.loyalty_points > 0 && (
+                                  <span className="text-[10px] text-amber-600 font-bold">{c.loyalty_points} pts</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
                 )}
 
                 {/* Searchable Recipient Preview List */}
@@ -694,6 +855,21 @@ const WhatsAppCampaigns: React.FC = () => {
                     </p>
                   </div>
                   <div>
+                    <Label htmlFor="promoCode" className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                      Promo / Discount Code
+                    </Label>
+                    <Input
+                      id="promoCode"
+                      value={promoCode}
+                      onChange={(e) => setPromoCode(e.target.value)}
+                      placeholder="e.g., SAVE20, DIWALI50"
+                      className="mt-1 h-9 rounded-xl bg-white dark:bg-gray-800/50 border-black/[0.08] dark:border-white/[0.08] font-mono uppercase"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Replaces <code>{"{{discount_code}}"}</code> variable in templates
+                    </p>
+                  </div>
+                  <div>
                     <Label htmlFor="promoMessage" className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                       Internal Notes (Reference)
                     </Label>
@@ -848,6 +1024,33 @@ const WhatsAppCampaigns: React.FC = () => {
                       value={(sendProgress.sent / sendProgress.total) * 100}
                       className="h-1.5 bg-black/[0.05] dark:bg-white/[0.05]"
                     />
+                  </div>
+                )}
+
+                {/* Campaign Error Details */}
+                {!isSending && campaignErrors.length > 0 && showErrors && (
+                  <div className="mt-3 bg-red-500/5 rounded-xl p-3 border border-red-500/10">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <XCircle className="h-4 w-4 text-red-500" />
+                        <span className="text-[11px] font-bold text-red-600 dark:text-red-400">
+                          {campaignErrors.length} Failed Send{campaignErrors.length > 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setShowErrors(false)}
+                        className="text-[10px] font-bold text-gray-500 hover:text-gray-400"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                    <div className="max-h-32 overflow-y-auto space-y-1">
+                      {campaignErrors.map((err, i) => (
+                        <p key={i} className="text-[10px] text-red-600/80 dark:text-red-400/80 font-mono truncate">
+                          • {err}
+                        </p>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

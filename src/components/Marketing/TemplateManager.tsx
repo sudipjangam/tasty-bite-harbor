@@ -205,8 +205,8 @@ const TemplateManager: React.FC = () => {
         if (!matchesName && !matchesSlug && !matchesBody) return false;
       }
 
-      // Category filter
-      if (categoryFilter !== "all" && template.category !== categoryFilter) {
+      // Category filter (case-insensitive)
+      if (categoryFilter !== "all" && template.category.toUpperCase() !== categoryFilter) {
         return false;
       }
 
