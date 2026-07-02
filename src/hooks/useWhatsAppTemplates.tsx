@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 export interface WhatsAppTemplate {
   id: string;
@@ -22,6 +23,7 @@ export interface WhatsAppTemplate {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  restaurant_name?: string | null;
 }
 
 export interface VariableMapping {
@@ -80,6 +82,8 @@ export const useWhatsAppTemplates = () => {
   const { restaurantId } = useRestaurantId();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   // Fetch templates for the restaurant
   const {
@@ -87,28 +91,37 @@ export const useWhatsAppTemplates = () => {
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: ["wa-templates", restaurantId],
+    queryKey: ["wa-templates", restaurantId, isAdmin],
     queryFn: async () => {
-      if (!restaurantId) return [];
-      const { data, error } = await supabase
-        .from("whatsapp_templates" as any)
-        .select("*")
-        .eq("restaurant_id", restaurantId)
+      if (!isAdmin && !restaurantId) return [];
+
+      let query = supabase.from("whatsapp_templates" as any);
+
+      if (isAdmin) {
+        query = query.select("*, restaurants(name)");
+      } else {
+        query = query.select("*").eq("restaurant_id", restaurantId);
+      }
+
+      const { data, error } = await query
         .order("is_default", { ascending: false })
         .order("created_at", { ascending: false });
+
       if (error) {
         console.error("Error fetching templates:", error);
         return [];
       }
+
       return (data || [])
         .map((t: any) => ({
           ...t,
+          restaurant_name: t.restaurants?.name || null,
           variables: t.variables || [],
           buttons: t.buttons || [],
         }))
-        .filter((t: any) => !t.is_default) as WhatsAppTemplate[];
+        .filter((t: any) => isAdmin || !t.is_default) as WhatsAppTemplate[];
     },
-    enabled: !!restaurantId,
+    enabled: isAdmin || !!restaurantId,
   });
 
   // Get only approved templates (for campaign builder)

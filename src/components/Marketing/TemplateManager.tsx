@@ -431,6 +431,11 @@ const TemplateManager: React.FC = () => {
                           Default
                         </Badge>
                       )}
+                      {template.restaurant_name && (
+                        <Badge className="bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[9px] border-none font-semibold">
+                          🏢 {template.restaurant_name}
+                        </Badge>
+                      )}
                       <Badge variant="outline" className="text-[9px] text-muted-foreground border-black/[0.05] dark:border-white/[0.05]">
                         <Globe className="h-2.5 w-2.5 mr-1 inline" />
                         {template.language}
@@ -522,6 +527,11 @@ const TemplateManager: React.FC = () => {
                         <Badge variant="outline" className="text-[9px] text-muted-foreground">
                           {template.category}
                         </Badge>
+                        {template.restaurant_name && (
+                          <Badge className="bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[9px] border-none font-semibold">
+                            🏢 {template.restaurant_name}
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground truncate mt-1">
                         {template.body}
