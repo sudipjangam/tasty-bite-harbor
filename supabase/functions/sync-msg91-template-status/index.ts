@@ -107,30 +107,114 @@ serve(async (req) => {
 
       if (!ourStatus) continue;
 
-      // Build query to update matching templates
-      let query = supabaseAdmin
+      // Check if template already exists in DB
+      let existsQuery = supabaseAdmin
         .from("whatsapp_templates")
-        .update({
-          status: ourStatus,
-          meta_response: mt,
-          admin_notes: `Meta status: ${msg91Status} (synced ${new Date().toISOString()})`,
-          updated_at: new Date().toISOString(),
-        })
+        .select("id")
         .eq("name", templateSlug);
 
-      // If restaurant specified, scope to it
       if (restaurantId) {
-        query = query.eq("restaurant_id", restaurantId);
+        existsQuery = existsQuery.eq("restaurant_id", restaurantId);
       }
 
-      // Only update templates that were submitted to Meta
-      query = query.in("status", ["meta_pending", "admin_approved", "meta_approved", "meta_rejected"]);
+      const { data: existingRows } = await existsQuery.limit(1);
 
-      const { error: updateError, count } = await query;
-      if (updateError) {
-        console.error(`Error updating template ${templateSlug}:`, updateError);
+      if (!existingRows || existingRows.length === 0) {
+        // Template exists in Meta but NOT in our DB — insert it
+        if (!restaurantId) {
+          console.warn(`Skipping upsert for ${templateSlug}: no restaurantId provided`);
+          continue;
+        }
+
+        // Build display name from slug: "order_ready" → "Order Ready"
+        const displayName = templateSlug
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (c: string) => c.toUpperCase());
+
+        // Detect category from Meta data
+        const metaCategory = (mt.category || "UTILITY").toUpperCase();
+
+        // Extract body text from Meta template components
+        let bodyText = "";
+        const bodyComponent = (mt.components || []).find(
+          (c: any) => c.type === "BODY"
+        );
+        if (bodyComponent) {
+          bodyText = bodyComponent.text || "";
+        }
+
+        // Extract header text
+        let headerText = null;
+        const headerComponent = (mt.components || []).find(
+          (c: any) => c.type === "HEADER" && c.format === "TEXT"
+        );
+        if (headerComponent) {
+          headerText = headerComponent.text || null;
+        }
+
+        // Extract footer text
+        let footerText = null;
+        const footerComponent = (mt.components || []).find(
+          (c: any) => c.type === "FOOTER"
+        );
+        if (footerComponent) {
+          footerText = footerComponent.text || null;
+        }
+
+        // Extract buttons
+        const buttonComponent = (mt.components || []).find(
+          (c: any) => c.type === "BUTTONS"
+        );
+        const buttons = buttonComponent?.buttons || [];
+
+        // Build variables from body placeholders {{1}}, {{2}}, etc
+        const varMatches = bodyText.match(/\{\{(\d+)\}\}/g) || [];
+        const variables = [...new Set(varMatches)].map((v: string) => {
+          const pos = parseInt(v.replace(/[{}]/g, ""));
+          return { position: pos, name: `var_${pos}`, sample: "" };
+        });
+
+        const { error: insertError } = await supabaseAdmin
+          .from("whatsapp_templates")
+          .insert({
+            restaurant_id: restaurantId,
+            name: templateSlug,
+            display_name: displayName,
+            category: metaCategory,
+            language: mt.language || "en",
+            body: bodyText,
+            variables,
+            header_text: headerText,
+            footer_text: footerText,
+            buttons,
+            status: ourStatus,
+            is_default: false,
+            meta_response: mt,
+            admin_notes: `Imported from Meta (synced ${new Date().toISOString()})`,
+          });
+
+        if (insertError) {
+          console.error(`Error inserting template ${templateSlug}:`, insertError);
+        } else {
+          updates.push({ template: templateSlug, status: ourStatus, action: "inserted" });
+        }
       } else {
-        updates.push({ template: templateSlug, status: ourStatus, msg91Status });
+        // Template exists — update its status
+        const { error: updateError } = await supabaseAdmin
+          .from("whatsapp_templates")
+          .update({
+            status: ourStatus,
+            meta_response: mt,
+            admin_notes: `Meta status: ${msg91Status} (synced ${new Date().toISOString()})`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingRows[0].id);
+
+        if (updateError) {
+          console.error(`Error updating template ${templateSlug}:`, updateError);
+        } else {
+          updates.push({ template: templateSlug, status: ourStatus, action: "updated" });
+        }
       }
     }
 

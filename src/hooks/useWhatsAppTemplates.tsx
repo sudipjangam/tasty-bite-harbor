@@ -404,10 +404,14 @@ export const useWhatsAppTemplates = () => {
 
       queryClient.invalidateQueries({ queryKey: ["wa-templates"] });
       queryClient.invalidateQueries({ queryKey: ["admin-pending-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-all-templates"] });
+
+      const inserted = (data?.updates || []).filter((u: any) => u.action === "inserted").length;
+      const updated = (data?.updates || []).filter((u: any) => u.action === "updated").length;
 
       toast({
         title: "Synced ✅",
-        description: `Synced ${data?.synced || 0} template statuses from Meta.`,
+        description: `Found ${data?.totalFromMsg91 || 0} templates from Meta. ${inserted ? `${inserted} imported, ` : ""}${updated ? `${updated} updated.` : "All up to date."}`,
       });
       return data;
     } catch (err) {
