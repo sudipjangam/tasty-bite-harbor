@@ -99,6 +99,9 @@ const WhatsAppProviderAdmin = lazy(
   () => import("@/components/Admin/WhatsAppProviderAdmin"),
 );
 const DailySummaryHistory = lazy(() => import("@/pages/DailySummaryHistory"));
+const DatabaseSync = lazy(
+  () => import("@/components/Admin/DatabaseSync").then(m => ({ default: m.DatabaseSync }))
+);
 
 // Franchise pages (lazy-loaded, no DB impact)
 const FranchiseLayout = lazy(() => import("@/components/Franchise/FranchiseLayout").then(m => ({ default: m.FranchiseLayout })));
@@ -584,6 +587,14 @@ export const AppRoutes = () => {
               element={
                 <LazyRoute>
                   <WhatsAppProviderAdmin />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="db-sync"
+              element={
+                <LazyRoute>
+                  <DatabaseSync />
                 </LazyRoute>
               }
             />
