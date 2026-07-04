@@ -297,6 +297,42 @@ const MOCK_STAFF: StaffMember[] = [
   { id: "s6", name: "New Hire", email: "newhire@spiceroute.in", role: "Staff", orgId: "org-1", branchAccess: ["Thane"], status: "invited", joinedAt: "2026-06-20" },
 ];
 
+// Rich mock franchises for demo/presentation mode
+const MOCK_FRANCHISES: FranchiseOrgRow[] = [
+  {
+    id: "org-1", name: "Spice Route Restaurants", slug: "spice-route", type: "franchise",
+    owner_user_id: "user-1", menu_mode: "master", logo_url: null,
+    settings: { gstNumber: "27AAPCS5014K1ZK", fssaiNumber: "11225330000145", city: "Mumbai", state: "Maharashtra" },
+    created_at: "2024-03-15T10:00:00Z", updated_at: "2026-06-01T10:00:00Z",
+    owner_name: "Rajesh Sharma", owner_email: "rajesh@spiceroute.in", owner_phone: "+91 98765 43210",
+    branch_count: 5, plan_type: "professional", max_branches: 10, sub_status: "active",
+  },
+  {
+    id: "org-2", name: "Tandoori Tales", slug: "tandoori-tales", type: "franchise",
+    owner_user_id: "user-2", menu_mode: "independent", logo_url: null,
+    settings: { gstNumber: "24AAFCT3453Q1ZV", fssaiNumber: "10014011001246", city: "Ahmedabad", state: "Gujarat" },
+    created_at: "2024-06-01T10:00:00Z", updated_at: "2026-05-15T10:00:00Z",
+    owner_name: "Priya Mehta", owner_email: "priya@tandooritales.com", owner_phone: "+91 98765 11223",
+    branch_count: 3, plan_type: "growth", max_branches: 5, sub_status: "active",
+  },
+  {
+    id: "org-3", name: "Dosa Delights", slug: "dosa-delights", type: "franchise",
+    owner_user_id: "user-3", menu_mode: "shared", logo_url: null,
+    settings: { gstNumber: "29AAECS4872N1ZH", fssaiNumber: "11222620000421", city: "Bengaluru", state: "Karnataka" },
+    created_at: "2024-09-10T10:00:00Z", updated_at: "2026-04-20T10:00:00Z",
+    owner_name: "Suresh Iyer", owner_email: "suresh@dosadelights.in", owner_phone: "+91 99887 54321",
+    branch_count: 2, plan_type: "starter", max_branches: 2, sub_status: "trial",
+  },
+  {
+    id: "org-4", name: "Biryani Brothers", slug: "biryani-brothers", type: "franchise",
+    owner_user_id: "user-4", menu_mode: "master", logo_url: null,
+    settings: { gstNumber: "36AACCB1234M1ZP", fssaiNumber: "11525330003312", city: "Hyderabad", state: "Telangana" },
+    created_at: "2025-01-20T10:00:00Z", updated_at: "2026-06-10T10:00:00Z",
+    owner_name: "Mohammed Khan", owner_email: "khan@biryanibrothers.in", owner_phone: "+91 91234 56789",
+    branch_count: 7, plan_type: "enterprise", max_branches: 50, sub_status: "active",
+  },
+];
+
 const FRANCHISE_ROLES = [
   { name: "Organization Owner", description: "Full access to all branches and settings", level: "org", color: "from-amber-500 to-yellow-500" },
   { name: "Regional Manager", description: "Manage multiple branches in a region", level: "org", color: "from-purple-500 to-indigo-500" },
@@ -342,8 +378,17 @@ const FranchiseAdmin = () => {
   const [activeTab, setActiveTab] = useState<Tab>("franchises");
   const [search, setSearch] = useState("");
 
+  // Demo mode toggle — persisted in localStorage
+  const [demoMode, setDemoMode] = useState<boolean>(() => {
+    try { return localStorage.getItem("franchise_demo_mode") === "true"; } catch { return false; }
+  });
+  const toggleDemoMode = (val: boolean) => {
+    setDemoMode(val);
+    try { localStorage.setItem("franchise_demo_mode", String(val)); } catch {}
+  };
+
   // Real DB Data Query
-  const { data: franchises = [], isLoading, error } = useQuery({
+  const { data: livefranchises = [], isLoading, error } = useQuery({
     queryKey: ["franchises"],
     queryFn: fetchFranchises,
   });
@@ -355,6 +400,7 @@ const FranchiseAdmin = () => {
     ownerName: "",
     ownerEmail: "",
     ownerPhone: "",
+    ownerPassword: "",
     gstNumber: "",
     fssaiNumber: "",
     city: "",
@@ -366,6 +412,19 @@ const FranchiseAdmin = () => {
     branchCity: "",
   });
 
+  // Staff tab state
+  const [selectedOrgId, setSelectedOrgId] = useState<string>("");
+  const [addStaffDialog, setAddStaffDialog] = useState(false);
+  const [addStaffData, setAddStaffData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    phone: "",
+    role: "staff" as string,
+    restaurantId: "",
+  });
+
   // Detail dialog
   const [selectedFranchise, setSelectedFranchise] = useState<FranchiseOrgRow | null>(null);
   const [detailDialog, setDetailDialog] = useState(false);
@@ -375,27 +434,140 @@ const FranchiseAdmin = () => {
   // Plan editing
   const [editPlan, setEditPlan] = useState<FranchisePlan | null>(null);
 
+  // Real staff query — org members + branch profiles
+  const { data: orgStaff = [], isLoading: staffLoading, refetch: refetchStaff } = useQuery({
+    queryKey: ["org-staff", selectedOrgId],
+    enabled: !!selectedOrgId,
+    queryFn: async () => {
+      // 1. Org-level members
+      const { data: members } = await supabase
+        .from("organization_members")
+        .select("id, role, user_id, created_at")
+        .eq("organization_id", selectedOrgId);
+
+      const orgMemberIds = (members || []).map((m) => m.user_id);
+
+      // 2. All branches for this org
+      const { data: branches } = await supabase
+        .from("restaurants")
+        .select("id, name, branch_code")
+        .eq("organization_id", selectedOrgId);
+
+      const branchIds = (branches || []).map((b) => b.id);
+
+      // 3. All profiles attached to any branch of this org
+      const { data: branchProfiles } =
+        branchIds.length > 0
+          ? await supabase
+              .from("profiles")
+              .select("id, first_name, last_name, email, phone, role, restaurant_id, created_at")
+              .in("restaurant_id", branchIds)
+          : { data: [] };
+
+      // 4. Profiles for org-level members (may not have a branch)
+      const { data: memberProfiles } =
+        orgMemberIds.length > 0
+          ? await supabase
+              .from("profiles")
+              .select("id, first_name, last_name, email, phone, role, restaurant_id, created_at")
+              .in("id", orgMemberIds)
+          : { data: [] };
+
+      const branchMap: Record<string, string> = {};
+      (branches || []).forEach((b) => {
+        branchMap[b.id] = `${b.name} (${b.branch_code})`;
+      });
+
+      const memberRoleMap: Record<string, string> = {};
+      (members || []).forEach((m) => {
+        memberRoleMap[m.user_id] = m.role;
+      });
+
+      // Merge: deduplicate by user id
+      const allProfileIds = new Set<string>();
+      const merged: any[] = [];
+
+      for (const p of [...(memberProfiles || []), ...(branchProfiles || [])]) {
+        if (!allProfileIds.has(p.id)) {
+          allProfileIds.add(p.id);
+          merged.push({
+            ...p,
+            orgRole: memberRoleMap[p.id] || null,
+            branchName: p.restaurant_id ? branchMap[p.restaurant_id] || "—" : "—",
+            displayName: `${p.first_name || ""} ${p.last_name || ""}`.trim() || "—",
+          });
+        }
+      }
+      return merged;
+    },
+  });
+
+  // Branches for selected org (for add-staff dropdown)
+  const { data: orgBranches = [] } = useQuery({
+    queryKey: ["org-branches", selectedOrgId],
+    enabled: !!selectedOrgId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("restaurants")
+        .select("id, name, branch_code")
+        .eq("organization_id", selectedOrgId);
+      return data || [];
+    },
+  });
+
+  // Add staff mutation
+  const addStaffMutation = useMutation({
+    mutationFn: async () => {
+      // Call existing user-management edge function (same pattern as CreateUserDialog)
+      const { data, error } = await supabase.functions.invoke("user-management", {
+        body: JSON.stringify({
+          action: "create_user",
+          userData: {
+            email: addStaffData.email,
+            password: addStaffData.password,
+            first_name: addStaffData.firstName,
+            last_name: addStaffData.lastName,
+            phone: addStaffData.phone,
+            role: addStaffData.role,
+            restaurant_id: addStaffData.restaurantId || undefined,
+          },
+        }),
+      });
+
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || "Failed to create staff member");
+
+      // If it's an org-level role, insert into organization_members
+      const orgLevelRoles = ["owner", "admin", "viewer"];
+      if (orgLevelRoles.includes(addStaffData.role) && selectedOrgId) {
+        const newUserId = data.user?.id;
+        if (newUserId) {
+          await supabase.from("organization_members").insert({
+            organization_id: selectedOrgId,
+            user_id: newUserId,
+            role: addStaffData.role === "viewer" ? "viewer" : "member",
+          });
+        }
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Staff member created!", {
+        description: `${addStaffData.firstName} ${addStaffData.lastName} has been added.`,
+      });
+      setAddStaffDialog(false);
+      setAddStaffData({ firstName: "", lastName: "", email: "", password: "", phone: "", role: "staff", restaurantId: "" });
+      refetchStaff();
+    },
+    onError: (err: any) => {
+      toast.error("Failed to add staff", { description: err.message });
+    },
+  });
+
   // Mutation for onboarding franchise
   const onboardMutation = useMutation({
     mutationFn: async () => {
-      // 1. First find or invite the owner user. Since we need auth.users(id),
-      // we'll search profiles by email. If owner doesn't exist, we'll return an error.
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", onboardingData.ownerEmail.trim())
-        .maybeSingle();
-
-      let ownerUserId = null;
-      if (profileData) {
-        ownerUserId = profileData.id;
-      } else {
-        // Fallback: get current user id
-        const { data: { user } } = await supabase.auth.getUser();
-        ownerUserId = user?.id || null;
-      }
-
-      // 2. Call the RPC to create org, HQ restaurant, and subscription
       const planTierMap: Record<string, string> = {
         "Franchise Starter": "starter",
         "Franchise Growth": "growth",
@@ -411,6 +583,7 @@ const FranchiseAdmin = () => {
       };
       const maxBranches = maxBranchesMap[onboardingData.plan] || 5;
 
+      // 1. Create org + HQ restaurant + subscription atomically via RPC
       const { data: rpcData, error: rpcError } = await supabase.rpc(
         "create_franchise_organization",
         {
@@ -423,29 +596,84 @@ const FranchiseAdmin = () => {
           p_max_branches: maxBranches
         }
       );
-
       if (rpcError) throw rpcError;
       const { organization_id, restaurant_id } = rpcData as { organization_id: string; restaurant_id: string };
 
-      // 3. Update the organization with settings (GST, FSSAI) and owner_user_id
+      // 2. Create the owner user account via user-management edge function
+      //    Same pattern as CreateUserDialog.tsx
+      let ownerUserId: string | null = null;
+      const nameParts = onboardingData.ownerName.trim().split(" ");
+      const firstName = nameParts[0] || onboardingData.ownerName;
+      const lastName = nameParts.slice(1).join(" ");
+
+      if (onboardingData.ownerPassword.trim()) {
+        const { data: createUserData, error: createUserError } = await supabase.functions.invoke(
+          "user-management",
+          {
+            body: JSON.stringify({
+              action: "create_user",
+              userData: {
+                email: onboardingData.ownerEmail.trim(),
+                password: onboardingData.ownerPassword,
+                first_name: firstName,
+                last_name: lastName,
+                phone: onboardingData.ownerPhone,
+                role: "owner",
+                restaurant_id: restaurant_id,
+              },
+            }),
+          }
+        );
+
+        if (createUserError) {
+          // If email already exists (409), try to find existing user
+          if (createUserError.message?.includes("already") || createUserData?.error?.includes("already")) {
+            const { data: existingProfile } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("email", onboardingData.ownerEmail.trim())
+              .maybeSingle();
+            if (existingProfile) {
+              ownerUserId = existingProfile.id;
+              toast.info("Owner account already exists — linking to organization.");
+            } else {
+              throw new Error(createUserError.message);
+            }
+          } else {
+            throw new Error(createUserError.message);
+          }
+        } else if (createUserData?.success) {
+          ownerUserId = createUserData.user?.id || null;
+        } else if (createUserData?.error) {
+          throw new Error(createUserData.error);
+        }
+      } else {
+        // No password provided — try to find existing user by email
+        const { data: existingProfile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("email", onboardingData.ownerEmail.trim())
+          .maybeSingle();
+        ownerUserId = existingProfile?.id || null;
+        if (!ownerUserId) {
+          toast.warning("No password provided. Owner account not created — franchise created without an owner login.");
+        }
+      }
+
+      // 3. Update org with settings (GST, FSSAI) and owner_user_id
       const settings = {
         gstNumber: onboardingData.gstNumber,
         fssaiNumber: onboardingData.fssaiNumber,
         city: onboardingData.city,
         state: onboardingData.state,
       };
-
       const { error: updateOrgError } = await supabase
         .from("organizations")
-        .update({
-          owner_user_id: ownerUserId,
-          settings,
-        })
+        .update({ owner_user_id: ownerUserId, settings })
         .eq("id", organization_id);
-
       if (updateOrgError) throw updateOrgError;
 
-      // 4. Update the created HQ restaurant/branch with address and city
+      // 4. Update HQ restaurant with address
       const { error: updateRestError } = await supabase
         .from("restaurants")
         .update({
@@ -453,21 +681,14 @@ const FranchiseAdmin = () => {
           city: onboardingData.branchCity || onboardingData.city,
         })
         .eq("id", restaurant_id);
-
       if (updateRestError) throw updateRestError;
 
-      // 5. Add organization member row for the owner
+      // 5. Insert organization_members row for owner
       if (ownerUserId) {
         const { error: memberError } = await supabase
           .from("organization_members")
-          .insert({
-            organization_id,
-            user_id: ownerUserId,
-            role: "owner"
-          });
-        if (memberError) {
-          console.warn("Could not create org member row:", memberError.message);
-        }
+          .insert({ organization_id, user_id: ownerUserId, role: "owner" });
+        if (memberError) console.warn("Could not create org member row:", memberError.message);
       }
 
       return { organization_id, orgName: onboardingData.orgName };
@@ -479,16 +700,14 @@ const FranchiseAdmin = () => {
       queryClient.invalidateQueries({ queryKey: ["franchises"] });
       setWizardStep(0);
       setOnboardingData({
-        orgName: "", ownerName: "", ownerEmail: "", ownerPhone: "",
+        orgName: "", ownerName: "", ownerEmail: "", ownerPhone: "", ownerPassword: "",
         gstNumber: "", fssaiNumber: "", city: "", state: "",
         plan: "Franchise Starter", branchName: "", branchCode: "HQ", branchAddress: "", branchCity: "",
       });
       setActiveTab("franchises");
     },
     onError: (err: any) => {
-      toast.error("Failed to onboard franchise", {
-        description: err.message,
-      });
+      toast.error("Failed to onboard franchise", { description: err.message });
     }
   });
 
@@ -506,33 +725,45 @@ const FranchiseAdmin = () => {
       toast.error("Branch name and branch code are required");
       return;
     }
+    if (onboardingData.ownerPassword && onboardingData.ownerPassword.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
     onboardMutation.mutate();
   };
 
   const tabs: { id: Tab; label: string; icon: any; count?: number }[] = [
-    { id: "franchises", label: "All Franchises", icon: Building2, count: franchises.length },
+    { id: "franchises", label: "All Franchises", icon: Building2, count: demoMode ? MOCK_FRANCHISES.length : livefranchises.length },
     { id: "onboarding", label: "Onboard New", icon: UserPlus },
-    { id: "branches", label: "Branches", icon: GitBranch, count: MOCK_BRANCHES.length },
-    { id: "staff", label: "Staff & Roles", icon: Users, count: MOCK_STAFF.length },
+    { id: "branches", label: "Branches", icon: GitBranch, count: demoMode ? MOCK_BRANCHES.length : undefined },
+    { id: "staff", label: "Staff & Roles", icon: Users, count: demoMode ? MOCK_STAFF.length : undefined },
     { id: "plans", label: "Franchise Plans", icon: CreditCard, count: MOCK_FRANCHISE_PLANS.length },
   ];
 
+  // Active data source — demo vs live
+  const franchises = demoMode ? MOCK_FRANCHISES : livefranchises;
+
   // ── KPI Cards ──────────────────────────────────────
   const kpis = useMemo(() => {
-    const totalRevenue = franchises.length * 1250000; // Mock average revenue
-    const totalBranches = franchises.reduce((s, f) => s + (f.branch_count || 0), 0);
-    const activeFranchises = franchises.filter((f) => f.sub_status === "active" || f.sub_status === "—").length;
-    const mrr = MOCK_FRANCHISE_PLANS.reduce(
-      (s, p) => s + p.priceMonthly * p.subscriberCount,
-      0
-    );
+    if (demoMode) {
+      return [
+        { label: "Total Franchises", value: "4", sub: "4 active", gradient: "from-violet-500 to-purple-600", icon: Building2 },
+        { label: "Total Branches", value: "17", sub: "across all orgs", gradient: "from-blue-500 to-indigo-600", icon: GitBranch },
+        { label: "Franchise MRR", value: fmt(432000), sub: "monthly recurring", gradient: "from-emerald-500 to-teal-600", icon: IndianRupee },
+        { label: "Total Revenue", value: fmt(52400000), sub: "FY 2025-26", gradient: "from-amber-500 to-orange-600", icon: TrendingUp },
+      ];
+    }
+    const totalRevenue = livefranchises.length * 1250000;
+    const totalBranches = livefranchises.reduce((s, f) => s + (f.branch_count || 0), 0);
+    const activeFranchises = livefranchises.filter((f) => f.sub_status === "active" || f.sub_status === "—").length;
+    const mrr = MOCK_FRANCHISE_PLANS.reduce((s, p) => s + p.priceMonthly * p.subscriberCount, 0);
     return [
-      { label: "Total Franchises", value: franchises.length.toString(), sub: `${activeFranchises} active`, gradient: "from-violet-500 to-purple-600", icon: Building2 },
+      { label: "Total Franchises", value: livefranchises.length.toString(), sub: `${activeFranchises} active`, gradient: "from-violet-500 to-purple-600", icon: Building2 },
       { label: "Total Branches", value: totalBranches.toString(), sub: "across all orgs", gradient: "from-blue-500 to-indigo-600", icon: GitBranch },
       { label: "Franchise MRR", value: fmt(mrr), sub: "monthly recurring", gradient: "from-emerald-500 to-teal-600", icon: IndianRupee },
       { label: "Total Revenue", value: fmt(totalRevenue), sub: "all franchises", gradient: "from-amber-500 to-orange-600", icon: TrendingUp },
     ];
-  }, [franchises]);
+  }, [demoMode, livefranchises]);
 
   // ── Filtered franchises ────────────────────────────
   const filteredFranchises = useMemo(() => {
@@ -576,7 +807,41 @@ const FranchiseAdmin = () => {
             Onboard, manage, and monitor all franchise organizations
           </p>
         </div>
+        {/* Demo Mode Toggle */}
+        <div className={cn(
+          "flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all",
+          demoMode
+            ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-500/30"
+            : "bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/50"
+        )}>
+          <div className="flex flex-col">
+            <span className={cn(
+              "text-xs font-bold",
+              demoMode ? "text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"
+            )}>
+              {demoMode ? "🎭 Demo Mode" : "🔴 Live Mode"}
+            </span>
+            <span className="text-[10px] text-slate-400">
+              {demoMode ? "Showing sample data" : "Connected to real DB"}
+            </span>
+          </div>
+          <Switch
+            checked={demoMode}
+            onCheckedChange={toggleDemoMode}
+            className={demoMode ? "data-[state=checked]:bg-amber-500" : ""}
+          />
+        </div>
       </div>
+
+      {/* Demo Mode Banner */}
+      {demoMode && (
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-500/30">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            <span className="font-bold">Demo Mode Active</span> — All data shown is sample/placeholder data for presentation purposes. Toggle off to view real franchise data from the database.
+          </p>
+        </div>
+      )}
 
       {/* KPI Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
@@ -863,6 +1128,17 @@ const FranchiseAdmin = () => {
                     onChange={(e) => setOnboardingData((d) => ({ ...d, ownerPhone: e.target.value }))}
                   />
                 </div>
+                <div className="md:col-span-2">
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Login Password *</Label>
+                  <Input
+                    type="password"
+                    className="mt-1.5 bg-slate-50 dark:bg-slate-900"
+                    placeholder="Min 8 characters — used to create owner's login account"
+                    value={onboardingData.ownerPassword}
+                    onChange={(e) => setOnboardingData((d) => ({ ...d, ownerPassword: e.target.value }))}
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">Leave blank to skip login creation (can be set up later).</p>
+                </div>
               </div>
             )}
 
@@ -1088,19 +1364,27 @@ const FranchiseAdmin = () => {
           </div>
 
           {/* Group by Org */}
-          {MOCK_FRANCHISES.map((org) => {
-            const orgBranches = MOCK_BRANCHES.filter((b) => b.orgId === org.id);
-            if (!orgBranches.length) return null;
+          {(demoMode ? MOCK_FRANCHISES : franchises).map((org) => {
+            const orgBranches = demoMode ? MOCK_BRANCHES.filter((b) => b.orgId === org.id) : [];
+            if (!orgBranches.length && demoMode) return null;
+            if (!demoMode) return (
+              <div key={org.id} className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-xl p-8 text-center">
+                <GitBranch className="h-8 w-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                <p className="text-sm text-slate-500 dark:text-slate-400">Live branch listing coming soon. Enable Demo Mode to preview.</p>
+              </div>
+            );
             const q = search.toLowerCase();
             const filtered = q
               ? orgBranches.filter((b) => b.name.toLowerCase().includes(q) || b.city.toLowerCase().includes(q))
               : orgBranches;
             if (!filtered.length) return null;
+            const planTier = String(org.plan_type || "starter").toLowerCase();
+            const tierColor = TIER_COLORS[planTier] || TIER_COLORS.starter;
 
             return (
               <div key={org.id} className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <div className={cn("p-1.5 rounded-lg bg-gradient-to-br text-white", TIER_COLORS[org.planTier])}>
+                  <div className={cn("p-1.5 rounded-lg bg-gradient-to-br text-white", tierColor)}>
                     <Building2 className="h-3.5 w-3.5" />
                   </div>
                   <h3 className="font-bold text-slate-900 dark:text-white text-sm">{org.name}</h3>
@@ -1163,7 +1447,34 @@ const FranchiseAdmin = () => {
       {/* ═══════════════════════════════════════════════ */}
       {activeTab === "staff" && (
         <div className="space-y-6">
-          {/* Roles Grid */}
+          {/* Org Selector */}
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            <div className="flex-1">
+              <Label className="text-xs text-slate-500 dark:text-slate-400 mb-1 block">Select Organization</Label>
+              <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
+                <SelectTrigger className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                  <SelectValue placeholder="Choose a franchise organization..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {franchises.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedOrgId && (
+              <Button
+                size="sm"
+                className="gap-1.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white text-xs mt-5 sm:mt-0"
+                onClick={() => setAddStaffDialog(true)}
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                Add Staff
+              </Button>
+            )}
+          </div>
+
+          {/* Roles Reference Grid */}
           <div>
             <h3 className="font-bold text-slate-900 dark:text-white text-base mb-3 flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-violet-500" />
@@ -1194,19 +1505,27 @@ const FranchiseAdmin = () => {
             </div>
           </div>
 
-          {/* Staff Table */}
+          {/* Live Staff Table */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
                 <Users className="h-5 w-5 text-blue-500" />
-                Staff Members (Spice Route Restaurants)
+                {selectedOrgId
+                  ? `Staff Members — ${franchises.find(f => f.id === selectedOrgId)?.name || ""}`
+                  : "Staff Members"}
               </h3>
-              <Button size="sm" className="gap-1.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white text-xs">
-                <UserPlus className="h-3.5 w-3.5" />
-                Add Staff
-              </Button>
             </div>
 
+            {!selectedOrgId && !demoMode ? (
+              <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-xl p-10 text-center">
+                <Users className="h-10 w-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                <p className="text-sm text-slate-500 dark:text-slate-400">Select an organization above to view its staff members.</p>
+              </div>
+            ) : !demoMode && staffLoading ? (
+              <div className="flex items-center justify-center p-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600" />
+              </div>
+            ) : (
             <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -1215,57 +1534,161 @@ const FranchiseAdmin = () => {
                       <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400">Name</th>
                       <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400">Email</th>
                       <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400">Role</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400">Branch Access</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400">Status</th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400">Actions</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400">Branch</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400">Joined</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {MOCK_STAFF.map((s) => {
-                      const statusCfg = STATUS_CONFIG[s.status];
-                      const StatusIcon = statusCfg.icon;
-                      return (
+                    {(demoMode ? MOCK_STAFF : orgStaff).length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-10 text-center text-sm text-slate-400 italic">No staff members found.</td>
+                      </tr>
+                    ) : (demoMode ? MOCK_STAFF : orgStaff).map((s) => (
                         <tr
                           key={s.id}
                           className="border-t border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
                         >
-                          <td className="py-3 px-4 font-medium text-slate-900 dark:text-white">{s.name}</td>
-                          <td className="py-3 px-4 text-slate-600 dark:text-slate-400 text-xs">{s.email}</td>
+                          <td className="py-3 px-4 font-medium text-slate-900 dark:text-white">{demoMode ? (s as any).name : (s as any).displayName}</td>
+                          <td className="py-3 px-4 text-slate-600 dark:text-slate-400 text-xs">{s.email || "—"}</td>
                           <td className="py-3 px-4">
-                            <Badge variant="outline" className="text-[10px]">{s.role}</Badge>
+                            <Badge variant="outline" className="text-[10px]">{demoMode ? (s as any).role : ((s as any).orgRole || (s as any).role || "staff")}</Badge>
                           </td>
                           <td className="py-3 px-4">
-                            <div className="flex flex-wrap gap-1">
-                              {s.branchAccess.map((b) => (
-                                <Badge key={b} variant="secondary" className="text-[10px]">{b}</Badge>
-                              ))}
-                            </div>
+                            {demoMode
+                              ? <div className="flex flex-wrap gap-1">{((s as any).branchAccess || []).map((b: string) => <Badge key={b} variant="secondary" className="text-[10px]">{b}</Badge>)}</div>
+                              : <Badge variant="secondary" className="text-[10px]">{(s as any).branchName}</Badge>
+                            }
                           </td>
-                          <td className="py-3 px-4">
-                            <Badge className={cn("text-[10px] border-0", statusCfg.color)}>
-                              <StatusIcon className="h-3 w-3 mr-1" /> {statusCfg.label}
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <div className="flex justify-end gap-1">
-                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                                <Edit className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
+                          <td className="py-3 px-4 text-xs text-slate-500">
+                            {demoMode ? (s as any).joinedAt : ((s as any).created_at ? new Date((s as any).created_at).toLocaleDateString("en-IN") : "—")}
                           </td>
                         </tr>
-                      );
-                    })}
+                    ))}
                   </tbody>
                 </table>
               </div>
             </div>
+            )}
           </div>
         </div>
       )}
+
+      {/* Add Staff Dialog */}
+      <Dialog open={addStaffDialog} onOpenChange={setAddStaffDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-violet-500" />
+              Add Staff Member
+            </DialogTitle>
+            <DialogDescription>Create a new login account and add them to the franchise.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 grid-cols-2">
+            <div>
+              <Label className="text-xs">First Name *</Label>
+              <Input
+                className="mt-1 bg-slate-50 dark:bg-slate-900"
+                value={addStaffData.firstName}
+                onChange={(e) => setAddStaffData((d) => ({ ...d, firstName: e.target.value }))}
+                placeholder="Rajesh"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Last Name</Label>
+              <Input
+                className="mt-1 bg-slate-50 dark:bg-slate-900"
+                value={addStaffData.lastName}
+                onChange={(e) => setAddStaffData((d) => ({ ...d, lastName: e.target.value }))}
+                placeholder="Sharma"
+              />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">Email *</Label>
+              <Input
+                type="email"
+                className="mt-1 bg-slate-50 dark:bg-slate-900"
+                value={addStaffData.email}
+                onChange={(e) => setAddStaffData((d) => ({ ...d, email: e.target.value }))}
+                placeholder="rajesh@franchise.com"
+              />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">Password *</Label>
+              <Input
+                type="password"
+                className="mt-1 bg-slate-50 dark:bg-slate-900"
+                value={addStaffData.password}
+                onChange={(e) => setAddStaffData((d) => ({ ...d, password: e.target.value }))}
+                placeholder="Min 8 characters"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Phone</Label>
+              <Input
+                className="mt-1 bg-slate-50 dark:bg-slate-900"
+                value={addStaffData.phone}
+                onChange={(e) => setAddStaffData((d) => ({ ...d, phone: e.target.value }))}
+                placeholder="+91 98765 43210"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Role *</Label>
+              <Select value={addStaffData.role} onValueChange={(v) => setAddStaffData((d) => ({ ...d, role: v }))}>
+                <SelectTrigger className="mt-1 bg-slate-50 dark:bg-slate-900">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="owner">Organization Owner</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="manager">Branch Manager</SelectItem>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="viewer">Finance Viewer</SelectItem>
+                  <SelectItem value="chef">Chef</SelectItem>
+                  <SelectItem value="waiter">Waiter</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">Assign Branch</Label>
+              <Select value={addStaffData.restaurantId} onValueChange={(v) => setAddStaffData((d) => ({ ...d, restaurantId: v }))}>
+                <SelectTrigger className="mt-1 bg-slate-50 dark:bg-slate-900">
+                  <SelectValue placeholder="Select a branch (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {orgBranches.map((b: any) => (
+                    <SelectItem key={b.id} value={b.id}>{b.name} ({b.branch_code})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddStaffDialog(false)}>Cancel</Button>
+            <Button
+              className="bg-gradient-to-r from-violet-600 to-purple-600 text-white gap-2"
+              disabled={addStaffMutation.isPending}
+              onClick={() => {
+                if (!addStaffData.firstName.trim() || !addStaffData.email.trim()) {
+                  toast.error("First name and email are required");
+                  return;
+                }
+                if (!addStaffData.password || addStaffData.password.length < 8) {
+                  toast.error("Password must be at least 8 characters");
+                  return;
+                }
+                addStaffMutation.mutate();
+              }}
+            >
+              {addStaffMutation.isPending ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
+              Add Staff
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ═══════════════════════════════════════════════ */}
       {/* TAB: FRANCHISE PLANS                           */}
