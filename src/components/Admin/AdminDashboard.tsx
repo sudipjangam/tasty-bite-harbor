@@ -2,7 +2,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RestaurantManagement } from "./RestaurantManagement";
 import { GlobalUserManagement } from "./GlobalUserManagement";
 import { WhatsAppProviderAdmin } from "./WhatsAppProviderAdmin";
-import { Building2, Users, MessageCircle } from "lucide-react";
+import { DatabaseSync } from "./DatabaseSync";
+import { Building2, Users, MessageCircle, Database } from "lucide-react";
 
 export const AdminDashboard = () => {
   return (
@@ -20,6 +21,10 @@ export const AdminDashboard = () => {
           <MessageCircle className="h-4 w-4" />
           <span>WhatsApp</span>
         </TabsTrigger>
+        <TabsTrigger value="db-sync" className="space-x-2">
+          <Database className="h-4 w-4" />
+          <span>Database Sync</span>
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="restaurants" className="space-y-4">
@@ -33,6 +38,11 @@ export const AdminDashboard = () => {
       <TabsContent value="whatsapp" className="space-y-4">
         <WhatsAppProviderAdmin />
       </TabsContent>
+
+      <TabsContent value="db-sync" className="space-y-4">
+        <DatabaseSync />
+      </TabsContent>
     </Tabs>
   );
 };
+

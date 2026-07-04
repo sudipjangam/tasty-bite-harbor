@@ -1,0 +1,47 @@
+name: Database Replication (Prod to Dev)
+
+on:
+  workflow_dispatch:
+    inputs:
+      sync_mode:
+        description: 'Replication Mode'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full
+
+jobs:
+  replicate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install PostgreSQL Client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Sync Database
+        env:
+          PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+          DEV_DB_URL: ${{ secrets.DEV_DB_URL }}
+        run: |
+          # Check env vars
+          if [ -z "$PROD_DB_URL" ] || [ -z "$DEV_DB_URL" ]; then
+            echo "Error: PROD_DB_URL or DEV_DB_URL secrets are not set in GitHub Repository Secrets."
+            exit 1
+          fi
+
+          echo "1. Dumping and restoring 'auth' schema..."
+          pg_dump "$PROD_DB_URL" --schema=auth --clean --if-exists -f auth_dump.sql
+          psql "$DEV_DB_URL" -f auth_dump.sql
+
+          echo "2. Dumping and restoring 'storage' schema..."
+          pg_dump "$PROD_DB_URL" --schema=storage --clean --if-exists -f storage_dump.sql
+          psql "$DEV_DB_URL" -f storage_dump.sql
+
+          echo "3. Dumping and restoring 'public' schema..."
+          pg_dump "$PROD_DB_URL" --schema=public --clean --if-exists -f public_dump.sql
+          psql "$DEV_DB_URL" -f public_dump.sql
+
+          echo "Replication completed successfully!"
