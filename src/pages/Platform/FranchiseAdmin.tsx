@@ -626,8 +626,13 @@ const FranchiseAdmin = () => {
         );
 
         if (createUserError) {
-          // If email already exists (409), try to find existing user
-          if (createUserError.message?.includes("already") || createUserData?.error?.includes("already")) {
+          const isConflict = 
+            (createUserError as any).status === 409 || 
+            String(createUserError.message).includes("already") || 
+            String(createUserError.message).includes("409") ||
+            (createUserData as any)?.error?.includes("already");
+
+          if (isConflict) {
             const { data: existingProfile } = await supabase
               .from("profiles")
               .select("id")
@@ -637,10 +642,10 @@ const FranchiseAdmin = () => {
               ownerUserId = existingProfile.id;
               toast.info("Owner account already exists — linking to organization.");
             } else {
-              throw new Error(createUserError.message);
+              throw new Error(createUserError.message || "Email already registered but profile not found.");
             }
           } else {
-            throw new Error(createUserError.message);
+            throw new Error(createUserError.message || "Failed to create owner account");
           }
         } else if (createUserData?.success) {
           ownerUserId = createUserData.user?.id || null;

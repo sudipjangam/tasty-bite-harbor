@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS organization_members (
 CREATE TABLE IF NOT EXISTS organization_subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  plan_type TEXT DEFAULT 'starter' CHECK (plan_type IN ('free', 'starter', 'pro', 'enterprise')),
+  plan_type TEXT DEFAULT 'starter' CHECK (plan_type IN ('free', 'starter', 'growth', 'professional', 'pro', 'enterprise')),
   base_price NUMERIC(10,2) DEFAULT 0,
   per_branch_price NUMERIC(10,2) DEFAULT 0,
   max_branches INTEGER DEFAULT 1,
@@ -170,13 +170,33 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Security definer functions to bypass RLS recursion on organization_members
+CREATE OR REPLACE FUNCTION check_user_is_org_admin_or_owner(p_org_id UUID, p_user_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM organization_members
+    WHERE organization_id = p_org_id 
+      AND user_id = p_user_id 
+      AND role IN ('owner', 'admin')
+  );
+$$ LANGUAGE sql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION check_user_is_org_member(p_org_id UUID, p_user_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM organization_members
+    WHERE organization_id = p_org_id 
+      AND user_id = p_user_id
+  );
+$$ LANGUAGE sql SECURITY DEFINER;
+
 -- RLS: organizations
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "org_select" ON organizations;
 CREATE POLICY "org_select" ON organizations FOR SELECT TO authenticated
   USING (
-    id IN (SELECT organization_id FROM organization_members WHERE user_id = auth.uid())
+    check_user_is_org_member(id, auth.uid())
     OR is_platform_admin()
   );
 
@@ -197,10 +217,7 @@ DROP POLICY IF EXISTS "orgmem_select" ON organization_members;
 CREATE POLICY "orgmem_select" ON organization_members FOR SELECT TO authenticated
   USING (
     user_id = auth.uid()
-    OR organization_id IN (
-      SELECT organization_id FROM organization_members
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
-    )
+    OR check_user_is_org_admin_or_owner(organization_id, auth.uid())
     OR is_platform_admin()
   );
 
@@ -215,9 +232,7 @@ ALTER TABLE organization_subscriptions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "orgsub_select" ON organization_subscriptions;
 CREATE POLICY "orgsub_select" ON organization_subscriptions FOR SELECT TO authenticated
   USING (
-    organization_id IN (
-      SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-    )
+    check_user_is_org_member(organization_id, auth.uid())
     OR is_platform_admin()
   );
 
