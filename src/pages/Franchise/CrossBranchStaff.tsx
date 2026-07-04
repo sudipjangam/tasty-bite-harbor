@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { MOCK_STAFF, MOCK_BRANCHES } from "@/data/franchiseMockData";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import { cn } from "@/lib/utils";
 import { Users, Phone, UserCheck, Calendar, RefreshCw } from "lucide-react";
@@ -13,7 +12,7 @@ const statusConfig = {
 };
 
 const CrossBranchStaff: React.FC = () => {
-  const { currentBranch } = useFranchise();
+  const { currentBranch, allBranches, staff } = useFranchise();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"attendance" | "roaming">("attendance");
   const [branchFilter, setBranchFilter] = useState("all");
@@ -23,7 +22,7 @@ const CrossBranchStaff: React.FC = () => {
   const [primaryBranch, setPrimaryBranch] = useState("branch-1");
   const [secondaryBranches, setSecondaryBranches] = useState<string[]>(["branch-2"]);
 
-  const filtered = MOCK_STAFF.filter((s) =>
+  const filtered = staff.filter((s) =>
     currentBranch
       ? s.branchId === currentBranch.id
       : branchFilter === "all" || s.branchId === branchFilter
@@ -43,11 +42,11 @@ const CrossBranchStaff: React.FC = () => {
 
   const handleUpdateRoster = (e: React.FormEvent) => {
     e.preventDefault();
-    const staff = MOCK_STAFF.find(s => s.id === selectedStaff);
-    const secNames = MOCK_BRANCHES.filter(b => secondaryBranches.includes(b.id)).map(b => b.name).join(", ");
+    const staffMember = staff.find(s => s.id === selectedStaff);
+    const secNames = allBranches.filter(b => secondaryBranches.includes(b.id)).map(b => b.name).join(", ");
     toast({
       title: "Roster Configured",
-      description: `Assigned roaming access for ${staff?.name} to: ${secNames || "None"}.`,
+      description: `Assigned roaming access for ${staffMember?.name} to: ${secNames || "None"}.`,
     });
   };
 
@@ -109,14 +108,14 @@ const CrossBranchStaff: React.FC = () => {
               className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
             >
               <option value="all">All Branches</option>
-              {MOCK_BRANCHES.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              {allBranches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {filtered.map((s) => {
               const sc = statusConfig[s.status];
-              const branch = MOCK_BRANCHES.find((b) => b.id === s.branchId);
+              const branch = allBranches.find((b) => b.id === s.branchId);
               return (
                 <div key={s.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
@@ -153,19 +152,19 @@ const CrossBranchStaff: React.FC = () => {
                 value={selectedStaff}
                 onChange={(e) => {
                   setSelectedStaff(e.target.value);
-                  const staffObj = MOCK_STAFF.find(s => s.id === e.target.value);
+                  const staffObj = staff.find(s => s.id === e.target.value);
                   if (staffObj) setPrimaryBranch(staffObj.branchId);
                 }}
                 className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
               >
-                {MOCK_STAFF.map(s => <option key={s.id} value={s.id}>{s.name} ({s.role} - Primary: {s.branchName})</option>)}
+                {staff.map(s => <option key={s.id} value={s.id}>{s.name} ({s.role} - Primary: {s.branchName})</option>)}
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Authorized Secondary Locations</label>
               <div className="space-y-2">
-                {MOCK_BRANCHES.map((b) => {
+                {allBranches.map((b) => {
                   const isPrimary = b.id === primaryBranch;
                   const isChecked = secondaryBranches.includes(b.id);
                   return (

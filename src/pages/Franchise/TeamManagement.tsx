@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MOCK_TEAM, MOCK_BRANCHES, OrgRole } from "@/data/franchiseMockData";
+import { OrgRole } from "@/data/franchiseMockData";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ const roleConfig: Record<OrgRole, { label: string; icon: React.ReactNode; classN
 };
 
 const TeamManagement: React.FC = () => {
-  const { allBranches } = useFranchise();
+  const { team, allBranches } = useFranchise();
 
   return (
     <div className="p-4 md:p-6 space-y-5">
@@ -32,7 +32,7 @@ const TeamManagement: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Team Management</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Franchise-level roles · {MOCK_TEAM.length} members
+            Franchise-level roles · {team.length} members
           </p>
         </div>
         <Button className="gap-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white w-full sm:w-auto">
@@ -62,11 +62,11 @@ const TeamManagement: React.FC = () => {
           <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Members</h2>
         </div>
         <div className="divide-y divide-gray-100 dark:divide-gray-700">
-          {MOCK_TEAM.map((member) => {
+          {team.map((member) => {
             const rc = roleConfig[member.role];
             const branchNames = member.accessibleBranches === null
               ? "All Branches"
-              : MOCK_BRANCHES
+              : allBranches
                   .filter((b) => member.accessibleBranches!.includes(b.id))
                   .map((b) => b.name)
                   .join(", ");

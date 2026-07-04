@@ -1,11 +1,5 @@
 import React from "react";
 import { useFranchise } from "@/contexts/FranchiseContext";
-import {
-  MOCK_BRANCHES,
-  MOCK_FRANCHISE_KPIS,
-  MOCK_REVENUE_TREND,
-  formatCurrency,
-} from "@/data/franchiseMockData";
 import { cn } from "@/lib/utils";
 import {
   TrendingUp,
@@ -70,15 +64,21 @@ const KpiCard: React.FC<KpiCardProps> = ({ title, value, growth, icon, color }) 
 
 // ─── Dashboard Page ───────────────────────────────────────────
 const FranchiseDashboard: React.FC = () => {
-  const { currentBranch, allBranches, isAllBranches } = useFranchise();
+  const { 
+    currentBranch, 
+    allBranches, 
+    isAllBranches, 
+    kpis, 
+    revenueTrend, 
+    formatCurrency 
+  } = useFranchise();
   const navigate = useNavigate();
 
   // If a specific branch is selected, show that branch's data only
   const displayBranches = currentBranch ? [currentBranch] : allBranches;
-  const kpis = MOCK_FRANCHISE_KPIS;
 
   // Revenue trend filtered by branch
-  const trendData = MOCK_REVENUE_TREND.map((d) => {
+  const trendData = revenueTrend.map((d) => {
     if (!currentBranch) return d;
     const key = currentBranch.name.split(" ")[0].toLowerCase() as keyof typeof d;
     return { date: d.date, [currentBranch.name]: d[key] ?? 0 };

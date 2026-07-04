@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { MOCK_MENU_ITEMS, MOCK_BRANCHES } from "@/data/franchiseMockData";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -12,11 +11,11 @@ const originConfig = {
 };
 
 const MenuSync: React.FC = () => {
-  const { currentBranch } = useFranchise();
+  const { currentBranch, menuItems, allBranches } = useFranchise();
   const [search, setSearch] = useState("");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
-  const filtered = MOCK_MENU_ITEMS.filter(
+  const filtered = menuItems.filter(
     (m) =>
       !search || m.name.toLowerCase().includes(search.toLowerCase()) || m.category.toLowerCase().includes(search.toLowerCase())
   );
@@ -111,7 +110,7 @@ const MenuSync: React.FC = () => {
                           </span>
                         </div>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          {MOCK_BRANCHES.filter((b) => item.branches.includes(b.id)).map((b) => (
+                          {allBranches.filter((b) => item.branches.includes(b.id)).map((b) => (
                             <span
                               key={b.id}
                               className="text-[10px] px-1.5 py-0.5 rounded-full font-medium text-white"

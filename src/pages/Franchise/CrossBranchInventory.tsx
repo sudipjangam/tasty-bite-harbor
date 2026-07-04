@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { MOCK_INVENTORY, MOCK_BRANCHES } from "@/data/franchiseMockData";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,7 @@ const statusConfig = {
 };
 
 const CrossBranchInventory: React.FC = () => {
-  const { currentBranch } = useFranchise();
+  const { currentBranch, allBranches, inventory } = useFranchise();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"levels" | "transfer" | "bulk">("levels");
   const [branchFilter, setBranchFilter] = useState("all");
@@ -29,7 +28,7 @@ const CrossBranchInventory: React.FC = () => {
   const [bulkQty, setBulkQty] = useState(100);
   const [bulkDistMode, setBulkDistMode] = useState("equal");
 
-  const filtered = MOCK_INVENTORY.filter((i) =>
+  const filtered = inventory.filter((i) =>
     currentBranch ? i.branchId === currentBranch.id : branchFilter === "all" || i.branchId === branchFilter
   );
 
@@ -42,9 +41,9 @@ const CrossBranchInventory: React.FC = () => {
       toast({ title: "Error", description: "Source and destination cannot be same", variant: "destructive" });
       return;
     }
-    const item = MOCK_INVENTORY.find(i => i.id === transItem);
-    const srcB = MOCK_BRANCHES.find(b => b.id === transSource);
-    const destB = MOCK_BRANCHES.find(b => b.id === transDest);
+    const item = inventory.find(i => i.id === transItem);
+    const srcB = allBranches.find(b => b.id === transSource);
+    const destB = allBranches.find(b => b.id === transDest);
     toast({
       title: "Transfer Initiated",
       description: `Moving ${transQty} ${item?.unit || "units"} of ${item?.name} from ${srcB?.name} to ${destB?.name}.`,
@@ -124,7 +123,7 @@ const CrossBranchInventory: React.FC = () => {
               className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
             >
               <option value="all">All Branches</option>
-              {MOCK_BRANCHES.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              {allBranches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           )}
 
@@ -143,7 +142,7 @@ const CrossBranchInventory: React.FC = () => {
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                   {filtered.map((item) => {
                     const sc = statusConfig[item.status];
-                    const branch = MOCK_BRANCHES.find((b) => b.id === item.branchId);
+                    const branch = allBranches.find((b) => b.id === item.branchId);
                     return (
                       <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                         <td className="px-5 py-3.5">
@@ -190,7 +189,7 @@ const CrossBranchInventory: React.FC = () => {
                   onChange={(e) => setTransSource(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
                 >
-                  {MOCK_BRANCHES.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  {allBranches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </div>
               <div>
@@ -200,7 +199,7 @@ const CrossBranchInventory: React.FC = () => {
                   onChange={(e) => setTransDest(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
                 >
-                  {MOCK_BRANCHES.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  {allBranches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </div>
             </div>
@@ -212,7 +211,7 @@ const CrossBranchInventory: React.FC = () => {
                 onChange={(e) => setTransItem(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
               >
-                {MOCK_INVENTORY.map(i => <option key={i.id} value={i.id}>{i.name} ({i.quantity} {i.unit} in {i.branchName})</option>)}
+                {inventory.map(i => <option key={i.id} value={i.id}>{i.name} ({i.quantity} {i.unit} in {i.branchName})</option>)}
               </select>
             </div>
 

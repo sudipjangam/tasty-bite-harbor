@@ -21,9 +21,11 @@ import {
   Menu,
   ArrowLeft,
   Building2,
+  AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Switch } from "@/components/ui/switch";
 
 // ─── Nav items for franchise sidebar ────────────────────────
 const franchiseNavItems = [
@@ -87,7 +89,7 @@ const franchiseNavItems = [
 export const FranchiseLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { org } = useFranchise();
+  const { org, demoMode, setDemoMode, isLoading } = useFranchise();
   const { toast } = useToast();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -148,6 +150,30 @@ export const FranchiseLayout: React.FC = () => {
         {!collapsed && (
           <div className="px-3 py-2 border-b border-white/10 shrink-0">
             <FranchiseBranchSwitcher />
+          </div>
+        )}
+
+        {/* Demo Mode Switch (Desktop Sidebar) */}
+        {!collapsed && (
+          <div className="px-4 py-3 border-t border-white/10 bg-slate-950/20">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-col min-w-0">
+                <span className={cn(
+                  "text-xs font-bold",
+                  demoMode ? "text-amber-400" : "text-slate-400"
+                )}>
+                  {demoMode ? "🎭 Demo Mode" : "🔴 Live Mode"}
+                </span>
+                <span className="text-[9px] text-white/40 truncate">
+                  {demoMode ? "Sample data loaded" : "Real DB queries"}
+                </span>
+              </div>
+              <Switch
+                checked={demoMode}
+                onCheckedChange={setDemoMode}
+                className={demoMode ? "data-[state=checked]:bg-amber-500" : ""}
+              />
+            </div>
           </div>
         )}
 
@@ -253,8 +279,25 @@ export const FranchiseLayout: React.FC = () => {
         </div>
 
         {/* Page content */}
-        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-          <Outlet />
+        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 pb-20 md:pb-6">
+          {/* Demo Mode Alert Banner */}
+          {demoMode && (
+            <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-900/30 px-4 py-2.5 flex items-center gap-3">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                <span className="font-bold">Demo Mode Active</span> — Showing rich mockup metrics for presentation. Toggle off to connect live tables.
+              </p>
+            </div>
+          )}
+          
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center h-64 gap-3">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600" />
+              <p className="text-xs text-gray-500 dark:text-gray-400">Loading live organization data...</p>
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </div>
 
         {/* Mobile bottom nav for franchise */}

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MOCK_ORG, MOCK_BRANCHES } from "@/data/franchiseMockData";
+import { useFranchise } from "@/contexts/FranchiseContext";
 import { Button } from "@/components/ui/button";
 import { Building2, Utensils, CreditCard, Save, History } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,9 +13,10 @@ const MOCK_AUDIT_LOGS = [
 ];
 
 const FranchiseSettings: React.FC = () => {
+  const { org, allBranches } = useFranchise();
   const [activeTab, setActiveTab] = useState<"settings" | "audit">("settings");
-  const [orgName, setOrgName] = useState(MOCK_ORG.name);
-  const [menuMode, setMenuMode] = useState(MOCK_ORG.menuMode);
+  const [orgName, setOrgName] = useState(org.name);
+  const [menuMode, setMenuMode] = useState(org.menuMode);
   const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
@@ -90,7 +91,7 @@ const FranchiseSettings: React.FC = () => {
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Owner</label>
                   <input
                     type="text"
-                    value={MOCK_ORG.ownerName}
+                    value={org.ownerName}
                     disabled
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-sm text-gray-500 dark:text-gray-500 cursor-not-allowed"
                   />
@@ -99,7 +100,7 @@ const FranchiseSettings: React.FC = () => {
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Total Branches</label>
                   <input
                     type="text"
-                    value={`${MOCK_BRANCHES.length} / ${MOCK_ORG.maxBranches}`}
+                    value={`${allBranches.length} / ${org.maxBranches}`}
                     disabled
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-sm text-gray-500 dark:text-gray-500 cursor-not-allowed"
                   />
@@ -158,13 +159,13 @@ const FranchiseSettings: React.FC = () => {
             <div className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-semibold text-gray-900 dark:text-white">{MOCK_ORG.plan} Plan</p>
+                  <p className="font-semibold text-gray-900 dark:text-white">{org.plan} Plan</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Up to {MOCK_ORG.maxBranches} branches · Active
+                    Up to {org.maxBranches} branches · Active
                   </p>
                 </div>
                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-violet-600 to-purple-600 text-white">
-                  {MOCK_ORG.plan}
+                  {org.plan}
                 </span>
               </div>
             </div>

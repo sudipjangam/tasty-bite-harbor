@@ -1,9 +1,6 @@
 import React, { useState } from "react";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import {
-  MOCK_ORDERS,
-  MOCK_BRANCHES,
-  formatCurrency,
   MockOrder,
 } from "@/data/franchiseMockData";
 import { cn } from "@/lib/utils";
@@ -42,12 +39,12 @@ const statusConfig: Record<
 };
 
 const CrossBranchOrders: React.FC = () => {
-  const { currentBranch } = useFranchise();
+  const { currentBranch, allBranches, orders, formatCurrency } = useFranchise();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<MockOrder["status"] | "all">("all");
   const [branchFilter, setBranchFilter] = useState("all");
 
-  const filtered = MOCK_ORDERS.filter((o) => {
+  const filtered = orders.filter((o) => {
     const matchBranch = currentBranch
       ? o.branchId === currentBranch.id
       : branchFilter === "all" || o.branchId === branchFilter;
@@ -114,7 +111,7 @@ const CrossBranchOrders: React.FC = () => {
             className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
           >
             <option value="all">All Branches</option>
-            {MOCK_BRANCHES.map((b) => (
+            {allBranches.map((b) => (
               <option key={b.id} value={b.id}>{b.name}</option>
             ))}
           </select>
@@ -211,7 +208,7 @@ const CrossBranchOrders: React.FC = () => {
         )}
 
         <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500">
-          Showing {filtered.length} of {MOCK_ORDERS.length} orders
+          Showing {filtered.length} of {orders.length} orders
         </div>
       </div>
     </div>

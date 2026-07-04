@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { MOCK_PNL_BRANCHES } from "@/data/franchiseMockData";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -152,12 +151,12 @@ const DivertingBarChart: React.FC<{ rows: DivergeRow[] }> = ({ rows }) => {
 
 // ─── Main Page ────────────────────────────────────────────────
 const CrossBranchPnL: React.FC = () => {
-  const { currentBranch } = useFranchise();
+  const { currentBranch, pnlBranches } = useFranchise();
   const [period, setPeriod] = useState("This Month - June 2026");
 
   const displayBranches = currentBranch
-    ? MOCK_PNL_BRANCHES.filter((b) => b.branchId === currentBranch.id)
-    : MOCK_PNL_BRANCHES;
+    ? pnlBranches.filter((b) => b.branchId === currentBranch.id)
+    : pnlBranches;
 
   // Build diverging rows
   const divergeRows: DivergeRow[] = displayBranches.map((b) => {
