@@ -25,6 +25,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
   Plus,
@@ -431,6 +441,19 @@ const FranchiseAdmin = () => {
   const [editDialog, setEditDialog] = useState(false);
   const [editData, setEditData] = useState<FranchiseOrgRow | null>(null);
 
+  // Delete franchise state
+  const [deleteFranchise, setDeleteFranchise] = useState<FranchiseOrgRow | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  // Onboarding result dialog state
+  const [onboardResult, setOnboardResult] = useState<{
+    isOpen: boolean;
+    success: boolean;
+    title: string;
+    description: string;
+    details?: string;
+  } | null>(null);
+
   // Plan editing
   const [editPlan, setEditPlan] = useState<FranchisePlan | null>(null);
 
@@ -699,8 +722,13 @@ const FranchiseAdmin = () => {
       return { organization_id, orgName: onboardingData.orgName };
     },
     onSuccess: (data) => {
-      toast.success("Franchise onboarded successfully!", {
-        description: `${data.orgName} has been created and synced.`,
+      toast.success("Franchise onboarded successfully!");
+      setOnboardResult({
+        isOpen: true,
+        success: true,
+        title: "Onboarding Successful!",
+        description: `Franchise "${data.orgName}" has been successfully onboarded and configured.`,
+        details: `Organization ID: ${data.organization_id}\nAll branches, initial menu settings, and subscriptions have been initialized.`,
       });
       queryClient.invalidateQueries({ queryKey: ["franchises"] });
       setWizardStep(0);
@@ -712,8 +740,91 @@ const FranchiseAdmin = () => {
       setActiveTab("franchises");
     },
     onError: (err: any) => {
-      toast.error("Failed to onboard franchise", { description: err.message });
+      toast.error("Failed to onboard franchise");
+      setOnboardResult({
+        isOpen: true,
+        success: false,
+        title: "Onboarding Failed",
+        description: "An error occurred while setting up the franchise organization.",
+        details: err.message || "Unknown error",
+      });
     }
+  });
+
+  // Delete franchise mutation (cascade clean up auth users then call RPC)
+  const deleteMutation = useMutation({
+    mutationFn: async (orgId: string) => {
+      // 1. Get all branch restaurant IDs for this organization
+      const { data: restaurants } = await supabase
+        .from("restaurants")
+        .select("id")
+        .eq("organization_id", orgId);
+      const restaurantIds = (restaurants || []).map((r) => r.id);
+
+      // 2. Get profiles associated with these restaurants
+      let userIds: string[] = [];
+      if (restaurantIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id")
+          .in("restaurant_id", restaurantIds);
+        if (profiles) {
+          userIds = profiles.map((p) => p.id);
+        }
+      }
+
+      // 3. Get organization members
+      const { data: members } = await supabase
+        .from("organization_members")
+        .select("user_id")
+        .eq("organization_id", orgId);
+      if (members) {
+        members.forEach((m) => {
+          if (!userIds.includes(m.user_id)) {
+            userIds.push(m.user_id);
+          }
+        });
+      }
+
+      // 4. Check org owner_user_id
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("owner_user_id")
+        .eq("id", orgId)
+        .maybeSingle();
+      if (org?.owner_user_id && !userIds.includes(org.owner_user_id)) {
+        userIds.push(org.owner_user_id);
+      }
+
+      // 5. Delete each user from auth via edge function
+      for (const userId of userIds) {
+        try {
+          await supabase.functions.invoke("user-management", {
+            body: {
+              action: "delete_user",
+              userData: { id: userId },
+            },
+          });
+        } catch (e) {
+          console.warn("Failed to delete user:", userId, e);
+        }
+      }
+
+      // 6. Delete the organization and all database records via RPC
+      const { error } = await supabase.rpc("delete_franchise_organization", {
+        p_org_id: orgId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Franchise deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["franchises"] });
+      setDeleteOpen(false);
+      setDeleteFranchise(null);
+    },
+    onError: (err: any) => {
+      toast.error("Failed to delete franchise", { description: err.message });
+    },
   });
 
   const handleOnboardSubmit = () => {
@@ -1022,6 +1133,18 @@ const FranchiseAdmin = () => {
                         >
                           <Edit className="h-3.5 w-3.5" />
                           <span className="hidden sm:inline">Edit</span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-8 gap-1.5 text-xs bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/50"
+                          onClick={() => {
+                            setDeleteFranchise(f);
+                            setDeleteOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Delete</span>
                         </Button>
                       </div>
                     </div>
@@ -2102,6 +2225,101 @@ const FranchiseAdmin = () => {
             >
               <Save className="h-4 w-4" />
               Save Plan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Franchise Confirmation Dialog */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Franchise Organization?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Are you sure you want to delete <span className="font-semibold text-slate-900 dark:text-white">"{deleteFranchise?.name}"</span>?
+              </p>
+              <div className="p-3 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-xs rounded-lg border border-red-100 dark:border-red-900/30 space-y-1">
+                <p className="font-bold">This operation is permanent and will delete:</p>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  <li>All branch restaurants ({deleteFranchise?.branch_count} branches)</li>
+                  <li>All associated staff logins and permission records</li>
+                  <li>All orders, menus, categories, and settings</li>
+                  <li>All subscription and payment history</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setDeleteOpen(false);
+              setDeleteFranchise(null);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={deleteMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteFranchise) {
+                  if (demoMode) {
+                    toast.success("Demo Mode: Simulated successful deletion");
+                    setDeleteOpen(false);
+                    setDeleteFranchise(null);
+                  } else {
+                    deleteMutation.mutate(deleteFranchise.id);
+                  }
+                }
+              }}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Permanently Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Onboarding Result Popup */}
+      <Dialog open={!!onboardResult?.isOpen} onOpenChange={(o) => !o && setOnboardResult(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {onboardResult?.success ? (
+                <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+              ) : (
+                <div className="p-1.5 rounded-lg bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400">
+                  <XCircle className="h-5 w-5" />
+                </div>
+              )}
+              {onboardResult?.title}
+            </DialogTitle>
+            <DialogDescription>
+              {onboardResult?.description}
+            </DialogDescription>
+          </DialogHeader>
+
+          {onboardResult?.details && (
+            <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-mono whitespace-pre-wrap max-h-[200px] overflow-y-auto">
+              {onboardResult.details}
+            </div>
+          )}
+
+          <DialogFooter className="mt-4">
+            <Button
+              className={cn(
+                "w-full text-white",
+                onboardResult?.success 
+                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                  : "bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-800"
+              )}
+              onClick={() => setOnboardResult(null)}
+            >
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
