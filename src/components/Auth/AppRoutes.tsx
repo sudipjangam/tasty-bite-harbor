@@ -114,6 +114,8 @@ const CrossBranchInventory = lazy(() => import("@/pages/Franchise/CrossBranchInv
 const CrossBranchStaff = lazy(() => import("@/pages/Franchise/CrossBranchStaff"));
 const CrossBranchPnL = lazy(() => import("@/pages/Franchise/CrossBranchPnL"));
 const FranchiseSettings = lazy(() => import("@/pages/Franchise/FranchiseSettings"));
+const CrossBranchCustomers = lazy(() => import("@/pages/Franchise/CrossBranchCustomers"));
+const ApprovalsWorkflow = lazy(() => import("@/pages/Franchise/ApprovalsWorkflow"));
 
 // ============================================================================
 
@@ -629,6 +631,8 @@ export const AppRoutes = () => {
             <Route path="inventory" element={<LazyRoute><CrossBranchInventory /></LazyRoute>} />
             <Route path="staff" element={<LazyRoute><CrossBranchStaff /></LazyRoute>} />
             <Route path="pnl" element={<LazyRoute><CrossBranchPnL /></LazyRoute>} />
+            <Route path="customers" element={<LazyRoute><CrossBranchCustomers /></LazyRoute>} />
+            <Route path="approvals" element={<LazyRoute><ApprovalsWorkflow /></LazyRoute>} />
             <Route path="settings" element={<LazyRoute><FranchiseSettings /></LazyRoute>} />
           </Route>
 

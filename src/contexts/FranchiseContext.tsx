@@ -13,12 +13,16 @@ import {
   MOCK_PNL_BRANCHES,
   MOCK_FRANCHISE_KPIS,
   MOCK_REVENUE_TREND,
+  MOCK_PAYROLL,
+  MOCK_CUSTOMERS,
   MockBranch,
   MockOrder,
   MockInventoryItem,
   MockStaffMember,
   MockMenuItem,
   MockPnLBranch,
+  MockPayrollEntry,
+  MockCustomer,
   OrgRole
 } from "@/data/franchiseMockData";
 
@@ -47,6 +51,8 @@ interface FranchiseContextType {
   orders: MockOrder[];
   inventory: MockInventoryItem[];
   staff: MockStaffMember[];
+  payroll: MockPayrollEntry[];
+  customers: MockCustomer[];
   team: typeof MOCK_TEAM;
   menuItems: MockMenuItem[];
   pnlBranches: MockPnLBranch[];
@@ -446,6 +452,8 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
     orders: demoMode ? MOCK_ORDERS : (dbData?.orders || []),
     inventory: demoMode ? MOCK_INVENTORY : (dbData?.inventory || []),
     staff: demoMode ? MOCK_STAFF : (dbData?.staff || []),
+    payroll: demoMode ? MOCK_PAYROLL : (dbData?.payroll || []),
+    customers: demoMode ? MOCK_CUSTOMERS : (dbData?.customers || []),
     team: demoMode ? MOCK_TEAM : (dbData?.team || []),
     menuItems: demoMode ? MOCK_MENU_ITEMS : (dbData?.menuItems || []),
     pnlBranches: demoMode ? MOCK_PNL_BRANCHES : (dbData?.pnlBranches || []),

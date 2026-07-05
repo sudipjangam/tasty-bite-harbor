@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { UtensilsCrossed, Send, Plus } from "lucide-react";
+import { UtensilsCrossed, Send, Plus, Save } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const originConfig = {
   master: { label: "Master", className: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400" },
@@ -12,10 +13,12 @@ const originConfig = {
 
 const MenuSync: React.FC = () => {
   const { currentBranch, menuItems, allBranches } = useFranchise();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [localItems, setLocalItems] = useState(menuItems);
 
-  const filtered = menuItems.filter(
+  const filtered = localItems.filter(
     (m) =>
       !search || m.name.toLowerCase().includes(search.toLowerCase()) || m.category.toLowerCase().includes(search.toLowerCase())
   );
@@ -24,6 +27,26 @@ const MenuSync: React.FC = () => {
     const next = new Set(selectedItems);
     next.has(id) ? next.delete(id) : next.add(id);
     setSelectedItems(next);
+  };
+
+  const handleUpdateLimit = (itemId: string, field: "min" | "max", val: number | undefined) => {
+    setLocalItems(prev => prev.map(item => {
+      if (item.id === itemId) {
+        return {
+          ...item,
+          [field === "min" ? "minPriceOverride" : "maxPriceOverride"]: val
+        };
+      }
+      return item;
+    }));
+  };
+
+  const handleSaveLimits = (itemId: string) => {
+    const item = localItems.find(m => m.id === itemId);
+    toast({
+      title: "Price Limits Saved",
+      description: `Configured price range for ${item?.name}: ₹${item?.minPriceOverride ?? 0} - ₹${item?.maxPriceOverride ?? 0}.`,
+    });
   };
 
   const categories = [...new Set(filtered.map((m) => m.category))];
@@ -121,6 +144,39 @@ const MenuSync: React.FC = () => {
                           ))}
                         </div>
                       </div>
+                      {/* Price Limit inputs */}
+                      {item.origin === "master" && (
+                        <div className="flex items-center gap-2 border-l border-gray-100 dark:border-gray-700 pl-4 shrink-0">
+                          <div className="flex flex-col">
+                            <span className="text-[9px] text-gray-400 font-semibold uppercase">Min</span>
+                            <input
+                              type="number"
+                              value={item.minPriceOverride ?? ""}
+                              placeholder="Min ₹"
+                              onChange={(e) => handleUpdateLimit(item.id, "min", e.target.value ? Number(e.target.value) : undefined)}
+                              className="w-16 h-7 text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-900 rounded px-1 text-center font-semibold"
+                            />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[9px] text-gray-400 font-semibold uppercase">Max</span>
+                            <input
+                              type="number"
+                              value={item.maxPriceOverride ?? ""}
+                              placeholder="Max ₹"
+                              onChange={(e) => handleUpdateLimit(item.id, "max", e.target.value ? Number(e.target.value) : undefined)}
+                              className="w-16 h-7 text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-900 rounded px-1 text-center font-semibold"
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleSaveLimits(item.id)}
+                            className="mt-3 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-violet-600 dark:text-violet-400"
+                            title="Save Limits"
+                          >
+                            <Save className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+
                       <div className="text-right shrink-0">
                         <p className="font-bold text-gray-900 dark:text-white text-sm">₹{item.price}</p>
                         <p className={cn("text-[10px] mt-0.5", item.isAvailable ? "text-emerald-500" : "text-red-400")}>

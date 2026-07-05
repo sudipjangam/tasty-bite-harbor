@@ -9,6 +9,7 @@ import {
   Star,
   DollarSign,
   ArrowRight,
+  Users,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -70,7 +71,8 @@ const FranchiseDashboard: React.FC = () => {
     isAllBranches, 
     kpis, 
     revenueTrend, 
-    formatCurrency 
+    formatCurrency,
+    staff
   } = useFranchise();
   const navigate = useNavigate();
 
@@ -141,6 +143,94 @@ const FranchiseDashboard: React.FC = () => {
           icon={<Star className="h-5 w-5 text-white" />}
           color="bg-gradient-to-br from-amber-500 to-orange-500"
         />
+      </div>
+
+      {/* Staff Count and Attendance Widget */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-violet-500" />
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+              Branch Staff & Attendance
+            </h2>
+          </div>
+          <button
+            onClick={() => navigate("/franchise/staff")}
+            className="text-xs text-violet-600 dark:text-violet-400 hover:underline flex items-center gap-1"
+          >
+            Manage Staff <ArrowRight className="h-3 w-3" />
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {displayBranches.map((branch) => {
+            const branchStaff = staff.filter((s) => s.branchId === branch.id);
+            const total = branchStaff.length;
+            const present = branchStaff.filter((s) => s.status === "present").length;
+            const absent = branchStaff.filter((s) => s.status === "absent").length;
+            const leave = branchStaff.filter((s) => s.status === "leave").length;
+            const presentPct = total > 0 ? Math.round((present / total) * 100) : 0;
+
+            return (
+              <div
+                key={branch.id}
+                className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 border border-gray-100 dark:border-gray-800"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ background: branch.color }}
+                    />
+                    <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm truncate max-w-[120px]">
+                      {branch.name}
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                    {presentPct}% Present
+                  </span>
+                </div>
+                <div className="space-y-2 mt-3">
+                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                    <span>Total Staff</span>
+                    <span className="font-bold text-gray-800 dark:text-gray-200">{total}</span>
+                  </div>
+                  {/* Stacked percentage bar */}
+                  <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex">
+                    <div
+                      style={{ width: `${total > 0 ? (present / total) * 100 : 0}%` }}
+                      className="h-full bg-emerald-500"
+                      title={`Present: ${present}`}
+                    />
+                    <div
+                      style={{ width: `${total > 0 ? (absent / total) * 100 : 0}%` }}
+                      className="h-full bg-red-500"
+                      title={`Absent: ${absent}`}
+                    />
+                    <div
+                      style={{ width: `${total > 0 ? (leave / total) * 100 : 0}%` }}
+                      className="h-full bg-amber-500"
+                      title={`On Leave: ${leave}`}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-gray-400 dark:text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      {present} P
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                      {absent} A
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      {leave} L
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Charts Row */}
