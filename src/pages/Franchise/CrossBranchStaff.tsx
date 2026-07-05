@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import { cn } from "@/lib/utils";
-import { Users, Phone, UserCheck, Calendar, RefreshCw } from "lucide-react";
+import { Users, Phone, UserCheck, Calendar, RefreshCw, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
@@ -12,9 +12,9 @@ const statusConfig = {
 };
 
 const CrossBranchStaff: React.FC = () => {
-  const { currentBranch, allBranches, staff } = useFranchise();
+  const { currentBranch, allBranches, staff, payroll } = useFranchise();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<"attendance" | "roaming">("attendance");
+  const [activeTab, setActiveTab] = useState<"attendance" | "roaming" | "payroll">("attendance");
   const [branchFilter, setBranchFilter] = useState("all");
 
   // Roaming state
@@ -82,6 +82,17 @@ const CrossBranchStaff: React.FC = () => {
           )}
         >
           <RefreshCw className="h-4 w-4" /> Roaming Staff (Cross-Branch)
+        </button>
+        <button
+          onClick={() => setActiveTab("payroll")}
+          className={cn(
+            "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5",
+            activeTab === "payroll"
+              ? "border-violet-600 text-violet-600 dark:text-violet-400 dark:border-violet-400"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400"
+          )}
+        >
+          <DollarSign className="h-4 w-4" /> Payroll (Read-Only)
         </button>
       </div>
 
@@ -199,6 +210,98 @@ const CrossBranchStaff: React.FC = () => {
               Save Roaming Permissions
             </Button>
           </form>
+        </div>
+      )}
+
+      {/* ── Tab 3: Payroll (Read-Only) ── */}
+      {activeTab === "payroll" && (
+        <div className="space-y-4">
+          {/* Header & Filter */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {!currentBranch && (
+              <select
+                value={branchFilter}
+                onChange={(e) => setBranchFilter(e.target.value)}
+                className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+              >
+                <option value="all">All Branches</option>
+                {allBranches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            )}
+            <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-lg border border-amber-100 dark:border-amber-900/40">
+              ⚠️ <strong>Read-Only View:</strong> Payroll updates must be configured at individual branch terminals.
+            </div>
+          </div>
+
+          {/* Cards Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Base Salary</p>
+              <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">
+                ₹{payroll.filter(p => currentBranch ? p.branchId === currentBranch.id : branchFilter === "all" || p.branchId === branchFilter).reduce((sum, p) => sum + p.baseSalary, 0).toLocaleString("en-IN")}
+              </p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Deductions</p>
+              <p className="text-xl font-bold text-red-500 mt-1">
+                ₹{payroll.filter(p => currentBranch ? p.branchId === currentBranch.id : branchFilter === "all" || p.branchId === branchFilter).reduce((sum, p) => sum + p.deductions, 0).toLocaleString("en-IN")}
+              </p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Net Payroll Cost</p>
+              <p className="text-xl font-bold text-violet-600 dark:text-violet-400 mt-1">
+                ₹{payroll.filter(p => currentBranch ? p.branchId === currentBranch.id : branchFilter === "all" || p.branchId === branchFilter).reduce((sum, p) => sum + p.netPay, 0).toLocaleString("en-IN")}
+              </p>
+            </div>
+          </div>
+
+          {/* Table list */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    <th className="px-5 py-3">Employee</th>
+                    <th className="px-5 py-3">Role</th>
+                    <th className="px-5 py-3">Branch</th>
+                    <th className="px-5 py-3">Period</th>
+                    <th className="px-5 py-3 text-right">Base Salary</th>
+                    <th className="px-5 py-3 text-right">Deductions</th>
+                    <th className="px-5 py-3 text-right">Net Pay</th>
+                    <th className="px-5 py-3 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700 text-xs text-gray-700 dark:text-gray-300">
+                  {payroll
+                    .filter(p => currentBranch ? p.branchId === currentBranch.id : branchFilter === "all" || p.branchId === branchFilter)
+                    .map((p) => {
+                      const branch = allBranches.find(b => b.id === p.branchId);
+                      return (
+                        <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-750/30 transition-colors">
+                          <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-white">{p.staffName}</td>
+                          <td className="px-5 py-3.5 text-gray-500 dark:text-gray-400">{p.role}</td>
+                          <td className="px-5 py-3.5">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2 h-2 rounded-full shrink-0" style={{ background: branch?.color }} />
+                              <span>{p.branchName}</span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3.5 text-gray-500 dark:text-gray-400">{p.payPeriod}</td>
+                          <td className="px-5 py-3.5 text-right font-medium">₹{p.baseSalary.toLocaleString("en-IN")}</td>
+                          <td className="px-5 py-3.5 text-right text-red-500 font-medium">-₹{p.deductions.toLocaleString("en-IN")}</td>
+                          <td className="px-5 py-3.5 text-right font-bold text-gray-900 dark:text-white">₹{p.netPay.toLocaleString("en-IN")}</td>
+                          <td className="px-5 py-3.5 text-center">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                              Paid
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
     </div>

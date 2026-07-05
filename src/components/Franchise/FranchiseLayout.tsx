@@ -22,6 +22,8 @@ import {
   ArrowLeft,
   Building2,
   AlertTriangle,
+  Award,
+  Bell,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -76,6 +78,18 @@ const franchiseNavItems = [
     icon: TrendingUp,
     href: "/franchise/pnl",
     description: "Revenue & profit",
+  },
+  {
+    title: "Customers & Loyalty",
+    icon: Award,
+    href: "/franchise/customers",
+    description: "Shared profiles & loyalty",
+  },
+  {
+    title: "Approvals",
+    icon: Bell,
+    href: "/franchise/approvals",
+    description: "BM requests & limits",
   },
   {
     title: "Settings",
@@ -196,15 +210,27 @@ export const FranchiseLayout: React.FC = () => {
                       : "text-white/80 hover:bg-white/10 hover:text-white"
                   )}
                 >
-                  <Icon
-                    className={cn(
-                      "h-4 w-4 shrink-0",
-                      active ? "text-violet-600" : "text-white/70 group-hover:text-white"
+                  <div className="relative">
+                    <Icon
+                      className={cn(
+                        "h-4 w-4 shrink-0",
+                        active ? "text-violet-600" : "text-white/70 group-hover:text-white"
+                      )}
+                    />
+                    {item.title === "Approvals" && collapsed && (
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-slate-900 animate-pulse" />
                     )}
-                  />
+                  </div>
                   {!collapsed && (
                     <div className="flex-1 min-w-0 text-left">
-                      <span className="text-sm font-medium block truncate">{item.title}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium block truncate">{item.title}</span>
+                        {item.title === "Approvals" && (
+                          <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 animate-pulse">
+                            2
+                          </span>
+                        )}
+                      </div>
                       {item.description && (
                         <span
                           className={cn(

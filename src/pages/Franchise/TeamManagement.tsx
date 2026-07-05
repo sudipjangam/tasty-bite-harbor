@@ -64,6 +64,13 @@ const TeamManagement: React.FC = () => {
         <div className="divide-y divide-gray-100 dark:divide-gray-700">
           {team.map((member) => {
             const rc = roleConfig[member.role];
+            const isRegionalManager = member.role === "admin" && member.accessibleBranches !== null;
+            const displayLabel = isRegionalManager ? "Regional Manager" : rc.label;
+            const displayClassName = isRegionalManager
+              ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400"
+              : rc.className;
+            const displayIcon = rc.icon;
+
             const branchNames = member.accessibleBranches === null
               ? "All Branches"
               : allBranches
@@ -82,8 +89,8 @@ const TeamManagement: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium text-gray-900 dark:text-white text-sm">{member.name}</p>
-                    <span className={cn("inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-bold", rc.className)}>
-                      {rc.icon} {rc.label}
+                    <span className={cn("inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-bold", displayClassName)}>
+                      {displayIcon} {displayLabel}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5">

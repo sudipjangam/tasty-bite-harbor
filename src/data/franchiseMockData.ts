@@ -65,6 +65,19 @@ export interface MockStaffMember {
   joinDate: string;
 }
 
+export interface MockPayrollEntry {
+  id: string;
+  staffId: string;
+  staffName: string;
+  branchId: string;
+  branchName: string;
+  role: string;
+  baseSalary: number;
+  deductions: number;
+  netPay: number;
+  payPeriod: string;
+}
+
 export interface MockInventoryItem {
   id: string;
   name: string;
@@ -85,6 +98,8 @@ export interface MockMenuItem {
   origin: "master" | "branch" | "inherited";
   isAvailable: boolean;
   branches: string[]; // branch IDs where it's available
+  minPriceOverride?: number;
+  maxPriceOverride?: number;
 }
 
 // ─── Branches ───────────────────────────────────────────────
@@ -293,14 +308,14 @@ export const MOCK_INVENTORY: MockInventoryItem[] = [
 
 // ─── Menu Items ─────────────────────────────────────────────
 export const MOCK_MENU_ITEMS: MockMenuItem[] = [
-  { id: "m1", name: "Paneer Tikka", category: "Starters", price: 280, origin: "master", isAvailable: true, branches: ["branch-1", "branch-2", "branch-3", "branch-4"] },
-  { id: "m2", name: "Butter Chicken", category: "Main Course", price: 320, origin: "master", isAvailable: true, branches: ["branch-1", "branch-2", "branch-3", "branch-4"] },
-  { id: "m3", name: "Dal Makhani", category: "Main Course", price: 240, origin: "master", isAvailable: true, branches: ["branch-1", "branch-2", "branch-3", "branch-4"] },
-  { id: "m4", name: "Chicken Biryani", category: "Rice", price: 380, origin: "master", isAvailable: true, branches: ["branch-1", "branch-2", "branch-3", "branch-4"] },
+  { id: "m1", name: "Paneer Tikka", category: "Starters", price: 280, origin: "master", isAvailable: true, branches: ["branch-1", "branch-2", "branch-3", "branch-4"], minPriceOverride: 250, maxPriceOverride: 350 },
+  { id: "m2", name: "Butter Chicken", category: "Main Course", price: 320, origin: "master", isAvailable: true, branches: ["branch-1", "branch-2", "branch-3", "branch-4"], minPriceOverride: 300, maxPriceOverride: 400 },
+  { id: "m3", name: "Dal Makhani", category: "Main Course", price: 240, origin: "master", isAvailable: true, branches: ["branch-1", "branch-2", "branch-3", "branch-4"], minPriceOverride: 200, maxPriceOverride: 300 },
+  { id: "m4", name: "Chicken Biryani", category: "Rice", price: 380, origin: "master", isAvailable: true, branches: ["branch-1", "branch-2", "branch-3", "branch-4"], minPriceOverride: 350, maxPriceOverride: 450 },
   { id: "m5", name: "Mumbai Vada Pav Special", category: "Starters", price: 80, origin: "branch", isAvailable: true, branches: ["branch-1"] },
   { id: "m6", name: "Pune Misal Pav", category: "Breakfast", price: 120, origin: "branch", isAvailable: true, branches: ["branch-2"] },
   { id: "m7", name: "Nashik Sabudana Khichdi", category: "Breakfast", price: 100, origin: "branch", isAvailable: true, branches: ["branch-3"] },
-  { id: "m8", name: "Gulab Jamun", category: "Desserts", price: 80, origin: "inherited", isAvailable: true, branches: ["branch-1", "branch-2"] },
+  { id: "m8", name: "Gulab Jamun", category: "Desserts", price: 80, origin: "inherited", isAvailable: true, branches: ["branch-1", "branch-2"], minPriceOverride: 60, maxPriceOverride: 100 },
 ];
 
 // ─── Team Members (Org Level) ────────────────────────────────
@@ -341,3 +356,35 @@ export const getPnLTotals = () => {
     { revenue: 0, expenses: 0, profit: 0 }
   );
 };
+
+export const MOCK_PAYROLL: MockPayrollEntry[] = [
+  { id: "pr1", staffId: "s1", staffName: "Amit Shah", branchId: "branch-1", branchName: "Mumbai HQ", role: "Manager", baseSalary: 45000, deductions: 2000, netPay: 43000, payPeriod: "June 2026" },
+  { id: "pr2", staffId: "s2", staffName: "Ravi Kumar", branchId: "branch-1", branchName: "Mumbai HQ", role: "Chef", baseSalary: 35000, deductions: 1500, netPay: 33500, payPeriod: "June 2026" },
+  { id: "pr3", staffId: "s3", staffName: "Priya Desai", branchId: "branch-2", branchName: "Pune Branch", role: "Manager", baseSalary: 42000, deductions: 1800, netPay: 40200, payPeriod: "June 2026" },
+  { id: "pr4", staffId: "s4", staffName: "Anita More", branchId: "branch-2", branchName: "Pune Branch", role: "Chef", baseSalary: 32000, deductions: 1000, netPay: 31000, payPeriod: "June 2026" },
+  { id: "pr5", staffId: "s5", staffName: "Vikram Patil", branchId: "branch-3", branchName: "Nashik Branch", role: "Manager", baseSalary: 40000, deductions: 1500, netPay: 38500, payPeriod: "June 2026" },
+  { id: "pr6", staffId: "s6", staffName: "Suresh Borse", branchId: "branch-3", branchName: "Nashik Branch", role: "Waiter", baseSalary: 18000, deductions: 500, netPay: 17500, payPeriod: "June 2026" },
+  { id: "pr7", staffId: "s7", staffName: "Sneha Kulkarni", branchId: "branch-4", branchName: "Nagpur Branch", role: "Manager", baseSalary: 38000, deductions: 1200, netPay: 36800, payPeriod: "June 2026" },
+  { id: "pr8", staffId: "s8", staffName: "Deepak Rao", branchId: "branch-4", branchName: "Nagpur Branch", role: "Chef", baseSalary: 30000, deductions: 1000, netPay: 29000, payPeriod: "June 2026" },
+];
+
+export interface MockCustomer {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  loyaltyPoints: number;
+  totalVisits: number;
+  totalSpent: number;
+  branchesVisited: string[];
+  tier: "Silver" | "Gold" | "Platinum";
+}
+
+export const MOCK_CUSTOMERS: MockCustomer[] = [
+  { id: "c1", name: "Ramesh Pawar", phone: "+91 98765 43210", email: "ramesh@gmail.com", loyaltyPoints: 450, totalVisits: 18, totalSpent: 9200, branchesVisited: ["BOM-01", "PNQ-02"], tier: "Gold" },
+  { id: "c2", name: "Sunita Deshmukh", phone: "+91 87654 32109", email: "sunita@yahoo.com", loyaltyPoints: 890, totalVisits: 32, totalSpent: 18500, branchesVisited: ["BOM-01", "PNQ-02", "NSK-03"], tier: "Platinum" },
+  { id: "c3", name: "Vijay Shinde", phone: "+91 76543 21098", email: "vijay@outlook.com", loyaltyPoints: 120, totalVisits: 5, totalSpent: 2600, branchesVisited: ["PNQ-02"], tier: "Silver" },
+  { id: "c4", name: "Ketan Joshi", phone: "+91 95432 10987", email: "ketan@gmail.com", loyaltyPoints: 340, totalVisits: 14, totalSpent: 6800, branchesVisited: ["BOM-01", "NAG-04"], tier: "Gold" },
+  { id: "c5", name: "Pooja Patil", phone: "+91 84321 09876", email: "pooja@gmail.com", loyaltyPoints: 50, totalVisits: 2, totalSpent: 1100, branchesVisited: ["NSK-03"], tier: "Silver" },
+];
+

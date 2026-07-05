@@ -825,18 +825,20 @@ COMMIT;
 
 ---
 
-## 12. Open Questions
+## 12. Open Questions — ALL RESOLVED (2026-07-05)
 
-> **These must be answered before implementation begins.**
+> **All questions answered by franchise owner during questionnaire review.**
 
-| #  | Question                        | Options                                                          | Recommended                   |
-| -- | ------------------------------- | ---------------------------------------------------------------- | ----------------------------- |
-| Q1 | Franchise owner access level    | Read-only / View+Edit / View+Edit+Approve                        | View+Edit+Approve             |
-| Q2 | Menu sync model                 | Identical everywhere / Same items different prices / Independent | Master with price overrides   |
-| Q3 | Subscription billing            | Per-restaurant / Per-org / Base + per-branch                     | Base + per-branch             |
-| Q4 | Branch creation                 | Self-service by franchise owner / Platform admin only            | Platform admin only (for now) |
-| Q5 | Inter-branch inventory transfer | Needed at launch?                                                | Phase 2 (later)               |
-| Q6 | Cross-branch loyalty            | Points earned at A redeemable at B?                              | Phase 2 (later)               |
+| #  | Question                        | Final Decision                                                   | Status          |
+| -- | ------------------------------- | ---------------------------------------------------------------- | --------------- |
+| Q1 | Franchise owner access level    | **View + Edit + Approve** (approval workflows Phase 2)           | ✅ Resolved     |
+| Q2 | Menu sync model                 | **Same items, different prices** — branch adjusts within limits  | ✅ Resolved     |
+| Q3 | Subscription billing            | **Base + per-branch** (`base_price` + `per_branch_price`)        | ✅ Resolved     |
+| Q4 | Branch creation                 | **Platform admin only** (Swadeshi team creates)                  | ✅ Resolved     |
+| Q5 | Inter-branch inventory transfer | **Phase 2** (nice to have, not now)                              | ✅ Resolved     |
+| Q6 | Cross-branch loyalty            | **Yes — chain-wide.** Shared customer DB + org-scoped loyalty    | ✅ Resolved (Phase 2 build) |
+| Q7 | Menu pricing control            | **Branch adjusts within limits** (`min/max_price_override`)      | ✅ Resolved (Phase 2 build) |
+| Q8 | Centralized inventory           | **View only** — each branch manages own, owner just views        | ✅ Resolved (already built) |
 
 ---
 
