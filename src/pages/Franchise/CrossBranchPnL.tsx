@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, Download } from "lucide-react";
+import { TrendingUp, TrendingDown, Download, Calendar } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 // ─── Helpers ─────────────────────────────────────────────────
 const fmt = (v: number) => `₹${Math.abs(v).toLocaleString("en-IN")}`;
@@ -29,8 +30,8 @@ interface DivergeRow {
 }
 
 const DivertingBarChart: React.FC<{ rows: DivergeRow[] }> = ({ rows }) => {
-  const maxRev = Math.max(...rows.map((r) => r.revenue));
-  const maxExp = Math.max(...rows.map((r) => r.expenses));
+  const maxRev = Math.max(...rows.map((r) => r.revenue), 1);
+  const maxExp = Math.max(...rows.map((r) => r.expenses), 1);
 
   return (
     <div>
@@ -152,55 +153,149 @@ const DivertingBarChart: React.FC<{ rows: DivergeRow[] }> = ({ rows }) => {
 // ─── Main Page ────────────────────────────────────────────────
 const CrossBranchPnL: React.FC = () => {
   const { currentBranch, pnlBranches } = useFranchise();
+  const { toast } = useToast();
+  
+  // Period filter states
   const [period, setPeriod] = useState("This Month - June 2026");
+  const [startDate, setStartDate] = useState("2026-06-01");
+  const [endDate, setEndDate] = useState("2026-06-30");
 
-  const displayBranches = currentBranch
+  // Determine period calculations
+  let multiplier = 1.0;
+  let dateSubtext = "June 2026";
+
+  if (period === "This Month - June 2026") {
+    multiplier = 1.0;
+    dateSubtext = "Jun 1, 2026 - Jun 30, 2026";
+  } else if (period === "Last Month - May 2026") {
+    multiplier = 0.92;
+    dateSubtext = "May 1, 2026 - May 31, 2026";
+  } else if (period === "This Quarter") {
+    multiplier = 2.85;
+    dateSubtext = "Apr 1, 2026 - Jun 30, 2026";
+  } else if (period === "This Year") {
+    multiplier = 11.4;
+    dateSubtext = "Jan 1, 2026 - Dec 31, 2026";
+  } else if (period === "Custom Range") {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+    multiplier = diffDays / 30; // Scale relative to standard 30-day baseline
+    dateSubtext = `${start.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} - ${end.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
+  }
+
+  // Multiply baseline values by period modifier
+  const displayBranches = (currentBranch
     ? pnlBranches.filter((b) => b.branchId === currentBranch.id)
-    : pnlBranches;
+    : pnlBranches
+  ).map((b) => ({
+    ...b,
+    revenue: Math.round(b.revenue * multiplier),
+    foodCost: Math.round(b.foodCost * multiplier),
+    laborCost: Math.round(b.laborCost * multiplier),
+    rent: Math.round(b.rent * multiplier),
+    utilities: Math.round(b.utilities * multiplier),
+    marketing: Math.round(b.marketing * multiplier),
+    other: Math.round(b.other * multiplier),
+  }));
 
   // Build diverging rows
   const divergeRows: DivergeRow[] = displayBranches.map((b) => {
     const expenses = b.foodCost + b.laborCost + b.rent + b.utilities + b.marketing + b.other;
     const profit   = b.revenue - expenses;
-    const margin   = ((profit / b.revenue) * 100).toFixed(0);
+    const margin   = b.revenue > 0 ? ((profit / b.revenue) * 100).toFixed(0) : "0";
     const shortName = b.branchName.includes("HQ") ? "Mumbai HQ" : b.branchName.split(" ")[0];
     return { id: b.branchId, name: shortName, revenue: b.revenue, expenses, profit, margin, color: b.color };
   });
 
-  // Aggregate
+  // Aggregate totals
   const totals = divergeRows.reduce(
     (acc, r) => ({ revenue: acc.revenue + r.revenue, expenses: acc.expenses + r.expenses, profit: acc.profit + r.profit }),
     { revenue: 0, expenses: 0, profit: 0 }
   );
-  const marginPct = ((totals.profit / totals.revenue) * 100).toFixed(0);
+  const marginPct = totals.revenue > 0 ? ((totals.profit / totals.revenue) * 100).toFixed(0) : "0";
+
+  // CSV Export logic
+  const handleExport = () => {
+    // Generate CSV contents
+    const headers = ["Category", ...displayBranches.map(b => b.branchName), "Total"];
+    const rows = EXPENSE_ROWS.map(({ key, label }) => {
+      const vals = displayBranches.map(b => b[key]);
+      const total = vals.reduce((s, v) => s + v, 0);
+      return [label, ...vals, total];
+    });
+
+    // Add totals row
+    rows.push(["Total Expenses", ...divergeRows.map(r => r.expenses), totals.expenses]);
+    rows.push(["Revenue", ...divergeRows.map(r => r.revenue), totals.revenue]);
+    rows.push(["Net Profit", ...divergeRows.map(r => r.profit), totals.profit]);
+
+    // Format & Download file
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `franchise_pnl_${period.toLowerCase().replace(/[^a-z0-9]+/g, "_")}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "📊 Report Exported",
+      description: `CSV file downloaded successfully for: ${dateSubtext}.`,
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 p-4 md:p-6 space-y-5">
 
       {/* ─── Header ─── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Cross-Branch P&amp;L Report</h1>
           <p className="text-sm text-gray-500 dark:text-white/50 mt-1">
-            {currentBranch ? currentBranch.name : "All Branches"} · June 2026
+            {currentBranch ? currentBranch.name : "All Branches"} · {dateSubtext}
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-gray-500 dark:text-white/50">Period:</span>
+        <div className="flex items-center gap-3 flex-wrap">
+          {period === "Custom Range" && (
+            <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-gray-200 dark:border-white/10 text-xs">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="bg-transparent text-gray-800 dark:text-white focus:outline-none"
+              />
+              <span className="text-gray-400">—</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="bg-transparent text-gray-800 dark:text-white focus:outline-none"
+              />
+            </div>
+          )}
+          
+          <span className="text-xs font-semibold text-gray-500 dark:text-white/50">Period:</span>
           <select
             value={period}
             onChange={(e) => setPeriod(e.target.value)}
             className="px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
           >
-            <option>This Month - June 2026</option>
-            <option>Last Month - May 2026</option>
-            <option>This Quarter</option>
-            <option>This Year</option>
+            <option value="This Month - June 2026">This Month - June 2026</option>
+            <option value="Last Month - May 2026">Last Month - May 2026</option>
+            <option value="This Quarter">This Quarter</option>
+            <option value="This Year">This Year</option>
+            <option value="Custom Range">Custom Range</option>
           </select>
+          
           <Button
+            onClick={handleExport}
             variant="outline"
             size="sm"
-            className="gap-2 border-gray-200 dark:border-white/10 text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-white/10"
+            className="gap-2 border-gray-200 dark:border-white/10 text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-white/10 rounded-xl"
           >
             <Download className="h-4 w-4" /> Export
           </Button>
@@ -213,14 +308,14 @@ const CrossBranchPnL: React.FC = () => {
           <p className="text-green-50 text-sm font-medium mb-1">Total Revenue</p>
           <p className="text-3xl md:text-4xl font-bold text-white">{fmt(totals.revenue)}</p>
           <div className="flex items-center gap-1 text-green-100 text-xs mt-3">
-            <TrendingUp className="h-3.5 w-3.5" /> +18.5% vs last month
+            <TrendingUp className="h-3.5 w-3.5" /> +18.5% vs last period
           </div>
         </div>
         <div className="bg-[#dc2626] rounded-2xl p-5 shadow-lg shadow-red-700/20 dark:shadow-red-900/40">
           <p className="text-red-50 text-sm font-medium mb-1">Total Expenses</p>
           <p className="text-3xl md:text-4xl font-bold text-white">{fmt(totals.expenses)}</p>
           <div className="flex items-center gap-1 text-red-100 text-xs mt-3">
-            <TrendingDown className="h-3.5 w-3.5" /> +8.2% vs last month
+            <TrendingDown className="h-3.5 w-3.5" /> +8.2% vs last period
           </div>
         </div>
         <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-5 shadow-lg shadow-blue-700/20 dark:shadow-blue-900/40">
