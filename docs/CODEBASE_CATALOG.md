@@ -42,6 +42,16 @@ Primary route permissions from `src/components/Auth/AppRoutes.tsx`.
 | `/email-tester` | admin role only |
 | `/platform/*` | admin role only |
 | `/daily-summary-history` | no explicit permission guard |
+| `/franchise` | franchise roles (`owner`/`admin`/`member`/`viewer`) |
+| `/franchise/branches` | franchise roles (`owner`/`admin`) |
+| `/franchise/team` | franchise roles (`owner`/`admin`) |
+| `/franchise/menu-sync` | franchise roles (`owner`/`admin`) |
+| `/franchise/orders` | franchise roles (`owner`/`admin`/`member`/`viewer`) |
+| `/franchise/inventory` | franchise roles (`owner`/`admin`/`member`/`viewer`) |
+| `/franchise/staff` | franchise roles (`owner`/`admin`/`member`/`viewer`) |
+| `/franchise/pnl` | franchise roles (`owner`/`admin`/`member`/`viewer`) |
+| `/franchise/settings` | franchise roles (`owner`/`admin`) |
+
 
 ## 2. Pages Inventory (`src/pages`)
 
@@ -60,6 +70,15 @@ Primary route permissions from `src/components/Auth/AppRoutes.tsx`.
 - `EnhancedDashboard.tsx`
 - `Expenses.tsx`
 - `Financial.tsx`
+- `Franchise/BranchManagement.tsx`
+- `Franchise/CrossBranchInventory.tsx`
+- `Franchise/CrossBranchOrders.tsx`
+- `Franchise/CrossBranchPnL.tsx`
+- `Franchise/CrossBranchStaff.tsx`
+- `Franchise/FranchiseDashboard.tsx`
+- `Franchise/FranchiseSettings.tsx`
+- `Franchise/MenuSync.tsx`
+- `Franchise/TeamManagement.tsx`
 - `Housekeeping.tsx`
 - `Index.tsx`
 - `Inventory.tsx`
@@ -122,6 +141,7 @@ Primary route permissions from `src/components/Auth/AppRoutes.tsx`.
 - `useFinancialData.tsx`
 - `useFinancialTabAccess.ts`
 - `useFinancialTrends.tsx`
+- `useFranchise` (defined in `src/contexts/FranchiseContext.tsx`)
 - `useGroupReservations.tsx`
 - `useGSTData.ts`
 - `useGuestLoyalty.tsx`
@@ -186,6 +206,7 @@ Primary route permissions from `src/components/Auth/AppRoutes.tsx`.
 - `Email`
 - `Expenses`
 - `Financial`
+- `Franchise`
 - `GuestExperience`
 - `Guests`
 - `Help`
@@ -326,6 +347,9 @@ Primary route permissions from `src/components/Auth/AppRoutes.tsx`.
 - `monthly_budgets`
 - `night_audit_logs`
 - `operational_costs`
+- `organization_members`
+- `organization_subscriptions`
+- `organizations`
 - `orders`
 - `orders_unified`
 - `orders_unified_backup_20260111_000000`
@@ -407,4 +431,6 @@ Recent migration files (latest set) show active work in:
 - inventory parity and deduplication
 - granular feature permissions
 - POS customer mapping
+- Franchise Management (multi-branch tenancy, central menu sync, roaming staff, cross-branch orders/inventory/PnL, organization and subscription tables, RLS isolation bypass helpers)
+
 

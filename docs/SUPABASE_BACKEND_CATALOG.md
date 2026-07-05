@@ -6,9 +6,9 @@ This document lists all database tables, columns, functions, triggers, and Edge 
 
 ## 📊 Database Schema Summary
 
-- **Total Tables:** 133
-- **Total Database Functions (RPCs):** 69
-- **Total Triggers:** 85
+- **Total Tables:** 136
+- **Total Database Functions (RPCs):** 74
+- **Total Triggers:** 86
 - **Total Edge Functions:** 46
 
 ---
@@ -977,6 +977,10 @@ Below is the schema breakdown of every database table in the `public` schema.
 | `pricing_type` | `text` | `YES` | `'fixed'::text` |
 | `pricing_unit` | `text` | `YES` | *None* |
 | `base_unit_quantity` | `numeric` | `YES` | `1` |
+| `organization_id` | `uuid` | `YES` | *None* |
+| `origin` | `text` | `YES` | `'branch'::text` |
+| `source_item_id` | `uuid` | `YES` | *None* |
+
 
 
 ### 📋 monthly_budgets
@@ -1030,6 +1034,50 @@ Below is the schema breakdown of every database table in the `public` schema.
 | `is_recurring` | `boolean` | `YES` | `false` |
 | `recurring_frequency` | `character varying` | `YES` | *None* |
 | `created_by` | `uuid` | `YES` | *None* |
+| `created_at` | `timestamp with time zone` | `YES` | `now()` |
+| `updated_at` | `timestamp with time zone` | `YES` | `now()` |
+
+
+### 📋 organization_members
+
+| Column Name | Data Type | Nullable | Default Value |
+|---|---|---|---|
+| `id` | `uuid` | `NO` | `gen_random_uuid()` |
+| `organization_id` | `uuid` | `NO` | *None* |
+| `user_id` | `uuid` | `NO` | *None* |
+| `role` | `text` | `YES` | `'member'::text` |
+| `accessible_branches` | `ARRAY` | `YES` | *None* |
+| `created_at` | `timestamp with time zone` | `YES` | `now()` |
+
+
+### 📋 organization_subscriptions
+
+| Column Name | Data Type | Nullable | Default Value |
+|---|---|---|---|
+| `id` | `uuid` | `NO` | `gen_random_uuid()` |
+| `organization_id` | `uuid` | `NO` | *None* |
+| `plan_type` | `text` | `YES` | `'starter'::text` |
+| `base_price` | `numeric` | `YES` | `0` |
+| `per_branch_price` | `numeric` | `YES` | `0` |
+| `max_branches` | `integer` | `YES` | `1` |
+| `status` | `text` | `YES` | `'active'::text` |
+| `trial_ends_at` | `timestamp with time zone` | `YES` | *None* |
+| `created_at` | `timestamp with time zone` | `YES` | `now()` |
+| `updated_at` | `timestamp with time zone` | `YES` | `now()` |
+
+
+### 📋 organizations
+
+| Column Name | Data Type | Nullable | Default Value |
+|---|---|---|---|
+| `id` | `uuid` | `NO` | `gen_random_uuid()` |
+| `name` | `text` | `NO` | *None* |
+| `slug` | `text` | `YES` | *None* |
+| `type` | `text` | `YES` | `'single'::text` |
+| `owner_user_id` | `uuid` | `YES` | *None* |
+| `menu_mode` | `text` | `YES` | `'independent'::text` |
+| `logo_url` | `text` | `YES` | *None* |
+| `settings` | `jsonb` | `YES` | `'{}'::jsonb` |
 | `created_at` | `timestamp with time zone` | `YES` | `now()` |
 | `updated_at` | `timestamp with time zone` | `YES` | `now()` |
 
@@ -1733,6 +1781,9 @@ Below is the schema breakdown of every database table in the `public` schema.
 | `weekly_schedule` | `jsonb` | `YES` | `'[]'::jsonb` |
 | `location_updated_at` | `timestamp with time zone` | `YES` | *None* |
 | `logo_url` | `text` | `YES` | *None* |
+| `organization_id` | `uuid` | `YES` | *None* |
+| `branch_code` | `text` | `YES` | `'HQ'::text` |
+| `is_headquarters` | `boolean` | `YES` | `false` |
 
 
 ### 📋 revenue_metrics
@@ -2574,6 +2625,9 @@ The Supabase project exposes the following database functions for security, util
 | `capture_supplier_price_on_po_receive` | _None_ | `trigger` | Saves historical prices on PO item intake. |
 | `check_access` | `_table_name text, _restaurant_id uuid` | `boolean` | Gating helper for component-to-table access. |
 | `check_kitchen_pin_exists` | `p_restaurant_id uuid` | `boolean` | Verifies whether a restaurant has set their kitchen access PIN. |
+| `check_user_is_org_admin_or_owner` | `p_org_id uuid, p_user_id uuid` | `boolean` | Recursion-safe RLS admin check. |
+| `check_user_is_org_member` | `p_org_id uuid, p_user_id uuid` | `boolean` | Recursion-safe RLS member check. |
+| `create_franchise_organization` | `p_org_name text, p_org_type text, p_menu_mode text, p_hq_name text, p_hq_branch_code text, p_plan_type text, p_max_branches integer` | `jsonb` | Atomic creation of franchise organization, headquarters restaurant, and organization subscription. |
 | `expire_loyalty_points` | _None_ | `void` | Point cleanup cron worker. |
 | `fn_on_new_ota_booking` | _None_ | `trigger` | Handles booking confirmations from OTAs. |
 | `fn_on_ota_booking_cancel` | _None_ | `trigger` | Clears room availability upon cancellation. |
@@ -2591,6 +2645,7 @@ The Supabase project exposes the following database functions for security, util
 | `get_user_permissions` | `p_user_id uuid` | `TABLE(permission text)` | Pulls all custom permissions for users. |
 | `get_user_restaurant_id` | `_user_id uuid` | `uuid` | Resolves tenant ID. |
 | `get_user_role_name` | `user_id uuid` | `text` | Returns role name string. |
+| `get_user_accessible_restaurants` | `p_user_id uuid` | `uuid[]` | Resolves all restaurant IDs a franchise user has access to, with fallback to profile tenant ID. |
 | `handle_new_user` | _None_ | `trigger` | Auto-profiles signup accounts. |
 | `handle_order_status_update` | _None_ | `trigger` | Lifecycle handler for order status transitions. |
 | `has_active_subscription` | `restaurant_id uuid` | `boolean` | Returns subscription status validation. |
@@ -2605,6 +2660,7 @@ The Supabase project exposes the following database functions for security, util
 | `seed_system_roles` | `p_restaurant_id uuid` | `void` | Seeder tool for default platform permissions. |
 | `set_kitchen_pin_by_owner` | `p_restaurant_id uuid, p_new_pin text` | `boolean` | Updates/creates kitchen verification PIN. |
 | `suggest_purchase_orders` | `restaurant_id_param uuid` | `TABLE(...)` | Auto-orders calculations. |
+| `trg_fn_auto_create_single_organization` | _None_ | `trigger` | Auto-creates a single organization when a standalone restaurant is added. |
 | `sync_auth_user_email_to_profile` | _None_ | `trigger` | Auth-profile email sync. |
 | `sync_kitchen_to_orders` | _None_ | `trigger` | KDS-to-POS updates synchronization. |
 | `sync_order_to_customer` | _None_ | `trigger` | Updates customer spent stats and loyalty points when order paid. |
@@ -2699,6 +2755,7 @@ Triggers enforce data automation, calculations, auditing, and realtime state syn
 | `update_restaurant_subscriptions_updated_at`| `restaurant_subscriptions`| `UPDATE` | `update_updated_at_column()` |
 | `set_restaurant_slug` | `restaurants` | `INSERT`, `UPDATE` | `generate_restaurant_slug()` |
 | `update_restaurants_updated_at_trigger` | `restaurants` | `UPDATE` | `update_restaurants_updated_at()` |
+| `trg_auto_create_single_organization` | `restaurants` | `INSERT` | `trg_fn_auto_create_single_organization()` |
 | `update_revenue_metrics_updated_at` | `revenue_metrics` | `UPDATE` | `update_updated_at_column()` |
 | `update_roles_timestamp` | `roles` | `UPDATE` | `update_roles_updated_at()` |
 | `update_room_food_orders_updated_at` | `room_food_orders` | `UPDATE` | `update_updated_at_column()` |
