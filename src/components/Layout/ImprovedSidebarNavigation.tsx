@@ -81,6 +81,7 @@ const hrefToComponentMap: Record<string, string> = {
   "/suppliers": "suppliers",
   "/security": "settings", // Security is under Settings & Security
   "/settings": "settings",
+  "/digital-twin": "tables",
 };
 
 interface NavigationItem {
@@ -139,6 +140,13 @@ const navigationGroups: NavigationGroup[] = [
         icon: Store,
         href: "/quickserve-pos",
         description: "Counter & takeaway POS",
+        requiredPermissions: ["orders.view"],
+      },
+      {
+        title: "Digital Twin",
+        icon: Network,
+        href: "/digital-twin",
+        description: "Interactive outlet blueprint",
         requiredPermissions: ["orders.view"],
       },
       {

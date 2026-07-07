@@ -27,6 +27,7 @@ const POS = lazy(() => import("@/pages/POS"));
 const QSRPos = lazy(() => import("@/pages/QSRPos"));
 const QuickServePOS = lazy(() => import("@/pages/QuickServePOS"));
 const Kitchen = lazy(() => import("@/pages/Kitchen"));
+const DigitalTwin = lazy(() => import("@/pages/DigitalTwin"));
 
 // Menu & Recipes
 const Menu = lazy(() => import("@/pages/Menu"));
@@ -232,6 +233,18 @@ export const AppRoutes = () => {
                 <LazyRoute>
                   <QuickServePOS />
                 </LazyRoute>
+              </PermissionGuard>
+            }
+          />
+          <Route
+            path="/digital-twin"
+            element={
+              <PermissionGuard permission="orders.view">
+                <FranchiseProvider>
+                  <LazyRoute>
+                    <DigitalTwin />
+                  </LazyRoute>
+                </FranchiseProvider>
               </PermissionGuard>
             }
           />

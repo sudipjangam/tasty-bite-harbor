@@ -171,8 +171,9 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
     color: 'from-sky-500 to-blue-600',
     features: [
       { key: 'tables.grid', label: 'Table Grid', description: 'Basic table layout and status' },
-      { key: 'tables.timers', label: 'Table Timers', description: 'Occupancy time tracking' },
+      { key: 'tables.timers', label: 'Table Timers', description: 'Table timers & occupancy tracking' },
       { key: 'tables.optimization', label: 'Seating Optimization', description: 'Smart seating suggestions' },
+      { key: 'tables.digital_twin', label: 'Digital Twin', description: 'Interactive 3D/2D floor layouts and editor' },
     ],
   },
 
