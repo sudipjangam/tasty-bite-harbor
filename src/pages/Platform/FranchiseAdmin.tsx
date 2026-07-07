@@ -77,6 +77,7 @@ import {
   Package,
   Lock,
   Unlock,
+  X,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────
@@ -99,6 +100,8 @@ interface FranchiseOrgRow {
   plan_type?: string;
   max_branches?: number;
   sub_status?: string;
+  revenue?: number;  // real revenue from orders table
+  branchesList?: FranchiseBranch[]; // list of real branches/restaurants
 }
 
 interface FranchiseBranch {
@@ -148,14 +151,8 @@ const fetchFranchises = async (): Promise<FranchiseOrgRow[]> => {
   if (orgErr) throw orgErr;
   if (!orgs?.length) return [];
 
-  // Get members with profiles for owner info
-  const { data: members } = await supabase
-    .from("organization_members")
-    .select("organization_id, user_id, role")
-    .eq("role", "owner");
-
-  // Get owner profiles
-  const ownerIds = (members || []).map(m => m.user_id);
+  // Get owner profiles directly via owner_user_id
+  const ownerIds = orgs.map(o => o.owner_user_id).filter(id => !!id) as string[];
   const { data: profiles } = ownerIds.length > 0
     ? await supabase
         .from("profiles")
@@ -163,16 +160,34 @@ const fetchFranchises = async (): Promise<FranchiseOrgRow[]> => {
         .in("id", ownerIds)
     : { data: [] };
 
-  // Get branch counts per org
-  const { data: branches } = await supabase
-    .from("restaurants")
-    .select("organization_id")
-    .not("organization_id", "is", null);
+  // Get branches and calculated revenue via security definer RPC (bypasses RLS)
+  const { data: dbBranches } = await supabase
+    .rpc("get_franchise_revenues");
 
   const branchCounts: Record<string, number> = {};
-  (branches || []).forEach(b => {
+  const orgBranchesMap: Record<string, FranchiseBranch[]> = {};
+  const revenueByOrg: Record<string, number> = {};
+
+  (dbBranches || []).forEach((b: any) => {
     if (b.organization_id) {
       branchCounts[b.organization_id] = (branchCounts[b.organization_id] || 0) + 1;
+      
+      const newBranch: FranchiseBranch = {
+        id: b.restaurant_id,
+        orgId: b.organization_id,
+        name: b.restaurant_name,
+        code: b.branch_code || "HQ",
+        city: orgs.find((o) => o.id === b.organization_id)?.settings?.city || "—",
+        address: b.address || "—",
+        manager: b.emergency_contact_name || b.owner_name || "Manager",
+        managerPhone: b.emergency_contact_phone || b.owner_phone || "—",
+        status: b.is_active ? "active" : "inactive",
+        orders: Number(b.order_count) || 0,
+        revenue: Number(b.total_revenue) || 0
+      };
+      
+      orgBranchesMap[b.organization_id] = [...(orgBranchesMap[b.organization_id] || []), newBranch];
+      revenueByOrg[b.organization_id] = (revenueByOrg[b.organization_id] || 0) + Number(b.total_revenue);
     }
   });
 
@@ -184,16 +199,16 @@ const fetchFranchises = async (): Promise<FranchiseOrgRow[]> => {
   const subMap: Record<string, any> = {};
   (subs || []).forEach(s => { subMap[s.organization_id] = s; });
 
-  const memberMap: Record<string, string> = {};
-  (members || []).forEach(m => { memberMap[m.organization_id] = m.user_id; });
-
   const profileMap: Record<string, any> = {};
   (profiles || []).forEach(p => { profileMap[p.id] = p; });
 
   return orgs.map(org => {
-    const ownerId = memberMap[org.id];
+    const ownerId = org.owner_user_id;
     const profile = ownerId ? profileMap[ownerId] : null;
     const sub = subMap[org.id];
+    const orgId = org.id;
+    const branchesList = orgBranchesMap[orgId] || [];
+
     return {
       ...org,
       owner_name: profile ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() : "—",
@@ -203,6 +218,8 @@ const fetchFranchises = async (): Promise<FranchiseOrgRow[]> => {
       plan_type: sub?.plan_type || "—",
       max_branches: sub?.max_branches || 0,
       sub_status: sub?.status || "—",
+      revenue: revenueByOrg[org.id] || 0,
+      branchesList,
     };
   });
 };
@@ -403,6 +420,20 @@ const FranchiseAdmin = () => {
     queryFn: fetchFranchises,
   });
 
+  // Query real restaurant subscription plans
+  const { data: dbSubscriptionPlans = [] } = useQuery({
+    queryKey: ["platform-subscription-plans"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("subscription_plans")
+        .select("*")
+        .eq("is_active", true)
+        .order("price", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // Onboarding wizard
   const [wizardStep, setWizardStep] = useState(0);
   const [onboardingData, setOnboardingData] = useState({
@@ -416,6 +447,7 @@ const FranchiseAdmin = () => {
     city: "",
     state: "",
     plan: "Franchise Starter", // Default plan selection
+    selectedPlanId: "", // ID from subscription_plans table
     branchName: "",
     branchCode: "HQ",
     branchAddress: "",
@@ -706,7 +738,6 @@ const FranchiseAdmin = () => {
         .from("restaurants")
         .update({
           address: onboardingData.branchAddress,
-          city: onboardingData.branchCity || onboardingData.city,
         })
         .eq("id", restaurant_id);
       if (updateRestError) throw updateRestError;
@@ -717,6 +748,43 @@ const FranchiseAdmin = () => {
           .from("organization_members")
           .insert({ organization_id, user_id: ownerUserId, role: "owner" });
         if (memberError) console.warn("Could not create org member row:", memberError.message);
+      }
+
+      // 6. Create restaurant_subscriptions entry for the newly created HQ branch
+      let planIdToUse = onboardingData.selectedPlanId;
+      if (!planIdToUse && dbSubscriptionPlans.length > 0) {
+        // Fallback mapping based on plan type if none selected
+        const matched = dbSubscriptionPlans.find(p => {
+          const name = p.name.toLowerCase();
+          if (selectedPlanTier === 'starter') return name.includes('starter');
+          if (selectedPlanTier === 'growth') return name.includes('growth');
+          return name.includes('professional');
+        });
+        planIdToUse = matched?.id || dbSubscriptionPlans[0].id;
+      }
+
+      if (planIdToUse) {
+        const { error: subError } = await supabase
+          .from("restaurant_subscriptions")
+          .insert({
+            restaurant_id: restaurant_id,
+            plan_id: planIdToUse,
+            status: "active",
+            current_period_start: new Date().toISOString(),
+            current_period_end: new Date(Date.now() + 3650 * 24 * 60 * 60 * 1000).toISOString(), // 10 years
+          });
+        
+        if (subError) {
+          // If conflict due to trigger insert, update just in case
+          await supabase
+            .from("restaurant_subscriptions")
+            .update({
+              plan_id: planIdToUse,
+              status: "active",
+              current_period_end: new Date(Date.now() + 3650 * 24 * 60 * 60 * 1000).toISOString(),
+            })
+            .eq("restaurant_id", restaurant_id);
+        }
       }
 
       return { organization_id, orgName: onboardingData.orgName };
@@ -735,7 +803,7 @@ const FranchiseAdmin = () => {
       setOnboardingData({
         orgName: "", ownerName: "", ownerEmail: "", ownerPhone: "", ownerPassword: "",
         gstNumber: "", fssaiNumber: "", city: "", state: "",
-        plan: "Franchise Starter", branchName: "", branchCode: "HQ", branchAddress: "", branchCity: "",
+        plan: "Franchise Starter", selectedPlanId: "", branchName: "", branchCode: "HQ", branchAddress: "", branchCity: "",
       });
       setActiveTab("franchises");
     },
@@ -827,6 +895,22 @@ const FranchiseAdmin = () => {
     },
   });
 
+  const handleFranchisePlanSelect = (planName: string, tier: string) => {
+    // Find matching restaurant plan ID from database subscription plans
+    const matchedPlan = dbSubscriptionPlans.find((p) => {
+      const name = p.name.toLowerCase();
+      if (tier === 'starter') return name.includes('starter');
+      if (tier === 'growth') return name.includes('growth');
+      return name.includes('professional');
+    });
+
+    setOnboardingData((d) => ({
+      ...d,
+      plan: planName,
+      selectedPlanId: matchedPlan?.id || d.selectedPlanId || (dbSubscriptionPlans[0]?.id || "")
+    }));
+  };
+
   const handleOnboardSubmit = () => {
     // Basic validation
     if (!onboardingData.orgName.trim()) {
@@ -869,10 +953,16 @@ const FranchiseAdmin = () => {
         { label: "Total Revenue", value: fmt(52400000), sub: "FY 2025-26", gradient: "from-amber-500 to-orange-600", icon: TrendingUp },
       ];
     }
-    const totalRevenue = livefranchises.length * 1250000;
+    const totalRevenue = livefranchises.reduce((sum, f) => sum + (f.revenue || 0), 0);
     const totalBranches = livefranchises.reduce((s, f) => s + (f.branch_count || 0), 0);
     const activeFranchises = livefranchises.filter((f) => f.sub_status === "active" || f.sub_status === "—").length;
-    const mrr = MOCK_FRANCHISE_PLANS.reduce((s, p) => s + p.priceMonthly * p.subscriberCount, 0);
+    const mrr = livefranchises.reduce((sum, f) => {
+      if (f.sub_status === "active" || f.sub_status === "—") {
+        const plan = MOCK_FRANCHISE_PLANS.find(p => p.tier === (f.plan_type || 'starter'));
+        return sum + (plan?.priceMonthly || 4999);
+      }
+      return sum;
+    }, 0);
     return [
       { label: "Total Franchises", value: livefranchises.length.toString(), sub: `${activeFranchises} active`, gradient: "from-violet-500 to-purple-600", icon: Building2 },
       { label: "Total Branches", value: totalBranches.toString(), sub: "across all orgs", gradient: "from-blue-500 to-indigo-600", icon: GitBranch },
@@ -1106,7 +1196,7 @@ const FranchiseAdmin = () => {
                       <div className="text-right">
                         <p className="text-xs text-slate-500 dark:text-slate-400">Revenue</p>
                         <p className="text-lg md:text-xl font-bold text-slate-900 dark:text-white">
-                          {fmt((f.branch_count || 1) * 1250000)}
+                          {fmt(demoMode ? (f.branch_count || 1) * 1250000 : (f.revenue || 0))}
                         </p>
                       </div>
                       <div className="flex gap-2">
@@ -1214,7 +1304,9 @@ const FranchiseAdmin = () => {
             {wizardStep === 0 && (
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="md:col-span-2">
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Organization Name *</Label>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Organization Name <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     className="mt-1.5 bg-slate-50 dark:bg-slate-900"
                     placeholder="e.g. Spice Route Restaurants"
@@ -1229,7 +1321,9 @@ const FranchiseAdmin = () => {
             {wizardStep === 1 && (
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Owner Full Name *</Label>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Owner Full Name <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     className="mt-1.5 bg-slate-50 dark:bg-slate-900"
                     placeholder="e.g. Rajesh Sharma"
@@ -1238,7 +1332,9 @@ const FranchiseAdmin = () => {
                   />
                 </div>
                 <div>
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Email *</Label>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Email <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     type="email"
                     className="mt-1.5 bg-slate-50 dark:bg-slate-900"
@@ -1248,24 +1344,35 @@ const FranchiseAdmin = () => {
                   />
                 </div>
                 <div>
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Phone *</Label>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Phone <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     className="mt-1.5 bg-slate-50 dark:bg-slate-900"
-                    placeholder="+91 98765 43210"
+                    placeholder="10-digit mobile number"
+                    maxLength={10}
                     value={onboardingData.ownerPhone}
-                    onChange={(e) => setOnboardingData((d) => ({ ...d, ownerPhone: e.target.value }))}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setOnboardingData((d) => ({ ...d, ownerPhone: digits }));
+                    }}
                   />
+                  {onboardingData.ownerPhone.length > 0 && onboardingData.ownerPhone.length < 10 && (
+                    <p className="text-[11px] text-red-500 mt-1">{10 - onboardingData.ownerPhone.length} more digit{10 - onboardingData.ownerPhone.length !== 1 ? "s" : ""} required</p>
+                  )}
                 </div>
                 <div className="md:col-span-2">
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Login Password *</Label>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Login Password <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     type="password"
                     className="mt-1.5 bg-slate-50 dark:bg-slate-900"
-                    placeholder="Min 8 characters — used to create owner's login account"
+                    placeholder="Min 8 characters"
                     value={onboardingData.ownerPassword}
                     onChange={(e) => setOnboardingData((d) => ({ ...d, ownerPassword: e.target.value }))}
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">Leave blank to skip login creation (can be set up later).</p>
+                  <p className="text-[11px] text-slate-400 mt-1">Used to create owner's login account. Min 8 characters.</p>
                 </div>
               </div>
             )}
@@ -1314,50 +1421,168 @@ const FranchiseAdmin = () => {
 
             {/* Step 3: Select Plan */}
             {wizardStep === 3 && (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {MOCK_FRANCHISE_PLANS.map((plan) => {
-                  const selected = onboardingData.plan === plan.name;
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  {MOCK_FRANCHISE_PLANS.map((plan) => {
+                    const selected = onboardingData.plan === plan.name;
+                    return (
+                      <button
+                        key={plan.id}
+                        onClick={() => handleFranchisePlanSelect(plan.name, plan.tier)}
+                        className={cn(
+                          "text-left rounded-2xl border-2 p-4 md:p-5 transition-all duration-300 relative overflow-hidden",
+                          selected
+                            ? "border-violet-500 bg-violet-50 dark:bg-violet-900/20 shadow-lg shadow-violet-500/20 scale-[1.02]"
+                            : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 hover:border-violet-300 dark:hover:border-violet-500/30 hover:shadow-md"
+                        )}
+                      >
+                        {selected && (
+                          <div className="absolute top-2 right-2">
+                            <CheckCircle2 className="h-5 w-5 text-violet-600" />
+                          </div>
+                        )}
+                        <div className={cn("inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold text-white mb-3", `bg-gradient-to-r ${TIER_COLORS[plan.tier]}`)}>
+                          {plan.tier.toUpperCase()}
+                        </div>
+                        <h3 className="font-bold text-slate-900 dark:text-white text-sm">{plan.name}</h3>
+                        <div className="mt-2">
+                          <span className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">{fmt(plan.priceMonthly)}</span>
+                          <span className="text-xs text-slate-500">/month</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                          Up to {plan.maxBranches} branches
+                        </p>
+                        <ul className="mt-3 space-y-1">
+                          {plan.features.slice(0, 4).map((feat) => (
+                            <li key={feat} className="flex items-start gap-1.5 text-[11px] text-slate-600 dark:text-slate-400">
+                              <CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />
+                              {feat}
+                            </li>
+                          ))}
+                          {plan.features.length > 4 && (
+                            <li className="text-[10px] text-slate-400">+{plan.features.length - 4} more</li>
+                          )}
+                        </ul>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Compact Grouped Restaurant Plan Picker */}
+                {!onboardingData.selectedPlanId && (
+                  <p className="text-xs text-red-500 font-medium mt-4 flex items-center gap-1">
+                    <span className="text-red-500 font-bold">*</span> Restaurant plan is required — please select one below
+                  </p>
+                )}
+                {dbSubscriptionPlans.length > 0 && (() => {
+                  // Group plans by type
+                  const PLAN_GROUPS: { key: string; label: string; emoji: string; gradient: string; ring: string; badge: string; match: (n: string) => boolean }[] = [
+                    { key: "restaurant",  label: "Restaurant",        emoji: "🍽️", gradient: "from-violet-500 to-purple-600", ring: "ring-violet-400", badge: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300", match: (n) => n.toLowerCase().includes("restaurant") && !n.toLowerCase().includes("hotel") && !n.toLowerCase().includes("food truck") },
+                    { key: "rest_hotel",  label: "Restaurant + Hotel", emoji: "🏨", gradient: "from-blue-500 to-indigo-600",  ring: "ring-blue-400",   badge: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",     match: (n) => n.toLowerCase().includes("restaurant") && n.toLowerCase().includes("hotel") },
+                    { key: "hotel",       label: "Hotel",             emoji: "🛎️", gradient: "from-sky-500 to-cyan-600",    ring: "ring-sky-400",   badge: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",       match: (n) => n.toLowerCase().includes("hotel") && !n.toLowerCase().includes("restaurant") },
+                    { key: "food_truck",  label: "Food Truck",        emoji: "🚚", gradient: "from-amber-500 to-orange-600", ring: "ring-amber-400",  badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300", match: (n) => n.toLowerCase().includes("food truck") },
+                    { key: "all_in_one",  label: "All-in-One",        emoji: "⚡", gradient: "from-emerald-500 to-teal-600", ring: "ring-emerald-400", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300", match: (n) => n.toLowerCase().includes("all-in-one") },
+                  ];
+                  const grouped = PLAN_GROUPS.map((g) => ({ ...g, plans: dbSubscriptionPlans.filter((p: any) => g.match(p.name)) })).filter((g) => g.plans.length > 0);
+                  const selectedPlan = dbSubscriptionPlans.find((p: any) => p.id === onboardingData.selectedPlanId) as any;
+
                   return (
-                    <button
-                      key={plan.id}
-                      onClick={() => setOnboardingData((d) => ({ ...d, plan: plan.name }))}
-                      className={cn(
-                        "text-left rounded-2xl border-2 p-4 md:p-5 transition-all duration-300 relative overflow-hidden",
-                        selected
-                          ? "border-violet-500 bg-violet-50 dark:bg-violet-900/20 shadow-lg shadow-violet-500/20 scale-[1.02]"
-                          : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 hover:border-violet-300 dark:hover:border-violet-500/30 hover:shadow-md"
-                      )}
-                    >
-                      {selected && (
-                        <div className="absolute top-2 right-2">
-                          <CheckCircle2 className="h-5 w-5 text-violet-600" />
+                    <div className="mt-6 space-y-3">
+                      {/* Header */}
+                      <div className="flex items-center gap-2">
+                        <Utensils className="h-4 w-4 text-violet-500" />
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Assign Restaurant Plan <span className="text-red-500">*</span></span>
+                        <span className="text-xs text-slate-400 ml-1">— features unlocked for each branch</span>
+                      </div>
+
+                      {/* Compact scrollable plan picker */}
+                      <div className="max-h-72 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700/60 divide-y divide-slate-100 dark:divide-slate-700/40 bg-white dark:bg-slate-800/40 shadow-sm">
+                        {grouped.map((group) => (
+                          <div key={group.key}>
+                            {/* Group label row */}
+                            <div className={`bg-gradient-to-r ${group.gradient} px-3 py-1.5 flex items-center gap-2 sticky top-0 z-10`}>
+                              <span className="text-sm leading-none">{group.emoji}</span>
+                              <span className="text-[10px] font-bold text-white tracking-widest uppercase">{group.label}</span>
+                            </div>
+                            {/* Plan rows */}
+                            <div className="flex flex-wrap gap-2 p-2">
+                              {group.plans.map((p: any) => {
+                                const isSelected = onboardingData.selectedPlanId === p.id;
+                                const tierMatch = p.name.match(/starter|growth|professional|free trial/i);
+                                const tier = tierMatch ? tierMatch[0] : p.interval;
+                                const intervalShort = p.interval === "monthly" ? "mo" : p.interval === "yearly" ? "yr" : p.interval === "quarterly" ? "qtr" : "half-yr";
+                                return (
+                                  <button
+                                    key={p.id}
+                                    type="button"
+                                    onClick={() => setOnboardingData((d) => ({ ...d, selectedPlanId: p.id }))}
+                                    className={cn(
+                                      "flex items-center gap-2 px-3 py-1.5 rounded-lg border text-left transition-all duration-150 text-xs font-medium",
+                                      isSelected
+                                        ? `bg-gradient-to-r ${group.gradient} text-white border-transparent shadow-md ring-2 ${group.ring}`
+                                        : "bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-700 dark:text-slate-300 hover:shadow-sm"
+                                    )}
+                                  >
+                                    {isSelected && <CheckCircle2 className="h-3 w-3 shrink-0" />}
+                                    <span className={cn("text-[9px] font-bold uppercase px-1 py-0.5 rounded", isSelected ? "bg-white/20" : group.badge)}>{tier}</span>
+                                    <span className="font-semibold">₹{Number(p.price).toLocaleString("en-IN")}<span className={cn("font-normal text-[9px] ml-0.5", isSelected ? "opacity-75" : "text-slate-400")}>/{intervalShort}</span></span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Selected plan detail card */}
+                      {selectedPlan ? (
+                        <div className={cn(
+                          "rounded-xl border p-4 space-y-3 transition-all",
+                          "bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800/60 dark:to-slate-900/60 border-slate-200 dark:border-slate-700/50"
+                        )}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">Selected Plan</p>
+                              <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{selectedPlan.name}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-lg font-bold text-slate-900 dark:text-white">₹{Number(selectedPlan.price).toLocaleString("en-IN")}</p>
+                              <p className="text-[10px] text-slate-400">per {selectedPlan.interval}</p>
+                            </div>
+                          </div>
+                          {/* Features */}
+                          {selectedPlan.features && Array.isArray(selectedPlan.features) && selectedPlan.features.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-1">
+                              {selectedPlan.features.map((feat: string) => (
+                                <div key={feat} className="flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400">
+                                  <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                                  {feat}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-1">
+                              {["Menu Management", "Order Processing", "Inventory Control", "Staff Management", "Reports & Analytics", "Customer CRM"].map((f) => (
+                                <div key={f} className="flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400">
+                                  <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                                  {f}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 pt-1">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">This plan will be activated for each branch on onboarding</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 p-4 text-center">
+                          <p className="text-xs text-slate-400">← Select a plan above to preview features</p>
                         </div>
                       )}
-                      <div className={cn("inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold text-white mb-3", `bg-gradient-to-r ${TIER_COLORS[plan.tier]}`)}>
-                        {plan.tier.toUpperCase()}
-                      </div>
-                      <h3 className="font-bold text-slate-900 dark:text-white text-sm">{plan.name}</h3>
-                      <div className="mt-2">
-                        <span className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">{fmt(plan.priceMonthly)}</span>
-                        <span className="text-xs text-slate-500">/month</span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                        Up to {plan.maxBranches} branches
-                      </p>
-                      <ul className="mt-3 space-y-1">
-                        {plan.features.slice(0, 4).map((feat) => (
-                          <li key={feat} className="flex items-start gap-1.5 text-[11px] text-slate-600 dark:text-slate-400">
-                            <CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />
-                            {feat}
-                          </li>
-                        ))}
-                        {plan.features.length > 4 && (
-                          <li className="text-[10px] text-slate-400">+{plan.features.length - 4} more</li>
-                        )}
-                      </ul>
-                    </button>
+                    </div>
                   );
-                })}
+                })()}
               </div>
             )}
 
@@ -1454,7 +1679,78 @@ const FranchiseAdmin = () => {
               </Button>
               {wizardStep < WIZARD_STEPS.length - 1 ? (
                 <Button
-                  onClick={() => setWizardStep((s) => s + 1)}
+                  onClick={() => {
+                    // Per-step validation before advancing
+                    if (wizardStep === 0) {
+                      if (!onboardingData.orgName.trim()) {
+                        toast.error("Organization Name is required");
+                        return;
+                      }
+                    }
+                    if (wizardStep === 1) {
+                      if (!onboardingData.ownerName.trim()) {
+                        toast.error("Owner Full Name is required");
+                        return;
+                      }
+                      if (!onboardingData.ownerEmail.trim()) {
+                        toast.error("Owner Email is required");
+                        return;
+                      }
+                      const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                      if (!emailRx.test(onboardingData.ownerEmail)) {
+                        toast.error("Enter a valid email address");
+                        return;
+                      }
+                      if (!onboardingData.ownerPhone.trim()) {
+                        toast.error("Phone number is required");
+                        return;
+                      }
+                      const digits = onboardingData.ownerPhone.replace(/\D/g, "");
+                      if (digits.length !== 10) {
+                        toast.error("Phone number must be exactly 10 digits");
+                        return;
+                      }
+                      if (!onboardingData.ownerPassword.trim()) {
+                        toast.error("Login Password is required");
+                        return;
+                      }
+                      if (onboardingData.ownerPassword.length < 8) {
+                        toast.error("Password must be at least 8 characters");
+                        return;
+                      }
+                    }
+                    if (wizardStep === 2) {
+                      if (!onboardingData.city.trim()) {
+                        toast.error("City is required");
+                        return;
+                      }
+                      if (!onboardingData.state.trim()) {
+                        toast.error("State is required");
+                        return;
+                      }
+                    }
+                    if (wizardStep === 3) {
+                      if (!onboardingData.plan) {
+                        toast.error("Please select a Franchise Plan");
+                        return;
+                      }
+                      if (!onboardingData.selectedPlanId) {
+                        toast.error("Please select a Restaurant Plan from the list below");
+                        return;
+                      }
+                    }
+                    if (wizardStep === 4) {
+                      if (!onboardingData.branchName.trim()) {
+                        toast.error("Branch Name is required");
+                        return;
+                      }
+                      if (!onboardingData.branchCode.trim()) {
+                        toast.error("Branch Code is required");
+                        return;
+                      }
+                    }
+                    setWizardStep((s) => s + 1);
+                  }}
                   className="gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white"
                 >
                   Next
@@ -1493,14 +1789,8 @@ const FranchiseAdmin = () => {
 
           {/* Group by Org */}
           {(demoMode ? MOCK_FRANCHISES : franchises).map((org) => {
-            const orgBranches = demoMode ? MOCK_BRANCHES.filter((b) => b.orgId === org.id) : [];
-            if (!orgBranches.length && demoMode) return null;
-            if (!demoMode) return (
-              <div key={org.id} className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-xl p-8 text-center">
-                <GitBranch className="h-8 w-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-                <p className="text-sm text-slate-500 dark:text-slate-400">Live branch listing coming soon. Enable Demo Mode to preview.</p>
-              </div>
-            );
+            const orgBranches = demoMode ? MOCK_BRANCHES.filter((b) => b.orgId === org.id) : (org.branchesList || []);
+            if (!orgBranches.length) return null;
             const q = search.toLowerCase();
             const filtered = q
               ? orgBranches.filter((b) => b.name.toLowerCase().includes(q) || b.city.toLowerCase().includes(q))
@@ -1871,7 +2161,11 @@ const FranchiseAdmin = () => {
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-500 dark:text-slate-400">Subscribers</span>
-                    <Badge variant="secondary" className="text-xs">{plan.subscriberCount}</Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      {demoMode 
+                        ? plan.subscriberCount 
+                        : livefranchises.filter(f => (f.plan_type || 'starter') === plan.tier && (f.sub_status === 'active' || f.sub_status === '—')).length}
+                    </Badge>
                   </div>
                   <div className="border-t border-slate-100 dark:border-slate-700/50 pt-3">
                     <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-2">FEATURES:</p>
@@ -1966,59 +2260,127 @@ const FranchiseAdmin = () => {
 
       {/* Detail Dialog */}
       <Dialog open={detailDialog} onOpenChange={setDetailDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-violet-500" />
-              {selectedFranchise?.name}
-            </DialogTitle>
-            <DialogDescription>Full franchise organization details</DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-xl bg-white/90 dark:bg-slate-950/95 backdrop-blur-xl border border-white/30 dark:border-slate-900/50 rounded-3xl shadow-2xl shadow-violet-500/10 p-0 overflow-hidden flex flex-col max-h-[90vh] [&>button]:hidden">
+          {/* Top gradient banner decoration */}
+          <div className="h-28 bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 px-6 py-5 flex items-end relative">
+            <div className="absolute inset-0 bg-black/10 backdrop-blur-[1px]" />
+            <div className="relative z-10 flex items-center gap-3">
+              <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 text-white shadow-lg">
+                <Building2 className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white tracking-tight">{selectedFranchise?.name}</h3>
+                <p className="text-xs text-white/80 font-medium">Franchise Organization Details</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setDetailDialog(false)}
+              className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/10 transition-all duration-150"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
           {selectedFranchise && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: "Owner", value: selectedFranchise.owner_name || "—", icon: Crown },
-                  { label: "Email", value: selectedFranchise.owner_email || "—", icon: Mail },
-                  { label: "Phone", value: selectedFranchise.owner_phone || "—", icon: Phone },
-                  { label: "Plan", value: selectedFranchise.plan_type || "—", icon: CreditCard },
-                  { label: "Branches", value: `${selectedFranchise.branch_count || 0}/${selectedFranchise.max_branches || 0}`, icon: GitBranch },
-                  { label: "Revenue", value: fmt((selectedFranchise.branch_count || 1) * 1250000), icon: IndianRupee },
-                  { label: "GST", value: selectedFranchise.settings && typeof selectedFranchise.settings === 'object' && 'gstNumber' in selectedFranchise.settings ? String(selectedFranchise.settings.gstNumber) : "—", icon: FileText },
-                  { label: "FSSAI", value: selectedFranchise.settings && typeof selectedFranchise.settings === 'object' && 'fssaiNumber' in selectedFranchise.settings ? String(selectedFranchise.settings.fssaiNumber) : "—", icon: ShieldCheck },
-                  { label: "Location", value: `${selectedFranchise.settings && typeof selectedFranchise.settings === 'object' && 'city' in selectedFranchise.settings ? String(selectedFranchise.settings.city) : "—"}, ${selectedFranchise.settings && typeof selectedFranchise.settings === 'object' && 'state' in selectedFranchise.settings ? String(selectedFranchise.settings.state) : "—"}`, icon: MapPin },
-                  { label: "Since", value: selectedFranchise.created_at ? new Date(selectedFranchise.created_at).toLocaleDateString("en-IN") : "—", icon: Calendar },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <div key={item.label} className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3">
-                      <p className="text-[10px] text-slate-400 flex items-center gap-1 mb-0.5">
-                        <Icon className="h-3 w-3" /> {item.label}
-                      </p>
-                      <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{item.value}</p>
+            <div className="p-6 space-y-5">
+              {/* Grouped Information Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Section 1: Owner Information */}
+                <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800/40 rounded-2xl p-4 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-violet-500" />
+                  <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-widest flex items-center gap-1.5 mb-3">
+                    <Crown className="h-3 w-3" /> Owner Info
+                  </span>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">Full Name</p>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{selectedFranchise.owner_name || "—"}</p>
                     </div>
-                  );
-                })}
+                    <div>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">Email Address</p>
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 truncate">{selectedFranchise.owner_email || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">Mobile Number</p>
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">{selectedFranchise.owner_phone || "—"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: Subscription Plan & Revenue */}
+                <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800/40 rounded-2xl p-4 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500" />
+                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1.5 mb-3">
+                    <CreditCard className="h-3 w-3" /> Subscription
+                  </span>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">Active Plan</p>
+                      <Badge variant="outline" className="mt-0.5 text-[10px] border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850">
+                        {selectedFranchise.plan_type || "—"}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">Branches Configured</p>
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">{selectedFranchise.branch_count || 0} / {selectedFranchise.max_branches || 0} branches</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">Total Lifetime Sales</p>
+                      <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmt(demoMode ? (selectedFranchise.branch_count || 1) * 1250000 : (selectedFranchise.revenue || 0))}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 3: Compliance Details */}
+                <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800/40 rounded-2xl p-4 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow md:col-span-2">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest flex items-center gap-1.5 mb-3">
+                    <FileText className="h-3 w-3" /> Compliance & Address
+                  </span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">GSTIN / Tax ID</p>
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">{selectedFranchise.settings && typeof selectedFranchise.settings === 'object' && 'gstNumber' in selectedFranchise.settings ? String(selectedFranchise.settings.gstNumber) : "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">FSSAI License</p>
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">{selectedFranchise.settings && typeof selectedFranchise.settings === 'object' && 'fssaiNumber' in selectedFranchise.settings ? String(selectedFranchise.settings.fssaiNumber) : "—"}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">HQ Location</p>
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        {selectedFranchise.settings && typeof selectedFranchise.settings === 'object' && 'city' in selectedFranchise.settings ? String(selectedFranchise.settings.city) : "—"}, {selectedFranchise.settings && typeof selectedFranchise.settings === 'object' && 'state' in selectedFranchise.settings ? String(selectedFranchise.settings.state) : "—"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Branches under this org */}
-              <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
-                <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">BRANCHES</h4>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {MOCK_BRANCHES.filter((b) => b.orgId === selectedFranchise.id).map((br) => {
+              {/* Branches List Section */}
+              <div className="border-t border-slate-100 dark:border-slate-800/80 pt-4">
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1">
+                  <GitBranch className="h-3.5 w-3.5 text-slate-400" /> Active Branches
+                </h4>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                  {(demoMode ? MOCK_BRANCHES.filter((b) => b.orgId === selectedFranchise.id) : (selectedFranchise.branchesList || [])).map((br) => {
                     const statusCfg = STATUS_CONFIG[br.status];
                     return (
-                      <div key={br.id} className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 rounded-lg p-2.5">
+                      <div key={br.id} className="flex items-center justify-between bg-slate-50/60 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/20 rounded-xl p-3 shadow-sm hover:border-violet-200 dark:hover:border-violet-900/30 transition-colors">
                         <div>
-                          <p className="text-xs font-medium text-slate-900 dark:text-white">{br.name}</p>
-                          <p className="text-[10px] text-slate-500">{br.city} • {br.code}</p>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white">{br.name}</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5">{br.city || "—"} • {br.code}</p>
                         </div>
-                        <Badge className={cn("text-[10px] border-0", statusCfg.color)}>{statusCfg.label}</Badge>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">{fmt(br.revenue || 0)}</span>
+                          <Badge className={cn("text-[9px] border-0 scale-95 font-bold", statusCfg.color)}>{statusCfg.label}</Badge>
+                        </div>
                       </div>
                     );
                   })}
-                  {MOCK_BRANCHES.filter((b) => b.orgId === selectedFranchise.id).length === 0 && (
-                    <p className="text-xs text-slate-400 italic">No branches configured yet.</p>
+                  {(demoMode ? MOCK_BRANCHES.filter((b) => b.orgId === selectedFranchise.id) : (selectedFranchise.branchesList || [])).length === 0 && (
+                    <div className="text-center py-6 border border-dashed border-slate-200 dark:border-slate-850 rounded-xl">
+                      <p className="text-xs text-slate-400 italic">No branch locations configured yet.</p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -2029,129 +2391,245 @@ const FranchiseAdmin = () => {
 
       {/* Edit Franchise Dialog */}
       <Dialog open={editDialog} onOpenChange={setEditDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Edit className="h-5 w-5 text-violet-500" />
-              Edit Franchise
-            </DialogTitle>
-            <DialogDescription>Update franchise organization details</DialogDescription>
-          </DialogHeader>
-          {editData && (
-            <div className="space-y-4">
-              <div className="grid gap-3 grid-cols-2">
-                <div className="col-span-2">
-                  <Label className="text-xs">Organization Name</Label>
-                  <Input
-                    className="mt-1 bg-slate-50 dark:bg-slate-900"
-                    value={editData.name}
-                    onChange={(e) => setEditData((d) => d ? { ...d, name: e.target.value } : d)}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Owner Name</Label>
-                  <Input
-                    className="mt-1 bg-slate-50 dark:bg-slate-900"
-                    value={editData.owner_name || ""}
-                    readOnly
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Owner Email</Label>
-                  <Input
-                    className="mt-1 bg-slate-50 dark:bg-slate-900"
-                    value={editData.owner_email || ""}
-                    readOnly
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Phone</Label>
-                  <Input
-                    className="mt-1 bg-slate-50 dark:bg-slate-900"
-                    value={editData.owner_phone || ""}
-                    readOnly
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Status</Label>
-                  <Select
-                    value={editData.sub_status || "active"}
-                    disabled
-                  >
-                    <SelectTrigger className="mt-1 bg-slate-50 dark:bg-slate-900">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="trial">Trial</SelectItem>
-                      <SelectItem value="suspended">Suspended</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs">Plan</Label>
-                  <Select
-                    value={editData.plan_type || "starter"}
-                    disabled
-                  >
-                    <SelectTrigger className="mt-1 bg-slate-50 dark:bg-slate-900">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MOCK_FRANCHISE_PLANS.map((p) => (
-                        <SelectItem key={p.id} value={p.tier}>{p.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs">Max Branches</Label>
-                  <Input
-                    type="number"
-                    className="mt-1 bg-slate-50 dark:bg-slate-900"
-                    value={editData.max_branches || 0}
-                    readOnly
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">GST Number</Label>
-                  <Input
-                    className="mt-1 bg-slate-50 dark:bg-slate-900"
-                    value={editData.settings && typeof editData.settings === 'object' && 'gstNumber' in editData.settings ? String(editData.settings.gstNumber) : ""}
-                    onChange={(e) => setEditData((d) => d ? { ...d, settings: { ...d.settings, gstNumber: e.target.value } } : d)}
-                  />
-                </div>
+        <DialogContent className="max-w-xl bg-white/90 dark:bg-slate-950/95 backdrop-blur-xl border border-white/30 dark:border-slate-900/50 rounded-3xl shadow-2xl shadow-violet-500/10 p-0 overflow-hidden flex flex-col max-h-[90vh] [&>button]:hidden">
+          {/* Top gradient banner decoration */}
+          <div className="h-28 shrink-0 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 px-6 py-5 flex items-end relative">
+            <div className="absolute inset-0 bg-black/10 backdrop-blur-[1px]" />
+            <div className="relative z-10 flex items-center gap-3">
+              <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 text-white shadow-lg">
+                <Edit className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white tracking-tight">Edit Franchise</h3>
+                <p className="text-xs text-white/80 font-medium">Update franchise configuration and credentials</p>
               </div>
             </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialog(false)}>Cancel</Button>
-            <Button
-              className="bg-gradient-to-r from-violet-600 to-purple-600 text-white gap-2"
-              onClick={async () => {
-                if (editData) {
-                  const { error } = await supabase
-                    .from("organizations")
-                    .update({
-                      name: editData.name,
-                      settings: editData.settings
-                    })
-                    .eq("id", editData.id);
-                  if (error) {
-                    toast.error("Failed to update organization");
-                  } else {
-                    toast.success("Franchise updated!", { description: editData.name });
-                    queryClient.invalidateQueries({ queryKey: ["franchises"] });
-                    setEditDialog(false);
-                  }
-                }
-              }}
+            <button 
+              onClick={() => setEditDialog(false)}
+              className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/10 transition-all duration-150"
             >
-              <Save className="h-4 w-4" />
-              Save Changes
-            </Button>
-          </DialogFooter>
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {editData && (
+            <>
+              <div className="p-6 space-y-4 overflow-y-auto">
+                <div className="grid gap-4 grid-cols-2">
+                {/* Organization Details Panel */}
+                <div className="col-span-2 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800/40 rounded-2xl p-4 space-y-3">
+                  <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <Building2 className="h-3.5 w-3.5" /> Organization Details
+                  </span>
+                  <div>
+                    <Label className="text-[11px] font-bold text-slate-500 uppercase">Organization Name</Label>
+                    <Input
+                      className="mt-1 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/60 rounded-xl"
+                      value={editData.name}
+                      onChange={(e) => setEditData((d) => d ? { ...d, name: e.target.value } : d)}
+                    />
+                  </div>
+                </div>
+
+                {/* Owner Information Panel - Fully Editable */}
+                <div className="col-span-2 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800/40 rounded-2xl p-4 space-y-3">
+                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <Crown className="h-3.5 w-3.5" /> Owner Information
+                  </span>
+                  <div className="grid gap-3 grid-cols-2">
+                    <div className="col-span-2">
+                      <Label className="text-[11px] font-bold text-slate-500 uppercase">Owner Name</Label>
+                      <Input
+                        className="mt-1 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/60 rounded-xl"
+                        value={editData.owner_name || ""}
+                        onChange={(e) => setEditData((d) => d ? { ...d, owner_name: e.target.value } : d)}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] font-bold text-slate-500 uppercase">Owner Email</Label>
+                      <Input
+                        type="email"
+                        className="mt-1 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/60 rounded-xl"
+                        value={editData.owner_email || ""}
+                        onChange={(e) => setEditData((d) => d ? { ...d, owner_email: e.target.value } : d)}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] font-bold text-slate-500 uppercase">Phone Number</Label>
+                      <Input
+                        className="mt-1 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/60 rounded-xl"
+                        value={editData.owner_phone || ""}
+                        onChange={(e) => setEditData((d) => d ? { ...d, owner_phone: e.target.value } : d)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Subscription and Settings Panel */}
+                <div className="col-span-2 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800/40 rounded-2xl p-4 space-y-3">
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5" /> Plan & Settings
+                  </span>
+                  <div className="grid gap-3 grid-cols-2">
+                    <div>
+                      <Label className="text-[11px] font-bold text-slate-500 uppercase">Status</Label>
+                      <Select
+                        value={editData.sub_status || "active"}
+                        onValueChange={(val) => setEditData((d) => d ? { ...d, sub_status: val } : d)}
+                      >
+                        <SelectTrigger className="mt-1 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/60 rounded-xl">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="trial">Trial</SelectItem>
+                          <SelectItem value="suspended">Suspended</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] font-bold text-slate-500 uppercase">Subscription Plan</Label>
+                      <Select
+                        value={editData.plan_type || "starter"}
+                        onValueChange={(val) => {
+                          const matched = MOCK_FRANCHISE_PLANS.find(p => p.tier === val);
+                          setEditData((d) => d ? {
+                            ...d,
+                            plan_type: val,
+                            max_branches: matched ? matched.maxBranches : d.max_branches
+                          } : d);
+                        }}
+                      >
+                        <SelectTrigger className="mt-1 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/60 rounded-xl">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {MOCK_FRANCHISE_PLANS.map((p) => (
+                            <SelectItem key={p.id} value={p.tier}>{p.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] font-bold text-slate-500 uppercase">Max Branches</Label>
+                      <Input
+                        type="number"
+                        className="mt-1 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/60 rounded-xl"
+                        value={editData.max_branches || 0}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          setEditData((d) => d ? { ...d, max_branches: val } : d);
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] font-bold text-slate-500 uppercase">GST Number</Label>
+                      <Input
+                        className="mt-1 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/60 rounded-xl"
+                        value={editData.settings && typeof editData.settings === 'object' && 'gstNumber' in editData.settings ? String(editData.settings.gstNumber) : ""}
+                        onChange={(e) => setEditData((d) => d ? { ...d, settings: { ...d.settings, gstNumber: e.target.value } } : d)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              </div>
+
+              <div className="flex justify-end gap-3 p-4 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
+                <Button variant="outline" onClick={() => setEditDialog(false)} className="rounded-xl px-5">Cancel</Button>
+                <Button
+                  className="bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl px-6 gap-2 hover:opacity-95 shadow-md shadow-violet-500/10"
+                  onClick={async () => {
+                    if (editData) {
+                      // 1. Update organization details
+                      const { error: orgErr } = await supabase
+                        .from("organizations")
+                        .update({
+                          name: editData.name,
+                          settings: editData.settings
+                        })
+                        .eq("id", editData.id);
+                      if (orgErr) {
+                        toast.error("Failed to update organization");
+                        return;
+                      }
+
+                      // 2. Check and upsert organization subscription details
+                      const { data: existingSub, error: checkErr } = await supabase
+                        .from("organization_subscriptions")
+                        .select("id")
+                        .eq("organization_id", editData.id)
+                        .maybeSingle();
+
+                      if (checkErr) {
+                        toast.error("Failed to query organization subscription");
+                        return;
+                      }
+
+                      let subErr;
+                      if (existingSub) {
+                        const { error } = await supabase
+                          .from("organization_subscriptions")
+                          .update({
+                            plan_type: editData.plan_type,
+                            max_branches: editData.max_branches,
+                            status: editData.sub_status,
+                            updated_at: new Date().toISOString()
+                          })
+                          .eq("organization_id", editData.id);
+                        subErr = error;
+                      } else {
+                        const { error } = await supabase
+                          .from("organization_subscriptions")
+                          .insert({
+                            organization_id: editData.id,
+                            plan_type: editData.plan_type,
+                            max_branches: editData.max_branches,
+                            status: editData.sub_status || "active",
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                          });
+                        subErr = error;
+                      }
+
+                      // 3. Update owner's profile info in profiles table
+                      if (editData.owner_user_id) {
+                        const nameParts = (editData.owner_name || "").trim().split(/\s+/);
+                        const firstName = nameParts[0] || "";
+                        const lastName = nameParts.slice(1).join(" ");
+                        
+                        const { error: profileErr } = await supabase
+                          .from("profiles")
+                          .update({
+                            first_name: firstName,
+                            last_name: lastName,
+                            email: editData.owner_email,
+                            phone: editData.owner_phone,
+                          })
+                          .eq("id", editData.owner_user_id);
+                        
+                        if (profileErr) {
+                          console.warn("Failed to update owner profile details:", profileErr.message);
+                        }
+                      }
+
+                      if (subErr) {
+                        toast.error("Failed to update subscription settings");
+                      } else {
+                        toast.success("Franchise updated!", { description: editData.name });
+                        queryClient.invalidateQueries({ queryKey: ["franchises"] });
+                        setEditDialog(false);
+                      }
+                    }
+                  }}
+                >
+                  <Save className="h-4 w-4" />
+                  Save Changes
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

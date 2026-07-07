@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -34,6 +34,66 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      approval_requests: {
+        Row: {
+          approver_id: string | null
+          bm_comment: string | null
+          created_at: string
+          id: string
+          organization_id: string
+          payload: Json
+          requester_id: string
+          resolved_at: string | null
+          resolver_comment: string | null
+          restaurant_id: string
+          status: string
+          type: string
+        }
+        Insert: {
+          approver_id?: string | null
+          bm_comment?: string | null
+          created_at?: string
+          id?: string
+          organization_id: string
+          payload?: Json
+          requester_id: string
+          resolved_at?: string | null
+          resolver_comment?: string | null
+          restaurant_id: string
+          status?: string
+          type: string
+        }
+        Update: {
+          approver_id?: string | null
+          bm_comment?: string | null
+          created_at?: string
+          id?: string
+          organization_id?: string
+          payload?: Json
+          requester_id?: string
+          resolved_at?: string | null
+          resolver_comment?: string | null
+          restaurant_id?: string
+          status?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_requests_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       audit_logs: {
         Row: {
@@ -1118,6 +1178,7 @@ export type Database = {
           loyalty_points_last_updated: string | null
           loyalty_tier_id: string | null
           name: string
+          organization_id: string | null
           phone: string | null
           preferences: string | null
           restaurant_id: string
@@ -1138,6 +1199,7 @@ export type Database = {
           loyalty_points_last_updated?: string | null
           loyalty_tier_id?: string | null
           name: string
+          organization_id?: string | null
           phone?: string | null
           preferences?: string | null
           restaurant_id: string
@@ -1158,6 +1220,7 @@ export type Database = {
           loyalty_points_last_updated?: string | null
           loyalty_tier_id?: string | null
           name?: string
+          organization_id?: string | null
           phone?: string | null
           preferences?: string | null
           restaurant_id?: string
@@ -1171,6 +1234,13 @@ export type Database = {
             columns: ["loyalty_tier_id"]
             isOneToOne: false
             referencedRelation: "loyalty_tiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
@@ -2507,6 +2577,7 @@ export type Database = {
           ip_address: unknown
           metadata: Json | null
           name: string
+          organization_id: string | null
           phone: string | null
           restaurant_id: string
           source: string | null
@@ -2525,6 +2596,7 @@ export type Database = {
           ip_address?: unknown
           metadata?: Json | null
           name: string
+          organization_id?: string | null
           phone?: string | null
           restaurant_id: string
           source?: string | null
@@ -2543,6 +2615,7 @@ export type Database = {
           ip_address?: unknown
           metadata?: Json | null
           name?: string
+          organization_id?: string | null
           phone?: string | null
           restaurant_id?: string
           source?: string | null
@@ -2573,6 +2646,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "loyalty_enrollments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "loyalty_enrollments_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
@@ -2589,6 +2669,7 @@ export type Database = {
           id: string
           is_enabled: boolean | null
           max_redemption_percentage: number | null
+          organization_id: string | null
           points_expiry_days: number | null
           points_per_amount: number
           restaurant_id: string
@@ -2602,6 +2683,7 @@ export type Database = {
           id?: string
           is_enabled?: boolean | null
           max_redemption_percentage?: number | null
+          organization_id?: string | null
           points_expiry_days?: number | null
           points_per_amount?: number
           restaurant_id: string
@@ -2615,6 +2697,7 @@ export type Database = {
           id?: string
           is_enabled?: boolean | null
           max_redemption_percentage?: number | null
+          organization_id?: string | null
           points_expiry_days?: number | null
           points_per_amount?: number
           restaurant_id?: string
@@ -2622,6 +2705,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "loyalty_programs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "loyalty_programs_restaurant_id_fkey"
             columns: ["restaurant_id"]
@@ -2817,6 +2907,7 @@ export type Database = {
           customer_id: string
           id: string
           notes: string | null
+          organization_id: string | null
           points: number
           restaurant_id: string
           source: string
@@ -2829,6 +2920,7 @@ export type Database = {
           customer_id: string
           id?: string
           notes?: string | null
+          organization_id?: string | null
           points: number
           restaurant_id: string
           source: string
@@ -2841,6 +2933,7 @@ export type Database = {
           customer_id?: string
           id?: string
           notes?: string | null
+          organization_id?: string | null
           points?: number
           restaurant_id?: string
           source?: string
@@ -2853,6 +2946,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_transactions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
@@ -2926,6 +3026,8 @@ export type Database = {
           is_available: boolean | null
           is_special: boolean | null
           is_veg: boolean | null
+          max_price_override: number | null
+          min_price_override: number | null
           name: string
           organization_id: string | null
           origin: string | null
@@ -2946,6 +3048,8 @@ export type Database = {
           is_available?: boolean | null
           is_special?: boolean | null
           is_veg?: boolean | null
+          max_price_override?: number | null
+          min_price_override?: number | null
           name: string
           organization_id?: string | null
           origin?: string | null
@@ -2966,6 +3070,8 @@ export type Database = {
           is_available?: boolean | null
           is_special?: boolean | null
           is_veg?: boolean | null
+          max_price_override?: number | null
+          min_price_override?: number | null
           name?: string
           organization_id?: string | null
           origin?: string | null
@@ -5060,6 +5166,53 @@ export type Database = {
           },
         ]
       }
+      restaurant_layout_objects: {
+        Row: {
+          created_at: string | null
+          height: number
+          id: string
+          name: string
+          restaurant_id: string
+          type: string
+          updated_at: string | null
+          width: number
+          x_pos: number
+          y_pos: number
+        }
+        Insert: {
+          created_at?: string | null
+          height?: number
+          id?: string
+          name: string
+          restaurant_id: string
+          type: string
+          updated_at?: string | null
+          width?: number
+          x_pos?: number
+          y_pos?: number
+        }
+        Update: {
+          created_at?: string | null
+          height?: number
+          id?: string
+          name?: string
+          restaurant_id?: string
+          type?: string
+          updated_at?: string | null
+          width?: number
+          x_pos?: number
+          y_pos?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_layout_objects_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       restaurant_operating_hours: {
         Row: {
           closing_time: string
@@ -5235,29 +5388,44 @@ export type Database = {
         Row: {
           capacity: number
           created_at: string
+          height: number | null
           id: string
           name: string
           restaurant_id: string
+          shape: string | null
           status: string | null
           updated_at: string
+          width: number | null
+          x_pos: number | null
+          y_pos: number | null
         }
         Insert: {
           capacity: number
           created_at?: string
+          height?: number | null
           id?: string
           name: string
           restaurant_id: string
+          shape?: string | null
           status?: string | null
           updated_at?: string
+          width?: number | null
+          x_pos?: number | null
+          y_pos?: number | null
         }
         Update: {
           capacity?: number
           created_at?: string
+          height?: number | null
           id?: string
           name?: string
           restaurant_id?: string
+          shape?: string | null
           status?: string | null
           updated_at?: string
+          width?: number | null
+          x_pos?: number | null
+          y_pos?: number | null
         }
         Relationships: [
           {
@@ -8124,6 +8292,7 @@ export type Database = {
           customer_id: string
           id: string
           notes: string | null
+          organization_id: string | null
           points: number
           restaurant_id: string
           source: string
@@ -8154,6 +8323,14 @@ export type Database = {
         Args: { p_restaurant_id: string }
         Returns: boolean
       }
+      check_user_is_org_admin_or_owner: {
+        Args: { p_org_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      check_user_is_org_member: {
+        Args: { p_org_id: string; p_user_id: string }
+        Returns: boolean
+      }
       create_franchise_organization: {
         Args: {
           p_hq_branch_code?: string
@@ -8165,6 +8342,11 @@ export type Database = {
           p_plan_type?: string
         }
         Returns: Json
+      }
+      dedup_org_customers: { Args: { p_org_id: string }; Returns: number }
+      delete_franchise_organization: {
+        Args: { p_org_id: string }
+        Returns: undefined
       }
       expire_loyalty_points: { Args: never; Returns: undefined }
       generate_purchase_order_number: {
@@ -8230,6 +8412,23 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_franchise_revenues: {
+        Args: never
+        Returns: {
+          address: string
+          branch_code: string
+          emergency_contact_name: string
+          emergency_contact_phone: string
+          is_active: boolean
+          order_count: number
+          organization_id: string
+          owner_name: string
+          owner_phone: string
+          restaurant_id: string
+          restaurant_name: string
+          total_revenue: number
+        }[]
+      }
       get_kitchen_orders_by_pin: {
         Args: { p_pin: string; p_restaurant_id: string }
         Returns: {
@@ -8261,6 +8460,7 @@ export type Database = {
           customer_id: string
           id: string
           notes: string | null
+          organization_id: string | null
           points: number
           restaurant_id: string
           source: string
@@ -8273,6 +8473,26 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_mapped_restaurant_plan_id: {
+        Args: { p_plan_type: string }
+        Returns: string
+      }
+      get_org_customers: {
+        Args: { p_org_id: string }
+        Returns: {
+          branches_visited: string[]
+          customer_id: string
+          loyalty_points: number
+          name: string
+          phone: string
+          total_spent: number
+          visit_count: number
+        }[]
+      }
+      get_org_digest_recipients: {
+        Args: { p_org_id: string }
+        Returns: string[]
       }
       get_user_accessible_restaurants: {
         Args: { p_user_id: string }
