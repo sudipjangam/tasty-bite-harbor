@@ -53,6 +53,13 @@ interface QSPaymentSheetProps {
     total: number;
     orderNumber: number | null;
   };
+  orderMode?: "counter" | "takeaway" | "delivery";
+  deliveryCharge?: number;
+  deliveryAddress?: string;
+  deliveryNotes?: string;
+  deliveryLat?: number | null;
+  deliveryLng?: number | null;
+  deliveryDistanceKm?: number | null;
 }
 
 const paymentMethods = [
@@ -136,6 +143,13 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   couponId,
   couponDiscountAmount = 0,
   existingOrder,
+  orderMode = "counter",
+  deliveryCharge = 0,
+  deliveryAddress = "",
+  deliveryNotes = "",
+  deliveryLat = null,
+  deliveryLng = null,
+  deliveryDistanceKm = null,
 }) => {
   const [isOpenLocal, setIsOpenLocal] = useState(isOpen);
   const [status, setStatus] = useState<"idle" | "processing" | "success">(
@@ -216,9 +230,11 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     ? existingOrder.total
     : Math.max(0, itemsSubtotal - discountValue - couponDiscountAmount);
 
+  const deliveryChargeToApply = orderMode === "delivery" ? deliveryCharge : 0;
+
   const subtotal = existingOrder
     ? existingOrder.total
-    : Math.max(0, afterDiscount - loyaltyDiscountAmount);
+    : Math.max(0, afterDiscount - loyaltyDiscountAmount) + deliveryChargeToApply;
 
   const upiId = paymentSettings?.upi_id || null;
   const upiName = (paymentSettings as any)?.upi_name || restaurantName;
@@ -607,7 +623,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           payment_status: isNC ? "nc" : (method === "cash" ? "paid" : "pending"),
           payment_method: isNC ? "nc" : method,
           source: "quickserve",
-          order_type: isNC ? "non-chargeable" : "takeaway",
+          order_type: isNC ? "non-chargeable" : (orderMode === "delivery" ? "delivery" : (orderMode === "counter" ? "dine-in" : "takeaway")),
           attendant: attendantName,
           ...(totalDiscountAmount > 0 && { discount_amount: totalDiscountAmount }),
           ...(effectiveDiscountPct > 0 && {
@@ -618,6 +634,16 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           ...(customerPhone && { customer_phone: customerPhone }),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
+          // Delivery fields:
+          ...(orderMode === "delivery" && {
+            delivery_address: deliveryAddress,
+            delivery_notes: deliveryNotes || null,
+            delivery_lat: deliveryLat,
+            delivery_lng: deliveryLng,
+            delivery_charge: deliveryCharge,
+            delivery_distance_km: deliveryDistanceKm,
+            delivery_status: "pending",
+          }),
         });
 
         // Enqueue pos transaction to track offline revenue
@@ -776,7 +802,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           source: `QuickServe`,
           status: "preparing",
           items: kitchenItems,
-          order_type: isNC ? "non-chargeable" : "takeaway",
+          order_type: isNC ? "non-chargeable" : (orderMode === "delivery" ? "delivery" : (orderMode === "counter" ? "dine-in" : "takeaway")),
           customer_name: finalCustomerName,
           server_name: attendantName,
           priority: "normal",
@@ -819,7 +845,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           payment_status: isNC ? "nc" : "pending",
           payment_method: isNC ? "nc" : method,
           source: "quickserve",
-          order_type: isNC ? "non-chargeable" : "takeaway",
+          order_type: isNC ? "non-chargeable" : (orderMode === "delivery" ? "delivery" : (orderMode === "counter" ? "dine-in" : "takeaway")),
           attendant: attendantName,
           order_number: nextOrderNumber,
           item_completion_status: initialCompletionStatus,
@@ -830,6 +856,16 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           ...(discountNotes && { discount_notes: discountNotes }),
           ...(ncReason && { nc_reason: ncReason }),
           ...(customerPhone && { customer_phone: customerPhone }),
+          // Delivery fields:
+          ...(orderMode === "delivery" && {
+            delivery_address: deliveryAddress,
+            delivery_notes: deliveryNotes || null,
+            delivery_lat: deliveryLat,
+            delivery_lng: deliveryLng,
+            delivery_charge: deliveryCharge,
+            delivery_distance_km: deliveryDistanceKm,
+            delivery_status: "pending",
+          }),
         })
         .select()
         .single();
@@ -936,6 +972,31 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               });
             } catch (crmErr) {
               console.error("CRM sync error (background):", crmErr);
+            }
+          })(),
+        );
+      }
+
+      // Update customer address in DB for repeat deliveries
+      if (orderMode === "delivery" && deliveryAddress && customerPhone) {
+        bgTasks.push(
+          (async () => {
+            try {
+              const { error } = await supabase
+                .from("customers")
+                .update({
+                  address: deliveryAddress,
+                  address_lat: deliveryLat,
+                  address_lng: deliveryLng,
+                  landmark: deliveryNotes || null,
+                  pincode: (deliveryAddress.match(/\b\d{6}\b/) || [])[0] || null,
+                })
+                .eq("restaurant_id", restaurantId)
+                .eq("phone", customerPhone.trim());
+              if (error) throw error;
+              console.log("✅ Customer address updated in DB (background)");
+            } catch (addrErr) {
+              console.error("Failed to update customer address (background):", addrErr);
             }
           })(),
         );

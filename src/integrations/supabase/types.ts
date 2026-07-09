@@ -1101,6 +1101,10 @@ export type Database = {
       customers: {
         Row: {
           address: string | null
+          address_lat: number | null
+          address_lng: number | null
+          landmark: string | null
+          pincode: string | null
           average_order_value: number
           birthday: string | null
           created_at: string
@@ -1121,6 +1125,10 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          address_lat?: number | null
+          address_lng?: number | null
+          landmark?: string | null
+          pincode?: string | null
           average_order_value?: number
           birthday?: string | null
           created_at?: string
@@ -1141,6 +1149,10 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          address_lat?: number | null
+          address_lng?: number | null
+          landmark?: string | null
+          pincode?: string | null
           average_order_value?: number
           birthday?: string | null
           created_at?: string
@@ -1286,6 +1298,50 @@ export type Database = {
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      delivery_zones: {
+        Row: {
+          id: string
+          restaurant_id: string
+          zone_name: string
+          min_distance_km: number
+          max_distance_km: number
+          delivery_charge: number
+          is_active: boolean
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          restaurant_id: string
+          zone_name: string
+          min_distance_km?: number
+          max_distance_km: number
+          delivery_charge?: number
+          is_active?: boolean
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          restaurant_id?: string
+          zone_name?: string
+          min_distance_km?: number
+          max_distance_km?: number
+          delivery_charge?: number
+          is_active?: boolean
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_zones_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          }
         ]
       }
       expense_categories: {
@@ -3122,6 +3178,14 @@ export type Database = {
           table_id: string | null
           total: number
           updated_at: string
+          delivery_address: string | null
+          delivery_notes: string | null
+          delivery_lat: number | null
+          delivery_lng: number | null
+          delivery_status: string | null
+          estimated_delivery_time: string | null
+          delivery_charge: number | null
+          delivery_distance_km: number | null
         }
         Insert: {
           attendant?: string | null
@@ -3157,6 +3221,14 @@ export type Database = {
           table_id?: string | null
           total: number
           updated_at?: string
+          delivery_address?: string | null
+          delivery_notes?: string | null
+          delivery_lat?: number | null
+          delivery_lng?: number | null
+          delivery_status?: string | null
+          estimated_delivery_time?: string | null
+          delivery_charge?: number | null
+          delivery_distance_km?: number | null
         }
         Update: {
           attendant?: string | null
@@ -3192,6 +3264,14 @@ export type Database = {
           table_id?: string | null
           total?: number
           updated_at?: string
+          delivery_address?: string | null
+          delivery_notes?: string | null
+          delivery_lat?: number | null
+          delivery_lng?: number | null
+          delivery_status?: string | null
+          estimated_delivery_time?: string | null
+          delivery_charge?: number | null
+          delivery_distance_km?: number | null
         }
         Relationships: [
           {
@@ -4898,6 +4978,12 @@ export type Database = {
           updated_at: string
           whatsapp_meta_config: Json | null
           whatsapp_provider: string
+          delivery_enabled: boolean | null
+          max_delivery_radius_km: number | null
+          restaurant_lat: number | null
+          restaurant_lng: number | null
+          default_delivery_charge: number | null
+          free_delivery_above: number | null
         }
         Insert: {
           backup_frequency?: string | null
@@ -4913,6 +4999,12 @@ export type Database = {
           updated_at?: string
           whatsapp_meta_config?: Json | null
           whatsapp_provider?: string
+          delivery_enabled?: boolean | null
+          max_delivery_radius_km?: number | null
+          restaurant_lat?: number | null
+          restaurant_lng?: number | null
+          default_delivery_charge?: number | null
+          free_delivery_above?: number | null
         }
         Update: {
           backup_frequency?: string | null
@@ -4928,6 +5020,12 @@ export type Database = {
           updated_at?: string
           whatsapp_meta_config?: Json | null
           whatsapp_provider?: string
+          delivery_enabled?: boolean | null
+          max_delivery_radius_km?: number | null
+          restaurant_lat?: number | null
+          restaurant_lng?: number | null
+          default_delivery_charge?: number | null
+          free_delivery_above?: number | null
         }
         Relationships: []
       }

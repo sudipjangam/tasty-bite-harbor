@@ -44,6 +44,9 @@ import {
 } from "@/components/ui/sheet";
 import { DailySummaryDialog } from "@/components/QuickServe/DailySummaryDialog";
 import HelpProvider from "@/components/Help/HelpProvider";
+import { QSModeSelector, QuickServeOrderMode } from "@/components/QuickServe/QSModeSelector";
+import { QSDeliveryInput, DeliveryInfo } from "@/components/QuickServe/QSDeliveryInput";
+import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
 
 const QuickServePOS: React.FC = () => {
   const [orderItems, setOrderItems] = useState<QSOrderItem[]>([]);
@@ -68,6 +71,19 @@ const QuickServePOS: React.FC = () => {
   const [sendingToKitchen, setSendingToKitchen] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [editingOrderItems, setEditingOrderItems] = useState<QSOrderItem[]>([]);
+  // ─── Order Mode + Delivery State ───
+  const [orderMode, setOrderMode] = useState<QuickServeOrderMode>("counter");
+  const [deliveryInfo, setDeliveryInfo] = useState<DeliveryInfo>({
+    address: "",
+    landmark: "",
+    pincode: "",
+    lat: null,
+    lng: null,
+    distanceKm: null,
+    charge: 0,
+    zoneName: "",
+  });
+  const [deliveryNotes, setDeliveryNotes] = useState("");
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
   const queryClient = useQueryClient();
@@ -75,6 +91,17 @@ const QuickServePOS: React.FC = () => {
   const { user } = useAuth();
   const { syncCustomerToCRM } = useCRMSync();
   const { heldOrders, heldCount, holdOrder, resumeOrder, deleteHeldOrder } = useHeldOrders();
+  const { isDeliveryEnabled, calculateCharge, freeDeliveryAbove } = useDeliveryConfig();
+
+  // Map order mode to DB order_type value
+  const orderTypeForDB = useMemo(() => {
+    switch (orderMode) {
+      case "counter": return "dine-in";
+      case "takeaway": return "takeaway";
+      case "delivery": return "delivery";
+      default: return "takeaway";
+    }
+  }, [orderMode]);
 
   // Fetch loyalty program settings for redemption cap and point value
   const { data: loyaltyProgram } = useQuery({
@@ -279,6 +306,19 @@ const QuickServePOS: React.FC = () => {
     setAppliedCoupon(null);
     setCouponDiscountAmount(0);
     setCouponError(null);
+    // Reset delivery state
+    setOrderMode("counter");
+    setDeliveryInfo({
+      address: "",
+      landmark: "",
+      pincode: "",
+      lat: null,
+      lng: null,
+      distanceKm: null,
+      charge: 0,
+      zoneName: "",
+    });
+    setDeliveryNotes("");
     // Refresh active orders and stats
     queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
     queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
@@ -397,7 +437,8 @@ const QuickServePOS: React.FC = () => {
         0,
         itemsSubtotal - discountValue - couponDiscountAmount,
       );
-      const orderTotal = Math.max(0, afterDiscount - loyaltyDiscountAmount);
+      const deliveryChargeToApply = orderMode === "delivery" ? deliveryInfo.charge : 0;
+      const orderTotal = Math.max(0, afterDiscount - loyaltyDiscountAmount) + deliveryChargeToApply;
 
       // Generate daily sequential order token
       const today = new Date();
@@ -442,7 +483,7 @@ const QuickServePOS: React.FC = () => {
         const fullSubtotal = orderItems.reduce(
           (sum, item) => sum + item.price * item.quantity, 0,
         );
-        const fullTotal = fullSubtotal; // No discount recalculation for edit mode
+        const fullTotal = fullSubtotal + (orderMode === "delivery" ? deliveryInfo.charge : 0);
 
         // Format ALL current items for the order record
         const allFormattedItems = orderItems.map(
@@ -478,6 +519,15 @@ const QuickServePOS: React.FC = () => {
             total: fullTotal,
             status: "preparing",
             item_completion_status: preciseCompletionStatus,
+            order_type: orderMode === "delivery" ? "delivery" : (orderMode === "counter" ? "dine-in" : "takeaway"),
+            ...(orderMode === "delivery" && {
+              delivery_address: deliveryInfo.address,
+              delivery_notes: (deliveryInfo as any).notes || deliveryNotes || null,
+              delivery_lat: deliveryInfo.lat,
+              delivery_lng: deliveryInfo.lng,
+              delivery_charge: deliveryInfo.charge,
+              delivery_distance_km: deliveryInfo.distanceKm,
+            }),
           })
           .eq("id", editingOrderId);
 
@@ -542,7 +592,7 @@ const QuickServePOS: React.FC = () => {
               source: "QuickServe",
               status: "preparing",
               items: newKitchenItems,
-              order_type: "takeaway",
+              order_type: orderMode === "delivery" ? "delivery" : (orderMode === "counter" ? "dine-in" : "takeaway"),
               customer_name: finalCustomerName,
               server_name: attendantName,
               priority: "normal",
@@ -618,7 +668,7 @@ const QuickServePOS: React.FC = () => {
           source: "QuickServe",
           status: "preparing",
           items: kitchenItems,
-          order_type: "takeaway",
+          order_type: orderMode === "delivery" ? "delivery" : (orderMode === "counter" ? "dine-in" : "takeaway"),
           customer_name: finalCustomerName,
           server_name: attendantName,
           priority: "normal",
@@ -669,7 +719,7 @@ const QuickServePOS: React.FC = () => {
           status: "preparing",
           payment_status: "pending",
           source: "quickserve",
-          order_type: "takeaway",
+          order_type: orderMode === "delivery" ? "delivery" : (orderMode === "counter" ? "dine-in" : "takeaway"),
           attendant: attendantName,
           order_number: nextOrderNumber,
           item_completion_status: initialCompletionStatus,
@@ -681,6 +731,15 @@ const QuickServePOS: React.FC = () => {
           }),
           ...(discountNotes && { discount_notes: discountNotes }),
           ...(customerPhone && { customer_phone: customerPhone }),
+          ...(orderMode === "delivery" && {
+            delivery_address: deliveryInfo.address,
+            delivery_notes: (deliveryInfo as any).notes || deliveryNotes || null,
+            delivery_lat: deliveryInfo.lat,
+            delivery_lng: deliveryInfo.lng,
+            delivery_charge: deliveryInfo.charge,
+            delivery_distance_km: deliveryInfo.distanceKm,
+            delivery_status: "pending",
+          }),
         })
         .select()
         .single();
@@ -766,7 +825,7 @@ const QuickServePOS: React.FC = () => {
     customerPhone, discountAmount, discountPercentage, couponDiscountAmount,
     loyaltyDiscountAmount, loyaltyPointsUsed, appliedCoupon, toast,
     queryClient, syncCustomerToCRM, editingOrderId, editingOrderItems,
-    currencySymbol,
+    currencySymbol, orderMode, deliveryInfo, deliveryNotes,
   ]);
 
   // Add custom item
@@ -1012,7 +1071,7 @@ const QuickServePOS: React.FC = () => {
                 QuickServe
               </h1>
               <p className="text-[10px] text-white/60 font-medium tracking-wider uppercase">
-                Counter & Takeaway
+                Counter & Takeaway & Delivery
               </p>
             </div>
             <div className="ml-2">
@@ -1039,6 +1098,26 @@ const QuickServePOS: React.FC = () => {
         </div>
 
         <div className="relative flex items-center gap-1.5 px-4 pb-3">
+          <QSModeSelector
+            selectedMode={orderMode}
+            onModeChange={(mode) => {
+              setOrderMode(mode);
+              if (mode !== "delivery") {
+                setDeliveryInfo({
+                  address: "",
+                  landmark: "",
+                  pincode: "",
+                  lat: null,
+                  lng: null,
+                  distanceKm: null,
+                  charge: 0,
+                  zoneName: "",
+                });
+              }
+            }}
+            deliveryEnabled={isDeliveryEnabled}
+          />
+          <div className="w-[1px] h-5 bg-white/20 mx-1 shrink-0" />
           <button
             onClick={() => setShowActiveOrders(true)}
             className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-md rounded-xl px-3 py-2 border border-white/10 transition-all active:scale-95"
@@ -1105,6 +1184,26 @@ const QuickServePOS: React.FC = () => {
             onCustomerFound={handleCustomerFound}
             onReorder={handleReorderLastOrder}
           />
+          {orderMode === "delivery" && (
+            <QSDeliveryInput
+              deliveryInfo={deliveryInfo}
+              onDeliveryInfoChange={setDeliveryInfo}
+              calculateCharge={calculateCharge}
+              orderSubtotal={orderTotal}
+              freeDeliveryAbove={freeDeliveryAbove}
+              savedAddress={
+                loyaltyCustomer
+                  ? {
+                      address: (loyaltyCustomer as any).address || "",
+                      lat: (loyaltyCustomer as any).address_lat || null,
+                      lng: (loyaltyCustomer as any).address_lng || null,
+                      landmark: (loyaltyCustomer as any).landmark || "",
+                      pincode: (loyaltyCustomer as any).pincode || "",
+                    }
+                  : null
+              }
+            />
+          )}
           <QSOrderPanel
             items={orderItems}
             onIncrement={handleIncrement}
@@ -1144,6 +1243,9 @@ const QuickServePOS: React.FC = () => {
               setCustomerPhone("");
               toast({ title: "Edit Cancelled", duration: 1500 });
             } : undefined}
+            orderMode={orderMode}
+            deliveryCharge={deliveryInfo.charge}
+            deliveryAddress={deliveryInfo.address}
           />
         </div>
       </div>
@@ -1188,6 +1290,26 @@ const QuickServePOS: React.FC = () => {
               onCustomerFound={handleCustomerFound}
               onReorder={handleReorderLastOrder}
             />
+             {orderMode === "delivery" && (
+              <QSDeliveryInput
+                deliveryInfo={deliveryInfo}
+                onDeliveryInfoChange={setDeliveryInfo}
+                calculateCharge={calculateCharge}
+                orderSubtotal={orderTotal}
+                freeDeliveryAbove={freeDeliveryAbove}
+                savedAddress={
+                  loyaltyCustomer
+                    ? {
+                        address: (loyaltyCustomer as any).address || "",
+                        lat: (loyaltyCustomer as any).address_lat || null,
+                        lng: (loyaltyCustomer as any).address_lng || null,
+                        landmark: (loyaltyCustomer as any).landmark || "",
+                        pincode: (loyaltyCustomer as any).pincode || "",
+                      }
+                    : null
+                }
+              />
+            )}
             <QSOrderPanel
               items={orderItems}
               onIncrement={handleIncrement}
@@ -1231,6 +1353,9 @@ const QuickServePOS: React.FC = () => {
                 setShowMobileCart(false);
                 toast({ title: "Edit Cancelled", duration: 1500 });
               } : undefined}
+              orderMode={orderMode}
+              deliveryCharge={deliveryInfo.charge}
+              deliveryAddress={deliveryInfo.address}
             />
           </div>
         </SheetContent>
@@ -1251,6 +1376,13 @@ const QuickServePOS: React.FC = () => {
         loyaltyCustomerId={loyaltyCustomer?.id}
         couponId={appliedCoupon?.id}
         couponDiscountAmount={couponDiscountAmount}
+        orderMode={orderMode}
+        deliveryCharge={deliveryInfo.charge}
+        deliveryAddress={deliveryInfo.address}
+        deliveryNotes={(deliveryInfo as any).notes || deliveryNotes}
+        deliveryLat={deliveryInfo.lat}
+        deliveryLng={deliveryInfo.lng}
+        deliveryDistanceKm={deliveryInfo.distanceKm}
       />
 
       {/* Custom Item Dialog */}

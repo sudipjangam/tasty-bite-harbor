@@ -18,6 +18,11 @@ export interface LoyaltyCustomerInfo {
   loyalty_tier_color: string;
   visit_count: number;
   total_spent: number;
+  address?: string | null;
+  address_lat?: number | null;
+  address_lng?: number | null;
+  landmark?: string | null;
+  pincode?: string | null;
 }
 
 export interface LastOrderInfo {
@@ -142,7 +147,7 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
       try {
         const { data, error } = await supabase
           .from("customers")
-          .select("id, name, phone, loyalty_points, loyalty_tier_id, visit_count, total_spent, loyalty_tiers(name, color)")
+          .select("id, name, phone, loyalty_points, loyalty_tier_id, visit_count, total_spent, address, address_lat, address_lng, landmark, pincode, loyalty_tiers(name, color)")
           .eq("restaurant_id", restaurantId)
           .eq("phone", customerPhone)
           .maybeSingle()
@@ -193,6 +198,11 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
             loyalty_tier_color: tierData?.color || "",
             visit_count: data.visit_count || 0,
             total_spent: data.total_spent || 0,
+            address: (data as any).address || null,
+            address_lat: (data as any).address_lat || null,
+            address_lng: (data as any).address_lng || null,
+            landmark: (data as any).landmark || null,
+            pincode: (data as any).pincode || null,
           };
           setFoundCustomer(customerInfo);
           setLastOrder(lastOrderData);

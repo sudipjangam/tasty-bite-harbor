@@ -343,13 +343,15 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         delivery: 0,
         dine_in: 0,
       };
+
       allOrders.forEach((o) => {
-        const type = (o.order_type || "counter").toLowerCase();
+        const type = (o.order_type || "dine-in").toLowerCase();
         if (type.includes("delivery")) orderTypeBreakdown.delivery++;
         else if (type.includes("takeaway") || type.includes("take"))
           orderTypeBreakdown.takeaway++;
-        else if (type.includes("dine")) orderTypeBreakdown.dine_in++;
-        else orderTypeBreakdown.counter++;
+        else if (type.includes("dine") || type.includes("counter"))
+          orderTypeBreakdown.dine_in++;
+        else orderTypeBreakdown.dine_in++;
       });
 
       // Top items (from kitchen_orders items array)
