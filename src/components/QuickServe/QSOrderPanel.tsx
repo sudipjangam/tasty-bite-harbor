@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { LoyaltyCustomerInfo } from "./QSCustomerInput";
+import { Badge } from "@/components/ui/badge";
 
 export interface AppliedCoupon {
   id: string;
@@ -71,6 +72,9 @@ interface QSOrderPanelProps {
   editingOrderItems?: QSOrderItem[];
   onCancelEdit?: () => void;
   onSetItemPriority?: (id: string, priority: 'first' | 'normal' | 'last') => void;
+  orderMode?: "counter" | "takeaway" | "delivery";
+  deliveryCharge?: number;
+  deliveryAddress?: string;
 }
 
 export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
@@ -85,7 +89,7 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
   onSendToKitchen,
   discountAmount = 0,
   discountPercentage = 0,
-  onDiscountChange,
+  onDiscountChange = () => {},
   onAddCustomItem,
   loyaltyCustomer,
   loyaltyPointsUsed = 0,
@@ -102,6 +106,9 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
   editingOrderItems = [],
   onCancelEdit,
   onSetItemPriority,
+  orderMode = "counter",
+  deliveryCharge = 0,
+  deliveryAddress = "",
 }) => {
   const { symbol: currencySymbol } = useCurrencyContext();
   const [discountMode, setDiscountMode] = useState<"flat" | "percent">("flat");
@@ -138,7 +145,8 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
       ? (subtotal * discountPercentage) / 100
       : discountAmount;
   const afterDiscount = Math.max(0, subtotal - discountValue - couponDiscountAmount);
-  const finalTotal = Math.max(0, afterDiscount - loyaltyDiscountAmount);
+  const deliveryChargeToApply = orderMode === "delivery" ? deliveryCharge : 0;
+  const finalTotal = Math.max(0, afterDiscount - loyaltyDiscountAmount) + deliveryChargeToApply;
 
   // Calculate max redeemable points
   const amountPerPoint = loyaltyProgram?.amount_per_point || 1;
@@ -201,7 +209,17 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
             {itemCount}
           </span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
+          <Badge className={cn(
+            "text-[9px] font-extrabold px-1.5 py-0.5 rounded-lg border-0 text-white shadow-sm capitalize shrink-0",
+            orderMode === "delivery"
+              ? "bg-gradient-to-r from-blue-500 to-cyan-500"
+              : orderMode === "takeaway"
+                ? "bg-gradient-to-r from-emerald-500 to-teal-500"
+                : "bg-gradient-to-r from-indigo-500 to-purple-500"
+          )}>
+            {orderMode === "counter" ? "🍽️ Counter" : orderMode === "takeaway" ? "📦 Takeaway" : "🛵 Delivery"}
+          </Badge>
           {onAddCustomItem && (
             <Button
               variant="ghost"
@@ -582,7 +600,7 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
         )}
 
         {/* Subtotal + discount summary */}
-        {(discountValue > 0 || loyaltyDiscountAmount > 0 || couponDiscountAmount > 0) && (
+        {(discountValue > 0 || loyaltyDiscountAmount > 0 || couponDiscountAmount > 0 || (orderMode === "delivery" && deliveryChargeToApply > 0)) && (
           <div className="space-y-1">
             <div className="flex justify-between items-center text-xs">
               <span className="text-gray-400 dark:text-white/30">Subtotal</span>
@@ -625,6 +643,17 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
               </span>
             </div>
             )}
+            {orderMode === "delivery" && deliveryChargeToApply > 0 && (
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-blue-600 dark:text-blue-400 font-medium">
+                  Delivery Charge
+                </span>
+                <span className="text-blue-600 dark:text-blue-400 font-bold">
+                  +{currencySymbol}
+                  {deliveryChargeToApply.toFixed(2)}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
@@ -655,7 +684,8 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
             {onSendToKitchen && (
               <Button
                 onClick={onSendToKitchen}
-                className="flex-1 h-11 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold text-sm rounded-2xl transition-all active:scale-[0.97] border border-white/10"
+                disabled={orderMode === "delivery" && !deliveryAddress}
+                className="flex-1 h-11 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold text-sm rounded-2xl transition-all active:scale-[0.97] border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   boxShadow:
                     "0 4px 16px rgba(59, 130, 246, 0.3), 0 0 0 1px rgba(255,255,255,0.1) inset",
@@ -671,7 +701,8 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
         {/* Pay Button */}
         <Button
           onClick={onProceedToPayment}
-          className="w-full h-13 bg-gradient-to-r from-orange-500 via-rose-500 to-pink-600 hover:from-orange-600 hover:via-rose-600 hover:to-pink-700 text-white font-bold text-base rounded-2xl transition-all active:scale-[0.97] border border-white/10"
+          disabled={orderMode === "delivery" && !deliveryAddress}
+          className="w-full h-13 bg-gradient-to-r from-orange-500 via-rose-500 to-pink-600 hover:from-orange-600 hover:via-rose-600 hover:to-pink-700 text-white font-bold text-base rounded-2xl transition-all active:scale-[0.97] border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             boxShadow:
               "0 6px 24px rgba(249, 115, 22, 0.35), 0 0 0 1px rgba(255,255,255,0.1) inset",

@@ -45,6 +45,7 @@ import { SystemConfigurationTab } from "@/components/Settings/SystemConfiguratio
 import { AuditLogTab } from "@/components/Settings/AuditLogTab";
 import QRSettingsTab from "@/components/Settings/QRSettingsTab";
 import LocationSettingsTab from "@/components/Settings/LocationSettingsTab";
+import { DeliverySettings } from "@/components/Settings/DeliverySettings";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
 
@@ -320,8 +321,15 @@ const Settings = () => {
                 value="location"
                 className="flex items-center justify-center gap-2 md:gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-3 md:py-4 px-3 md:px-6 transition-all duration-300 whitespace-nowrap"
               >
+                <MapPin className="h-5 w-5 flex-shrink-0" />
+                <span className="font-semibold hidden sm:inline">Location Type</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="delivery"
+                className="flex items-center justify-center gap-2 md:gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-3 md:py-4 px-3 md:px-6 transition-all duration-300 whitespace-nowrap"
+              >
                 <Truck className="h-5 w-5 flex-shrink-0" />
-                <span className="font-semibold hidden sm:inline">Location</span>
+                <span className="font-semibold hidden sm:inline">Delivery</span>
               </TabsTrigger>
               <TabsTrigger
                 value="system"
@@ -865,6 +873,10 @@ const Settings = () => {
 
           <TabsContent value="location">
             <LocationSettingsTab />
+          </TabsContent>
+
+          <TabsContent value="delivery">
+            <DeliverySettings />
           </TabsContent>
 
           <TabsContent value="system">

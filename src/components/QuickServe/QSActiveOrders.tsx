@@ -39,6 +39,11 @@ export interface ActiveOrder {
   item_completion_status: boolean[] | null;
   created_at: string;
   source: string | null;
+  order_type?: string | null;
+  delivery_status?: string | null;
+  delivery_address?: string | null;
+  delivery_notes?: string | null;
+  delivery_charge?: number | null;
 }
 
 interface QSActiveOrdersProps {
@@ -133,7 +138,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, order_number, customer_name, customer_phone, items, total, status, payment_status, item_completion_status, created_at, source",
+          "id, order_number, customer_name, customer_phone, items, total, status, payment_status, item_completion_status, created_at, source, order_type, delivery_status, delivery_address, delivery_notes, delivery_charge",
         )
         .eq("restaurant_id", restaurantId)
         .in("source", ["quickserve", "pos"])
@@ -343,7 +348,55 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
     [changeStatusMutation, toast],
   );
 
+  const changeDeliveryStatusMutation = useMutation({
+    mutationFn: async ({
+      orderId,
+      newDeliveryStatus,
+    }: {
+      orderId: string;
+      newDeliveryStatus: string;
+    }) => {
+      const updates: any = { delivery_status: newDeliveryStatus };
+      if (newDeliveryStatus === "delivered") {
+        updates.status = "completed";
+      }
 
+      const { error } = await supabase
+        .from("orders")
+        .update(updates)
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      if (updates.status === "completed") {
+        await supabase
+          .from("kitchen_orders")
+          .update({
+            status: "completed",
+            bumped_at: new Date().toISOString(),
+          })
+          .eq("order_id", orderId);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
+      queryClient.invalidateQueries({
+        queryKey: ["quickserve-todays-revenue"],
+      });
+    },
+  });
+
+  const handleDeliveryStatusChange = useCallback(
+    (orderId: string, newDeliveryStatus: string) => {
+      changeDeliveryStatusMutation.mutate({ orderId, newDeliveryStatus });
+      toast({
+        title: `Delivery → ${newDeliveryStatus.replace("_", " ").toUpperCase()}`,
+        duration: 1500,
+      });
+    },
+    [changeDeliveryStatusMutation, toast],
+  );
 
   if (!isOpen) return null;
 
@@ -515,16 +568,34 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <StatusIcon className={cn("w-4 h-4", config.color)} />
-                          <span
-                            className={cn(
-                              "text-xs font-bold uppercase",
-                              config.color,
-                            )}
-                          >
-                            {config.label}
-                          </span>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <div className="flex items-center gap-1.5">
+                            <StatusIcon className={cn("w-4 h-4", config.color)} />
+                            <span
+                              className={cn(
+                                "text-xs font-bold uppercase",
+                                config.color,
+                              )}
+                            >
+                              {config.label}
+                            </span>
+                          </div>
+                          {order.order_type === "delivery" ? (
+                            <span className={cn(
+                              "text-[9px] font-black px-1.5 py-0.5 rounded-lg capitalize text-white shadow-sm shrink-0 border-0",
+                              order.delivery_status === "delivered"
+                                ? "bg-gradient-to-r from-green-500 to-emerald-500"
+                                : order.delivery_status === "picked_up"
+                                  ? "bg-gradient-to-r from-purple-500 to-indigo-500"
+                                  : "bg-gradient-to-r from-blue-500 to-cyan-500"
+                            )}>
+                              🛵 {order.delivery_status === "picked_up" ? "Picked Up" : (order.delivery_status || "Pending")}
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-lg bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400 capitalize">
+                              {order.order_type === "dine-in" ? "🍽️ Counter" : "📦 Takeaway"}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -560,7 +631,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                                   order.id,
                                   idx,
                                   completionStatus,
-                                )
+                                  )
                               }
                               disabled={order.status === "completed"}
                               className={cn(
@@ -625,17 +696,35 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                         })}
                       </div>
 
+                      {/* Delivery Address Details */}
+                      {order.order_type === "delivery" && order.delivery_address && (
+                        <div className="mx-3 mt-1.5 mb-1 p-2 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100/50 dark:border-blue-900/20 text-[11px] text-blue-700 dark:text-blue-300">
+                          <p className="font-bold">Address:</p>
+                          <p className="line-clamp-2 mt-0.5 font-medium leading-relaxed">{order.delivery_address}</p>
+                          {order.delivery_notes && (
+                            <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400 italic">Notes: {order.delivery_notes}</p>
+                          )}
+                        </div>
+                      )}
+
                       {/* Footer: Total + Action */}
                       <div className="px-3 pb-3 pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-gray-100 dark:border-gray-800/60 mt-2">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-bold text-gray-700 dark:text-gray-200">
-                            {currencySymbol}
-                            {order.total.toFixed(0)}
-                          </p>
-                          {order.payment_status === "pending" && (
-                            <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-700/50">
-                              <Wallet className="w-3 h-3" />
-                              Unpaid
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-bold text-gray-700 dark:text-gray-200">
+                              {currencySymbol}
+                              {order.total.toFixed(0)}
+                            </p>
+                            {order.payment_status === "pending" && (
+                              <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-700/50">
+                                <Wallet className="w-3 h-3" />
+                                Unpaid
+                              </span>
+                            )}
+                          </div>
+                          {order.order_type === "delivery" && order.delivery_charge && (
+                            <span className="text-[9px] text-gray-400 dark:text-white/30">
+                              Includes {currencySymbol}{order.delivery_charge.toFixed(0)} delivery fee
                             </span>
                           )}
                         </div>
@@ -662,8 +751,8 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                               <span className="whitespace-nowrap">Pay</span>
                             </Button>
                           )}
-                          {/* Done button — only for non-completed, non-served orders OR served+paid */}
-                          {order.status !== "completed" && order.status !== "served" && (
+                          {/* Done button — only for non-completed, non-served, non-delivery orders */}
+                          {order.status !== "completed" && order.status !== "served" && order.order_type !== "delivery" && (
                             <Button
                               size="sm"
                               onClick={() =>
@@ -675,8 +764,8 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                               <span className="whitespace-nowrap">Done</span>
                             </Button>
                           )}
-                          {/* Served orders that are paid — show Done to finalize */}
-                          {order.status === "served" && order.payment_status === "paid" && (
+                          {/* Served orders that are paid — show Done to finalize (only non-delivery) */}
+                          {order.status === "served" && order.payment_status === "paid" && order.order_type !== "delivery" && (
                             <Button
                               size="sm"
                               onClick={() =>
@@ -687,6 +776,29 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                               <CheckCircle2 className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1 shrink-0" />
                               <span className="whitespace-nowrap">Done</span>
                             </Button>
+                          )}
+                          {/* Delivery status actions */}
+                          {order.order_type === "delivery" && order.status !== "completed" && (
+                            <>
+                              {(order.delivery_status === "pending" || !order.delivery_status) && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleDeliveryStatusChange(order.id, "picked_up")}
+                                  className="flex-1 sm:flex-none bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white text-[11px] sm:text-xs font-bold rounded-lg px-2 sm:px-2.5 h-8 sm:h-7"
+                                >
+                                  🛵 Pick Up
+                                </Button>
+                              )}
+                              {order.delivery_status === "picked_up" && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleDeliveryStatusChange(order.id, "delivered")}
+                                  className="flex-1 sm:flex-none bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-[11px] sm:text-xs font-bold rounded-lg px-2 sm:px-2.5 h-8 sm:h-7"
+                                >
+                                  ✅ Deliver
+                                </Button>
+                              )}
+                            </>
                           )}
                           {order.status === "completed" && order.payment_status !== "pending" && (
                             <span className="text-xs font-bold text-blue-500 dark:text-blue-400 flex items-center gap-1 w-full sm:w-auto justify-center">
@@ -727,6 +839,9 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
             total: checkoutOrder.total,
             orderNumber: checkoutOrder.order_number,
           }}
+          orderMode={checkoutOrder.order_type as any}
+          deliveryCharge={checkoutOrder.delivery_charge || 0}
+          deliveryAddress={checkoutOrder.delivery_address || ""}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
             queryClient.invalidateQueries({ queryKey: ["quickserve-todays-revenue"] });

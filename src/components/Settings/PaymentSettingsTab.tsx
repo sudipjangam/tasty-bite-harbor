@@ -34,12 +34,13 @@ const PaymentSettingsTab = () => {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [showMerchantKey, setShowMerchantKey] = useState(false);
+  const [showCashfreeSecret, setShowCashfreeSecret] = useState(false);
   const [formData, setFormData] = useState({
     upiId: "",
     upiName: "",
     isActive: true,
     // Paytm fields
-    gatewayType: "upi" as "upi" | "paytm",
+    gatewayType: "upi" as "upi" | "paytm" | "cashfree",
     paytmMid: "",
     paytmMerchantKey: "",
     paytmWebsite: "DEFAULT",
@@ -47,6 +48,12 @@ const PaymentSettingsTab = () => {
     soundboxEnabled: false,
     voiceAnnouncementLanguage: "en" as "en" | "hi",
     voiceAnnouncementTemplate: "detailed" as "simple" | "detailed",
+    // Cashfree fields
+    cashfreeAppId: "",
+    cashfreeSecretKey: "",
+    cashfreeSubMerchantId: "",
+    cashfreeTestMode: true,
+    cashfreeWebhookSecret: "",
   });
 
   // Fetch payment settings
@@ -83,6 +90,11 @@ const PaymentSettingsTab = () => {
           (paymentSettings as any).voice_announcement_language || "en",
         voiceAnnouncementTemplate:
           (paymentSettings as any).voice_announcement_template || "detailed",
+        cashfreeAppId: (paymentSettings as any).cashfree_app_id || "",
+        cashfreeSecretKey: (paymentSettings as any).cashfree_secret_key || "",
+        cashfreeSubMerchantId: (paymentSettings as any).cashfree_sub_merchant_id || "",
+        cashfreeTestMode: (paymentSettings as any).cashfree_test_mode ?? true,
+        cashfreeWebhookSecret: (paymentSettings as any).cashfree_webhook_secret || "",
       });
     }
   }, [paymentSettings]);
@@ -103,6 +115,16 @@ const PaymentSettingsTab = () => {
         toast({
           title: "Error",
           description: "Paytm Merchant ID and Merchant Key are required",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else if (formData.gatewayType === "cashfree") {
+      // If client is not using platform-wide partner onboarding, they need to supply their own keys
+      if (!formData.cashfreeSubMerchantId.trim() && (!formData.cashfreeAppId.trim() || !formData.cashfreeSecretKey.trim())) {
+        toast({
+          title: "Error",
+          description: "Either Cashfree App ID & Secret Key OR Sub-Merchant ID is required",
           variant: "destructive",
         });
         return;
@@ -134,6 +156,12 @@ const PaymentSettingsTab = () => {
         soundbox_enabled: formData.soundboxEnabled,
         voice_announcement_language: formData.voiceAnnouncementLanguage,
         voice_announcement_template: formData.voiceAnnouncementTemplate,
+        // Cashfree fields
+        cashfree_app_id: formData.cashfreeAppId.trim() || null,
+        cashfree_secret_key: formData.cashfreeSecretKey.trim() || null,
+        cashfree_sub_merchant_id: formData.cashfreeSubMerchantId.trim() || null,
+        cashfree_test_mode: formData.cashfreeTestMode,
+        cashfree_webhook_secret: formData.cashfreeWebhookSecret.trim() || null,
         updated_at: new Date().toISOString(),
       };
 
@@ -163,7 +191,13 @@ const PaymentSettingsTab = () => {
 
       toast({
         title: "✅ Settings Saved",
-        description: `${formData.gatewayType === "paytm" ? "Paytm" : "UPI"} payment settings saved successfully`,
+        description: `${
+          formData.gatewayType === "paytm" 
+            ? "Paytm" 
+            : formData.gatewayType === "cashfree" 
+              ? "Cashfree" 
+              : "UPI"
+        } payment settings saved successfully`,
       });
     } catch (error: any) {
       console.error("Error saving payment settings:", error);
@@ -202,7 +236,7 @@ const PaymentSettingsTab = () => {
         </CardHeader>
         <CardContent className="p-8 space-y-6">
           {/* Gateway Type Toggle */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button
               type="button"
               onClick={() =>
@@ -226,21 +260,44 @@ const PaymentSettingsTab = () => {
                 Basic QR code with your UPI ID
               </p>
             </button>
+
             <button
               type="button"
-              onClick={() => {}}
-              disabled
-              className={`p-6 rounded-2xl border-2 transition-all duration-300 relative opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700`}
+              onClick={() =>
+                setFormData((prev) => ({ ...prev, gatewayType: "paytm" }))
+              }
+              className={`p-6 rounded-2xl border-2 transition-all duration-300 ${
+                formData.gatewayType === "paytm"
+                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30 shadow-lg shadow-blue-200/50"
+                  : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
+              }`}
             >
-              <Badge className="absolute -top-2 -right-2 bg-gradient-to-r from-gray-400 to-gray-500 text-white text-xs">
-                Coming Soon
-              </Badge>
-              <Zap className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-              <p className="font-bold text-lg text-gray-400 dark:text-gray-500">
+              <Zap className={`h-8 w-8 mx-auto mb-2 ${formData.gatewayType === "paytm" ? "text-blue-600" : "text-gray-400"}`} />
+              <p className={`font-bold text-lg ${formData.gatewayType === "paytm" ? "text-blue-700 dark:text-blue-300" : "text-gray-600 dark:text-gray-400"}`}>
                 Paytm Gateway
               </p>
-              <p className="text-xs text-gray-400 mt-1">
-                Merchant account setup in progress
+              <p className="text-xs text-gray-500 mt-1">
+                Dynamic Paytm QR & UPI callbacks
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setFormData((prev) => ({ ...prev, gatewayType: "cashfree" }))
+              }
+              className={`p-6 rounded-2xl border-2 transition-all duration-300 ${
+                formData.gatewayType === "cashfree"
+                  ? "border-purple-500 bg-purple-50 dark:bg-purple-900/30 shadow-lg shadow-purple-200/50"
+                  : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
+              }`}
+            >
+              <CreditCard className={`h-8 w-8 mx-auto mb-2 ${formData.gatewayType === "cashfree" ? "text-purple-600" : "text-gray-400"}`} />
+              <p className={`font-bold text-lg ${formData.gatewayType === "cashfree" ? "text-purple-700 dark:text-purple-300" : "text-gray-600 dark:text-gray-400"}`}>
+                Cashfree Gateway
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Cards, Netbanking & Partner splits
               </p>
             </button>
           </div>
@@ -665,6 +722,220 @@ const PaymentSettingsTab = () => {
                 </div>
               </div>
             </div>
+          {/* Cashfree Settings */}
+          {formData.gatewayType === "cashfree" && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  {/* Option 1: Direct Integration (Merchant Keys) */}
+                  <div className="p-5 border border-dashed border-purple-200 dark:border-purple-800 rounded-2xl bg-purple-50/10 dark:bg-purple-950/10 space-y-4">
+                    <h3 className="font-bold text-sm text-purple-800 dark:text-purple-400 flex items-center gap-2">
+                      <Shield className="h-4 w-4" /> Option A: Direct Credentials
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Use this if you have your own standalone Cashfree Merchant Account.
+                    </p>
+
+                    <div>
+                      <Label htmlFor="cashfreeAppId" className="text-xs font-semibold">
+                        App ID / Client ID
+                      </Label>
+                      <Input
+                        id="cashfreeAppId"
+                        type="text"
+                        placeholder="Enter your Cashfree App ID"
+                        value={formData.cashfreeAppId}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            cashfreeAppId: e.target.value,
+                          }))
+                        }
+                        className="mt-1 text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="cashfreeSecretKey" className="text-xs font-semibold">
+                        Secret Key
+                      </Label>
+                      <div className="relative mt-1">
+                        <Input
+                          id="cashfreeSecretKey"
+                          type={showCashfreeSecret ? "text" : "password"}
+                          placeholder="Enter your Cashfree Secret Key"
+                          value={formData.cashfreeSecretKey}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              cashfreeSecretKey: e.target.value,
+                            }))
+                          }
+                          className="text-xs pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowCashfreeSecret(!showCashfreeSecret)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showCashfreeSecret ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Option 2: Platform Partner Integration (Sub-merchant ID) */}
+                  <div className="p-5 border border-dashed border-indigo-200 dark:border-indigo-800 rounded-2xl bg-indigo-50/10 dark:bg-indigo-950/10 space-y-4">
+                    <h3 className="font-bold text-sm text-indigo-800 dark:text-indigo-400 flex items-center gap-2">
+                      <Shield className="h-4 w-4" /> Option B: Platform Sub-Merchant ID
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Use this if you are onboarded under the Swadeshi Solutions Partner account (no API keys required).
+                    </p>
+
+                    <div>
+                      <Label htmlFor="cashfreeSubMerchantId" className="text-xs font-semibold">
+                        Sub-Merchant ID
+                      </Label>
+                      <Input
+                        id="cashfreeSubMerchantId"
+                        type="text"
+                        placeholder="e.g. sub_merchant_12345"
+                        value={formData.cashfreeSubMerchantId}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            cashfreeSubMerchantId: e.target.value,
+                          }))
+                        }
+                        className="mt-1 text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Test Mode Toggle */}
+                  <div className="p-6 bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/30 rounded-2xl border border-amber-200 dark:border-amber-800">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label
+                          htmlFor="cashfreeTestMode"
+                          className="text-sm font-semibold text-amber-700 dark:text-amber-300"
+                        >
+                          🧪 Sandbox / Test Mode
+                        </Label>
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                          Simulate payments using test cards — no real money charged
+                        </p>
+                      </div>
+                      <Switch
+                        id="cashfreeTestMode"
+                        checked={formData.cashfreeTestMode}
+                        onCheckedChange={(checked) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            cashfreeTestMode: checked,
+                          }))
+                        }
+                      />
+                    </div>
+                    {!formData.cashfreeTestMode && (
+                      <div className="mt-3 p-2 bg-red-50 dark:bg-red-900/30 rounded-lg border border-red-200 dark:border-red-700">
+                        <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                          ⚠️ Live Mode Active — real payments will be processed
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Webhook Secret Key */}
+                  <div className="p-6 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-2xl border border-purple-100 dark:border-indigo-800/40">
+                    <Label htmlFor="cashfreeWebhookSecret" className="text-xs font-semibold text-purple-700 dark:text-purple-300">
+                      Webhook Signature Secret (Optional)
+                    </Label>
+                    <Input
+                      id="cashfreeWebhookSecret"
+                      type="password"
+                      placeholder="Enter Cashfree Webhook Signature Secret"
+                      value={formData.cashfreeWebhookSecret}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          cashfreeWebhookSecret: e.target.value,
+                        }))
+                      }
+                      className="mt-2 text-xs"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Configure your Cashfree Webhook callback endpoint to:
+                      <code className="block bg-white dark:bg-gray-700 p-1.5 rounded mt-1 font-mono text-[10px] select-all">
+                        https://clmsoetktmvhazctlans.supabase.co/functions/v1/cashfree-webhook
+                      </code>
+                    </p>
+                  </div>
+
+                  {/* Active Toggle */}
+                  <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-2xl border border-blue-100 dark:border-blue-800">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label
+                          htmlFor="isActiveCF"
+                          className="text-sm font-semibold text-blue-600"
+                        >
+                          Enable Cashfree Gateway
+                        </Label>
+                        <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">
+                          Enable Cashfree checkout on storefront/POS
+                        </p>
+                      </div>
+                      <Switch
+                        id="isActiveCF"
+                        checked={formData.isActive}
+                        onCheckedChange={(checked) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            isActive: checked,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  {/* Ready Badge */}
+                  {formData.isActive &&
+                    (formData.cashfreeSubMerchantId || (formData.cashfreeAppId && formData.cashfreeSecretKey)) && (
+                      <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-2xl border border-green-100 dark:border-green-800">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Check className="h-5 w-5 text-green-600" />
+                          <span className="text-sm font-semibold text-green-600">
+                            Cashfree Gateway Ready
+                          </span>
+                        </div>
+                        <p className="text-xs text-green-500 dark:text-green-400">
+                          {formData.cashfreeSubMerchantId ? (
+                            <>Sub-Merchant ID: <code className="bg-white dark:bg-gray-700 px-1 rounded">{formData.cashfreeSubMerchantId}</code></>
+                          ) : (
+                            <>App ID: <code className="bg-white dark:bg-gray-700 px-1 rounded">{formData.cashfreeAppId}</code></>
+                          )}
+                          {formData.cashfreeTestMode && (
+                            <Badge
+                              variant="outline"
+                              className="ml-2 text-amber-600 border-amber-300 text-[10px]"
+                            >
+                              SANDBOX
+                            </Badge>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                </div>
+              </div>
+            </div>
           )}
 
           <div className="flex justify-end pt-4">
@@ -674,7 +945,9 @@ const PaymentSettingsTab = () => {
                 loading ||
                 (formData.gatewayType === "upi"
                   ? !formData.upiId
-                  : !formData.paytmMid || !formData.paytmMerchantKey)
+                  : formData.gatewayType === "cashfree"
+                    ? !formData.cashfreeSubMerchantId && (!formData.cashfreeAppId || !formData.cashfreeSecretKey)
+                    : !formData.paytmMid || !formData.paytmMerchantKey)
               }
               className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
             >
@@ -695,7 +968,9 @@ const PaymentSettingsTab = () => {
           <CardTitle className="text-xl font-bold text-gray-900 dark:text-white">
             {formData.gatewayType === "paytm"
               ? "How Paytm Integration Works"
-              : "How UPI QR Payments Work"}
+              : formData.gatewayType === "cashfree"
+                ? "How Cashfree Gateway Works"
+                : "How UPI QR Payments Work"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -731,6 +1006,41 @@ const PaymentSettingsTab = () => {
                 </div>
                 <p className="text-sm font-medium dark:text-gray-300">
                   Voice & popup notification on POS
+                </p>
+              </div>
+            </div>
+          ) : formData.gatewayType === "cashfree" ? (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-xl">
+                <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span className="text-white font-bold">1</span>
+                </div>
+                <p className="text-sm font-medium dark:text-gray-300">
+                  Payment session created securely
+                </p>
+              </div>
+              <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-xl">
+                <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span className="text-white font-bold">2</span>
+                </div>
+                <p className="text-sm font-medium dark:text-gray-300">
+                  Customer pays via Card/Netbanking/UPI
+                </p>
+              </div>
+              <div className="text-center p-4 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/30 dark:to-green-900/30 rounded-xl">
+                <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span className="text-white font-bold">3</span>
+                </div>
+                <p className="text-sm font-medium dark:text-gray-300">
+                  Authoritative check to confirm payment
+                </p>
+              </div>
+              <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/30 rounded-xl">
+                <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span className="text-white font-bold">4</span>
+                </div>
+                <p className="text-sm font-medium dark:text-gray-300">
+                  Automatic platform split/payouts
                 </p>
               </div>
             </div>
