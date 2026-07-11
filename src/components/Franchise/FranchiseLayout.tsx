@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { FranchiseBranchSwitcher } from "./FranchiseBranchSwitcher";
 import { useFranchise } from "@/contexts/FranchiseContext";
+import { useAuth } from "@/hooks/useAuth";
 import {
   LayoutDashboard,
   Store,
@@ -104,8 +105,15 @@ export const FranchiseLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { org, demoMode, setDemoMode, isLoading } = useFranchise();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [collapsed, setCollapsed] = useState(false);
+
+  // Display name for the logged-in user (not the org owner)
+  const currentUserName = user
+    ? `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email?.split("@")[0] || "User"
+    : "User";
+  const currentUserRole = user?.role_name_text || user?.role || "Franchise Member";
 
   const isActive = (href: string) => {
     if (href === "/franchise") return location.pathname === "/franchise";
@@ -265,13 +273,13 @@ export const FranchiseLayout: React.FC = () => {
             {!collapsed && (
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
-                  {org.ownerName.charAt(0)}
+                  {currentUserName.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
                   <p className="text-white text-xs font-medium truncate max-w-[100px]">
-                    {org.ownerName}
+                    {currentUserName}
                   </p>
-                  <p className="text-white/40 text-[10px]">Franchise Owner</p>
+                  <p className="text-white/40 text-[10px] capitalize">{currentUserRole}</p>
                 </div>
               </div>
             )}

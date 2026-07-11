@@ -140,18 +140,23 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
       const menuRows = menuRes.data || [];
       const memberRows = memberRes.data || [];
 
-      // Query profiles for owner name
+      // Query profiles for owner name — try owner_user_id first, else fall back to current user
       let ownerName = "Franchise Owner";
       let ownerEmail = "";
-      if (orgRow?.owner_user_id) {
+      const ownerLookupId = orgRow?.owner_user_id || user!.id;
+      {
         const { data: ownerProf } = await supabase
           .from("profiles")
           .select("first_name, last_name, email")
-          .eq("id", orgRow.owner_user_id)
+          .eq("id", ownerLookupId)
           .maybeSingle();
         if (ownerProf) {
           ownerName = `${ownerProf.first_name || ""} ${ownerProf.last_name || ""}`.trim() || ownerName;
           ownerEmail = ownerProf.email || "";
+        } else {
+          // Ultimate fallback: use logged-in user's auth email
+          ownerEmail = user?.email || "";
+          ownerName = ownerEmail.split("@")[0] || ownerName;
         }
       }
 
@@ -329,7 +334,7 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
       const kpis = {
         totalRevenue: totalRev,
         revenueGrowth: 15.4,
-        totalOrders: mappedOrders.length || 2450,
+        totalOrders: mappedOrders.length,
         ordersGrowth: 10.2,
         activeBranches: mappedBranches.length,
         totalBranches: mappedBranches.length,
