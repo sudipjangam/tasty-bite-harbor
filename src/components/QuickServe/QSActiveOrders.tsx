@@ -644,7 +644,15 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                           {order.status !== "completed" && onAddItems && (
                             <Button
                               size="sm"
-                              onClick={() => onAddItems(order)}
+                              onClick={() => {
+                                if (order.payment_status === "paid") {
+                                  const ok = window.confirm(
+                                    "This order is already PAID. Adding items will require collecting an additional payment for the new items. Do you want to proceed?"
+                                  );
+                                  if (!ok) return;
+                                }
+                                onAddItems(order);
+                              }}
                               className="flex-1 sm:flex-none bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white text-[11px] sm:text-xs font-bold rounded-lg px-2 sm:px-2.5 h-8 sm:h-7"
                             >
                               <Plus className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1 shrink-0" />

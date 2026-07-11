@@ -53,6 +53,7 @@ interface QSPaymentSheetProps {
     total: number;
     orderNumber: number | null;
   };
+  editingOrderItems?: QSOrderItem[];
 }
 
 const paymentMethods = [
@@ -136,6 +137,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   couponId,
   couponDiscountAmount = 0,
   existingOrder,
+  editingOrderItems = [],
 }) => {
   const [isOpenLocal, setIsOpenLocal] = useState(isOpen);
   const [status, setStatus] = useState<"idle" | "processing" | "success">(
@@ -156,6 +158,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   const { symbol: currencySymbol } = useCurrencyContext();
   const { restaurantId } = useRestaurantId();
   const { isOnline } = useNetworkStatus();
+  const [alreadyPaid, setAlreadyPaid] = useState(0);
+  const [alreadyPaidLoading, setAlreadyPaidLoading] = useState(false);
 
   // When offline, only show offline-capable payment methods
   const paymentMethods = isOnline
@@ -202,31 +206,63 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     staleTime: 1000 * 60 * 30,
   });
 
-  const itemsSubtotal = existingOrder
-    ? existingOrder.total
-    : items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  // When in edit mode (existingOrder + editingOrderItems), compute total from current items
+  // not from existingOrder.total (which is now just the cart total passed in)
+  const isEditMode = !!existingOrder && editingOrderItems.length > 0;
 
-  const discountValue = existingOrder
+  const itemsSubtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  const discountValue = (existingOrder && !isEditMode)
     ? 0
     : discountPercentage > 0
       ? (itemsSubtotal * discountPercentage) / 100
       : discountAmount;
 
-  const afterDiscount = existingOrder
+  const afterDiscount = (existingOrder && !isEditMode)
     ? existingOrder.total
     : Math.max(0, itemsSubtotal - discountValue - couponDiscountAmount);
 
-  const subtotal = existingOrder
+  const subtotal = (existingOrder && !isEditMode)
     ? existingOrder.total
     : Math.max(0, afterDiscount - loyaltyDiscountAmount);
+
+  // Amount still due after prior payments (for "add items to paid order" flow)
+  const additionalDue = Math.max(0, subtotal - alreadyPaid);
+
+  // Fetch already-paid amount when opening with an existing order
+  useEffect(() => {
+    if (!existingOrder?.id || !isOpen) {
+      setAlreadyPaid(0);
+      setAlreadyPaidLoading(false);
+      return;
+    }
+    setAlreadyPaidLoading(true);
+    (async () => {
+      try {
+        const { data: paidTxns } = await supabase
+          .from("pos_transactions")
+          .select("amount")
+          .eq("order_id", existingOrder.id)
+          .eq("status", "completed");
+        const paid = (paidTxns || []).reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
+        setAlreadyPaid(paid);
+      } catch (err) {
+        console.error("Failed to fetch paid amount:", err);
+        setAlreadyPaid(0);
+      } finally {
+        setAlreadyPaidLoading(false);
+      }
+    })();
+  }, [existingOrder?.id, isOpen]);
+
 
   const upiId = paymentSettings?.upi_id || null;
   const upiName = (paymentSettings as any)?.upi_name || restaurantName;
 
-  // Build UPI deep link
+  // Build UPI deep link — uses additionalDue so QR is for the correct amount
   const getUpiLink = () => {
     if (!upiId) return null;
-    const formattedAmount = parseFloat(subtotal.toFixed(2));
+    const formattedAmount = parseFloat(additionalDue.toFixed(2));
     return `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(`Order payment - ${restaurantName}`)}`;
   };
 
@@ -670,31 +706,148 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
 
       const finalCustomerName = customerName.trim() || "Walk-in Customer";
 
-      // ─── If checking out an existing order (from Active Orders) ───
+      // ─── If checking out an existing order (from Active Orders or edit mode) ───
       if (existingOrder) {
         setStatus("processing");
         setSelectedMethod(method as any);
 
-        // 1. Update order payment status to pending (will be confirmed via Mark as Paid)
+        const formattedItems = items.map(
+          (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
+        );
+
+        // Fetch current item_completion_status to preserve served-item strikethroughs
+        let existingCompletionStatus: boolean[] = [];
+        if (isEditMode) {
+          const { data: existingOrderData } = await supabase
+            .from("orders")
+            .select("item_completion_status")
+            .eq("id", existingOrder.id)
+            .single();
+          existingCompletionStatus = (existingOrderData?.item_completion_status as boolean[]) || [];
+        }
+
+        // Build precise completion status: preserve for matched original items, false for new
+        const preciseCompletionStatus = isEditMode
+          ? (() => {
+              const consumedIndices = new Set<number>();
+              return items.map((item) => {
+                const matchIdx = editingOrderItems.findIndex((orig, origIdx) => {
+                  if (consumedIndices.has(origIdx)) return false;
+                  return orig.name === item.name && orig.price === item.price;
+                });
+                if (matchIdx !== -1) {
+                  consumedIndices.add(matchIdx);
+                  return existingCompletionStatus[matchIdx] ?? false;
+                }
+                return false; // New item — not served
+              });
+            })()
+          : items.map(() => false);
+
+        // 1. Update order: items, total, payment status, completion status
         const { error: updateError } = await supabase
           .from("orders")
-          .update({ payment_status: isNC ? "nc" : "pending" })
+          .update({
+            payment_status: isNC ? "nc" : "pending",
+            items: formattedItems,
+            total: orderTotal,
+            status: "preparing",
+            item_completion_status: preciseCompletionStatus,
+          })
           .eq("id", existingOrder.id);
 
         if (updateError) throw updateError;
 
-        // Clean up any previous pending transactions for this order to prevent duplicate logic
+        // 2. Kitchen diff: send only NEW items (not in original order) to kitchen
+        if (isEditMode && editingOrderItems.length > 0) {
+          const originalMap = new Map<string, number>();
+          editingOrderItems.forEach((item) => {
+            const key = `${item.name}@@${item.price}@@${item.notes || ""}`;
+            originalMap.set(key, (originalMap.get(key) || 0) + item.quantity);
+          });
+
+          const currentMap = new Map<string, { name: string; price: number; quantity: number; notes?: string; menuItemId?: string }>();
+          items.forEach((item) => {
+            const key = `${item.name}@@${item.price}@@${item.notes || ""}`;
+            const existing = currentMap.get(key);
+            if (existing) {
+              existing.quantity += item.quantity;
+            } else {
+              currentMap.set(key, { name: item.name, price: item.price, quantity: item.quantity, notes: item.notes, menuItemId: item.menuItemId });
+            }
+          });
+
+          const newKitchenItems: { name: string; quantity: number; price: number; menuItemId?: string; notes: string[]; is_addition?: boolean; parent_order_number?: string | number }[] = [];
+          currentMap.forEach((current, key) => {
+            const origQty = originalMap.get(key) || 0;
+            const netNew = current.quantity - origQty;
+            if (netNew > 0) {
+              newKitchenItems.push({
+                name: current.name,
+                quantity: netNew,
+                price: current.price,
+                menuItemId: current.menuItemId,
+                notes: current.notes ? [current.notes] : [],
+                is_addition: true,
+                parent_order_number: existingOrder.orderNumber || 0,
+              });
+            }
+          });
+
+          // Only create kitchen ticket if there are actually NEW items
+          if (newKitchenItems.length > 0) {
+            const { data: kitchenOrder, error: kitchenError } = await supabase
+              .from("kitchen_orders")
+              .insert({
+                restaurant_id: restaurantId,
+                source: "QuickServe",
+                status: "preparing",
+                items: newKitchenItems,
+                order_type: isNC ? "non-chargeable" : "takeaway",
+                customer_name: finalCustomerName,
+                server_name: attendantName,
+                priority: "normal",
+              })
+              .select()
+              .single();
+
+            if (!kitchenError && kitchenOrder?.id) {
+              // Link kitchen order → existing order (background)
+              supabase
+                .from("kitchen_orders")
+                .update({ order_id: existingOrder.id })
+                .eq("id", kitchenOrder.id)
+                .then(({ error }) => { if (error) console.error("Link kitchen→order error:", error); });
+
+              // Deduct inventory for new items (background)
+              (async () => {
+                try {
+                  const { data: { session } } = await supabase.auth.getSession();
+                  await supabase.functions.invoke("deduct-inventory-on-prep", {
+                    body: { order_id: kitchenOrder.id },
+                    headers: { Authorization: `Bearer ${session?.access_token}` },
+                  });
+                } catch (err) {
+                  console.error("Inventory deduction failed:", err);
+                }
+              })();
+            }
+          }
+        }
+
+        // 3. Clean up any previous pending transactions
         await supabase
           .from("pos_transactions")
           .delete()
           .eq("order_id", existingOrder.id)
           .eq("status", "pending");
 
-        // 2. Log payment transaction (pending)
+        // 4. Log payment transaction for ADDITIONAL amount only (not full total)
+        const txnAmount = isNC ? 0 : additionalDue;
         await supabase.from("pos_transactions").insert({
           restaurant_id: restaurantId,
           order_id: existingOrder.id,
-          amount: orderTotal,
+          amount: txnAmount,
           payment_method: method,
           status: "pending",
           customer_name: finalCustomerName,
@@ -714,7 +867,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               await syncCustomerToCRM({
                 customerName: finalCustomerName,
                 customerPhone: customerPhone || undefined,
-                orderTotal,
+                orderTotal: txnAmount,
                 orderId: existingOrder.id,
                 source: "quickserve",
               });
@@ -725,7 +878,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         }
 
         setStatus("success");
-        return; // Early return skip new order generation
+        return; // Early return — skip new order generation
       }
       // ──────────────────────────────────────────────────────────────
 
@@ -1162,7 +1315,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             <p className="text-gray-500 dark:text-white/60 text-sm mb-1 text-center">
               {isOfflineOrder
                 ? "Will sync to server when internet is restored"
-                : `${currencySymbol}${subtotal.toFixed(2)} via ${selectedMethod?.toUpperCase()}`}
+                : `${currencySymbol}${additionalDue.toFixed(2)} via ${selectedMethod?.toUpperCase()}`}
             </p>
 
             {/* Order Token Number */}
@@ -1212,7 +1365,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                 )}
                 <p className="text-center text-sm font-bold text-gray-700 dark:text-white/80 mt-2">
                   {currencySymbol}
-                  {subtotal.toFixed(2)}
+                  {additionalDue.toFixed(2)}
                 </p>
                 <div className="flex items-center justify-center gap-1.5 mt-2">
                   <span className="text-[10px] text-gray-400 dark:text-white/40">
@@ -1254,15 +1407,16 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                       .eq("id", createdOrderId);
                     if (error) throw error;
 
-                    // Also update pos_transactions status
+                    // Also update ONLY pending pos_transactions status to completed
                     await supabase
                       .from("pos_transactions")
                       .update({ status: "completed" })
-                      .eq("order_id", createdOrderId);
+                      .eq("order_id", createdOrderId)
+                      .eq("status", "pending");
 
                     toast({
                       title: "Payment Confirmed ✓",
-                      description: `${currencySymbol}${subtotal.toFixed(2)} marked as paid via ${selectedMethod?.toUpperCase()}`,
+                      description: `${currencySymbol}${additionalDue.toFixed(2)} marked as paid via ${selectedMethod?.toUpperCase()}`,
                     });
 
                     // Fire WhatsApp bill in background if customer phone exists
@@ -1287,7 +1441,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               >
                 <span className="flex items-center justify-center gap-2">
                   <CheckCircle2 className="h-4 w-4" />
-                  Mark as Paid — {currencySymbol}{subtotal.toFixed(2)}
+                  Mark as Paid — {currencySymbol}{additionalDue.toFixed(2)}
                 </span>
               </button>
             )}
@@ -1347,18 +1501,30 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         ) : (
           <>
             {/* Header */}
-            <div className="text-center py-6 px-6 bg-gradient-to-r from-orange-500/10 to-pink-500/10 dark:from-orange-500/20 dark:to-pink-500/20 border-b border-gray-200 dark:border-white/10">
-              <p className="text-gray-500 dark:text-white/50 text-xs uppercase tracking-wider mb-1">
-                Amount Due
+            <div className="text-center py-6 px-6 bg-gradient-to-r from-orange-500/10 to-pink-500/10 dark:from-orange-500/20 dark:to-pink-500/20 border-b border-gray-200 dark:border-white/10 space-y-1">
+              {alreadyPaid > 0 && (
+                <div className="flex justify-center gap-4 text-xs font-semibold text-gray-500 dark:text-white/40 mb-1">
+                  <span>Total: {currencySymbol}{subtotal.toFixed(0)}</span>
+                  <span>Paid: {currencySymbol}{alreadyPaid.toFixed(0)}</span>
+                </div>
+              )}
+              <p className="text-gray-500 dark:text-white/50 text-xs uppercase tracking-wider">
+                {alreadyPaid > 0 ? "Additional Due" : "Amount Due"}
               </p>
               <p className="text-4xl font-extrabold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent">
                 {currencySymbol}
-                {subtotal.toFixed(2)}
+                {additionalDue.toFixed(2)}
               </p>
-              <p className="text-gray-400 dark:text-white/40 text-xs mt-1">
+              {alreadyPaidLoading && (
+                <p className="text-[10px] text-gray-400 dark:text-white/40 animate-pulse">
+                  Calculating balance…
+                </p>
+              )}
+              <p className="text-gray-400 dark:text-white/40 text-xs">
                 {items.reduce((s, i) => s + i.quantity, 0)} items
               </p>
             </div>
+
 
             {/* Payment Methods */}
             {!showSplitUI && (
@@ -1375,7 +1541,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                   <button
                     key={pm.id}
                     onClick={() => handlePay(pm.id)}
-                    disabled={status === "processing"}
+                    disabled={status === "processing" || alreadyPaidLoading}
                     className={cn(
                       "w-full flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 active:scale-[0.98]",
                       pm.id === "split"
