@@ -72,7 +72,8 @@ const FranchiseDashboard: React.FC = () => {
     kpis, 
     revenueTrend, 
     formatCurrency,
-    staff
+    staff,
+    demoMode
   } = useFranchise();
   const navigate = useNavigate();
 
@@ -80,18 +81,28 @@ const FranchiseDashboard: React.FC = () => {
   const displayBranches = currentBranch ? [currentBranch] : allBranches;
 
   // Revenue trend filtered by branch
+  // Keys in revenueTrend are always first-word-lowercase of branch name
+  const branchKey = (name: string) => name.split(" ")[0].toLowerCase();
+
   const trendData = revenueTrend.map((d) => {
     if (!currentBranch) return d;
-    const key = currentBranch.name.split(" ")[0].toLowerCase() as keyof typeof d;
+    const key = branchKey(currentBranch.name) as keyof typeof d;
+    // Re-key the data under the display name for Recharts
     return { date: d.date, [currentBranch.name]: d[key] ?? 0 };
   });
 
+  // In demo mode the context emits fixed keys "mumbai","pune"... so use them;
+  // in live mode derive from allBranches (same algorithm as context uses)
   const trendKeys = currentBranch
     ? [currentBranch.name]
-    : ["mumbai", "pune", "nashik", "nagpur"];
+    : demoMode
+    ? ["mumbai", "pune", "nashik", "nagpur"]
+    : allBranches.map((b) => branchKey(b.name));
 
   const trendColors = currentBranch
     ? [currentBranch.color]
+    : allBranches.length > 0
+    ? allBranches.map((b) => b.color)
     : ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b"];
 
   // Order distribution for pie
