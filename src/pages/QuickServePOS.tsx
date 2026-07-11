@@ -67,6 +67,7 @@ const QuickServePOS: React.FC = () => {
   const [couponError, setCouponError] = useState<string | null>(null);
   const [sendingToKitchen, setSendingToKitchen] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [editingOrderNumber, setEditingOrderNumber] = useState<number | null>(null);
   const [editingOrderItems, setEditingOrderItems] = useState<QSOrderItem[]>([]);
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
@@ -279,6 +280,10 @@ const QuickServePOS: React.FC = () => {
     setAppliedCoupon(null);
     setCouponDiscountAmount(0);
     setCouponError(null);
+    // Clear edit mode state
+    setEditingOrderId(null);
+    setEditingOrderNumber(null);
+    setEditingOrderItems([]);
     // Refresh active orders and stats
     queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
     queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
@@ -431,7 +436,7 @@ const QuickServePOS: React.FC = () => {
         // Fetch current order to get order_number and existing completion status
         const { data: existingOrder, error: fetchErr } = await supabase
           .from("orders")
-          .select("items, total, item_completion_status, order_number")
+          .select("items, total, item_completion_status, order_number, payment_status")
           .eq("id", editingOrderId)
           .single();
 
@@ -443,6 +448,15 @@ const QuickServePOS: React.FC = () => {
           (sum, item) => sum + item.price * item.quantity, 0,
         );
         const fullTotal = fullSubtotal; // No discount recalculation for edit mode
+
+        // Fetch already paid transactions
+        const { data: paidTxns } = await supabase
+          .from("pos_transactions")
+          .select("amount")
+          .eq("order_id", editingOrderId)
+          .eq("status", "completed");
+        const alreadyPaid = (paidTxns || []).reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const hasBalanceDue = fullTotal > alreadyPaid;
 
         // Format ALL current items for the order record
         const allFormattedItems = orderItems.map(
@@ -470,7 +484,7 @@ const QuickServePOS: React.FC = () => {
           return false;
         });
 
-        // 1. Replace the entire order items and total
+        // 1. Replace the entire order items, total, and payment_status
         const { error: updateErr } = await supabase
           .from("orders")
           .update({
@@ -478,6 +492,7 @@ const QuickServePOS: React.FC = () => {
             total: fullTotal,
             status: "preparing",
             item_completion_status: preciseCompletionStatus,
+            payment_status: hasBalanceDue ? "pending" : existingOrder.payment_status,
           })
           .eq("id", editingOrderId);
 
@@ -601,10 +616,12 @@ const QuickServePOS: React.FC = () => {
         setCouponDiscountAmount(0);
         setCouponError(null);
         setEditingOrderId(null);
+        setEditingOrderNumber(null);
         setEditingOrderItems([]);
 
         queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
         queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
+        queryClient.invalidateQueries({ queryKey: ["quickserve-todays-revenue"] });
         queryClient.invalidateQueries({ queryKey: ["food-truck-today-stats"] });
         return; // skip new order creation
       }
@@ -951,6 +968,7 @@ const QuickServePOS: React.FC = () => {
       });
 
       setEditingOrderId(order.id);
+      setEditingOrderNumber(order.order_number || null);
       // Store original items snapshot for kitchen diff (what was originally in the order)
       setEditingOrderItems(existingParsed.map(item => ({ ...item })));
       // Load ALL existing items into the editable cart
@@ -1138,6 +1156,7 @@ const QuickServePOS: React.FC = () => {
             editingOrderItems={editingOrderItems}
             onCancelEdit={editingOrderId ? () => {
               setEditingOrderId(null);
+              setEditingOrderNumber(null);
               setEditingOrderItems([]);
               setOrderItems([]);
               setCustomerName("");
@@ -1224,6 +1243,7 @@ const QuickServePOS: React.FC = () => {
               editingOrderItems={editingOrderItems}
               onCancelEdit={editingOrderId ? () => {
                 setEditingOrderId(null);
+                setEditingOrderNumber(null);
                 setEditingOrderItems([]);
                 setOrderItems([]);
                 setCustomerName("");
@@ -1251,6 +1271,12 @@ const QuickServePOS: React.FC = () => {
         loyaltyCustomerId={loyaltyCustomer?.id}
         couponId={appliedCoupon?.id}
         couponDiscountAmount={couponDiscountAmount}
+        existingOrder={editingOrderId ? {
+          id: editingOrderId,
+          total: orderItems.reduce((s, i) => s + i.price * i.quantity, 0),
+          orderNumber: editingOrderNumber,
+        } : undefined}
+        editingOrderItems={editingOrderItems}
       />
 
       {/* Custom Item Dialog */}

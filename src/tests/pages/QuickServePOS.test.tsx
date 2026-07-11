@@ -33,6 +33,10 @@ vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: vi.fn(), toasts: [], dismiss: vi.fn() }),
 }));
 
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: () => ({ user: { id: "test-user-id", email: "test@example.com", first_name: "Test", last_name: "User" } }),
+}));
+
 vi.mock("@/contexts/CurrencyContext", () => ({
   useCurrencyContext: () => ({ symbol: "₹" }),
 }));
@@ -75,8 +79,14 @@ vi.mock("@/components/QuickServe/QSOrderPanel", () => ({
 }));
 
 vi.mock("@/components/QuickServe/QSActiveOrders", () => ({
-  QSActiveOrders: ({ isOpen }: any) =>
-    isOpen ? <div data-testid="active-orders-drawer" /> : null,
+  QSActiveOrders: ({ isOpen, onAddItems }: any) =>
+    isOpen ? (
+      <div data-testid="active-orders-drawer">
+        <button onClick={() => onAddItems({ id: "order-123", order_number: 4, items: ["1x Burger @150"], customer_name: "John", customer_phone: "123456" })}>
+          Edit Order
+        </button>
+      </div>
+    ) : null,
 }));
 
 vi.mock("@/components/QuickServe/QSOrderHistory", () => ({
@@ -90,9 +100,9 @@ vi.mock("@/components/QuickServe/DailySummaryDialog", () => ({
 }));
 
 vi.mock("@/components/QuickServe/QSPaymentSheet", () => ({
-  QSPaymentSheet: ({ isOpen, onSuccess }: any) =>
+  QSPaymentSheet: ({ isOpen, onSuccess, existingOrder }: any) =>
     isOpen ? (
-      <div data-testid="payment-sheet">
+      <div data-testid="payment-sheet" data-existing-order-id={existingOrder?.id || ""}>
         <button onClick={onSuccess}>Complete Payment</button>
       </div>
     ) : null,
@@ -180,5 +190,27 @@ describe("QuickServePOS Component", () => {
 
     expect(screen.queryByTestId("payment-sheet")).not.toBeInTheDocument();
     expect(screen.getByText("Order Items: 0")).toBeInTheDocument(); // cart cleared
+  });
+
+  it("passes existingOrder to payment sheet in edit mode", async () => {
+    renderWithProviders(<QuickServePOS />);
+
+    // Open active orders drawer
+    fireEvent.click(screen.getByText("Active"));
+    expect(screen.getByTestId("active-orders-drawer")).toBeInTheDocument();
+
+    // Click Edit Order to enter edit mode
+    fireEvent.click(screen.getByText("Edit Order"));
+
+    // Cart should now have 1 item from the edit mode order
+    expect(screen.getByText("Order Items: 1")).toBeInTheDocument();
+
+    // Click Pay
+    fireEvent.click(screen.getByText("Pay"));
+
+    // Verify payment sheet received the correct existingOrder ID
+    const paymentSheet = screen.getByTestId("payment-sheet");
+    expect(paymentSheet).toBeInTheDocument();
+    expect(paymentSheet).toHaveAttribute("data-existing-order-id", "order-123");
   });
 });
