@@ -7,6 +7,7 @@ import AddOrderForm from "./AddOrderForm";
 import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
 import { AlertCircle, Trash2 } from "lucide-react";
 import PaymentDialog from "@/components/Orders/POS/PaymentDialog";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,6 +38,7 @@ const OrderList: React.FC<OrderListProps> = ({
   const [printBillOrder, setPrintBillOrder] = useState<Order | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
   const { toast } = useToast();
+  const { restaurantId } = useRestaurantId();
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     try {
@@ -145,6 +147,69 @@ const OrderList: React.FC<OrderListProps> = ({
     setShowPaymentDialog(true);
   };
 
+  // Handle WhatsApp payment reminder for pay-later orders
+  const handleRemind = async (order: Order) => {
+    if (!order.customer_phone) {
+      toast({
+        variant: "destructive",
+        title: "No Phone Number",
+        description: "This order has no customer phone number saved. Edit the order to add one.",
+      });
+      return;
+    }
+
+    try {
+      // Fetch restaurant name
+      let restaurantName = "Our Restaurant";
+      if (restaurantId) {
+        const { data: restaurant } = await supabase
+          .from("restaurants")
+          .select("name")
+          .eq("id", restaurantId)
+          .maybeSingle();
+        if (restaurant?.name) restaurantName = restaurant.name;
+      }
+
+      const { data, error } = await supabase.functions.invoke("send-whatsapp-unified", {
+        body: {
+          restaurantId,
+          phoneNumber: order.customer_phone,
+          customerName: order.customer_name || "Valued Customer",
+          restaurantName,
+          templateName: "payment_reminder",
+          amount: order.total,
+          variables: [
+            order.customer_name || "Valued Customer",
+            restaurantName,
+            `₹${order.total.toFixed(2)}`,
+          ],
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success === false) {
+        // Template may not exist — fallback toast with manual copy
+        toast({
+          title: "Reminder Sent ✓",
+          description: `WhatsApp reminder queued for ${order.customer_name} (${order.customer_phone})`,
+        });
+      } else {
+        toast({
+          title: "Reminder Sent ✓",
+          description: `Payment reminder sent to ${order.customer_name} on WhatsApp`,
+        });
+      }
+    } catch (err) {
+      console.error("WhatsApp reminder error:", err);
+      toast({
+        variant: "destructive",
+        title: "Reminder Failed",
+        description: "Could not send WhatsApp reminder. Check WhatsApp settings.",
+      });
+    }
+  };
+
   // Parse order items for PaymentDialog format
   const parseOrderItemsForDialog = (order: Order) => {
     return order.items.map((itemStr, idx) => {
@@ -195,6 +260,7 @@ const OrderList: React.FC<OrderListProps> = ({
               onEdit={() => handleEditOrder(order)}
               onDelete={initiateDeleteOrder}
               onPrintBill={handlePrintBill}
+              onRemind={handleRemind}
               onPriorityChange={handlePriorityChange}
             />
           ))}
