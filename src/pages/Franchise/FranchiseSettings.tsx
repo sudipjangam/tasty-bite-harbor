@@ -1,53 +1,126 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import { Button } from "@/components/ui/button";
-import { Building2, Utensils, CreditCard, Save, History, MessageSquare } from "lucide-react";
+import { Building2, Utensils, CreditCard, Save, History, MessageSquare, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
-// Mock Audit Logs
-const MOCK_AUDIT_LOGS = [
-  { id: "log-1", user: "Rajesh Kumar", action: "Pushed Menu Item", details: "Paneer Tikka price updated to ₹280 across all branches", date: "2026-06-28 11:34 PM" },
-  { id: "log-2", user: "Sonal Mehta", action: "Staff Assignment Changed", details: "Ravi Kumar (Chef) assigned secondary access to Pune Branch", date: "2026-06-28 09:12 PM" },
-  { id: "log-3", user: "Rajesh Kumar", action: "Stock Transfer Executed", details: "Moved 15kg Basmati Rice from Mumbai HQ to Nashik Branch", date: "2026-06-28 04:45 PM" },
-  { id: "log-4", user: "Rajesh Kumar", action: "Settings Update", details: "Franchise menu mode changed to Master Menu", date: "2026-06-28 10:20 AM" },
-];
+interface AuditLog {
+  id: string;
+  user: string;
+  action: string;
+  details: string;
+  date: string;
+}
 
 const FranchiseSettings: React.FC = () => {
-  const { org, allBranches } = useFranchise();
+  const { org, allBranches, demoMode, team, refetch } = useFranchise();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"settings" | "audit">("settings");
   const [orgName, setOrgName] = useState(org.name);
   const [menuMode, setMenuMode] = useState(org.menuMode);
-  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Audit logs state
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
   // WhatsApp digest config
   const [digestEnabled, setDigestEnabled] = useState(true);
-  const [digestRecipients, setDigestRecipients] = useState<string[]>(["owner", "t2"]); // Owner & Regional Manager (Sonal)
+  const [digestRecipients, setDigestRecipients] = useState<string[]>([]);
   const [deliveryTime, setDeliveryTime] = useState("21:30");
 
-  const handleSave = () => {
-    setSaved(true);
-    toast({
-      title: "Settings Saved",
-      description: "Franchise settings and WhatsApp Digest preferences have been updated.",
-    });
-    setTimeout(() => setSaved(false), 2000);
+  // Sync org name/mode if context updates
+  useEffect(() => {
+    setOrgName(org.name);
+    setMenuMode(org.menuMode);
+  }, [org.name, org.menuMode]);
+
+  // Initialise digest recipients to first 2 team members
+  useEffect(() => {
+    if (team.length > 0 && digestRecipients.length === 0) {
+      setDigestRecipients(team.slice(0, 2).map(m => m.id));
+    }
+  }, [team]);
+
+  // Fetch audit logs
+  useEffect(() => {
+    if (activeTab !== "audit") return;
+
+    if (demoMode) {
+      setAuditLogs([
+        { id: "log-1", user: "Rajesh Kumar", action: "Pushed Menu Item", details: "Paneer Tikka price updated to ₹280 across all branches", date: "2026-06-28 11:34 PM" },
+        { id: "log-2", user: "Sonal Mehta", action: "Staff Assignment Changed", details: "Ravi Kumar (Chef) assigned secondary access to Pune Branch", date: "2026-06-28 09:12 PM" },
+        { id: "log-3", user: "Rajesh Kumar", action: "Stock Transfer Executed", details: "Moved 15kg Basmati Rice from Mumbai HQ to Nashik Branch", date: "2026-06-28 04:45 PM" },
+        { id: "log-4", user: "Rajesh Kumar", action: "Settings Update", details: "Franchise menu mode changed to Master Menu", date: "2026-06-28 10:20 AM" },
+      ]);
+      return;
+    }
+
+    setLoadingLogs(true);
+    supabase
+      .from("audit_logs")
+      .select("id, action, details, created_at, user_id, profiles(first_name, last_name)")
+      .eq("organization_id", org.id)
+      .order("created_at", { ascending: false })
+      .limit(20)
+      .then(({ data }) => {
+        setAuditLogs(
+          (data || []).map((r: any) => ({
+            id: r.id,
+            user: r.profiles
+              ? `${r.profiles.first_name || ""} ${r.profiles.last_name || ""}`.trim() || "System"
+              : "System",
+            action: r.action || "Action",
+            details: r.details || "",
+            date: r.created_at
+              ? new Date(r.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+              : "",
+          }))
+        );
+        setLoadingLogs(false);
+      })
+      .catch(() => setLoadingLogs(false));
+  }, [activeTab, demoMode, org.id]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (!demoMode && org.id) {
+        const { error } = await supabase
+          .from("organizations")
+          .update({ name: orgName, menu_mode: menuMode })
+          .eq("id", org.id);
+        if (error) throw error;
+        refetch();
+      }
+      toast({
+        title: "Settings Saved",
+        description: "Franchise settings have been updated successfully.",
+      });
+    } catch {
+      toast({ title: "Error", description: "Failed to save settings. Please try again.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSendTestDigest = () => {
+    const recipientNames = team
+      .filter(m => digestRecipients.includes(m.id))
+      .map(m => m.name)
+      .join(", ");
     toast({
       title: "Test Digest Sent",
-      description: `Dispatched daily performance summary to: ${digestRecipients.join(", ")} via WhatsApp.`,
+      description: `Dispatched daily performance summary to: ${recipientNames || "No recipients"} via WhatsApp.`,
     });
   };
 
   const toggleRecipient = (id: string) => {
-    if (digestRecipients.includes(id)) {
-      setDigestRecipients(digestRecipients.filter((r) => r !== id));
-    } else {
-      setDigestRecipients([...digestRecipients, id]);
-    }
+    setDigestRecipients(prev =>
+      prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]
+    );
   };
 
   return (
@@ -107,9 +180,9 @@ const FranchiseSettings: React.FC = () => {
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Franchise Type</label>
                 <input
                   type="text"
-                  value="Franchise"
+                  value={org.type || "Franchise"}
                   disabled
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-sm text-gray-500 dark:text-gray-500 cursor-not-allowed"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-sm text-gray-500 dark:text-gray-500 cursor-not-allowed capitalize"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -206,7 +279,7 @@ const FranchiseSettings: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-sm font-semibold text-gray-900 dark:text-white">WhatsApp Daily Digest</h2>
-                  <p className="text-[11px] text-gray-400">Send daily sales, orders & P&L summaries via WhatsApp</p>
+                  <p className="text-[11px] text-gray-400">Send daily sales, orders &amp; P&amp;L summaries via WhatsApp</p>
                 </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -224,42 +297,29 @@ const FranchiseSettings: React.FC = () => {
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-2">Recipient Subscribers</label>
                   <div className="space-y-2">
-                    <label className="flex items-center gap-3 p-2.5 rounded-xl border border-gray-100 dark:border-gray-750 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750/30 cursor-pointer transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={digestRecipients.includes("owner")}
-                        onChange={() => toggleRecipient("owner")}
-                        className="accent-violet-600 w-4 h-4 rounded"
-                      />
-                      <div className="flex-1">
-                        <span className="font-semibold text-gray-900 dark:text-white">{org.ownerName}</span>
-                        <span className="ml-1.5 px-2 py-0.5 rounded-full text-[9px] font-semibold bg-violet-100 text-violet-850 dark:bg-violet-900/30 dark:text-violet-400">Owner</span>
-                      </div>
-                    </label>
-                    <label className="flex items-center gap-3 p-2.5 rounded-xl border border-gray-100 dark:border-gray-750 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750/30 cursor-pointer transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={digestRecipients.includes("t2")}
-                        onChange={() => toggleRecipient("t2")}
-                        className="accent-violet-600 w-4 h-4 rounded"
-                      />
-                      <div className="flex-1">
-                        <span className="font-semibold text-gray-900 dark:text-white">Sonal Mehta</span>
-                        <span className="ml-1.5 px-2 py-0.5 rounded-full text-[9px] font-semibold bg-blue-100 text-blue-850 dark:bg-blue-900/30 dark:text-blue-400">Regional Manager</span>
-                      </div>
-                    </label>
-                    <label className="flex items-center gap-3 p-2.5 rounded-xl border border-gray-100 dark:border-gray-750 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750/30 cursor-pointer transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={digestRecipients.includes("t3")}
-                        onChange={() => toggleRecipient("t3")}
-                        className="accent-violet-600 w-4 h-4 rounded"
-                      />
-                      <div className="flex-1">
-                        <span className="font-semibold text-gray-900 dark:text-white">Deepak Sharma</span>
-                        <span className="ml-1.5 px-2 py-0.5 rounded-full text-[9px] font-semibold bg-blue-100 text-blue-850 dark:bg-blue-900/30 dark:text-blue-400">Regional Manager</span>
-                      </div>
-                    </label>
+                    {team.length === 0 ? (
+                      <p className="text-xs text-gray-400 italic">No team members found</p>
+                    ) : (
+                      team.map(member => (
+                        <label
+                          key={member.id}
+                          className="flex items-center gap-3 p-2.5 rounded-xl border border-gray-100 dark:border-gray-700 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={digestRecipients.includes(member.id)}
+                            onChange={() => toggleRecipient(member.id)}
+                            className="accent-violet-600 w-4 h-4 rounded"
+                          />
+                          <div className="flex-1">
+                            <span className="font-semibold text-gray-900 dark:text-white">{member.name}</span>
+                            <span className="ml-1.5 px-2 py-0.5 rounded-full text-[9px] font-semibold bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 capitalize">
+                              {member.role}
+                            </span>
+                          </div>
+                        </label>
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -290,30 +350,41 @@ const FranchiseSettings: React.FC = () => {
 
           <Button
             onClick={handleSave}
+            disabled={saving}
             className="gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-lg shadow-violet-500/25"
           >
-            <Save className="h-4 w-4" />
-            {saved ? "Saved!" : "Save Changes"}
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {saving ? "Saving…" : "Save Changes"}
           </Button>
         </div>
       ) : (
         /* Audit Log */
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 space-y-4">
           <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Franchise Activity &amp; Audit Trail</h2>
-          <div className="relative border-l border-gray-200 dark:border-gray-700 ml-3 pl-5 space-y-5">
-            {MOCK_AUDIT_LOGS.map(log => (
-              <div key={log.id} className="relative">
-                {/* Bullet */}
-                <div className="absolute -left-[26px] top-1 w-3 h-3 rounded-full bg-violet-600 border-2 border-white dark:border-gray-800 shadow" />
-                <div className="text-xs text-gray-400">{log.date}</div>
-                <div className="font-bold text-sm text-gray-900 dark:text-white mt-0.5">{log.action}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-mono bg-gray-50 dark:bg-gray-900 p-2 rounded-lg border border-gray-100 dark:border-gray-800">
-                  {log.details}
+          {loadingLogs ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-5 w-5 animate-spin text-violet-500" />
+              <span className="ml-2 text-sm text-gray-400">Loading logs…</span>
+            </div>
+          ) : auditLogs.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">No audit logs found.</p>
+          ) : (
+            <div className="relative border-l border-gray-200 dark:border-gray-700 ml-3 pl-5 space-y-5">
+              {auditLogs.map(log => (
+                <div key={log.id} className="relative">
+                  <div className="absolute -left-[26px] top-1 w-3 h-3 rounded-full bg-violet-600 border-2 border-white dark:border-gray-800 shadow" />
+                  <div className="text-xs text-gray-400">{log.date}</div>
+                  <div className="font-bold text-sm text-gray-900 dark:text-white mt-0.5">{log.action}</div>
+                  {log.details && (
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-mono bg-gray-50 dark:bg-gray-900 p-2 rounded-lg border border-gray-100 dark:border-gray-800">
+                      {log.details}
+                    </div>
+                  )}
+                  <div className="text-[10px] text-gray-400 mt-1">Initiator: <span className="font-semibold text-gray-600 dark:text-gray-300">{log.user}</span></div>
                 </div>
-                <div className="text-[10px] text-gray-400 mt-1">Initiator: <span className="font-semibold text-gray-600 dark:text-gray-300">{log.user}</span></div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

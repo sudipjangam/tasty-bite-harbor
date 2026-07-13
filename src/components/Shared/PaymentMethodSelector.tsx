@@ -5,7 +5,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Banknote, CreditCard, QrCode, Smartphone, Wallet } from 'lucide-react';
+import { Banknote, CreditCard, QrCode, Smartphone, Wallet, Clock } from 'lucide-react';
 
 interface PaymentMethodSelectorProps {
   selectedMethod: string;
@@ -96,6 +96,20 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
           <div className="text-left">
             <div className="font-medium">Online Banking</div>
             <div className="text-xs text-gray-500">Net banking or digital wallets</div>
+          </div>
+        </Button>
+
+        {/* Pay Later */}
+        <Button
+          type="button"
+          variant={selectedMethod === 'pay_later' ? 'default' : 'outline'}
+          className="w-full justify-start gap-3 h-auto p-4"
+          onClick={() => onMethodChange('pay_later')}
+        >
+          <Clock className="h-5 w-5" />
+          <div className="text-left">
+            <div className="font-medium">Pay Later (Tab)</div>
+            <div className="text-xs text-gray-500">Record order now, collect payment later</div>
           </div>
         </Button>
       </div>

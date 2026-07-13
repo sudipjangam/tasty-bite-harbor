@@ -223,55 +223,6 @@ const navigationGroups: NavigationGroup[] = [
     title: "Management",
     items: [
       {
-        title: "Staff",
-        icon: UserCheck,
-        href: "/staff",
-        description: "Employee management",
-        requiredPermissions: ["staff.view"],
-      },
-      {
-        title: "Customers",
-        icon: Users,
-        href: "/customers",
-        description: "Customer database",
-        requiredPermissions: ["customers.view"],
-      },
-      // {
-      //   title: "CRM",
-      //   icon: MessageSquare,
-      //   href: "/crm",
-      //   description: "Customer relationship",
-      //   requiredPermissions: ["customers.view"]
-      // },
-      {
-        title: "Marketing",
-        icon: Target,
-        href: "/marketing",
-        description: "Campaigns & promotions",
-        requiredPermissions: ["customers.view"],
-      },
-      {
-        title: "User & Access",
-        icon: UserPlus,
-        href: "/user-management",
-        description: "Users, roles & permissions",
-        requiredPermissions: ["users.manage"],
-      },
-      {
-        title: "Permission Management",
-        icon: Key,
-        href: "/permission-management",
-        description: "Manage component permissions",
-        requiredRole: "admin", // Only admin can access, not owner
-      },
-      {
-        title: "Channel Management",
-        icon: Globe,
-        href: "/channel-management",
-        description: "OTA & booking channels",
-        requiredPermissions: ["analytics.view"], // Channel management requires analytics access
-      },
-      {
         title: "Analytics",
         icon: TrendingUp,
         href: "/analytics",
@@ -298,6 +249,48 @@ const navigationGroups: NavigationGroup[] = [
         href: "/expenses",
         description: "Track business expenses",
         requiredPermissions: ["financial.view"],
+      },
+      {
+        title: "Staff",
+        icon: UserCheck,
+        href: "/staff",
+        description: "Employee management",
+        requiredPermissions: ["staff.view"],
+      },
+      {
+        title: "Customers",
+        icon: Users,
+        href: "/customers",
+        description: "Customer database",
+        requiredPermissions: ["customers.view"],
+      },
+      {
+        title: "Marketing",
+        icon: Target,
+        href: "/marketing",
+        description: "Campaigns & promotions",
+        requiredPermissions: ["customers.view"],
+      },
+      {
+        title: "Channel Management",
+        icon: Globe,
+        href: "/channel-management",
+        description: "OTA & booking channels",
+        requiredPermissions: ["analytics.view"],
+      },
+      {
+        title: "User & Access",
+        icon: UserPlus,
+        href: "/user-management",
+        description: "Users, roles & permissions",
+        requiredPermissions: ["users.manage"],
+      },
+      {
+        title: "Permission Management",
+        icon: Key,
+        href: "/permission-management",
+        description: "Manage component permissions",
+        requiredRole: "admin",
       },
       // {
       //   title: "NC Orders",

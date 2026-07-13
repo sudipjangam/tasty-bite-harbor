@@ -118,13 +118,22 @@ export const getFilteredReportCategories = (
   );
 };
 
+export interface PayLaterOrderSummary {
+  date: string;
+  customer: string;
+  phone: string;
+  total: number;
+  orderId: string;
+}
+
 export interface ReportData {
   category: ReportCategory;
   title: string;
   summary: Record<string, number | string>;
   tableData: Record<string, unknown>[];
   chartData?: Record<string, unknown>[];
-  paymentBreakdown?: { cash: number; upi: number; card: number; credit: number };
+  paymentBreakdown?: { cash: number; upi: number; card: number; payLater: number; roomCharge: number; otherCredit: number };
+  payLaterOrders?: PayLaterOrderSummary[];
 }
 
 export const useReportsData = (dateRange?: DateRange) => {
@@ -166,12 +175,32 @@ export const useReportsData = (dateRange?: DateRange) => {
 
       // ── PAYMENT METHOD BREAKDOWN (reliable — always set at payment time) ──
       // This is what users tally against their manual book
-      const paymentBreakdown = { cash: 0, upi: 0, card: 0, credit: 0 };
+      const paymentBreakdown = { cash: 0, upi: 0, card: 0, payLater: 0, roomCharge: 0, otherCredit: 0 };
+      const payLaterOrders: PayLaterOrderSummary[] = [];
+
+      const classifyCreditMethod = (method: string, amt: number, order?: any) => {
+        if (method.includes("pay_later") || method.includes("paylater")) {
+          paymentBreakdown.payLater += amt;
+          if (order) {
+            payLaterOrders.push({
+              date: format(new Date(order.created_at), "MMM dd, yyyy HH:mm"),
+              customer: order.customer_name || order.Customer_Name || "Walk-in",
+              phone: order.customer_phone || order.Customer_MobileNumber || "-",
+              total: order.total || 0,
+              orderId: order.id,
+            });
+          }
+        } else if (method.includes("room") || method.includes("folio")) {
+          paymentBreakdown.roomCharge += amt;
+        } else {
+          paymentBreakdown.otherCredit += amt;
+        }
+      };
+
       revenueOrders.forEach((o) => {
         const method = (o.payment_method || "").toLowerCase();
         const amt = o.total || 0;
         if (method === "split" && (o as any).split_payments) {
-          // Distribute split amounts to their respective buckets
           const splits: Array<{method: string; amount: number}> = Array.isArray((o as any).split_payments)
             ? (o as any).split_payments
             : [];
@@ -181,12 +210,12 @@ export const useReportsData = (dateRange?: DateRange) => {
             if (m.includes("cash")) paymentBreakdown.cash += a;
             else if (m.includes("upi")) paymentBreakdown.upi += a;
             else if (m.includes("card")) paymentBreakdown.card += a;
-            else paymentBreakdown.credit += a;
+            else classifyCreditMethod(m, a);
           });
         } else if (method.includes("cash")) paymentBreakdown.cash += amt;
         else if (method.includes("upi")) paymentBreakdown.upi += amt;
         else if (method.includes("card")) paymentBreakdown.card += amt;
-        else paymentBreakdown.credit += amt; // room charge, pending, unknown = credit/outstanding
+        else classifyCreditMethod(method, amt, o);
       });
 
       // Order count = all orders placed in the period (including pending/cancelled etc.)
@@ -245,6 +274,7 @@ export const useReportsData = (dateRange?: DateRange) => {
         })),
         // Extra data for reconciliation UI (consumed by ReportViewer)
         paymentBreakdown,
+        payLaterOrders,
       } as ReportData;
     },
     enabled: !!restaurantId,
