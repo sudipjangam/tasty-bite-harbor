@@ -257,7 +257,12 @@ const OrdersView = ({
         order.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.items.some((item) => item.toLowerCase().includes(searchQuery.toLowerCase()));
-      const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "all"
+          ? true
+          : statusFilter === "pay_later"
+            ? order.payment_method === "pay_later"
+            : order.status === statusFilter;
       return matchesSearch && matchesStatus;
     }) || [];
 
@@ -318,6 +323,7 @@ const OrdersView = ({
     { id: "completed", label: "Completed", count: orders?.filter((o) => o.status === "completed").length || 0 },
     { id: "held", label: "Held", count: orders?.filter((o) => o.status === "held").length || 0 },
     { id: "cancelled", label: "Cancelled", count: orders?.filter((o) => o.status === "cancelled").length || 0 },
+    { id: "pay_later", label: "💰 Pay Later", count: orders?.filter((o) => o.payment_method === "pay_later").length || 0 },
   ], [orders]);
 
   if (isLoading) {

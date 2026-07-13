@@ -31,6 +31,7 @@ interface OrderItemProps {
   onEdit?: () => void;
   onDelete?: (orderId: string) => void;
   onPrintBill?: (order: Order) => void;
+  onRemind?: (order: Order) => Promise<void>;
   onPriorityChange?: (
     orderId: string,
     priority: "normal" | "rush" | "vip",
@@ -43,6 +44,7 @@ const OrderItem: React.FC<OrderItemProps> = ({
   onEdit,
   onDelete,
   onPrintBill,
+  onRemind,
   onPriorityChange,
 }) => {
   const { toast } = useToast();
@@ -335,6 +337,7 @@ const OrderItem: React.FC<OrderItemProps> = ({
             onEdit={onEdit ? () => onEdit() : undefined}
             onDelete={onDelete}
             onPrintBill={onPrintBill}
+            onRemind={onRemind}
           />
         </div>
       </div>
