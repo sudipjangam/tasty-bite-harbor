@@ -629,47 +629,121 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
             {report.category === "orders" && report.paymentBreakdown && (() => {
               const pb = report.paymentBreakdown;
               const collected = pb.cash + pb.upi + pb.card;
+              const totalUnsettled = pb.payLater + pb.roomCharge + pb.otherCredit;
               const fmt = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               return (
-                <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-white/[0.04] backdrop-blur-xl border border-gray-200 dark:border-white/8 shadow-sm dark:shadow-none p-5">
-                  <h4 className="text-sm font-bold text-foreground flex items-center gap-2 mb-4">
-                    💰 Payment Breakdown
-                    <span className="text-[10px] font-medium text-muted-foreground bg-gray-100 dark:bg-white/10 px-2 py-0.5 rounded-full">Tally with your register</span>
-                  </h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                    {/* Cash */}
-                    <div className="rounded-xl bg-emerald-500/8 border border-emerald-500/20 p-3 text-center">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">💵 Cash</p>
-                      <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">{fmt(pb.cash)}</p>
+                <div className="space-y-4">
+                  <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-white/[0.04] backdrop-blur-xl border border-gray-200 dark:border-white/8 shadow-sm dark:shadow-none p-5">
+                    <h4 className="text-sm font-bold text-foreground flex items-center gap-2 mb-4">
+                      💰 Payment Breakdown
+                      <span className="text-[10px] font-medium text-muted-foreground bg-gray-100 dark:bg-white/10 px-2 py-0.5 rounded-full">Tally with your register</span>
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {/* Cash */}
+                      <div className="rounded-xl bg-emerald-500/8 border border-emerald-500/20 p-3 text-center">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">💵 Cash</p>
+                        <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">{fmt(pb.cash)}</p>
+                      </div>
+                      {/* UPI */}
+                      <div className="rounded-xl bg-blue-500/8 border border-blue-500/20 p-3 text-center">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1">📱 UPI</p>
+                        <p className="text-lg font-extrabold text-blue-600 dark:text-blue-400">{fmt(pb.upi)}</p>
+                      </div>
+                      {/* Card */}
+                      <div className="rounded-xl bg-violet-500/8 border border-violet-500/20 p-3 text-center">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400 mb-1">💳 Card</p>
+                        <p className="text-lg font-extrabold text-violet-600 dark:text-violet-400">{fmt(pb.card)}</p>
+                      </div>
+                      {/* Collected Total */}
+                      <div className="rounded-xl bg-orange-500/8 border border-orange-500/20 p-3 text-center">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400 mb-1">✅ Collected</p>
+                        <p className="text-lg font-extrabold text-orange-600 dark:text-orange-400">{fmt(collected)}</p>
+                      </div>
                     </div>
-                    {/* UPI */}
-                    <div className="rounded-xl bg-blue-500/8 border border-blue-500/20 p-3 text-center">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1">📱 UPI</p>
-                      <p className="text-lg font-extrabold text-blue-600 dark:text-blue-400">{fmt(pb.upi)}</p>
-                    </div>
-                    {/* Card */}
-                    <div className="rounded-xl bg-violet-500/8 border border-violet-500/20 p-3 text-center">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400 mb-1">💳 Card</p>
-                      <p className="text-lg font-extrabold text-violet-600 dark:text-violet-400">{fmt(pb.card)}</p>
-                    </div>
-                    {/* Credit/Outstanding */}
-                    {pb.credit > 0 && (
-                      <div className="rounded-xl bg-amber-500/8 border border-amber-500/20 p-3 text-center">
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">📋 Credit/Pending</p>
-                        <p className="text-lg font-extrabold text-amber-600 dark:text-amber-400">{fmt(pb.credit)}</p>
+
+                    {/* ── Unsettled / Receivables Breakdown ── */}
+                    {totalUnsettled > 0 && (
+                      <div className="mt-4 pt-4 border-t border-dashed border-gray-200 dark:border-white/10">
+                        <h5 className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                          ⏳ Unsettled Receivables — {fmt(totalUnsettled)}
+                        </h5>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {/* Pay Later */}
+                          {pb.payLater > 0 && (
+                            <div className="rounded-xl bg-amber-500/8 border border-amber-500/20 p-3 text-center">
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">🕐 Pay Later</p>
+                              <p className="text-lg font-extrabold text-amber-600 dark:text-amber-400">{fmt(pb.payLater)}</p>
+                              <p className="text-[9px] text-amber-500/70 mt-0.5">{report.payLaterOrders?.length || 0} orders</p>
+                            </div>
+                          )}
+                          {/* Room Charge */}
+                          {pb.roomCharge > 0 && (
+                            <div className="rounded-xl bg-teal-500/8 border border-teal-500/20 p-3 text-center">
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400 mb-1">🏨 Room Charge</p>
+                              <p className="text-lg font-extrabold text-teal-600 dark:text-teal-400">{fmt(pb.roomCharge)}</p>
+                            </div>
+                          )}
+                          {/* Other Credit */}
+                          {pb.otherCredit > 0 && (
+                            <div className="rounded-xl bg-rose-500/8 border border-rose-500/20 p-3 text-center">
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400 mb-1">📋 Other Credit</p>
+                              <p className="text-lg font-extrabold text-rose-600 dark:text-rose-400">{fmt(pb.otherCredit)}</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
-                    {/* Collected Total */}
-                    <div className="rounded-xl bg-orange-500/8 border border-orange-500/20 p-3 text-center">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400 mb-1">✅ Collected</p>
-                      <p className="text-lg font-extrabold text-orange-600 dark:text-orange-400">{fmt(collected)}</p>
+
+                    {/* Reconciliation hint */}
+                    <div className="mt-3 px-3 py-2 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-[11px] text-muted-foreground leading-relaxed">
+                      <strong>📖 How to tally:</strong> Your manual register should match <strong>Collected ({fmt(collected)})</strong> = Cash + UPI + Card.
+                      {totalUnsettled > 0 && <> The remaining <strong>{fmt(totalUnsettled)}</strong> is unsettled:{" "}
+                        {pb.payLater > 0 && <><strong>{fmt(pb.payLater)}</strong> from Pay Later tabs, </>}
+                        {pb.roomCharge > 0 && <><strong>{fmt(pb.roomCharge)}</strong> from Room/Folio charges, </>}
+                        {pb.otherCredit > 0 && <><strong>{fmt(pb.otherCredit)}</strong> from other credit. </>}
+                      </>}
                     </div>
                   </div>
-                  {/* Reconciliation hint */}
-                  <div className="mt-3 px-3 py-2 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-[11px] text-muted-foreground leading-relaxed">
-                    <strong>📖 How to tally:</strong> Your manual register should match <strong>Collected ({fmt(collected)})</strong> = Cash + UPI + Card. 
-                    {pb.credit > 0 && <> The gap of <strong>{fmt(pb.credit)}</strong> is from credit/room charges not yet collected.</>}
-                  </div>
+
+                  {/* ═══ PAY LATER ORDERS TABLE ═══ */}
+                  {report.payLaterOrders && report.payLaterOrders.length > 0 && (
+                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-50/50 to-yellow-50/30 dark:from-amber-950/10 dark:to-yellow-950/5 border border-amber-200/60 dark:border-amber-900/30 shadow-sm p-5">
+                      <h4 className="text-sm font-bold text-amber-800 dark:text-amber-300 flex items-center gap-2 mb-4">
+                        🕐 Pay Later Orders — Pending Collection
+                        <span className="text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                          {report.payLaterOrders.length} order{report.payLaterOrders.length > 1 ? "s" : ""} · {fmt(pb.payLater)}
+                        </span>
+                      </h4>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b border-amber-200 dark:border-amber-900/40">
+                              <th className="text-left py-2 px-3 font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider text-[10px]">Date</th>
+                              <th className="text-left py-2 px-3 font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider text-[10px]">Customer</th>
+                              <th className="text-left py-2 px-3 font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider text-[10px]">Phone</th>
+                              <th className="text-right py-2 px-3 font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider text-[10px]">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {report.payLaterOrders.map((plo, idx) => (
+                              <tr key={plo.orderId} className={`border-b border-amber-100 dark:border-amber-900/20 ${idx % 2 === 0 ? "bg-white/50 dark:bg-white/[0.02]" : ""}`}>
+                                <td className="py-2 px-3 text-gray-700 dark:text-gray-300">{plo.date}</td>
+                                <td className="py-2 px-3 font-medium text-gray-900 dark:text-white">{plo.customer}</td>
+                                <td className="py-2 px-3 text-gray-600 dark:text-gray-400">{plo.phone}</td>
+                                <td className="py-2 px-3 text-right font-bold text-amber-700 dark:text-amber-400">{fmt(plo.total)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="border-t-2 border-amber-300 dark:border-amber-800">
+                              <td colSpan={3} className="py-2 px-3 font-bold text-amber-800 dark:text-amber-300 text-right">Total Pending</td>
+                              <td className="py-2 px-3 text-right font-black text-amber-800 dark:text-amber-300 text-sm">{fmt(pb.payLater)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}

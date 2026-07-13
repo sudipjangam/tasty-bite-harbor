@@ -77,6 +77,7 @@ const statusFilters: { value: StatusFilter; label: string; color: string }[] = [
   { value: "preparing", label: "Preparing", color: "bg-orange-500" },
   { value: "ready", label: "Ready", color: "bg-green-500" },
   { value: "held", label: "Held", color: "bg-amber-500" },
+  { value: "unpaid", label: "💰 Unpaid", color: "bg-yellow-500" },
 ];
 
 // Status badge colors now handled inline with gradient styling
@@ -463,7 +464,12 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                                   ? "✓ Served"
                                   : order.status}
                               </span>
-                              {/* Priority Badge */}
+                              {/* Pay Later Badge */}
+                              {order.paymentMethod === "pay_later" && (
+                                <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-md shadow-amber-300/50 animate-pulse flex items-center gap-1">
+                                  🕐 Pay Later
+                                </span>
+                              )}
                               {order.priority === "vip" && (
                                 <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-md flex items-center gap-1">
                                   <Star className="w-3 h-3" />

@@ -8,7 +8,7 @@ import { getDateRange, DateFilter } from "@/utils/dateRangeUtils";
 import { useKitchenSounds } from "@/hooks/useKitchenSounds";
 
 export type { DateFilter } from "@/utils/dateRangeUtils";
-export type StatusFilter = "all" | "new" | "preparing" | "ready" | "held";
+export type StatusFilter = "all" | "new" | "preparing" | "ready" | "held" | "unpaid";
 
 interface UseActiveKitchenOrdersOptions {
   dateFilter?: DateFilter;
@@ -59,7 +59,10 @@ export const useActiveKitchenOrders = (
         .order("created_at", { ascending: false });
 
       // Apply status filter
-      if (statusFilter !== "all") {
+      if (statusFilter === "unpaid") {
+        // For unpaid, fetch ALL statuses — client-side filter later
+        query = query.in("status", ["new", "preparing", "ready", "held", "completed"]);
+      } else if (statusFilter !== "all") {
         query = query.eq("status", statusFilter);
       } else {
         // Default: show active orders (not completed)
@@ -69,6 +72,25 @@ export const useActiveKitchenOrders = (
       const { data, error } = await query;
 
       if (error) throw error;
+
+      // Batch-fetch linked orders for payment info
+      const orderIds = (data || [])
+        .map((o) => o.order_id)
+        .filter((id): id is string => id !== null && id !== undefined);
+
+      let paymentMap: Record<string, { payment_method?: string; payment_status?: string }> = {};
+      if (orderIds.length > 0) {
+        const { data: ordersData } = await supabase
+          .from("orders")
+          .select("id, payment_method, payment_status")
+          .in("id", orderIds);
+        if (ordersData) {
+          paymentMap = ordersData.reduce((acc, o) => {
+            acc[o.id] = { payment_method: o.payment_method, payment_status: o.payment_status };
+            return acc;
+          }, {} as typeof paymentMap);
+        }
+      }
 
       // Map to ActiveKitchenOrder format and apply search filter
       const mappedOrders: ActiveKitchenOrder[] = (data || [])
@@ -91,6 +113,8 @@ export const useActiveKitchenOrders = (
               : "QSR-QR Order";
           }
 
+          const linkedPayment = order.order_id ? paymentMap[order.order_id] : null;
+
           return {
             id: order.id,
             orderId: order.order_id,
@@ -103,6 +127,8 @@ export const useActiveKitchenOrders = (
             itemCompletionStatus:
               (order.item_completion_status as boolean[]) || [],
             orderType: order.order_type as ActiveKitchenOrder["orderType"],
+            paymentMethod: linkedPayment?.payment_method || undefined,
+            paymentStatus: linkedPayment?.payment_status || undefined,
           };
         })
         .filter((order) => {
@@ -112,6 +138,13 @@ export const useActiveKitchenOrders = (
             order.source.toLowerCase().includes(query) ||
             order.items.some((item) => item.name.toLowerCase().includes(query))
           );
+        })
+        .filter((order) => {
+          // Client-side filter for 'unpaid' since it's cross-table
+          if (statusFilter === "unpaid") {
+            return order.paymentMethod === "pay_later" || order.paymentStatus === "pending";
+          }
+          return true;
         });
 
       return mappedOrders;

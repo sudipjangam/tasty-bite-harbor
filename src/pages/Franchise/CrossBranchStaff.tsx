@@ -17,10 +17,10 @@ const CrossBranchStaff: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"attendance" | "roaming" | "payroll">("attendance");
   const [branchFilter, setBranchFilter] = useState("all");
 
-  // Roaming state
-  const [selectedStaff, setSelectedStaff] = useState("s2"); // Ravi Kumar (Chef)
-  const [primaryBranch, setPrimaryBranch] = useState("branch-1");
-  const [secondaryBranches, setSecondaryBranches] = useState<string[]>(["branch-2"]);
+  // Roaming state — initialise from first real staff member
+  const [selectedStaff, setSelectedStaff] = useState(() => staff[0]?.id || "");
+  const [primaryBranch, setPrimaryBranch] = useState(() => staff[0]?.branchId || allBranches[0]?.id || "");
+  const [secondaryBranches, setSecondaryBranches] = useState<string[]>([]);
 
   const filtered = staff.filter((s) =>
     currentBranch

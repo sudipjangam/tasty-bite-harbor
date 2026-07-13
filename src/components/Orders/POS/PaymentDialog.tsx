@@ -33,6 +33,7 @@ import {
   Copy,
   Mail,
   Link,
+  Clock,
 } from "lucide-react";
 import QRCode from "qrcode";
 import jsPDF from "jspdf";
@@ -2088,6 +2089,16 @@ const PaymentDialog = ({
     } else if (method === "room") {
       // Handle charge to room
       handleChargeToRoom();
+    } else if (method === "pay_later") {
+      if (!customerName.trim()) {
+        toast({
+          title: "Customer Name Required",
+          description: "Please enter a customer name in the billing section before choosing Pay Later.",
+          variant: "destructive",
+        });
+        return;
+      }
+      handleMarkAsPaid(method);
     } else {
       // For cash/card, mark as paid immediately
       handleMarkAsPaid(method);
@@ -2202,6 +2213,9 @@ const PaymentDialog = ({
       const finalTotal = isNonChargeable ? 0 : total;
       const finalOrderType = isNonChargeable ? "non-chargeable" : undefined;
       const finalPaymentMethod = isNonChargeable ? "nc" : paymentMethod;
+      const finalPaymentStatus = isNonChargeable 
+        ? "nc" 
+        : (finalPaymentMethod === "pay_later" ? "pending" : "paid");
 
       // Get current user for staff_id
       const {
@@ -2258,7 +2272,7 @@ const PaymentDialog = ({
           const { error: orderError } = await supabase
             .from("orders")
             .update({
-              payment_status: isNonChargeable ? "nc" : "paid",
+              payment_status: finalPaymentStatus,
               payment_method: finalPaymentMethod,
               status: "completed",
               total: finalTotal, // Save final amount (0 for NC orders)
@@ -2312,7 +2326,7 @@ const PaymentDialog = ({
               await supabase
                 .from("orders")
                 .update({
-                  payment_status: isNonChargeable ? "nc" : "paid",
+                  payment_status: finalPaymentStatus,
                   payment_method: finalPaymentMethod,
                   status: "completed",
                   total: finalTotal,
@@ -2348,7 +2362,7 @@ const PaymentDialog = ({
                   items: formattedItems,
                   total: finalTotal,
                   status: "completed",
-                  payment_status: isNonChargeable ? "nc" : "paid",
+                  payment_status: finalPaymentStatus,
                   payment_method: finalPaymentMethod,
                   source: "qsr",
                   order_type: finalOrderType || "dine-in",
@@ -2412,7 +2426,7 @@ const PaymentDialog = ({
               kitchen_order_id: orderId,
               amount: finalTotal,
               payment_method: finalPaymentMethod,
-              status: "completed",
+              status: finalPaymentMethod === "pay_later" ? "pending" : "completed",
               customer_name: customerName || null,
               customer_phone: customerMobile || null,
               staff_id: user?.id || null,
@@ -2454,12 +2468,18 @@ const PaymentDialog = ({
         : null;
 
       toast({
-        title: isNonChargeable ? "NC Order Completed" : "Payment Complete ✓",
+        title: isNonChargeable 
+          ? "NC Order Completed" 
+          : finalPaymentMethod === "pay_later"
+            ? "Pay Later Order Recorded ✓"
+            : "Payment Complete ✓",
         description: isNonChargeable
           ? "Complimentary order has been completed successfully."
-          : splitDesc
-            ? `Split: ${splitDesc}`
-            : `${currencySymbol}${finalTotal.toFixed(2)} received via ${finalPaymentMethod.toUpperCase()}`,
+          : finalPaymentMethod === "pay_later"
+            ? `${currencySymbol}${finalTotal.toFixed(2)} recorded to tab for ${customerName.trim()}`
+            : splitDesc
+              ? `Split: ${splitDesc}`
+              : `${currencySymbol}${finalTotal.toFixed(2)} received via ${finalPaymentMethod.toUpperCase()}`,
       });
 
       if (isDirectClose) {
@@ -3338,6 +3358,20 @@ const PaymentDialog = ({
                 <p className="text-xs text-gray-500 dark:text-gray-400">Pay with Cash + UPI + Card mix</p>
               </div>
               <span className="text-[10px] font-bold bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 px-2 py-0.5 rounded-full ml-2">NEW</span>
+            </button>
+
+            {/* Pay Later */}
+            <button
+              onClick={() => handleMethodSelect("pay_later")}
+              className="w-full h-14 rounded-xl flex items-center px-4 transition-all duration-200 hover:scale-[1.01] hover:shadow-lg bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/30 border border-amber-200 dark:border-amber-700 hover:border-amber-400 dark:hover:border-amber-500 group"
+            >
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-500 flex items-center justify-center shadow-md group-hover:scale-105 transition-all duration-200">
+                <Clock className="w-5 h-5 text-white" />
+              </div>
+              <div className="ml-3 text-left flex-1">
+                <span className="text-base font-bold text-gray-800 dark:text-white">Pay Later (Tab)</span>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Collect payment at a later time</p>
+              </div>
             </button>
           </div>
         </>

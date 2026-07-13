@@ -119,7 +119,9 @@ const FranchiseDashboard: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           {isAllBranches ? "Franchise Overview" : `${currentBranch!.name} — Overview`}
         </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">June 2026 · Last 30 days</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          {new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" })} · Last 30 days
+        </p>
       </div>
 
       {/* KPI Cards */}

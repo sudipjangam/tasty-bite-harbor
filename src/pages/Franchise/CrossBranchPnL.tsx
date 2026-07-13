@@ -152,36 +152,41 @@ const DivertingBarChart: React.FC<{ rows: DivergeRow[] }> = ({ rows }) => {
 
 // ─── Main Page ────────────────────────────────────────────────
 const CrossBranchPnL: React.FC = () => {
-  const { currentBranch, pnlBranches } = useFranchise();
+  const { currentBranch, pnlBranches, kpis } = useFranchise();
   const { toast } = useToast();
-  
+
+  // Dynamic period labels
+  const now = new Date();
+  const thisMonthLabel = now.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+  const lastMonthDate = new Date(now); lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+  const lastMonthLabel = lastMonthDate.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+
   // Period filter states
-  const [period, setPeriod] = useState("This Month - June 2026");
-  const [startDate, setStartDate] = useState("2026-06-01");
-  const [endDate, setEndDate] = useState("2026-06-30");
+  const [period, setPeriod] = useState(`This Month - ${thisMonthLabel}`);
+  const [startDate, setStartDate] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState(now.toISOString().split("T")[0]);
 
-  // Determine period calculations
   let multiplier = 1.0;
-  let dateSubtext = "June 2026";
+  let dateSubtext = thisMonthLabel;
 
-  if (period === "This Month - June 2026") {
+  if (period === `This Month - ${thisMonthLabel}`) {
     multiplier = 1.0;
-    dateSubtext = "Jun 1, 2026 - Jun 30, 2026";
-  } else if (period === "Last Month - May 2026") {
+    dateSubtext = `${new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} - ${now.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
+  } else if (period === `Last Month - ${lastMonthLabel}`) {
     multiplier = 0.92;
-    dateSubtext = "May 1, 2026 - May 31, 2026";
+    dateSubtext = `${new Date(lastMonthDate.getFullYear(), lastMonthDate.getMonth(), 1).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} - ${new Date(now.getFullYear(), now.getMonth(), 0).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
   } else if (period === "This Quarter") {
     multiplier = 2.85;
-    dateSubtext = "Apr 1, 2026 - Jun 30, 2026";
+    const qStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+    dateSubtext = `${qStart.toLocaleDateString("en-IN", { day: "numeric", month: "short" })} - ${now.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
   } else if (period === "This Year") {
     multiplier = 11.4;
-    dateSubtext = "Jan 1, 2026 - Dec 31, 2026";
+    dateSubtext = `Jan 1, ${now.getFullYear()} - ${now.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
   } else if (period === "Custom Range") {
     const start = new Date(startDate);
     const end = new Date(endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
-    multiplier = diffDays / 30; // Scale relative to standard 30-day baseline
+    const diffDays = Math.ceil(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) || 1;
+    multiplier = diffDays / 30;
     dateSubtext = `${start.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} - ${end.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
   }
 
@@ -284,8 +289,8 @@ const CrossBranchPnL: React.FC = () => {
             onChange={(e) => setPeriod(e.target.value)}
             className="px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
           >
-            <option value="This Month - June 2026">This Month - June 2026</option>
-            <option value="Last Month - May 2026">Last Month - May 2026</option>
+            <option value={`This Month - ${thisMonthLabel}`}>This Month - {thisMonthLabel}</option>
+            <option value={`Last Month - ${lastMonthLabel}`}>Last Month - {lastMonthLabel}</option>
             <option value="This Quarter">This Quarter</option>
             <option value="This Year">This Year</option>
             <option value="Custom Range">Custom Range</option>
@@ -308,14 +313,16 @@ const CrossBranchPnL: React.FC = () => {
           <p className="text-green-50 text-sm font-medium mb-1">Total Revenue</p>
           <p className="text-3xl md:text-4xl font-bold text-white">{fmt(totals.revenue)}</p>
           <div className="flex items-center gap-1 text-green-100 text-xs mt-3">
-            <TrendingUp className="h-3.5 w-3.5" /> +18.5% vs last period
+            {kpis.revenueGrowth >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+            {kpis.revenueGrowth >= 0 ? "+" : ""}{kpis.revenueGrowth}% vs last period
           </div>
         </div>
         <div className="bg-[#dc2626] rounded-2xl p-5 shadow-lg shadow-red-700/20 dark:shadow-red-900/40">
           <p className="text-red-50 text-sm font-medium mb-1">Total Expenses</p>
           <p className="text-3xl md:text-4xl font-bold text-white">{fmt(totals.expenses)}</p>
           <div className="flex items-center gap-1 text-red-100 text-xs mt-3">
-            <TrendingDown className="h-3.5 w-3.5" /> +8.2% vs last period
+            <TrendingUp className="h-3.5 w-3.5" />
+            {kpis.ordersGrowth >= 0 ? "+" : ""}{kpis.ordersGrowth}% orders vs last period
           </div>
         </div>
         <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-5 shadow-lg shadow-blue-700/20 dark:shadow-blue-900/40">

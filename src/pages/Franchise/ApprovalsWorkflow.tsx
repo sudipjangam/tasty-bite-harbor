@@ -60,7 +60,7 @@ const ApprovalsWorkflow: React.FC = () => {
   const { allBranches, org, demoMode } = useFranchise();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"pending" | "raise" | "history">("pending");
-  const [requests, setRequests] = useState<ApprovalRequest[]>(INITIAL_REQUESTS);
+  const [requests, setRequests] = useState<ApprovalRequest[]>(demoMode ? INITIAL_REQUESTS : []);
   const [loading, setLoading] = useState(false);
   
   // Dialog/Review Modal State
