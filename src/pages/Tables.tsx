@@ -14,8 +14,10 @@ import { ReservationFormData } from "@/types/reservations";
 import QRCodeManagement from "@/components/QR/QRCodeManagement";
 import HelpProvider from "@/components/Help/HelpProvider";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 const Tables = () => {
+  const { restaurantName } = useRestaurantId();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isReservationDialogOpen, setIsReservationDialogOpen] = useState(false);
   const [editingTable, setEditingTable] = useState<TableData | null>(null);
@@ -208,6 +210,11 @@ const Tables = () => {
               <Utensils className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
             </div>
             <div className="flex-1 min-w-0">
+              {restaurantName && (
+                <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-gray-400 mb-0.5">
+                  {restaurantName}
+                </p>
+              )}
               <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 bg-clip-text text-transparent truncate">
                 Tables & Reservations
               </h1>

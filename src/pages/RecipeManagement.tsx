@@ -23,6 +23,7 @@ import { RecipeList } from "@/components/Recipes/RecipeList";
 import { RecipeDialog } from "@/components/Recipes/RecipeDialog";
 import { BatchProductionManager } from "@/components/Recipes/BatchProductionManager";
 import { RecipeCostingCard } from "@/components/Recipes/RecipeCostingCard";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { MenuEngineering } from "@/components/Recipes/MenuEngineering";
 import { useRecipes } from "@/hooks/useRecipes";
 import { MobileNavigation } from "@/components/ui/mobile-navigation";
@@ -31,6 +32,7 @@ import { FeatureLock } from "@/components/Auth/FeatureLock";
 import HelpProvider from "@/components/Help/HelpProvider";
 
 const RecipeManagement = () => {
+  const { restaurantName } = useRestaurantId();
   const [showRecipeDialog, setShowRecipeDialog] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
   const { recipes, batchProductions, isLoading } = useRecipes();
@@ -66,6 +68,11 @@ const RecipeManagement = () => {
               <ChefHat className="h-6 w-6 md:h-8 md:w-8 text-white drop-shadow-md" />
             </div>
             <div className="min-w-0 flex-1">
+              {restaurantName && (
+                <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-orange-300 mb-0.5">
+                  {restaurantName}
+                </p>
+              )}
               <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 bg-clip-text text-transparent break-words">
                 Recipe & Costing Management
               </h1>

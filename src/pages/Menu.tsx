@@ -3,11 +3,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ChefHat, Sparkles, Utensils, Zap } from "lucide-react";
 import HelpProvider from "@/components/Help/HelpProvider";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 // Lazy load the MenuGrid component
 const MenuGrid = lazy(() => import("@/components/Menu/MenuGrid"));
 
 const Menu = () => {
+  const { restaurantName } = useRestaurantId();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-teal-100 dark:from-gray-900 dark:via-slate-900 dark:to-emerald-950">
       {/* Modern 3D Header with Vibrant Gradient */}
@@ -36,6 +39,11 @@ const Menu = () => {
 
                 {/* Title */}
                 <div className="flex-1">
+                  {restaurantName && (
+                    <p className="text-[10px] font-semibold tracking-widest uppercase text-white/60 mb-0.5">
+                      {restaurantName}
+                    </p>
+                  )}
                   <div className="flex items-center gap-2 mb-1">
                     <h1 className="text-2xl md:text-4xl font-bold text-white drop-shadow-lg tracking-tight">
                       Menu Management

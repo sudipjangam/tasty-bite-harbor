@@ -38,7 +38,7 @@ const Staff = () => {
   const { toast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
-  const { restaurantId, isLoading: loadingRestaurantId } = useRestaurantId();
+  const { restaurantId, restaurantName, isLoading: loadingRestaurantId } = useRestaurantId();
 
   // Get active tab from URL query parameter
   const searchParams = new URLSearchParams(location.search);
@@ -140,6 +140,11 @@ const Staff = () => {
               <Users className="h-6 w-6 md:h-8 md:w-8 text-white drop-shadow-lg" />
             </div>
             <div>
+              {restaurantName && (
+                <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-purple-300 mb-0.5">
+                  {restaurantName}
+                </p>
+              )}
               <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 bg-clip-text text-transparent">
                 Staff Management
               </h1>

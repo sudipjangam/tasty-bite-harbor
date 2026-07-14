@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, FileBarChart, FileText, Database, Ban } from "lucide-react";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 // Lazy load heavy components
 const AdvancedAnalytics = React.lazy(() => import("@/components/Reporting/AdvancedAnalytics"));
@@ -25,10 +26,16 @@ const LoadingFallback = () => (
 );
 
 const Reports = () => {
+  const { restaurantName } = useRestaurantId();
   return (
     <div className="container mx-auto py-4 md:py-8 px-4 md:px-6">
       {/* Premium Page Header */}
       <div className="mb-5 md:mb-8">
+        {restaurantName && (
+          <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-gray-400 mb-0.5">
+            {restaurantName}
+          </p>
+        )}
         <h1 className="text-xl sm:text-2xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-orange-500 via-pink-500 to-blue-500 bg-clip-text text-transparent leading-tight pb-1">
           Reporting &amp; Business Intelligence
         </h1>

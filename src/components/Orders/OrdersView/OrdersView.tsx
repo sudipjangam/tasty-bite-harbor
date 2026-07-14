@@ -46,6 +46,7 @@ import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { SyncOrdersButton } from "./SyncOrdersButton";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 interface OrdersViewProps {
   searchTrigger?: number;
@@ -73,6 +74,7 @@ const OrdersView = ({
   const [sortOrder, setSortOrder] = useState<string>("newest");
   const isMobile = useIsMobile();
   const { toast } = useToast();
+  const { restaurantName } = useRestaurantId();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { isRole } = useAuth();
   const { symbol: currencySymbol } = useCurrencyContext();
@@ -359,7 +361,7 @@ const OrdersView = ({
           <div className="flex-1 min-w-0">
             {!isMobile && (
               <div className="text-[10px] font-semibold tracking-widest uppercase text-white/60 mb-0.5">
-                Restaurant Management
+                {restaurantName || ""}
               </div>
             )}
             <h1 className="text-lg md:text-[22px] font-extrabold text-white tracking-tight truncate">

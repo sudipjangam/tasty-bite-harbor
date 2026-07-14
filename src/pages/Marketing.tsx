@@ -8,6 +8,7 @@ import MarketingAnalytics from "@/components/Marketing/MarketingAnalytics";
 import WhatsAppCampaigns from "@/components/Marketing/WhatsAppCampaigns";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { Plus } from "lucide-react";
 
 const statCards = [
@@ -69,7 +70,8 @@ const tabs = [
 ];
 
 const Marketing = () => {
-  const { user } = useAuth();
+  const { restaurantName } = useRestaurantId();
+  const { user, loading } = useAuth();
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
   const [activeTab, setActiveTab] = useState("campaigns");
   const [dateRange, setDateRange] = useState<DateRange>('30d');
@@ -106,6 +108,11 @@ const Marketing = () => {
       {/* ── Page Header ── */}
       <div className="flex items-center justify-between">
         <div>
+          {restaurantName && (
+            <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-gray-400 mb-0.5">
+              {restaurantName}
+            </p>
+          )}
           <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-violet-600 via-pink-500 to-amber-400 bg-clip-text text-transparent">
             Marketing Center
           </h1>
