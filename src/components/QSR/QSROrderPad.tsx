@@ -155,7 +155,6 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
                 ) : (
                   items.map((item, index) => {
                     const isCompleted = itemCompletionStatus[index] === true;
-                    const canToggle = isRecalledOrder && onToggleItemCompletion;
 
                     return (
                       <Draggable key={item.id} draggableId={item.id} index={index} isDragDisabled={isLoading}>
@@ -164,215 +163,219 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
                             ref={provided.innerRef}
                             {...provided.draggableProps}
                             className={cn(
-                              "bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border transition-all",
+                              "rounded-xl border transition-all",
                               isCompleted
                                 ? "border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20"
-                                : "border-gray-100 dark:border-gray-700",
+                                : "border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800",
                               snapshot.isDragging ? "shadow-xl ring-2 ring-indigo-500/50 rotate-1 z-50" : ""
                             )}
                           >
-                            <div className="flex items-start justify-between gap-2">
-                              {/* Drag Handle */}
-                              <div 
+                            {/* ─── LINE 1: drag · [✓] · name · qty stepper ─── */}
+                            <div className="flex items-center gap-2 px-2 pt-2.5 pb-1">
+                              {/* Drag handle */}
+                              <div
                                 {...provided.dragHandleProps}
-                                className="mt-1 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-100 transition-opacity"
+                                className="cursor-grab active:cursor-grabbing opacity-30 hover:opacity-80 transition-opacity shrink-0"
                               >
-                                <GripVertical className="w-5 h-5 text-gray-500" />
+                                <GripVertical className="w-4 h-4 text-gray-500" />
                               </div>
 
-                              {/* Completion indicator for recalled orders */}
+                              {/* Completion circle (recalled orders only) */}
                               {isRecalledOrder && (
-                      <button
-                        onClick={() => onToggleItemCompletion?.(index)}
-                        className={cn(
-                          "w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-colors",
-                          isCompleted
-                            ? "bg-green-500 text-white"
-                            : "border-2 border-gray-300 dark:border-gray-500 hover:border-green-400",
-                        )}
-                      >
-                        {isCompleted && <Check className="w-3.5 h-3.5" />}
-                      </button>
-                    )}
-
-                    {/* Item Info - Full width for name */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <span
-                            className={cn(
-                              "font-medium text-sm leading-tight block",
-                              isCompleted
-                                ? "line-through text-gray-400 dark:text-gray-500"
-                                : "text-gray-800 dark:text-gray-200",
-                            )}
-                            title={item.name}
-                          >
-                            {item.name}
-                          </span>
-                          {item.isCustom && (
-                            <span className="inline-block mt-0.5 px-1.5 py-0.5 text-[10px] bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400 rounded-full font-medium">
-                              Custom
-                            </span>
-                          )}
-                          {isCompleted && (
-                            <span className="inline-block mt-0.5 ml-1 text-xs text-green-600 dark:text-green-400 font-medium">
-                              ✓ Ready
-                            </span>
-                          )}
-                        </div>
-                        {/* Item Total - Top right */}
-                        <div className="text-right shrink-0">
-                          <CurrencyDisplay
-                            amount={item.price * item.quantity}
-                            showTooltip={false}
-                            className={cn(
-                              "font-bold",
-                              isCompleted
-                                ? "line-through text-gray-400 dark:text-gray-500"
-                                : "text-gray-800 dark:text-gray-200",
-                            )}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Price per unit */}
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        @{" "}
-                        <CurrencyDisplay
-                          amount={item.price}
-                          showTooltip={false}
-                        />
-                      </div>
-
-                      {item.notes && (
-                        <div className="flex items-center gap-1 mt-1 text-xs text-indigo-600 dark:text-indigo-400">
-                          <MessageSquare className="w-3 h-3 shrink-0" />
-                          <span className="truncate">{item.notes}</span>
-                        </div>
-                      )}
-
-                      {/* Controls Row - Quantity, Actions */}
-                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
-                        {/* Quantity Controls */}
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => onDecrement(item.id)}
-                            className="w-7 h-7 rounded-full bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 flex items-center justify-center hover:bg-red-200 dark:hover:bg-red-800/50 transition-colors touch-manipulation"
-                            disabled={isLoading}
-                          >
-                            <Minus className="w-3.5 h-3.5" />
-                          </button>
-                          <span className="w-7 text-center font-semibold text-gray-800 dark:text-gray-200 text-sm">
-                            {item.quantity}
-                          </span>
-                          <button
-                            onClick={() => onIncrement(item.id)}
-                            className="w-7 h-7 rounded-full bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 flex items-center justify-center hover:bg-green-200 dark:hover:bg-green-800/50 transition-colors touch-manipulation"
-                            disabled={isLoading}
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-1">
-                          {onSetItemPriority && (
-                            <button
-                              onClick={() => {
-                                const priorities: ('first' | 'normal' | 'last')[] = ['normal', 'first', 'last'];
-                                const current = item.priority || 'normal';
-                                const nextIndex = (priorities.indexOf(current) + 1) % priorities.length;
-                                onSetItemPriority(item.id, priorities[nextIndex]);
-                              }}
-                              className={cn(
-                                "p-1.5 rounded-lg transition-colors touch-manipulation font-medium text-[10px] h-7 px-1.5 flex items-center justify-center border",
-                                item.priority === 'first'
-                                  ? "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/50 dark:text-rose-300 dark:border-rose-700 font-bold"
-                                  : item.priority === 'last'
-                                    ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700 font-bold"
-                                    : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 border-gray-250 dark:border-gray-650"
+                                <button
+                                  onClick={() => onToggleItemCompletion?.(index)}
+                                  className={cn(
+                                    "w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors",
+                                    isCompleted
+                                      ? "bg-green-500 text-white"
+                                      : "border-2 border-gray-300 dark:border-gray-500 hover:border-green-400",
+                                  )}
+                                >
+                                  {isCompleted && <Check className="w-3 h-3" />}
+                                </button>
                               )}
-                              title="Set Priority"
-                            >
-                              {item.priority === 'first' ? '🔴 1st' : item.priority === 'last' ? '🔵 Lst' : '⚪ Norm'}
-                            </button>
-                          )}
-                          <button
-                            onClick={() => {
-                              const splitTag = "1/2";
-                              const currentNotes = item.notes || "";
-                              const newNotes = currentNotes.includes(splitTag)
-                                ? currentNotes.replace(splitTag, "").trim()
-                                : currentNotes
-                                  ? `${currentNotes}, ${splitTag}`
-                                  : splitTag;
-                              onAddNote(item.id, newNotes);
-                            }}
-                            className={cn(
-                              "p-1.5 rounded-lg transition-colors touch-manipulation font-medium text-xs w-7 h-7 flex items-center justify-center border",
-                              item.notes?.includes("1/2")
-                                ? "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300 dark:border-indigo-700"
-                                : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 border-transparent",
-                            )}
-                            title="Toggle 1/2"
-                          >
-                            1/2
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingNoteId(item.id);
-                              setNoteText(item.notes || "");
-                            }}
-                            className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 transition-colors touch-manipulation"
-                            title="Add note"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => onRemove(item.id)}
-                            className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 text-red-500 transition-colors touch-manipulation"
-                            title="Remove"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Note Input */}
-                  {editingNoteId === item.id && (
-                    <div className="mt-2 flex gap-2">
-                      <input
-                        type="text"
-                        value={noteText}
-                        onChange={(e) => setNoteText(e.target.value)}
-                        placeholder="Add a note..."
-                        className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
-                        autoFocus
-                      />
-                      <button
-                        onClick={() => handleSaveNote(item.id)}
-                        className="px-3 py-1.5 text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() => setEditingNoteId(null)}
-                        className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </Draggable>
-          );
-        })
-      )}
-    </div>
+                              {/* Item name — takes all available space, wraps to 2 lines max */}
+                              <div className="flex-1 min-w-0">
+                                <span
+                                  className={cn(
+                                    "font-semibold text-sm leading-snug line-clamp-2 block",
+                                    isCompleted
+                                      ? "line-through text-gray-400 dark:text-gray-500"
+                                      : "text-gray-800 dark:text-gray-100",
+                                  )}
+                                  title={item.name}
+                                >
+                                  {item.name}
+                                </span>
+                                {/* Inline badges */}
+                                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                  {item.isCustom && (
+                                    <span className="px-1.5 py-px text-[9px] bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400 rounded-full font-medium">
+                                      Custom
+                                    </span>
+                                  )}
+                                  {isCompleted && (
+                                    <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">
+                                      ✓ Ready
+                                    </span>
+                                  )}
+                                  {item.notes && (
+                                    <span className="flex items-center gap-0.5 text-[10px] text-indigo-500 dark:text-indigo-400 truncate max-w-[120px]">
+                                      <MessageSquare className="w-2.5 h-2.5 shrink-0" />
+                                      {item.notes}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Quantity stepper — compact, right-aligned */}
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  onClick={() => onDecrement(item.id)}
+                                  disabled={isLoading}
+                                  className="w-7 h-7 rounded-full bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 flex items-center justify-center hover:bg-red-200 dark:hover:bg-red-800/50 transition-colors touch-manipulation disabled:opacity-40"
+                                >
+                                  <Minus className="w-3.5 h-3.5" />
+                                </button>
+                                <span className="w-6 text-center font-bold text-gray-800 dark:text-gray-100 text-sm tabular-nums">
+                                  {item.quantity}
+                                </span>
+                                <button
+                                  onClick={() => onIncrement(item.id)}
+                                  disabled={isLoading}
+                                  className="w-7 h-7 rounded-full bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 flex items-center justify-center hover:bg-green-200 dark:hover:bg-green-800/50 transition-colors touch-manipulation disabled:opacity-40"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* ─── LINE 2: unit price · total · priority · ½ · note · delete ─── */}
+                            <div className="flex items-center gap-1.5 px-2 pb-2.5 border-t border-gray-100 dark:border-gray-700/60 mt-1 pt-1.5">
+                              {/* Unit price */}
+                              <span className="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">
+                                @<CurrencyDisplay amount={item.price} showTooltip={false} className="text-[11px]" />
+                              </span>
+
+                              {/* Separator dot */}
+                              <span className="text-gray-300 dark:text-gray-600 text-xs">·</span>
+
+                              {/* Total price */}
+                              <CurrencyDisplay
+                                amount={item.price * item.quantity}
+                                showTooltip={false}
+                                className={cn(
+                                  "font-bold text-sm shrink-0",
+                                  isCompleted
+                                    ? "line-through text-gray-400 dark:text-gray-500"
+                                    : "text-gray-800 dark:text-gray-200",
+                                )}
+                              />
+
+                              {/* Spacer */}
+                              <div className="flex-1" />
+
+                              {/* Priority cycle button */}
+                              {onSetItemPriority && (
+                                <button
+                                  onClick={() => {
+                                    const priorities: ('first' | 'normal' | 'last')[] = ['normal', 'first', 'last'];
+                                    const current = item.priority || 'normal';
+                                    const next = priorities[(priorities.indexOf(current) + 1) % priorities.length];
+                                    onSetItemPriority(item.id, next);
+                                  }}
+                                  className={cn(
+                                    "h-6 px-1.5 rounded-md text-[10px] font-bold border flex items-center touch-manipulation transition-colors",
+                                    item.priority === 'first'
+                                      ? "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-900/50 dark:text-rose-300 dark:border-rose-700"
+                                      : item.priority === 'last'
+                                        ? "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700"
+                                        : "bg-transparent text-gray-400 border-gray-200 dark:border-gray-600 hover:border-gray-400",
+                                  )}
+                                  title="Cycle priority"
+                                >
+                                  {item.priority === 'first' ? '🔴 1st' : item.priority === 'last' ? '🔵 Lst' : '⚪'}
+                                </button>
+                              )}
+
+                              {/* ½ tag */}
+                              <button
+                                onClick={() => {
+                                  const tag = "1/2";
+                                  const cur = item.notes || "";
+                                  onAddNote(item.id, cur.includes(tag)
+                                    ? cur.replace(tag, "").trim().replace(/,\s*$/, "")
+                                    : cur ? `${cur}, ${tag}` : tag);
+                                }}
+                                className={cn(
+                                  "h-6 w-7 rounded-md text-[11px] font-bold border flex items-center justify-center touch-manipulation transition-colors",
+                                  item.notes?.includes("1/2")
+                                    ? "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-900/50 dark:text-indigo-300 dark:border-indigo-700"
+                                    : "bg-transparent text-gray-400 border-gray-200 dark:border-gray-600 hover:border-gray-400",
+                                )}
+                                title="Toggle ½"
+                              >
+                                ½
+                              </button>
+
+                              {/* Edit note */}
+                              <button
+                                onClick={() => { setEditingNoteId(item.id); setNoteText(item.notes || ""); }}
+                                className={cn(
+                                  "h-6 w-6 rounded-md flex items-center justify-center touch-manipulation transition-colors border",
+                                  item.notes && !item.notes.match(/^1\/2$/)
+                                    ? "bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-700"
+                                    : "text-gray-400 border-gray-200 dark:border-gray-600 hover:text-gray-600 hover:border-gray-400",
+                                )}
+                                title="Add note"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+
+                              {/* Delete */}
+                              <button
+                                onClick={() => onRemove(item.id)}
+                                className="h-6 w-6 rounded-md flex items-center justify-center text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 touch-manipulation transition-colors border border-transparent hover:border-red-200"
+                                title="Remove"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            {/* ─── Note inline editor ─── */}
+                            {editingNoteId === item.id && (
+                              <div className="mx-2 mb-2 flex gap-1.5">
+                                <input
+                                  type="text"
+                                  value={noteText}
+                                  onChange={(e) => setNoteText(e.target.value)}
+                                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveNote(item.id); if (e.key === 'Escape') setEditingNoteId(null); }}
+                                  placeholder="Add a note…"
+                                  className="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-indigo-300 dark:border-indigo-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => handleSaveNote(item.id)}
+                                  className="px-2.5 py-1.5 text-xs bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 font-medium"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => setEditingNoteId(null)}
+                                  className="px-2 py-1.5 text-xs bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </Draggable>
+                    );
+                  })
+                )}
+              </div>
             )}
           </Droppable>
         </DragDropContext>

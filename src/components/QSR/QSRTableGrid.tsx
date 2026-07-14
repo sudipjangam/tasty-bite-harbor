@@ -63,12 +63,32 @@ export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
 
   return (
     <div className="p-4">
-      <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-        Select Table
-      </h2>
-
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">
+          Select Table
+        </h2>
+        {/* Summary chips */}
+        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+            {tables.length} total
+          </span>
+          {tables.filter(t => t.status === "occupied").length > 0 && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+              {tables.filter(t => t.status === "occupied").length} busy
+            </span>
+          )}
+          {tables.filter(t => t.status === "available").length > 0 && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              {tables.filter(t => t.status === "available").length} free
+            </span>
+          )}
+        </div>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-        {tables.map((table) => {
+        {tables.map((table, idx) => {
           const isSelected = selectedTableId === table.id;
           const isOccupied = table.status === "occupied";
           const isAvailable = table.status === "available";
@@ -79,9 +99,11 @@ export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
             <button
               key={table.id}
               onClick={() => onSelectTable(table)}
+              style={{ animationDelay: `${idx * 30}ms` }}
               className={cn(
-                "relative p-4 rounded-xl border-2 transition-all duration-200 touch-manipulation",
-                "flex flex-col items-center justify-center gap-1 min-h-[100px]",
+                "relative p-3 rounded-xl border-2 transition-all duration-200 touch-manipulation",
+                "flex flex-col items-center justify-center gap-1 min-h-[88px]",
+                "animate-in fade-in duration-200",
                 isSelected && "ring-2 ring-offset-2 ring-blue-500",
                 // Available - Green
                 isAvailable &&
