@@ -46,6 +46,7 @@ import { DailySummaryDialog } from "@/components/QuickServe/DailySummaryDialog";
 import HelpProvider from "@/components/Help/HelpProvider";
 
 const QuickServePOS: React.FC = () => {
+  const { restaurantName } = useRestaurantId();
   const [orderItems, setOrderItems] = useState<QSOrderItem[]>([]);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -1008,6 +1009,11 @@ const QuickServePOS: React.FC = () => {
               <Zap className="h-5 w-5 text-white drop-shadow-sm" />
             </div>
             <div>
+              {restaurantName && (
+                <p className="text-[10px] text-white/70 font-semibold tracking-widest uppercase">
+                  {restaurantName}
+                </p>
+              )}
               <h1 className="text-base font-extrabold text-white tracking-tight">
                 QuickServe
               </h1>

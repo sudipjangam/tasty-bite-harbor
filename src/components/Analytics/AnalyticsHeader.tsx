@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DatePickerWithRange } from "@/components/ui/date-picker-with-range";
 import { DateRange } from "react-day-picker";
 import { subDays } from "date-fns";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 interface AnalyticsHeaderProps {
   analyticsView: "charts" | "business";
@@ -32,6 +33,7 @@ const AnalyticsHeader = ({
   dateRange,
   onDateRangeChange,
 }: AnalyticsHeaderProps) => {
+  const { restaurantName } = useRestaurantId();
   const activeDays = dateRange?.from
     ? Math.ceil(
         ((dateRange.to || new Date()).getTime() - dateRange.from.getTime()) /
@@ -43,6 +45,11 @@ const AnalyticsHeader = ({
     <div className="flex flex-col gap-4">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
+          {restaurantName && (
+            <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-purple-300 mb-0.5">
+              {restaurantName}
+            </p>
+          )}
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
             Analytics & Reports
           </h1>

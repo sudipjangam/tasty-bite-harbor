@@ -27,6 +27,7 @@ import OrderTicket from "./OrderTicket";
 import OrdersColumn from "./OrdersColumn";
 import DateFilter from "./DateFilter";
 import { useKitchenSounds } from "@/hooks/useKitchenSounds";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import {
   startOfDay,
   endOfDay,
@@ -81,6 +82,7 @@ const PAGE_SIZE = 50;
 const LATE_ORDER_THRESHOLD = 15;
 
 const KitchenDisplay = () => {
+  const { restaurantName } = useRestaurantId();
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const {
     isAudioEnabled,
@@ -841,6 +843,11 @@ const KitchenDisplay = () => {
       <div className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 rounded-3xl shadow-xl p-6">
         <div className="flex flex-wrap justify-between items-center gap-4">
           <div>
+            {restaurantName && (
+              <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-purple-300 mb-0.5">
+                {restaurantName}
+              </p>
+            )}
             <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
               Kitchen Display System
             </h1>

@@ -101,7 +101,7 @@ export const QSRPosMain: React.FC = () => {
   const [customerName, setCustomerName] = useState<string>("");
 
   // Hooks
-  const { restaurantId } = useRestaurantId();
+  const { restaurantId, restaurantName } = useRestaurantId();
   const { user } = useAuth();
   const { toast } = useToast();
   const { menuItems, categories, isLoading: menuLoading } = useQSRMenuItems();
@@ -192,23 +192,7 @@ export const QSRPosMain: React.FC = () => {
     refetchInterval: 30000,
   });
 
-  // Query for restaurant name (for export filename)
-  const { data: restaurantName = "Restaurant" } = useQuery({
-    queryKey: ["restaurant-name", restaurantId],
-    queryFn: async () => {
-      if (!restaurantId) return "Restaurant";
 
-      const { data } = await supabase
-        .from("restaurants")
-        .select("name")
-        .eq("id", restaurantId)
-        .single();
-
-      return data?.name || "Restaurant";
-    },
-    enabled: !!restaurantId,
-    staleTime: 1000 * 60 * 60, // 1 hour cache
-  });
 
   // Real-time subscription for revenue updates
   useEffect(() => {
@@ -1344,11 +1328,18 @@ export const QSRPosMain: React.FC = () => {
                 </Button>
               )}
               <Zap className="w-6 h-6 text-indigo-500" />
-              <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                {orderMode === "dine_in" && selectedTable
-                  ? `Table ${selectedTable.name}`
-                  : "QSR POS"}
-              </h1>
+              <div>
+                {restaurantName && (
+                  <p className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground mb-0.5">
+                    {restaurantName}
+                  </p>
+                )}
+                <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  {orderMode === "dine_in" && selectedTable
+                    ? `Table ${selectedTable.name}`
+                    : "QSR POS"}
+                </h1>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Button

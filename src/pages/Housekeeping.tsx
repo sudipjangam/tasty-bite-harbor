@@ -18,10 +18,12 @@ import {
   PackageSearch,
 } from "lucide-react";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 const Housekeeping = () => {
   const [activeTab, setActiveTab] = useState("guests");
   const isMobile = useIsMobile();
+  const { restaurantName } = useRestaurantId();
 
   return (
     <FeatureLock feature="rooms.housekeeping" interceptClicks={true}>
@@ -52,6 +54,11 @@ const Housekeeping = () => {
 
               {/* Title */}
               <div>
+                {restaurantName && (
+                  <p className="text-[10px] font-semibold tracking-widest uppercase text-white/60 mb-0.5">
+                    {restaurantName}
+                  </p>
+                )}
                 <div className="flex items-center gap-2 mb-1">
                   <h1 className="text-2xl md:text-4xl font-bold text-white drop-shadow-lg tracking-tight">
                     Hotel Management

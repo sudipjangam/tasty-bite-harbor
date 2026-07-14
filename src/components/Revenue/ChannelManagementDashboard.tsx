@@ -21,8 +21,10 @@ import MetaSearchIntegration from "./MetaSearchIntegration";
 import EnhancedRateManagement from "./EnhancedRateManagement";
 import PoolInventoryManagement from "./PoolInventoryManagement";
 import RoomSpecificRateManager from "./RoomSpecificRateManager";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 const ChannelManagementDashboard = () => {
+  const { restaurantName } = useRestaurantId();
   const { bookingChannels, updateChannel, isLoadingChannels, syncChannels, bulkUpdatePrices } = useChannelManagement();
   const [selectedChannel, setSelectedChannel] = useState<any>(null);
   const [activeView, setActiveView] = useState("overview");
@@ -81,6 +83,11 @@ const ChannelManagementDashboard = () => {
       <div className="standardized-header">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
+            {restaurantName && (
+              <p className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground mb-0.5">
+                {restaurantName}
+              </p>
+            )}
             <h1 className="standardized-title flex items-center gap-3">
               <Globe className="w-8 h-8 text-primary" />
               Channel Management

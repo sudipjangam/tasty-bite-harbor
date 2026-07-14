@@ -15,6 +15,7 @@ import {
   Save,
   HelpCircle,
 } from "lucide-react";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 type ObjectType = "wall" | "restroom" | "storage" | "kitchen" | "host_stand" | "manager_desk" | "bar" | "grass" | "tree" | "staircase" | "door";
 
@@ -41,6 +42,7 @@ interface TableObject {
 }
 
 const DigitalTwin: React.FC = () => {
+  const { restaurantName } = useRestaurantId();
   const { toast } = useToast();
 
   const [activeBranchId, setActiveBranchId] = useState<string>("");
@@ -542,6 +544,11 @@ const DigitalTwin: React.FC = () => {
       {/* Header controls */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
+          {restaurantName && (
+            <p className="text-[10px] font-semibold tracking-widest uppercase text-slate-400 dark:text-slate-500 mb-0.5">
+              {restaurantName}
+            </p>
+          )}
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <LayoutGrid className="text-orange-500 h-8 w-8" /> RestroFlow Digital Twin
           </h1>
