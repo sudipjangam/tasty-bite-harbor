@@ -84,6 +84,7 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
       { key: 'qsr-pos.live_metrics', label: 'Live Revenue Metrics', description: 'Real-time revenue & order count bar' },
       { key: 'qsr-pos.loyalty_integration', label: 'Loyalty Integration', description: 'Points redemption at checkout' },
       { key: 'qsr-pos.coupon_engine', label: 'Coupon Engine', description: 'Apply promo codes at checkout' },
+      { key: 'qsr-pos.mobile_ui_v2', label: 'Mobile UI V2', description: 'Enhanced mobile-first QSR POS layout with compact header, smooth navigation, and optimized touch targets' },
     ],
   },
   // ─── Orders ───────────────────────────────────────────────────────────
