@@ -2,7 +2,7 @@
  * Enhanced authentication and role-based access types
  */
 
-export type UserRole = 'owner' | 'admin' | 'manager' | 'chef' | 'waiter' | 'staff' | 'viewer';
+export type UserRole = 'owner' | 'admin' | 'regional_manager' | 'manager' | 'chef' | 'waiter' | 'staff' | 'viewer';
 
 export type Permission = 
   // Dashboard permissions
@@ -146,6 +146,25 @@ export const rolePermissions: RolePermissions = {
     'audit.view', 'audit.export',
     'backup.create', 'backup.restore', 'backup.view',
     'gdpr.view', 'gdpr.export', 'gdpr.delete'
+  ],
+  regional_manager: [
+    // Multi-branch oversight — everything a manager has + financial + analytics + users
+    'dashboard.view', 'dashboard.analytics',
+    'orders.view', 'orders.create', 'orders.update', 'orders.delete', 'pos.access',
+    'menu.view', 'menu.create', 'menu.update', 'menu.delete',
+    'inventory.view', 'inventory.create', 'inventory.update', 'inventory.delete',
+    'staff.view', 'staff.create', 'staff.update', 'staff.delete',
+    'customers.view', 'customers.create', 'customers.update', 'customers.delete',
+    'rooms.view', 'rooms.create', 'rooms.update', 'rooms.delete', 'rooms.checkout',
+    'reservations.view', 'reservations.create', 'reservations.update', 'reservations.delete',
+    'analytics.view', 'analytics.export',
+    'financial.view', 'financial.create', 'financial.update', 'financial.reports',
+    'settings.view', 'settings.update', 'users.manage',
+    'kitchen.view', 'kitchen.update',
+    'tables.view', 'tables.create', 'tables.update', 'tables.delete',
+    'housekeeping.view', 'housekeeping.create', 'housekeeping.update', 'housekeeping.delete', 'housekeeping.assign',
+    'audit.view', 'audit.export',
+    'gdpr.view'
   ],
   manager: [
     // All access except financial reports - managers can now view analytics
