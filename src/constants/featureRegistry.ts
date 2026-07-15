@@ -267,17 +267,47 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
     ],
   },
 
-  // ─── Reservations & Rooms ─────────────────────────────────────────────
+  // ─── Reservations ──────────────────────────────────────────────────────
   {
     id: 'reservations',
-    label: 'Reservations & Rooms',
+    label: 'Reservations',
     icon: 'CalendarDays',
     color: 'from-rose-500 to-pink-600',
     features: [
-      { key: 'reservations.basic', label: 'Reservations', description: 'Table booking management' },
+      { key: 'reservations.basic', label: 'Reservations', description: 'Table & room booking management' },
+    ],
+  },
+
+  // ─── Rooms ────────────────────────────────────────────────────────────
+  {
+    id: 'rooms',
+    label: 'Rooms',
+    icon: 'Bed',
+    color: 'from-violet-500 to-indigo-600',
+    features: [
       { key: 'rooms.management', label: 'Room Management', description: 'Hotel room CRUD' },
+    ],
+  },
+
+  // ─── Housekeeping ─────────────────────────────────────────────────────
+  {
+    id: 'housekeeping',
+    label: 'Housekeeping',
+    icon: 'Sparkles',
+    color: 'from-teal-500 to-emerald-600',
+    features: [
       { key: 'rooms.housekeeping', label: 'Housekeeping', description: 'Cleaning task management' },
-      { key: 'rooms.channel_mgmt', label: 'Channel Management', description: 'OTA sync' },
+    ],
+  },
+
+  // ─── Channel Management ───────────────────────────────────────────────
+  {
+    id: 'channel_mgmt',
+    label: 'Channel Management',
+    icon: 'Globe',
+    color: 'from-sky-500 to-blue-600',
+    features: [
+      { key: 'rooms.channel_mgmt', label: 'Channel Management', description: 'OTA sync & booking channels' },
     ],
   },
 

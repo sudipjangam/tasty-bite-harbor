@@ -12,7 +12,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   MoreVertical,
@@ -145,6 +144,15 @@ export const UserList = ({
           btn: "bg-blue-600 hover:bg-blue-700",
           gradient: "from-blue-500 to-indigo-600",
         };
+      case "regional_manager":
+      case "regional manager":
+        return {
+          border: "border-indigo-500",
+          badge: "bg-indigo-100 text-indigo-700",
+          icon: "text-indigo-600",
+          btn: "bg-indigo-600 hover:bg-indigo-700",
+          gradient: "from-indigo-500 to-violet-600",
+        };
       case "manager":
         return {
           border: "border-emerald-500",
@@ -168,6 +176,14 @@ export const UserList = ({
           icon: "text-amber-600",
           btn: "bg-amber-500 hover:bg-amber-600",
           gradient: "from-amber-500 to-yellow-600",
+        };
+      case "viewer":
+        return {
+          border: "border-gray-400",
+          badge: "bg-gray-100 text-gray-600",
+          icon: "text-gray-500",
+          btn: "bg-gray-500 hover:bg-gray-600",
+          gradient: "from-gray-400 to-slate-500",
         };
       case "staff":
         return {
@@ -351,23 +367,7 @@ export const UserList = ({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem
-                            onClick={() => setEditingUser(user)}
-                            className="cursor-pointer"
-                          >
-                            <Edit className="mr-2 h-4 w-4 text-blue-500" />
-                            Edit Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => setPermissionUser(user)}
-                            className="cursor-pointer"
-                          >
-                            <Shield className="mr-2 h-4 w-4 text-purple-500" />
-                            Permissions
-                          </DropdownMenuItem>
                           {!isCurrentUser && (
-                            <>
-                              <DropdownMenuSeparator />
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <DropdownMenuItem
@@ -412,7 +412,11 @@ export const UserList = ({
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
-                            </>
+                          )}
+                          {isCurrentUser && (
+                            <DropdownMenuItem disabled className="text-muted-foreground">
+                              No actions available
+                            </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -500,8 +504,8 @@ export const UserList = ({
                       onClick={() => setEditingUser(user)}
                       className={`w-full ${theme.btn} text-white font-semibold py-5 rounded-xl shadow-md transition-all hover:scale-[1.02] active:scale-[0.98]`}
                     >
-                      <UserCog className="h-4 w-4 mr-2" />
-                      Manage User
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit User
                     </Button>
                   </CardContent>
                 </Card>

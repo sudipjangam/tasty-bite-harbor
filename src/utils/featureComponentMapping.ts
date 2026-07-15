@@ -64,9 +64,9 @@ const buildComponentMap = (): Record<string, ComponentMapping> => {
     'quickserve pos': 'quickserve',
     'nc-orders': 'orders',
     'nc orders': 'orders',
-    'channel management': 'reservations',
-    'housekeeping': 'reservations',
-    'rooms': 'reservations',
+    'channel management': 'channel_mgmt',
+    'housekeeping': 'housekeeping',
+    'rooms': 'rooms',
     'user management': 'users_permissions',
     'role management': 'users_permissions',
     'permission management': 'users_permissions',
@@ -93,6 +93,7 @@ const buildComponentMap = (): Record<string, ComponentMapping> => {
       else if (aliasNorm === 'ai assistant') featureKey = 'ai.assistant';
       else if (aliasNorm === 'security') featureKey = 'settings.security';
       else if (aliasNorm === 'nc-orders' || aliasNorm === 'nc orders') featureKey = 'orders.nc_orders';
+      else if (aliasNorm === 'financial') featureKey = 'financial.dashboard';
 
       map[alias.toLowerCase()] = {
         featureKey,
@@ -259,6 +260,9 @@ const getDisplayNameForCategory = (cat: FeatureCategory): string => {
     'expenses': 'Expenses',
     'suppliers': 'Suppliers',
     'reservations': 'Reservations',
+    'rooms': 'Rooms',
+    'housekeeping': 'Housekeeping',
+    'channel_mgmt': 'Channel Management',
     'gate': 'Gate Services',
     'settings': 'Settings',
     'users_permissions': 'User Management',

@@ -183,6 +183,7 @@ export const RoleManagementDashboard = () => {
     if (role.has_full_access || n.includes("admin"))
       return <Crown className="h-5 w-5" />;
     if (n.includes("owner")) return <ShieldCheck className="h-5 w-5" />;
+    if (n.includes("regional")) return <Shield className="h-5 w-5" />;
     if (n.includes("manager")) return <Shield className="h-5 w-5" />;
     if (n.includes("chef")) return <ChefHat className="h-5 w-5" />;
     if (n.includes("waiter")) return <UserCircle className="h-5 w-5" />;
@@ -194,7 +195,6 @@ export const RoleManagementDashboard = () => {
   const getRoleTheme = (role: Role) => {
     const n = role.name.toLowerCase();
 
-    // Theme format: [BorderColor, BadgeColor, IconColor]
     if (role.has_full_access || n.includes("admin")) {
       return {
         border: "border-blue-500",
@@ -209,6 +209,14 @@ export const RoleManagementDashboard = () => {
         badge: "bg-purple-100 text-purple-700",
         icon: "text-purple-600",
         btn: "bg-purple-600 hover:bg-purple-700",
+      };
+    }
+    if (n.includes("regional")) {
+      return {
+        border: "border-indigo-500",
+        badge: "bg-indigo-100 text-indigo-700",
+        icon: "text-indigo-600",
+        btn: "bg-indigo-600 hover:bg-indigo-700",
       };
     }
     if (n.includes("manager")) {
@@ -233,6 +241,14 @@ export const RoleManagementDashboard = () => {
         badge: "bg-amber-100 text-amber-700",
         icon: "text-amber-600",
         btn: "bg-amber-500 hover:bg-amber-600",
+      };
+    }
+    if (n.includes("viewer")) {
+      return {
+        border: "border-gray-400",
+        badge: "bg-gray-100 text-gray-600",
+        icon: "text-gray-500",
+        btn: "bg-gray-500 hover:bg-gray-600",
       };
     }
     if (n.includes("staff")) {

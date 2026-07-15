@@ -1,8 +1,13 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { fetchAllowedComponents, hasFeatureAccess } from "@/utils/subscriptionUtils";
+import {
+  getFeatureKeyForComponent,
+  getCategoryForComponent,
+  syncAppComponentsWithRegistry,
+} from "@/utils/featureComponentMapping";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +22,33 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Loader2,
+  Settings,
+  Shield,
+  ChefHat,
+  Users,
+  BarChart3,
+  DollarSign,
+  Package,
+  Calendar,
+  Home,
+  Zap,
+  ShoppingCart,
+  UtensilsCrossed,
+  LayoutGrid,
+  Truck,
+  CalendarDays,
+  Receipt,
+  Sparkles,
+  Megaphone,
+  Monitor,
+  Soup,
+  Key,
+  UserCheck,
+  Bed,
+  Globe,
+} from "lucide-react";
 
 interface CreateRoleDialogProps {
   open: boolean;
@@ -30,38 +62,32 @@ interface AppComponent {
   description: string | null;
 }
 
-const getFeatureKeyForAppComp = (name: string): string => {
-  const n = name.toLowerCase();
-  switch (n) {
-    case 'dashboard': return 'dashboard.basic';
-    case 'orders': return 'orders.view';
-    case 'pos': return 'pos.basic';
-    case 'qsr pos': return 'quickserve.qsr_pos';
-    case 'menu': return 'menu.basic';
-    case 'inventory': return 'inventory.overview';
-    case 'staff': return 'staff.roster';
-    case 'customers': return 'customers.basic';
-    case 'crm': return 'customers.crm';
-    case 'rooms': return 'rooms.management';
-    case 'reservations': return 'reservations.basic';
-    case 'analytics': return 'reports.analytics';
-    case 'financial': return 'financial.dashboard';
-    case 'expenses': return 'expenses.basic';
-    case 'settings': return 'settings.basic';
-    case 'kitchen': return 'kitchen.kds';
-    case 'tables': return 'tables.grid';
-    case 'housekeeping': return 'rooms.housekeeping';
-    case 'security': return 'settings.security';
-    case 'reports': return 'reports.analytics';
-    case 'marketing': return 'marketing.campaigns';
-    case 'recipes': return 'recipes.view';
-    case 'suppliers': return 'suppliers.basic';
-    case 'channel management': return 'rooms.channel_mgmt';
-    case 'user management': return 'users_permissions.user_access';
-    case 'role management': return 'users_permissions.permission_management';
-    case 'ai assistant': return 'ai.assistant';
-    default: return `${n.replace(/\s+/g, '_')}.view`;
-  }
+// ─── Icon map for dynamic registry-based category rendering ──────────────
+const ICON_MAP: Record<string, any> = {
+  LayoutDashboard: Home,
+  Monitor,
+  Zap,
+  ShoppingCart,
+  ChefHat,
+  UtensilsCrossed,
+  Package,
+  Soup,
+  LayoutGrid,
+  BarChart3,
+  Users,
+  UserCheck,
+  DollarSign,
+  Receipt,
+  Truck,
+  CalendarDays,
+  Shield,
+  Settings,
+  Sparkles,
+  Megaphone,
+  Key,
+  Calendar,
+  Bed,
+  Globe,
 };
 
 export const CreateRoleDialog = ({
@@ -83,33 +109,85 @@ export const CreateRoleDialog = ({
     return user.role_has_full_access || userRole.includes("admin");
   })();
 
-  // Fetch components filtered by restaurant subscription
-  const { data: components } = useQuery({
+  // Fetch components filtered by restaurant subscription (auto-synced with registry)
+  const { data: components, isLoading: componentsLoading } = useQuery({
     queryKey: ["app-components-filtered", user?.restaurant_id],
     queryFn: async () => {
       if (!user?.restaurant_id) return [];
+
+      // Auto-sync app_components table with feature registry
+      const allComponents = await syncAppComponentsWithRegistry();
 
       // Get subscription plan components
       const subscriptionComponents = await fetchAllowedComponents(
         user.restaurant_id
       );
 
-      const { data, error } = await supabase
-        .from("app_components")
-        .select("*")
-        .order("name");
-
-      if (error) throw error;
-
       // Filter to only show components the restaurant has access to
-      return (data as AppComponent[]).filter((c) => {
-        const featureKey = getFeatureKeyForAppComp(c.name);
-        return hasFeatureAccess(featureKey, subscriptionComponents) || 
+      return (allComponents as AppComponent[]).filter((c) => {
+        const featureKey = getFeatureKeyForComponent(c.name);
+        return hasFeatureAccess(featureKey, subscriptionComponents) ||
                subscriptionComponents.some((sc) => sc.toLowerCase() === c.name.toLowerCase());
       });
     },
     enabled: open && !!user?.restaurant_id,
   });
+
+  // Group components by macro category (derived from FEATURE_REGISTRY)
+  const groupedComponents = useMemo(() => {
+    if (!components) return {};
+    
+    const MACRO_GROUPS = {
+      Overview: ["Dashboard"],
+      Operations: [
+        "POS", "Orders", "QSR POS", "QuickServe POS", 
+        "Kitchen", "Kitchen TV", "Recipes", "Menu", 
+        "Tables", "Inventory"
+      ],
+      "Guest Services": ["Rooms", "Reservations", "Housekeeping"],
+      Management: [
+        "Staff", "Customers", "Marketing", "User Management", 
+        "Permission Management", "Channel Management", 
+        "Analytics", "Financial"
+      ],
+      System: ["Settings", "Gate Services", "AI Assistant"]
+    };
+
+    const categoryToMacroGroup = (catLabel: string) => {
+      if (MACRO_GROUPS.Operations.includes(catLabel)) return "Operations";
+      if (MACRO_GROUPS["Guest Services"].includes(catLabel)) return "Guest Services";
+      if (MACRO_GROUPS.Management.includes(catLabel)) return "Management";
+      if (MACRO_GROUPS.Overview.includes(catLabel)) return "Overview";
+      return "System";
+    };
+
+    const groups: Record<string, AppComponent[]> = {
+      Overview: [],
+      Operations: [],
+      "Guest Services": [],
+      Management: [],
+      System: []
+    };
+
+    components.forEach((comp) => {
+      const catInfo = getCategoryForComponent(comp.name);
+      const macro = categoryToMacroGroup(catInfo.label);
+      if (groups[macro]) {
+        groups[macro].push(comp);
+      } else {
+        groups[macro] = [comp];
+      }
+    });
+
+    // Remove empty macro groups
+    Object.keys(groups).forEach(key => {
+      if (!groups[key] || groups[key].length === 0) {
+        delete groups[key];
+      }
+    });
+
+    return groups;
+  }, [components]);
 
   const handleToggleComponent = (componentId: string) => {
     setSelectedComponents((prev) =>
@@ -117,6 +195,21 @@ export const CreateRoleDialog = ({
         ? prev.filter((id) => id !== componentId)
         : [...prev, componentId]
     );
+  };
+
+  const handleSelectAll = (category: string) => {
+    const categoryComponents = groupedComponents[category] || [];
+    const allSelected = categoryComponents.every((c) =>
+      selectedComponents.includes(c.id)
+    );
+    if (allSelected) {
+      setSelectedComponents((prev) =>
+        prev.filter((id) => !categoryComponents.find((c) => c.id === id))
+      );
+    } else {
+      const newIds = categoryComponents.map((c) => c.id);
+      setSelectedComponents((prev) => [...new Set([...prev, ...newIds])]);
+    }
   };
 
   const handleSubmit = async () => {
@@ -142,7 +235,6 @@ export const CreateRoleDialog = ({
 
     setIsSubmitting(true);
     try {
-      // Validate session to ensure supabase-js will attach the auth token automatically
       const { data: sessionData, error: sessionError } =
         await supabase.auth.getSession();
 
@@ -158,7 +250,6 @@ export const CreateRoleDialog = ({
         throw new Error("You must be signed in to perform this action.");
       }
 
-      // Prepare payload and add rich client-side logs
       const payload = {
         action: "create",
         name: name.trim(),
@@ -170,7 +261,6 @@ export const CreateRoleDialog = ({
         componentCount: selectedComponents.length,
       });
 
-      // Use supabase.functions.invoke with JSON-stringified body
       const { data, error } = await supabase.functions.invoke(
         "role-management",
         {
@@ -214,80 +304,163 @@ export const CreateRoleDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh]">
-        <DialogHeader>
-          <DialogTitle>Create New Role</DialogTitle>
-          <DialogDescription>
-            Define a new role with specific component access permissions
-          </DialogDescription>
+      <DialogContent className="max-w-3xl max-h-[90vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700/50">
+        <DialogHeader className="pb-4 border-b border-gray-100 dark:border-gray-800">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+              <Shield className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <DialogTitle className="text-lg font-semibold">
+                Create New Role
+              </DialogTitle>
+              <DialogDescription className="text-sm">
+                Define a new role with specific component access permissions
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="name">Role Name *</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Housekeeper, Front Desk"
-            />
+        <div className="space-y-5 pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-sm font-medium">
+                Role Name *
+              </Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., Housekeeper, Front Desk"
+                className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description" className="text-sm font-medium">
+                Description
+              </Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Brief description of this role"
+                rows={2}
+                className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700"
+              />
+            </div>
           </div>
 
-          <div>
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Brief description of this role"
-              rows={3}
-            />
-          </div>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Component Access</Label>
+              <span className="text-xs text-muted-foreground">
+                {selectedComponents.length} / {components?.length || 0} selected
+              </span>
+            </div>
 
-          <div>
-            <Label>Component Access</Label>
-            <p className="text-sm text-muted-foreground mb-3">
-              Select which modules this role can access
-            </p>
-            <ScrollArea className="h-[300px] border rounded-md p-4">
-              <div className="space-y-3">
-                {components?.map((component) => (
-                  <div
-                    key={component.id}
-                    className="flex items-start space-x-3"
-                  >
-                    <Checkbox
-                      id={component.id}
-                      checked={selectedComponents.includes(component.id)}
-                      onCheckedChange={() =>
-                        handleToggleComponent(component.id)
-                      }
-                    />
-                    <div className="flex-1">
-                      <label
-                        htmlFor={component.id}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
-                        {component.name}
-                      </label>
-                      {component.description && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {component.description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
+            {componentsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
-            </ScrollArea>
+            ) : (
+              <ScrollArea className="h-[350px] border rounded-xl p-4 bg-gray-50/50 dark:bg-gray-800/30">
+                <div className="space-y-6">
+                  {Object.entries(groupedComponents).map(
+                    ([macroCategory, comps]) => {
+                      const allSelected = comps.every((c) =>
+                        selectedComponents.includes(c.id)
+                      );
+
+                      const MACRO_COLORS: Record<string, string> = {
+                        Overview: "bg-indigo-50/50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300",
+                        Operations: "bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800/50 text-blue-700 dark:text-blue-300",
+                        "Guest Services": "bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300",
+                        Management: "bg-purple-50/50 dark:bg-purple-900/10 border-purple-100 dark:border-purple-800/50 text-purple-700 dark:text-purple-300",
+                        System: "bg-slate-50/50 dark:bg-slate-900/10 border-slate-100 dark:border-slate-800/50 text-slate-700 dark:text-slate-300",
+                      };
+                      const colorClass = MACRO_COLORS[macroCategory] || MACRO_COLORS.System;
+
+                      return (
+                        <div key={macroCategory} className={`p-4 rounded-xl border ${colorClass} space-y-3`}>
+                          <div className="flex items-center justify-between mb-1">
+                            <h3 className="text-xs font-bold uppercase tracking-wider">{macroCategory}</h3>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSelectAll(macroCategory)}
+                              className="text-xs h-7 opacity-80 hover:opacity-100 bg-white/50 dark:bg-gray-800/50"
+                            >
+                              {allSelected ? "Deselect All" : "Select All"}
+                            </Button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {comps.map((component) => {
+                              const catMeta = getCategoryForComponent(component.name);
+                              const Icon = ICON_MAP[catMeta.icon] || Settings;
+
+                              return (
+                                <div
+                                  key={component.id}
+                                  className={`flex items-start gap-3 p-2.5 rounded-lg border transition-all cursor-pointer bg-white dark:bg-gray-800/80 ${
+                                    selectedComponents.includes(component.id)
+                                      ? "border-primary/50 shadow-sm"
+                                      : "border-transparent hover:border-gray-300 dark:hover:border-gray-600"
+                                  }`}
+                                  onClick={() => handleToggleComponent(component.id)}
+                                >
+                                  <Checkbox
+                                    id={`create-${component.id}`}
+                                    checked={selectedComponents.includes(component.id)}
+                                    onCheckedChange={() => handleToggleComponent(component.id)}
+                                    className="mt-0.5 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <label
+                                      htmlFor={`create-${component.id}`}
+                                      className="text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer flex items-center gap-1.5"
+                                    >
+                                      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                                      {component.name}
+                                    </label>
+                                    {component.description && (
+                                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                        {component.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    }
+                  )}
+                </div>
+              </ScrollArea>
+            )}
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Role"}
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting || componentsLoading}
+              className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg shadow-emerald-500/25"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Role"
+              )}
             </Button>
           </div>
         </div>

@@ -8079,6 +8079,7 @@ export type Database = {
       user_role:
         | "admin"
         | "manager"
+        | "regional_manager"
         | "owner"
         | "chef"
         | "waiter"

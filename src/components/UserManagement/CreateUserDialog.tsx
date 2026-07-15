@@ -61,6 +61,7 @@ export const CreateUserDialog = ({
     "waiter",
     "chef",
     "manager",
+    "regional_manager",
     "admin",
     "owner",
   ]);

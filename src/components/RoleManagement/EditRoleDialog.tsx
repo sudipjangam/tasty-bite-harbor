@@ -47,6 +47,8 @@ import {
   Soup,
   Key,
   UserCheck,
+  Bed,
+  Globe,
 } from "lucide-react";
 
 interface Role {
@@ -95,6 +97,8 @@ const ICON_MAP: Record<string, any> = {
   Megaphone,
   Key,
   Calendar,
+  Bed,
+  Globe,
 };
 
 export const EditRoleDialog = ({
@@ -160,16 +164,59 @@ export const EditRoleDialog = ({
     enabled: open,
   });
 
-  // Group components by category (derived from FEATURE_REGISTRY)
+  // Group components by macro category (derived from FEATURE_REGISTRY)
   const groupedComponents = useMemo(() => {
     if (!components) return {};
-    const groups: Record<string, AppComponent[]> = {};
+    
+    const MACRO_GROUPS = {
+      Overview: ["Dashboard"],
+      Operations: [
+        "POS", "Orders", "QSR POS", "QuickServe POS", 
+        "Kitchen", "Kitchen TV", "Recipes", "Menu", 
+        "Tables", "Inventory"
+      ],
+      "Guest Services": ["Rooms", "Reservations", "Housekeeping"],
+      Management: [
+        "Staff", "Customers", "Marketing", "User Management", 
+        "Permission Management", "Channel Management", 
+        "Analytics", "Financial"
+      ],
+      System: ["Settings", "Gate Services", "AI Assistant"]
+    };
+
+    const categoryToMacroGroup = (catLabel: string) => {
+      if (MACRO_GROUPS.Operations.includes(catLabel)) return "Operations";
+      if (MACRO_GROUPS["Guest Services"].includes(catLabel)) return "Guest Services";
+      if (MACRO_GROUPS.Management.includes(catLabel)) return "Management";
+      if (MACRO_GROUPS.Overview.includes(catLabel)) return "Overview";
+      return "System";
+    };
+
+    const groups: Record<string, AppComponent[]> = {
+      Overview: [],
+      Operations: [],
+      "Guest Services": [],
+      Management: [],
+      System: []
+    };
+
     components.forEach((comp) => {
       const catInfo = getCategoryForComponent(comp.name);
-      const catKey = catInfo.label;
-      if (!groups[catKey]) groups[catKey] = [];
-      groups[catKey].push(comp);
+      const macro = categoryToMacroGroup(catInfo.label);
+      if (groups[macro]) {
+        groups[macro].push(comp);
+      } else {
+        groups[macro] = [comp];
+      }
     });
+
+    // Remove empty macro groups
+    Object.keys(groups).forEach(key => {
+      if (!groups[key] || groups[key].length === 0) {
+        delete groups[key];
+      }
+    });
+
     return groups;
   }, [components]);
 
@@ -368,80 +415,77 @@ export const EditRoleDialog = ({
               <ScrollArea className="h-[350px] border rounded-xl p-4 bg-gray-50/50 dark:bg-gray-800/30">
                 <div className="space-y-6">
                   {Object.entries(groupedComponents).map(
-                    ([category, comps]) => {
-                      // Derive category info from first component in the group
-                      const firstComp = comps[0];
-                      const catMeta = firstComp ? getCategoryForComponent(firstComp.name) : { icon: 'Settings', label: category, color: 'from-slate-500 to-gray-500' };
-                      const Icon = ICON_MAP[catMeta.icon] || Settings;
+                    ([macroCategory, comps]) => {
                       const allSelected = comps.every((c) =>
                         selectedComponents.includes(c.id)
                       );
-                      const someSelected = comps.some((c) =>
-                        selectedComponents.includes(c.id)
-                      );
+
+                      const MACRO_COLORS: Record<string, string> = {
+                        Overview: "bg-indigo-50/50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300",
+                        Operations: "bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800/50 text-blue-700 dark:text-blue-300",
+                        "Guest Services": "bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300",
+                        Management: "bg-purple-50/50 dark:bg-purple-900/10 border-purple-100 dark:border-purple-800/50 text-purple-700 dark:text-purple-300",
+                        System: "bg-slate-50/50 dark:bg-slate-900/10 border-slate-100 dark:border-slate-800/50 text-slate-700 dark:text-slate-300",
+                      };
+                      const colorClass = MACRO_COLORS[macroCategory] || MACRO_COLORS.System;
 
                       return (
-                        <div key={category} className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div
-                                className={`h-6 w-6 rounded-lg bg-gradient-to-br ${catMeta.color} flex items-center justify-center`}
-                              >
-                                <Icon className="h-3.5 w-3.5 text-white" />
-                              </div>
-                              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                {catMeta.label}
-                              </span>
-                            </div>
+                        <div key={macroCategory} className={`p-4 rounded-xl border ${colorClass} space-y-3`}>
+                          <div className="flex items-center justify-between mb-1">
+                            <h3 className="text-xs font-bold uppercase tracking-wider">{macroCategory}</h3>
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleSelectAll(category)}
-                              className="text-xs h-7"
+                              onClick={() => handleSelectAll(macroCategory)}
+                              className="text-xs h-7 opacity-80 hover:opacity-100 bg-white/50 dark:bg-gray-800/50"
+                              disabled={role.has_full_access}
                             >
                               {allSelected ? "Deselect All" : "Select All"}
                             </Button>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pl-2">
-                            {comps.map((component) => (
-                              <div
-                                key={component.id}
-                                className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all cursor-pointer ${
-                                  selectedComponents.includes(component.id)
-                                    ? "bg-primary/5 border-primary/30 dark:bg-primary/10"
-                                    : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300"
-                                }`}
-                                onClick={() =>
-                                  handleToggleComponent(component.id)
-                                }
-                              >
-                                <Checkbox
-                                  id={component.id}
-                                  checked={selectedComponents.includes(
-                                    component.id
-                                  )}
-                                  onCheckedChange={() =>
-                                    handleToggleComponent(component.id)
-                                  }
-                                  className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                                />
-                                <div className="flex-1 min-w-0">
-                                  <label
-                                    htmlFor={component.id}
-                                    className="text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer"
-                                  >
-                                    {component.name}
-                                  </label>
-                                  {component.description && (
-                                    <p className="text-xs text-muted-foreground truncate">
-                                      {component.description}
-                                    </p>
-                                  )}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {comps.map((component) => {
+                              const catMeta = getCategoryForComponent(component.name);
+                              const Icon = ICON_MAP[catMeta.icon] || Settings;
+
+                              return (
+                                <div
+                                  key={component.id}
+                                  className={`flex items-start gap-3 p-2.5 rounded-lg border transition-all cursor-pointer bg-white dark:bg-gray-800/80 ${
+                                    selectedComponents.includes(component.id)
+                                      ? "border-primary/50 shadow-sm"
+                                      : "border-transparent hover:border-gray-300 dark:hover:border-gray-600"
+                                  } ${role.has_full_access ? "opacity-70 cursor-not-allowed" : ""}`}
+                                  onClick={() => !role.has_full_access && handleToggleComponent(component.id)}
+                                >
+                                  <Checkbox
+                                    id={`edit-${component.id}`}
+                                    checked={selectedComponents.includes(component.id)}
+                                    onCheckedChange={() => handleToggleComponent(component.id)}
+                                    disabled={role.has_full_access}
+                                    className="mt-0.5 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <label
+                                      htmlFor={`edit-${component.id}`}
+                                      className={`text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center gap-1.5 ${
+                                        role.has_full_access ? "cursor-not-allowed" : "cursor-pointer"
+                                      }`}
+                                    >
+                                      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                                      {component.name}
+                                    </label>
+                                    {component.description && (
+                                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                        {component.description}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       );
