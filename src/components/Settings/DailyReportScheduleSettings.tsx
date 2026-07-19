@@ -131,7 +131,7 @@ export const DailyReportScheduleSettings: React.FC = () => {
         id: existingSettings.id,
         restaurant_id: existingSettings.restaurant_id,
         is_enabled: existingSettings.is_enabled || false,
-        report_time: existingSettings.report_time || "23:00",
+        report_time: existingSettings.report_time ? existingSettings.report_time.substring(0, 5) : "23:00",
         timezone: existingSettings.timezone || "Asia/Kolkata",
         send_whatsapp: existingSettings.send_whatsapp ?? true,
         send_email: existingSettings.send_email ?? true,
@@ -342,23 +342,14 @@ export const DailyReportScheduleSettings: React.FC = () => {
             <Clock className="h-4 w-4 text-orange-500" />
             Report Send Time
           </Label>
-          <Select
+          <Input
+            type="time"
             value={settings.report_time}
-            onValueChange={(value) =>
-              setSettings((prev) => ({ ...prev, report_time: value }))
+            onChange={(e) =>
+              setSettings((prev) => ({ ...prev, report_time: e.target.value }))
             }
-          >
-            <SelectTrigger className="w-full max-w-xs rounded-xl">
-              <SelectValue placeholder="Select time" />
-            </SelectTrigger>
-            <SelectContent>
-              {TIME_OPTIONS.map((time) => (
-                <SelectItem key={time} value={time}>
-                  {formatTime12h(time)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            className="w-full max-w-xs rounded-xl"
+          />
           <p className="text-xs text-gray-500 dark:text-gray-400">
             Report will be generated and sent at this time daily (IST)
           </p>
