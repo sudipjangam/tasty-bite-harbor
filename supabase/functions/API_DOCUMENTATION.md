@@ -397,6 +397,49 @@ All endpoints require a valid JWT token in the `Authorization` header:
 Authorization: Bearer <your-jwt-token>
 ```
 
+## Daily Report Functions
+
+### `send-daily-report`
+Generates and sends end-of-day sales reports via WhatsApp (Meta Cloud API) and Email (Titan SMTP). Triggered by pg_cron every 15 minutes or manually via API.
+
+**Auth:** Service Role Key (cron) or JWT (manual test)
+
+**Request (manual trigger):**
+```json
+{
+  "restaurantId": "uuid"
+}
+```
+
+**Request (cron trigger):** Empty body `{}`
+
+**Behavior:**
+1. Queries `scheduled_report_settings` for enabled restaurants due for report
+2. Generates report from `kitchen_orders`, `pos_transactions`, `expenses`, `recipes`
+3. Saves to `daily_summary_reports` (upsert)
+4. Sends WhatsApp text message via Meta Cloud API
+5. Sends HTML email via Titan SMTP (`inquiry@swadeshisolutions.co.in`)
+6. Updates `last_sent_date` to prevent double-sends
+
+**Response:**
+```json
+{
+  "success": true,
+  "count": 2,
+  "results": [
+    {
+      "restaurantId": "uuid",
+      "restaurantName": "My Restaurant",
+      "success": true,
+      "orders": 42,
+      "revenue": 15800
+    }
+  ]
+}
+```
+
+---
+
 ## Error Responses
 
 All endpoints return consistent error format:
