@@ -45,6 +45,7 @@ import { SystemConfigurationTab } from "@/components/Settings/SystemConfiguratio
 import { AuditLogTab } from "@/components/Settings/AuditLogTab";
 import QRSettingsTab from "@/components/Settings/QRSettingsTab";
 import LocationSettingsTab from "@/components/Settings/LocationSettingsTab";
+import DailyReportScheduleSettings from "@/components/Settings/DailyReportScheduleSettings";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
 
@@ -695,6 +696,11 @@ const Settings = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Auto Daily Report Settings */}
+                <div className="mb-10">
+                  <DailyReportScheduleSettings />
+                </div>
 
                 <Separator className="my-8" />
 

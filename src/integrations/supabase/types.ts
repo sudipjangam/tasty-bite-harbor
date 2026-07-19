@@ -1288,6 +1288,62 @@ export type Database = {
           },
         ]
       }
+      scheduled_report_settings: {
+        Row: {
+          id: string
+          restaurant_id: string
+          is_enabled: boolean
+          report_time: string
+          timezone: string
+          send_whatsapp: boolean
+          send_email: boolean
+          whatsapp_numbers: string[]
+          email_addresses: string[]
+          last_sent_date: string | null
+          last_delivery_status: Json | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          restaurant_id: string
+          is_enabled?: boolean
+          report_time?: string
+          timezone?: string
+          send_whatsapp?: boolean
+          send_email?: boolean
+          whatsapp_numbers?: string[]
+          email_addresses?: string[]
+          last_sent_date?: string | null
+          last_delivery_status?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          restaurant_id?: string
+          is_enabled?: boolean
+          report_time?: string
+          timezone?: string
+          send_whatsapp?: boolean
+          send_email?: boolean
+          whatsapp_numbers?: string[]
+          email_addresses?: string[]
+          last_sent_date?: string | null
+          last_delivery_status?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_report_settings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: true
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expense_categories: {
         Row: {
           created_at: string | null
