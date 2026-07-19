@@ -75,8 +75,9 @@ async function generateDailyReport(
   restaurantId: string,
   reportDate: string
 ): Promise<DailySummaryData> {
-  const dayStart = `${reportDate}T00:00:00.000Z`;
-  const dayEnd = `${reportDate}T23:59:59.999Z`;
+  // Use IST date range (UTC+5:30) to correctly capture today's orders
+  const dayStart = `${reportDate}T00:00:00.000+05:30`;
+  const dayEnd = `${reportDate}T23:59:59.999+05:30`;
 
   // 1. Fetch kitchen_orders
   const { data: orders } = await supabase
@@ -687,17 +688,35 @@ async function sendWhatsAppReport(
     let cleanPhone = phoneNumber.replace(/[\+\-\s]/g, "");
     if (cleanPhone.length === 10) cleanPhone = "91" + cleanPhone;
 
-    // Send as text message (business-initiated conversation)
-    // NOTE: This works within 24-hour window or with approved templates
-    // For automated daily reports, a template is recommended
-    const payload = {
+    // --- Try approved template first (required for business-initiated outside 24h) ---
+    const templatePayload = {
       messaging_product: "whatsapp",
       to: cleanPhone,
-      type: "text",
-      text: { body: message },
+      type: "template",
+      template: {
+        name: "daily_sales_report",
+        language: { code: "en" },
+        components: [
+          {
+            type: "body",
+            parameters: [
+              { type: "text", text: restaurantName },
+              { type: "text", text: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }) },
+              { type: "text", text: String(message.match(/Total Orders: \*(\d+)\*/)?.[1] || "0") },
+              { type: "text", text: (message.match(/Total Revenue: \*[^0-9]*([\d,.]+)\*/)?.[1] || "0") },
+              { type: "text", text: (message.match(/Items Sold: \*(\d+)\*/)?.[1] || "0") },
+              { type: "text", text: (message.match(/Avg Order: \*[^0-9]*([\d,.]+)\*/)?.[1] || "0") },
+              { type: "text", text: (message.match(/Peak Hour: \*([^*]+)\*/)?.[1] || "N/A") },
+              { type: "text", text: (message.match(/💵 Cash:[^\n]+\n📱 UPI:[^\n]+\n💳 Card:[^\n]+/)?.[0]?.replace(/[*]/g, "") || "N/A") },
+              { type: "text", text: (message.match(/🏆 \*TOP ITEMS\*[^═]*/s)?.[0]?.split("\n").slice(2, 7).join("\n") || "N/A") },
+              { type: "text", text: (message.match(/💸 \*PROFIT[^═]*/s)?.[0] || "") },
+            ],
+          },
+        ],
+      },
     };
 
-    const res = await fetch(
+    let res = await fetch(
       `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`,
       {
         method: "POST",
@@ -705,11 +724,34 @@ async function sendWhatsAppReport(
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(templatePayload),
       }
     );
 
-    const data = await res.json();
+    let data = await res.json();
+
+    // Fallback to plain text if template fails
+    if (!res.ok) {
+      console.warn("Template send failed, trying plain text:", data?.error?.message);
+      const textPayload = {
+        messaging_product: "whatsapp",
+        to: cleanPhone,
+        type: "text",
+        text: { body: message },
+      };
+      res = await fetch(
+        `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(textPayload),
+        }
+      );
+      data = await res.json();
+    }
 
     if (!res.ok) {
       console.error("WhatsApp API error:", data);
