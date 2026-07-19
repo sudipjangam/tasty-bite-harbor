@@ -612,33 +612,48 @@ async function sendEmailViaTitan(
     return { success: false, error: "TITAN_SMTP_PASS not configured" };
   }
 
-  try {
-    const client = new SMTPClient({
-      connection: {
-        hostname: smtpHost,
-        port: smtpPort,
-        tls: true,
-        auth: { username: smtpUser, password: smtpPass },
-      },
-    });
+  // Try port 587 (STARTTLS) first, then fallback to 465 (SSL)
+  // Titan may block 465 from cloud/Supabase IPs
+  const portConfigs = [
+    { port: 587, tls: false },
+    { port: 465, tls: true },
+  ];
 
-    await client.send({
-      from: `Swadeshi Solutions <${smtpUser}>`,
-      to,
-      subject,
-      html: htmlContent.replace(/\r?\n/g, "\r\n"),
-    });
+  let lastError: any;
+  for (const cfg of portConfigs) {
+    let client: any;
+    try {
+      client = new SMTPClient({
+        connection: {
+          hostname: smtpHost,
+          port: cfg.port,
+          tls: cfg.tls,
+          auth: { username: smtpUser, password: smtpPass },
+        },
+      });
 
-    await client.close();
-    console.log(`📧 Email sent to ${to} via Titan SMTP`);
-    return { success: true };
-  } catch (err) {
-    console.error("Titan SMTP error:", err);
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : String(err),
-    };
+      await client.send({
+        from: `Swadeshi Solutions <${smtpUser}>`,
+        to,
+        subject,
+        html: htmlContent.replace(/\r?\n/g, "\r\n"),
+      });
+
+      await client.close();
+      console.log(`📧 Email sent to ${to} via Titan SMTP port ${cfg.port}`);
+      return { success: true };
+    } catch (err) {
+      lastError = err;
+      console.warn(`SMTP port ${cfg.port} failed: ${err instanceof Error ? err.message : String(err)}`);
+      try { await client?.close(); } catch { /* ignore */ }
+    }
   }
+
+  console.error("All Titan SMTP ports failed:", lastError);
+  return {
+    success: false,
+    error: lastError instanceof Error ? lastError.message : String(lastError),
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
