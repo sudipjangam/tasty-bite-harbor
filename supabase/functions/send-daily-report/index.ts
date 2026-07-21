@@ -567,7 +567,7 @@ function buildEmailHTML(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Email Sender — Titan SMTP
+// Email Sender — Resend API (primary) + Titan SMTP (fallback)
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function sendEmailViaTitan(
@@ -575,13 +575,41 @@ async function sendEmailViaTitan(
   subject: string,
   htmlContent: string
 ): Promise<{ success: boolean; error?: string }> {
+  // --- Primary: Resend API (works perfectly from cloud/edge functions) ---
+  const resendKey = Deno.env.get("RESEND_API_KEY");
+  if (resendKey) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: "Swadeshi Solutions <noreply@swadeshisolutions.co.in>",
+          to: [to],
+          subject,
+          html: htmlContent,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        console.log(`📧 Email sent to ${to} via Resend`);
+        return { success: true };
+      }
+      console.warn("Resend failed:", JSON.stringify(data));
+    } catch (err) {
+      console.warn("Resend error:", err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  // --- Fallback: Titan SMTP ---
   const smtpPass = Deno.env.get("TITAN_SMTP_PASS");
   const smtpUser = "inquiry@swadeshisolutions.co.in";
   const smtpHost = "smtp.titan.email";
-  const smtpPort = 465;
 
   if (!smtpPass) {
-    // Fallback: try existing SMTP config
+    // Try existing SMTP config
     const fallbackUser = Deno.env.get("SMTP_USER");
     const fallbackPass = Deno.env.get("SMTP_PASS");
     if (fallbackUser && fallbackPass) {
@@ -609,36 +637,51 @@ async function sendEmailViaTitan(
         };
       }
     }
-    return { success: false, error: "TITAN_SMTP_PASS not configured" };
+    if (!resendKey) return { success: false, error: "No email provider configured (set RESEND_API_KEY or TITAN_SMTP_PASS)" };
+    return { success: false, error: "All email providers failed" };
   }
 
-  try {
-    const client = new SMTPClient({
-      connection: {
-        hostname: smtpHost,
-        port: smtpPort,
-        tls: true,
-        auth: { username: smtpUser, password: smtpPass },
-      },
-    });
+  // Try port 587 (STARTTLS) first, then 465 (SSL)
+  const portConfigs = [
+    { port: 587, tls: false },
+    { port: 465, tls: true },
+  ];
 
-    await client.send({
-      from: `Swadeshi Solutions <${smtpUser}>`,
-      to,
-      subject,
-      html: htmlContent.replace(/\r?\n/g, "\r\n"),
-    });
+  let lastError: any;
+  for (const cfg of portConfigs) {
+    let client: any;
+    try {
+      client = new SMTPClient({
+        connection: {
+          hostname: smtpHost,
+          port: cfg.port,
+          tls: cfg.tls,
+          auth: { username: smtpUser, password: smtpPass },
+        },
+      });
 
-    await client.close();
-    console.log(`📧 Email sent to ${to} via Titan SMTP`);
-    return { success: true };
-  } catch (err) {
-    console.error("Titan SMTP error:", err);
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : String(err),
-    };
+      await client.send({
+        from: `Swadeshi Solutions <${smtpUser}>`,
+        to,
+        subject,
+        html: htmlContent.replace(/\r?\n/g, "\r\n"),
+      });
+
+      await client.close();
+      console.log(`📧 Email sent to ${to} via Titan SMTP port ${cfg.port}`);
+      return { success: true };
+    } catch (err) {
+      lastError = err;
+      console.warn(`SMTP port ${cfg.port} failed: ${err instanceof Error ? err.message : String(err)}`);
+      try { await client?.close(); } catch { /* ignore */ }
+    }
   }
+
+  console.error("All email methods failed");
+  return {
+    success: false,
+    error: lastError instanceof Error ? lastError.message : String(lastError),
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -688,33 +731,15 @@ async function sendWhatsAppReport(
     let cleanPhone = phoneNumber.replace(/[\+\-\s]/g, "");
     if (cleanPhone.length === 10) cleanPhone = "91" + cleanPhone;
 
-    // --- Try approved template first (required for business-initiated outside 24h) ---
-    const templatePayload = {
+    // --- Send plain text first (proven working) ---
+    const textPayload = {
       messaging_product: "whatsapp",
       to: cleanPhone,
-      type: "template",
-      template: {
-        name: "daily_sales_report",
-        language: { code: "en" },
-        components: [
-          {
-            type: "body",
-            parameters: [
-              { type: "text", text: restaurantName },
-              { type: "text", text: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }) },
-              { type: "text", text: String(message.match(/Total Orders: \*(\d+)\*/)?.[1] || "0") },
-              { type: "text", text: (message.match(/Total Revenue: \*[^0-9]*([\d,.]+)\*/)?.[1] || "0") },
-              { type: "text", text: (message.match(/Items Sold: \*(\d+)\*/)?.[1] || "0") },
-              { type: "text", text: (message.match(/Avg Order: \*[^0-9]*([\d,.]+)\*/)?.[1] || "0") },
-              { type: "text", text: (message.match(/Peak Hour: \*([^*]+)\*/)?.[1] || "N/A") },
-              { type: "text", text: (message.match(/💵 Cash:[^\n]+\n📱 UPI:[^\n]+\n💳 Card:[^\n]+/)?.[0]?.replace(/[*]/g, "") || "N/A") },
-              { type: "text", text: (message.match(/🏆 \*TOP ITEMS\*[^═]*/s)?.[0]?.split("\n").slice(2, 7).join("\n") || "N/A") },
-              { type: "text", text: (message.match(/💸 \*PROFIT[^═]*/s)?.[0] || "") },
-            ],
-          },
-        ],
-      },
+      type: "text",
+      text: { body: message },
     };
+
+    console.log(`Sending WhatsApp to ${cleanPhone}...`);
 
     let res = await fetch(
       `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`,
@@ -724,21 +749,36 @@ async function sendWhatsAppReport(
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(templatePayload),
+        body: JSON.stringify(textPayload),
       }
     );
 
     let data = await res.json();
 
-    // Fallback to plain text if template fails
     if (!res.ok) {
-      console.warn("Template send failed, trying plain text:", data?.error?.message);
-      const textPayload = {
+      console.warn(`WhatsApp text failed (${res.status}):`, JSON.stringify(data?.error));
+
+      // Fallback to template if text fails (e.g. outside 24h window)
+      console.log("Trying template fallback...");
+      const templatePayload = {
         messaging_product: "whatsapp",
         to: cleanPhone,
-        type: "text",
-        text: { body: message },
+        type: "template",
+        template: {
+          name: "daily_sales_report",
+          language: { code: "en" },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                { type: "text", text: restaurantName },
+                { type: "text", text: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }) },
+              ],
+            },
+          ],
+        },
       };
+
       res = await fetch(
         `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`,
         {
@@ -747,18 +787,18 @@ async function sendWhatsAppReport(
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(textPayload),
+          body: JSON.stringify(templatePayload),
         }
       );
       data = await res.json();
-    }
 
-    if (!res.ok) {
-      console.error("WhatsApp API error:", data);
-      return {
-        success: false,
-        error: `WhatsApp API error: ${JSON.stringify(data?.error?.message || data)}`,
-      };
+      if (!res.ok) {
+        console.error(`WhatsApp template also failed (${res.status}):`, JSON.stringify(data?.error));
+        return {
+          success: false,
+          error: `WhatsApp API error: ${JSON.stringify(data?.error?.message || data)}`,
+        };
+      }
     }
 
     console.log(`📱 WhatsApp sent to ${cleanPhone}`);
