@@ -968,6 +968,8 @@ Deno.serve(async (req: Request) => {
 
         // ── Send WhatsApp ─────────────────────────────────────────────────
         const deliveryStatus: any = { sent_at: new Date().toISOString() };
+        const waResults: any[] = [];
+        const emailResults: any[] = [];
 
         if (
           report.send_whatsapp &&
@@ -983,21 +985,28 @@ Deno.serve(async (req: Request) => {
 
           for (const phone of report.whatsapp_numbers) {
             if (!phone.trim()) continue;
-            const waResult = await sendWhatsAppReport(
-              supabase,
-              phone.trim(),
-              waMessage,
-              restaurantId,
-              restaurantName
-            );
-            console.log(
-              `WhatsApp to ${phone}: ${waResult.success ? "✅" : "❌ " + waResult.error}`
-            );
+            try {
+              const waResult = await sendWhatsAppReport(
+                supabase,
+                phone.trim(),
+                waMessage,
+                restaurantId,
+                restaurantName
+              );
+              waResults.push({ phone, ...waResult });
+              console.log(
+                `WhatsApp to ${phone}: ${waResult.success ? "✅" : "❌ " + waResult.error}`
+              );
+            } catch (waErr) {
+              console.error(`WhatsApp to ${phone} crashed:`, waErr);
+              waResults.push({ phone, success: false, error: String(waErr) });
+            }
           }
-          deliveryStatus.whatsapp = "sent";
+          deliveryStatus.whatsapp = waResults.some(r => r.success) ? "sent" : "failed";
+          deliveryStatus.whatsapp_details = waResults;
         }
 
-        // ── Send Email ────────────────────────────────────────────────────
+        // ── Send Email (independent — does NOT block WhatsApp) ───────────
         if (
           report.send_email &&
           report.email_addresses &&
@@ -1013,16 +1022,23 @@ Deno.serve(async (req: Request) => {
 
           for (const email of report.email_addresses) {
             if (!email.trim()) continue;
-            const emailResult = await sendEmailViaTitan(
-              email.trim(),
-              emailSubject,
-              emailHTML
-            );
-            console.log(
-              `Email to ${email}: ${emailResult.success ? "✅" : "❌ " + emailResult.error}`
-            );
+            try {
+              const emailResult = await sendEmailViaTitan(
+                email.trim(),
+                emailSubject,
+                emailHTML
+              );
+              emailResults.push({ email, ...emailResult });
+              console.log(
+                `Email to ${email}: ${emailResult.success ? "✅" : "❌ " + emailResult.error}`
+              );
+            } catch (emErr) {
+              console.error(`Email to ${email} crashed:`, emErr);
+              emailResults.push({ email, success: false, error: String(emErr) });
+            }
           }
-          deliveryStatus.email = "sent";
+          deliveryStatus.email = emailResults.some(r => r.success) ? "sent" : "failed";
+          deliveryStatus.email_details = emailResults;
         }
 
         // ── Update tracking ──────────────────────────────────────────────
