@@ -1,6 +1,6 @@
 # 📁 Tasty Bite Harbor — Complete File Reference Map
 
-> **Last updated:** 2026-06-07  
+> **Last updated:** 2026-07-23  
 > Every `.tsx` page, its route, sidebar group, required permission, and key child components.
 
 ---
@@ -212,6 +212,8 @@ All routes below are under `SubscriptionGate` + `PermissionGuard`. Sidebar is vi
 
 All routes below are wrapped inside the `<FranchiseProvider>` context and use the independent `<FranchiseLayout />` sidebar layout.
 
+> **Subscription Gating (added 2026-07-23):** FranchiseLayout is wrapped with `<FeatureLock feature="franchise.dashboard">`. The sidebar `hrefToComponentMap` maps `/franchise` → `"franchise"` subscription component. Feature Permissions Manager exposes 9 franchise checkboxes.
+
 | Route | Page File | Permission/Role | Sidebar Label | Description |
 |---|---|---|---|---|
 | `/franchise` | `pages/Franchise/FranchiseDashboard.tsx` | Franchise role | **Dashboard** | Consolidated branch dashboard with Mum/Pun/Nas charts |
@@ -250,6 +252,7 @@ All under `/platform/*`:
 | `/platform/restaurants` | `pages/Platform/RestaurantManagement.tsx` | Manage all restaurants |
 | `/platform/subscriptions` | `pages/Platform/SubscriptionManager.tsx` | Manage subscriptions |
 | `/platform/feature-permissions` | `pages/Platform/FeaturePermissions.tsx` | Feature toggle per plan |
+| `/platform/franchises` | `pages/Platform/FranchiseAdmin.tsx` | Franchise onboarding & management |
 | `/platform/users` | `pages/Platform/AllUsers.tsx` | All users across restaurants |
 | `/platform/analytics` | `pages/Platform/PlatformAnalytics.tsx` | Platform-wide analytics |
 | `/platform/templates` | `components/Platform/AdminTemplateReview.tsx` | Template review |
@@ -974,6 +977,7 @@ All under `/platform/*`:
 | File | Type/Purpose |
 |------|--------------|
 | AuditLogTab.tsx | Component |
+| DailyReportScheduleSettings.tsx | Scheduled daily report email configuration |
 | LocationSettingsTab.tsx | Component |
 | PaymentSettingsTab.tsx | Component |
 | QRSettingsTab.tsx | Component |
@@ -1189,3 +1193,4 @@ Routes map to subscription component names for access control:
 | `suppliers` | `/suppliers` |
 | `ai` | `/ai` |
 | `settings` | `/settings`, `/security` |
+| `franchise` | `/franchise` |
