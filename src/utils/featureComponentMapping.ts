@@ -271,6 +271,7 @@ const getDisplayNameForCategory = (cat: FeatureCategory): string => {
     'users_permissions': 'User Management',
     'ai': 'AI Assistant',
     'marketing': 'Marketing',
+    'franchise': 'Franchise Portal',
   };
   return knownNames[cat.id] || cat.label;
 };

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -127,6 +128,7 @@ export const FranchiseLayout: React.FC = () => {
   };
 
   return (
+    <FeatureLock feature="franchise.dashboard" interceptClicks={true}>
     <div className="flex h-screen overflow-hidden bg-background">
       {/* ─── Desktop Sidebar ─── */}
       <aside
@@ -338,6 +340,7 @@ export const FranchiseLayout: React.FC = () => {
         <FranchiseMobileNav />
       </div>
     </div>
+    </FeatureLock>
   );
 };
 

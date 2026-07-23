@@ -82,6 +82,7 @@ const hrefToComponentMap: Record<string, string> = {
   "/security": "settings", // Security is under Settings & Security
   "/settings": "settings",
   "/digital-twin": "tables",
+  "/franchise": "franchise",
 };
 
 interface NavigationItem {
