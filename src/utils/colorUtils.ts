@@ -76,16 +76,28 @@ export interface ThemePreset {
   color2: string;
   mode: 'gradient' | 'solid';
   direction: number;
+  isDefault?: boolean;
 }
 
 export const THEME_PRESETS: ThemePreset[] = [
   {
+    id: 'swadeshi-default',
+    name: 'Swadeshi Solutions',
+    emoji: '⭐',
+    description: 'Original default theme — reset to factory',
+    color1: '#667eea',
+    color2: '#764ba2',
+    mode: 'gradient',
+    direction: 135,
+    isDefault: true,
+  },
+  {
     id: 'royal-indigo',
     name: 'Royal Indigo',
     emoji: '🟣',
-    description: 'Premium & regal — default Swadeshi theme',
-    color1: '#667eea',
-    color2: '#764ba2',
+    description: 'Premium & regal — deep purple gradient',
+    color1: '#5b21b6',
+    color2: '#7c3aed',
     mode: 'gradient',
     direction: 135,
   },

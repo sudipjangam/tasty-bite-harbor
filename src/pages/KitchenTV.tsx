@@ -82,7 +82,8 @@ const KitchenTV = () => {
     updateStatus,
     updateItemComplete,
     bumpOrder,
-    updatePriority
+    updatePriority,
+    updateOrderItems
   } = useKitchenTVOrders(
     session?.restaurantId || null,
     session?.pin || null
@@ -780,10 +781,10 @@ const KitchenTV = () => {
                 prev === "text-base" ? "text-lg" : prev === "text-lg" ? "text-xl" : "text-base"
               )
             }
-            className="border-slate-850 hover:bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl px-4 flex items-center gap-2"
+            className="bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 text-xs font-semibold rounded-xl px-4 py-2 flex items-center gap-2 shadow-sm"
           >
-            <Grid className="w-4 h-4" />
-            Font Size
+            <Grid className="w-4 h-4 text-indigo-400" />
+            <span>Font Size: <strong className="text-indigo-300 font-bold capitalize">{fontSizeClass === "text-base" ? "Standard" : fontSizeClass === "text-lg" ? "Large" : "Extra Large"}</strong></span>
           </Button>
 
           {/* Sound enable button */}
@@ -791,13 +792,14 @@ const KitchenTV = () => {
             variant="outline"
             size="icon"
             onClick={isAudioEnabled ? disableAudio : enableAudio}
-            className={`rounded-xl border-slate-850 ${
+            title={isAudioEnabled ? "Audio Alerts Enabled" : "Audio Alerts Disabled"}
+            className={`rounded-xl border shadow-sm transition-all ${
               isAudioEnabled
-                ? "bg-green-950/40 border-green-800 text-green-400 hover:bg-green-900/50"
-                : "text-slate-400 hover:bg-slate-800"
+                ? "bg-emerald-900/80 border-emerald-600 text-emerald-300 hover:bg-emerald-800/80"
+                : "bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700"
             }`}
           >
-            {isAudioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+            {isAudioEnabled ? <Volume2 className="w-5 h-5 text-emerald-400" /> : <VolumeX className="w-5 h-5 text-amber-400" />}
           </Button>
 
           {/* Fullscreen Button */}
@@ -805,7 +807,8 @@ const KitchenTV = () => {
             variant="outline"
             size="icon"
             onClick={toggleFullscreen}
-            className="border-slate-850 hover:bg-slate-800 text-slate-300 rounded-xl"
+            title="Toggle Fullscreen"
+            className="bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 rounded-xl shadow-sm"
           >
             <Maximize2 className="w-5 h-5" />
           </Button>
@@ -816,16 +819,17 @@ const KitchenTV = () => {
             size="icon"
             onClick={() => refetch()}
             disabled={isOrdersLoading}
-            className="border-slate-850 hover:bg-slate-800 text-slate-300 rounded-xl"
+            title="Refresh KDS Orders"
+            className="bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 rounded-xl shadow-sm"
           >
-            <RotateCw className={`w-5 h-5 ${isOrdersLoading ? "animate-spin" : ""}`} />
+            <RotateCw className={`w-5 h-5 ${isOrdersLoading ? "animate-spin text-indigo-400" : ""}`} />
           </Button>
 
           {/* Logout Button */}
           <Button
             variant="destructive"
             onClick={handleLogout}
-            className="rounded-xl flex items-center gap-2 px-5 font-bold"
+            className="rounded-xl flex items-center gap-2 px-5 font-bold shadow-md"
           >
             <LogOut className="w-4 h-4" />
             Logout
@@ -845,7 +849,7 @@ const KitchenTV = () => {
       )}
 
       {/* Main KDS Grid Layout */}
-      <div className={`flex-1 p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto mt-6 ${fontSizeClass}`}>
+      <div className={`flex-1 p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden pt-20 ${fontSizeClass}`}>
         <OrdersColumn
           title="New Orders"
           orders={getOrdersByStatus("new")}
