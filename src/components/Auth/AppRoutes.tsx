@@ -147,7 +147,7 @@ export const AppRoutes = () => {
   const location = useLocation();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-100 dark:bg-gray-900">
+    <div className="flex h-screen overflow-hidden">
       {/* Sidebar - Hidden on mobile, hidden on franchise routes */}
       {!location.pathname.startsWith("/franchise") && (
         <div

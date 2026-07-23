@@ -32,6 +32,7 @@ import {
   ImagePlus,
   Upload,
   Trash2,
+  Palette,
 } from "lucide-react";
 import { uploadImage } from "@/utils/imageUpload";
 import { useAuth } from "@/hooks/useAuth";
@@ -46,6 +47,7 @@ import { AuditLogTab } from "@/components/Settings/AuditLogTab";
 import QRSettingsTab from "@/components/Settings/QRSettingsTab";
 import LocationSettingsTab from "@/components/Settings/LocationSettingsTab";
 import DailyReportScheduleSettings from "@/components/Settings/DailyReportScheduleSettings";
+import { BrandingSettingsTab } from "@/components/Settings/BrandingSettingsTab";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
@@ -344,6 +346,13 @@ const Settings = () => {
               >
                 <Clock className="h-5 w-5 flex-shrink-0" />
                 <span className="font-semibold hidden sm:inline">Audit</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="branding"
+                className="flex items-center justify-center gap-2 md:gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-3 md:py-4 px-3 md:px-6 transition-all duration-300 whitespace-nowrap"
+              >
+                <Palette className="h-5 w-5 flex-shrink-0" />
+                <span className="font-semibold hidden sm:inline">Branding</span>
               </TabsTrigger>
               <TabsTrigger
                 value="qr"
@@ -886,6 +895,10 @@ const Settings = () => {
 
           <TabsContent value="audit">
             <AuditLogTab />
+          </TabsContent>
+
+          <TabsContent value="branding">
+            <BrandingSettingsTab />
           </TabsContent>
 
           <TabsContent value="qr">

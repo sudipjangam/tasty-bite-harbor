@@ -70,8 +70,10 @@ export default {
         "brand-light-grey": "#F7FAFC",
         "brand-dark-grey": "#1A202C",
         // New colors from the screenshot
-        "sidebar-purple": "#3f3698",
-        "sidebar-purple-dark": "#2f2b7a",
+        // Sidebar brand colors — now driven by CSS variables for white-label theming
+        // BrandingContext injects --sidebar-background and --sidebar-accent at runtime
+        "sidebar-purple": "hsl(var(--sidebar-background))",
+        "sidebar-purple-dark": "hsl(var(--sidebar-accent))",
         "card-light-bg": "#f8f9fc",
         "insights-bg": "#f0f4ff",
         "insights-border": "#dbe4fe",
