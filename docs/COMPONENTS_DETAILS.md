@@ -213,7 +213,7 @@
 | File | Type/Purpose |
 |------|---|
 | FranchiseBranchSwitcher.tsx | Top header branch selector dropdown |
-| FranchiseLayout.tsx | Dashboard frame, sidebar navigation, demo toggle & alerts |
+| FranchiseLayout.tsx | Dashboard frame, sidebar navigation, demo toggle & alerts. Wrapped with `<FeatureLock feature="franchise.dashboard">` for subscription gating |
 
 ### components/GuestExperience
 | File | Type/Purpose |
@@ -667,6 +667,7 @@
 | File | Type/Purpose |
 |------|--------------|
 | AuditLogTab.tsx | Component |
+| DailyReportScheduleSettings.tsx | Scheduled daily report email configuration |
 | LocationSettingsTab.tsx | Component |
 | PaymentSettingsTab.tsx | Component |
 | QRSettingsTab.tsx | Component |

@@ -1,9 +1,9 @@
 # Franchise Management System — Complete Analysis & Change Specification
 
-**Document Version:** 1.1 (Final)
-**Date:** 2026-07-04
+**Document Version:** 1.2 (Post-Merge Update)
+**Date:** 2026-07-23
 **Author:** Systems Architecture Team
-**Status:** APPROVED — COMPLETED
+**Status:** APPROVED — MERGED INTO PRODUCTION (main branch, 2026-07-23)
 **Project:** Swadeshi Solutions — Tasty Bite Harbor
 **Supabase Project ID:** `bpheiklhiwwcrugmxivp`
 
@@ -50,6 +50,16 @@ This document outlines the complete plan to add **franchise management** to the 
 | New RLS policies added          | 6 (on new tables only) |
 | Existing data deleted           | 0                      |
 | Risk to production              | LOW                    |
+
+### Post-Merge Updates (2026-07-23)
+
+| Event | Details |
+|---|---|
+| Branch merged | `feature/franchise-ui` → `main` (126 files, ~17.8K lines) |
+| Merge conflicts resolved | `index.html` (CSP), `QSPaymentSheet.tsx` (pay_later), `cli-latest` |
+| Files preserved from main | `DailyReportScheduleSettings.tsx`, `send-daily-report/index.ts`, 2 migrations |
+| Subscription gating added | Franchise Portal gated behind `franchise.dashboard` FeatureLock |
+| Additional migrations | 7 new franchise-related migrations (price limits, digest cron, shared customers, approvals, delete function, auto-sync subscriptions, digital twin) |
 
 ---
 
@@ -597,7 +607,14 @@ COMMIT;
 
 ### 7.2 Existing Edge Functions
 
-**No modifications required.** All 46 existing edge functions operate on `restaurant_id` which remains unchanged.
+**No modifications required.** All existing edge functions operate on `restaurant_id` which remains unchanged.
+
+### 7.3 New Edge Functions Added Post-Migration
+
+| Function | Purpose |
+|---|---|
+| `approvals-notifier` | Sends notifications for franchise approval workflows |
+| `send-daily-report` | Automated daily business report emails (scheduled via cron) |
 
 ---
 
@@ -892,3 +909,35 @@ These are spread across the 46 deployed edge functions in `supabase/functions/`.
 ---
 
 *End of Document*
+
+---
+
+## 14. Post-Merge: Subscription Feature Gating (2026-07-23)
+
+### Problem
+Franchise Portal was accessible to all admin users regardless of subscription plan. Needed same checkbox-based feature control as other modules (Dashboard, POS, Kitchen, etc.).
+
+### Solution
+
+**3 files changed:**
+
+| File | Change | Purpose |
+|---|---|---|
+| `ImprovedSidebarNavigation.tsx` | Added `/franchise` → `"franchise"` to `hrefToComponentMap` | Sidebar hides Franchise Portal if plan lacks feature |
+| `featureComponentMapping.ts` | Added `'franchise': 'Franchise Portal'` to `knownNames` | Auto-syncs to `app_components` table for Feature Permissions Manager |
+| `FranchiseLayout.tsx` | Wrapped with `<FeatureLock feature="franchise.dashboard">` | Blocks direct URL access if feature not in subscription |
+
+### Feature Registry Keys (already existed in `featureRegistry.ts`)
+
+| Key | Label |
+|---|---|
+| `franchise.dashboard` | Franchise Dashboard |
+| `franchise.branches` | Branch Management |
+| `franchise.team` | Team & Roles |
+| `franchise.menu_sync` | Menu Sync & Origin |
+| `franchise.orders` | Cross-Branch Orders |
+| `franchise.inventory` | Inventory & Transfers |
+| `franchise.staff` | Staff & Roaming |
+| `franchise.pnl` | Cross-Branch P&L Report |
+| `franchise.settings` | Franchise Settings |
+

@@ -1,6 +1,6 @@
 # Tasty Bite Harbor - Codebase Catalog
 
-Last updated: 2026-06-04
+Last updated: 2026-07-23
 
 ## 1. Route and Permission Matrix
 
@@ -247,12 +247,14 @@ Primary route permissions from `src/components/Auth/AppRoutes.tsx`.
 ## 5. Edge Function Inventory (`supabase/functions`)
 
 - `_shared`
+- `approvals-notifier`
 - `auto-clock-out`
 - `backup-restore`
 - `chat-with-gemini`
 - `check-low-stock`
 - `check-missed-clocks`
 - `check-paytm-status`
+- `create-discounted-payment-link`
 - `create-msg91-template`
 - `create-payment-qr`
 - `create-paytm-qr`
@@ -262,28 +264,35 @@ Primary route permissions from `src/components/Auth/AppRoutes.tsx`.
 - `enroll-customer`
 - `extract-bill-details`
 - `find-active-reservation`
+- `fix-points`
 - `forgot-password`
 - `freeimage-upload`
 - `generate-qr-code`
+- `generate-wa-template`
+- `get-order-status`
 - `get-user-components`
 - `google-drive-upload`
 - `log-promotion-usage`
+- `meta-whatsapp-templates`
 - `migrate-roles-data`
 - `paytm-webhook`
 - `process-razorpay-refund`
 - `record-clock-entry`
 - `reset-password`
 - `role-management`
+- `send-daily-report`
 - `send-email`
 - `send-email-bill`
 - `send-inquiry`
 - `send-msg91-whatsapp`
+- `send-order-update`
 - `send-reservation-confirmation`
 - `send-reservation-reminder`
 - `send-subscription-confirmation`
 - `send-whatsapp`
 - `send-whatsapp-bill`
 - `send-whatsapp-cloud`
+- `send-whatsapp-unified`
 - `submit-qr-order`
 - `sync-channels`
 - `sync-msg91-template-status`
@@ -432,5 +441,36 @@ Recent migration files (latest set) show active work in:
 - granular feature permissions
 - POS customer mapping
 - Franchise Management (multi-branch tenancy, central menu sync, roaming staff, cross-branch orders/inventory/PnL, organization and subscription tables, RLS isolation bypass helpers)
+- Loyalty fixes and reminders
+- Menu price limits (min/max price overrides for franchise branches)
+- Franchise digest cron jobs
+- Shared customers (cross-branch loyalty)
+- Approvals system (franchise approval workflows)
+- Auto-sync franchise subscriptions
+- Digital twin schema (interactive floor layouts)
+- Scheduled daily report settings
+- Delete franchise function (safe org teardown)
 
+## 8. Access Control Architecture
+
+Three-layer gating for every feature:
+
+```
+SubscriptionGate → PermissionGuard → FeatureLock
+       │                  │                │
+  Has active plan?   Role permission?   Feature in plan?
+```
+
+- **SubscriptionGate** — blocks all access if no active subscription
+- **PermissionGuard** — route-level role check (e.g., `orders.view`, `staff.update`)
+- **FeatureLock** — granular feature checkbox in admin portal (e.g., `franchise.dashboard`, `ai.assistant`)
+- **Sidebar gating** — `hrefToComponentMap` in `ImprovedSidebarNavigation.tsx` maps routes to subscription components
+- **Feature Registry** — `src/constants/featureRegistry.ts` defines all 112 controllable features across 22 categories
+- **Feature Component Mapping** — `src/utils/featureComponentMapping.ts` syncs registry to `app_components` DB table
+
+### Franchise-Specific Access
+
+- Sidebar: `/franchise` mapped to `"franchise"` subscription component
+- Layout: `FranchiseLayout.tsx` wrapped with `<FeatureLock feature="franchise.dashboard">`
+- Feature Permissions Manager shows 9 franchise sub-features (dashboard, branches, team, menu_sync, orders, inventory, staff, pnl, settings)
 
