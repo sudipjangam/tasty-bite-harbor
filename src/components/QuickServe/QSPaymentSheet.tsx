@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Share2,
   WifiOff,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
@@ -111,6 +112,13 @@ const allPaymentMethods = [
     label: "Non-Chargeable",
     icon: Gift,
     color: "from-pink-500 to-rose-600",
+    offlineOk: true,
+  },
+  {
+    id: "pay_later",
+    label: "Pay Later",
+    icon: Clock,
+    color: "from-amber-500 to-yellow-600",
     offlineOk: true,
   },
   {
@@ -559,6 +567,18 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         "Reason for Non-Chargeable order (e.g., Owner treat, staff meal, tasting):",
       );
       if (!ncReason) return; // cancelled
+    }
+
+    // For Pay Later, require customer name
+    if (method === "pay_later") {
+      if (!customerName.trim()) {
+        toast({
+          title: "Customer Name Required",
+          description: "Please enter a customer name to use Pay Later — you need to know who owes.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setSelectedMethod(method);
@@ -1308,14 +1328,18 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-0.5">
               {isOfflineOrder
                 ? "Order Saved Locally!"
-                : paymentConfirmed
-                  ? "Payment Complete!"
-                  : "Awaiting Payment"}
+                : selectedMethod === "pay_later"
+                  ? "Pay Later — Collect When Ready"
+                  : paymentConfirmed
+                    ? "Payment Complete!"
+                    : "Awaiting Payment"}
             </h3>
             <p className="text-gray-500 dark:text-white/60 text-sm mb-1 text-center">
               {isOfflineOrder
                 ? "Will sync to server when internet is restored"
-                : `${currencySymbol}${additionalDue.toFixed(2)} via ${selectedMethod?.toUpperCase()}`}
+                : selectedMethod === "pay_later"
+                  ? `${currencySymbol}${subtotal.toFixed(2)} pending from ${customerName.trim()}`
+                  : `${currencySymbol}${additionalDue.toFixed(2)} via ${selectedMethod?.toUpperCase()}`}
             </p>
 
             {/* Order Token Number */}
@@ -1344,8 +1368,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               </div>
             )}
 
-            {/* UPI QR Code — always show on success */}
-            {!isOfflineOrder && (
+            {/* UPI QR Code — show on success (skip for pay_later) */}
+            {!isOfflineOrder && selectedMethod !== "pay_later" && (
               <div className="w-full bg-gradient-to-b from-purple-50 to-white dark:from-purple-500/10 dark:to-gray-900 border border-purple-200 dark:border-purple-500/20 rounded-xl p-4 mb-4">
                 <p className="text-xs font-semibold text-purple-700 dark:text-purple-300 text-center uppercase tracking-wider mb-3">
                   {upiId ? "Customer can scan to pay" : "Payment QR Code"}
@@ -1394,7 +1418,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             )}
 
             {/* ─── Mark as Paid Button (above bill sharing) ─── */}
-            {!isOfflineOrder && !paymentConfirmed && (
+            {!isOfflineOrder && !paymentConfirmed && selectedMethod !== "pay_later" && (
               <button
                 onClick={async () => {
                   if (!createdOrderId) return;

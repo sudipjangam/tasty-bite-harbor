@@ -4,8 +4,11 @@ import { StandardizedLayout } from "@/components/ui/standardized-layout";
 import { MobileNavigation } from "@/components/ui/mobile-navigation";
 import { Sparkles, Zap } from "lucide-react";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 const POS = () => {
+  const { restaurantName } = useRestaurantId();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950">
       {/* Modern 3D Header with Vibrant Gradient */}
@@ -34,6 +37,11 @@ const POS = () => {
                 
                 {/* Title */}
                 <div>
+                  {restaurantName && (
+                    <p className="text-[10px] font-semibold tracking-widest uppercase text-white/60 mb-0.5">
+                      {restaurantName}
+                    </p>
+                  )}
                   <div className="flex items-center gap-2 mb-1">
                     <h1 className="text-2xl md:text-4xl font-bold text-white drop-shadow-lg tracking-tight">
                       Point of Sale

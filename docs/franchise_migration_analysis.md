@@ -1,10 +1,10 @@
 # Franchise Management System — Complete Analysis & Change Specification
 
-**Document Version:** 1.0  
-**Date:** 2026-06-28  
-**Author:** Systems Architecture Team  
-**Status:** DRAFT — Pending Approval  
-**Project:** Swadeshi Solutions — Tasty Bite Harbor  
+**Document Version:** 1.1 (Final)
+**Date:** 2026-07-04
+**Author:** Systems Architecture Team
+**Status:** APPROVED — COMPLETED
+**Project:** Swadeshi Solutions — Tasty Bite Harbor
 **Supabase Project ID:** `bpheiklhiwwcrugmxivp`
 
 ---
@@ -21,7 +21,7 @@
 8. [Risk Assessment](#8-risk-assessment)
 9. [Testing Strategy](#9-testing-strategy)
 10. [Rollback Plan](#10-rollback-plan)
-11. [Effort Estimates & Timeline](#11-effort-estimates--timeline)
+11. [Effort Estimates &amp; Timeline](#11-effort-estimates--timeline)
 12. [Open Questions](#12-open-questions)
 13. [Appendix: File Reference Map](#13-appendix-file-reference-map)
 
@@ -41,15 +41,15 @@ This document outlines the complete plan to add **franchise management** to the 
 
 ### Impact Summary
 
-| Metric | Value |
-|---|---|
-| New tables created | 3 |
-| Existing tables modified | 2 (columns added only) |
-| Existing tables untouched | 124+ |
-| Existing RLS policies rewritten | 0 |
-| New RLS policies added | 6 (on new tables only) |
-| Existing data deleted | 0 |
-| Risk to production | LOW |
+| Metric                          | Value                  |
+| ------------------------------- | ---------------------- |
+| New tables created              | 3                      |
+| Existing tables modified        | 2 (columns added only) |
+| Existing tables untouched       | 124+                   |
+| Existing RLS policies rewritten | 0                      |
+| New RLS policies added          | 6 (on new tables only) |
+| Existing data deleted           | 0                      |
+| Risk to production              | LOW                    |
 
 ---
 
@@ -57,15 +57,15 @@ This document outlines the complete plan to add **franchise management** to the 
 
 ### Database
 
-| Metric | Value |
-|---|---|
-| Total tables | 126+ (all RLS enabled) |
-| Total indexes | 349 (127 PK + 6 Unique + 216 FK) |
-| Total RLS policies | ~250 |
-| Total DB functions | 56 |
-| Total edge functions | 46 |
-| Active restaurants | 4 |
-| Active users | 17 |
+| Metric               | Value                            |
+| -------------------- | -------------------------------- |
+| Total tables         | 126+ (all RLS enabled)           |
+| Total indexes        | 349 (127 PK + 6 Unique + 216 FK) |
+| Total RLS policies   | ~250                             |
+| Total DB functions   | 56                               |
+| Total edge functions | 46                               |
+| Active restaurants   | 4                                |
+| Active users         | 17                               |
 
 ### Tenant Isolation Model (Current)
 
@@ -77,26 +77,26 @@ profiles.restaurant_id → used by all data hooks
 
 ### Key Files
 
-| Purpose | Path |
-|---|---|
-| Restaurant ID hook | `src/hooks/useRestaurantId.tsx` |
-| Auth hook | `src/hooks/useAuth.tsx` |
-| Access control | `src/hooks/useAccessControl.tsx` |
-| Routes | `src/components/Auth/Routes.tsx` |
-| App routes | `src/components/Auth/AppRoutes.tsx` |
-| Supabase types | `src/integrations/supabase/types.ts` (8,250 lines) |
-| Supabase client | `src/integrations/supabase/client.ts` |
+| Purpose            | Path                                                 |
+| ------------------ | ---------------------------------------------------- |
+| Restaurant ID hook | `src/hooks/useRestaurantId.tsx`                    |
+| Auth hook          | `src/hooks/useAuth.tsx`                            |
+| Access control     | `src/hooks/useAccessControl.tsx`                   |
+| Routes             | `src/components/Auth/Routes.tsx`                   |
+| App routes         | `src/components/Auth/AppRoutes.tsx`                |
+| Supabase types     | `src/integrations/supabase/types.ts` (8,250 lines) |
+| Supabase client    | `src/integrations/supabase/client.ts`              |
 
 ### RLS Policy Patterns in Use
 
-| Pattern | Used By | Mechanism |
-|---|---|---|
-| Pattern 1: Component-Based | ~40 tables | `user_has_table_access(table, restaurant_id)` |
-| Pattern 2: Restaurant-Scoped CRUD | ~20 tables | `restaurant_id = get_user_restaurant_id()` |
-| Pattern 3: Organization-Scoped | Not yet implemented | — |
-| Pattern 4: Public Access (QR/Anon) | 5 tables | Anon role |
-| Pattern 5: Platform Admin Override | 5 tables | `is_platform_admin()` |
-| Pattern 6: Self-Access (Staff) | 4 tables | `auth.uid() = user_id` |
+| Pattern                            | Used By             | Mechanism                                       |
+| ---------------------------------- | ------------------- | ----------------------------------------------- |
+| Pattern 1: Component-Based         | ~40 tables          | `user_has_table_access(table, restaurant_id)` |
+| Pattern 2: Restaurant-Scoped CRUD  | ~20 tables          | `restaurant_id = get_user_restaurant_id()`    |
+| Pattern 3: Organization-Scoped     | Not yet implemented | —                                              |
+| Pattern 4: Public Access (QR/Anon) | 5 tables            | Anon role                                       |
+| Pattern 5: Platform Admin Override | 5 tables            | `is_platform_admin()`                         |
+| Pattern 6: Self-Access (Staff)     | 4 tables            | `auth.uid() = user_id`                        |
 
 ---
 
@@ -106,11 +106,11 @@ profiles.restaurant_id → used by all data hooks
 
 Three approaches were evaluated:
 
-| Approach | Description | Effort | Risk | Verdict |
-|---|---|---|---|---|
-| **A: Org Layer** | Rewrite all 250+ RLS policies to use `organization_id` | 40+ hours | 🔴 High — production risk | ❌ Rejected |
-| **B: Franchise Group** | Add `franchise_groups` linking table | 12 hours | 🟡 Medium — becomes technical debt | ❌ Rejected |
-| **C: Hybrid Org-First** | Add `organizations` table + helper function, zero RLS rewrites | 22-31 hours | 🟢 Low | ✅ Chosen |
+| Approach                      | Description                                                     | Effort      | Risk                                | Verdict     |
+| ----------------------------- | --------------------------------------------------------------- | ----------- | ----------------------------------- | ----------- |
+| **A: Org Layer**        | Rewrite all 250+ RLS policies to use`organization_id`         | 40+ hours   | 🔴 High — production risk          | ❌ Rejected |
+| **B: Franchise Group**  | Add`franchise_groups` linking table                           | 12 hours    | 🟡 Medium — becomes technical debt | ❌ Rejected |
+| **C: Hybrid Org-First** | Add`organizations` table + helper function, zero RLS rewrites | 22-31 hours | 🟢 Low                              | ✅ Chosen   |
 
 ### Architecture Diagram
 
@@ -477,51 +477,51 @@ COMMIT;
 
 ### 5.1 Tables Impact Matrix
 
-| Category | Count | Details |
-|---|---|---|
-| **New tables** | 3 | `organizations`, `organization_members`, `organization_subscriptions` |
-| **Modified tables** (columns added) | 2 | `restaurants` (+3 cols), `menu_items` (+3 cols) |
-| **Untouched tables** | 124+ | All orders, inventory, staff, financial, hotel, CRM, loyalty, marketing, payment, QR, audit tables |
-| **RLS policies rewritten** | 0 | Existing policies remain as-is |
-| **RLS policies added** | 8 | 6 on new tables + 2 on `restaurants` |
+| Category                                  | Count | Details                                                                                            |
+| ----------------------------------------- | ----- | -------------------------------------------------------------------------------------------------- |
+| **New tables**                      | 3     | `organizations`, `organization_members`, `organization_subscriptions`                        |
+| **Modified tables** (columns added) | 2     | `restaurants` (+3 cols), `menu_items` (+3 cols)                                                |
+| **Untouched tables**                | 124+  | All orders, inventory, staff, financial, hotel, CRM, loyalty, marketing, payment, QR, audit tables |
+| **RLS policies rewritten**          | 0     | Existing policies remain as-is                                                                     |
+| **RLS policies added**              | 8     | 6 on new tables + 2 on`restaurants`                                                              |
 
 ### 5.2 Column Changes Detail
 
 #### `restaurants` Table (46 → 49 columns)
 
-| New Column | Type | Default | Nullable | FK | Purpose |
-|---|---|---|---|---|---|
-| `organization_id` | UUID | NULL | Yes | `organizations(id) ON DELETE RESTRICT` | Links restaurant to franchise org |
-| `branch_code` | TEXT | `'HQ'` | Yes | — | Human-readable branch identifier |
-| `is_headquarters` | BOOLEAN | `false` | Yes | — | Marks the primary branch |
+| New Column          | Type    | Default   | Nullable | FK                                       | Purpose                           |
+| ------------------- | ------- | --------- | -------- | ---------------------------------------- | --------------------------------- |
+| `organization_id` | UUID    | NULL      | Yes      | `organizations(id) ON DELETE RESTRICT` | Links restaurant to franchise org |
+| `branch_code`     | TEXT    | `'HQ'`  | Yes      | —                                       | Human-readable branch identifier  |
+| `is_headquarters` | BOOLEAN | `false` | Yes      | —                                       | Marks the primary branch          |
 
 #### `menu_items` Table (15 → 18 columns)
 
-| New Column | Type | Default | Nullable | FK | Purpose |
-|---|---|---|---|---|---|
-| `organization_id` | UUID | NULL | Yes | `organizations(id)` | For cross-branch menu queries |
-| `origin` | TEXT | `'branch'` | Yes | — | `master`/`branch`/`inherited` |
-| `source_item_id` | UUID | NULL | Yes | `menu_items(id)` self-ref | Points to master menu item |
+| New Column          | Type | Default      | Nullable | FK                          | Purpose                             |
+| ------------------- | ---- | ------------ | -------- | --------------------------- | ----------------------------------- |
+| `organization_id` | UUID | NULL         | Yes      | `organizations(id)`       | For cross-branch menu queries       |
+| `origin`          | TEXT | `'branch'` | Yes      | —                          | `master`/`branch`/`inherited` |
+| `source_item_id`  | UUID | NULL         | Yes      | `menu_items(id)` self-ref | Points to master menu item          |
 
 ### 5.3 Blast Radius (Measured from Codebase)
 
-| What | Count | Will It Break? | Why |
-|---|---|---|---|
-| Frontend `.from("restaurants")` queries | **47 occurrences** (~35 files) | **No** | Existing SELECTs don't mention new columns; new columns are nullable |
-| Frontend `.from("menu_items")` queries | **18 occurrences** | **No** | Same reason — additive nullable columns |
-| Edge functions referencing `restaurants` or `menu_items` | **32 occurrences** | **No** | Server-side queries unaffected by additive columns |
-| Supabase auto-generated types | **8,250 lines** in `types.ts` | **Yes — must regenerate** | New columns must be reflected in TypeScript types |
-| `restaurant` slug trigger | 1 trigger | **No** | Only fires on `name` column changes |
+| What                                                        | Count                                 | Will It Break?                   | Why                                                                  |
+| ----------------------------------------------------------- | ------------------------------------- | -------------------------------- | -------------------------------------------------------------------- |
+| Frontend`.from("restaurants")` queries                    | **47 occurrences** (~35 files)  | **No**                     | Existing SELECTs don't mention new columns; new columns are nullable |
+| Frontend`.from("menu_items")` queries                     | **18 occurrences**              | **No**                     | Same reason — additive nullable columns                             |
+| Edge functions referencing`restaurants` or `menu_items` | **32 occurrences**              | **No**                     | Server-side queries unaffected by additive columns                   |
+| Supabase auto-generated types                               | **8,250 lines** in `types.ts` | **Yes — must regenerate** | New columns must be reflected in TypeScript types                    |
+| `restaurant` slug trigger                                 | 1 trigger                             | **No**                     | Only fires on`name` column changes                                 |
 
 ### 5.4 Data Migration Impact
 
-| Operation | Rows | Reversible? |
-|---|---|---|
-| INSERT into `organizations` | 4 new rows | Yes — `DROP TABLE` |
-| UPDATE `restaurants.organization_id` | 4 rows | Yes — `SET NULL` |
-| UPDATE `restaurants.is_headquarters` | 4 rows | Yes — `SET NULL` |
-| UPDATE `restaurants.branch_code` | 4 rows | Yes — `SET NULL` |
-| INSERT into `organization_members` | 4-8 rows | Yes — `DROP TABLE` |
+| Operation                             | Rows       | Reversible?          |
+| ------------------------------------- | ---------- | -------------------- |
+| INSERT into`organizations`          | 4 new rows | Yes —`DROP TABLE` |
+| UPDATE`restaurants.organization_id` | 4 rows     | Yes —`SET NULL`   |
+| UPDATE`restaurants.is_headquarters` | 4 rows     | Yes —`SET NULL`   |
+| UPDATE`restaurants.branch_code`     | 4 rows     | Yes —`SET NULL`   |
+| INSERT into`organization_members`   | 4-8 rows   | Yes —`DROP TABLE` |
 
 ---
 
@@ -529,61 +529,61 @@ COMMIT;
 
 ### 6.1 New Files
 
-| File | Purpose |
-|---|---|
-| `src/contexts/OrganizationContext.tsx` | Multi-org/branch awareness context |
-| `src/hooks/useOrganization.ts` | Shorthand for OrganizationContext |
-| `src/hooks/useBranchSwitcher.ts` | Branch switch logic + cache invalidation |
-| `src/components/Auth/FranchiseGuard.tsx` | Route guard for franchise routes |
-| `src/components/Franchise/FranchiseLayout.tsx` | Sidebar layout for `/franchise/*` |
-| `src/components/Layout/BranchSwitcher.tsx` | Header dropdown for branch switching |
-| `src/pages/Franchise/FranchiseDashboard.tsx` | Cross-branch KPIs |
-| `src/pages/Franchise/BranchManagement.tsx` | Add/edit/deactivate branches |
-| `src/pages/Franchise/TeamManagement.tsx` | Invite users, assign org roles |
-| `src/pages/Franchise/MenuSync.tsx` | Master menu editor |
-| `src/pages/Franchise/CrossBranchOrders.tsx` | Aggregated order view |
-| `src/pages/Franchise/CrossBranchInventory.tsx` | Stock levels across branches |
-| `src/pages/Franchise/CrossBranchStaff.tsx` | Staff overview across branches |
-| `src/pages/Franchise/CrossBranchPnL.tsx` | Consolidated P&L |
-| `src/pages/Franchise/FranchiseSettings.tsx` | Org settings |
-| `src/pages/Platform/FranchiseManagement.tsx` | Platform admin wizard (new/overwrite) |
-| `src/pages/Platform/FranchiseDetail.tsx` | Platform admin franchise detail |
+| File                                             | Purpose                                  |
+| ------------------------------------------------ | ---------------------------------------- |
+| `src/contexts/OrganizationContext.tsx`         | Multi-org/branch awareness context       |
+| `src/hooks/useOrganization.ts`                 | Shorthand for OrganizationContext        |
+| `src/hooks/useBranchSwitcher.ts`               | Branch switch logic + cache invalidation |
+| `src/components/Auth/FranchiseGuard.tsx`       | Route guard for franchise routes         |
+| `src/components/Franchise/FranchiseLayout.tsx` | Sidebar layout for`/franchise/*`       |
+| `src/components/Layout/BranchSwitcher.tsx`     | Header dropdown for branch switching     |
+| `src/pages/Franchise/FranchiseDashboard.tsx`   | Cross-branch KPIs                        |
+| `src/pages/Franchise/BranchManagement.tsx`     | Add/edit/deactivate branches             |
+| `src/pages/Franchise/TeamManagement.tsx`       | Invite users, assign org roles           |
+| `src/pages/Franchise/MenuSync.tsx`             | Master menu editor                       |
+| `src/pages/Franchise/CrossBranchOrders.tsx`    | Aggregated order view                    |
+| `src/pages/Franchise/CrossBranchInventory.tsx` | Stock levels across branches             |
+| `src/pages/Franchise/CrossBranchStaff.tsx`     | Staff overview across branches           |
+| `src/pages/Franchise/CrossBranchPnL.tsx`       | Consolidated P&L                         |
+| `src/pages/Franchise/FranchiseSettings.tsx`    | Org settings                             |
+| `src/pages/Platform/FranchiseManagement.tsx`   | Platform admin wizard (new/overwrite)    |
+| `src/pages/Platform/FranchiseDetail.tsx`       | Platform admin franchise detail          |
 
 ### 6.2 Modified Files
 
-| File | Change | Risk |
-|---|---|---|
-| `src/hooks/useRestaurantId.tsx` | Add org-aware branch: if org member → return `currentBranch.id`, else → existing behavior | 🟡 Medium — core hook |
-| `src/components/Auth/Routes.tsx` | Add `/franchise/*` route group | 🟢 Low — additive |
-| `src/App.tsx` | Wrap with `<OrganizationProvider>` | 🟢 Low — additive |
-| `src/integrations/supabase/types.ts` | Regenerate via CLI | 🟢 Low — automated |
-| Sidebar/Header component | Add `<BranchSwitcher />` | 🟡 Medium — modifies existing UI |
+| File                                   | Change                                                                                       | Risk                              |
+| -------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------- |
+| `src/hooks/useRestaurantId.tsx`      | Add org-aware branch: if org member → return`currentBranch.id`, else → existing behavior | 🟡 Medium — core hook            |
+| `src/components/Auth/Routes.tsx`     | Add`/franchise/*` route group                                                              | 🟢 Low — additive                |
+| `src/App.tsx`                        | Wrap with`<OrganizationProvider>`                                                          | 🟢 Low — additive                |
+| `src/integrations/supabase/types.ts` | Regenerate via CLI                                                                           | 🟢 Low — automated               |
+| Sidebar/Header component               | Add`<BranchSwitcher />`                                                                    | 🟡 Medium — modifies existing UI |
 
 ### 6.3 User Roles
 
-| Role | Scope | Access | Routes |
-|---|---|---|---|
-| **Platform Admin** | System-wide | Create orgs, manage all | `/platform/*` |
-| **Franchise Owner** | Organization | All branches, full management | `/franchise/*` |
-| **Franchise Admin** | Organization | Delegated branches | `/franchise/*` |
-| **Franchise Viewer** | Organization | Read-only cross-branch | `/franchise/*` |
-| **Restaurant Admin** | Single branch | Full access to their restaurant | `/dashboard/*` |
-| **Manager** | Single branch | Operational management | `/dashboard/*` |
-| **Chef/Waiter/Staff** | Single branch | Role-scoped | `/dashboard/*` |
+| Role                        | Scope         | Access                          | Routes           |
+| --------------------------- | ------------- | ------------------------------- | ---------------- |
+| **Platform Admin**    | System-wide   | Create orgs, manage all         | `/platform/*`  |
+| **Franchise Owner**   | Organization  | All branches, full management   | `/franchise/*` |
+| **Franchise Admin**   | Organization  | Delegated branches              | `/franchise/*` |
+| **Franchise Viewer**  | Organization  | Read-only cross-branch          | `/franchise/*` |
+| **Restaurant Admin**  | Single branch | Full access to their restaurant | `/dashboard/*` |
+| **Manager**           | Single branch | Operational management          | `/dashboard/*` |
+| **Chef/Waiter/Staff** | Single branch | Role-scoped                     | `/dashboard/*` |
 
 ### 6.4 Franchise Manager Windows (9 Total)
 
-| # | Route | Purpose |
-|---|---|---|
-| 1 | `/franchise` | Dashboard — cross-branch KPIs: total revenue, orders, top branch, alerts |
-| 2 | `/franchise/branches` | Branch Management — add/edit/deactivate branches, set HQ |
-| 3 | `/franchise/team` | Team Management — invite users, assign org roles, set branch access |
-| 4 | `/franchise/menu-sync` | Menu Sync — master menu editor, push to branches, price overrides |
-| 5 | `/franchise/orders` | Cross-Branch Orders — aggregated view with branch filter |
-| 6 | `/franchise/inventory` | Cross-Branch Inventory — stock levels, low-stock alerts |
-| 7 | `/franchise/staff` | Cross-Branch Staff — overview, attendance summary |
-| 8 | `/franchise/pnl` | Cross-Branch P&L — consolidated + branch breakdown |
-| 9 | `/franchise/settings` | Franchise Settings — org name, logo, menu mode, subscription |
+| # | Route                    | Purpose                                                                   |
+| - | ------------------------ | ------------------------------------------------------------------------- |
+| 1 | `/franchise`           | Dashboard — cross-branch KPIs: total revenue, orders, top branch, alerts |
+| 2 | `/franchise/branches`  | Branch Management — add/edit/deactivate branches, set HQ                 |
+| 3 | `/franchise/team`      | Team Management — invite users, assign org roles, set branch access      |
+| 4 | `/franchise/menu-sync` | Menu Sync — master menu editor, push to branches, price overrides        |
+| 5 | `/franchise/orders`    | Cross-Branch Orders — aggregated view with branch filter                 |
+| 6 | `/franchise/inventory` | Cross-Branch Inventory — stock levels, low-stock alerts                  |
+| 7 | `/franchise/staff`     | Cross-Branch Staff — overview, attendance summary                        |
+| 8 | `/franchise/pnl`       | Cross-Branch P&L — consolidated + branch breakdown                       |
+| 9 | `/franchise/settings`  | Franchise Settings — org name, logo, menu mode, subscription             |
 
 ---
 
@@ -591,9 +591,9 @@ COMMIT;
 
 ### 7.1 New Edge Function
 
-| Function | Purpose |
-|---|---|
-| `invite-franchise-owner` | Creates auth user (or links existing), creates profile with `restaurant_id` = HQ, creates `organization_members` row with `role = 'owner'`, sends invite email via Resend |
+| Function                   | Purpose                                                                                                                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `invite-franchise-owner` | Creates auth user (or links existing), creates profile with`restaurant_id` = HQ, creates `organization_members` row with `role = 'owner'`, sends invite email via Resend |
 
 ### 7.2 Existing Edge Functions
 
@@ -605,25 +605,25 @@ COMMIT;
 
 ### 8.1 Critical Risks
 
-| # | Risk | Probability | Impact | Mitigation |
-|---|---|---|---|---|
-| 1 | **Data migration fails mid-way** — partial orgs created, restaurants left without `organization_id` | Low | 🔴 High | Entire migration wrapped in `BEGIN...COMMIT` transaction. Any failure = full rollback. |
-| 2 | **Existing `restaurants` RLS blocks franchise owner** — current policy: `id IN (SELECT restaurant_id FROM profiles WHERE id = auth.uid())`. A franchise owner whose `profiles.restaurant_id` = HQ cannot see Branch 2. | Medium | 🔴 High | Migration adds new RLS policies: `id = ANY(get_user_accessible_restaurants(auth.uid()))`. This is the **most critical SQL** in the migration. |
+| # | Risk                                                                                                                                                                                                                                | Probability | Impact  | Mitigation                                                                                                                                           |
+| - | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 | **Data migration fails mid-way** — partial orgs created, restaurants left without `organization_id`                                                                                                                        | Low         | 🔴 High | Entire migration wrapped in`BEGIN...COMMIT` transaction. Any failure = full rollback.                                                              |
+| 2 | **Existing `restaurants` RLS blocks franchise owner** — current policy: `id IN (SELECT restaurant_id FROM profiles WHERE id = auth.uid())`. A franchise owner whose `profiles.restaurant_id` = HQ cannot see Branch 2. | Medium      | 🔴 High | Migration adds new RLS policies:`id = ANY(get_user_accessible_restaurants(auth.uid()))`. This is the **most critical SQL** in the migration. |
 
 ### 8.2 Medium Risks
 
-| # | Risk | Probability | Impact | Mitigation |
-|---|---|---|---|---|
-| 3 | **`ALTER TABLE` locks table** — concurrent INSERT/UPDATE waits | Low (4 rows) | 🟡 Medium | Run during off-peak (3 AM). Lock duration <10ms with 4 rows. |
-| 4 | **`types.ts` out of sync** — TypeScript errors | High (will happen) | 🟡 Medium | Run `supabase gen types typescript` immediately after migration. |
-| 5 | **`get_user_accessible_restaurants()` slow** — degrades all RLS queries for franchise users | Low | 🟡 Medium | Function marked `STABLE` (cached per transaction). Index on `organization_members(user_id)`. Sub-millisecond with 4 restaurants. |
+| # | Risk                                                                                                 | Probability        | Impact    | Mitigation                                                                                                                          |
+| - | ---------------------------------------------------------------------------------------------------- | ------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 3 | **`ALTER TABLE` locks table** — concurrent INSERT/UPDATE waits                              | Low (4 rows)       | 🟡 Medium | Run during off-peak (3 AM). Lock duration <10ms with 4 rows.                                                                        |
+| 4 | **`types.ts` out of sync** — TypeScript errors                                              | High (will happen) | 🟡 Medium | Run`supabase gen types typescript` immediately after migration.                                                                   |
+| 5 | **`get_user_accessible_restaurants()` slow** — degrades all RLS queries for franchise users | Low                | 🟡 Medium | Function marked`STABLE` (cached per transaction). Index on `organization_members(user_id)`. Sub-millisecond with 4 restaurants. |
 
 ### 8.3 Low Risks
 
-| # | Risk | Probability | Impact | Mitigation |
-|---|---|---|---|---|
-| 6 | **Cascade delete destroys data** — deleting org wipes restaurants | Low | 🟡 Medium | `ON DELETE RESTRICT` on FK. Cannot delete org while branches exist. |
-| 7 | **Slug trigger conflict** — fires when updating restaurants | Low | 🟢 Low | Slug trigger only fires on `name` changes. Our UPDATE sets `organization_id`, `branch_code`, `is_headquarters`. No conflict. |
+| # | Risk                                                                     | Probability | Impact    | Mitigation                                                                                                                          |
+| - | ------------------------------------------------------------------------ | ----------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 6 | **Cascade delete destroys data** — deleting org wipes restaurants | Low         | 🟡 Medium | `ON DELETE RESTRICT` on FK. Cannot delete org while branches exist.                                                               |
+| 7 | **Slug trigger conflict** — fires when updating restaurants       | Low         | 🟢 Low    | Slug trigger only fires on`name` changes. Our UPDATE sets `organization_id`, `branch_code`, `is_headquarters`. No conflict. |
 
 ---
 
@@ -788,12 +788,12 @@ COMMIT;
 
 ### Rollback Safety
 
-| Concern | Answer |
-|---|---|
+| Concern                                 | Answer                                                |
+| --------------------------------------- | ----------------------------------------------------- |
 | Will rollback delete any existing data? | **No** — only drops new tables and new columns |
-| Will rollback break existing queries? | **No** — restores exact pre-migration schema |
-| How long does rollback take? | **< 5 seconds** |
-| Is it tested? | Must test on staging branch before production deploy |
+| Will rollback break existing queries?   | **No** — restores exact pre-migration schema   |
+| How long does rollback take?            | **< 5 seconds**                                 |
+| Is it tested?                           | Must test on staging branch before production deploy  |
 
 ---
 
@@ -801,42 +801,44 @@ COMMIT;
 
 ### By Phase
 
-| Phase | What | Effort | Risk |
-|---|---|---|---|
-| Phase 1 | 3 SQL migration files (schema, data, RLS) | 3-4 hours | 🟡 Medium |
-| Phase 2 | OrganizationContext + hook updates | 4-5 hours | 🟢 Low |
-| Phase 3 | Franchise routes & guards | 2-3 hours | 🟢 Low |
-| Phase 4 | 9 franchise UI pages | 6-8 hours | 🟢 Low |
-| Phase 5 | Platform admin wizard | 2-3 hours | 🟢 Low |
-| Phase 6 | Edge function (invite-owner) | 1-2 hours | 🟢 Low |
-| Phase 7 | Branch switcher + header integration | 1-2 hours | 🟡 Medium |
-| Testing | All 4 stages | 3-4 hours | — |
-| **Total** | | **22-31 hours** | |
+| Phase           | What                                      | Effort                | Risk      |
+| --------------- | ----------------------------------------- | --------------------- | --------- |
+| Phase 1         | 3 SQL migration files (schema, data, RLS) | 3-4 hours             | 🟡 Medium |
+| Phase 2         | OrganizationContext + hook updates        | 4-5 hours             | 🟢 Low    |
+| Phase 3         | Franchise routes & guards                 | 2-3 hours             | 🟢 Low    |
+| Phase 4         | 9 franchise UI pages                      | 6-8 hours             | 🟢 Low    |
+| Phase 5         | Platform admin wizard                     | 2-3 hours             | 🟢 Low    |
+| Phase 6         | Edge function (invite-owner)              | 1-2 hours             | 🟢 Low    |
+| Phase 7         | Branch switcher + header integration      | 1-2 hours             | 🟡 Medium |
+| Testing         | All 4 stages                              | 3-4 hours             | —        |
+| **Total** |                                           | **22-31 hours** |           |
 
 ### Recommended Timeline
 
-| Day | Work | Deliverable |
-|---|---|---|
+| Day   | Work                                              | Deliverable                       |
+| ----- | ------------------------------------------------- | --------------------------------- |
 | Day 1 | Phase 1 (DB migrations) + test on local + staging | Verified schema on staging branch |
-| Day 2 | Phase 2-3 (OrganizationContext + Routes) | Frontend compiles, no regressions |
-| Day 3 | Phase 4-5 (9 franchise pages + admin wizard) | Functional franchise UI |
-| Day 4 | Phase 6-7 (Edge function + branch switcher) | Complete feature |
-| Day 5 | Full testing (all 4 stages) + production deploy | Live in production |
+| Day 2 | Phase 2-3 (OrganizationContext + Routes)          | Frontend compiles, no regressions |
+| Day 3 | Phase 4-5 (9 franchise pages + admin wizard)      | Functional franchise UI           |
+| Day 4 | Phase 6-7 (Edge function + branch switcher)       | Complete feature                  |
+| Day 5 | Full testing (all 4 stages) + production deploy   | Live in production                |
 
 ---
 
-## 12. Open Questions
+## 12. Open Questions — ALL RESOLVED (2026-07-05)
 
-> **These must be answered before implementation begins.**
+> **All questions answered by franchise owner during questionnaire review.**
 
-| # | Question | Options | Recommended |
-|---|---|---|---|
-| Q1 | Franchise owner access level | Read-only / View+Edit / View+Edit+Approve | View+Edit+Approve |
-| Q2 | Menu sync model | Identical everywhere / Same items different prices / Independent | Master with price overrides |
-| Q3 | Subscription billing | Per-restaurant / Per-org / Base + per-branch | Base + per-branch |
-| Q4 | Branch creation | Self-service by franchise owner / Platform admin only | Platform admin only (for now) |
-| Q5 | Inter-branch inventory transfer | Needed at launch? | Phase 2 (later) |
-| Q6 | Cross-branch loyalty | Points earned at A redeemable at B? | Phase 2 (later) |
+| #  | Question                        | Final Decision                                                   | Status          |
+| -- | ------------------------------- | ---------------------------------------------------------------- | --------------- |
+| Q1 | Franchise owner access level    | **View + Edit + Approve** (approval workflows Phase 2)           | ✅ Resolved     |
+| Q2 | Menu sync model                 | **Same items, different prices** — branch adjusts within limits  | ✅ Resolved     |
+| Q3 | Subscription billing            | **Base + per-branch** (`base_price` + `per_branch_price`)        | ✅ Resolved     |
+| Q4 | Branch creation                 | **Platform admin only** (Swadeshi team creates)                  | ✅ Resolved     |
+| Q5 | Inter-branch inventory transfer | **Phase 2** (nice to have, not now)                              | ✅ Resolved     |
+| Q6 | Cross-branch loyalty            | **Yes — chain-wide.** Shared customer DB + org-scoped loyalty    | ✅ Resolved (Phase 2 build) |
+| Q7 | Menu pricing control            | **Branch adjusts within limits** (`min/max_price_override`)      | ✅ Resolved (Phase 2 build) |
+| Q8 | Centralized inventory           | **View only** — each branch manages own, owner just views        | ✅ Resolved (already built) |
 
 ---
 
@@ -844,44 +846,44 @@ COMMIT;
 
 ### Files That Query `restaurants` Table (47 occurrences)
 
-| File | Type |
-|---|---|
-| `src/hooks/useRestaurantId.tsx` | Core hook |
-| `src/hooks/useOfflineCache.ts` | Infrastructure |
-| `src/hooks/useWhatsAppCampaigns.tsx` | Marketing |
-| `src/pages/Index.tsx` | Dashboard |
-| `src/pages/Dashboard.tsx` | Dashboard |
-| `src/pages/Settings.tsx` | Settings |
-| `src/pages/CustomerOrder.tsx` | QR Ordering |
-| `src/pages/PublicTruckPage.tsx` | Public |
-| `src/pages/PublicEnrollmentPage.tsx` | Public |
-| `src/pages/Platform/RestaurantManagement.tsx` | Platform Admin |
-| `src/pages/Platform/PlatformDashboard.tsx` | Platform Admin |
-| `src/pages/Platform/PlatformAnalytics.tsx` | Platform Admin |
-| `src/pages/Platform/AllUsers.tsx` | Platform Admin |
-| `src/components/Auth/BrandingSection.tsx` | Auth |
-| `src/components/Layout/Sidebar.tsx` | Layout |
-| `src/components/Settings/QRSettingsTab.tsx` | Settings |
-| `src/components/Settings/PaymentSettingsTab.tsx` | Settings |
-| `src/components/Settings/LocationSettingsTab.tsx` | Settings |
-| `src/components/Settings/SystemConfigurationTab.tsx` | Settings |
-| `src/components/Orders/ActiveOrdersList.tsx` | Orders |
-| `src/components/Orders/POS/PaymentDialog.tsx` | POS |
-| `src/components/QSR/QSRPosMain.tsx` | QSR |
-| `src/components/QuickServe/QSPaymentSheet.tsx` | QuickServe |
-| `src/components/Rooms/BillingHistory.tsx` | Hotel |
-| `src/components/Rooms/CheckoutComponents/RoomCheckoutPage.tsx` | Hotel |
-| `src/components/Rooms/CheckoutComponents/CheckoutSuccessDialog.tsx` | Hotel |
-| `src/components/UserManagement/CreateUserDialog.tsx` | User Mgmt |
-| `src/components/Admin/RestaurantManagement.tsx` | Admin |
-| `src/components/Admin/GlobalUserManagement.tsx` | Admin |
-| `src/components/Admin/EditRestaurantDialog.tsx` | Admin |
-| `src/components/Admin/DeleteRestaurantDialog.tsx` | Admin |
-| `src/components/Admin/CreateRestaurantDialog.tsx` | Admin |
-| `src/components/Dashboard/FoodTruckDashboard.tsx` | Dashboard |
-| `src/components/Dashboard/LocationTodayWidget.tsx` | Dashboard |
-| `src/components/Dashboard/widgets/LocationPerformanceWidget.tsx` | Dashboard |
-| `src/components/CRM/QRCodeGenerator.tsx` | CRM |
+| File                                                                  | Type           |
+| --------------------------------------------------------------------- | -------------- |
+| `src/hooks/useRestaurantId.tsx`                                     | Core hook      |
+| `src/hooks/useOfflineCache.ts`                                      | Infrastructure |
+| `src/hooks/useWhatsAppCampaigns.tsx`                                | Marketing      |
+| `src/pages/Index.tsx`                                               | Dashboard      |
+| `src/pages/Dashboard.tsx`                                           | Dashboard      |
+| `src/pages/Settings.tsx`                                            | Settings       |
+| `src/pages/CustomerOrder.tsx`                                       | QR Ordering    |
+| `src/pages/PublicTruckPage.tsx`                                     | Public         |
+| `src/pages/PublicEnrollmentPage.tsx`                                | Public         |
+| `src/pages/Platform/RestaurantManagement.tsx`                       | Platform Admin |
+| `src/pages/Platform/PlatformDashboard.tsx`                          | Platform Admin |
+| `src/pages/Platform/PlatformAnalytics.tsx`                          | Platform Admin |
+| `src/pages/Platform/AllUsers.tsx`                                   | Platform Admin |
+| `src/components/Auth/BrandingSection.tsx`                           | Auth           |
+| `src/components/Layout/Sidebar.tsx`                                 | Layout         |
+| `src/components/Settings/QRSettingsTab.tsx`                         | Settings       |
+| `src/components/Settings/PaymentSettingsTab.tsx`                    | Settings       |
+| `src/components/Settings/LocationSettingsTab.tsx`                   | Settings       |
+| `src/components/Settings/SystemConfigurationTab.tsx`                | Settings       |
+| `src/components/Orders/ActiveOrdersList.tsx`                        | Orders         |
+| `src/components/Orders/POS/PaymentDialog.tsx`                       | POS            |
+| `src/components/QSR/QSRPosMain.tsx`                                 | QSR            |
+| `src/components/QuickServe/QSPaymentSheet.tsx`                      | QuickServe     |
+| `src/components/Rooms/BillingHistory.tsx`                           | Hotel          |
+| `src/components/Rooms/CheckoutComponents/RoomCheckoutPage.tsx`      | Hotel          |
+| `src/components/Rooms/CheckoutComponents/CheckoutSuccessDialog.tsx` | Hotel          |
+| `src/components/UserManagement/CreateUserDialog.tsx`                | User Mgmt      |
+| `src/components/Admin/RestaurantManagement.tsx`                     | Admin          |
+| `src/components/Admin/GlobalUserManagement.tsx`                     | Admin          |
+| `src/components/Admin/EditRestaurantDialog.tsx`                     | Admin          |
+| `src/components/Admin/DeleteRestaurantDialog.tsx`                   | Admin          |
+| `src/components/Admin/CreateRestaurantDialog.tsx`                   | Admin          |
+| `src/components/Dashboard/FoodTruckDashboard.tsx`                   | Dashboard      |
+| `src/components/Dashboard/LocationTodayWidget.tsx`                  | Dashboard      |
+| `src/components/Dashboard/widgets/LocationPerformanceWidget.tsx`    | Dashboard      |
+| `src/components/CRM/QRCodeGenerator.tsx`                            | CRM            |
 
 ### Edge Functions Referencing `restaurants` or `menu_items` (32 occurrences)
 

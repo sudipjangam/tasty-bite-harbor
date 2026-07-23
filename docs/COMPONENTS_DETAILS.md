@@ -198,9 +198,9 @@
 | ProfitLossStatement.tsx | Component |
 | TaxReporting.tsx | Component |
 
-### components/Financial/GST\n
+### components/Financial/GST
 | File | Type/Purpose |
-|------|--------------|
+|------|---|
 | FilingCalendar.tsx | Component |
 | GSTDashboard.tsx | Dashboard wrapper/view |
 | GSTR1Panel.tsx | Component |
@@ -209,7 +209,13 @@
 | InputTaxCredit.tsx | Component |
 | index.ts | Component |
 
-### components/GuestExperience\n
+### components/Franchise
+| File | Type/Purpose |
+|------|---|
+| FranchiseBranchSwitcher.tsx | Top header branch selector dropdown |
+| FranchiseLayout.tsx | Dashboard frame, sidebar navigation, demo toggle & alerts |
+
+### components/GuestExperience
 | File | Type/Purpose |
 |------|--------------|
 | GuestCheckIn.tsx | Component |

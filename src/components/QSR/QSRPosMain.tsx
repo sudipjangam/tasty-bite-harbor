@@ -27,6 +27,8 @@ import { QSRActiveOrdersDrawer } from "./QSRActiveOrdersDrawer";
 import { QSRPastOrdersDrawer } from "./QSRPastOrdersDrawer";
 import { QSRCustomItemDialog } from "./QSRCustomItemDialog";
 import { QSRCartBottomSheet, QSRCartFAB } from "./QSRCartBottomSheet";
+import { QSRMobileHeader } from "./QSRMobileHeader";
+import { useFeatureGate } from "@/hooks/useFeatureGate";
 import {
   Clock,
   Zap,
@@ -94,6 +96,10 @@ export const QSRPosMain: React.FC = () => {
   const [printerName, setPrinterName] = useState<string | null>(thermalPrinterService.getDeviceName());
   const [isReconnecting, setIsReconnecting] = useState(false);
 
+  // Mobile UI V2 feature gate
+  const { isLocked: mobileV2Locked } = useFeatureGate("qsr-pos.mobile_ui_v2");
+  const useMobileV2 = !mobileV2Locked;
+
   // NC (Non-Chargeable) Reason state
   const [ncReason, setNcReason] = useState<string>("");
 
@@ -101,9 +107,24 @@ export const QSRPosMain: React.FC = () => {
   const [customerName, setCustomerName] = useState<string>("");
 
   // Hooks
-  const { restaurantId } = useRestaurantId();
+  const { restaurantId, restaurantName } = useRestaurantId();
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Printer toggle handler (shared between mobile kebab + desktop button)
+  const handlePrinterToggle = useCallback(async () => {
+    try {
+      if (isPrinterConnected) {
+        await thermalPrinterService.disconnect();
+        toast({ title: "Printer Disconnected", description: "Thermal printer has been disconnected" });
+      } else {
+        await thermalPrinterService.connect();
+        toast({ title: "Printer Connected", description: "Thermal printer is ready for KOTs" });
+      }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Connection Failed", description: err.message || "Failed to connect to printer" });
+    }
+  }, [isPrinterConnected, toast]);
   const { menuItems, categories, isLoading: menuLoading } = useQSRMenuItems();
   const {
     tables,
@@ -192,23 +213,7 @@ export const QSRPosMain: React.FC = () => {
     refetchInterval: 30000,
   });
 
-  // Query for restaurant name (for export filename)
-  const { data: restaurantName = "Restaurant" } = useQuery({
-    queryKey: ["restaurant-name", restaurantId],
-    queryFn: async () => {
-      if (!restaurantId) return "Restaurant";
 
-      const { data } = await supabase
-        .from("restaurants")
-        .select("name")
-        .eq("id", restaurantId)
-        .single();
-
-      return data?.name || "Restaurant";
-    },
-    enabled: !!restaurantId,
-    staleTime: 1000 * 60 * 60, // 1 hour cache
-  });
 
   // Real-time subscription for revenue updates
   useEffect(() => {
@@ -1313,155 +1318,156 @@ export const QSRPosMain: React.FC = () => {
   const showTableSelection = orderMode === "dine_in" && !selectedTable;
   const showMenu = orderMode !== "dine_in" || selectedTable;
 
+  // Back-to-tables handler (shared)
+  const handleBackToTables = useCallback(() => {
+    setSelectedTable(null);
+    if (orderItems.length > 0 && !pendingKitchenOrderId && !recalledKitchenOrderId) {
+      setOrderItems([]);
+    }
+  }, [orderItems.length, pendingKitchenOrderId, recalledKitchenOrderId]);
+
+  // Refresh tables with toast
+  const handleRefreshTables = useCallback(() => {
+    refetchTables();
+    toast({ title: "Refreshed", description: "Tables status updated", duration: 1500 });
+  }, [refetchTables, toast]);
+
   return (
     <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950">
-      {/* Header */}
-      <div className="flex-shrink-0 sticky top-0 z-20 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              {/* Back to Tables button - shows when table is selected in dine-in mode */}
-              {orderMode === "dine_in" && selectedTable && (
+
+      {/* ═══ MOBILE HEADER (V2 feature-gated, hidden on md+) ═══ */}
+      {useMobileV2 && (
+        <div className="md:hidden">
+          <QSRMobileHeader
+            restaurantName={restaurantName}
+            orderMode={orderMode}
+            selectedTableName={selectedTable?.name ?? null}
+            activeOrdersCount={activeOrders.length}
+            todaysRevenue={todaysRevenue}
+            isPrinterConnected={isPrinterConnected}
+            isReconnecting={isReconnecting}
+            printerName={printerName}
+            onBackToTables={handleBackToTables}
+            onRefreshTables={handleRefreshTables}
+            onOpenActiveOrders={() => setShowActiveOrders(true)}
+            onOpenPastOrders={() => setShowPastOrders(true)}
+            onPrinterToggle={handlePrinterToggle}
+          >
+            <QSRModeSelector
+              selectedMode={orderMode}
+              onModeChange={handleModeChange}
+              compact
+            />
+          </QSRMobileHeader>
+        </div>
+      )}
+
+      {/* ═══ DESKTOP HEADER (always shown on md+; shown on mobile when V2 is off) ═══ */}
+      <div className={useMobileV2 ? "hidden md:block" : "block"}>
+        <div className="flex-shrink-0 sticky top-0 z-20 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                {orderMode === "dine_in" && selectedTable && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBackToTables}
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground border-dashed"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <LayoutGrid className="w-4 h-4" />
+                    <span className="hidden sm:inline text-xs">Tables</span>
+                  </Button>
+                )}
+                <Zap className="w-6 h-6 text-indigo-500" />
+                <div>
+                  {restaurantName && (
+                    <p className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground mb-0.5">
+                      {restaurantName}
+                    </p>
+                  )}
+                  <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                    {orderMode === "dine_in" && selectedTable
+                      ? `Table ${selectedTable.name}`
+                      : "QSR POS"}
+                  </h1>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    setSelectedTable(null);
-                    // Clear cart if there are items and no order sent yet
-                    if (
-                      orderItems.length > 0 &&
-                      !pendingKitchenOrderId &&
-                      !recalledKitchenOrderId
-                    ) {
-                      setOrderItems([]);
-                    }
-                  }}
-                  className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground border-dashed"
+                  onClick={handlePrinterToggle}
+                  className={`flex items-center gap-1.5 ${
+                    isPrinterConnected
+                      ? "border-green-400 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-950/50"
+                      : isReconnecting
+                      ? "border-amber-400 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400"
+                      : "border-dashed"
+                  }`}
+                  disabled={isReconnecting}
                 >
-                  <ArrowLeft className="w-4 h-4" />
-                  <LayoutGrid className="w-4 h-4" />
-                  <span className="hidden sm:inline text-xs">Tables</span>
+                  {isPrinterConnected ? (
+                    <PrinterCheck className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  ) : (
+                    <Printer className={`w-4 h-4 ${isReconnecting ? "animate-pulse text-amber-500" : "text-indigo-500"}`} />
+                  )}
+                  <span className="hidden sm:inline text-xs">
+                    {isPrinterConnected
+                      ? printerName || "Connected"
+                      : isReconnecting
+                      ? "Reconnecting..."
+                      : "Connect Printer"}
+                  </span>
                 </Button>
-              )}
-              <Zap className="w-6 h-6 text-indigo-500" />
-              <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                {orderMode === "dine_in" && selectedTable
-                  ? `Table ${selectedTable.name}`
-                  : "QSR POS"}
-              </h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    if (isPrinterConnected) {
-                      await thermalPrinterService.disconnect();
-                      toast({
-                        title: "Printer Disconnected",
-                        description: "Thermal printer has been disconnected",
-                      });
-                    } else {
-                      await thermalPrinterService.connect();
-                      toast({
-                        title: "Printer Connected",
-                        description: "Thermal printer is ready for KOTs",
-                      });
-                    }
-                  } catch (err: any) {
-                    toast({
-                      variant: "destructive",
-                      title: "Connection Failed",
-                      description: err.message || "Failed to connect to printer",
-                    });
-                  }
-                }}
-                className={`flex items-center gap-1.5 ${
-                  isPrinterConnected
-                    ? "border-green-400 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-950/50"
-                    : isReconnecting
-                    ? "border-amber-400 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400"
-                    : "border-dashed"
-                }`}
-                disabled={isReconnecting}
-              >
-                {isPrinterConnected ? (
-                  <PrinterCheck className="w-4 h-4 text-green-600 dark:text-green-400" />
-                ) : (
-                  <Printer className={`w-4 h-4 ${isReconnecting ? "animate-pulse text-amber-500" : "text-indigo-500"}`} />
-                )}
-                <span className="hidden sm:inline text-xs">
-                  {isPrinterConnected
-                    ? printerName || "Connected"
-                    : isReconnecting
-                    ? "Reconnecting..."
-                    : "Connect Printer"}
-                </span>
-              </Button>
-              <HelpProvider />
-              {/* Refresh Tables Button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  refetchTables();
-                  toast({
-                    title: "Refreshed",
-                    description: "Tables status updated",
-                    duration: 1500,
-                  });
-                }}
-                className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
-                title="Refresh Tables"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </Button>
-              {/* Active Orders Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowActiveOrders(true)}
-                className="flex items-center gap-2"
-              >
-                <History className="w-4 h-4" />
-                <span className="hidden sm:inline">Active Orders</span>
-                {activeOrders.length > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 text-xs bg-orange-500 text-white rounded-full">
-                    {activeOrders.length}
-                  </span>
-                )}
-              </Button>
-              {/* Past Orders Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowPastOrders(true)}
-                className="flex items-center gap-2"
-              >
-                <Receipt className="w-4 h-4" />
-                <span className="hidden sm:inline">Past Orders</span>
-              </Button>
-              {/* Today's Revenue Badge */}
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg shadow-sm">
-                <TrendingUp className="w-4 h-4" />
-                <div className="flex flex-col leading-tight">
-                  <span className="text-[10px] font-medium opacity-90">
-                    TODAY'S REVENUE
-                  </span>
-                  <span className="text-sm font-bold">
-                    {formatIndianCurrency(todaysRevenue).formatted}
-                  </span>
+                <HelpProvider />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRefreshTables}
+                  className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                  title="Refresh Tables"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowActiveOrders(true)}
+                  className="flex items-center gap-2"
+                >
+                  <History className="w-4 h-4" />
+                  <span className="hidden sm:inline">Active Orders</span>
+                  {activeOrders.length > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-orange-500 text-white rounded-full">
+                      {activeOrders.length}
+                    </span>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPastOrders(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Receipt className="w-4 h-4" />
+                  <span className="hidden sm:inline">Past Orders</span>
+                </Button>
+                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg shadow-sm">
+                  <TrendingUp className="w-4 h-4" />
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-[10px] font-medium opacity-90">TODAY'S REVENUE</span>
+                    <span className="text-sm font-bold">{formatIndianCurrency(todaysRevenue).formatted}</span>
+                  </div>
                 </div>
               </div>
             </div>
+            <QSRModeSelector
+              selectedMode={orderMode}
+              onModeChange={handleModeChange}
+            />
           </div>
-
-          {/* Mode Selector */}
-          <QSRModeSelector
-            selectedMode={orderMode}
-            onModeChange={handleModeChange}
-          />
         </div>
       </div>
 

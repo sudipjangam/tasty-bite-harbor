@@ -17,10 +17,11 @@ import {
   TrendingUp,
   QrCode,
 } from "lucide-react";
-import QRCodeManagement from "@/components/QR/QRCodeManagement";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 const Rooms = () => {
+  const { restaurantName } = useRestaurantId();
   const [activeTab, setActiveTab] = useState("rooms");
   const isMobile = useIsMobile();
   const {
@@ -88,6 +89,11 @@ const Rooms = () => {
             <Hotel className="h-8 w-8 text-white" />
           </div>
           <div>
+            {restaurantName && (
+              <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-blue-300 mb-0.5">
+                {restaurantName}
+              </p>
+            )}
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
               Rooms Management
             </h1>

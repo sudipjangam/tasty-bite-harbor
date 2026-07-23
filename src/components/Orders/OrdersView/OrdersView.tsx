@@ -46,6 +46,7 @@ import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { SyncOrdersButton } from "./SyncOrdersButton";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 interface OrdersViewProps {
   searchTrigger?: number;
@@ -73,6 +74,7 @@ const OrdersView = ({
   const [sortOrder, setSortOrder] = useState<string>("newest");
   const isMobile = useIsMobile();
   const { toast } = useToast();
+  const { restaurantName } = useRestaurantId();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { isRole } = useAuth();
   const { symbol: currencySymbol } = useCurrencyContext();
@@ -257,7 +259,12 @@ const OrdersView = ({
         order.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.items.some((item) => item.toLowerCase().includes(searchQuery.toLowerCase()));
-      const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "all"
+          ? true
+          : statusFilter === "pay_later"
+            ? order.payment_method === "pay_later"
+            : order.status === statusFilter;
       return matchesSearch && matchesStatus;
     }) || [];
 
@@ -318,6 +325,7 @@ const OrdersView = ({
     { id: "completed", label: "Completed", count: orders?.filter((o) => o.status === "completed").length || 0 },
     { id: "held", label: "Held", count: orders?.filter((o) => o.status === "held").length || 0 },
     { id: "cancelled", label: "Cancelled", count: orders?.filter((o) => o.status === "cancelled").length || 0 },
+    { id: "pay_later", label: "💰 Pay Later", count: orders?.filter((o) => o.payment_method === "pay_later").length || 0 },
   ], [orders]);
 
   if (isLoading) {
@@ -353,7 +361,7 @@ const OrdersView = ({
           <div className="flex-1 min-w-0">
             {!isMobile && (
               <div className="text-[10px] font-semibold tracking-widest uppercase text-white/60 mb-0.5">
-                Restaurant Management
+                {restaurantName || ""}
               </div>
             )}
             <h1 className="text-lg md:text-[22px] font-extrabold text-white tracking-tight truncate">

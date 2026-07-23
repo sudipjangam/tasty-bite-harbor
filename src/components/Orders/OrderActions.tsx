@@ -1,5 +1,5 @@
-import React from "react";
-import { Edit, Trash2, Check, Clock, Printer } from "lucide-react";
+import React, { useState } from "react";
+import { Edit, Trash2, Check, Clock, Printer, MessageCircle, Loader2 } from "lucide-react";
 import type { Order } from "@/types/orders";
 
 interface OrderActionsProps {
@@ -9,6 +9,7 @@ interface OrderActionsProps {
   onStatusUpdate?: (orderId: string, newStatus: string) => void;
   onDelete?: (orderId: string) => void;
   onPrintBill?: (order: Order) => void;
+  onRemind?: (order: Order) => Promise<void>;
 }
 
 const OrderActions: React.FC<OrderActionsProps> = ({
@@ -18,8 +19,23 @@ const OrderActions: React.FC<OrderActionsProps> = ({
   onStatusUpdate,
   onDelete,
   onPrintBill,
+  onRemind,
 }) => {
+  const [isSendingReminder, setIsSendingReminder] = useState(false);
+
   if (!order) return null;
+
+  const handleRemind = async () => {
+    if (!onRemind || isSendingReminder) return;
+    setIsSendingReminder(true);
+    try {
+      await onRemind(order);
+    } finally {
+      setIsSendingReminder(false);
+    }
+  };
+
+  const isPayLater = order.payment_method === "pay_later";
 
   return (
     <div className="flex items-center gap-[7px] flex-wrap">
@@ -60,6 +76,29 @@ const OrderActions: React.FC<OrderActionsProps> = ({
           Revert
         </button>
       ) : null}
+
+      {/* WhatsApp Reminder — only for pay later orders with a phone */}
+      {isPayLater && onRemind && (
+        <button
+          onClick={handleRemind}
+          disabled={loading || isSendingReminder || !order.customer_phone}
+          title={!order.customer_phone ? "No phone number on record" : "Send WhatsApp payment reminder"}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white transition-all hover:shadow-lg hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            background: isSendingReminder
+              ? "linear-gradient(135deg, #6b7280, #9ca3af)"
+              : "linear-gradient(135deg, #25D366 0%, #128C7E 100%)",
+            boxShadow: isSendingReminder ? "none" : "0 3px 12px rgba(37,211,102,0.38)",
+          }}
+        >
+          {isSendingReminder ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : (
+            <MessageCircle className="w-3 h-3" />
+          )}
+          {isSendingReminder ? "Sending…" : "Remind"}
+        </button>
+      )}
 
       {/* Print Bill */}
       {onPrintBill && (

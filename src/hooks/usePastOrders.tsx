@@ -21,6 +21,8 @@ export interface PastOrder {
   customerName?: string;
   attendant?: string;
   orderType?: string; // To identify NC (non-chargeable) orders
+  paymentMethod?: string;
+  paymentStatus?: string;
 }
 
 interface UsePastOrdersOptions {
@@ -96,13 +98,15 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
           discount_amount?: string | number;
           discount_percentage?: string | number;
           order_type?: string;
+          payment_method?: string;
+          payment_status?: string;
         }
       > = {};
 
       if (orderIds.length > 0) {
         const { data: ordersData, error: ordersError } = await supabase
           .from("orders")
-          .select("id, total, discount_amount, discount_percentage, order_type")
+          .select("id, total, discount_amount, discount_percentage, order_type, payment_method, payment_status")
           .in("id", orderIds);
 
         console.log("[usePastOrders] Fetched orders data:", ordersData);
@@ -179,6 +183,8 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
             customerName: order.customer_name || undefined,
             attendant: order.server_name || undefined,
             orderType: linkedOrder?.order_type || undefined,
+            paymentMethod: linkedOrder?.payment_method || undefined,
+            paymentStatus: linkedOrder?.payment_status || undefined,
           };
         })
         .filter((order) => {

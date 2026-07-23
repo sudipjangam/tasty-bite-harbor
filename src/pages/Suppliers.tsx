@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -73,6 +74,7 @@ interface InventoryItem {
 }
 
 const Suppliers = () => {
+  const { restaurantName } = useRestaurantId();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
   const [isViewOrderDialogOpen, setIsViewOrderDialogOpen] = useState(false);
@@ -497,6 +499,11 @@ const Suppliers = () => {
               <Truck className="h-6 md:h-8 w-6 md:w-8 text-white" />
             </div>
             <div>
+              {restaurantName && (
+                <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-purple-300 mb-0.5">
+                  {restaurantName}
+                </p>
+              )}
               <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
                 Supplier Management
               </h1>

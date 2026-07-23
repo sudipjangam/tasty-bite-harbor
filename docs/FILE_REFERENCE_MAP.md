@@ -208,6 +208,24 @@ All routes below are under `SubscriptionGate` + `PermissionGuard`. Sidebar is vi
 
 ---
 
+### 🏢 Franchise Management Group
+
+All routes below are wrapped inside the `<FranchiseProvider>` context and use the independent `<FranchiseLayout />` sidebar layout.
+
+| Route | Page File | Permission/Role | Sidebar Label | Description |
+|---|---|---|---|---|
+| `/franchise` | `pages/Franchise/FranchiseDashboard.tsx` | Franchise role | **Dashboard** | Consolidated branch dashboard with Mum/Pun/Nas charts |
+| `/franchise/branches` | `pages/Franchise/BranchManagement.tsx` | Franchise Owner/Admin | **Branches** | Branch CRUD with color presets, 3D icons, stats panel |
+| `/franchise/team` | `pages/Franchise/TeamManagement.tsx` | Franchise Owner/Admin | **Team** | Organization directory showing user profiles & org roles |
+| `/franchise/menu-sync` | `pages/Franchise/MenuSync.tsx` | Franchise Owner/Admin | **Menu Sync** | Central menu manager with status, overrides, and inheritance |
+| `/franchise/orders` | `pages/Franchise/CrossBranchOrders.tsx` | Franchise role | **Orders** | Cross-branch order logs with branch switcher filter |
+| `/franchise/inventory` | `pages/Franchise/CrossBranchInventory.tsx` | Franchise role | **Inventory** | Stock overview, transfer stock, and allocate bulk purchase |
+| `/franchise/staff` | `pages/Franchise/CrossBranchStaff.tsx` | Franchise role | **Staff** | Daily attendance and roaming staff configurations |
+| `/franchise/pnl` | `pages/Franchise/CrossBranchPnL.tsx` | Franchise role | **P&L Report** | Financial P&L, period scaling, date range picker & CSV export |
+| `/franchise/settings` | `pages/Franchise/FranchiseSettings.tsx` | Franchise Owner/Admin | **Settings** | Organization details, profile metadata, audit logger |
+
+---
+
 ### 🔧 Standalone Items (Outside Groups)
 
 | Route | Page File | Permission/Role | Sidebar Label | Description |
@@ -274,6 +292,20 @@ All under `/platform/*`:
 │  AI Assistant (/ai)                          │
 │  Security (/security)                        │
 │  Settings (/settings)                        │
+└──────────────────────────────────────────────┘
+```
+
+```
+┌─ Franchise Portal (Independent Layout) ──────┐
+│  Dashboard (/franchise)                      │
+│  Branches (/franchise/branches)              │
+│  Team (/franchise/team)                      │
+│  Menu Sync (/franchise/menu-sync)            │
+│  Orders (/franchise/orders)                  │
+│  Inventory (/franchise/inventory)            │
+│  Staff (/franchise/staff)                    │
+│  P&L Report (/franchise/pnl)                 │
+│  Settings (/franchise/settings)              │
 └──────────────────────────────────────────────┘
 ```
 

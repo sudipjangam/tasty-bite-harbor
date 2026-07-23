@@ -54,6 +54,8 @@ export interface ActiveKitchenOrder {
   total: number;
   itemCompletionStatus?: boolean[];
   orderType?: QSROrderMode; // Order type for mode switching on recall
+  paymentMethod?: string;
+  paymentStatus?: string;
 }
 
 // QSR Order structure
