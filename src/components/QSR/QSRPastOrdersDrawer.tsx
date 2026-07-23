@@ -475,6 +475,10 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                                 <span className="px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wide bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-300/50">
                                   🎁 Non-Chargeable
                                 </span>
+                              ) : order.paymentMethod === "pay_later" ? (
+                                <span className="px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wide bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-lg shadow-amber-300/50 animate-pulse">
+                                  🕐 Pay Later
+                                </span>
                               ) : (
                                 <span className="px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wide bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-300/50">
                                   ✓ Paid

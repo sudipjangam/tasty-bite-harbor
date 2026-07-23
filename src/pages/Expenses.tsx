@@ -18,8 +18,10 @@ import { useExpenseData } from "@/hooks/useExpenseData";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { usePlanType } from "@/hooks/usePlanType";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 const Expenses = () => {
+  const { restaurantName } = useRestaurantId();
   const { user, loading } = useAuthState();
   const { data: expenseData } = useExpenseData();
   const [activeTab, setActiveTab] = useState("overview");
@@ -44,6 +46,11 @@ const Expenses = () => {
             <DollarSign className="h-4 w-4 md:h-5 md:w-5 text-white" />
           </div>
           <div className="min-w-0">
+            {restaurantName && (
+              <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-indigo-300">
+                {restaurantName}
+              </p>
+            )}
             <h1 className="text-base md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight truncate">
               Expense Management
             </h1>

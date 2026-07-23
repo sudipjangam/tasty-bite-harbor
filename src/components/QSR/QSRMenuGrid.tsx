@@ -96,41 +96,38 @@ export const QSRMenuGrid: React.FC<QSRMenuGridProps> = ({
           )}
         </div>
 
-        {/* Category Pills */}
-        <div className="flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-hide">
-          <button
-            onClick={() => setSelectedCategory("")}
-            className={cn(
-              "px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all touch-manipulation",
-              selectedCategory === ""
-                ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md"
-                : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700",
-            )}
-          >
-            All
-          </button>
-          {categories.map((category) => (
+        {/* Category Pills — with fade-edge scroll container */}
+        <div className="relative mt-3">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             <button
-              key={category.id}
-              onClick={() => setSelectedCategory(category.id)}
+              onClick={() => setSelectedCategory("")}
               className={cn(
-                "px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all touch-manipulation uppercase",
-                selectedCategory === category.id
+                "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all touch-manipulation flex-shrink-0",
+                selectedCategory === ""
                   ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md"
                   : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700",
               )}
             >
-              {category.name}
+              All
             </button>
-          ))}
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                onClick={() => setSelectedCategory(category.id)}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all touch-manipulation uppercase flex-shrink-0",
+                  selectedCategory === category.id
+                    ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md"
+                    : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700",
+                )}
+              >
+                {category.name}
+              </button>
+            ))}
+          </div>
+          {/* Right fade edge */}
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white dark:from-gray-900 to-transparent" />
         </div>
-      </div>
-
-      {/* Title */}
-      <div className="px-4 pt-4">
-        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">
-          Quick Menu Select
-        </h2>
       </div>
 
       {/* Menu Grid */}
@@ -144,7 +141,7 @@ export const QSRMenuGrid: React.FC<QSRMenuGridProps> = ({
                 key={item.id}
                 onClick={() => onAddItem(item)}
                 className={cn(
-                  "relative p-3 rounded-xl border transition-all duration-200 touch-manipulation",
+                  "relative p-2 rounded-xl border transition-all duration-200 touch-manipulation",
                   "flex flex-col items-center text-center",
                   "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700",
                   "hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-600",
@@ -153,7 +150,7 @@ export const QSRMenuGrid: React.FC<QSRMenuGridProps> = ({
               >
                 {/* Cart count badge */}
                 {cartCount > 0 && (
-                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-xs font-bold rounded-full flex items-center justify-center shadow-md">
+                  <div className="absolute -top-2 -right-2 w-5 h-5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-md">
                     {cartCount}
                   </div>
                 )}
@@ -163,17 +160,17 @@ export const QSRMenuGrid: React.FC<QSRMenuGridProps> = ({
                   <LazyImage
                     src={item.image_url}
                     alt={item.name}
-                    className="w-12 h-12 object-cover"
-                    containerClassName="w-12 h-12 rounded-lg mb-2 overflow-hidden"
+                    className="w-10 h-10 object-cover"
+                    containerClassName="w-10 h-10 rounded-lg mb-1.5 overflow-hidden"
                   />
                 ) : (
-                  <div className="text-3xl mb-2">
+                  <div className="text-2xl mb-1.5">
                     {item.is_veg ? "🥦" : "🍖"}
                   </div>
                 )}
 
                 {/* Item name */}
-                <span className="text-sm font-medium text-gray-800 dark:text-gray-200 line-clamp-2 leading-tight">
+                <span className="text-xs font-medium text-gray-800 dark:text-gray-200 line-clamp-2 leading-tight">
                   {item.name}
                 </span>
 
@@ -181,21 +178,27 @@ export const QSRMenuGrid: React.FC<QSRMenuGridProps> = ({
                 <CurrencyDisplay
                   amount={item.price}
                   showTooltip={false}
-                  className="text-indigo-600 dark:text-indigo-400 font-semibold text-sm mt-1"
+                  className="text-indigo-600 dark:text-indigo-400 font-semibold text-xs mt-0.5"
                 />
 
-                {/* Veg/Non-veg indicator */}
+                {/* Veg/Non-veg — compact dot indicator */}
                 {item.is_veg !== undefined && (
-                  <span
-                    className={cn(
-                      "mt-1.5 px-2 py-0.5 text-[10px] font-medium rounded-full",
-                      item.is_veg
-                        ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400"
-                        : "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400",
-                    )}
-                  >
-                    {item.is_veg ? "Veg" : "Non-Veg"}
-                  </span>
+                  <div className="flex items-center gap-1 mt-1">
+                    <span
+                      className={cn(
+                        "w-2 h-2 rounded-sm border",
+                        item.is_veg
+                          ? "bg-green-500 border-green-600"
+                          : "bg-red-500 border-red-600",
+                      )}
+                    />
+                    <span className={cn(
+                      "text-[9px] font-medium",
+                      item.is_veg ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                    )}>
+                      {item.is_veg ? "V" : "NV"}
+                    </span>
+                  </div>
                 )}
               </button>
             );

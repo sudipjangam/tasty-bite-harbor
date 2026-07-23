@@ -78,6 +78,7 @@ import InventoryItemDetail from "@/components/Inventory/InventoryItemDetail";
 import WastageReport from "@/components/Inventory/WastageReport";
 import { ExtractedBillData } from "@/utils/billUtils";
 import { INVENTORY_UNIT_VALUES } from "@/constants/units";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -114,6 +115,7 @@ interface InventoryItem {
 const ITEMS_PER_PAGE = 20;
 
 const Inventory = () => {
+  const { restaurantName } = useRestaurantId();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("all");
@@ -837,6 +839,11 @@ const Inventory = () => {
               <Package className="h-6 md:h-8 w-6 md:w-8 text-white drop-shadow-sm" />
             </div>
             <div>
+              {restaurantName && (
+                <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-emerald-300 mb-0.5">
+                  {restaurantName}
+                </p>
+              )}
               <h1 className="text-xl md:text-3xl font-extrabold bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 bg-clip-text text-transparent tracking-tight">
                 Inventory Management
               </h1>

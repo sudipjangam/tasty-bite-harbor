@@ -29,6 +29,7 @@ import {
   Zap,
   Store,
   Building2,
+  Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -296,6 +297,16 @@ const mobileNavItems: MobileNavItem[] = [
     textColor: "text-gray-600",
   },
   {
+    id: "franchise-portal",
+    label: "Franchise",
+    path: "/franchise",
+    icon: Network,
+    adminOnly: true,
+    gradient: "from-violet-600 to-purple-700",
+    shadowColor: "shadow-violet-600/30",
+    textColor: "text-violet-700",
+  },
+  {
     id: "platform-admin",
     label: "Platform Admin",
     path: "/platform",
@@ -384,7 +395,8 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
 
     // Admin-only items: check role directly
     if (item.adminOnly) {
-      return user.role === "admin";
+      const currentRole = user.role_name_text || user.role;
+      return currentRole?.toLowerCase() === "admin";
     }
 
     const componentKey = itemToComponentMap[item.id];

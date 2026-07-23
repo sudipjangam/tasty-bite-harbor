@@ -48,8 +48,10 @@ import LocationSettingsTab from "@/components/Settings/LocationSettingsTab";
 import DailyReportScheduleSettings from "@/components/Settings/DailyReportScheduleSettings";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 const Settings = () => {
+  const { restaurantName } = useRestaurantId();
   const { toast } = useToast();
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
@@ -254,6 +256,11 @@ const Settings = () => {
                 <Sparkles className="h-8 w-8 text-white" />
               </div>
               <div>
+                {restaurantName && (
+                  <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-gray-400 mb-0.5">
+                    {restaurantName}
+                  </p>
+                )}
                 <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
                   Settings
                 </h1>

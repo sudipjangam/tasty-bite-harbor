@@ -34,7 +34,7 @@ import FoodTruckDashboard from "@/components/Dashboard/FoodTruckDashboard";
 
 const Index = () => {
   const { user, hasPermission } = useAuth();
-  const { restaurantId } = useRestaurantId();
+  const { restaurantId, restaurantName } = useRestaurantId();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -233,7 +233,7 @@ const Index = () => {
                   {user?.email ? `, ${user.email.split("@")[0]}` : ""}!
                 </h1>
                 <p className="text-blue-100 text-lg mt-1 font-medium">
-                  Here's what's happening today
+                  {restaurantName ? `${restaurantName} · ` : ""}Here's what's happening today
                 </p>
               </div>
             </div>

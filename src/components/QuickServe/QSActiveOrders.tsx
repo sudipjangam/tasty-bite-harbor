@@ -36,6 +36,7 @@ export interface ActiveOrder {
   total: number;
   status: string;
   payment_status: string | null;
+  payment_method: string | null;
   item_completion_status: boolean[] | null;
   created_at: string;
   source: string | null;
@@ -98,7 +99,7 @@ function parseOrderItem(itemStr: string) {
   if (match) {
     return {
       quantity: parseInt(match[1]),
-      name: sanitizeOrderItemDisplay(match[2]),
+      name: match[2],
       price: parseFloat(match[3]),
     };
   }
@@ -133,7 +134,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, order_number, customer_name, customer_phone, items, total, status, payment_status, item_completion_status, created_at, source",
+          "id, order_number, customer_name, customer_phone, items, total, status, payment_status, payment_method, item_completion_status, created_at, source",
         )
         .eq("restaurant_id", restaurantId)
         .in("source", ["quickserve", "pos"])
@@ -175,6 +176,9 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
   const servedCount = orders.filter((o) => o.status === "served").length;
   const completedCount = orders.filter((o) => o.status === "completed").length;
   const unpaidCount = orders.filter((o) => o.payment_status === "pending").length;
+  const unpaidTotal = orders
+    .filter((o) => o.payment_status === "pending")
+    .reduce((sum, o) => sum + (o.total || 0), 0);
 
   // Real-time subscription for immediate updates
   useEffect(() => {
@@ -449,6 +453,18 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
         {/* Orders Grid */}
         <ScrollArea className="flex-1">
           <div className="p-3 space-y-3">
+            {statusFilter === "unpaid" && unpaidTotal > 0 && (
+              <div className="bg-gradient-to-br from-amber-50 to-yellow-50/50 dark:from-amber-950/20 dark:to-yellow-950/10 border border-amber-200 dark:border-amber-900/40 rounded-xl p-3.5 flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                <div>
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 animate-pulse">Total Outstanding Book</h4>
+                  <p className="text-2xl font-black text-amber-800 dark:text-amber-300 mt-1">{currencySymbol}{unpaidTotal.toLocaleString()}</p>
+                </div>
+                <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/40 rounded-xl flex items-center justify-center text-amber-700 dark:text-amber-400">
+                  <Wallet className="w-5 h-5" />
+                </div>
+              </div>
+            )}
+
             {isLoading ? (
               <div className="text-center py-12">
                 <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-gradient-to-r from-orange-500 to-pink-500 animate-pulse" />
@@ -633,10 +649,17 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                             {order.total.toFixed(0)}
                           </p>
                           {order.payment_status === "pending" && (
-                            <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-700/50">
-                              <Wallet className="w-3 h-3" />
-                              Unpaid
-                            </span>
+                            order.payment_method === "pay_later" ? (
+                              <span className="inline-flex items-center gap-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-yellow-200 dark:border-yellow-700/50 animate-pulse">
+                                <Clock className="w-3 h-3" />
+                                Pay Later
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-700/50">
+                                <Wallet className="w-3 h-3" />
+                                Unpaid
+                              </span>
+                            )
                           )}
                         </div>
                         <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-1.5 max-w-[70%] sm:max-w-none">

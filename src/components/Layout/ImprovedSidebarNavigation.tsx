@@ -35,6 +35,7 @@ import {
   Ban,
   Store,
   Tv,
+  Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,7 @@ const hrefToComponentMap: Record<string, string> = {
   "/suppliers": "suppliers",
   "/security": "settings", // Security is under Settings & Security
   "/settings": "settings",
+  "/digital-twin": "tables",
 };
 
 interface NavigationItem {
@@ -138,6 +140,13 @@ const navigationGroups: NavigationGroup[] = [
         icon: Store,
         href: "/quickserve-pos",
         description: "Counter & takeaway POS",
+        requiredPermissions: ["orders.view"],
+      },
+      {
+        title: "Digital Twin",
+        icon: Network,
+        href: "/digital-twin",
+        description: "Interactive outlet blueprint",
         requiredPermissions: ["orders.view"],
       },
       {
@@ -214,55 +223,6 @@ const navigationGroups: NavigationGroup[] = [
     title: "Management",
     items: [
       {
-        title: "Staff",
-        icon: UserCheck,
-        href: "/staff",
-        description: "Employee management",
-        requiredPermissions: ["staff.view"],
-      },
-      {
-        title: "Customers",
-        icon: Users,
-        href: "/customers",
-        description: "Customer database",
-        requiredPermissions: ["customers.view"],
-      },
-      // {
-      //   title: "CRM",
-      //   icon: MessageSquare,
-      //   href: "/crm",
-      //   description: "Customer relationship",
-      //   requiredPermissions: ["customers.view"]
-      // },
-      {
-        title: "Marketing",
-        icon: Target,
-        href: "/marketing",
-        description: "Campaigns & promotions",
-        requiredPermissions: ["customers.view"],
-      },
-      {
-        title: "User & Access",
-        icon: UserPlus,
-        href: "/user-management",
-        description: "Users, roles & permissions",
-        requiredPermissions: ["users.manage"],
-      },
-      {
-        title: "Permission Management",
-        icon: Key,
-        href: "/permission-management",
-        description: "Manage component permissions",
-        requiredRole: "admin", // Only admin can access, not owner
-      },
-      {
-        title: "Channel Management",
-        icon: Globe,
-        href: "/channel-management",
-        description: "OTA & booking channels",
-        requiredPermissions: ["analytics.view"], // Channel management requires analytics access
-      },
-      {
         title: "Analytics",
         icon: TrendingUp,
         href: "/analytics",
@@ -290,6 +250,48 @@ const navigationGroups: NavigationGroup[] = [
         description: "Track business expenses",
         requiredPermissions: ["financial.view"],
       },
+      {
+        title: "Staff",
+        icon: UserCheck,
+        href: "/staff",
+        description: "Employee management",
+        requiredPermissions: ["staff.view"],
+      },
+      {
+        title: "Customers",
+        icon: Users,
+        href: "/customers",
+        description: "Customer database",
+        requiredPermissions: ["customers.view"],
+      },
+      {
+        title: "Marketing",
+        icon: Target,
+        href: "/marketing",
+        description: "Campaigns & promotions",
+        requiredPermissions: ["customers.view"],
+      },
+      {
+        title: "Channel Management",
+        icon: Globe,
+        href: "/channel-management",
+        description: "OTA & booking channels",
+        requiredPermissions: ["analytics.view"],
+      },
+      {
+        title: "User & Access",
+        icon: UserPlus,
+        href: "/user-management",
+        description: "Users, roles & permissions",
+        requiredPermissions: ["users.manage"],
+      },
+      {
+        title: "Permission Management",
+        icon: Key,
+        href: "/permission-management",
+        description: "Manage component permissions",
+        requiredRole: "admin",
+      },
       // {
       //   title: "NC Orders",
       //   icon: Ban,
@@ -303,6 +305,13 @@ const navigationGroups: NavigationGroup[] = [
 
 // Standalone items outside of groups
 const standaloneItems: NavigationItem[] = [
+  {
+    title: "Franchise Portal",
+    icon: Network,
+    href: "/franchise",
+    description: "Multi-branch management",
+    requiredRole: "admin", // Mock: swap to org membership check
+  },
   {
     title: "Platform Admin",
     icon: Building2,

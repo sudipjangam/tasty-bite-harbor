@@ -84,6 +84,7 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
       { key: 'qsr-pos.live_metrics', label: 'Live Revenue Metrics', description: 'Real-time revenue & order count bar' },
       { key: 'qsr-pos.loyalty_integration', label: 'Loyalty Integration', description: 'Points redemption at checkout' },
       { key: 'qsr-pos.coupon_engine', label: 'Coupon Engine', description: 'Apply promo codes at checkout' },
+      { key: 'qsr-pos.mobile_ui_v2', label: 'Mobile UI V2', description: 'Enhanced mobile-first QSR POS layout with compact header, smooth navigation, and optimized touch targets' },
     ],
   },
   // ─── Orders ───────────────────────────────────────────────────────────
@@ -171,8 +172,9 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
     color: 'from-sky-500 to-blue-600',
     features: [
       { key: 'tables.grid', label: 'Table Grid', description: 'Basic table layout and status' },
-      { key: 'tables.timers', label: 'Table Timers', description: 'Occupancy time tracking' },
+      { key: 'tables.timers', label: 'Table Timers', description: 'Table timers & occupancy tracking' },
       { key: 'tables.optimization', label: 'Seating Optimization', description: 'Smart seating suggestions' },
+      { key: 'tables.digital_twin', label: 'Digital Twin', description: 'Interactive 3D/2D floor layouts and editor' },
     ],
   },
 
@@ -374,6 +376,25 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
       { key: 'marketing.segments', label: 'Customer Segments', description: 'Segment customers by spend, frequency, recency' },
       { key: 'marketing.analytics', label: 'Marketing Analytics', description: 'Campaign performance, ROI, messages sent' },
       { key: 'marketing.loyalty', label: 'Loyalty Manager', description: 'Configure loyalty tiers & rewards' },
+    ],
+  },
+
+  // ─── Franchise Management ─────────────────────────────────────────────
+  {
+    id: 'franchise',
+    label: 'Franchise Management',
+    icon: 'Network',
+    color: 'from-violet-600 to-purple-700',
+    features: [
+      { key: 'franchise.dashboard', label: 'Franchise Dashboard', description: 'Cross-branch revenue, orders & rating dashboard' },
+      { key: 'franchise.branches', label: 'Branch Management', description: 'Manage and link physical branch restaurants' },
+      { key: 'franchise.team', label: 'Team & Roles', description: 'Manage franchise-level members & access limits' },
+      { key: 'franchise.menu_sync', label: 'Menu Sync & Origin', description: 'HQ master menu sync & price customization' },
+      { key: 'franchise.orders', label: 'Cross-Branch Orders', description: 'View and track orders across all locations' },
+      { key: 'franchise.inventory', label: 'Inventory & Transfers', description: 'Central stock overview, transfers & bulk purchasing' },
+      { key: 'franchise.staff', label: 'Staff & Roaming', description: 'Roaming employee schedules & daily attendance' },
+      { key: 'franchise.pnl', label: 'Cross-Branch P&L Report', description: 'Custom diverging P&L report & cost heatmap' },
+      { key: 'franchise.settings', label: 'Franchise Settings', description: 'Configure organization name, menu modes & logs' },
     ],
   },
 ];

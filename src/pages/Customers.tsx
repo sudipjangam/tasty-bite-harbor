@@ -58,7 +58,7 @@ const Customers = () => {
   const [showPointsSettings, setShowPointsSettings] = useState(false);
   const [showTierManager, setShowTierManager] = useState(false);
   const [editingTier, setEditingTier] = useState<LoyaltyTierDB | null>(null);
-  const { restaurantId } = useRestaurantId();
+  const { restaurantId, restaurantName } = useRestaurantId();
   const queryClient = useQueryClient();
   // Mobile navigation: 'list' shows customer list, 'detail' shows customer profile
   const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
@@ -450,6 +450,11 @@ const Customers = () => {
               <Heart className="h-5 w-5 text-white" />
             </div>
             <div>
+              {restaurantName && (
+                <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-purple-300 mb-0.5">
+                  {restaurantName}
+                </p>
+              )}
               <h1 className="text-xl sm:text-3xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 bg-clip-text text-transparent leading-tight">
                 Customer Relationship
                 <span className="sm:hidden"> Mgmt</span>
