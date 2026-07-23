@@ -94,11 +94,11 @@ const OrdersColumn = ({
 
   return (
     <div
-      className={`rounded-3xl border-2 shadow-xl backdrop-blur-sm transition-all duration-300 hover:shadow-2xl ${styles.container}`}
+      className={`rounded-3xl border-2 shadow-xl backdrop-blur-sm transition-all duration-300 hover:shadow-2xl ${styles.container} flex flex-col h-full overflow-hidden min-h-0`}
     >
       {/* Modern Header with Gradient */}
       <div
-        className={`${styles.header} text-white p-6 rounded-t-3xl shadow-lg`}
+        className={`${styles.header} text-white p-5 rounded-t-3xl shadow-lg shrink-0`}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -122,7 +122,7 @@ const OrdersColumn = ({
         </div>
 
         {/* Progress Bar */}
-        <div className="mt-4 bg-white/20 rounded-full h-2">
+        <div className="mt-3 bg-white/20 rounded-full h-2">
           <div
             className="bg-white/80 h-2 rounded-full transition-all duration-500 ease-out"
             style={{ width: `${Math.min((orders.length / 10) * 100, 100)}%` }}
@@ -131,10 +131,10 @@ const OrdersColumn = ({
       </div>
 
       {/* Orders Content */}
-      <div className="p-6">
+      <div className="p-4 md:p-5 flex-1 flex flex-col min-h-0 overflow-hidden">
         {orders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
-            <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
+          <div className="flex flex-col items-center justify-center flex-1 my-auto text-gray-500 dark:text-gray-400 py-12">
+            <div className="w-16 h-16 bg-gray-200/50 dark:bg-gray-700/50 rounded-full flex items-center justify-center mb-4 border border-gray-300/30 dark:border-gray-600/30">
               {styles.icon}
             </div>
             <p className="text-lg font-medium">No orders found</p>
@@ -143,7 +143,7 @@ const OrdersColumn = ({
             </p>
           </div>
         ) : (
-          <div className="space-y-4 max-h-[calc(100vh-320px)] overflow-y-auto pr-2 custom-scrollbar">
+          <div className="space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-0">
             {orders.map((order) => (
               <OrderTicket
                 key={order.id}

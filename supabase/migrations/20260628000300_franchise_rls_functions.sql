@@ -85,6 +85,20 @@ CREATE POLICY "org_update" ON organizations FOR UPDATE TO authenticated
   );
 
 -- ========================
+-- HELPER: Get org IDs where user is owner/admin (bypasses RLS to prevent recursion)
+-- ========================
+CREATE OR REPLACE FUNCTION get_user_org_ids_as_admin(p_user_id UUID)
+RETURNS UUID[] AS $$
+  SELECT COALESCE(
+    array_agg(organization_id),
+    '{}'::UUID[]
+  )
+  FROM organization_members
+  WHERE user_id = p_user_id
+    AND role IN ('owner', 'admin');
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- ========================
 -- RLS: organization_members
 -- ========================
 ALTER TABLE organization_members ENABLE ROW LEVEL SECURITY;
@@ -92,19 +106,13 @@ ALTER TABLE organization_members ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "orgmem_select" ON organization_members FOR SELECT TO authenticated
   USING (
     user_id = auth.uid()
-    OR organization_id IN (
-      SELECT organization_id FROM organization_members
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
-    )
+    OR organization_id = ANY(get_user_org_ids_as_admin(auth.uid()))
     OR is_platform_admin()
   );
 
 CREATE POLICY "orgmem_manage" ON organization_members FOR ALL TO authenticated
   USING (
-    organization_id IN (
-      SELECT organization_id FROM organization_members
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
-    )
+    organization_id = ANY(get_user_org_ids_as_admin(auth.uid()))
     OR is_platform_admin()
   );
 

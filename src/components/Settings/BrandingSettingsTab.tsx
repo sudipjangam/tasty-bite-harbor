@@ -338,18 +338,6 @@ export function BrandingSettingsTab() {
     setSaveSuccess(false);
   }, []);
 
-  const handlePresetSelect = useCallback((preset: typeof THEME_PRESETS[0]) => {
-    const newConfig: BrandingConfig = {
-      ...localConfig,
-      mode: preset.mode,
-      color1: preset.color1,
-      color2: preset.color2,
-      gradient_direction: preset.direction,
-    };
-    setLocalConfig(newConfig);
-    setSaveSuccess(false);
-  }, [localConfig]);
-
   const handleSave = async () => {
     if (!isValidHex(localConfig.color1)) {
       toast({ title: 'Invalid color', description: 'Color 1 must be a valid hex color', variant: 'destructive' });
@@ -378,13 +366,30 @@ export function BrandingSettingsTab() {
     try {
       await resetToDefaults();
       setLocalConfig(DEFAULT_BRANDING);
-      toast({ title: 'Reset to default', description: 'Swadeshi theme restored' });
+      toast({ title: '⭐ Reset to default', description: 'Swadeshi Solutions theme restored' });
     } catch (err) {
       toast({ title: 'Reset failed', description: String(err), variant: 'destructive' });
     } finally {
       setIsResetting(false);
     }
   };
+
+  const handlePresetSelect = useCallback((preset: typeof THEME_PRESETS[0]) => {
+    // If user picks the default Swadeshi theme, trigger full reset
+    if (preset.isDefault) {
+      handleReset();
+      return;
+    }
+    const newConfig: BrandingConfig = {
+      ...localConfig,
+      mode: preset.mode,
+      color1: preset.color1,
+      color2: preset.color2,
+      gradient_direction: preset.direction,
+    };
+    setLocalConfig(newConfig);
+    setSaveSuccess(false);
+  }, [localConfig, handleReset]);
 
   const handleCancelPreview = () => {
     cancelPreview();
@@ -543,8 +548,51 @@ export function BrandingSettingsTab() {
                 <Label className="text-sm font-bold text-gray-800 dark:text-gray-200">
                   Preset Themes
                 </Label>
+
+                {/* Default theme — full width, prominent */}
+                {(() => {
+                  const defaultPreset = THEME_PRESETS.find(p => p.isDefault);
+                  if (!defaultPreset) return null;
+                  const isDefaultActive = !isCustomBranded || (
+                    localConfig.color1 === defaultPreset.color1 &&
+                    localConfig.color2 === defaultPreset.color2
+                  );
+                  return (
+                    <button
+                      onClick={() => handlePresetSelect(defaultPreset)}
+                      className={cn(
+                        'w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all duration-200 text-left hover:scale-[1.01]',
+                        isDefaultActive
+                          ? 'border-primary shadow-md shadow-primary/20 bg-primary/5'
+                          : 'border-dashed border-gray-300 dark:border-gray-600 hover:border-primary/40 bg-gray-50/50 dark:bg-gray-800/30',
+                      )}
+                    >
+                      <div
+                        className="w-10 h-10 rounded-lg flex-shrink-0 shadow-sm border border-white/20"
+                        style={{
+                          background: `linear-gradient(135deg, ${defaultPreset.color1}, ${defaultPreset.color2})`,
+                        }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className={cn(
+                          'text-xs font-bold truncate flex items-center gap-1.5',
+                          isDefaultActive ? 'text-primary' : 'text-gray-700 dark:text-gray-300',
+                        )}>
+                          {defaultPreset.emoji} {defaultPreset.name}
+                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 uppercase tracking-wider">
+                            Default
+                          </span>
+                        </div>
+                        <div className="text-[9px] text-gray-400 truncate">{defaultPreset.description}</div>
+                      </div>
+                      {isDefaultActive && <Check className="h-4 w-4 text-primary flex-shrink-0" />}
+                    </button>
+                  );
+                })()}
+
+                {/* Other presets — 2-column grid */}
                 <div className="grid grid-cols-2 gap-2">
-                  {THEME_PRESETS.map((preset) => {
+                  {THEME_PRESETS.filter(p => !p.isDefault).map((preset) => {
                     const isActive = localConfig.color1 === preset.color1 && localConfig.color2 === preset.color2;
                     return (
                       <button

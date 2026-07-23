@@ -425,7 +425,6 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
     updatePriority,
     bumpOrder,
     refreshOrders: () => fetchOrders(true),
-    setPin,
     updateOrderItems,
   };
 };

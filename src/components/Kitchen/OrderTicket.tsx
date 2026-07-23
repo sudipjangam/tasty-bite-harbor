@@ -213,7 +213,7 @@ const OrderTicket = ({
     <Card
       className={`${styles.border} hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-2xl overflow-hidden`}
     >
-      <div className="p-6">
+      <div className="p-4 sm:p-5">
         {/* Order Header */}
         <div className="flex justify-between items-start mb-4">
           <div className="flex-1">
