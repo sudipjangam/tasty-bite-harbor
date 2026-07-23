@@ -10,6 +10,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AccessProvider } from "@/contexts/AccessContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { NetworkStatusProvider } from "@/contexts/NetworkStatusContext";
+import { BrandingProvider } from "@/contexts/BrandingContext";
 import { useRealtimeAnalytics } from "@/hooks/useRealtimeAnalytics";
 import { useOfflineCache } from "@/hooks/useOfflineCache";
 import Routes from "./components/Auth/Routes";
@@ -71,14 +72,16 @@ function App() {
           <AuthProvider>
             <AccessProvider>
               <CurrencyProvider>
-                {/* NetworkStatusProvider must be inside AuthProvider to allow sync with auth context */}
-                <NetworkStatusProvider>
-                  <ErrorBoundary>
-                    <Router>
-                      <AppWithRealtime />
-                    </Router>
-                  </ErrorBoundary>
-                </NetworkStatusProvider>
+                <BrandingProvider>
+                  {/* NetworkStatusProvider must be inside AuthProvider to allow sync with auth context */}
+                  <NetworkStatusProvider>
+                    <ErrorBoundary>
+                      <Router>
+                        <AppWithRealtime />
+                      </Router>
+                    </ErrorBoundary>
+                  </NetworkStatusProvider>
+                </BrandingProvider>
               </CurrencyProvider>
             </AccessProvider>
           </AuthProvider>
