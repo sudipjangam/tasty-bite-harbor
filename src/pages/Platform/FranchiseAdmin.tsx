@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
@@ -472,6 +473,7 @@ const FranchiseAdmin = () => {
   const [detailDialog, setDetailDialog] = useState(false);
   const [editDialog, setEditDialog] = useState(false);
   const [editData, setEditData] = useState<FranchiseOrgRow | null>(null);
+  const [selectedPortalBranches, setSelectedPortalBranches] = useState<string[]>([]);
 
   // Delete franchise state
   const [deleteFranchise, setDeleteFranchise] = useState<FranchiseOrgRow | null>(null);
@@ -1216,8 +1218,31 @@ const FranchiseAdmin = () => {
                           size="sm"
                           variant="outline"
                           className="h-8 gap-1.5 text-xs"
-                          onClick={() => {
+                          onClick={async () => {
                             setEditData({ ...f });
+                            
+                            // Fetch which branches have franchise portal enabled
+                            try {
+                              const branchIds = (f.branchesList || []).map(b => b.id);
+                              if (branchIds.length > 0) {
+                                const { data: subs } = await supabase
+                                  .from("restaurant_subscriptions")
+                                  .select("restaurant_id, components")
+                                  .in("restaurant_id", branchIds);
+                                
+                                const enabled = (subs || [])
+                                  .filter(s => Array.isArray(s.components) && s.components.includes("franchise.dashboard"))
+                                  .map(s => s.restaurant_id);
+                                
+                                setSelectedPortalBranches(enabled);
+                              } else {
+                                setSelectedPortalBranches([]);
+                              }
+                            } catch (e) {
+                              console.error(e);
+                              setSelectedPortalBranches([]);
+                            }
+                            
                             setEditDialog(true);
                           }}
                         >
@@ -2535,6 +2560,45 @@ const FranchiseAdmin = () => {
                 </div>
               </div>
               </div>
+              
+              {/* Franchise Portal Access Panel */}
+              <div className="col-span-2 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800/40 rounded-2xl p-4 space-y-3 mt-4">
+                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" /> Franchise Portal Access
+                </span>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                  Select which branches should grant the franchise owner access to the cross-branch Franchise Portal.
+                </p>
+                <div className="grid gap-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 max-h-48 overflow-y-auto pr-2">
+                  {(editData.branchesList || []).length > 0 ? (
+                    (editData.branchesList || []).map(branch => (
+                      <div key={branch.id} className="flex items-center space-x-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-2 rounded-lg">
+                        <Checkbox 
+                          id={`portal-${branch.id}`} 
+                          checked={selectedPortalBranches.includes(branch.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedPortalBranches(prev => [...prev, branch.id]);
+                            } else {
+                              setSelectedPortalBranches(prev => prev.filter(id => id !== branch.id));
+                            }
+                          }}
+                        />
+                        <label 
+                          htmlFor={`portal-${branch.id}`} 
+                          className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer truncate"
+                          title={branch.name}
+                        >
+                          {branch.name}
+                        </label>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-full text-xs text-slate-400 italic">No branches found for this organization.</div>
+                  )}
+                </div>
+              </div>
+              </div>
 
               <div className="flex justify-end gap-3 p-4 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
                 <Button variant="outline" onClick={() => setEditDialog(false)} className="rounded-xl px-5">Cancel</Button>
@@ -2617,6 +2681,57 @@ const FranchiseAdmin = () => {
                       if (subErr) {
                         toast.error("Failed to update subscription settings");
                       } else {
+                        // 4. Update branch subscriptions with franchise access
+                        if (editData.branchesList && editData.branchesList.length > 0) {
+                          const branchIds = editData.branchesList.map(b => b.id);
+                          
+                          // First, get all current subscriptions for these branches
+                          const { data: currentSubs } = await supabase
+                            .from("restaurant_subscriptions")
+                            .select("id, restaurant_id, components")
+                            .in("restaurant_id", branchIds);
+                            
+                          if (currentSubs) {
+                            const franchiseFeatures = [
+                              "franchise.dashboard", "franchise.branches", "franchise.team", 
+                              "franchise.menu_sync", "franchise.orders", "franchise.inventory", 
+                              "franchise.staff", "franchise.pnl", "franchise.settings"
+                            ];
+                            
+                            // Process each branch
+                            const updatePromises = currentSubs.map(sub => {
+                              const isEnabled = selectedPortalBranches.includes(sub.restaurant_id);
+                              let comps = Array.isArray(sub.components) ? [...sub.components] : [];
+                              let changed = false;
+                              
+                              if (isEnabled) {
+                                // Add features if missing
+                                franchiseFeatures.forEach(feat => {
+                                  if (!comps.includes(feat)) {
+                                    comps.push(feat);
+                                    changed = true;
+                                  }
+                                });
+                              } else {
+                                // Remove features if present
+                                const originalLength = comps.length;
+                                comps = comps.filter(c => !franchiseFeatures.includes(c));
+                                changed = comps.length !== originalLength;
+                              }
+                              
+                              if (changed) {
+                                return supabase
+                                  .from("restaurant_subscriptions")
+                                  .update({ components: comps })
+                                  .eq("id", sub.id);
+                              }
+                              return Promise.resolve(null);
+                            });
+                            
+                            await Promise.all(updatePromises);
+                          }
+                        }
+
                         toast.success("Franchise updated!", { description: editData.name });
                         queryClient.invalidateQueries({ queryKey: ["franchises"] });
                         setEditDialog(false);
