@@ -161,9 +161,12 @@ const fetchFranchises = async (): Promise<FranchiseOrgRow[]> => {
         .in("id", ownerIds)
     : { data: [] };
 
-  // Get branches and calculated revenue via security definer RPC (bypasses RLS)
+  // Get branches directly from restaurants table (no RPC needed)
+  const orgIds = orgs.map(o => o.id);
   const { data: dbBranches } = await supabase
-    .rpc("get_franchise_revenues");
+    .from("restaurants")
+    .select("id, name, organization_id, branch_code, address, is_active, owner_name, owner_phone, emergency_contact_name, emergency_contact_phone")
+    .in("organization_id", orgIds);
 
   const branchCounts: Record<string, number> = {};
   const orgBranchesMap: Record<string, FranchiseBranch[]> = {};
@@ -174,21 +177,20 @@ const fetchFranchises = async (): Promise<FranchiseOrgRow[]> => {
       branchCounts[b.organization_id] = (branchCounts[b.organization_id] || 0) + 1;
       
       const newBranch: FranchiseBranch = {
-        id: b.restaurant_id,
+        id: b.id,
         orgId: b.organization_id,
-        name: b.restaurant_name,
+        name: b.name,
         code: b.branch_code || "HQ",
-        city: orgs.find((o) => o.id === b.organization_id)?.settings?.city || "—",
+        city: orgs.find((o) => o.id === b.organization_id)?.settings?.city || b.address || "—",
         address: b.address || "—",
         manager: b.emergency_contact_name || b.owner_name || "Manager",
         managerPhone: b.emergency_contact_phone || b.owner_phone || "—",
         status: b.is_active ? "active" : "inactive",
-        orders: Number(b.order_count) || 0,
-        revenue: Number(b.total_revenue) || 0
+        orders: 0,
+        revenue: 0
       };
       
       orgBranchesMap[b.organization_id] = [...(orgBranchesMap[b.organization_id] || []), newBranch];
-      revenueByOrg[b.organization_id] = (revenueByOrg[b.organization_id] || 0) + Number(b.total_revenue);
     }
   });
 
@@ -468,6 +470,14 @@ const FranchiseAdmin = () => {
     restaurantId: "",
   });
 
+  const [addBranchDialog, setAddBranchDialog] = useState(false);
+  const [addBranchData, setAddBranchData] = useState({
+    name: "",
+    branchCode: "",
+    city: "",
+    organizationId: "",
+  });
+
   // Detail dialog
   const [selectedFranchise, setSelectedFranchise] = useState<FranchiseOrgRow | null>(null);
   const [detailDialog, setDetailDialog] = useState(false);
@@ -478,6 +488,12 @@ const FranchiseAdmin = () => {
   // Delete franchise state
   const [deleteFranchise, setDeleteFranchise] = useState<FranchiseOrgRow | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+
+  // Branch detail/edit dialog state
+  const [branchDetailDialog, setBranchDetailDialog] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState<FranchiseBranch | null>(null);
+  const [branchEditMode, setBranchEditMode] = useState(false);
+  const [branchEditData, setBranchEditData] = useState({ name: "", branchCode: "", address: "" });
 
   // Onboarding result dialog state
   const [onboardResult, setOnboardResult] = useState<{
@@ -620,6 +636,41 @@ const FranchiseAdmin = () => {
     onError: (err: any) => {
       toast.error("Failed to add staff", { description: err.message });
     },
+  });
+
+  // Mutation to add a new branch to an existing franchise
+  const addBranchMutation = useMutation({
+    mutationFn: async () => {
+      if (!addBranchData.organizationId || !addBranchData.name || !addBranchData.branchCode || !addBranchData.city) {
+        throw new Error("Please fill all required fields");
+      }
+
+      // Insert into restaurants — the DB trigger auto-creates the subscription
+      const { data: newBranch, error: restErr } = await supabase
+        .from("restaurants")
+        .insert({
+          name: addBranchData.name,
+          branch_code: addBranchData.branchCode,
+          address: addBranchData.city,
+          organization_id: addBranchData.organizationId,
+          is_headquarters: false,
+        })
+        .select("id")
+        .single();
+        
+      if (restErr) throw restErr;
+      if (!newBranch) throw new Error("Failed to create branch");
+      return newBranch;
+    },
+    onSuccess: () => {
+      toast.success("Branch added successfully!");
+      setAddBranchDialog(false);
+      setAddBranchData({ name: "", branchCode: "", city: "", organizationId: "" });
+      queryClient.invalidateQueries({ queryKey: ["franchises"] });
+    },
+    onError: (err: any) => {
+      toast.error("Failed to add branch", { description: err.message });
+    }
   });
 
   // Mutation for onboarding franchise
@@ -1810,6 +1861,13 @@ const FranchiseAdmin = () => {
                 className="pl-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
               />
             </div>
+            <Button
+              onClick={() => setAddBranchDialog(true)}
+              className="bg-violet-600 hover:bg-violet-700 text-white shadow-sm gap-2 shrink-0"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Add Branch</span>
+            </Button>
           </div>
 
           {/* Group by Org */}
@@ -1868,11 +1926,37 @@ const FranchiseAdmin = () => {
                           </div>
                         </div>
                         <div className="flex gap-2 mt-3">
-                          <Button size="sm" variant="outline" className="h-7 text-[11px] flex-1 gap-1">
+                          <Button size="sm" variant="outline" className="h-7 text-[11px] flex-1 gap-1"
+                            onClick={() => {
+                              setSelectedBranch(br);
+                              setBranchEditMode(false);
+                              setBranchDetailDialog(true);
+                            }}
+                          >
                             <Eye className="h-3 w-3" /> View
                           </Button>
-                          <Button size="sm" variant="outline" className="h-7 text-[11px] flex-1 gap-1">
+                          <Button size="sm" variant="outline" className="h-7 text-[11px] flex-1 gap-1"
+                            onClick={() => {
+                              setSelectedBranch(br);
+                              setBranchEditData({ name: br.name, branchCode: br.code, address: br.address });
+                              setBranchEditMode(true);
+                              setBranchDetailDialog(true);
+                            }}
+                          >
                             <Edit className="h-3 w-3" /> Edit
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1 text-violet-600 border-violet-200 hover:bg-violet-50"
+                            onClick={() => {
+                              // Pre-select the org for add staff and switch to staff tab
+                              const parentOrg = franchises.find(f => f.id === br.orgId);
+                              if (parentOrg) {
+                                setSelectedOrgId(parentOrg.id);
+                                setAddStaffData(d => ({ ...d, restaurantId: br.id }));
+                                setAddStaffDialog(true);
+                              }
+                            }}
+                          >
+                            <UserPlus className="h-3 w-3" /> Staff
                           </Button>
                         </div>
                       </div>
@@ -2015,6 +2099,196 @@ const FranchiseAdmin = () => {
           </div>
         </div>
       )}
+
+      {/* Branch Detail / Edit Dialog */}
+      <Dialog open={branchDetailDialog} onOpenChange={setBranchDetailDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {branchEditMode ? <Edit className="h-5 w-5 text-violet-600" /> : <Eye className="h-5 w-5 text-blue-600" />}
+              {branchEditMode ? "Edit Branch" : "Branch Details"}
+            </DialogTitle>
+            <DialogDescription>
+              {branchEditMode ? "Update branch information." : `Details for ${selectedBranch?.name || ""}`}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedBranch && (
+            <div className="grid gap-4 py-4">
+              {branchEditMode ? (
+                <>
+                  <div className="space-y-2">
+                    <Label>Branch Name</Label>
+                    <Input
+                      value={branchEditData.name}
+                      onChange={(e) => setBranchEditData(d => ({ ...d, name: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Branch Code</Label>
+                      <Input
+                        value={branchEditData.branchCode}
+                        onChange={(e) => setBranchEditData(d => ({ ...d, branchCode: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Address / City</Label>
+                      <Input
+                        value={branchEditData.address}
+                        onChange={(e) => setBranchEditData(d => ({ ...d, address: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                    <span className="text-xs text-slate-500">Name</span>
+                    <span className="text-sm font-medium">{selectedBranch.name}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                    <span className="text-xs text-slate-500">Branch Code</span>
+                    <span className="text-sm font-medium">{selectedBranch.code}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                    <span className="text-xs text-slate-500">Address</span>
+                    <span className="text-sm font-medium">{selectedBranch.address}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                    <span className="text-xs text-slate-500">Manager</span>
+                    <span className="text-sm font-medium">{selectedBranch.manager}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                    <span className="text-xs text-slate-500">Status</span>
+                    <Badge variant="outline" className="text-[10px]">{selectedBranch.status}</Badge>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBranchDetailDialog(false)}>
+              {branchEditMode ? "Cancel" : "Close"}
+            </Button>
+            {branchEditMode && (
+              <Button
+                className="bg-violet-600 hover:bg-violet-700 text-white"
+                onClick={async () => {
+                  if (!selectedBranch) return;
+                  const { error } = await supabase
+                    .from("restaurants")
+                    .update({
+                      name: branchEditData.name,
+                      branch_code: branchEditData.branchCode,
+                      address: branchEditData.address,
+                    })
+                    .eq("id", selectedBranch.id);
+                  if (error) {
+                    toast.error("Failed to update branch", { description: error.message });
+                  } else {
+                    toast.success("Branch updated!");
+                    setBranchDetailDialog(false);
+                    queryClient.invalidateQueries({ queryKey: ["franchises"] });
+                  }
+                }}
+              >
+                Save Changes
+              </Button>
+            )}
+            {!branchEditMode && (
+              <Button
+                variant="outline"
+                className="text-violet-600 border-violet-200 hover:bg-violet-50 gap-1"
+                onClick={() => {
+                  if (!selectedBranch) return;
+                  const parentOrg = franchises.find(f => f.id === selectedBranch.orgId);
+                  if (parentOrg) {
+                    setSelectedOrgId(parentOrg.id);
+                    setAddStaffData(d => ({ ...d, restaurantId: selectedBranch.id }));
+                    setBranchDetailDialog(false);
+                    setAddStaffDialog(true);
+                  }
+                }}
+              >
+                <UserPlus className="h-3.5 w-3.5" /> Add Staff
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Branch Dialog */}
+      <Dialog open={addBranchDialog} onOpenChange={setAddBranchDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-violet-600" />
+              Add Branch
+            </DialogTitle>
+            <DialogDescription>
+              Create a new branch for an existing franchise organization.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Organization</Label>
+              <Select
+                value={addBranchData.organizationId}
+                onValueChange={(val) => setAddBranchData({ ...addBranchData, organizationId: val })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a franchise" />
+                </SelectTrigger>
+                <SelectContent>
+                  {franchises.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Branch Name</Label>
+                <Input
+                  placeholder="e.g. Downtown Branch"
+                  value={addBranchData.name}
+                  onChange={(e) => setAddBranchData({ ...addBranchData, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Branch Code</Label>
+                <Input
+                  placeholder="e.g. BR-02"
+                  value={addBranchData.branchCode}
+                  onChange={(e) => setAddBranchData({ ...addBranchData, branchCode: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>City / Location</Label>
+              <Input
+                placeholder="e.g. Mumbai"
+                value={addBranchData.city}
+                onChange={(e) => setAddBranchData({ ...addBranchData, city: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddBranchDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-violet-600 hover:bg-violet-700 text-white"
+              onClick={() => addBranchMutation.mutate()}
+              disabled={addBranchMutation.isPending || !addBranchData.name || !addBranchData.organizationId}
+            >
+              {addBranchMutation.isPending ? "Adding..." : "Add Branch"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Staff Dialog */}
       <Dialog open={addStaffDialog} onOpenChange={setAddStaffDialog}>
@@ -2558,8 +2832,6 @@ const FranchiseAdmin = () => {
                     </div>
                   </div>
                 </div>
-              </div>
-              </div>
               
               {/* Franchise Portal Access Panel */}
               <div className="col-span-2 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800/40 rounded-2xl p-4 space-y-3 mt-4">
@@ -2597,6 +2869,7 @@ const FranchiseAdmin = () => {
                     <div className="col-span-full text-xs text-slate-400 italic">No branches found for this organization.</div>
                   )}
                 </div>
+              </div>
               </div>
               </div>
 
