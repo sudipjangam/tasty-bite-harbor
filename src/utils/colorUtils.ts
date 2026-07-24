@@ -53,9 +53,9 @@ export interface BrandingConfig {
 
 // ─── Default Swadeshi Theme ──────────────────────────────────────────
 export const DEFAULT_BRANDING: BrandingConfig = {
-  mode: 'gradient',
-  color1: '#667eea',
-  color2: '#764ba2',
+  mode: 'solid',
+  color1: '#20317e',
+  color2: null,
   gradient_direction: 135,
   font_family: 'Inter',
   logo_url: null,
@@ -85,9 +85,9 @@ export const THEME_PRESETS: ThemePreset[] = [
     name: 'Swadeshi Solutions',
     emoji: '⭐',
     description: 'Original default theme — reset to factory',
-    color1: '#667eea',
-    color2: '#764ba2',
-    mode: 'gradient',
+    color1: '#20317e',
+    color2: '#20317e',
+    mode: 'solid',
     direction: 135,
     isDefault: true,
   },
