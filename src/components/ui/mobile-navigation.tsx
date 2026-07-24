@@ -301,7 +301,7 @@ const mobileNavItems: MobileNavItem[] = [
     label: "Franchise",
     path: "/franchise",
     icon: Network,
-    adminOnly: true,
+    requiredRole: "owner",
     gradient: "from-violet-600 to-purple-700",
     shadowColor: "shadow-violet-600/30",
     textColor: "text-violet-700",
@@ -374,6 +374,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     ai: "ai",
     settings: "settings",
     "platform-admin": "platform-admin",
+    "franchise-portal": "franchise",
   };
 
   // System components bypass subscription check (controlled by role permissions only)

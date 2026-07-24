@@ -308,10 +308,10 @@ const navigationGroups: NavigationGroup[] = [
 const standaloneItems: NavigationItem[] = [
   {
     title: "Franchise Portal",
-    icon: Network,
+    icon: Building2,
     href: "/franchise",
-    description: "Multi-branch management",
-    requiredPermissions: ["franchise.dashboard"], // Uses proper permission instead of hardcoded admin check
+    color: "text-amber-500",
+    requiredRole: "owner", // Exclusive to franchise owner
   },
   {
     title: "Platform Admin",
@@ -378,7 +378,6 @@ export const ImprovedSidebarNavigation = ({
 
   const isActive = (href: string) => location.pathname === href;
 
-  // System components that should bypass subscription check (admin-only, controls access to system)
   const systemComponents = [
     "dashboard",
     "user-management",
