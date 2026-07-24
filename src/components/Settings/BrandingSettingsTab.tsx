@@ -56,9 +56,15 @@ function MiniPreview({ config, darkMode }: MiniPreviewProps) {
   const cardBorder = darkMode ? '#334155' : '#e2e8f0';
   const textColor = darkMode ? '#f1f5f9' : '#1e293b';
   const mutedText = darkMode ? '#94a3b8' : '#64748b';
-  const pageBg = darkMode
-    ? `linear-gradient(${gradDir}deg, ${palette.darkGradientStart} 0%, ${palette.darkGradientEnd} 100%)`
-    : `linear-gradient(${gradDir}deg, ${palette.gradientStart} 0%, ${palette.gradientEnd} 100%)`;
+  const isDefaultTheme =
+    config.color1?.toLowerCase() === '#20317e' ||
+    (config.color1?.toLowerCase() === '#667eea' && config.color2?.toLowerCase() === '#764ba2');
+
+  const pageBg = isDefaultTheme
+    ? (darkMode ? '#0f172a' : '#ffffff')
+    : (darkMode
+        ? `linear-gradient(${gradDir}deg, ${palette.darkGradientStart} 0%, ${palette.darkGradientEnd} 100%)`
+        : `linear-gradient(${gradDir}deg, ${palette.gradientStart} 0%, ${palette.gradientEnd} 100%)`);
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', active: true },
@@ -136,7 +142,7 @@ function MiniPreview({ config, darkMode }: MiniPreviewProps) {
       <div style={{ flex: 1, background: pageBg, padding: '10px', overflow: 'hidden' }}>
         {/* Header */}
         <div style={{
-          fontSize: '9px', fontWeight: 700, color: 'rgba(255,255,255,0.95)',
+          fontSize: '9px', fontWeight: 700, color: textColor,
           marginBottom: '8px', letterSpacing: '0.3px',
         }}>
           Dashboard Overview
@@ -255,13 +261,13 @@ function HexInput({ label, value, onChange, hint }: HexInputProps) {
         <div className="relative w-10 h-10 rounded-xl overflow-hidden border-2 border-gray-200 dark:border-gray-600 shadow-sm flex-shrink-0 cursor-pointer hover:scale-105 transition-transform">
           <input
             type="color"
-            value={isValidHex(value) ? value : '#667eea'}
+            value={isValidHex(value) ? value : '#20317e'}
             onChange={handleNativeColorChange}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           />
           <div
             className="w-full h-full"
-            style={{ background: isValidHex(value) ? value : '#667eea' }}
+            style={{ background: isValidHex(value) ? value : '#20317e' }}
           />
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <Palette className="h-3 w-3 text-white/80 drop-shadow" />
@@ -274,7 +280,7 @@ function HexInput({ label, value, onChange, hint }: HexInputProps) {
             type="text"
             value={inputVal}
             onChange={handleChange}
-            placeholder="#667eea"
+            placeholder="#20317e"
             maxLength={7}
             className={cn(
               'w-full px-3 py-2 text-sm font-mono rounded-lg border-2 transition-colors',
@@ -477,8 +483,8 @@ export function BrandingSettingsTab() {
                     >
                       <div className="w-full h-6 rounded-md overflow-hidden" style={{
                         background: mode === 'solid'
-                          ? (localConfig.color1 || '#667eea')
-                          : `linear-gradient(90deg, ${localConfig.color1 || '#667eea'}, ${localConfig.color2 || '#764ba2'})`,
+                          ? (localConfig.color1 || '#20317e')
+                          : `linear-gradient(90deg, ${localConfig.color1 || '#20317e'}, ${localConfig.color2 || '#20317e'})`,
                       }} />
                       <span className={cn(
                         'text-xs font-semibold capitalize',
@@ -554,8 +560,8 @@ export function BrandingSettingsTab() {
                   const defaultPreset = THEME_PRESETS.find(p => p.isDefault);
                   if (!defaultPreset) return null;
                   const isDefaultActive = !isCustomBranded || (
-                    localConfig.color1 === defaultPreset.color1 &&
-                    localConfig.color2 === defaultPreset.color2
+                    localConfig.color1?.toLowerCase() === defaultPreset.color1.toLowerCase() &&
+                    (defaultPreset.mode === 'solid' || localConfig.color2?.toLowerCase() === defaultPreset.color2?.toLowerCase())
                   );
                   return (
                     <button
@@ -570,7 +576,9 @@ export function BrandingSettingsTab() {
                       <div
                         className="w-10 h-10 rounded-lg flex-shrink-0 shadow-sm border border-white/20"
                         style={{
-                          background: `linear-gradient(135deg, ${defaultPreset.color1}, ${defaultPreset.color2})`,
+                          background: defaultPreset.mode === 'solid'
+                            ? defaultPreset.color1
+                            : `linear-gradient(135deg, ${defaultPreset.color1}, ${defaultPreset.color2})`,
                         }}
                       />
                       <div className="min-w-0 flex-1">

@@ -93,13 +93,13 @@
 
     --radius: 0.5rem;
 
-    --sidebar-background: 247 61% 39%;  /* #3f3698 - sidebar purple */
+    --sidebar-background: 229 60% 31%;  /* #20317e - Swadeshi dark navy sidebar */
     --sidebar-foreground: 0 0% 100%;  /* White text */
     --sidebar-primary: 0 0% 100%;  /* White for active items */
-    --sidebar-primary-foreground: 247 61% 39%;  /* Sidebar purple */
-    --sidebar-accent: 249 48% 33%;  /* #2f2b7a - darker purple */
+    --sidebar-primary-foreground: 229 60% 31%;  /* Sidebar navy */
+    --sidebar-accent: 229 60% 24%;  /* #172460 - darker navy */
     --sidebar-accent-foreground: 0 0% 100%;  /* White text */
-    --sidebar-border: 249 48% 33%;  /* #2f2b7a - darker purple */
+    --sidebar-border: 229 60% 24%;  /* Darker navy */
     --sidebar-ring: 0 0% 100%;  /* White ring */
   }
 
@@ -119,7 +119,7 @@
     --popover: 222 47% 11%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 247 61% 39%;  /* Keep sidebar purple consistent */
+    --primary: 229 60% 31%;  /* Swadeshi navy primary */
     --primary-foreground: 210 40% 98%;
 
     --secondary: 153 55% 45%;  /* Slightly darker green for dark mode */
@@ -140,13 +140,13 @@
     
     --toast-background: 217 33% 18%;
 
-    --sidebar-background: 247 61% 39%;  /* Keep sidebar consistent */
+    --sidebar-background: 229 60% 31%;  /* Keep sidebar consistent */
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 210 40% 98%;
-    --sidebar-primary-foreground: 247 61% 39%;
-    --sidebar-accent: 249 48% 33%;
+    --sidebar-primary-foreground: 229 60% 31%;
+    --sidebar-accent: 229 60% 24%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 249 48% 33%;
+    --sidebar-border: 229 60% 24%;
     --sidebar-ring: 210 40% 98%;
   }
 }
@@ -159,13 +159,13 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', 'SF Pro Display', sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #ffffff;
     background-attachment: fixed;
     transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   .dark body {
-    background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+    background: #0f172a;
     background-attachment: fixed;
   }
   

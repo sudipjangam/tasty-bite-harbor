@@ -311,7 +311,7 @@ const standaloneItems: NavigationItem[] = [
     icon: Network,
     href: "/franchise",
     description: "Multi-branch management",
-    requiredRole: "admin", // Mock: swap to org membership check
+    requiredPermissions: ["franchise.dashboard"], // Uses proper permission instead of hardcoded admin check
   },
   {
     title: "Platform Admin",

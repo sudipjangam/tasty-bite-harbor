@@ -94,24 +94,49 @@ function injectBodyGradientStyle(palette: BrandingPalette, config: BrandingConfi
     document.head.appendChild(tag);
   }
 
+  const isDefaultTheme =
+    config.color1?.toLowerCase() === '#20317e' ||
+    (config.color1?.toLowerCase() === '#667eea' && config.color2?.toLowerCase() === '#764ba2');
+
   const dir = config.gradient_direction;
-  tag.textContent = `
-    body {
-      background: linear-gradient(${dir}deg, ${palette.gradientStart} 0%, ${palette.gradientEnd} 100%) !important;
-      background-attachment: fixed !important;
-      transition: background 300ms ease !important;
-    }
-    .dark body {
-      background: linear-gradient(${dir}deg, ${palette.darkGradientStart} 0%, ${palette.darkGradientEnd} 100%) !important;
-      background-attachment: fixed !important;
-    }
-    *::-webkit-scrollbar-thumb {
-      background: linear-gradient(135deg, ${palette.scrollbarColor}, ${palette.scrollbarColor.replace('0.6', '0.8')}) !important;
-    }
-    *::-webkit-scrollbar-thumb:hover {
-      background: linear-gradient(135deg, ${palette.scrollbarColor.replace('0.6', '0.9')}, ${palette.scrollbarColor.replace('0.6', '1')}) !important;
-    }
-  `;
+
+  if (isDefaultTheme) {
+    tag.textContent = `
+      body {
+        background: #ffffff !important;
+        background-attachment: fixed !important;
+        transition: background 300ms ease !important;
+      }
+      .dark body {
+        background: #0f172a !important;
+        background-attachment: fixed !important;
+      }
+      *::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, ${palette.scrollbarColor}, ${palette.scrollbarColor.replace('0.6', '0.8')}) !important;
+      }
+      *::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(135deg, ${palette.scrollbarColor.replace('0.6', '0.9')}, ${palette.scrollbarColor.replace('0.6', '1')}) !important;
+      }
+    `;
+  } else {
+    tag.textContent = `
+      body {
+        background: linear-gradient(${dir}deg, ${palette.gradientStart} 0%, ${palette.gradientEnd} 100%) !important;
+        background-attachment: fixed !important;
+        transition: background 300ms ease !important;
+      }
+      .dark body {
+        background: linear-gradient(${dir}deg, ${palette.darkGradientStart} 0%, ${palette.darkGradientEnd} 100%) !important;
+        background-attachment: fixed !important;
+      }
+      *::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, ${palette.scrollbarColor}, ${palette.scrollbarColor.replace('0.6', '0.8')}) !important;
+      }
+      *::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(135deg, ${palette.scrollbarColor.replace('0.6', '0.9')}, ${palette.scrollbarColor.replace('0.6', '1')}) !important;
+      }
+    `;
+  }
 
   injectBrandOverrideLayer(palette, config);
 }
