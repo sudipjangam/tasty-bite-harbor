@@ -80,13 +80,13 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
   const [currentBranch, setCurrentBranch] = useState<MockBranch | null>(null);
   const [mockBranches, setMockBranches] = useState<MockBranch[]>(MOCK_BRANCHES);
 
-  // Demo mode: persisted in localStorage, defaults to true for initial presentations
+  // Demo mode: persisted in localStorage, defaults to false (Live DB queries)
   const [demoMode, setDemoModeState] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem("franchise_portal_demo_mode");
-      return saved === null ? true : saved === "true";
+      return saved === null ? false : saved === "true";
     } catch {
-      return true;
+      return false;
     }
   });
 
