@@ -43,14 +43,6 @@ serve(async (req: Request) => {
     return new Response(null, { headers: corsHeaders, status: 204 });
   }
 
-  // Only allow POST
-  if (req.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ success: false, error: 'Method not allowed' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 405 }
-    );
-  }
-
   // Rate limiting — prevent spam enrollments (SENSITIVE: 10 req/min)
   const identifier = getRequestIdentifier(req);
   const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.SENSITIVE);
@@ -63,8 +55,54 @@ serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const body = await req.json() as EnrollmentRequest;
-    const { slug, name, email, phone, birthday, source = 'qr_code' } = body;
+    const url = new URL(req.url);
+    const querySlug = url.searchParams.get('slug');
+    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+    const { action, slug: bodySlug, name, email, phone, birthday, source = 'qr_code' } = body;
+    const targetSlug = querySlug || bodySlug;
+
+    // Action / GET request to fetch public restaurant info by slug (bypassing RLS with service role)
+    if (req.method === 'GET' || action === 'get_restaurant') {
+      if (!targetSlug) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Restaurant slug is required' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+
+      let restaurantData = null;
+      const { data: resBySlug } = await supabase
+        .from('restaurants')
+        .select('id, name, description, slug')
+        .ilike('slug', targetSlug.toLowerCase())
+        .maybeSingle();
+
+      if (resBySlug) {
+        restaurantData = resBySlug;
+      } else {
+        const { data: resByName } = await supabase
+          .from('restaurants')
+          .select('id, name, description, slug')
+          .ilike('name', `%${targetSlug.replace(/-/g, ' ')}%`)
+          .limit(1)
+          .maybeSingle();
+        if (resByName) restaurantData = resByName;
+      }
+
+      if (!restaurantData) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Restaurant not found' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, restaurant: restaurantData }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
+    const slug = targetSlug;
 
     // Validate required fields
     if (!slug) {
@@ -104,18 +142,31 @@ serve(async (req: Request) => {
       return new Response(
         JSON.stringify({ success: false, error: 'Phone number must have at least 10 digits' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-        );
+      );
     }
 
-    // Find restaurant by slug
-    const { data: restaurant, error: restaurantError } = await supabase
+    // Find restaurant by slug or name
+    let restaurant = null;
+    const { data: resBySlug } = await supabase
       .from('restaurants')
       .select('id, name')
-      .eq('slug', slug.toLowerCase())
-      .single();
+      .ilike('slug', slug.toLowerCase())
+      .maybeSingle();
 
-    if (restaurantError || !restaurant) {
-      console.error('Restaurant not found:', slug, restaurantError);
+    if (resBySlug) {
+      restaurant = resBySlug;
+    } else {
+      const { data: resByName } = await supabase
+        .from('restaurants')
+        .select('id, name')
+        .ilike('name', `%${slug.replace(/-/g, ' ')}%`)
+        .limit(1)
+        .maybeSingle();
+      if (resByName) restaurant = resByName;
+    }
+
+    if (!restaurant) {
+      console.error('Restaurant not found:', slug);
       return new Response(
         JSON.stringify({ success: false, error: 'Restaurant not found' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }

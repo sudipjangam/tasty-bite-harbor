@@ -627,11 +627,11 @@ export const useCustomerData = () => {
           .insert([
             {
               name: customer.name,
-              email: customer.email,
-              phone: customer.phone,
-              address: customer.address,
-              birthday: customer.birthday === "" ? null : customer.birthday,
-              preferences: customer.preferences,
+              email: customer.email || null,
+              phone: customer.phone || null,
+              address: customer.address || null,
+              birthday: customer.birthday === "" ? null : (customer.birthday || null),
+              preferences: customer.preferences || null,
               restaurant_id: restaurantId,
               tags: customer.tags || [],
               loyalty_points: customer.loyalty_points || 0,
