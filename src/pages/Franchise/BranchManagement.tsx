@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { MockBranch } from "@/data/franchiseMockData";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import { cn } from "@/lib/utils";
@@ -33,9 +34,10 @@ interface BranchCardProps {
   branch: MockBranch;
   onEdit: (b: MockBranch) => void;
   onView: (b: MockBranch) => void;
+  onDeactivate: (b: MockBranch) => void;
 }
 
-const BranchCard: React.FC<BranchCardProps> = ({ branch, onEdit, onView }) => {
+const BranchCard: React.FC<BranchCardProps> = ({ branch, onEdit, onView, onDeactivate }) => {
   const { formatCurrency } = useFranchise();
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all group overflow-hidden flex flex-col justify-between">
@@ -57,9 +59,14 @@ const BranchCard: React.FC<BranchCardProps> = ({ branch, onEdit, onView }) => {
               </div>
               <span className="text-xs font-mono text-gray-400 dark:text-gray-500">{branch.code}</span>
             </div>
-            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              {branch.status === "active" ? "Active" : branch.status}
+            <span className={cn(
+              "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+              branch.status === "active"
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+            )}>
+              <span className={cn("w-1.5 h-1.5 rounded-full", branch.status === "active" ? "bg-emerald-500" : "bg-gray-400")} />
+              {branch.status === "active" ? "Active" : "Inactive"}
             </span>
           </div>
 
@@ -104,19 +111,32 @@ const BranchCard: React.FC<BranchCardProps> = ({ branch, onEdit, onView }) => {
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2 p-5 pt-0">
+      <div className="flex gap-1.5 p-5 pt-0">
         <Button
           variant="outline"
           size="sm"
           onClick={() => onEdit(branch)}
-          className="flex-1 gap-1.5 text-xs h-8 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          className="flex-1 gap-1 text-xs h-8 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors px-2"
         >
           <Edit3 className="h-3 w-3" /> Edit
         </Button>
         <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onDeactivate(branch)}
+          className={cn(
+            "gap-1 text-xs h-8 px-2 transition-colors",
+            branch.status === "active"
+              ? "text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/40 dark:hover:bg-red-900/20"
+              : "text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-900/40 dark:hover:bg-emerald-900/20"
+          )}
+        >
+          {branch.status === "active" ? "Deactivate" : "Activate"}
+        </Button>
+        <Button
           size="sm"
           onClick={() => onView(branch)}
-          className="flex-1 gap-1.5 text-xs h-8 text-white shadow-sm hover:opacity-90 transition-opacity"
+          className="gap-1 text-xs h-8 text-white shadow-sm hover:opacity-90 transition-opacity px-2.5"
           style={{ background: branch.color, borderColor: branch.color }}
         >
           <Eye className="h-3 w-3" /> View
@@ -127,9 +147,13 @@ const BranchCard: React.FC<BranchCardProps> = ({ branch, onEdit, onView }) => {
 };
 
 const BranchManagement: React.FC = () => {
-  const { allBranches, addBranch, updateBranch, formatCurrency, demoMode } = useFranchise();
+  const { allBranches, addBranch, updateBranch, deactivateBranch, org, formatCurrency, demoMode } = useFranchise();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
+
+  const maxBranches = org?.maxBranches || 5;
+  const isMaxBranchesReached = allBranches.length >= maxBranches;
 
   // Dialog open controls
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -150,6 +174,19 @@ const BranchManagement: React.FC = () => {
   const [formIsHq, setFormIsHq] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Auto-open edit modal if query string has ?edit=BRANCH_ID
+  useEffect(() => {
+    const editId = searchParams.get("edit");
+    if (editId && allBranches.length > 0) {
+      const target = allBranches.find((b) => b.id === editId);
+      if (target) {
+        handleOpenEdit(target);
+        // Clear param after opening
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, allBranches]);
+
   const resetForm = () => {
     setFormName("");
     setFormCode("");
@@ -164,6 +201,14 @@ const BranchManagement: React.FC = () => {
   };
 
   const handleOpenAdd = () => {
+    if (isMaxBranchesReached) {
+      toast({
+        title: "Maximum Branches Reached",
+        description: `Your franchise subscription plan allows a maximum of ${maxBranches} branches. Upgrade plan to add more branches.`,
+        variant: "destructive"
+      });
+      return;
+    }
     resetForm();
     setIsAddOpen(true);
   };
@@ -186,6 +231,23 @@ const BranchManagement: React.FC = () => {
   const handleOpenView = (branch: MockBranch) => {
     setSelectedBranch(branch);
     setIsViewOpen(true);
+  };
+
+  const handleDeactivate = async (branch: MockBranch) => {
+    const isActivating = branch.status !== "active";
+    const success = await deactivateBranch(branch.id);
+    if (success) {
+      toast({
+        title: isActivating ? "Branch Activated" : "Branch Deactivated",
+        description: `${branch.name} status updated to ${isActivating ? "Active" : "Inactive"}.`,
+      });
+    } else {
+      toast({
+        title: "Action Failed",
+        description: `Could not update status for ${branch.name}.`,
+        variant: "destructive"
+      });
+    }
   };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
@@ -266,15 +328,23 @@ const BranchManagement: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Branch Management</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {allBranches.length} branches · {allBranches.filter((b) => b.status === "active").length} active
+            {allBranches.length} / {maxBranches} max branches · {allBranches.filter((b) => b.status === "active").length} active
           </p>
         </div>
-        <Button 
-          onClick={handleOpenAdd}
-          className="gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-lg shadow-violet-500/25 w-full sm:w-auto hover:scale-[1.02] active:scale-[0.98] transition-all"
-        >
-          <Plus className="h-4 w-4" /> Add Branch
-        </Button>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          {isMaxBranchesReached && (
+            <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800 font-medium">
+              Maximum branches reached ({maxBranches}/{maxBranches})
+            </span>
+          )}
+          <Button 
+            onClick={handleOpenAdd}
+            disabled={isMaxBranchesReached}
+            className="gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-lg shadow-violet-500/25 w-full sm:w-auto hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:hover:scale-100"
+          >
+            <Plus className="h-4 w-4" /> Add Branch
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
@@ -294,6 +364,7 @@ const BranchManagement: React.FC = () => {
             branch={branch} 
             onEdit={handleOpenEdit}
             onView={handleOpenView}
+            onDeactivate={handleDeactivate}
           />
         ))}
       </div>

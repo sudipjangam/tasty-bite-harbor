@@ -10,6 +10,7 @@ import {
   DollarSign,
   ArrowRight,
   Users,
+  Edit3,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -73,7 +74,9 @@ const FranchiseDashboard: React.FC = () => {
     revenueTrend, 
     formatCurrency,
     staff,
-    demoMode
+    demoMode,
+    dateRange,
+    setDateRange
   } = useFranchise();
   const navigate = useNavigate();
 
@@ -114,14 +117,37 @@ const FranchiseDashboard: React.FC = () => {
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          {isAllBranches ? "Franchise Overview" : `${currentBranch!.name} — Overview`}
-        </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          {new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" })} · Last 30 days
-        </p>
+      {/* Page header with Date Range selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {isAllBranches ? "Franchise Overview" : `${currentBranch!.name} — Overview`}
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" })} · {dateRange === "today" ? "Today" : dateRange === "7d" ? "Last 7 Days" : dateRange === "90d" ? "Last 90 Days" : "Last 30 Days"}
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700 self-start sm:self-auto">
+          {[
+            { id: "today", label: "Today" },
+            { id: "7d", label: "7 Days" },
+            { id: "30d", label: "30 Days" },
+            { id: "90d", label: "90 Days" },
+          ].map((preset) => (
+            <button
+              key={preset.id}
+              onClick={() => setDateRange(preset.id as any)}
+              className={cn(
+                "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all",
+                dateRange === preset.id
+                  ? "bg-white dark:bg-gray-700 text-violet-600 dark:text-violet-400 shadow-sm"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              )}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -329,6 +355,7 @@ const FranchiseDashboard: React.FC = () => {
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">Profit %</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden lg:table-cell">Rating</th>
                 <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">Status</th>
+                <th className="text-right px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -364,10 +391,23 @@ const FranchiseDashboard: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-4 py-3.5 text-center">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      Active
+                    <span className={cn(
+                      "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                      branch.status === "active"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                    )}>
+                      <span className={cn("w-1.5 h-1.5 rounded-full", branch.status === "active" ? "bg-emerald-500" : "bg-gray-400")} />
+                      {branch.status === "active" ? "Active" : "Inactive"}
                     </span>
+                  </td>
+                  <td className="px-5 py-3.5 text-right">
+                    <button
+                      onClick={() => navigate(`/franchise/branches?edit=${branch.id}`)}
+                      className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-900/20 dark:hover:text-violet-400 transition-colors"
+                    >
+                      <Edit3 className="h-3 w-3" /> Edit
+                    </button>
                   </td>
                 </tr>
               ))}

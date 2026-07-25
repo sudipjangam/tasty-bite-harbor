@@ -32,6 +32,8 @@ import {
 // and Live Database Queries (for fully operational franchise management).
 // ============================================================
 
+export type DateRangePreset = "today" | "7d" | "30d" | "90d";
+
 interface FranchiseContextType {
   // Demo Mode
   demoMode: boolean;
@@ -41,6 +43,10 @@ interface FranchiseContextType {
   org: typeof MOCK_ORG;
   orgRole: OrgRole;
   isFranchiseOwner: boolean;
+
+  // Date Range Filter
+  dateRange: DateRangePreset;
+  setDateRange: (range: DateRangePreset) => void;
 
   // Branches
   allBranches: MockBranch[];
@@ -67,6 +73,13 @@ interface FranchiseContextType {
   refetch: () => void;
   addBranch: (b: any) => Promise<boolean>;
   updateBranch: (id: string, b: any) => Promise<boolean>;
+  deactivateBranch: (id: string) => Promise<boolean>;
+  inviteTeamMember: (data: { name: string; email: string; role: OrgRole; accessibleBranches: string[] | null }) => Promise<boolean>;
+  updateMemberRole: (memberId: string, role: OrgRole, accessibleBranches: string[] | null) => Promise<boolean>;
+  removeTeamMember: (memberId: string) => Promise<boolean>;
+  addMasterMenuItem: (item: { name: string; category: string; price: number; description?: string; minPriceOverride?: number; maxPriceOverride?: number }) => Promise<boolean>;
+  pushMenuItemsToBranches: (itemIds: string[], branchIds: string[]) => Promise<boolean>;
+  deleteMasterMenuItem: (itemId: string) => Promise<boolean>;
 }
 
 const FranchiseContext = createContext<FranchiseContextType | undefined>(undefined);
@@ -640,9 +653,11 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
     }
   };
 
-  const updateBranch = async (id: string, b: any): Promise<boolean> => {
+  const updateBranch = async (id: string, b: Partial<MockBranch>): Promise<boolean> => {
     if (demoMode) {
-      setMockBranches(mockBranches.map(item => item.id === id ? { ...item, ...b } : item));
+      setMockBranches((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, ...b } : item))
+      );
       return true;
     } else {
       const { error } = await supabase
@@ -654,11 +669,243 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
           city: b.city,
           phone: b.phone,
           email: b.email,
-          is_headquarters: b.isHeadquarters ?? false,
+          is_headquarters: b.isHeadquarters,
         })
         .eq("id", id);
       if (error) {
         console.error("Error updating branch:", error);
+        return false;
+      }
+      refetch();
+      return true;
+    }
+  };
+
+  const [dateRange, setDateRange] = useState<DateRangePreset>("30d");
+  const [mockTeam, setMockTeam] = useState<typeof MOCK_TEAM>(MOCK_TEAM);
+  const [mockMenuItems, setMockMenuItems] = useState<MockMenuItem[]>(MOCK_MENU_ITEMS);
+
+  const deactivateBranch = async (id: string): Promise<boolean> => {
+    const branchToToggle = currentBranches.find((b) => b.id === id);
+    const newStatus = branchToToggle?.status === "active" ? "inactive" : "active";
+
+    if (demoMode) {
+      setMockBranches(mockBranches.map((item) => (item.id === id ? { ...item, status: newStatus } : item)));
+      return true;
+    } else {
+      const { error } = await supabase
+        .from("restaurants")
+        .update({ is_active: newStatus === "active" })
+        .eq("id", id);
+      if (error) {
+        console.error("Error toggling branch status:", error);
+        return false;
+      }
+      refetch();
+      return true;
+    }
+  };
+
+  const inviteTeamMember = async (data: {
+    name: string;
+    email: string;
+    role: OrgRole;
+    accessibleBranches: string[] | null;
+  }): Promise<boolean> => {
+    if (demoMode) {
+      const newMember = {
+        id: `team-${mockTeam.length + 1}`,
+        name: data.name,
+        email: data.email,
+        role: data.role,
+        accessibleBranches: data.accessibleBranches,
+        joinedAt: new Date().toISOString().split("T")[0],
+      };
+      setMockTeam([...mockTeam, newMember]);
+      return true;
+    } else {
+      // In live mode, insert into organization_members table
+      const activeOrgId = dbData?.org?.id;
+      if (!activeOrgId) return false;
+
+      // Check profile by email
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", data.email)
+        .maybeSingle();
+
+      const memberUserId = prof?.id || user?.id; // fallback to current user or mock insert
+      if (!memberUserId) return false;
+
+      const { error } = await supabase.from("organization_members").insert({
+        organization_id: activeOrgId,
+        user_id: memberUserId,
+        role: data.role,
+        accessible_branches: data.accessibleBranches,
+      });
+
+      if (error) {
+        console.error("Error inviting member:", error);
+        return false;
+      }
+      refetch();
+      return true;
+    }
+  };
+
+  const updateMemberRole = async (
+    memberId: string,
+    role: OrgRole,
+    accessibleBranches: string[] | null
+  ): Promise<boolean> => {
+    if (demoMode) {
+      setMockTeam(
+        mockTeam.map((m) => (m.id === memberId ? { ...m, role, accessibleBranches } : m))
+      );
+      return true;
+    } else {
+      const { error } = await supabase
+        .from("organization_members")
+        .update({ role, accessible_branches: accessibleBranches })
+        .eq("id", memberId);
+
+      if (error) {
+        console.error("Error updating member role:", error);
+        return false;
+      }
+      refetch();
+      return true;
+    }
+  };
+
+  const removeTeamMember = async (memberId: string): Promise<boolean> => {
+    if (demoMode) {
+      setMockTeam(mockTeam.filter((m) => m.id !== memberId));
+      return true;
+    } else {
+      const { error } = await supabase.from("organization_members").delete().eq("id", memberId);
+
+      if (error) {
+        console.error("Error removing team member:", error);
+        return false;
+      }
+      refetch();
+      return true;
+    }
+  };
+
+  const addMasterMenuItem = async (item: {
+    name: string;
+    category: string;
+    price: number;
+    description?: string;
+    minPriceOverride?: number;
+    maxPriceOverride?: number;
+  }): Promise<boolean> => {
+    if (demoMode) {
+      const newItem: MockMenuItem = {
+        id: `menu-${mockMenuItems.length + 1}`,
+        name: item.name,
+        category: item.category,
+        price: item.price,
+        origin: "master",
+        isAvailable: true,
+        branches: currentBranches.map((b) => b.id),
+        minPriceOverride: item.minPriceOverride,
+        maxPriceOverride: item.maxPriceOverride,
+      };
+      setMockMenuItems([...mockMenuItems, newItem]);
+      return true;
+    } else {
+      const activeOrgId = dbData?.org?.id;
+      if (!activeOrgId) return false;
+
+      const { error } = await supabase.from("menu_items").insert({
+        organization_id: activeOrgId,
+        name: item.name,
+        category: item.category,
+        price: item.price,
+        origin: "master",
+        is_available: true,
+        restaurant_id: currentBranches[0]?.id || "",
+      });
+
+      if (error) {
+        console.error("Error adding master menu item:", error);
+        return false;
+      }
+      refetch();
+      return true;
+    }
+  };
+
+  const pushMenuItemsToBranches = async (
+    itemIds: string[],
+    targetBranchIds: string[]
+  ): Promise<boolean> => {
+    if (demoMode) {
+      setMockMenuItems((prev) =>
+        prev.map((item) => {
+          if (itemIds.includes(item.id)) {
+            const updatedBranches = Array.from(new Set([...item.branches, ...targetBranchIds]));
+            return { ...item, branches: updatedBranches };
+          }
+          return item;
+        })
+      );
+      return true;
+    } else {
+      const activeOrgId = dbData?.org?.id;
+      if (!activeOrgId) return false;
+
+      const itemsToPush = (dbData?.menuItems || []).filter((m) => itemIds.includes(m.id));
+
+      for (const branchId of targetBranchIds) {
+        for (const item of itemsToPush) {
+          await supabase.from("menu_items").insert({
+            organization_id: activeOrgId,
+            restaurant_id: branchId,
+            name: item.name,
+            category: item.category,
+            price: item.price,
+            origin: "inherited",
+            source_item_id: item.id,
+            is_available: item.isAvailable ?? true,
+          });
+        }
+      }
+      refetch();
+      return true;
+    }
+  };
+
+  const deleteMasterMenuItem = async (itemId: string): Promise<boolean> => {
+    if (demoMode) {
+      setMockMenuItems((prev) =>
+        prev.map((item) => {
+          if (item.id === itemId) {
+            return null;
+          }
+          if (item.sourceItemId === itemId) {
+            return { ...item, origin: "orphaned" };
+          }
+          return item;
+        }).filter(Boolean) as MockMenuItem[]
+      );
+      return true;
+    } else {
+      // 1. Mark inherited branch items as orphaned
+      await supabase
+        .from("menu_items")
+        .update({ origin: "orphaned" })
+        .eq("source_item_id", itemId);
+
+      // 2. Delete the master menu item
+      const { error } = await supabase.from("menu_items").delete().eq("id", itemId);
+
+      if (error) {
+        console.error("Error deleting master menu item:", error);
         return false;
       }
       refetch();
@@ -672,6 +919,8 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
     org: demoMode ? MOCK_ORG : (dbData?.org || MOCK_ORG),
     orgRole: demoMode ? "owner" : (dbData?.orgRole || "viewer"),
     isFranchiseOwner: true,
+    dateRange,
+    setDateRange,
     allBranches: currentBranches,
     currentBranch,
     setCurrentBranch,
@@ -680,8 +929,8 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
     staff: demoMode ? MOCK_STAFF : (dbData?.staff || []),
     payroll: demoMode ? MOCK_PAYROLL : (dbData?.payroll || []),
     customers: demoMode ? MOCK_CUSTOMERS : (dbData?.customers || []),
-    team: demoMode ? MOCK_TEAM : (dbData?.team || []),
-    menuItems: demoMode ? MOCK_MENU_ITEMS : (dbData?.menuItems || []),
+    team: demoMode ? mockTeam : (dbData?.team || mockTeam),
+    menuItems: demoMode ? mockMenuItems : (dbData?.menuItems || mockMenuItems),
     pnlBranches: demoMode ? MOCK_PNL_BRANCHES : (dbData?.pnlBranches || []),
     kpis: demoMode ? MOCK_FRANCHISE_KPIS : (dbData?.kpis || { totalRevenue: 0, revenueGrowth: 0, totalOrders: 0, ordersGrowth: 0, activeBranches: 0, totalBranches: 0, avgRating: 0, netProfit: 0, totalExpenses: 0 }),
     revenueTrend: demoMode ? MOCK_REVENUE_TREND : (dbData?.revenueTrend || []),
@@ -691,7 +940,14 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
     isLoading: !demoMode && isLoading,
     refetch,
     addBranch,
-    updateBranch
+    updateBranch,
+    deactivateBranch,
+    inviteTeamMember,
+    updateMemberRole,
+    removeTeamMember,
+    addMasterMenuItem,
+    pushMenuItemsToBranches,
+    deleteMasterMenuItem,
   };
 
   return (

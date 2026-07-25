@@ -84,20 +84,43 @@ const FranchiseSettings: React.FC = () => {
       .catch(() => setLoadingLogs(false));
   }, [activeTab, demoMode, org.id]);
 
+  const [logoUrl, setLogoUrl] = useState<string | null>(org.logo || null);
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoUrl(reader.result as string);
+        toast({ title: "Logo Selected", description: "Click Save Changes to persist your new logo." });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSave = async () => {
+    if (!orgName.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Organization name cannot be empty.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       if (!demoMode && org.id) {
         const { error } = await supabase
           .from("organizations")
-          .update({ name: orgName, menu_mode: menuMode })
+          .update({ name: orgName, menu_mode: menuMode, logo_url: logoUrl })
           .eq("id", org.id);
         if (error) throw error;
         refetch();
       }
       toast({
         title: "Settings Saved",
-        description: "Franchise settings have been updated successfully.",
+        description: "Franchise settings and logo updated successfully.",
       });
     } catch {
       toast({ title: "Error", description: "Failed to save settings. Please try again.", variant: "destructive" });
@@ -168,13 +191,34 @@ const FranchiseSettings: React.FC = () => {
             </div>
             <div className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Organization Name</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Organization Name *</label>
                 <input
                   type="text"
                   value={orgName}
                   onChange={(e) => setOrgName(e.target.value)}
+                  placeholder="Organization name (required)"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
+              </div>
+
+              {/* Logo Upload Field */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Organization Logo</label>
+                <div className="flex items-center gap-4">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt="Logo" className="w-12 h-12 rounded-xl object-cover border border-gray-200 dark:border-gray-700" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl bg-violet-100 dark:bg-violet-900/30 text-violet-600 font-bold flex items-center justify-center text-base">
+                      {orgName.charAt(0) || "F"}
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoChange}
+                    className="text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100 cursor-pointer"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Franchise Type</label>
