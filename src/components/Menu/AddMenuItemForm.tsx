@@ -19,6 +19,7 @@ import { X, Upload, Loader2, Image as ImageIcon, Sparkles, ChefHat, Plus, Scale,
 import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCategories } from "@/hooks/useCategories";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { UNITS } from "@/constants/units";
 
@@ -65,6 +66,7 @@ interface VariantRow {
 
 const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormProps) => {
   const { toast } = useToast();
+  const { restaurantId } = useRestaurantId();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -265,7 +267,9 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
       setIsSubmitting(true);
       console.log("Submitting menu item:", data);
 
-      if (!userProfile?.restaurant_id) {
+      const targetRestaurantId = restaurantId || userProfile?.restaurant_id;
+
+      if (!editingItem && !targetRestaurantId) {
         throw new Error('No restaurant assigned to user');
       }
       
@@ -300,7 +304,6 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
           .from("menu_items")
           .update(menuItemData)
           .eq("id", editingItem.id)
-          .eq("restaurant_id", userProfile.restaurant_id)
           .select();
 
         if (error) throw error;
@@ -312,7 +315,7 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
       } else {
         const { data: insertedData, error } = await supabase
           .from("menu_items")
-          .insert([{ ...menuItemData, restaurant_id: userProfile.restaurant_id }])
+          .insert([{ ...menuItemData, restaurant_id: targetRestaurantId }])
           .select()
           .single();
 

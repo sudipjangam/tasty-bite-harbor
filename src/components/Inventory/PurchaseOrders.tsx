@@ -736,20 +736,11 @@ const PurchaseOrders = () => {
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
             {searchQuery ? "No orders found" : "No purchase orders yet"}
           </h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">
+          <p className="text-gray-500 dark:text-gray-400">
             {searchQuery
               ? "Try adjusting your search"
               : "Create your first purchase order to get started"}
           </p>
-          {!searchQuery && (
-            <Button
-              onClick={() => setIsCreateDialogOpen(true)}
-              className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white rounded-xl"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Purchase Order
-            </Button>
-          )}
         </Card>
       ) : (
         <>
