@@ -69,11 +69,24 @@ export default function PublicEnrollmentPage() {
       }
 
       try {
+        // Try edge function first (service role key bypasses RLS for unauthenticated users)
+        const response = await supabase.functions.invoke("enroll-customer", {
+          body: { slug, action: "get_restaurant" },
+        });
+
+        if (response.data?.success && response.data?.restaurant) {
+          setRestaurant(response.data.restaurant);
+          setIsLoading(false);
+          return;
+        }
+
+        // Direct DB fallback query
         const { data, error: fetchError } = await supabase
           .from("restaurants")
           .select("id, name, description")
-          .eq("slug", slug.toLowerCase())
-          .single();
+          .or(`slug.ilike.${slug.toLowerCase()},name.ilike.%${slug.replace(/-/g, " ")}%`)
+          .limit(1)
+          .maybeSingle();
 
         if (fetchError || !data) {
           setError("Restaurant not found");

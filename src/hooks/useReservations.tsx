@@ -112,12 +112,35 @@ export const useReservations = () => {
     mutationFn: async (data: ReservationFormData & { table_id: string }) => {
       if (!restaurantId) throw new Error('No restaurant ID');
 
+      const {
+        customer_name,
+        customer_phone,
+        customer_email,
+        party_size,
+        reservation_date,
+        reservation_time,
+        duration_minutes,
+        special_requests,
+        table_id,
+      } = data;
+
+      const payload: Record<string, any> = {
+        restaurant_id: restaurantId,
+        table_id,
+        customer_name,
+        party_size: Number(party_size) || 1,
+        reservation_date,
+        reservation_time,
+        duration_minutes: Number(duration_minutes) || 120,
+      };
+
+      if (customer_phone) payload.customer_phone = customer_phone;
+      if (customer_email) payload.customer_email = customer_email;
+      if (special_requests) payload.special_requests = special_requests;
+
       const { error } = await supabase
         .from('table_reservations')
-        .insert([{
-          ...data,
-          restaurant_id: restaurantId,
-        }]);
+        .insert([payload]);
 
       if (error) throw error;
     },
