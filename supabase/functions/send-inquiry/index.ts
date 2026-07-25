@@ -31,48 +31,87 @@ interface InquiryRequest {
 }
 
 function generateInquiryHTML(data: InquiryRequest): string {
+  const SITE_URL = "https://swadeshisolutions.co.in";
   return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f7fafc;">
-  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; border-radius: 16px 16px 0 0; text-align: center;">
-    <h1 style="color: white; margin: 0; font-size: 28px;">New Account Inquiry</h1>
-    <p style="color: rgba(255,255,255,0.9); margin: 12px 0 0 0;">Swadeshi Solutions - RMS Pro</p>
-  </div>
-  <div style="background: white; padding: 35px 30px; border-radius: 0 0 16px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
-    <h2 style="color: #2d3748; margin: 0 0 20px 0; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Contact Details</h2>
-    <table style="width: 100%; border-collapse: collapse;">
-      <tr>
-        <td style="padding: 12px 8px; color: #718096; font-weight: 600; width: 140px; vertical-align: top;">First Name</td>
-        <td style="padding: 12px 8px; color: #2d3748;">${data.firstName}</td>
-      </tr>
-      <tr style="background: #f7fafc;">
-        <td style="padding: 12px 8px; color: #718096; font-weight: 600; vertical-align: top;">Last Name</td>
-        <td style="padding: 12px 8px; color: #2d3748;">${data.lastName}</td>
-      </tr>
-      <tr>
-        <td style="padding: 12px 8px; color: #718096; font-weight: 600; vertical-align: top;">Mobile Number</td>
-        <td style="padding: 12px 8px; color: #2d3748;">${data.mobile}</td>
-      </tr>
-      <tr style="background: #f7fafc;">
-        <td style="padding: 12px 8px; color: #718096; font-weight: 600; vertical-align: top;">Email ID</td>
-        <td style="padding: 12px 8px; color: #2d3748;"><a href="mailto:${data.email}" style="color: #667eea; text-decoration: none;">${data.email}</a></td>
-      </tr>
-      <tr>
-        <td style="padding: 12px 8px; color: #718096; font-weight: 600; vertical-align: top;">Business Name</td>
-        <td style="padding: 12px 8px; color: #2d3748; font-weight: 600;">${data.businessName}</td>
-      </tr>
-      <tr style="background: #f7fafc;">
-        <td style="padding: 12px 8px; color: #718096; font-weight: 600; vertical-align: top;">Business Type</td>
-        <td style="padding: 12px 8px; color: #2d3748;">${data.businessType}</td>
-      </tr>
-    </table>
-    <div style="margin-top: 24px; padding: 16px; background: #f0f5ff; border-radius: 8px; border-left: 4px solid #667eea;">
-      <p style="margin: 0; color: #4a5568; font-size: 14px;">This inquiry was submitted via the Swadeshi Solutions account creation page on ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}.</p>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Account Inquiry - Swadeshi Solutions</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px 10px; background-color: #f4f6fb; color: #334155;">
+
+  <div style="background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(46, 49, 146, 0.08); border: 1px solid #e2e8f0;">
+    
+    <div style="height: 6px; background: linear-gradient(90deg, #2E3192 0%, #4a4fcc 50%, #F26722 100%);"></div>
+
+    <div style="padding: 32px 32px 24px 32px; text-align: center; background-color: #ffffff; border-bottom: 1px solid #f1f5f9;">
+      <a href="${SITE_URL}" target="_blank" style="text-decoration: none;">
+        <img src="${SITE_URL}/swadeshi-logo2.png" alt="Swadeshi Solutions Logo" width="80" height="80" style="display: block; width: 80px; height: 80px; object-fit: contain; margin: 0 auto 12px auto;" />
+      </a>
+      <h1 style="margin: 0; font-size: 26px; font-weight: 800;">
+        <span style="color: #2E3192;">Swadeshi</span><span style="color: #F26722; margin-left: 6px;">Solutions</span>
+      </h1>
+      <p style="margin: 4px 0 0 0; color: #64748b; font-size: 13px; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase;">
+        RMS Pro &bull; New Account Inquiry Notification
+      </p>
     </div>
-  </div>
-  <div style="text-align: center; padding: 20px;">
-    <p style="color: #a0aec0; font-size: 12px;">© ${new Date().getFullYear()} Swadeshi Solutions</p>
+
+    <div style="padding: 36px 32px; background-color: #ffffff;">
+      <h2 style="color: #0f172a; font-size: 20px; font-weight: 700; margin: 0 0 20px 0; border-bottom: 2px solid #2E3192; padding-bottom: 8px;">
+        Inquiry Details
+      </h2>
+      
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+        <tr>
+          <td style="padding: 12px 10px; color: #64748b; font-weight: 600; width: 140px; border-bottom: 1px solid #f1f5f9;">First Name</td>
+          <td style="padding: 12px 10px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #f1f5f9;">${data.firstName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 10px; color: #64748b; font-weight: 600; border-bottom: 1px solid #f1f5f9;">Last Name</td>
+          <td style="padding: 12px 10px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #f1f5f9;">${data.lastName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 10px; color: #64748b; font-weight: 600; border-bottom: 1px solid #f1f5f9;">Mobile Number</td>
+          <td style="padding: 12px 10px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #f1f5f9;">
+            <a href="tel:${data.mobile}" style="color: #2E3192; text-decoration: none;">${data.mobile}</a>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 10px; color: #64748b; font-weight: 600; border-bottom: 1px solid #f1f5f9;">Email Address</td>
+          <td style="padding: 12px 10px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #f1f5f9;">
+            <a href="mailto:${data.email}" style="color: #F26722; text-decoration: none;">${data.email}</a>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 10px; color: #64748b; font-weight: 600; border-bottom: 1px solid #f1f5f9;">Business Name</td>
+          <td style="padding: 12px 10px; color: #2E3192; font-weight: 700; border-bottom: 1px solid #f1f5f9;">${data.businessName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 10px; color: #64748b; font-weight: 600; border-bottom: 1px solid #f1f5f9;">Business Type</td>
+          <td style="padding: 12px 10px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #f1f5f9;">${data.businessType}</td>
+        </tr>
+      </table>
+
+      <div style="padding: 14px 18px; background-color: #f8fafc; border-radius: 10px; border-left: 4px solid #2E3192;">
+        <p style="margin: 0; color: #475569; font-size: 13px; line-height: 1.5;">
+          Submitted via Swadeshi Solutions Registration Portal on <strong>${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}</strong>.
+        </p>
+      </div>
+
+      <div style="margin-top: 36px; padding-top: 24px; border-top: 1px solid #f1f5f9;">
+        <p style="margin: 0 0 4px 0; color: #475569; font-size: 14px;">Automated Notification,</p>
+        <p style="margin: 0 0 2px 0; color: #2E3192; font-size: 15px; font-weight: 700;">Swadeshi Solutions System</p>
+        <p style="margin: 0; color: #64748b; font-size: 12px;">RMS Pro Platform &bull; <a href="mailto:inquiry@swadeshisolutions.co.in" style="color: #F26722; text-decoration: none;">inquiry@swadeshisolutions.co.in</a></p>
+      </div>
+    </div>
+
+    <div style="padding: 20px 32px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center;">
+      <p style="margin: 0; color: #94a3b8; font-size: 12px;">
+        &copy; ${new Date().getFullYear()} Swadeshi Solutions. All rights reserved.
+      </p>
+    </div>
+
   </div>
 </body>
 </html>`;
