@@ -313,7 +313,9 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
           profitMargin,
           rating: Number(b.rating) || 0,
           openedDate: b.created_at ? new Date(b.created_at).toISOString().split("T")[0] : "2026-01-01",
-          color: colors[idx % colors.length]
+          color: (b.social_media && typeof b.social_media === "object" && b.social_media.theme_color)
+            ? b.social_media.theme_color
+            : colors[idx % colors.length]
         };
       });
 
@@ -639,10 +641,12 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
         name: b.name,
         branch_code: b.code,
         address: b.address,
-        city: b.city,
         phone: b.phone,
         email: b.email,
+        owner_name: b.manager,
+        owner_phone: b.managerPhone,
         is_headquarters: b.isHeadquarters || false,
+        social_media: { theme_color: b.color }
       });
       if (error) {
         console.error("Error creating branch:", error);
@@ -660,16 +664,28 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
       );
       return true;
     } else {
+      const { data: existingRest } = await supabase
+        .from("restaurants")
+        .select("social_media")
+        .eq("id", id)
+        .maybeSingle();
+
+      const existingSocial = existingRest?.social_media && typeof existingRest.social_media === "object"
+        ? existingRest.social_media
+        : {};
+
       const { error } = await supabase
         .from("restaurants")
         .update({
           name: b.name,
           branch_code: b.code,
           address: b.address,
-          city: b.city,
           phone: b.phone,
           email: b.email,
+          owner_name: b.manager,
+          owner_phone: b.managerPhone,
           is_headquarters: b.isHeadquarters,
+          social_media: b.color ? { ...existingSocial, theme_color: b.color } : existingSocial
         })
         .eq("id", id);
       if (error) {
