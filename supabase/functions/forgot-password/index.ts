@@ -109,13 +109,21 @@ function generateEncouragementHTML(email: string): string {
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   const smtpUser = Deno.env.get("SMTP_USER") || Deno.env.get("GMAIL_USER");
   const smtpPass = Deno.env.get("SMTP_PASS") || Deno.env.get("GMAIL_APP_PASSWORD");
-  const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.gmail.com";
+  const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.titan.email";
   const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "465");
+  const isDirectTls = smtpPort === 465;
 
   if (!smtpUser || !smtpPass) throw new Error("SMTP not configured");
 
+  console.log(`Connecting to SMTP: host=${smtpHost}, port=${smtpPort}, directTls=${isDirectTls}, user=${smtpUser}`);
+
   const client = new SMTPClient({
-    connection: { hostname: smtpHost, port: smtpPort, tls: true, auth: { username: smtpUser, password: smtpPass } },
+    connection: {
+      hostname: smtpHost,
+      port: smtpPort,
+      tls: isDirectTls,
+      auth: { username: smtpUser, password: smtpPass }
+    },
   });
 
   await client.send({

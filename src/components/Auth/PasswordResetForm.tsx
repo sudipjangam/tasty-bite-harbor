@@ -42,20 +42,19 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({ setAuthMod
     setLoading(true);
 
     try {
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/reset-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ token, email, password }),
+      const { data: result, error: fnError } = await supabase.functions.invoke('reset-password', {
+        body: { token, email, password },
       });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to reset password');
+      if (fnError) {
+        let msg = fnError.message || "Failed to reset password";
+        try {
+          if (fnError.context) {
+            const body = await fnError.context.json();
+            if (body?.error) msg = body.error;
+          }
+        } catch (_) {}
+        throw new Error(msg);
       }
 
       setSuccess(true);
