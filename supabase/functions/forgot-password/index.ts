@@ -34,75 +34,181 @@ const TOKEN_EXPIRY_MINUTES = 20;
 
 function generateResetEmailHTML(email: string, resetLink: string): string {
   return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f7fafc;">
-  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; border-radius: 16px 16px 0 0; text-align: center;">
-    <h1 style="color: white; margin: 0; font-size: 28px;">Swadeshi Solutions</h1>
-    <p style="color: rgba(255,255,255,0.9); margin: 12px 0 0 0;">RMS Pro — Restaurant Management System</p>
-  </div>
-  <div style="background: white; padding: 35px 30px; border-radius: 0 0 16px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
-    <h2 style="color: #2d3748; margin: 0 0 16px 0;">Reset Your Password</h2>
-    <p style="color: #4a5568; line-height: 1.6;">
-      Hi,<br><br>
-      We received a request to reset the password for <strong>${email}</strong>.
-      Click the button below to set a new password.
-    </p>
-    <div style="text-align: center; margin: 30px 0;">
-      <a href="${resetLink}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px 40px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 16px; letter-spacing: 0.5px;">
-        Reset Password
-      </a>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset Your Password - Swadeshi Solutions</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px 10px; background-color: #f4f6fb; color: #334155;">
+
+  <!-- Outer Wrapper Card -->
+  <div style="background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(46, 49, 146, 0.08); border: 1px solid #e2e8f0;">
+    
+    <!-- Top Accent Bar (Brand Gradient) -->
+    <div style="height: 6px; background: linear-gradient(90deg, #2E3192 0%, #4a4fcc 50%, #F26722 100%);"></div>
+
+    <!-- Header Section with Logo -->
+    <div style="padding: 32px 32px 24px 32px; text-align: center; background-color: #ffffff; border-bottom: 1px solid #f1f5f9;">
+      <table border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+          <td align="center">
+            <a href="${SITE_URL}" target="_blank" style="text-decoration: none;">
+              <img src="${SITE_URL}/swadeshi-logo2.png" alt="Swadeshi Solutions Logo" width="80" height="80" style="display: block; width: 80px; height: 80px; object-fit: contain; margin-bottom: 12px;" />
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <td align="center">
+            <h1 style="margin: 0; font-size: 26px; font-weight: 800; tracking-tight: -0.5px;">
+              <span style="color: #2E3192;">Swadeshi</span><span style="color: #F26722; margin-left: 6px;">Solutions</span>
+            </h1>
+            <p style="margin: 4px 0 0 0; color: #64748b; font-size: 13px; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase;">
+              RMS Pro &bull; Restaurant Management System
+            </p>
+          </td>
+        </tr>
+      </table>
     </div>
-    <div style="margin-top: 20px; padding: 16px; background: #fff8e1; border-radius: 8px; border-left: 4px solid #f6ad55;">
-      <p style="margin: 0; color: #744210; font-size: 14px;">
-        ⏰ This link expires in <strong>${TOKEN_EXPIRY_MINUTES} minutes</strong>. After that, you'll need to request a new one.
+
+    <!-- Main Content Body -->
+    <div style="padding: 36px 32px; background-color: #ffffff;">
+      <h2 style="color: #0f172a; font-size: 20px; font-weight: 700; margin: 0 0 16px 0;">
+        Password Reset Request
+      </h2>
+      
+      <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
+        Hello,
+      </p>
+      
+      <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
+        We received a request to reset the password for your account linked to <strong style="color: #0f172a;">${email}</strong>. Click the button below to set a new secure password:
+      </p>
+
+      <!-- CTA Button -->
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${resetLink}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #2E3192 0%, #1a1f6e 100%); color: #ffffff; padding: 16px 42px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px; letter-spacing: 0.3px; box-shadow: 0 4px 14px rgba(46, 49, 146, 0.35);">
+          Reset Password &rarr;
+        </a>
+      </div>
+
+      <!-- Expiry Alert Callout -->
+      <div style="margin: 28px 0 20px 0; padding: 14px 18px; background-color: #fffbeb; border-radius: 10px; border-left: 4px solid #f59e0b;">
+        <p style="margin: 0; color: #92400e; font-size: 13px; line-height: 1.5; font-weight: 500;">
+          ⏰ <strong>Security Notice:</strong> This reset link expires in <strong>${TOKEN_EXPIRY_MINUTES} minutes</strong>. If you need a new link after that, please submit another request.
+        </p>
+      </div>
+
+      <!-- Security Notice -->
+      <div style="margin: 0 0 24px 0; padding: 14px 18px; background-color: #f8fafc; border-radius: 10px; border-left: 4px solid #94a3b8;">
+        <p style="margin: 0; color: #64748b; font-size: 13px; line-height: 1.5;">
+          If you did not request this password reset, please ignore this email. Your account remains completely secure.
+        </p>
+      </div>
+
+      <!-- Fallback Raw Link -->
+      <p style="color: #94a3b8; font-size: 12px; line-height: 1.5; margin: 24px 0 0 0; word-break: break-all;">
+        If the button above does not work, copy and paste this link into your browser:<br>
+        <a href="${resetLink}" style="color: #2E3192; text-decoration: underline;">${resetLink}</a>
+      </p>
+
+      <!-- Signature Section -->
+      <div style="margin-top: 36px; padding-top: 24px; border-top: 1px solid #f1f5f9;">
+        <p style="margin: 0 0 4px 0; color: #475569; font-size: 14px;">Warm regards,</p>
+        <p style="margin: 0 0 2px 0; color: #2E3192; font-size: 15px; font-weight: 700;">Team Swadeshi Solutions</p>
+        <p style="margin: 0; color: #64748b; font-size: 12px;">RMS Pro Support &bull; <a href="mailto:inquiry@swadeshisolutions.co.in" style="color: #F26722; text-decoration: none;">inquiry@swadeshisolutions.co.in</a></p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="padding: 20px 32px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center;">
+      <p style="margin: 0 0 6px 0; color: #94a3b8; font-size: 12px;">
+        &copy; ${new Date().getFullYear()} Swadeshi Solutions. All rights reserved.
+      </p>
+      <p style="margin: 0; color: #cbd5e1; font-size: 11px;">
+        <a href="${SITE_URL}" style="color: #64748b; text-decoration: none;">Website</a> &bull; 
+        <a href="${SITE_URL}/auth" style="color: #64748b; text-decoration: none;">Sign In</a>
       </p>
     </div>
-    <div style="margin-top: 16px; padding: 16px; background: #f0f5ff; border-radius: 8px; border-left: 4px solid #667eea;">
-      <p style="margin: 0; color: #4a5568; font-size: 14px;">
-        If you didn't request this password reset, you can safely ignore this email. Your password will remain unchanged.
-      </p>
-    </div>
-    <p style="color: #a0aec0; font-size: 12px; margin-top: 20px;">If the button doesn't work, copy and paste this link into your browser:<br><a href="${resetLink}" style="color: #667eea; word-break: break-all;">${resetLink}</a></p>
+
   </div>
-  <div style="text-align: center; padding: 20px;">
-    <p style="color: #a0aec0; font-size: 12px;">&copy; ${new Date().getFullYear()} Swadeshi Solutions. All rights reserved.</p>
-  </div>
-</body></html>`;
+</body>
+</html>`;
 }
 
 function generateEncouragementHTML(email: string): string {
   return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f7fafc;">
-  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; border-radius: 16px 16px 0 0; text-align: center;">
-    <h1 style="color: white; margin: 0; font-size: 28px;">Swadeshi Solutions</h1>
-    <p style="color: rgba(255,255,255,0.9); margin: 12px 0 0 0;">RMS Pro — Restaurant Management System</p>
-  </div>
-  <div style="background: white; padding: 35px 30px; border-radius: 0 0 16px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
-    <h2 style="color: #2d3748; margin: 0 0 16px 0;">No Account Found</h2>
-    <p style="color: #4a5568; line-height: 1.6;">
-      Hi there,<br><br>
-      Someone tried to reset the password for <strong>${email}</strong>, but no account was found.
-    </p>
-    <p style="color: #4a5568; line-height: 1.6;">Register your business with Swadeshi Solutions and unlock:</p>
-    <ul style="color: #4a5568; line-height: 2;">
-      <li>Real-time analytics and reporting</li>
-      <li>Complete restaurant management</li>
-      <li>Staff scheduling and management</li>
-      <li>Inventory tracking and automation</li>
-      <li>QR-based ordering system</li>
-    </ul>
-    <div style="text-align: center; margin: 30px 0;">
-      <a href="${SITE_URL}/auth" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 16px;">Register Your Business</a>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account Inquiry - Swadeshi Solutions</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px 10px; background-color: #f4f6fb; color: #334155;">
+
+  <div style="background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(46, 49, 146, 0.08); border: 1px solid #e2e8f0;">
+    
+    <div style="height: 6px; background: linear-gradient(90deg, #2E3192 0%, #4a4fcc 50%, #F26722 100%);"></div>
+
+    <div style="padding: 32px 32px 24px 32px; text-align: center; background-color: #ffffff; border-bottom: 1px solid #f1f5f9;">
+      <a href="${SITE_URL}" target="_blank" style="text-decoration: none;">
+        <img src="${SITE_URL}/swadeshi-logo2.png" alt="Swadeshi Solutions Logo" width="80" height="80" style="display: block; width: 80px; height: 80px; object-fit: contain; margin: 0 auto 12px auto;" />
+      </a>
+      <h1 style="margin: 0; font-size: 26px; font-weight: 800;">
+        <span style="color: #2E3192;">Swadeshi</span><span style="color: #F26722; margin-left: 6px;">Solutions</span>
+      </h1>
+      <p style="margin: 4px 0 0 0; color: #64748b; font-size: 13px; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase;">
+        RMS Pro &bull; Restaurant Management System
+      </p>
     </div>
-    <div style="margin-top: 24px; padding: 16px; background: #f0f5ff; border-radius: 8px; border-left: 4px solid #667eea;">
-      <p style="margin: 0; color: #4a5568; font-size: 14px;">If you didn't request this, you can safely ignore this email.</p>
+
+    <div style="padding: 36px 32px; background-color: #ffffff;">
+      <h2 style="color: #0f172a; font-size: 20px; font-weight: 700; margin: 0 0 16px 0;">
+        Account Notice
+      </h2>
+      
+      <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
+        Hello,
+      </p>
+      
+      <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
+        A password reset was requested for <strong style="color: #0f172a;">${email}</strong>, but we couldn't find an active account with this email address.
+      </p>
+
+      <div style="margin: 24px 0; padding: 24px; background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+        <h3 style="margin: 0 0 12px 0; color: #2E3192; font-size: 16px; font-weight: 700;">
+          Grow your business with Swadeshi Solutions RMS Pro
+        </h3>
+        <ul style="margin: 0; padding-left: 20px; color: #475569; font-size: 14px; line-height: 1.8;">
+          <li>Real-time Sales & Inventory Analytics</li>
+          <li>Complete Multi-Branch & POS Operations</li>
+          <li>Digital QR Code Menu & Ordering System</li>
+          <li>Staff Attendance & Payroll Automation</li>
+        </ul>
+      </div>
+
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${SITE_URL}/auth?mode=inquiry" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #F26722 0%, #d9530f 100%); color: #ffffff; padding: 16px 42px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px; box-shadow: 0 4px 14px rgba(242, 103, 34, 0.35);">
+          Register Your Business &rarr;
+        </a>
+      </div>
+
+      <div style="margin-top: 36px; padding-top: 24px; border-top: 1px solid #f1f5f9;">
+        <p style="margin: 0 0 4px 0; color: #475569; font-size: 14px;">Warm regards,</p>
+        <p style="margin: 0 0 2px 0; color: #2E3192; font-size: 15px; font-weight: 700;">Team Swadeshi Solutions</p>
+        <p style="margin: 0; color: #64748b; font-size: 12px;">RMS Pro Support &bull; <a href="mailto:inquiry@swadeshisolutions.co.in" style="color: #F26722; text-decoration: none;">inquiry@swadeshisolutions.co.in</a></p>
+      </div>
     </div>
+
+    <div style="padding: 20px 32px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center;">
+      <p style="margin: 0; color: #94a3b8; font-size: 12px;">
+        &copy; ${new Date().getFullYear()} Swadeshi Solutions. All rights reserved.
+      </p>
+    </div>
+
   </div>
-  <div style="text-align: center; padding: 20px;"><p style="color: #a0aec0; font-size: 12px;">&copy; ${new Date().getFullYear()} Swadeshi Solutions. All rights reserved.</p></div>
-</body></html>`;
+</body>
+</html>`;
 }
 
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
