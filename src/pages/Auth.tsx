@@ -314,6 +314,7 @@ const Auth = () => {
                 </div>
                 <CardTitle className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                   {authMode === "signin" ? "Welcome back!" 
+                    : authMode === "inquiry" ? "Request business account"
                     : authMode === "forgot" ? "Forgot password?"
                     : authMode === "reset" ? "Reset password"
                     : "Join us today"}
@@ -322,7 +323,7 @@ const Auth = () => {
                   {authMode === "signin"
                     ? "Sign in to continue to your restaurant dashboard"
                     : authMode === "inquiry"
-                    ? "Create your account and start managing your Business."
+                    ? "Submit an inquiry to register your business with Swadeshi Solutions."
                     : authMode === "forgot"
                     ? "We'll send you a link to reset your password."
                     : authMode === "reset"
