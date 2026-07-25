@@ -12,7 +12,7 @@ interface ResetPasswordFormProps {
   email?: string;
 }
 
-export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({ setAuthMode }) => {
+export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({ setAuthMode, token, email }) => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -23,6 +23,7 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({ setAuthMod
   const validate = (): string | null => {
     if (password.length < 8) return "Password must be at least 8 characters";
     if (password !== confirmPassword) return "Passwords do not match";
+    if (!token || !email) return "Invalid reset link. Please request a new one.";
     return null;
   };
 
@@ -42,13 +43,19 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({ setAuthMod
     setLoading(true);
 
     try {
-      // Use Supabase built-in password update — user is authenticated via PASSWORD_RECOVERY session
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password,
+      const { data: result, error: fnError } = await supabase.functions.invoke('reset-password', {
+        body: { token, email, password },
       });
 
-      if (updateError) {
-        throw updateError;
+      if (fnError) {
+        let msg = fnError.message || "Failed to reset password";
+        try {
+          if (fnError.context) {
+            const body = await fnError.context.json();
+            if (body?.error) msg = body.error;
+          }
+        } catch (_) {}
+        throw new Error(msg);
       }
 
       setSuccess(true);
@@ -57,9 +64,6 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({ setAuthMod
         description: "Your password has been successfully reset. You can now sign in.",
         className: "bg-green-50 border-green-200 text-green-800",
       });
-
-      // Sign out recovery session so user logs in fresh
-      await supabase.auth.signOut();
 
       // Redirect to sign in after 3 seconds
       setTimeout(() => setAuthMode("signin"), 3000);
@@ -74,6 +78,41 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({ setAuthMod
       setLoading(false);
     }
   };
+
+  // No token or email — show invalid link message
+  if (!token || !email) {
+    return (
+      <div className="space-y-6 px-8 pb-8">
+        <div className="text-center space-y-4">
+          <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+            <ShieldCheck className="w-8 h-8 text-red-600 dark:text-red-400" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Invalid reset link</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            This password reset link is invalid or has expired. Please request a new one.
+          </p>
+        </div>
+
+        <Button
+          type="button"
+          onClick={() => setAuthMode("forgot")}
+          className="w-full h-12 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl"
+        >
+          Request new reset link
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setAuthMode("signin")}
+          className="w-full text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-slate-700 font-medium h-12 rounded-xl"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to sign in
+        </Button>
+      </div>
+    );
+  }
 
 
 

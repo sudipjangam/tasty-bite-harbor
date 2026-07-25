@@ -39,22 +39,37 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ setAuthM
     setLoading(true);
 
     try {
-      // Use Supabase built-in password reset — sends email via Dashboard SMTP settings (Titan)
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/auth?mode=reset`,
+      // Invoke the forgot-password Edge Function (uses Resend HTTP API directly)
+      const { data: result, error: fnError } = await supabase.functions.invoke('forgot-password', {
+        body: { email: email.trim() },
       });
 
-      if (error) {
-        throw error;
+      if (fnError) {
+        let msg = fnError.message || "Failed to process request";
+        try {
+          if (fnError.context) {
+            const body = await fnError.context.json();
+            if (body?.error) msg = body.error;
+          }
+        } catch (_) {}
+        throw new Error(msg);
       }
 
-      // Always show success (Supabase doesn't reveal if email exists for security)
-      setSent(true);
-      toast({
-        title: "Reset link sent!",
-        description: "If an account exists with this email, you'll receive a password reset link.",
-        className: "bg-green-50 border-green-200 text-green-800",
-      });
+      if (result?.exists) {
+        setSent(true);
+        toast({
+          title: "Reset link sent!",
+          description: "Check your email for a password reset link.",
+          className: "bg-green-50 border-green-200 text-green-800",
+        });
+      } else {
+        toast({
+          title: "Business not registered",
+          description: "This email is not registered with RMS Pro. We've sent details on how to register your business.",
+          variant: "destructive",
+          duration: 8000,
+        });
+      }
     } catch (error) {
       console.error("Forgot password error:", error);
       toast({
