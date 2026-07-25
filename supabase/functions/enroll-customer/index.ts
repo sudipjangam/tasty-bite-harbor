@@ -145,20 +145,32 @@ serve(async (req: Request) => {
       );
     }
 
-    // Find restaurant by slug or name
+    // Find restaurant by ID, slug, or name
     let restaurant = null;
-    const { data: resBySlug } = await supabase
-      .from('restaurants')
-      .select('id, name')
-      .ilike('slug', slug.toLowerCase())
-      .maybeSingle();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
 
-    if (resBySlug) {
-      restaurant = resBySlug;
-    } else {
+    if (isUuid) {
+      const { data: resById } = await supabase
+        .from('restaurants')
+        .select('id, name, organization_id')
+        .eq('id', slug)
+        .maybeSingle();
+      if (resById) restaurant = resById;
+    }
+
+    if (!restaurant) {
+      const { data: resBySlug } = await supabase
+        .from('restaurants')
+        .select('id, name, organization_id')
+        .ilike('slug', slug.toLowerCase())
+        .maybeSingle();
+      if (resBySlug) restaurant = resBySlug;
+    }
+
+    if (!restaurant) {
       const { data: resByName } = await supabase
         .from('restaurants')
-        .select('id, name')
+        .select('id, name, organization_id')
         .ilike('name', `%${slug.replace(/-/g, ' ')}%`)
         .limit(1)
         .maybeSingle();
@@ -227,6 +239,7 @@ serve(async (req: Request) => {
           loyalty_points: customerPoints + WELCOME_POINTS,
           loyalty_points_last_updated: new Date().toISOString(),
           birthday: birthday || undefined,
+          organization_id: restaurant.organization_id || undefined,
         })
         .eq('id', existingCustomer.id);
 
@@ -242,6 +255,7 @@ serve(async (req: Request) => {
         .from('customers')
         .insert({
           restaurant_id: restaurant.id,
+          organization_id: restaurant.organization_id || null,
           name: name.trim(),
           email: email?.toLowerCase() || null,
           phone: phone || null,
@@ -251,7 +265,7 @@ serve(async (req: Request) => {
           loyalty_points_last_updated: new Date().toISOString(),
           tags: ['self-enrolled'],
         })
-        .select('id')
+        .select('id, name, loyalty_points')
         .single();
 
       if (createError) {
