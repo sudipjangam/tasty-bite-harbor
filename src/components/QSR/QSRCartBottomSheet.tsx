@@ -519,8 +519,8 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
           </div>
         </div>
 
-        {/* Fixed Footer - Totals & Actions */}
-        <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 space-y-3" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
+        {/* Fixed Footer - Totals & Actions (padded to clear mobile bottom nav bar) */}
+        <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 space-y-3 max-h-[55vh] overflow-y-auto" style={{ paddingBottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}>
           {/* Calculations */}
           <div className="space-y-1 text-sm">
             <div className="flex justify-between text-gray-500 dark:text-gray-400">
