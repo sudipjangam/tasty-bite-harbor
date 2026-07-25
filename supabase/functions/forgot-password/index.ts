@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -107,33 +106,31 @@ function generateEncouragementHTML(email: string): string {
 }
 
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
-  const smtpUser = Deno.env.get("SMTP_USER") || Deno.env.get("GMAIL_USER");
-  const smtpPass = Deno.env.get("SMTP_PASS") || Deno.env.get("GMAIL_APP_PASSWORD");
-  const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.titan.email";
-  const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "465");
-  const isDirectTls = smtpPort === 465;
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+  if (!resendApiKey) throw new Error("RESEND_API_KEY not configured");
 
-  if (!smtpUser || !smtpPass) throw new Error("SMTP not configured");
+  console.log(`Sending email via Resend to: ${to}`);
 
-  console.log(`Connecting to SMTP: host=${smtpHost}, port=${smtpPort}, directTls=${isDirectTls}, user=${smtpUser}`);
-
-  const client = new SMTPClient({
-    connection: {
-      hostname: smtpHost,
-      port: smtpPort,
-      tls: isDirectTls,
-      auth: { username: smtpUser, password: smtpPass }
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${resendApiKey}`,
+      "Content-Type": "application/json",
     },
+    body: JSON.stringify({
+      from: "Swadeshi Solutions <inquiry@swadeshisolutions.co.in>",
+      to,
+      subject,
+      html,
+    }),
   });
 
-  await client.send({
-    from: `Swadeshi Solutions <${smtpUser}>`,
-    to,
-    subject,
-    html: html.replace(/\r?\n/g, '\r\n'),
-  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Resend error: ${err}`);
+  }
 
-  await client.close();
+  console.log(`Email sent via Resend to ${to}`);
 }
 
 serve(async (req: Request) => {
