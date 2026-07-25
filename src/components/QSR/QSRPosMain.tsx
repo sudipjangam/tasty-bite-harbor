@@ -251,13 +251,16 @@ export const QSRPosMain: React.FC = () => {
   const tax = 0; // No tax in QSR POS
   const total = subtotal;
 
-  // Cart item counts for menu badges
+  // Cart item counts for menu badges (aggregates base menuItemId if variant selected)
   const cartItemCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     orderItems.forEach((item) => {
       if (!item.isCustom) {
-        counts[item.menuItemId] =
-          (counts[item.menuItemId] || 0) + item.quantity;
+        const baseId = item.menuItemId.split("__")[0];
+        counts[baseId] = (counts[baseId] || 0) + item.quantity;
+        if (item.menuItemId !== baseId) {
+          counts[item.menuItemId] = (counts[item.menuItemId] || 0) + item.quantity;
+        }
       }
     });
     return counts;
