@@ -301,7 +301,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode, onSuccess })
           >
             <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2" />
             {authMode === "signin"
-              ? "Create a new account"
+              ? "Register your business"
               : "Sign in to existing account"}
           </Button>
         </div>
