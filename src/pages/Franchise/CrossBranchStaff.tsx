@@ -5,10 +5,11 @@ import { Users, Phone, UserCheck, Calendar, RefreshCw, DollarSign } from "lucide
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
-const statusConfig = {
+const statusConfig: Record<string, { label: string; className: string }> = {
   present: { label: "Present", className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" },
   absent: { label: "Absent", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
   leave: { label: "On Leave", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
+  on_leave: { label: "On Leave", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
 };
 
 const CrossBranchStaff: React.FC = () => {
@@ -30,7 +31,7 @@ const CrossBranchStaff: React.FC = () => {
 
   const present = filtered.filter((s) => s.status === "present").length;
   const absent = filtered.filter((s) => s.status === "absent").length;
-  const onLeave = filtered.filter((s) => s.status === "leave").length;
+  const onLeave = filtered.filter((s) => s.status === "leave" || s.status === "on_leave").length;
 
   const handleToggleSecondary = (bId: string) => {
     if (secondaryBranches.includes(bId)) {
@@ -125,7 +126,7 @@ const CrossBranchStaff: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {filtered.map((s) => {
-              const sc = statusConfig[s.status];
+              const sc = statusConfig[s.status] || statusConfig.present;
               const branch = allBranches.find((b) => b.id === s.branchId);
               return (
                 <div key={s.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 flex items-center gap-3">
