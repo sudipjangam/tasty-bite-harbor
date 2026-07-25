@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
-import { supabase, SUPABASE_DIRECT_URL } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Mail, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 
 interface ForgotPasswordFormProps {
@@ -39,39 +39,22 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ setAuthM
     setLoading(true);
 
     try {
-      // Step 1: Check if user exists via our Edge Function
-      const { data: result, error: fnError } = await supabase.functions.invoke('forgot-password', {
-        body: { email: email.trim() },
+      // Use Supabase built-in password reset — sends email via Dashboard SMTP settings (Titan)
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/auth?mode=reset`,
       });
 
-      if (fnError) {
-        let msg = fnError.message || "Failed to process request";
-        try {
-          if (fnError.context) {
-            const body = await fnError.context.json();
-            if (body?.error) msg = body.error;
-          }
-        } catch (_) {}
-        throw new Error(msg);
+      if (error) {
+        throw error;
       }
 
-      if (result.exists) {
-        // User exists → Supabase built-in reset email was sent by the Edge Function
-        setSent(true);
-        toast({
-          title: "Reset link sent!",
-          description: "Check your email for a password reset link.",
-          className: "bg-green-50 border-green-200 text-green-800",
-        });
-      } else {
-        // User does NOT exist → encouragement email sent, show UI notification
-        toast({
-          title: "Business not registered",
-          description: "This email is not registered with RMS Pro. We've sent you details on how to register your business.",
-          variant: "destructive",
-          duration: 8000,
-        });
-      }
+      // Always show success (Supabase doesn't reveal if email exists for security)
+      setSent(true);
+      toast({
+        title: "Reset link sent!",
+        description: "If an account exists with this email, you'll receive a password reset link.",
+        className: "bg-green-50 border-green-200 text-green-800",
+      });
     } catch (error) {
       console.error("Forgot password error:", error);
       toast({
@@ -95,7 +78,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ setAuthM
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Check your email</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             We've sent a password reset link to <strong className="text-gray-900 dark:text-white">{email}</strong>.
-            The link will expire in 20 minutes.
+            The link will expire in 1 hour.
           </p>
         </div>
 
@@ -103,7 +86,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ setAuthM
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-amber-800 dark:text-amber-300">
-              If you don't see the email, check your spam folder. The email is sent from Supabase.
+              If you don't see the email, check your spam folder. The email is sent from inquiry@swadeshisolutions.co.in.
             </p>
           </div>
         </div>

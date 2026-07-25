@@ -147,7 +147,7 @@ async function sendEmailViaResend(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: `${fromName} <onboarding@resend.dev>`,
+        from: `${fromName} <inquiry@swadeshisolutions.co.in>`,
         to: [to],
         subject: subject,
         html: htmlContent,
@@ -245,36 +245,13 @@ serve(async (req: Request) => {
     const subject = `New Account Inquiry from ${body.businessName}`;
     const htmlContent = generateInquiryHTML(body);
 
-    // Try SMTP first, then Resend
-    const smtpUser = Deno.env.get("SMTP_USER") || Deno.env.get("GMAIL_USER");
-    const smtpPass = Deno.env.get("SMTP_PASS") || Deno.env.get("GMAIL_APP_PASSWORD");
-
-    let result: { success: boolean; error?: string };
-
-    if (smtpUser && smtpPass) {
-      result = await sendEmailViaSMTP(
-        INQUIRY_RECIPIENT,
-        subject,
-        htmlContent,
-        "Swadeshi Solutions"
-      );
-      if (!result.success) {
-        console.warn("SMTP failed, trying Resend:", result.error);
-        result = await sendEmailViaResend(
-          INQUIRY_RECIPIENT,
-          subject,
-          htmlContent,
-          "Swadeshi Solutions"
-        );
-      }
-    } else {
-      result = await sendEmailViaResend(
-        INQUIRY_RECIPIENT,
-        subject,
-        htmlContent,
-        "Swadeshi Solutions"
-      );
-    }
+    // Use Resend directly
+    const result = await sendEmailViaResend(
+      INQUIRY_RECIPIENT,
+      subject,
+      htmlContent,
+      "Swadeshi Solutions"
+    );
 
     if (!result.success) {
       return new Response(
