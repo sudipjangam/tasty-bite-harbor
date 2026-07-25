@@ -622,24 +622,47 @@ export const useCustomerData = () => {
           }
         }
 
+        // Fetch organization_id for restaurant if present
+        let orgId = (customer as any).organization_id || null;
+        if (!orgId) {
+          try {
+            const { data: restData } = await supabase
+              .from("restaurants")
+              .select("organization_id")
+              .eq("id", restaurantId)
+              .maybeSingle();
+            if (restData?.organization_id) {
+              orgId = restData.organization_id;
+            }
+          } catch {
+            // Ignore org fetch error
+          }
+        }
+
+        const insertPayload: Record<string, any> = {
+          name: customer.name,
+          email: customer.email || null,
+          phone: customer.phone || null,
+          address: customer.address || null,
+          birthday: customer.birthday === "" ? null : (customer.birthday || null),
+          preferences: customer.preferences || null,
+          restaurant_id: restaurantId,
+          tags: customer.tags || [],
+          loyalty_points: customer.loyalty_points || 0,
+        };
+
+        if (orgId) {
+          insertPayload.organization_id = orgId;
+        }
+
         const { data, error } = await supabase
           .from("customers")
-          .insert([
-            {
-              name: customer.name,
-              email: customer.email || null,
-              phone: customer.phone || null,
-              address: customer.address || null,
-              birthday: customer.birthday === "" ? null : (customer.birthday || null),
-              preferences: customer.preferences || null,
-              restaurant_id: restaurantId,
-              tags: customer.tags || [],
-              loyalty_points: customer.loyalty_points || 0,
-            },
-          ])
+          .insert([insertPayload])
           .select();
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
         return data;
       }
     },
