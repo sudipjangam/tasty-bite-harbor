@@ -81,25 +81,27 @@ export const InquiryForm: React.FC<InquiryFormProps> = ({ setAuthMode }) => {
         : formData.businessType;
 
     try {
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-inquiry`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({
+      const { data: result, error: fnError } = await supabase.functions.invoke('send-inquiry', {
+        body: {
           firstName: formData.firstName,
           lastName: formData.lastName,
           mobile: formData.mobile,
           email: formData.email,
           businessName: formData.businessName,
           businessType: customType,
-        }),
+        },
       });
 
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Failed to send inquiry');
+      if (fnError) {
+        let msg = fnError.message || 'Failed to send inquiry';
+        try {
+          if (fnError.context) {
+            const body = await fnError.context.json();
+            if (body?.error) msg = body.error;
+          }
+        } catch (_) {}
+        throw new Error(msg);
+      }
 
       toast({
         title: "Inquiry Sent Successfully",

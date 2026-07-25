@@ -19,7 +19,7 @@ const INQUIRY_RATE_LIMIT = {
   keyPrefix: "inquiry",
 };
 
-const INQUIRY_RECIPIENT = "swadeshisolutionss@gmail.com";
+const INQUIRY_RECIPIENT = "inquiry@swadeshisolutions.co.in";
 
 interface InquiryRequest {
   firstName: string;
@@ -87,7 +87,7 @@ async function sendEmailViaSMTP(
 ): Promise<{ success: boolean; error?: string }> {
   const smtpUser = Deno.env.get("SMTP_USER") || Deno.env.get("GMAIL_USER");
   const smtpPass = Deno.env.get("SMTP_PASS") || Deno.env.get("GMAIL_APP_PASSWORD");
-  const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.gmail.com";
+  const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.titan.email";
   const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "465");
 
   if (!smtpUser || !smtpPass) {

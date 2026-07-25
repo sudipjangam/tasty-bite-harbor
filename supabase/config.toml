@@ -90,3 +90,9 @@ verify_jwt = false
 verify_jwt = true
 [functions.find-active-reservation]
 verify_jwt = true
+[functions.forgot-password]
+verify_jwt = false
+[functions.reset-password]
+verify_jwt = false
+[functions.send-inquiry]
+verify_jwt = false
