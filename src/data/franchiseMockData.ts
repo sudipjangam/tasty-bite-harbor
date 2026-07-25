@@ -95,9 +95,10 @@ export interface MockMenuItem {
   name: string;
   category: string;
   price: number;
-  origin: "master" | "branch" | "inherited";
+  origin: "master" | "branch" | "inherited" | "orphaned";
   isAvailable: boolean;
   branches: string[]; // branch IDs where it's available
+  sourceItemId?: string;
   minPriceOverride?: number;
   maxPriceOverride?: number;
 }

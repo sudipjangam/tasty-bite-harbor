@@ -17,6 +17,7 @@ const CrossBranchCustomers: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"customers" | "loyalty">("customers");
   const [search, setSearch] = useState("");
   const [tierFilter, setTierFilter] = useState("all");
+  const [branchFilter, setBranchFilter] = useState("all");
 
   // Loyalty Settings State
   const [pointsRate, setPointsRate] = useState(5);
@@ -34,7 +35,11 @@ const CrossBranchCustomers: React.FC = () => {
 
     const matchesTier = tierFilter === "all" || c.tier === tierFilter;
 
-    return matchesSearch && matchesTier;
+    const matchesBranch =
+      branchFilter === "all" ||
+      c.branchesVisited.some((bCode) => bCode.startsWith(branchFilter) || bCode === branchFilter);
+
+    return matchesSearch && matchesTier && matchesBranch;
   });
 
   const handleSaveLoyalty = (e: React.FormEvent) => {
@@ -102,9 +107,21 @@ const CrossBranchCustomers: React.FC = () => {
               />
             </div>
             <select
+              value={branchFilter}
+              onChange={(e) => setBranchFilter(e.target.value)}
+              className="px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 sm:w-48"
+            >
+              <option value="all">All Branches</option>
+              {allBranches.map((b) => (
+                <option key={b.id} value={b.code}>
+                  {b.name} ({b.code})
+                </option>
+              ))}
+            </select>
+            <select
               value={tierFilter}
               onChange={(e) => setTierFilter(e.target.value)}
-              className="px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 sm:w-48"
+              className="px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 sm:w-40"
             >
               <option value="all">All Tiers</option>
               <option value="Silver">Silver</option>
