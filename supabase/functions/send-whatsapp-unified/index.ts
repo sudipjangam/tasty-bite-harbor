@@ -47,6 +47,8 @@ Deno.serve(async (req: Request) => {
       billUrl,
       variables,
       buttons,
+      customerId,
+      campaignId,
     } = body;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -86,7 +88,40 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    console.log(`[unified] provider=${provider}, template=${usedTemplateName}, lang=${templateLanguage}, phone=${phoneNumber}, hasToken=${!!metaConfig.access_token}, phoneId=${metaConfig.phone_number_id}`);
+    // Determine message cost
+    let templateCategory = "UTILITY";
+    if (restaurantId) {
+      const { data: catData } = await supabase
+        .from("whatsapp_templates")
+        .select("category")
+        .eq("name", usedTemplateName)
+        .eq("restaurant_id", restaurantId)
+        .maybeSingle();
+      if (catData?.category) {
+        templateCategory = catData.category.toUpperCase();
+      }
+    }
+    const messageCost = templateCategory === "MARKETING" ? 0.93 : 0.20;
+
+    // Check wallet balance
+    let currentBalance = 0;
+    if (restaurantId) {
+      const { data: wallet } = await supabase
+        .from("restaurant_wallets")
+        .select("balance")
+        .eq("restaurant_id", restaurantId)
+        .single();
+      
+      currentBalance = wallet?.balance || 0;
+      if (currentBalance < messageCost) {
+        return new Response(
+          JSON.stringify({ success: false, error: `Insufficient wallet balance. Cost: ₹${messageCost}, Balance: ₹${currentBalance}` }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    console.log(`[unified] provider=${provider}, template=${usedTemplateName}, lang=${templateLanguage}, phone=${phoneNumber}, hasToken=${!!metaConfig.access_token}, phoneId=${metaConfig.phone_number_id}, cost=${messageCost}`);
 
     // --- META CLOUD API PATH ---
     if (provider === "meta_cloud") {
@@ -274,6 +309,31 @@ Deno.serve(async (req: Request) => {
         );
       }
 
+      // Log success and deduct wallet
+      if (restaurantId) {
+        await supabase.rpc('decrement_wallet_balance', { p_restaurant_id: restaurantId, p_amount: messageCost });
+        // We do it manually since RPC might not exist yet:
+        await supabase.from("restaurant_wallets").update({ balance: currentBalance - messageCost }).eq("restaurant_id", restaurantId);
+        
+        await supabase.from("wallet_transactions").insert({
+          restaurant_id: restaurantId,
+          amount: -messageCost,
+          transaction_type: 'deduction',
+          description: `WhatsApp Message (${usedTemplateName}) to ${phoneNumber}`
+        });
+
+        await supabase.from("whatsapp_campaign_sends").insert({
+          campaign_id: campaignId || null,
+          restaurant_id: restaurantId,
+          customer_id: customerId || null,
+          customer_phone: phoneNumber,
+          customer_name: customerName || "Customer",
+          template_name: usedTemplateName,
+          status: "sent",
+          msg91_request_id: metaData?.messages?.[0]?.id || null,
+        });
+      }
+
       return new Response(
         JSON.stringify({ success: true, provider: "meta_cloud", data: metaData }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -421,6 +481,25 @@ Deno.serve(async (req: Request) => {
         console.log("[msg91] Fallback result:", JSON.stringify(fallbackData));
 
         if (fallbackRes.ok && fallbackData?.message !== "error") {
+          if (restaurantId) {
+            await supabase.from("restaurant_wallets").update({ balance: currentBalance - messageCost }).eq("restaurant_id", restaurantId);
+            await supabase.from("wallet_transactions").insert({
+              restaurant_id: restaurantId,
+              amount: -messageCost,
+              transaction_type: 'deduction',
+              description: `WhatsApp Message (Fallback: ${FALLBACK_TEMPLATE}) to ${phoneNumber}`
+            });
+            await supabase.from("whatsapp_campaign_sends").insert({
+              campaign_id: campaignId || null,
+              restaurant_id: restaurantId,
+              customer_id: customerId || null,
+              customer_phone: phoneNumber,
+              customer_name: customerName || "Customer",
+              template_name: FALLBACK_TEMPLATE,
+              status: "sent",
+              msg91_request_id: fallbackData?.request_id || null,
+            });
+          }
           return new Response(
             JSON.stringify({ success: true, provider: "msg91", data: fallbackData, usedFallback: true }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -428,10 +507,44 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      if (restaurantId) {
+         await supabase.from("whatsapp_campaign_sends").insert({
+            campaign_id: campaignId || null,
+            restaurant_id: restaurantId,
+            customer_id: customerId || null,
+            customer_phone: phoneNumber,
+            customer_name: customerName || "Customer",
+            template_name: usedTemplateName,
+            status: "failed",
+            failure_reason: msg91Data?.msg || msg91Data?.message || "MSG91 API error",
+          });
+      }
+
       return new Response(
         JSON.stringify({ success: false, error: msg91Data?.msg || msg91Data?.message || "MSG91 API error", details: msg91Data }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Success for primary MSG91 template
+    if (restaurantId) {
+      await supabase.from("restaurant_wallets").update({ balance: currentBalance - messageCost }).eq("restaurant_id", restaurantId);
+      await supabase.from("wallet_transactions").insert({
+        restaurant_id: restaurantId,
+        amount: -messageCost,
+        transaction_type: 'deduction',
+        description: `WhatsApp Message (${usedTemplateName}) to ${phoneNumber}`
+      });
+      await supabase.from("whatsapp_campaign_sends").insert({
+        campaign_id: campaignId || null,
+        restaurant_id: restaurantId,
+        customer_id: customerId || null,
+        customer_phone: phoneNumber,
+        customer_name: customerName || "Customer",
+        template_name: usedTemplateName,
+        status: "sent",
+        msg91_request_id: msg91Data?.request_id || null,
+      });
     }
 
     return new Response(

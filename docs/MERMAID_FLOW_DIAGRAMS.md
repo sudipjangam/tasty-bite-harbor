@@ -719,5 +719,3 @@ flowchart TD
 
 **Description:**
 Handles complex dining scenarios by allowing a single table invoice to be split into multiple payments (either equally, by seat, or custom amounts) while keeping track of paid/unpaid status.
-
-

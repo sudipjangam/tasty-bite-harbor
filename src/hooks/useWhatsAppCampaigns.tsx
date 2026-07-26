@@ -265,23 +265,14 @@ export const useWhatsAppCampaigns = () => {
               templateName: useTemplate,
               variables: orderedVariables,
               buttons: buttons.length > 0 ? buttons : undefined,
+              customerId: customer.id,
+              customerName: customer.name,
+              campaignId,
             },
           },
         );
 
         if (error) throw error;
-
-        // Log the send
-        await supabase.from("whatsapp_campaign_sends" as any).insert({
-          campaign_id: campaignId,
-          restaurant_id: restaurantId,
-          customer_id: customer.id,
-          customer_phone: customer.phone,
-          customer_name: customer.name,
-          template_name: useTemplate,
-          status: "sent",
-          msg91_request_id: data?.data?.request_id || null,
-        });
 
         results.success++;
       } catch (err) {
@@ -289,17 +280,6 @@ export const useWhatsAppCampaigns = () => {
         results.errors.push(
           `${customer.name}: ${err instanceof Error ? err.message : "Unknown error"}`,
         );
-
-        await supabase.from("whatsapp_campaign_sends" as any).insert({
-          campaign_id: campaignId,
-          restaurant_id: restaurantId,
-          customer_id: customer.id,
-          customer_phone: customer.phone || "",
-          customer_name: customer.name,
-          template_name: useTemplate,
-          status: "failed",
-          failure_reason: err instanceof Error ? err.message : "Unknown error",
-        });
       }
 
       onProgress?.(i + 1, total);

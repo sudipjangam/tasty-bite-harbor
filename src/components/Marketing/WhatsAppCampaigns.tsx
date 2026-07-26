@@ -25,6 +25,7 @@ import {
 } from "@/hooks/useWhatsAppCampaigns";
 import { useWhatsAppTemplates } from "@/hooks/useWhatsAppTemplates";
 import TemplateManager from "./TemplateManager";
+import { MarketingWallet } from "./Wallet/MarketingWallet";
 import {
   MessageSquare,
   Send,
@@ -65,6 +66,7 @@ const WhatsAppCampaigns: React.FC = () => {
     sendCampaign,
     refetchCustomers,
     isLoading,
+    restaurantId,
   } = useWhatsAppCampaigns();
   const { approvedTemplates, marketingTemplates } = useWhatsAppTemplates();
 
@@ -85,6 +87,7 @@ const WhatsAppCampaigns: React.FC = () => {
   const [promoCode, setPromoCode] = useState("");
   const [campaignErrors, setCampaignErrors] = useState<string[]>([]);
   const [showErrors, setShowErrors] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
 
   // Individual customer selection
   const [individualCustomerIds, setIndividualCustomerIds] = useState<Set<string>>(new Set());
@@ -378,6 +381,14 @@ const WhatsAppCampaigns: React.FC = () => {
   return (
     <>
       <div className="space-y-6">
+        {/* Wallet Section */}
+        {restaurantId && (
+          <MarketingWallet 
+            restaurantId={restaurantId} 
+            onBalanceChange={setWalletBalance} 
+          />
+        )}
+
         {/* Template Manager Section */}
         <TemplateManager />
 
@@ -981,11 +992,17 @@ const WhatsAppCampaigns: React.FC = () => {
                       {currencySymbol}{estimatedCost.toFixed(2)}
                     </span>
                   </div>
+                  {estimatedCost > walletBalance && customersWithPhone.length > 0 && (
+                    <div className="mt-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-2.5 rounded-lg border border-red-200 dark:border-red-900/50 flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <p className="text-xs font-medium">Insufficient wallet balance to send this campaign. Please recharge your wallet.</p>
+                    </div>
+                  )}
                 </div>
 
                 <button
                   onClick={handleSendCampaign}
-                  disabled={isSending || customersWithPhone.length === 0}
+                  disabled={isSending || customersWithPhone.length === 0 || estimatedCost > walletBalance}
                   className="
                     w-full flex items-center justify-center gap-2 h-11 rounded-xl text-xs font-bold text-white transition-all duration-200
                     bg-gradient-to-r from-emerald-600 to-green-500
