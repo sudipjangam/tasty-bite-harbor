@@ -61,6 +61,7 @@ import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { formatOrderItemString } from "@/lib/order-utils";
 import { CustomItemDialog, CustomItem } from "./CustomItemDialog";
 import { PaymentDialogProps } from "./PaymentDialog/types";
+import { resolveInvoiceTemplate } from "@/utils/resolveInvoiceTemplate";
 
 // Removed local PaymentStep type definition as it's not used in the props anymore
 // and we can infer or import if needed, but for now we just need PaymentDialogProps
@@ -1450,36 +1451,34 @@ const PaymentDialog = ({
       const phoneWithCountryCode =
         cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone;
 
-            // Instagram: extract handle from full URL stored in DB
-            // DB stores: "https://www.instagram.com/_brewbites_"
-            // Button base: "https://instagram.com/", suffix {{1}} = "_brewbites_"
-            // Button URLs never render in body → underscores are safe
+        // Extract social links for smart template selection
             const rawIgUrl = (restaurantInfo?.social_media as any)?.instagram_url || "";
             const igHandle = rawIgUrl
               .replace(/^https?:\/\/(www\.)?instagram\.com\//, "")
               .replace(/\/$/, "") || "";
+            const googleReviewUrl = (restaurantInfo?.social_media as any)?.google_review_url || "";
+            const contactNumber = (restaurantInfo as any)?.phone || "-";
 
-            // Google Review: body {{5}} — full URL, no underscores = safe in body text
-            const googleReviewUrl = (restaurantInfo?.social_media as any)?.google_review_url || "-";
+            // Smart template resolution: picks correct template + params based on social links
+            const { templateName, variables, buttons } = resolveInvoiceTemplate({
+              customerName: customerName || "Customer",
+              restaurantName,
+              amount: formattedAmount,
+              billDate: formattedDate,
+              billUrlSuffix: billUrlSuffix || "pending",
+              igHandle,
+              googleReviewUrl,
+              contactNumber,
+            });
 
             const { data: waResponse, error: waError } =
               await supabase.functions.invoke("send-whatsapp-unified", {
                 body: {
                   phoneNumber: phoneWithCountryCode,
                   restaurantId: restaurantInfo?.id,
-                  customerName: customerName || "Customer",
-                  restaurantName,
-                  templateName: "invoice_with_review",
-                  amount: formattedAmount,
-                  billDate: formattedDate,
-                  // {{5}} = Google Review full URL (safe in body — no underscores)
-                  googleReviewUrl,
-                  buttons: [
-                    // Button 0: View Bill (suffix after https://swadeshisolutions.co.in/bill/)
-                    { type: "url", value: billUrlSuffix || "pending" },
-                    // Button 1: Instagram (handle after https://instagram.com/)
-                    ...(igHandle ? [{ type: "url", value: igHandle }] : []),
-                  ],
+                  templateName,
+                  variables,
+                  buttons,
                 },
               });
 
