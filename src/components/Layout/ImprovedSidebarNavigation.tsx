@@ -55,9 +55,9 @@ const hrefToComponentMap: Record<string, string> = {
   "/qsr-pos": "qsr-pos",
   "/quickserve-pos": "quickserve",
   "/orders": "orders",
-  "/kitchen": "kitchen",
-  "/kitchen-tv": "kitchen",
-  "/recipes": "menu", // Recipes fall under menu
+  "/kitchen": "kitchen.kds",
+  "/kitchen-tv": "kitchen.tv",
+  "/recipes": "recipes", // Recipes map to recipes module
   "/menu": "menu",
   "/tables": "tables",
   "/inventory": "inventory",
@@ -65,23 +65,23 @@ const hrefToComponentMap: Record<string, string> = {
   "/shift-management": "staff",
   "/customers": "customers",
   "/marketing": "marketing",
-  "/user-management": "users_permissions",
-  "/role-management": "users_permissions",
-  "/permission-management": "users_permissions",
-  "/channel-management": "reservations", // Channel Management is under Reservations & Rooms
-  "/analytics": "reports",
+  "/user-management": "users_permissions.user_access",
+  "/role-management": "users_permissions.user_access",
+  "/permission-management": "users_permissions.permission_management",
+  "/channel-management": "rooms.channel_mgmt",
+  "/analytics": "reports.analytics",
   "/financial": "financial",
   "/reports": "reports",
   "/expenses": "expenses",
-  "/nc-orders": "orders", // NC Orders fall under orders
+  "/nc-orders": "orders.nc_orders",
   "/rooms": "rooms",
   "/reservations": "reservations",
-  "/housekeeping": "rooms",
+  "/housekeeping": "rooms.housekeeping",
   "/ai": "ai",
   "/suppliers": "suppliers",
-  "/security": "settings", // Security is under Settings & Security
+  "/security": "settings.security",
   "/settings": "settings",
-  "/digital-twin": "tables",
+  "/digital-twin": "tables.digital_twin",
   "/franchise": "franchise",
 };
 
@@ -380,11 +380,10 @@ export const ImprovedSidebarNavigation = ({
 
   const systemComponents = [
     "dashboard",
-    "user-management",
-    "role-management",
-    "permission-management",
+    "users_permissions.user_access",
+    "users_permissions.permission_management",
     "settings",
-    "security",
+    "settings.security",
   ];
 
   // Check if user has permission to access this navigation item
