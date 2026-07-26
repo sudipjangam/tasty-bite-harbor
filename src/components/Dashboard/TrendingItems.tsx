@@ -28,14 +28,7 @@ const TrendingItems = () => {
   }
 
   // Fallback if no data
-  const items =
-    trendingItems && trendingItems.length > 0
-      ? trendingItems
-      : [
-          { name: "Truffle Pasta", count: 45 },
-          { name: "Wagyu Burger", count: 32 },
-          { name: "Lobster Bisque", count: 28 },
-        ];
+  const items = trendingItems || [];
 
   const maxCount = Math.max(...items.map((i) => i.count)) || 1;
 
@@ -100,47 +93,55 @@ const TrendingItems = () => {
         </div>
       </div>
 
-      <div className="space-y-6">
-        {items.map((item, index) => {
-          const Icon = icons[index % icons.length];
-          const percentage = Math.round((item.count / maxCount) * 100);
-          const gradient = getGradient(index);
-
-          return (
-            <div key={index} className="group relative">
-              <div className="flex items-center gap-4 mb-2">
-                <div className="relative">
-                  <div
-                    className={`w-10 h-10 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold shadow-lg group-hover:scale-110 transition-transform`}
-                  >
-                    <span className="text-sm">#{index + 1}</span>
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center mb-1">
-                    <h3 className="font-semibold text-gray-800 dark:text-gray-100 truncate pr-2">
-                      {item.name}
-                    </h3>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                      {item.count} orders
-                    </span>
-                  </div>
-
-                  {/* Progress Bar Container */}
-                  <div className="h-2.5 w-full bg-gray-100 dark:bg-gray-700/50 rounded-full overflow-hidden">
+      {items.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Utensils className="h-12 w-12 text-gray-300 dark:text-gray-600 mb-4" />
+          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">No trending items yet</h3>
+          <p className="text-sm text-gray-500">More data is needed to calculate trends.</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {items.map((item, index) => {
+            const Icon = icons[index % icons.length];
+            const percentage = Math.round((item.count / maxCount) * 100);
+            const gradient = getGradient(index);
+  
+            return (
+              <div key={index} className="group relative">
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="relative">
                     <div
-                      className={`h-full rounded-full bg-gradient-to-r ${gradient} relative group-hover:brightness-110 transition-all duration-500 ease-out`}
-                      style={{ width: `${percentage}%` }}
+                      className={`w-10 h-10 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold shadow-lg group-hover:scale-110 transition-transform`}
                     >
-                      <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]" />
+                      <span className="text-sm">#{index + 1}</span>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-center mb-1">
+                      <h3 className="font-semibold text-gray-800 dark:text-gray-100 truncate pr-2">
+                        {item.name}
+                      </h3>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                        {item.count} orders
+                      </span>
+                    </div>
+  
+                    {/* Progress Bar Container */}
+                    <div className="h-2.5 w-full bg-gray-100 dark:bg-gray-700/50 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full bg-gradient-to-r ${gradient} relative group-hover:brightness-110 transition-all duration-500 ease-out`}
+                        style={{ width: `${percentage}%` }}
+                      >
+                        <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]" />
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </Card>
   );
 };
