@@ -124,48 +124,26 @@ serve(async (req) => {
         .eq('id', restaurant_id)
         .single();
 
-    // 4. Update the wallet balance (atomic addition using RPC or just read/write if low concurrency)
-    // Since we don't have an RPC for increment, we can do an upsert or use raw SQL.
-    // However, Supabase Edge Functions doesn't let us run raw SQL directly without RPC.
-    // But since it's an admin client, we can fetch, then update, or better, create a transaction record
-    // and a trigger could update the balance, OR just calculate it here.
-    
-    const { data: currentWallet } = await supabaseAdmin
-        .from('restaurant_wallets')
-        .select('balance')
-        .eq('restaurant_id', restaurant_id)
-        .single();
-        
-    const newBalance = (currentWallet?.balance || 0) + amountPaidRupees;
+    // 4. Atomic balance update + idempotent transaction log via RPC
+    // The RPC handles:
+    //   - Row-level locking (prevents race conditions)
+    //   - Idempotency check (same reference_id won't credit twice)
+    //   - Transaction logging in the same DB transaction
+    const { data: newBalance, error: rpcError } = await supabaseAdmin.rpc('adjust_wallet_balance', {
+      p_restaurant_id: restaurant_id,
+      p_amount: amountPaidRupees,
+      p_type: 'deposit',
+      p_description: `Wallet recharge via Razorpay (₹${amountPaidRupees})`,
+      p_reference_id: razorpay_payment_id,
+    });
 
-    const { error: walletError } = await supabaseAdmin
-        .from('restaurant_wallets')
-        .upsert({
-            restaurant_id: restaurant_id,
-            restaurant_name: restaurant?.name,
-            balance: newBalance,
-            updated_at: new Date().toISOString()
-        });
-
-    if (walletError) {
-        console.error('Failed to update wallet balance:', walletError);
-        return new Response(
-            JSON.stringify({ error: 'Failed to update wallet balance' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-        );
+    if (rpcError) {
+      console.error('Wallet RPC error:', rpcError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to update wallet balance', details: rpcError.message }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
     }
-
-    // 5. Log the transaction
-    await supabaseAdmin
-        .from('wallet_transactions')
-        .insert({
-            restaurant_id: restaurant_id,
-            restaurant_name: restaurant?.name,
-            amount: amountPaidRupees,
-            transaction_type: 'deposit',
-            reference_id: razorpay_payment_id,
-            description: `Wallet recharge via Razorpay`
-        });
 
     return new Response(
       JSON.stringify({

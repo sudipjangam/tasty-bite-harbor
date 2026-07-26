@@ -21,7 +21,7 @@ const TEMPLATE_VAR_MAPS: Record<string, string[]> = {
   "order_preparing": ["customer_name", "restaurant_name"],
   "order_ready": ["customer_name", "restaurant_name"],
   "qr_order_created": ["customer_name", "restaurant_name", "amount"],
-  "points_expiry_warning": ["customer_name", "amount", "order_date"],
+  "points_expiry_warning": ["customer_name", "restaurant_name", "loyalty_points", "days_before", "promo_code"],
   "welcome_message": ["customer_name", "restaurant_name"],
   "reservation_confirmed": ["customer_name", "restaurant_name", "order_date"],
   "reservation_reminder": ["customer_name", "restaurant_name", "order_date"],
@@ -103,8 +103,8 @@ Deno.serve(async (req: Request) => {
     }
     const messageCost = templateCategory === "MARKETING" ? 0.93 : 0.20;
 
-    // Check wallet balance
-    let currentBalance = 0;
+    // Pre-flight wallet balance check (non-blocking, just for early exit)
+    // The actual atomic deduction happens after successful send via RPC
     if (restaurantId) {
       const { data: wallet } = await supabase
         .from("restaurant_wallets")
@@ -112,7 +112,7 @@ Deno.serve(async (req: Request) => {
         .eq("restaurant_id", restaurantId)
         .single();
       
-      currentBalance = wallet?.balance || 0;
+      const currentBalance = wallet?.balance || 0;
       if (currentBalance < messageCost) {
         return new Response(
           JSON.stringify({ success: false, error: `Insufficient wallet balance. Cost: ₹${messageCost}, Balance: ₹${currentBalance}` }),
@@ -120,6 +120,34 @@ Deno.serve(async (req: Request) => {
         );
       }
     }
+
+    // Helper: atomic wallet deduction + campaign log via RPC
+    const deductAndLog = async (tplName: string, status: string, msgId?: string, failReason?: string) => {
+      if (!restaurantId) return;
+      // Atomic deduction — prevents race conditions and stale balance writes
+      const { error: rpcError } = await supabase.rpc('adjust_wallet_balance', {
+        p_restaurant_id: restaurantId,
+        p_amount: -messageCost,
+        p_type: 'deduction',
+        p_description: `WhatsApp Message (${tplName}) to ${phoneNumber}`,
+      });
+      if (rpcError) {
+        console.error('[unified] Wallet deduction failed:', rpcError.message);
+        // Don't throw — message was already sent, log the campaign send anyway
+      }
+      // Log campaign send
+      await supabase.from("whatsapp_campaign_sends").insert({
+        campaign_id: campaignId || null,
+        restaurant_id: restaurantId,
+        customer_id: customerId || null,
+        customer_phone: phoneNumber,
+        customer_name: customerName || "Customer",
+        template_name: tplName,
+        status: status,
+        msg91_request_id: msgId || null,
+        failure_reason: failReason || null,
+      });
+    };
 
     console.log(`[unified] provider=${provider}, template=${usedTemplateName}, lang=${templateLanguage}, phone=${phoneNumber}, hasToken=${!!metaConfig.access_token}, phoneId=${metaConfig.phone_number_id}, cost=${messageCost}`);
 
@@ -309,30 +337,8 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      // Log success and deduct wallet
-      if (restaurantId) {
-        await supabase.rpc('decrement_wallet_balance', { p_restaurant_id: restaurantId, p_amount: messageCost });
-        // We do it manually since RPC might not exist yet:
-        await supabase.from("restaurant_wallets").update({ balance: currentBalance - messageCost }).eq("restaurant_id", restaurantId);
-        
-        await supabase.from("wallet_transactions").insert({
-          restaurant_id: restaurantId,
-          amount: -messageCost,
-          transaction_type: 'deduction',
-          description: `WhatsApp Message (${usedTemplateName}) to ${phoneNumber}`
-        });
-
-        await supabase.from("whatsapp_campaign_sends").insert({
-          campaign_id: campaignId || null,
-          restaurant_id: restaurantId,
-          customer_id: customerId || null,
-          customer_phone: phoneNumber,
-          customer_name: customerName || "Customer",
-          template_name: usedTemplateName,
-          status: "sent",
-          msg91_request_id: metaData?.messages?.[0]?.id || null,
-        });
-      }
+      // Atomic deduction + campaign log
+      await deductAndLog(usedTemplateName, "sent", metaData?.messages?.[0]?.id);
 
       return new Response(
         JSON.stringify({ success: true, provider: "meta_cloud", data: metaData }),
@@ -481,25 +487,7 @@ Deno.serve(async (req: Request) => {
         console.log("[msg91] Fallback result:", JSON.stringify(fallbackData));
 
         if (fallbackRes.ok && fallbackData?.message !== "error") {
-          if (restaurantId) {
-            await supabase.from("restaurant_wallets").update({ balance: currentBalance - messageCost }).eq("restaurant_id", restaurantId);
-            await supabase.from("wallet_transactions").insert({
-              restaurant_id: restaurantId,
-              amount: -messageCost,
-              transaction_type: 'deduction',
-              description: `WhatsApp Message (Fallback: ${FALLBACK_TEMPLATE}) to ${phoneNumber}`
-            });
-            await supabase.from("whatsapp_campaign_sends").insert({
-              campaign_id: campaignId || null,
-              restaurant_id: restaurantId,
-              customer_id: customerId || null,
-              customer_phone: phoneNumber,
-              customer_name: customerName || "Customer",
-              template_name: FALLBACK_TEMPLATE,
-              status: "sent",
-              msg91_request_id: fallbackData?.request_id || null,
-            });
-          }
+          await deductAndLog(FALLBACK_TEMPLATE, "sent", fallbackData?.request_id);
           return new Response(
             JSON.stringify({ success: true, provider: "msg91", data: fallbackData, usedFallback: true }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -507,17 +495,18 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      // Log failure (no wallet deduction for failed sends)
       if (restaurantId) {
-         await supabase.from("whatsapp_campaign_sends").insert({
-            campaign_id: campaignId || null,
-            restaurant_id: restaurantId,
-            customer_id: customerId || null,
-            customer_phone: phoneNumber,
-            customer_name: customerName || "Customer",
-            template_name: usedTemplateName,
-            status: "failed",
-            failure_reason: msg91Data?.msg || msg91Data?.message || "MSG91 API error",
-          });
+        await supabase.from("whatsapp_campaign_sends").insert({
+          campaign_id: campaignId || null,
+          restaurant_id: restaurantId,
+          customer_id: customerId || null,
+          customer_phone: phoneNumber,
+          customer_name: customerName || "Customer",
+          template_name: usedTemplateName,
+          status: "failed",
+          failure_reason: msg91Data?.msg || msg91Data?.message || "MSG91 API error",
+        });
       }
 
       return new Response(
@@ -526,26 +515,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Success for primary MSG91 template
-    if (restaurantId) {
-      await supabase.from("restaurant_wallets").update({ balance: currentBalance - messageCost }).eq("restaurant_id", restaurantId);
-      await supabase.from("wallet_transactions").insert({
-        restaurant_id: restaurantId,
-        amount: -messageCost,
-        transaction_type: 'deduction',
-        description: `WhatsApp Message (${usedTemplateName}) to ${phoneNumber}`
-      });
-      await supabase.from("whatsapp_campaign_sends").insert({
-        campaign_id: campaignId || null,
-        restaurant_id: restaurantId,
-        customer_id: customerId || null,
-        customer_phone: phoneNumber,
-        customer_name: customerName || "Customer",
-        template_name: usedTemplateName,
-        status: "sent",
-        msg91_request_id: msg91Data?.request_id || null,
-      });
-    }
+    // Atomic deduction + campaign log for MSG91 success
+    await deductAndLog(usedTemplateName, "sent", msg91Data?.request_id);
 
     return new Response(
       JSON.stringify({ success: true, provider: "msg91", data: msg91Data }),
