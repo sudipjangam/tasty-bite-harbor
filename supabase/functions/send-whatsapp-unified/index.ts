@@ -12,6 +12,8 @@ const corsHeaders = {
 const TEMPLATE_VAR_MAPS: Record<string, string[]> = {
   "invoice_with_contact": ["customer_name", "restaurant_name", "amount", "order_date", "contact_number"],
   "invoice_with_review": ["customer_name", "restaurant_name", "amount", "order_date", "contact_number"],
+  "invoice_with_review_only": ["customer_name", "restaurant_name", "amount", "order_date", "contact_number"],
+  "invoice_with_instagram": ["customer_name", "restaurant_name", "amount", "order_date"],
   "loyalty_points_earned_notification": ["customer_name", "restaurant_name", "order_date", "amount", "discount_code", "contact_number"],
   "subscription_confirmation": ["customer_name", "restaurant_name"],
   "subscription_special_offer": ["customer_name", "amount"],

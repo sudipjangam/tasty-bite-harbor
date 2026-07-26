@@ -34,6 +34,7 @@ import QRCodeLib from "qrcode";
 import { useBillSharing } from "@/hooks/useBillSharing";
 import { useNetworkStatus } from "@/contexts/NetworkStatusContext";
 import { enqueueWrite, generateOfflineOrderNumber } from "@/utils/syncManager";
+import { resolveInvoiceTemplate } from "@/utils/resolveInvoiceTemplate";
 
 interface QSPaymentSheetProps {
   isOpen: boolean;
@@ -478,34 +479,34 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             ? "91" + customerPhone.replace(/[\+\-\s]/g, "")
             : customerPhone.replace(/[\+\-\s]/g, "");
 
-        // Instagram: extract handle from full URL in DB
-        // "https://www.instagram.com/_brewbites_" → "_brewbites_"
+        // Extract social links for smart template selection
         const rawIgUrl = (restaurantDetails?.social_media as any)?.instagram_url || "";
         const igHandle = rawIgUrl
           .replace(/^https?:\/\/(www\.)?instagram\.com\//, "")
           .replace(/\/$/, "") || "";
+        const googleReviewUrl = (restaurantDetails?.social_media as any)?.google_review_url || "";
+        const contactNumber = (restaurantDetails as any)?.phone || "-";
 
-        // Google Review: body {{5}} — full URL, no underscores = safe in body text
-        const googleReviewUrl = (restaurantDetails?.social_media as any)?.google_review_url || "-";
+        // Smart template resolution: picks correct template + params based on social links
+        const { templateName, variables, buttons } = resolveInvoiceTemplate({
+          customerName: customerName || "Customer",
+          restaurantName: restaurantNameForMsg,
+          amount: formattedAmount,
+          billDate: formattedDate,
+          billUrlSuffix: billUrlSuffix || "pending",
+          igHandle,
+          googleReviewUrl,
+          contactNumber,
+        });
 
         const { data: waResponse, error: waError } =
           await supabase.functions.invoke("send-whatsapp-unified", {
             body: {
               phoneNumber: phoneWithCountryCode,
               restaurantId,
-              customerName: customerName || "Customer",
-              restaurantName: restaurantNameForMsg,
-              templateName: "invoice_with_review",
-              amount: formattedAmount,
-              billDate: formattedDate,
-              // {{5}} = Google Review full URL (safe in body)
-              googleReviewUrl,
-              buttons: [
-                // Button 0: View Bill
-                { type: "url", value: billUrlSuffix || "pending" },
-                // Button 1: Instagram (handle after https://instagram.com/)
-                ...(igHandle ? [{ type: "url", value: igHandle }] : []),
-              ],
+              templateName,
+              variables,
+              buttons,
             },
           });
 
