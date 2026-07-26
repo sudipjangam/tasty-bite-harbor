@@ -115,8 +115,8 @@ Deno.serve(async (req: Request) => {
       const currentBalance = wallet?.balance || 0;
       if (currentBalance < messageCost) {
         return new Response(
-          JSON.stringify({ success: false, error: `Insufficient wallet balance. Cost: ₹${messageCost}, Balance: ₹${currentBalance}` }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ success: false, error: `Insufficient wallet balance. Cost: ₹${messageCost}, Balance: ₹${currentBalance}. Please recharge your wallet.` }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
     }
@@ -159,7 +159,7 @@ Deno.serve(async (req: Request) => {
       if (!phoneNumberId || !accessToken) {
         return new Response(
           JSON.stringify({ success: false, error: "Meta Cloud API credentials not configured. Set them in Platform Admin > WhatsApp." }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -333,7 +333,7 @@ Deno.serve(async (req: Request) => {
             variableCount: positionalValues.length,
             language: templateLanguage,
           }),
-          { status: metaRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -353,7 +353,7 @@ Deno.serve(async (req: Request) => {
     if (!msg91AuthKey) {
       return new Response(
         JSON.stringify({ success: false, error: "MSG91_AUTH_KEY not set" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -511,7 +511,7 @@ Deno.serve(async (req: Request) => {
 
       return new Response(
         JSON.stringify({ success: false, error: msg91Data?.msg || msg91Data?.message || "MSG91 API error", details: msg91Data }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -526,7 +526,7 @@ Deno.serve(async (req: Request) => {
     console.error("[unified] Error:", error);
     return new Response(
       JSON.stringify({ success: false, error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
