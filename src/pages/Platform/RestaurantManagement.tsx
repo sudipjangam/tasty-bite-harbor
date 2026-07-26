@@ -2787,6 +2787,7 @@ const RestaurantManagement = () => {
                         queryClient.invalidateQueries({
                           queryKey: ["platform-restaurants"],
                         });
+                        setIsManageUsersOpen(false);
                       } catch (error: any) {
                         console.error("Exception:", error);
                         toast.error(`Failed to create user: ${error.message}`);
