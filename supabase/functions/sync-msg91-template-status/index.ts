@@ -35,12 +35,36 @@ serve(async (req) => {
       );
     }
 
+    // Use service role for DB reads/writes
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    // Check provider config
+    const { data: configData } = await supabaseAdmin
+      .from("platform_config")
+      .select("value")
+      .eq("key", "whatsapp")
+      .maybeSingle();
+    const provider = configData?.value?.provider || "msg91";
+
+    if (provider !== "meta_cloud") {
+      return new Response(
+        JSON.stringify({ success: true, message: "Sync not supported for non-Meta provider yet.", updates: [] }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
+    }
+
     // Meta Cloud API credentials
     const WHATSAPP_ACCESS_TOKEN = Deno.env.get("WHATSAPP_ACCESS_TOKEN");
     const WHATSAPP_PHONE_NUMBER_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID");
 
-    if (!WHATSAPP_ACCESS_TOKEN) {
-      throw new Error("Missing WHATSAPP_ACCESS_TOKEN secret");
+    if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_NUMBER_ID) {
+      return new Response(
+        JSON.stringify({ success: false, error: "WhatsApp credentials not configured. Please configure Meta API settings." }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
     }
 
     // Read request body
@@ -60,11 +84,7 @@ serve(async (req) => {
       }
     }
 
-    // Use service role for DB writes
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    // Removed redundant supabaseAdmin init since it's already above
 
     // Resolve WABA ID from phone number ID if not directly available.
     // Meta Graph API: GET /{phone-number-id}?fields=whatsapp_business_account
