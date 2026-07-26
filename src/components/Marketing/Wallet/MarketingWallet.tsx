@@ -2,19 +2,12 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "../../ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  CardFooter,
-} from "../../ui/card";
-import {
   IndianRupee,
   CreditCard,
   History,
   Loader2,
   AlertCircle,
+  ChevronDown,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -47,6 +40,7 @@ export function MarketingWallet({
   const [rechargeAmount, setRechargeAmount] = useState<string>("500");
   const [isRecharging, setIsRecharging] = useState(false);
   const [totalSent, setTotalSent] = useState(0);
+  const [showTransactions, setShowTransactions] = useState(false);
 
   const fetchWalletData = async () => {
     try {
@@ -265,117 +259,150 @@ export function MarketingWallet({
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-8 flex justify-center items-center">
-          <Loader2 className="w-8 h-8 animate-spin text-yellow-500" />
-        </CardContent>
-      </Card>
+      <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-black/[0.06] dark:border-white/[0.06] bg-white/60 dark:bg-white/[0.03] backdrop-blur-sm text-xs text-muted-foreground">
+        <Loader2 className="w-3.5 h-3.5 animate-spin text-yellow-500" />
+        Loading wallet...
+      </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-      {/* Balance Card */}
-      <Card className="bg-gradient-to-br from-yellow-500/10 to-yellow-600/5 border-yellow-500/20">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-lg text-yellow-700 dark:text-yellow-400">
-            <CreditCard className="w-5 h-5" />
-            Marketing Wallet
-          </CardTitle>
-          <CardDescription>
-            Available balance for sending WhatsApp messages
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-baseline gap-1 mb-6">
-            <IndianRupee className="w-6 h-6 text-yellow-600 dark:text-yellow-500" />
-            <span className="text-4xl font-bold text-gray-900 dark:text-white">
-              {wallet?.balance?.toFixed(2) || "0.00"}
-            </span>
+    <div className="flex flex-col rounded-2xl border border-yellow-500/20 overflow-hidden">
+      {/* ── Compact Banner ── */}
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3 bg-gradient-to-r from-yellow-500/8 to-amber-500/5 dark:from-yellow-500/10 dark:to-amber-500/5">
+        {/* Balance */}
+        <div className="flex items-center gap-2 mr-2">
+          <div className="w-8 h-8 rounded-xl bg-yellow-500/15 dark:bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+            <CreditCard className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
           </div>
-
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <label className="text-xs text-gray-500 mb-1 block">
-                Quick Recharge (₹)
-              </label>
-              <select
-                value={rechargeAmount}
-                onChange={(e) => setRechargeAmount(e.target.value)}
-                className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              >
-                <option value="100">₹100</option>
-                <option value="500">₹500</option>
-                <option value="1000">₹1,000</option>
-                <option value="2000">₹2,000</option>
-                <option value="5000">₹5,000</option>
-              </select>
+          <div>
+            <p className="text-[10px] font-semibold text-yellow-700/70 dark:text-yellow-400/70 uppercase tracking-wider leading-none mb-0.5">
+              Wallet Balance
+            </p>
+            <div className="flex items-baseline gap-0.5">
+              <IndianRupee className="w-3.5 h-3.5 text-yellow-600 dark:text-yellow-400" />
+              <span className="text-xl font-black text-yellow-700 dark:text-yellow-300 leading-none">
+                {wallet?.balance?.toFixed(2) ?? "0.00"}
+              </span>
             </div>
-            <Button
-              onClick={handleRecharge}
-              disabled={isRecharging}
-              className="mt-5 bg-yellow-600 hover:bg-yellow-700 text-white"
-            >
-              {isRecharging ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : null}
-              Add Funds
-            </Button>
           </div>
-        </CardContent>
-        <CardFooter className="pt-0 flex gap-4">
-          <div className="text-xs text-gray-500 bg-white/50 dark:bg-gray-900/50 p-2 rounded w-full flex justify-between items-center">
-            <span>Marketing Template: ₹0.93 / msg</span>
-            <span>Utility Template: ₹0.20 / msg</span>
-          </div>
-        </CardFooter>
-      </Card>
+        </div>
 
-      {/* Stats & Ledger Card */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex justify-between items-center text-lg">
-            <span className="flex items-center gap-2">
-              <History className="w-5 h-5" /> Recent Activity
+        {/* Divider */}
+        <div className="hidden sm:block w-px h-8 bg-yellow-500/20" />
+
+        {/* Rate tags */}
+        <div className="hidden md:flex items-center gap-2">
+          <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 bg-black/[0.04] dark:bg-white/[0.06] px-2 py-1 rounded-lg">
+            Marketing ₹0.93/msg
+          </span>
+          <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 bg-black/[0.04] dark:bg-white/[0.06] px-2 py-1 rounded-lg">
+            Utility ₹0.20/msg
+          </span>
+        </div>
+
+        {/* Divider */}
+        <div className="hidden sm:block w-px h-8 bg-yellow-500/20" />
+
+        {/* Total sent */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-gray-500 dark:text-gray-400">Sent:</span>
+          <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300">{totalSent}</span>
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* History toggle */}
+        <button
+          onClick={() => setShowTransactions(v => !v)}
+          className="hidden lg:flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-400 transition-colors"
+        >
+          <History className="w-3.5 h-3.5" />
+          {transactions.length > 0 ? (
+            <span>
+              Last:{" "}
+              <span className={`font-bold ${transactions[0].transaction_type === "deposit" ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"}`}>
+                {transactions[0].transaction_type === "deposit" ? "+" : "-"}₹{Math.abs(transactions[0].amount).toFixed(2)}
+              </span>
+              {" · "}{new Date(transactions[0].created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
             </span>
-            <span className="text-sm font-normal text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
-              Total Sent: {totalSent}
-            </span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+          ) : "No transactions"}
+          <ChevronDown
+            className={`w-3 h-3 transition-transform duration-200 ${showTransactions ? "rotate-180" : ""}`}
+          />
+        </button>
+
+        {/* Divider */}
+        <div className="hidden lg:block w-px h-8 bg-yellow-500/20" />
+
+        {/* Recharge controls */}
+        <div className="flex items-center gap-2">
+          <select
+            value={rechargeAmount}
+            onChange={(e) => setRechargeAmount(e.target.value)}
+            className="h-8 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2 focus:outline-none focus:ring-1 focus:ring-yellow-500 cursor-pointer"
+          >
+            <option value="100">₹100</option>
+            <option value="500">₹500</option>
+            <option value="1000">₹1,000</option>
+            <option value="2000">₹2,000</option>
+            <option value="5000">₹5,000</option>
+          </select>
+          <Button
+            onClick={handleRecharge}
+            disabled={isRecharging}
+            size="sm"
+            className="h-8 text-xs bg-yellow-600 hover:bg-yellow-700 text-white px-3 rounded-lg shadow-sm shadow-yellow-500/20 gap-1.5"
+          >
+            {isRecharging ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <CreditCard className="w-3 h-3" />
+            )}
+            Add Funds
+          </Button>
+        </div>
+      </div>
+
+      {/* ── Collapsible Transactions Panel ── */}
+      {showTransactions && (
+        <div className="border-t border-yellow-500/15 bg-white/60 dark:bg-white/[0.02] px-4 py-3">
           {transactions.length === 0 ? (
-            <div className="text-center py-6 text-gray-500 flex flex-col items-center">
-              <AlertCircle className="w-8 h-8 mb-2 opacity-20" />
-              <p>No recent transactions</p>
+            <div className="flex items-center gap-2 py-2 text-xs text-gray-400">
+              <AlertCircle className="w-3.5 h-3.5 opacity-50" />
+              No recent transactions
             </div>
           ) : (
-            <div className="space-y-3">
-              {transactions.map((tx) => (
+            <div className="space-y-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Recent Transactions</p>
+              {transactions.map((tx, i) => (
                 <div
                   key={tx.id}
-                  className="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-800 pb-2 last:border-0"
+                  className={`flex items-center justify-between py-1.5 text-xs ${
+                    i < transactions.length - 1 ? "border-b border-black/[0.04] dark:border-white/[0.04]" : ""
+                  }`}
                 >
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-gray-100">
-                      {tx.description}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(tx.created_at).toLocaleString()}
-                    </p>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                      tx.transaction_type === "deposit" ? "bg-green-500" : "bg-red-400"
+                    }`} />
+                    <span className="text-gray-600 dark:text-gray-400 truncate max-w-[280px]">{tx.description}</span>
+                    <span className="text-[10px] text-gray-400 flex-shrink-0">
+                      {new Date(tx.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    </span>
                   </div>
-                  <div
-                    className={`font-semibold ${tx.transaction_type === "deposit" ? "text-green-600" : "text-red-600"}`}
-                  >
-                    {tx.transaction_type === "deposit" ? "+" : "-"}₹
-                    {Math.abs(tx.amount).toFixed(2)}
-                  </div>
+                  <span className={`font-bold flex-shrink-0 ml-4 ${
+                    tx.transaction_type === "deposit" ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"
+                  }`}>
+                    {tx.transaction_type === "deposit" ? "+" : "-"}₹{Math.abs(tx.amount).toFixed(2)}
+                  </span>
                 </div>
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 }
