@@ -474,6 +474,22 @@ const PurchaseOrders = () => {
     });
   };
 
+  const handleDuplicatePO = (order: PurchaseOrder) => {
+    setSelectedSupplierId(order.supplier_id || "");
+    setExpectedDeliveryDate("");
+    setOrderItems(
+      order.purchase_order_items.map((item) => ({
+        inventory_item_id: item.inventory_item_id,
+        name: item.inventory_item?.name || "Unknown Item",
+        unit: item.inventory_item?.unit || "units",
+        quantity: item.quantity,
+        unit_cost: item.unit_cost,
+      }))
+    );
+    setIsViewDialogOpen(false);
+    setIsCreateDialogOpen(true);
+  };
+
   const handleBillDataExtracted = (data: ExtractedBillData) => {
     // 1. Find or set supplier
     const supplierName = data.vendor?.name || null;
@@ -1368,6 +1384,14 @@ const PurchaseOrders = () => {
                         Update Status
                       </Button>
                     )}
+                    <Button
+                      variant="outline"
+                      onClick={() => handleDuplicatePO(selectedOrder)}
+                      className="text-amber-600 border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-xl"
+                    >
+                      <Copy className="h-4 w-4 mr-1" />
+                      Duplicate
+                    </Button>
                   </div>
 
                   <div className="flex gap-2">

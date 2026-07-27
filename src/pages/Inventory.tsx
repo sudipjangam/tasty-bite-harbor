@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,6 +61,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { isPast } from "date-fns";
 import ReportExport from "@/components/Inventory/ReportExport";
 import InventoryAlerts from "@/components/Inventory/InventoryAlerts";
 import PurchaseOrders from "@/components/Inventory/PurchaseOrders";
@@ -110,6 +111,7 @@ interface InventoryItem {
   notification_sent?: boolean;
   is_produced?: boolean;
   storage_location_id?: string | null;
+  inventory_lots?: { expiry_date: string | null; quantity_remaining: number }[];
 }
 
 const ITEMS_PER_PAGE = 20;
@@ -118,6 +120,7 @@ const Inventory = () => {
   const { restaurantName } = useRestaurantId();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [isAddingStock, setIsAddingStock] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -147,6 +150,16 @@ const Inventory = () => {
   const [isExtractedDataDialogOpen, setIsExtractedDataDialogOpen] =
     useState(false);
 
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (editingItem && editingItem.category) {
+      setNewItemCategory(editingItem.category);
+    } else if (!editingItem) {
+      setNewItemCategory("Other");
+    }
+  }, [editingItem]);
+
   const handleBillDataExtracted = (data: ExtractedBillData) => {
     setExtractedBillData(data);
     setIsExtractedDataDialogOpen(true);
@@ -174,7 +187,7 @@ const Inventory = () => {
 
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("*")
+        .select("*, inventory_lots(expiry_date, quantity_remaining)")
         .eq("restaurant_id", userProfile.restaurant_id)
         .order("name");
 
@@ -326,9 +339,11 @@ const Inventory = () => {
         title: "Stock added successfully",
         description: `New batch added to "${existingItem.name}".`,
       });
+      queryClient.invalidateQueries({ queryKey: ["item-lots-detail", existingItem.id] });
       refetch();
       setIsAddDialogOpen(false);
       setEditingItem(null);
+      setIsAddingStock(false);
       setPendingDuplicateData(null);
     } catch (error) {
       console.error("Error adding stock:", error);
@@ -344,7 +359,7 @@ const Inventory = () => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const itemData = {
-      name: formData.get("name") as string,
+      name: (formData.get("name") as string).trim().toLowerCase(),
       quantity: Math.max(
         0,
         parseFloat(formData.get("quantity") as string) || 0,
@@ -357,11 +372,6 @@ const Inventory = () => {
         ? Math.max(0, parseFloat(formData.get("costPerUnit") as string))
         : null,
       category: (formData.get("category") as string) || "Other",
-      storage_location_id:
-        (formData.get("storageLocation") as string) &&
-        formData.get("storageLocation") !== "none"
-          ? (formData.get("storageLocation") as string)
-          : null,
       expiryDate: (formData.get("expiryDate") as string) || null,
     };
 
@@ -379,7 +389,7 @@ const Inventory = () => {
         throw new Error("No restaurant found for user");
       }
 
-      if (editingItem) {
+      if (editingItem && !isAddingStock) {
         // Editing — update fields (not quantity-related, that's done via lots)
         const { expiryDate, ...updateData } = itemData;
         const { error } = await supabase
@@ -392,6 +402,8 @@ const Inventory = () => {
           title: "Item updated successfully",
           description: `"${itemData.name}" has been updated.`,
         });
+      } else if (editingItem && isAddingStock) {
+        await addStockToExistingItem(editingItem, itemData, userProfile.restaurant_id);
       } else {
         // === HOMEMADE PRODUCTION FLOW ===
         if (isHomemade && rawMaterials.length > 0) {
@@ -601,11 +613,6 @@ const Inventory = () => {
           );
 
           if (existingItem) {
-            if (existingItem.category === itemData.category && existingItem.unit === itemData.unit) {
-               setDuplicateWarning(true);
-               return;
-            }
-            
             // Show confirmation dialog instead of silently creating a duplicate
             setPendingDuplicateData({
               existingItem,
@@ -672,6 +679,7 @@ const Inventory = () => {
       refetch();
       setIsAddDialogOpen(false);
       setEditingItem(null);
+      setIsAddingStock(false);
     } catch (error) {
       console.error("Error:", error);
       toast({
@@ -873,7 +881,9 @@ const Inventory = () => {
               <Button
                 onClick={() => {
                   setEditingItem(null);
+                  setIsAddingStock(false);
                   setNewItemCategory("Other");
+                  setIsAddDialogOpen(true);
                 }}
                 className="bg-gradient-to-r from-emerald-400 via-green-500 to-teal-600 hover:from-emerald-500 hover:via-green-600 hover:to-teal-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transform hover:-translate-y-1 hover:scale-[1.02] transition-all duration-300"
                 style={{ boxShadow: '0 8px 32px -4px rgba(16,185,129,0.35)' }}
@@ -889,12 +899,19 @@ const Inventory = () => {
                 <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-xl" />
                 <DialogHeader className="relative">
                   <DialogTitle className="text-xl font-black text-white flex items-center gap-3 drop-shadow-sm">
-                    {editingItem ? (
+                    {editingItem && !isAddingStock ? (
                       <>
                         <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
                           <Edit className="h-5 w-5" />
                         </div>
                         Edit Item
+                      </>
+                    ) : editingItem && isAddingStock ? (
+                      <>
+                        <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                          <Plus className="h-5 w-5" />
+                        </div>
+                        Add Stock to {editingItem.name}
                       </>
                     ) : (
                       <>
@@ -906,8 +923,10 @@ const Inventory = () => {
                     )}
                   </DialogTitle>
                   <DialogDescription className="text-white/80 text-sm font-medium">
-                    {editingItem
+                    {editingItem && !isAddingStock
                       ? "Update the details below"
+                      : editingItem && isAddingStock
+                      ? "Add a new lot/batch for this item"
                       : "Fill in the details to add a new inventory item"}
                   </DialogDescription>
                 </DialogHeader>
@@ -931,6 +950,7 @@ const Inventory = () => {
                     id="name"
                     name="name"
                     defaultValue={editingItem?.name}
+                    disabled={!!(editingItem && isAddingStock)}
                     required
                     placeholder="e.g., Olive Oil, Basmati Rice"
                     className="bg-white/70 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/50 rounded-xl h-12 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400/60 transition-all backdrop-blur-sm shadow-sm"
@@ -949,6 +969,7 @@ const Inventory = () => {
                   <Select
                     name="category"
                     value={newItemCategory}
+                    disabled={!!(editingItem && isAddingStock)}
                     onValueChange={setNewItemCategory}
                   >
                     <SelectTrigger className="bg-white/70 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/50 rounded-xl h-12 focus:ring-2 focus:ring-emerald-500/30 backdrop-blur-sm shadow-sm">
@@ -1022,7 +1043,7 @@ const Inventory = () => {
                       type="number"
                       step="0.01"
                       min="0"
-                      defaultValue={editingItem?.quantity}
+                      defaultValue={editingItem && !isAddingStock ? editingItem.quantity : ""}
                       required
                       placeholder="0"
                     />
@@ -1077,32 +1098,7 @@ const Inventory = () => {
                   </div>
                 </div>
 
-                {/* Storage Location */}
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="storageLocation"
-                    className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5"
-                  >
-                    <MapPin className="h-3.5 w-3.5 text-blue-500" />
-                    Storage Location
-                  </Label>
-                  <Select
-                    name="storageLocation"
-                    defaultValue={editingItem?.storage_location_id || "none"}
-                  >
-                    <SelectTrigger className="bg-gray-50/80 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600 rounded-xl h-11 focus:ring-2 focus:ring-emerald-500/20 transition-all">
-                      <SelectValue placeholder="Select storage location" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      <SelectItem value="none">Unassigned / None</SelectItem>
-                      {storageLocations.map((loc: any) => (
-                        <SelectItem key={loc.id} value={loc.id}>
-                          {loc.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+
 
                 {/* Expiry Date for Dairy and Bakery */}
                 {(newItemCategory === "Dairy" ||
@@ -1139,9 +1135,13 @@ const Inventory = () => {
                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white mr-2" />
                       Producing...
                     </>
-                  ) : editingItem ? (
+                  ) : editingItem && !isAddingStock ? (
                     <>
                       <Edit className="mr-2 h-4 w-4" /> Update Item
+                    </>
+                  ) : editingItem && isAddingStock ? (
+                    <>
+                      <Plus className="mr-2 h-4 w-4" /> Add Stock
                     </>
                   ) : isHomemade ? (
                     <>
@@ -1550,15 +1550,26 @@ const Inventory = () => {
                                 )}
                             </div>
 
-                            {/* Low Stock Badge — Vibrant with glow */}
-                            {isLow && (
-                              <Badge
-                                className="text-[10px] font-bold px-2.5 py-1 rounded-xl mb-3 bg-gradient-to-r from-red-500 to-rose-600 text-white border-0 shadow-md shadow-red-500/25 animate-pulse"
-                              >
-                                <AlertTriangle className="h-3 w-3 mr-1" /> Low
-                                Stock
-                              </Badge>
-                            )}
+                            {/* Badges Container */}
+                            <div className="flex flex-wrap gap-2 mb-3">
+                              {/* Low Stock Badge — Vibrant with glow */}
+                              {isLow && (
+                                <Badge
+                                  className="text-[10px] font-bold px-2.5 py-1 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 text-white border-0 shadow-md shadow-red-500/25 animate-pulse"
+                                >
+                                  <AlertTriangle className="h-3 w-3 mr-1" /> Low Stock
+                                </Badge>
+                              )}
+                              
+                              {/* Expired Stock Badge */}
+                              {item.inventory_lots?.some(lot => lot.quantity_remaining > 0 && lot.expiry_date && isPast(new Date(lot.expiry_date))) && (
+                                <Badge
+                                  className="text-[10px] font-bold px-2.5 py-1 rounded-xl bg-red-100/80 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800"
+                                >
+                                  <AlertTriangle className="h-3 w-3 mr-1" /> Expired
+                                </Badge>
+                              )}
+                            </div>
 
                             {/* Footer: Price + Reorder — Glassmorphic */}
                             <div className="flex items-center justify-between pt-3 border-t border-white/20 dark:border-white/[0.04]">
@@ -1800,7 +1811,8 @@ const Inventory = () => {
         }}
         onDelete={(item) => setItemToDelete(item)}
         onAddStock={(item) => {
-          setEditingItem(null);
+          setEditingItem(item);
+          setIsAddingStock(true);
           setIsAddDialogOpen(true);
         }}
       />

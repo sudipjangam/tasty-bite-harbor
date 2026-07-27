@@ -153,7 +153,7 @@ const InventoryLots = () => {
     initialPage: 1,
   });
 
-  const markAsWasteMutation = useMutation({
+  const markAsExpiredMutation = useMutation({
     mutationFn: async (lot: InventoryLot) => {
       if (!restaurantId || lot.quantity_remaining <= 0) return;
       
@@ -196,14 +196,14 @@ const InventoryLots = () => {
       if (transactionError) throw transactionError;
     },
     onSuccess: () => {
-      toast({ title: "Lot marked as waste successfully" });
+      toast({ title: "Lot marked as expired successfully" });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-lots"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-transactions"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-stocktake"] });
     },
     onError: (error) => {
-      toast({ title: "Error marking as waste", description: error.message, variant: "destructive" });
+      toast({ title: "Error marking as expired", description: error.message, variant: "destructive" });
     }
   });
 
@@ -437,12 +437,12 @@ const InventoryLots = () => {
                     <div className="md:ml-auto w-full md:w-auto pt-2 md:pt-0">
                       <Button
                         size="sm"
-                        onClick={() => markAsWasteMutation.mutate(lot)}
-                        disabled={markAsWasteMutation.isPending}
+                        onClick={() => markAsExpiredMutation.mutate(lot)}
+                        disabled={markAsExpiredMutation.isPending}
                         className="w-full bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-md shadow-red-500/20"
                       >
                         <Trash2 className="h-3.5 w-3.5 mr-1" />
-                        Mark as Waste
+                        Mark as Expired
                       </Button>
                     </div>
                   )}

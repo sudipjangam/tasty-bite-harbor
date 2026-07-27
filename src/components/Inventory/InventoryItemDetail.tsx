@@ -35,6 +35,7 @@ import {
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { format, isPast, differenceInDays } from "date-fns";
 import ProduceMoreDialog from "./ProduceMoreDialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface InventoryItem {
   id: string;
@@ -78,8 +79,72 @@ const InventoryItemDetail: React.FC<InventoryItemDetailProps> = ({
   onAddStock,
 }) => {
   const { symbol: currencySymbol } = useCurrencyContext();
+  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [produceMoreOpen, setProduceMoreOpen] = useState(false);
+  const [isMarkingWaste, setIsMarkingWaste] = useState<string | null>(null);
+
+  const handleMarkAsWaste = async (lot: Lot) => {
+    if (!item) return;
+    setIsMarkingWaste(lot.id);
+    try {
+      const { error: updateItemError } = await supabase
+        .from("inventory_items")
+        .update({
+          quantity: Math.max(0, item.quantity - lot.quantity_remaining)
+        })
+        .eq("id", item.id);
+      
+      if (updateItemError) throw updateItemError;
+
+      const { error: lotError } = await supabase
+        .from("inventory_lots")
+        .update({
+          quantity_remaining: 0,
+          notes: (lot.notes ? lot.notes + " | " : "") + "Marked as waste (expired)"
+        })
+        .eq("id", lot.id);
+
+      if (lotError) throw lotError;
+
+      const { data: profile } = await supabase.auth.getUser();
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("restaurant_id")
+        .eq("id", profile?.user?.id)
+        .single();
+
+      if (userProfile?.restaurant_id) {
+        await supabase.from("inventory_transactions").insert({
+          restaurant_id: userProfile.restaurant_id,
+          inventory_item_id: item.id,
+          transaction_type: "waste",
+          quantity_change: -lot.quantity_remaining,
+          unit_cost_at_time: lot.unit_cost,
+          total_cost: lot.quantity_remaining * lot.unit_cost,
+          lot_id: lot.id,
+          notes: "Expired batch marked as waste",
+        });
+      }
+
+      toast({
+        title: "Marked as Waste",
+        description: `Expired batch marked as waste.`,
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["item-lots-detail", item.id] });
+    } catch (error) {
+      console.error("Error marking waste:", error);
+      toast({
+        title: "Failed",
+        description: "Could not mark as waste.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsMarkingWaste(null);
+    }
+  };
 
   const handleProductionComplete = () => {
     queryClient.invalidateQueries({ queryKey: ["inventory"] });
@@ -339,6 +404,21 @@ const InventoryItemDetail: React.FC<InventoryItemDetailProps> = ({
                               <StatusIcon className="h-2.5 w-2.5 mr-1" />
                               {status.label}
                             </Badge>
+                            {status.label === "Expired" && (
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="h-6 mt-2 text-[10px] px-2 w-full"
+                                onClick={() => handleMarkAsWaste(lot)}
+                                disabled={isMarkingWaste === lot.id}
+                              >
+                                {isMarkingWaste === lot.id ? (
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" />
+                                ) : (
+                                  "Mark Waste"
+                                )}
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       );

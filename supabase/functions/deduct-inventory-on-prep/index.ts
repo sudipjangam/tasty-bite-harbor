@@ -21,6 +21,11 @@ interface IngredientRequirement {
 
 // Unit conversion to base units (kg for weight, l for volume)
 const convertToBaseUnit = (quantity: number, fromUnit: string, toUnit: string): number => {
+  const fUnit = (fromUnit || "").toLowerCase().trim();
+  const tUnit = (toUnit || "").toLowerCase().trim();
+
+  if (fUnit === tUnit) return quantity;
+  
   const conversionMap: { [key: string]: { [key: string]: number } } = {
     // Weight conversions to kg
     'g': { 'kg': 0.001, 'g': 1 },
@@ -28,21 +33,27 @@ const convertToBaseUnit = (quantity: number, fromUnit: string, toUnit: string): 
     // Volume conversions to l
     'ml': { 'l': 0.001, 'ml': 1 },
     'l': { 'l': 1, 'ml': 1000 },
-    // Pieces
-    'piece': { 'piece': 1 },
+    // Pieces and common units
+    'piece': { 'piece': 1, 'pcs': 1 },
+    'pcs': { 'pcs': 1, 'piece': 1 },
     'cup': { 'l': 0.24, 'ml': 240 },
     'tbsp': { 'ml': 15, 'l': 0.015 },
     'tsp': { 'ml': 5, 'l': 0.005 },
+    'pack': { 'pack': 1 },
+    'bottle': { 'bottle': 1 },
+    'box': { 'box': 1 },
+    'dozen': { 'dozen': 1, 'piece': 12, 'pcs': 12 },
   };
 
-  if (fromUnit === toUnit) return quantity;
-  
-  const from = conversionMap[fromUnit];
-  if (!from || !(toUnit in from)) {
-    throw new Error(`Cannot convert from ${fromUnit} to ${toUnit}`);
+  const from = conversionMap[fUnit];
+  if (!from || !(tUnit in from)) {
+    // If no conversion is known, just fallback to 1:1 if we really have to
+    // or log it. We will return 1:1 fallback rather than throwing error
+    console.warn(`Cannot convert from ${fUnit} to ${tUnit}, falling back to 1:1`);
+    return quantity;
   }
   
-  return quantity * from[toUnit];
+  return quantity * from[tUnit];
 };
 
 serve(async (req) => {
@@ -118,7 +129,20 @@ serve(async (req) => {
         const itemNameLower = (item.name || '').toLowerCase().trim();
         let resolvedId = menuNameMap[itemNameLower];
         
-        // If exact match fails, try stripping variant suffix: "Pizza (Medium)" → "Pizza"
+        // If no exact match, try fuzzy match
+        if (!resolvedId) {
+          const fuzzyKey = Object.keys(menuNameMap).find(k => 
+             k.replace(/[^a-z]/g, '') === itemNameLower.replace(/[^a-z]/g, '') ||
+             k.includes(itemNameLower) || 
+             itemNameLower.includes(k)
+          );
+          if (fuzzyKey) {
+            resolvedId = menuNameMap[fuzzyKey];
+            console.log(`Fuzzy matched ${itemNameLower} to ${fuzzyKey}`);
+          }
+        }
+
+        // If exact/fuzzy match fails, try stripping variant suffix: "Pizza (Medium)" → "Pizza"
         if (!resolvedId) {
           const variantMatch = itemNameLower.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
           if (variantMatch) {
