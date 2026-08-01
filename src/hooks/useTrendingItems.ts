@@ -49,17 +49,31 @@ export const useTrendingItems = (period: TrendingPeriod = "weekly") => {
       const itemCounts: Record<string, { count: number; revenue: number }> = {};
       
       orders?.forEach(order => {
-        // Handle items as array of objects with name property
         const items = Array.isArray(order.items) ? order.items : [];
         items.forEach((item: any) => {
-          // Handle both string and object formats
-          const name = typeof item === 'string' ? item.trim() : (item?.name || '').trim();
-          if (!name) return;
-          
-          if (!itemCounts[name]) {
-            itemCounts[name] = { count: 0, revenue: 0 };
+          let rawName = "";
+          let quantity = 1;
+
+          if (typeof item === "string") {
+            rawName = item.trim();
+          } else if (typeof item === "object" && item !== null) {
+            rawName = (item.name || item.item_name || "").trim();
+            quantity = Number(item.quantity || item.qty) || 1;
           }
-          itemCounts[name].count += typeof item === 'object' ? (item.quantity || 1) : 1;
+
+          if (!rawName) return;
+
+          // Parse raw strings like "1x Paneer Tikka @199" -> name: "Paneer Tikka", qty: 1
+          const match = rawName.match(/^(?:(\d+)x\s+)?(.+?)(?:\s*@\s*\d+(?:\.\d+)?)?$/i);
+          const cleanName = match && match[2] ? match[2].trim() : rawName;
+          const parsedQty = match && match[1] ? parseInt(match[1], 10) : quantity;
+
+          if (!cleanName) return;
+
+          if (!itemCounts[cleanName]) {
+            itemCounts[cleanName] = { count: 0, revenue: 0 };
+          }
+          itemCounts[cleanName].count += parsedQty;
         });
       });
 
