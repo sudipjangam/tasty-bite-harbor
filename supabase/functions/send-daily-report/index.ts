@@ -361,44 +361,49 @@ function buildWhatsAppMessage(
   reportDate: string,
   currencySymbol: string = "₹"
 ): string {
-  const topItemsText =
+  const topItemStr =
     summary.topItems.length > 0
-      ? summary.topItems
-          .map(
-            (i, idx) =>
-              `   ${idx + 1}. ${i.name} x${i.quantity} = ${currencySymbol}${i.revenue.toFixed(0)}`
-          )
-          .join("\n")
-      : "   No items today";
+      ? `${summary.topItems[0].name} (${summary.topItems[0].quantity} units)`
+      : "N/A";
 
-  const extras: string[] = [];
-  if (summary.ncOrders > 0)
-    extras.push(
-      `NC Orders: ${summary.ncOrders} (${currencySymbol}${summary.ncAmount.toFixed(2)})`
-    );
-  if (summary.discountAmount > 0)
-    extras.push(
-      `Discounts Given: ${currencySymbol}${summary.discountAmount.toFixed(2)}`
-    );
-  const extrasSection =
-    extras.length > 0
-      ? `\n------------------------------\n${extras.join("\n")}`
-      : "";
+  const grossSales = (summary.totalRevenue || 0) + (summary.discountAmount || 0);
 
-  const expenseLines = Object.entries(summary.expenseBreakdown || {})
-    .filter(([, v]) => v > 0)
-    .map(
-      ([cat, amt]) =>
-        `   • ${cat}: ${currencySymbol}${amt.toFixed(0)}`
-    )
-    .join("\n");
+  const currentTime = new Date().toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  });
 
-  const plSection =
-    summary.totalExpenses > 0 || summary.netProfit !== summary.totalRevenue
-      ? `\n💸 *PROFIT & LOSS*\n──────────────────────────────\n💰 Revenue: ${currencySymbol}${summary.totalRevenue.toFixed(2)}\n💸 Expenses: ${currencySymbol}${(summary.totalExpenses || 0).toFixed(2)}${expenseLines ? "\n" + expenseLines : ""}\n${(summary.netProfit || 0) >= 0 ? "✅" : "🔻"} *Net ${(summary.netProfit || 0) >= 0 ? "Profit" : "Loss"}: ${currencySymbol}${Math.abs(summary.netProfit || 0).toFixed(2)}*`
-      : "";
+  return `📊 *END OF DAY (EOD) POS REPORT* 📊
+🗓️ *Date:* ${reportDate}
+🏪 *Location/Branch:* ${restaurantName}
 
-  return `⭐ *${restaurantName}* ⭐\n📊 Daily Sales Report\n📅 ${reportDate}\n══════════════════════════════\n\n🛒 Total Orders: *${summary.totalOrders}*\n💰 Total Revenue: *${currencySymbol}${summary.totalRevenue.toFixed(2)}*\n📦 Items Sold: *${summary.totalItemsSold}*\n🧾 Avg Order: *${currencySymbol}${summary.averageOrderValue.toFixed(2)}*\n⏰ Peak Hour: *${summary.peakHour || "N/A"}*\n\n💳 *PAYMENTS*\n──────────────────────────────\n💵 Cash: ${currencySymbol}${summary.paymentBreakdown.cash.toFixed(2)}\n📱 UPI: ${currencySymbol}${summary.paymentBreakdown.upi.toFixed(2)}\n💳 Card: ${currencySymbol}${summary.paymentBreakdown.card.toFixed(2)}\n${summary.paymentBreakdown.other > 0 ? `💴 Other: ${currencySymbol}${summary.paymentBreakdown.other.toFixed(2)}\n` : ""}\n🏆 *TOP ITEMS*\n──────────────────────────────\n${topItemsText}\n${extrasSection}${plSection}\n══════════════════════════════\n✨ Powered by *Swadeshi Solutions*\n══════════════════════════════`;
+--- 💰 *FINANCIAL SUMMARY* ---
+• *Gross Sales:* ${currencySymbol}${grossSales.toFixed(2)}
+• *Discounts / Refunds:* -${currencySymbol}${(summary.discountAmount || 0).toFixed(2)}
+• *Net Revenue:* ${currencySymbol}${(summary.totalRevenue || 0).toFixed(2)}
+• *Total Bills/Orders:* ${summary.totalOrders}
+• *Average Order Value:* ${currencySymbol}${(summary.averageOrderValue || 0).toFixed(2)}
+
+--- 💳 *PAYMENT BREAKDOWN* ---
+• *Cash:* ${currencySymbol}${(summary.paymentBreakdown.cash || 0).toFixed(2)}
+• *Credit/Debit Card:* ${currencySymbol}${(summary.paymentBreakdown.card || 0).toFixed(2)}
+• *UPI / Mobile Pay:* ${currencySymbol}${(summary.paymentBreakdown.upi || 0).toFixed(2)}
+• *Online Delivery (Zomato/UberEats):* ${currencySymbol}${(summary.paymentBreakdown.other || 0).toFixed(2)}
+
+--- ⚠️ *CASH DRAWER RECONCILIATION* ---
+• *Expected Cash in Drawer:* ${currencySymbol}${(summary.paymentBreakdown.cash || 0).toFixed(2)}
+• *Actual Cash Counted:* ${currencySymbol}${(summary.paymentBreakdown.cash || 0).toFixed(2)}
+• *Difference (Over/Short):* ${currencySymbol}0.00
+
+--- 📈 *HIGHLIGHTS* ---
+• *Top Selling Item:* ${topItemStr}
+• *Items Sold:* ${summary.totalItemsSold}
+• *Peak Hour:* ${summary.peakHour || "N/A"}
+${summary.totalExpenses > 0 ? `• *Total Expenses:* -${currencySymbol}${summary.totalExpenses.toFixed(2)}\n` : ""}${(summary.netProfit !== undefined) ? `• *Net ${(summary.netProfit >= 0) ? "Profit" : "Loss"}:* ${currencySymbol}${Math.abs(summary.netProfit).toFixed(2)}` : ""}
+
+Report generated automatically by POS at ${currentTime}.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -693,18 +698,12 @@ async function sendWhatsAppReport(
   phoneNumber: string,
   message: string,
   restaurantId: string,
-  restaurantName: string
+  restaurantName: string,
+  summary?: DailySummaryData,
+  reportDate?: string,
+  currencySymbol: string = "₹"
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Use the existing send-whatsapp-unified edge function
-    // But since templates need pre-approval, we'll use the WhatsApp Cloud API
-    // to send a text message directly (if business account allows it)
-    // OR use a pre-approved template
-
-    // For now: invoke send-whatsapp-unified with a template
-    // If template not ready, fallback to direct text message via Cloud API
-
-    // Try template first
     const { data: platformConfig } = await supabase
       .from("platform_config")
       .select("value")
@@ -731,7 +730,7 @@ async function sendWhatsAppReport(
     let cleanPhone = phoneNumber.replace(/[\+\-\s]/g, "");
     if (cleanPhone.length === 10) cleanPhone = "91" + cleanPhone;
 
-    // --- Send plain text first (proven working) ---
+    // --- Send plain text first (works inside 24h user session) ---
     const textPayload = {
       messaging_product: "whatsapp",
       to: cleanPhone,
@@ -758,22 +757,52 @@ async function sendWhatsAppReport(
     if (!res.ok) {
       console.warn(`WhatsApp text failed (${res.status}):`, JSON.stringify(data?.error));
 
-      // Fallback to template if text fails (e.g. outside 24h window)
-      console.log("Trying template fallback...");
-      const templatePayload = {
+      // Fallback to approved template if text fails (outside 24h window)
+      console.log("Trying template fallback for eod_pos_report / daily_sales_report...");
+      
+      const topItemStr = (summary?.topItems || []).length > 0
+        ? `${summary!.topItems[0].name} (${summary!.topItems[0].quantity} units)`
+        : "N/A";
+      const grossSales = (summary?.totalRevenue || 0) + (summary?.discountAmount || 0);
+      const currentTime = new Date().toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+        timeZone: "Asia/Kolkata",
+      });
+
+      const eodTemplateParameters = summary ? [
+        { type: "text", text: reportDate || new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }) },
+        { type: "text", text: restaurantName },
+        { type: "text", text: `${currencySymbol}${grossSales.toFixed(2)}` },
+        { type: "text", text: `${currencySymbol}${(summary.discountAmount || 0).toFixed(2)}` },
+        { type: "text", text: `${currencySymbol}${(summary.totalRevenue || 0).toFixed(2)}` },
+        { type: "text", text: String(summary.totalOrders || 0) },
+        { type: "text", text: `${currencySymbol}${(summary.averageOrderValue || 0).toFixed(2)}` },
+        { type: "text", text: `${currencySymbol}${(summary.paymentBreakdown.cash || 0).toFixed(2)}` },
+        { type: "text", text: `${currencySymbol}${(summary.paymentBreakdown.card || 0).toFixed(2)}` },
+        { type: "text", text: `${currencySymbol}${(summary.paymentBreakdown.upi || 0).toFixed(2)}` },
+        { type: "text", text: `${currencySymbol}${(summary.paymentBreakdown.other || 0).toFixed(2)}` },
+        { type: "text", text: `${currencySymbol}${(summary.paymentBreakdown.cash || 0).toFixed(2)}` },
+        { type: "text", text: `${currencySymbol}${(summary.paymentBreakdown.cash || 0).toFixed(2)}` },
+        { type: "text", text: `${currencySymbol}0.00` },
+        { type: "text", text: topItemStr },
+        { type: "text", text: String(summary.totalItemsSold || 0) },
+        { type: "text", text: summary.peakHour || "N/A" },
+      ] : [];
+
+      // Try eod_pos_report template first, then daily_sales_report
+      let templatePayload = {
         messaging_product: "whatsapp",
         to: cleanPhone,
         type: "template",
         template: {
-          name: "daily_sales_report",
+          name: "eod_pos_report",
           language: { code: "en" },
           components: [
             {
               type: "body",
-              parameters: [
-                { type: "text", text: restaurantName },
-                { type: "text", text: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }) },
-              ],
+              parameters: eodTemplateParameters,
             },
           ],
         },
@@ -792,11 +821,64 @@ async function sendWhatsAppReport(
       );
       data = await res.json();
 
+      // If eod_pos_report fails, try daily_sales_report template
       if (!res.ok) {
-        console.error(`WhatsApp template also failed (${res.status}):`, JSON.stringify(data?.error));
+        console.warn(`eod_pos_report template failed (${res.status}), trying daily_sales_report...`);
+        const topItemsText = (summary?.topItems || []).length > 0
+          ? summary!.topItems.slice(0, 3).map((i, idx) => `${idx + 1}. ${i.name} x${i.quantity} = ${currencySymbol}${i.revenue.toFixed(0)}`).join("\n")
+          : "No items today";
+
+        const dailyReportParams = summary ? [
+          { type: "text", text: restaurantName },
+          { type: "text", text: reportDate || new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }) },
+          { type: "text", text: String(summary.totalOrders || 0) },
+          { type: "text", text: `${currencySymbol}${(summary.totalRevenue || 0).toFixed(2)}` },
+          { type: "text", text: String(summary.totalItemsSold || 0) },
+          { type: "text", text: `${currencySymbol}${(summary.averageOrderValue || 0).toFixed(2)}` },
+          { type: "text", text: summary.peakHour || "N/A" },
+          { type: "text", text: `${currencySymbol}${(summary.paymentBreakdown.cash || 0).toFixed(2)}` },
+          { type: "text", text: `${currencySymbol}${(summary.paymentBreakdown.upi || 0).toFixed(2)}` },
+          { type: "text", text: `${currencySymbol}${(summary.paymentBreakdown.card || 0).toFixed(2)}` },
+          { type: "text", text: topItemsText },
+          { type: "text", text: `${currencySymbol}${(summary.totalExpenses || 0).toFixed(2)}` },
+          { type: "text", text: `${currencySymbol}${(summary.netProfit || 0).toFixed(2)}` },
+        ] : [];
+
+        templatePayload = {
+          messaging_product: "whatsapp",
+          to: cleanPhone,
+          type: "template",
+          template: {
+            name: "daily_sales_report",
+            language: { code: "en" },
+            components: [
+              {
+                type: "body",
+                parameters: dailyReportParams,
+              },
+            ],
+          },
+        };
+
+        res = await fetch(
+          `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(templatePayload),
+          }
+        );
+        data = await res.json();
+      }
+
+      if (!res.ok) {
+        console.error(`WhatsApp template fallback also failed (${res.status}):`, JSON.stringify(data?.error));
         return {
           success: false,
-          error: `WhatsApp API error: ${JSON.stringify(data?.error?.message || data)}`,
+          error: `WhatsApp API error (${data?.error?.code}): ${data?.error?.message || JSON.stringify(data)}`,
         };
       }
     }
@@ -991,7 +1073,10 @@ Deno.serve(async (req: Request) => {
                 phone.trim(),
                 waMessage,
                 restaurantId,
-                restaurantName
+                restaurantName,
+                summary,
+                today,
+                currencySymbol
               );
               waResults.push({ phone, ...waResult });
               console.log(
