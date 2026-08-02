@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import type { OrderItem as GlobalOrderItem } from "@/types/orders";
 import { DatePickerWithRange } from "@/components/ui/date-picker-with-range";
-import PaymentDialog from "./POS/PaymentDialog";
+import AdaptivePaymentDialog from "./POS/AdaptivePaymentDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -892,7 +892,7 @@ const ActiveOrdersList = ({
         </div>
       </div>
 
-      <PaymentDialog
+      <AdaptivePaymentDialog
         isOpen={!!selectedOrder}
         onClose={() => setSelectedOrder(null)}
         orderItems={

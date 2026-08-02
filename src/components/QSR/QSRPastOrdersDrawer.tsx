@@ -27,7 +27,7 @@ import { exportToExcel } from "@/utils/exportUtils";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
-import PaymentDialog from "@/components/Orders/POS/PaymentDialog";
+import AdaptivePaymentDialog from "@/components/Orders/POS/AdaptivePaymentDialog";
 import { DatePickerWithRange } from "@/components/ui/date-picker-with-range";
 import type { DateRange } from "react-day-picker";
 
@@ -658,7 +658,7 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
 
       {/* Reusable PaymentDialog for Print Bill - Already paid orders */}
       {selectedOrderForPayment && (
-        <PaymentDialog
+        <AdaptivePaymentDialog
           isOpen={showPaymentDialog}
           onClose={handlePaymentDialogClose}
           orderItems={paymentDialogOrderItems}
