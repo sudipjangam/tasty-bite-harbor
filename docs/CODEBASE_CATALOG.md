@@ -6,52 +6,51 @@ Last updated: 2026-07-23
 
 Primary route permissions from `src/components/Auth/AppRoutes.tsx`.
 
-| Route | Guard |
-|---|---|
-| `/` | `dashboard.view` (fallback staff landing) |
-| `/orders` | `orders.view` |
-| `/pos` | `orders.view` |
-| `/qsr-pos` | `orders.view` |
-| `/quickserve-pos` | `orders.view` |
-| `/menu` | `menu.view` |
-| `/recipes` | `menu.view` |
-| `/staff` | `staff.view` |
-| `/shift-management` | `staff.update` |
-| `/analytics` | `analytics.view` |
-| `/financial` | `financial.view` |
-| `/settings` | `settings.view` |
-| `/inventory` | `inventory.view` |
-| `/tables` | `tables.view` |
-| `/rooms` | `rooms.view` |
-| `/housekeeping` | `housekeeping.view` |
-| `/reservations` | `reservations.view` |
-| `/customers` | `customers.view` |
-| `/suppliers` | `inventory.view` |
-| `/expenses` | `financial.view` |
-| `/ai` | `dashboard.view` |
-| `/channel-management` | `analytics.view` |
-| `/kitchen` | `kitchen.view` |
-| `/security` | `audit.view` |
-| `/user-management` | `users.manage` |
-| `/admin` | `users.manage` |
-| `/role-management` | `users.manage` |
-| `/permission-management` | `staff.manage_roles` |
-| `/marketing` | `customers.view` |
-| `/reports` | `analytics.view` |
-| `/nc-orders` | no explicit permission guard |
-| `/email-tester` | admin role only |
-| `/platform/*` | admin role only |
-| `/daily-summary-history` | no explicit permission guard |
-| `/franchise` | franchise roles (`owner`/`admin`/`member`/`viewer`) |
-| `/franchise/branches` | franchise roles (`owner`/`admin`) |
-| `/franchise/team` | franchise roles (`owner`/`admin`) |
-| `/franchise/menu-sync` | franchise roles (`owner`/`admin`) |
-| `/franchise/orders` | franchise roles (`owner`/`admin`/`member`/`viewer`) |
-| `/franchise/inventory` | franchise roles (`owner`/`admin`/`member`/`viewer`) |
-| `/franchise/staff` | franchise roles (`owner`/`admin`/`member`/`viewer`) |
-| `/franchise/pnl` | franchise roles (`owner`/`admin`/`member`/`viewer`) |
-| `/franchise/settings` | franchise roles (`owner`/`admin`) |
-
+| Route                      | Guard                                                       |
+| -------------------------- | ----------------------------------------------------------- |
+| `/`                      | `dashboard.view` (fallback staff landing)                 |
+| `/orders`                | `orders.view`                                             |
+| `/pos`                   | `orders.view`                                             |
+| `/qsr-pos`               | `orders.view`                                             |
+| `/quickserve-pos`        | `orders.view`                                             |
+| `/menu`                  | `menu.view`                                               |
+| `/recipes`               | `menu.view`                                               |
+| `/staff`                 | `staff.view`                                              |
+| `/shift-management`      | `staff.update`                                            |
+| `/analytics`             | `analytics.view`                                          |
+| `/financial`             | `financial.view`                                          |
+| `/settings`              | `settings.view`                                           |
+| `/inventory`             | `inventory.view`                                          |
+| `/tables`                | `tables.view`                                             |
+| `/rooms`                 | `rooms.view`                                              |
+| `/housekeeping`          | `housekeeping.view`                                       |
+| `/reservations`          | `reservations.view`                                       |
+| `/customers`             | `customers.view`                                          |
+| `/suppliers`             | `inventory.view`                                          |
+| `/expenses`              | `financial.view`                                          |
+| `/ai`                    | `dashboard.view`                                          |
+| `/channel-management`    | `analytics.view`                                          |
+| `/kitchen`               | `kitchen.view`                                            |
+| `/security`              | `audit.view`                                              |
+| `/user-management`       | `users.manage`                                            |
+| `/admin`                 | `users.manage`                                            |
+| `/role-management`       | `users.manage`                                            |
+| `/permission-management` | `staff.manage_roles`                                      |
+| `/marketing`             | `customers.view`                                          |
+| `/reports`               | `analytics.view`                                          |
+| `/nc-orders`             | no explicit permission guard                                |
+| `/email-tester`          | admin role only                                             |
+| `/platform/*`            | admin role only                                             |
+| `/daily-summary-history` | no explicit permission guard                                |
+| `/franchise`             | franchise roles (`owner`/`admin`/`member`/`viewer`) |
+| `/franchise/branches`    | franchise roles (`owner`/`admin`)                       |
+| `/franchise/team`        | franchise roles (`owner`/`admin`)                       |
+| `/franchise/menu-sync`   | franchise roles (`owner`/`admin`)                       |
+| `/franchise/orders`      | franchise roles (`owner`/`admin`/`member`/`viewer`) |
+| `/franchise/inventory`   | franchise roles (`owner`/`admin`/`member`/`viewer`) |
+| `/franchise/staff`       | franchise roles (`owner`/`admin`/`member`/`viewer`) |
+| `/franchise/pnl`         | franchise roles (`owner`/`admin`/`member`/`viewer`) |
+| `/franchise/settings`    | franchise roles (`owner`/`admin`)                       |
 
 ## 2. Pages Inventory (`src/pages`)
 
@@ -110,6 +109,8 @@ Primary route permissions from `src/components/Auth/AppRoutes.tsx`.
 - `Suppliers.tsx`
 - `Tables.tsx`
 - `UserManagement.tsx`
+
+
 
 ## 3. Hook Inventory (`src/hooks`)
 
@@ -432,6 +433,7 @@ Primary route permissions from `src/components/Auth/AppRoutes.tsx`.
 ## 7. Recent Migration Themes
 
 Recent migration files (latest set) show active work in:
+
 - QR ordering
 - NC tracking (Migrated to premium tab inside `/reports` component with full filtering/sorting and 3D glassmorphic UI)
 - Paytm integration
@@ -473,4 +475,3 @@ SubscriptionGate → PermissionGuard → FeatureLock
 - Sidebar: `/franchise` mapped to `"franchise"` subscription component
 - Layout: `FranchiseLayout.tsx` wrapped with `<FeatureLock feature="franchise.dashboard">`
 - Feature Permissions Manager shows 9 franchise sub-features (dashboard, branches, team, menu_sync, orders, inventory, staff, pnl, settings)
-
