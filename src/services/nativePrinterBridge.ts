@@ -45,11 +45,14 @@ const KEYS = {
 };
 
 // ─── Internal state ───────────────────────────────────────────────────────────
-
-let _connectionType: PrinterConnectionType = "none";
-let _deviceName: string | null = null;
-let _address: string | null = null;
-let _connected = false;
+// Restore state from localStorage immediately on module load.
+// This ensures isConnected() returns true without waiting for tryAutoReconnect()
+// when the PaymentDialog or other components mount after a navigation.
+let _connectionType: PrinterConnectionType =
+  (localStorage.getItem(KEYS.CONNECTION_TYPE) as PrinterConnectionType | null) ?? "none";
+let _deviceName: string | null = localStorage.getItem(KEYS.BT_NAME);
+let _address: string | null = localStorage.getItem(KEYS.BT_ADDRESS);
+let _connected = localStorage.getItem(KEYS.CONNECTED) === "1";
 
 const _listeners: Array<(status: NativePrinterStatus) => void> = [];
 
@@ -304,11 +307,38 @@ export const nativePrinterBridge = {
 
   async sendESCPOS(data: Uint8Array): Promise<void> {
     if (!_connected) throw new Error("Printer not connected");
-    const CHUNK = 512;
-    for (let i = 0; i < data.length; i += CHUNK) {
-      const chunk = data.slice(i, i + CHUNK);
-      await _btWrite(chunk.buffer as ArrayBuffer);
-      await new Promise((r) => setTimeout(r, 15));
+
+    const tryWrite = async () => {
+      const CHUNK = 512;
+      for (let i = 0; i < data.length; i += CHUNK) {
+        const chunk = data.slice(i, i + CHUNK);
+        await _btWrite(chunk.buffer as ArrayBuffer);
+        await new Promise((r) => setTimeout(r, 15));
+      }
+    };
+
+    try {
+      await tryWrite();
+    } catch (writeErr) {
+      // Socket may have closed (module reload but BT session still exists on OS side).
+      // Try to reconnect the physical socket once before giving up.
+      console.warn("[NativePrinter] Write failed, attempting socket reconnect...", writeErr);
+      const address = _address ?? localStorage.getItem(KEYS.BT_ADDRESS);
+      const name = _deviceName ?? localStorage.getItem(KEYS.BT_NAME) ?? undefined;
+      if (!address) throw writeErr;
+      try {
+        await _btConnect(address);
+        _connected = true;
+        _address = address;
+        _deviceName = name ?? null;
+        console.log("[NativePrinter] Socket reconnected, retrying write...");
+        await tryWrite();
+      } catch (reconnectErr) {
+        _connected = false;
+        localStorage.removeItem(KEYS.CONNECTED);
+        _notify();
+        throw new Error("Printer disconnected. Please reconnect from Printer Settings.");
+      }
     }
   },
 
