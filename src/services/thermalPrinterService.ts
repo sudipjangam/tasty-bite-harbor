@@ -1,3 +1,6 @@
+import { Capacitor } from "@capacitor/core";
+import { nativePrinterBridge } from "./nativePrinterBridge";
+
 export interface KOTItem {
   name: string;
   quantity: number;
@@ -14,6 +17,26 @@ export interface KOTData {
   roundNumber?: number;
   orderId?: string;
   orderType?: string;
+}
+
+export interface ReceiptData {
+  restaurantName: string;
+  address?: string;
+  phone?: string;
+  gstin?: string;
+  billNumber: string;
+  date: string;
+  time: string;
+  tableName?: string;
+  customerName?: string;
+  customerMobile?: string;
+  items: { name: string; quantity: number; price: number }[];
+  subtotal: number;
+  cgst: number;
+  sgst: number;
+  discount: number;
+  netAmount: number;
+  currencySymbol: string;
 }
 
 const STORAGE_KEY = "thermal_printer_device_id";
@@ -75,24 +98,32 @@ class ThermalPrinterService {
   }
 
   isConnected(): boolean {
+    if (Capacitor.isNativePlatform()) {
+      return nativePrinterBridge.isConnected();
+    }
     return this.device !== null && this.device.gatt?.connected === true;
   }
 
   /** Get connected device name */
   getDeviceName(): string | null {
+    if (Capacitor.isNativePlatform()) {
+      return nativePrinterBridge.getStatus().deviceName ?? null;
+    }
     return this.device?.name || null;
   }
 
   async connect(): Promise<boolean> {
     try {
       if (!navigator.bluetooth) {
-        throw new Error("Web Bluetooth API is not supported in this browser. Please use Chrome/Edge.");
+        throw new Error("Web Bluetooth API is not available in this browser.");
       }
 
-      this.device = await navigator.bluetooth.requestDevice({
+      const device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
-        optionalServices: this.PRINTER_SERVICE_UUIDS,
+        optionalServices: this.PRINTER_SERVICE_UUIDS
       });
+
+      this.device = device;
 
       this.device.addEventListener('gattserverdisconnected', this.onDisconnected);
 
@@ -118,6 +149,10 @@ class ThermalPrinterService {
    * Returns true if reconnected, false if no saved device or reconnect failed.
    */
   async tryAutoReconnect(): Promise<boolean> {
+    if (Capacitor.isNativePlatform()) {
+      return nativePrinterBridge.tryAutoReconnect();
+    }
+
     try {
       const savedDeviceId = localStorage.getItem(STORAGE_KEY);
       if (!savedDeviceId) return false;
@@ -281,10 +316,17 @@ class ThermalPrinterService {
   }
 
   private async writeBytes(data: Uint8Array) {
+    // ── Native Android path: route via Bluetooth Serial plugin ───────────────
+    if (Capacitor.isNativePlatform()) {
+      await nativePrinterBridge.sendESCPOS(data);
+      return;
+    }
+
+    // ── Web Bluetooth (GATT) path ─────────────────────────────────────────────
     if (!this.characteristic) throw new Error("Not connected to printer");
     
     // Bluetooth LE typically has a 20-512 byte MTU limit. 
-    // We chunk the data to be safe (512 bytes is usually fine for modern devices, but let's do 100).
+    // We chunk the data to be safe.
     const chunkSize = 100;
     for (let i = 0; i < data.length; i += chunkSize) {
       const chunk = data.slice(i, i + chunkSize);
@@ -389,6 +431,97 @@ class ThermalPrinterService {
     }
 
     receipt += "\n\n"; // Feed paper
+    receipt += this.CUT_PAPER;
+
+    await this.writeBytes(this.encodeText(receipt));
+  }
+
+  async printReceipt(data: ReceiptData) {
+    const nativeConnected = Capacitor.isNativePlatform() && nativePrinterBridge.isConnected();
+    const webConnected = !Capacitor.isNativePlatform() && this.isConnected();
+    if (!nativeConnected && !webConnected) {
+      throw new Error("Printer is not connected");
+    }
+
+    const W = getPaperWidth();
+    const SEP = "-".repeat(W) + "\n";
+
+    const row2 = (l: string, r: string) => {
+      const pad = Math.max(1, W - l.length - r.length);
+      return l + " ".repeat(pad) + r + "\n";
+    };
+
+    let receipt = this.INIT;
+
+    // Header
+    receipt += this.ALIGN_CENTER;
+    receipt += this.BOLD_ON;
+    receipt += this.TEXT_DOUBLE_HEIGHT;
+    receipt += data.restaurantName + "\n";
+    receipt += this.TEXT_NORMAL;
+    receipt += this.BOLD_OFF;
+
+    if (data.address) receipt += data.address + "\n";
+    if (data.phone) receipt += `Ph: ${data.phone}\n`;
+    if (data.gstin) receipt += `GSTIN: ${data.gstin}\n`;
+    if (data.gstin) {
+      receipt += this.BOLD_ON;
+      receipt += "\nTAX INVOICE\n";
+      receipt += this.BOLD_OFF;
+    }
+    receipt += SEP;
+
+    // Info
+    receipt += this.ALIGN_LEFT;
+    receipt += `Bill#: ${data.billNumber}\n`;
+    if (data.tableName) receipt += `To: ${data.tableName}\n`;
+    else if (data.customerName) receipt += `To: ${data.customerName}\n`;
+    else receipt += `To: POS Order\n`;
+    
+    receipt += `Date: ${data.date}  Time: ${data.time}\n`;
+    
+    if (data.customerName) receipt += `Guest: ${data.customerName}\n`;
+    if (data.customerMobile) receipt += `Phone: ${data.customerMobile}\n`;
+    
+    receipt += SEP;
+
+    // Items
+    receipt += this.BOLD_ON;
+    receipt += row2("Item                 Qty", "Amount");
+    receipt += this.BOLD_OFF;
+    receipt += SEP;
+
+    for (const item of data.items) {
+      const name = item.name.substring(0, W - 14); 
+      const qtyStr = item.quantity.toString().padStart(3);
+      const amtStr = (item.price * item.quantity).toFixed(0);
+      
+      const leftPart = `${name.padEnd(W - 14)} ${qtyStr}`;
+      receipt += row2(leftPart, amtStr);
+    }
+    receipt += SEP;
+
+    // Totals
+    receipt += row2("Sub Total:", data.subtotal.toFixed(2));
+    if (data.cgst > 0) receipt += row2("CGST:", data.cgst.toFixed(2));
+    if (data.sgst > 0) receipt += row2("SGST:", data.sgst.toFixed(2));
+    if (data.discount > 0) receipt += row2("Discount:", "-" + data.discount.toFixed(2));
+    
+    receipt += SEP;
+    receipt += this.BOLD_ON;
+    receipt += this.TEXT_DOUBLE_HEIGHT;
+    receipt += row2("Net Amount:", `${data.currencySymbol === '₹' ? 'Rs.' : data.currencySymbol}${data.netAmount.toFixed(2)}`);
+    receipt += this.TEXT_NORMAL;
+    receipt += this.BOLD_OFF;
+    receipt += SEP;
+
+    // Footer
+    receipt += this.ALIGN_CENTER;
+    receipt += this.BOLD_ON;
+    receipt += "Thank You!\n";
+    receipt += this.BOLD_OFF;
+    receipt += "Please visit again\n\n\n";
+
     receipt += this.CUT_PAPER;
 
     await this.writeBytes(this.encodeText(receipt));

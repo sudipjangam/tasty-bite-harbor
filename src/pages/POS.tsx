@@ -5,6 +5,8 @@ import { MobileNavigation } from "@/components/ui/mobile-navigation";
 import { Sparkles, Zap } from "lucide-react";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { isNativeApp } from "@/utils/platform";
+
 
 const POS = () => {
   const { restaurantName } = useRestaurantId();
@@ -68,7 +70,7 @@ const POS = () => {
         </div>
       </FeatureLock>
       
-      <MobileNavigation />
+      {!isNativeApp() && <MobileNavigation />}
     </div>
   );
 };

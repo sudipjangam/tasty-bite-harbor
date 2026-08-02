@@ -30,6 +30,7 @@ import { MobileNavigation } from "@/components/ui/mobile-navigation";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
 import HelpProvider from "@/components/Help/HelpProvider";
+import { isNativeApp } from "@/utils/platform";
 
 const RecipeManagement = () => {
   const { restaurantName } = useRestaurantId();
@@ -265,7 +266,7 @@ const RecipeManagement = () => {
         recipe={selectedRecipe}
       />
 
-      <MobileNavigation />
+      {!isNativeApp() && <MobileNavigation />}
     </div>
   );
 };

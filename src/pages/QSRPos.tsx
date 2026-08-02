@@ -1,6 +1,7 @@
 import { QSRPosMain } from "@/components/QSR/QSRPosMain";
 import { MobileNavigation } from "@/components/ui/mobile-navigation";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
+import { isNativeApp } from "@/utils/platform";
 
 const QSRPos = () => {
   return (
@@ -8,7 +9,8 @@ const QSRPos = () => {
       <FeatureLock feature="qsr-pos.basic" interceptClicks={true}>
         <QSRPosMain />
       </FeatureLock>
-      <MobileNavigation />
+      {/* Hide web bottom nav when running inside native Capacitor app */}
+      {!isNativeApp() && <MobileNavigation />}
     </div>
   );
 };
