@@ -58,6 +58,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { thermalPrinterService } from "@/services/thermalPrinterService";
 import { formatOrderItemString } from "@/lib/order-utils";
 import { CustomItemDialog, CustomItem } from "./CustomItemDialog";
 import { PaymentDialogProps } from "./PaymentDialog/types";
@@ -1567,6 +1568,52 @@ const PaymentDialog = ({
       }
     }
     // ─────────────────────────────────────────────────────────────────────
+
+    if (thermalPrinterService.isConnected()) {
+      try {
+        await thermalPrinterService.printReceipt({
+          restaurantName: restaurantInfo?.name || restaurantInfo?.restaurantName || "Restaurant",
+          address: restaurantInfo?.address,
+          phone: restaurantInfo?.phone,
+          gstin: restaurantInfo?.gstin,
+          billNumber: `#${Date.now().toString().slice(-6)}`,
+          date: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+          time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+          tableName: tableNumber || undefined,
+          customerName: customerName || undefined,
+          customerMobile: customerMobile || undefined,
+          items: orderItems,
+          subtotal: subtotal,
+          cgst: 0,
+          sgst: 0,
+          discount: totalDiscountAmount,
+          netAmount: total,
+          currencySymbol: currencySymbol,
+        });
+
+        // Auto-share bill via WhatsApp if checkbox is checked
+        if (sendBillToMobile && customerMobile) {
+          handleShareWhatsApp();
+        }
+
+        // Auto-share via generic share if email checkbox is checked
+        if (sendBillToEmail && customerEmail) {
+          await handleShareGeneric();
+        }
+
+        toast({
+          title: "Bill Generated",
+          description: "The bill has been sent to the thermal printer.",
+        });
+
+        if (navigateAfter) {
+          setCurrentStep("method");
+        }
+        return; // Skip PDF generation
+      } catch (err) {
+        console.error("Thermal printer failed, falling back to PDF:", err);
+      }
+    }
 
     try {
       const doc = new jsPDF({

@@ -48,6 +48,7 @@ import QRSettingsTab from "@/components/Settings/QRSettingsTab";
 import LocationSettingsTab from "@/components/Settings/LocationSettingsTab";
 import DailyReportScheduleSettings from "@/components/Settings/DailyReportScheduleSettings";
 import { BrandingSettingsTab } from "@/components/Settings/BrandingSettingsTab";
+import { SecuritySettingsTab } from "@/components/Settings/SecuritySettingsTab";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
@@ -361,6 +362,15 @@ const Settings = () => {
                 <QrCode className="h-5 w-5 flex-shrink-0" />
                 <span className="font-semibold hidden sm:inline">
                   QR Settings
+                </span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="security"
+                className="flex items-center justify-center gap-2 md:gap-3 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-lg rounded-xl py-3 md:py-4 px-3 md:px-6 transition-all duration-300 whitespace-nowrap"
+              >
+                <Shield className="h-5 w-5 flex-shrink-0" />
+                <span className="font-semibold hidden sm:inline">
+                  Security
                 </span>
               </TabsTrigger>
             </TabsList>
@@ -887,6 +897,10 @@ const Settings = () => {
 
           <TabsContent value="location">
             <LocationSettingsTab />
+          </TabsContent>
+
+          <TabsContent value="security">
+            <SecuritySettingsTab />
           </TabsContent>
 
           <TabsContent value="system">

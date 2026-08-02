@@ -1,6 +1,7 @@
 import React, { useState, Suspense, lazy } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ImprovedSidebarNavigation } from "@/components/Layout/ImprovedSidebarNavigation";
+import { OperationsMobileLayout } from "@/components/Layout/OperationsMobileLayout";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Menu as MenuIcon } from "lucide-react";
@@ -9,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { PageLoader } from "@/components/ui/page-loader";
 import { PermissionGuard } from "./PermissionGuard";
 import { FranchiseProvider } from "@/contexts/FranchiseContext";
+import { isNativeApp } from "@/utils/platform";
 
 // ============================================================================
 // LAZY LOADED PAGES - Each page is now a separate chunk
@@ -16,9 +18,8 @@ import { FranchiseProvider } from "@/contexts/FranchiseContext";
 // ============================================================================
 
 // Dashboard & Landing
-const Index = lazy(() => import("@/pages/Index"));
-const StaffLandingPage = lazy(
-  () => import("@/components/Dashboard/StaffLandingPage"),
+const RoleBasedDashboard = lazy(
+  () => import("@/components/Dashboard/RoleBasedDashboard"),
 );
 
 // Operations
@@ -143,6 +144,12 @@ const LazyRoute = ({ children }: { children: React.ReactNode }) => (
  * All page components are now lazy-loaded for optimal performance
  */
 export const AppRoutes = () => {
+  // ── Native Android → operations-only shell (no sidebar, no admin routes) ──
+  if (isNativeApp()) {
+    return <OperationsMobileLayout />;
+  }
+
+  // ── Web browser → full sidebar layout ────────────────────────────────────
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const location = useLocation();
 
@@ -182,18 +189,9 @@ export const AppRoutes = () => {
           <Route
             path="/"
             element={
-              <PermissionGuard
-                permission="dashboard.view"
-                fallback={
-                  <LazyRoute>
-                    <StaffLandingPage />
-                  </LazyRoute>
-                }
-              >
-                <LazyRoute>
-                  <Index />
-                </LazyRoute>
-              </PermissionGuard>
+              <LazyRoute>
+                <RoleBasedDashboard />
+              </LazyRoute>
             }
           />
           <Route
