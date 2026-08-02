@@ -6,7 +6,7 @@ import type { Order } from "@/types/orders";
 import AddOrderForm from "./AddOrderForm";
 import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
 import { AlertCircle, Trash2 } from "lucide-react";
-import PaymentDialog from "@/components/Orders/POS/PaymentDialog";
+import AdaptivePaymentDialog from "@/components/Orders/POS/AdaptivePaymentDialog";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import {
   AlertDialog,
@@ -298,7 +298,7 @@ const OrderList: React.FC<OrderListProps> = ({
 
       {/* PaymentDialog for Print Bill */}
       {printBillOrder && (
-        <PaymentDialog
+        <AdaptivePaymentDialog
           isOpen={showPaymentDialog}
           onClose={() => {
             setShowPaymentDialog(false);

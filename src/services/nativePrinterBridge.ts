@@ -11,7 +11,16 @@
  * USB OTG — reserved for future plugin integration.
  */
 
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
+
+// ─── TcpPrinterPlugin — inline Java bridge (no npm package needed) ────────────
+// Registered in MainActivity.java via registerPlugin(TcpPrinterPlugin.class)
+interface TcpPrinterPlugin {
+  connectAndPrint(opts: { ip: string; port: number; data: string }): Promise<void>;
+  testConnection(opts: { ip: string; port: number }): Promise<void>;
+}
+
+const TcpPrinter = registerPlugin<TcpPrinterPlugin>("TcpPrinter");
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -287,11 +296,38 @@ export const nativePrinterBridge = {
 
   // ── LAN / WiFi ─────────────────────────────────────────────────────────────
 
-  async connectLAN(_ip: string, _port = 9100): Promise<boolean> {
-    throw new Error(
-      "LAN/WiFi printing requires cordova-plugin-tcp-sockets. " +
-      "Bluetooth printing is available now."
-    );
+  async connectLAN(ip: string, port = 9100): Promise<boolean> {
+    if (!Capacitor.isNativePlatform()) {
+      throw new Error("LAN/WiFi printing is only available on the Android app.");
+    }
+    try {
+      // Test reachability first (3s timeout) — will throw if unreachable
+      await TcpPrinter.testConnection({ ip, port });
+
+      // Save to localStorage for auto-reconnect on next app start
+      localStorage.setItem(KEYS.LAN_IP, ip);
+      localStorage.setItem(KEYS.LAN_PORT, String(port));
+
+      // Update internal state
+      _connectionType = "lan";
+      _address = ip;
+      _deviceName = `WiFi Printer (${ip})`;
+      _connected = true;
+
+      // Persist connection state
+      localStorage.setItem(KEYS.CONNECTION_TYPE, "lan");
+      localStorage.setItem(KEYS.BT_ADDRESS, ip); // reuse address key for display
+      localStorage.setItem(KEYS.BT_NAME, `WiFi Printer (${ip})`);
+      localStorage.setItem(KEYS.CONNECTED, "1");
+
+      _notify();
+      return true;
+    } catch (err) {
+      console.error("[NativePrinter] LAN connect failed:", err);
+      _connected = false;
+      _notify();
+      return false;
+    }
   },
 
   // ── USB ────────────────────────────────────────────────────────────────────
@@ -308,6 +344,34 @@ export const nativePrinterBridge = {
   async sendESCPOS(data: Uint8Array): Promise<void> {
     if (!_connected) throw new Error("Printer not connected");
 
+    // ── LAN / WiFi path ───────────────────────────────────────────────────────
+    if (_connectionType === "lan") {
+      const ip   = _address ?? localStorage.getItem(KEYS.LAN_IP);
+      const port = Number(localStorage.getItem(KEYS.LAN_PORT) ?? 9100);
+
+      if (!ip) throw new Error("LAN printer IP not configured.");
+
+      // Convert Uint8Array → Base64 string for Java bridge
+      // Use chunked approach to avoid call stack overflow on large buffers
+      let binary = "";
+      const chunkSize = 8192;
+      for (let i = 0; i < data.length; i += chunkSize) {
+        binary += String.fromCharCode(...data.subarray(i, i + chunkSize));
+      }
+      const b64 = btoa(binary);
+
+      try {
+        await TcpPrinter.connectAndPrint({ ip, port, data: b64 });
+      } catch (lanErr) {
+        _connected = false;
+        localStorage.removeItem(KEYS.CONNECTED);
+        _notify();
+        throw new Error(`WiFi printer error: ${(lanErr as any)?.message ?? lanErr}. Check IP and network.`);
+      }
+      return;
+    }
+
+    // ── Bluetooth path ────────────────────────────────────────────────────────
     const tryWrite = async () => {
       const CHUNK = 512;
       for (let i = 0; i < data.length; i += CHUNK) {
@@ -360,6 +424,30 @@ export const nativePrinterBridge = {
 
   async tryAutoReconnect(): Promise<boolean> {
     const type = localStorage.getItem(KEYS.CONNECTION_TYPE) as PrinterConnectionType | null;
+
+    // ── LAN auto-reconnect: just ping to verify reachability ─────────────────
+    if (type === "lan") {
+      const ip   = localStorage.getItem(KEYS.LAN_IP);
+      const port = Number(localStorage.getItem(KEYS.LAN_PORT) ?? 9100);
+      if (!ip || !Capacitor.isNativePlatform()) return false;
+      try {
+        await TcpPrinter.testConnection({ ip, port });
+        _connectionType = "lan";
+        _address = ip;
+        _deviceName = `WiFi Printer (${ip})`;
+        _connected = true;
+        localStorage.setItem(KEYS.CONNECTED, "1");
+        _notify();
+        return true;
+      } catch {
+        _connected = false;
+        localStorage.removeItem(KEYS.CONNECTED);
+        _notify();
+        return false;
+      }
+    }
+
+    // ── Bluetooth auto-reconnect ──────────────────────────────────────────────
     if (type !== "bluetooth") return false;
     const address = localStorage.getItem(KEYS.BT_ADDRESS);
     const name = localStorage.getItem(KEYS.BT_NAME) ?? undefined;

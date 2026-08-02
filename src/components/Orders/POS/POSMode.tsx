@@ -15,7 +15,7 @@ import ActiveOrdersList from "../ActiveOrdersList";
 import MenuCategories from "../MenuCategories";
 import MenuItemsGrid from "../MenuItemsGrid";
 import CurrentOrder from "../CurrentOrder";
-import PaymentDialog from "./PaymentDialog";
+import AdaptivePaymentDialog from "./AdaptivePaymentDialog";
 import { Button } from "@/components/ui/button";
 
 import { formatOrderItemString } from "@/lib/order-utils";
@@ -1037,7 +1037,7 @@ const POSMode = () => {
       </div>
 
       {/* Payment Dialog */}
-      <PaymentDialog
+      <AdaptivePaymentDialog
         isOpen={showPayment}
         onClose={() => setShowPayment(false)}
         orderItems={currentOrderItems}

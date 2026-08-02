@@ -54,7 +54,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import PaymentDialog from "@/components/Orders/POS/PaymentDialog";
+import AdaptivePaymentDialog from "@/components/Orders/POS/AdaptivePaymentDialog";
 
 const TAX_RATE = 0.05; // 5% tax
 
@@ -1635,7 +1635,7 @@ export const QSRPosMain: React.FC = () => {
       />
 
       {/* Payment Dialog - Uses cart items for pre-pay, stored items for post-pay */}
-      <PaymentDialog
+      <AdaptivePaymentDialog
         isOpen={showPaymentDialog}
         onClose={handlePaymentDialogClose}
         orderItems={(orderItems.length > 0
