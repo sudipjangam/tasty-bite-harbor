@@ -51,6 +51,7 @@ import {
   Gift,
   AlertCircle,
 } from "lucide-react";
+import QRCode from "qrcode";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -390,6 +391,16 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     const amount = finalTotal.toFixed(2);
     return `upi://pay?pa=${upiId}&pn=${name}&am=${amount}&cu=INR`;
   }, [paymentSettings, restaurantInfo, finalTotal]);
+
+  // ── Generate QR code data URL locally (replaces dead Google Charts API) ────
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  useEffect(() => {
+    if (!upiQrUrl) { setQrDataUrl(""); return; }
+    QRCode.toDataURL(upiQrUrl, { width: 280, margin: 2, color: { dark: "#1e1b4b", light: "#ffffff" } })
+      .then((url) => setQrDataUrl(url))
+      .catch((err) => { console.error("QR generation failed:", err); setQrDataUrl(""); });
+  }, [upiQrUrl]);
+
 
   // ── Load existing order details ───────────────────────────────────────────
   useEffect(() => {
@@ -829,14 +840,11 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <>
-      {/* Premium Ambient Background */}
-      <div className="fixed inset-0 z-40 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 pointer-events-none">
+      <div className="fixed inset-0 z-50 flex flex-col bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 overflow-hidden">
         {/* Subtle decorative glowing orbs */}
-        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-indigo-400/10 dark:bg-indigo-600/20 blur-[120px]" />
-        <div className="absolute top-[20%] -right-[20%] w-[60%] h-[60%] rounded-full bg-purple-400/10 dark:bg-purple-600/20 blur-[120px]" />
-      </div>
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-indigo-400/10 dark:bg-indigo-600/20 blur-[120px] pointer-events-none" />
+        <div className="absolute top-[20%] -right-[20%] w-[60%] h-[60%] rounded-full bg-purple-400/10 dark:bg-purple-600/20 blur-[120px] pointer-events-none" />
 
-      <div className="fixed inset-0 z-50 flex flex-col">
         {/* ─── CONFIRM STEP ──────────────────────────────────────────────── */}
         {step === "confirm" && (
           <>
@@ -1082,7 +1090,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                 <div className="absolute -left-12 -bottom-12 w-48 h-48 bg-indigo-500/30 rounded-full blur-3xl pointer-events-none" />
                 <div className="absolute inset-0 bg-white/5 backdrop-blur-[2px] pointer-events-none" />
                 
-                <div className="flex justify-between text-sm font-bold text-indigo-100 relative z-10">
+                <div className="flex justify-between text-sm font-bold text-white/90 relative z-10">
                   <span>Subtotal</span>
                   <span>{currencySymbol}{subtotal.toFixed(2)}</span>
                 </div>
@@ -1100,7 +1108,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                 )}
                 <div className="h-px bg-white/20 my-4 relative z-10" />
                 <div className="flex justify-between items-end font-black text-white relative z-10">
-                  <span className="text-base mb-1 tracking-wider uppercase text-indigo-200">{isNonChargeable ? "Amount (NC)" : "Total Amount"}</span>
+                  <span className="text-base mb-1 tracking-wider uppercase text-white/70">{isNonChargeable ? "Amount (NC)" : "Total Amount"}</span>
                   <span className="text-4xl tracking-tighter leading-none drop-shadow-md">{currencySymbol}{finalTotal.toFixed(2)}</span>
                 </div>
               </div>
@@ -1143,24 +1151,25 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         {/* ─── PAYMENT METHOD STEP ───────────────────────────────────────── */}
         {step === "method" && (
           <>
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card">
-              <button onClick={() => setStep("confirm")} className="p-1.5 rounded-full hover:bg-muted">
-                <ArrowLeft className="h-5 w-5 text-muted-foreground" />
+            {/* Header - Glassmorphic */}
+            <div className="flex items-center gap-3 px-4 py-3 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-b border-white/40 dark:border-white/10 shadow-sm z-10">
+              <button onClick={() => setStep("confirm")} className="p-2 rounded-full bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 shadow-sm border border-black/5 dark:border-white/5 transition-all active:scale-90">
+                <ArrowLeft className="h-5 w-5 text-slate-700 dark:text-slate-300" />
               </button>
               <div className="flex-1">
-                <h1 className="text-base font-semibold text-foreground">Payment Method</h1>
-                <p className="text-xs text-muted-foreground">{currencySymbol}{finalTotal.toFixed(2)} to collect</p>
+                <h1 className="text-base font-bold text-slate-800 dark:text-slate-100">Payment Method</h1>
+                <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">{currencySymbol}{finalTotal.toFixed(2)} to collect</p>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-5 space-y-3">
               {[
-                { id: "cash", icon: Wallet, label: "Cash", desc: "Receive physical cash" },
-                { id: "card", icon: CreditCard, label: "Card / POS", desc: "Debit, credit, swipe" },
-                { id: "upi", icon: QrCode, label: "UPI / QR", desc: "GPay, PhonePe, Paytm" },
-                { id: "split", icon: Split, label: "Split Payment", desc: "Multiple methods" },
-                { id: "pay_later", icon: Clock, label: "Pay Later", desc: "Customer name required" },
-              ].map(({ id, icon: Icon, label, desc }) => (
+                { id: "cash", icon: Wallet, label: "Cash", desc: "Receive physical cash", gradient: "from-emerald-500 to-teal-600", bg: "bg-emerald-500/10 dark:bg-emerald-500/15", iconColor: "text-emerald-600 dark:text-emerald-400" },
+                { id: "card", icon: CreditCard, label: "Card / POS", desc: "Debit, credit, swipe", gradient: "from-blue-500 to-indigo-600", bg: "bg-blue-500/10 dark:bg-blue-500/15", iconColor: "text-blue-600 dark:text-blue-400" },
+                { id: "upi", icon: QrCode, label: "UPI / QR", desc: "GPay, PhonePe, Paytm", gradient: "from-violet-500 to-purple-600", bg: "bg-violet-500/10 dark:bg-violet-500/15", iconColor: "text-violet-600 dark:text-violet-400" },
+                { id: "split", icon: Split, label: "Split Payment", desc: "Multiple methods", gradient: "from-amber-500 to-orange-600", bg: "bg-amber-500/10 dark:bg-amber-500/15", iconColor: "text-amber-600 dark:text-amber-400" },
+                { id: "pay_later", icon: Clock, label: "Pay Later", desc: "Customer name required", gradient: "from-rose-500 to-pink-600", bg: "bg-rose-500/10 dark:bg-rose-500/15", iconColor: "text-rose-600 dark:text-rose-400" },
+              ].map(({ id, icon: Icon, label, desc, bg, iconColor }) => (
                 <button
                   key={id}
                   onClick={() => {
@@ -1176,19 +1185,19 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                     }
                   }}
                   disabled={isSaving}
-                  className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl border border-border bg-card hover:bg-muted/50 active:scale-[0.99] transition-all disabled:opacity-50"
+                  className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl border border-white/60 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl shadow-lg shadow-indigo-100/10 dark:shadow-none hover:bg-white/80 dark:hover:bg-slate-800/80 hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] transition-all duration-200 disabled:opacity-50"
                 >
-                  <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                    <Icon className="h-5 w-5 text-primary" />
+                  <div className={`h-12 w-12 rounded-2xl ${bg} flex items-center justify-center shrink-0 shadow-inner`}>
+                    <Icon className={`h-5 w-5 ${iconColor}`} />
                   </div>
                   <div className="text-left flex-1">
-                    <p className="text-sm font-semibold text-foreground">{label}</p>
-                    <p className="text-xs text-muted-foreground">{desc}</p>
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{label}</p>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">{desc}</p>
                   </div>
                   {isSaving ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
                   ) : (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <ChevronRight className="h-5 w-5 text-slate-400 dark:text-slate-500" />
                   )}
                 </button>
               ))}
@@ -1197,16 +1206,16 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                 <button
                   onClick={() => processPayment("nc")}
                   disabled={isSaving}
-                  className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 active:scale-[0.99] transition-all disabled:opacity-50"
+                  className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl border border-orange-200/60 dark:border-orange-500/20 bg-orange-50/60 dark:bg-orange-900/20 backdrop-blur-xl shadow-lg hover:bg-orange-100/80 dark:hover:bg-orange-900/40 active:scale-[0.98] transition-all duration-200 disabled:opacity-50"
                 >
-                  <div className="h-11 w-11 rounded-xl bg-orange-500/20 flex items-center justify-center shrink-0">
-                    <X className="h-5 w-5 text-orange-500" />
+                  <div className="h-12 w-12 rounded-2xl bg-orange-500/15 flex items-center justify-center shrink-0">
+                    <X className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                   </div>
                   <div className="text-left flex-1">
-                    <p className="text-sm font-semibold text-orange-600 dark:text-orange-400">Non-Chargeable</p>
-                    <p className="text-xs text-muted-foreground">Mark as NC — no payment collected</p>
+                    <p className="text-sm font-bold text-orange-700 dark:text-orange-300">Non-Chargeable</p>
+                    <p className="text-xs font-medium text-orange-600/70 dark:text-orange-400/70 mt-0.5">Mark as NC — no payment collected</p>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <ChevronRight className="h-5 w-5 text-orange-400" />
                 </button>
               )}
             </div>
@@ -1216,53 +1225,72 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         {/* ─── UPI QR STEP ───────────────────────────────────────────────── */}
         {step === "qr" && (
           <>
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card">
-              <button onClick={() => setStep("method")} className="p-1.5 rounded-full hover:bg-muted">
-                <ArrowLeft className="h-5 w-5 text-muted-foreground" />
+            {/* Header - Glassmorphic */}
+            <div className="flex items-center gap-3 px-4 py-3 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-b border-white/40 dark:border-white/10 shadow-sm z-10">
+              <button onClick={() => setStep("method")} className="p-2 rounded-full bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 shadow-sm border border-black/5 dark:border-white/5 transition-all active:scale-90">
+                <ArrowLeft className="h-5 w-5 text-slate-700 dark:text-slate-300" />
               </button>
               <div className="flex-1">
-                <h1 className="text-base font-semibold text-foreground">UPI / QR Payment</h1>
-                <p className="text-xs text-muted-foreground">{currencySymbol}{finalTotal.toFixed(2)} to collect</p>
+                <h1 className="text-base font-bold text-slate-800 dark:text-slate-100">UPI / QR Payment</h1>
+                <p className="text-xs font-semibold text-violet-600 dark:text-violet-400">{currencySymbol}{finalTotal.toFixed(2)} to collect</p>
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col items-center justify-center px-6 gap-6">
-              {upiQrUrl ? (
+            <div className="flex-1 flex flex-col items-center justify-center px-6 gap-5">
+              {qrDataUrl ? (
                 <>
-                  {/* QR code rendered via Google Chart API — no library needed */}
-                  <div className="rounded-2xl border-4 border-primary/20 bg-white p-3 shadow-lg">
-                    <img
-                      src={`https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(upiQrUrl)}&choe=UTF-8`}
-                      alt="UPI QR Code"
-                      width={240}
-                      height={240}
-                      className="block"
-                    />
+                  {/* QR Card — Glass */}
+                  <div className="rounded-3xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl shadow-2xl shadow-violet-200/30 dark:shadow-none p-5 relative overflow-hidden">
+                    <div className="absolute -right-10 -top-10 w-32 h-32 bg-violet-400/15 rounded-full blur-2xl pointer-events-none" />
+                    <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-indigo-400/15 rounded-full blur-2xl pointer-events-none" />
+                    <div className="bg-white rounded-2xl p-2 shadow-inner relative z-10">
+                      <img
+                        src={qrDataUrl}
+                        alt="UPI QR Code"
+                        width={260}
+                        height={260}
+                        className="block rounded-lg"
+                      />
+                    </div>
                   </div>
-                  <div className="text-center space-y-1">
-                    <p className="text-2xl font-bold text-foreground">{currencySymbol}{finalTotal.toFixed(2)}</p>
-                    <p className="text-sm text-muted-foreground">Scan with any UPI app</p>
+
+                  {/* Amount & UPI ID */}
+                  <div className="text-center space-y-2">
+                    <p className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{currencySymbol}{finalTotal.toFixed(2)}</p>
+                    <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Scan with any UPI app</p>
                     {(paymentSettings as any)?.upi_id && (
-                      <p className="text-xs text-muted-foreground font-mono">{(paymentSettings as any).upi_id}</p>
+                      <p className="text-xs font-mono font-bold text-violet-600 dark:text-violet-400 bg-violet-500/10 px-3 py-1.5 rounded-xl inline-block">{(paymentSettings as any).upi_id}</p>
                     )}
                   </div>
                 </>
+              ) : upiQrUrl ? (
+                /* QR is being generated */
+                <div className="flex flex-col items-center gap-4">
+                  <div className="h-64 w-64 rounded-3xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl border border-white/40 dark:border-white/10 flex items-center justify-center shadow-xl">
+                    <Loader2 className="h-10 w-10 animate-spin text-violet-500" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Generating QR code...</p>
+                </div>
               ) : (
-                <div className="text-center space-y-3 px-4">
-                  <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto" />
-                  <p className="text-sm font-medium text-foreground">No UPI ID configured</p>
-                  <p className="text-xs text-muted-foreground">Add your UPI ID in Settings → Payment Settings to show a QR code here.</p>
+                /* No UPI ID configured */
+                <div className="rounded-3xl border border-white/60 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl shadow-xl p-8 text-center space-y-4 max-w-xs">
+                  <div className="h-16 w-16 rounded-2xl bg-orange-500/10 flex items-center justify-center mx-auto">
+                    <AlertCircle className="h-8 w-8 text-orange-500" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">No UPI ID configured</p>
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-relaxed">Add your UPI ID in Settings → Payment Settings to show a QR code here.</p>
                 </div>
               )}
             </div>
 
-            <div className="px-4 py-4 border-t border-border bg-card">
+            {/* Bottom confirm bar */}
+            <div className="px-4 pt-4 pb-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border-t border-white/40 dark:border-white/10 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.15)] z-10">
               <button
                 onClick={() => processPayment("upi")}
                 disabled={isSaving}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 text-white text-base font-black shadow-xl shadow-emerald-600/30 dark:shadow-none hover:shadow-2xl hover:scale-[1.01] active:scale-[0.98] transition-all disabled:opacity-50"
               >
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
                 {isSaving ? "Processing..." : "Customer Has Paid — Confirm"}
               </button>
             </div>
@@ -1272,64 +1300,70 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         {/* ─── SPLIT PAYMENT STEP ────────────────────────────────────────── */}
         {step === "split" && (
           <>
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card">
-              <button onClick={() => setStep("method")} className="p-1.5 rounded-full hover:bg-muted">
-                <ArrowLeft className="h-5 w-5 text-muted-foreground" />
+            {/* Header - Glassmorphic */}
+            <div className="flex items-center gap-3 px-4 py-3 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-b border-white/40 dark:border-white/10 shadow-sm z-10">
+              <button onClick={() => setStep("method")} className="p-2 rounded-full bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 shadow-sm border border-black/5 dark:border-white/5 transition-all active:scale-90">
+                <ArrowLeft className="h-5 w-5 text-slate-700 dark:text-slate-300" />
               </button>
               <div>
-                <h1 className="text-base font-semibold text-foreground">Split Payment</h1>
-                <p className="text-xs text-muted-foreground">Total: {currencySymbol}{finalTotal.toFixed(2)}</p>
+                <h1 className="text-base font-bold text-slate-800 dark:text-slate-100">Split Payment</h1>
+                <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">Total: {currencySymbol}{finalTotal.toFixed(2)}</p>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4">
               {[
-                { label: "Cash", state: splitCash, setter: setSplitCash, icon: Wallet },
-                { label: "UPI", state: splitUpi, setter: setSplitUpi, icon: QrCode },
-                { label: "Card", state: splitCard, setter: setSplitCard, icon: CreditCard },
-              ].map(({ label, state, setter, icon: Icon }) => (
-                <div key={label} className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-                  <Icon className="h-5 w-5 text-muted-foreground" />
-                  <p className="text-sm font-medium text-foreground w-12">{label}</p>
-                  <div className="flex items-center gap-1 flex-1">
-                    <span className="text-muted-foreground text-sm">{currencySymbol}</span>
+                { label: "Cash", state: splitCash, setter: setSplitCash, icon: Wallet, iconColor: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10" },
+                { label: "UPI", state: splitUpi, setter: setSplitUpi, icon: QrCode, iconColor: "text-violet-600 dark:text-violet-400", bg: "bg-violet-500/10" },
+                { label: "Card", state: splitCard, setter: setSplitCard, icon: CreditCard, iconColor: "text-blue-600 dark:text-blue-400", bg: "bg-blue-500/10" },
+              ].map(({ label, state, setter, icon: Icon, iconColor, bg }) => (
+                <div key={label} className="flex items-center gap-3.5 rounded-2xl border border-white/60 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl shadow-lg shadow-indigo-100/10 dark:shadow-none px-4 py-4">
+                  <div className={`h-10 w-10 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
+                    <Icon className={`h-5 w-5 ${iconColor}`} />
+                  </div>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200 w-12">{label}</p>
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <span className="text-sm font-bold text-slate-400">{currencySymbol}</span>
                     <input
                       type="number"
                       value={state}
                       onChange={(e) => setter(e.target.value)}
                       placeholder="0.00"
                       min={0}
-                      className="flex-1 bg-transparent text-sm text-foreground outline-none text-right"
+                      className="flex-1 bg-transparent text-sm font-bold text-slate-800 dark:text-slate-100 outline-none text-right placeholder:text-slate-300 dark:placeholder:text-slate-600"
                       inputMode="decimal"
                     />
                   </div>
                 </div>
               ))}
 
-              {/* Running total */}
-              <div className="rounded-xl border border-border bg-muted/30 px-4 py-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Split total</span>
-                  <span className={`font-medium ${Math.abs((parseFloat(splitCash)||0)+(parseFloat(splitUpi)||0)+(parseFloat(splitCard)||0) - finalTotal) < 0.01 ? "text-green-500" : "text-foreground"}`}>
+              {/* Running total — Glass panel */}
+              <div className="rounded-2xl border border-white/20 bg-gradient-to-br from-indigo-900 to-purple-950 p-5 space-y-3 shadow-xl relative overflow-hidden">
+                <div className="absolute -right-8 -top-8 w-32 h-32 bg-purple-500/25 rounded-full blur-2xl pointer-events-none" />
+                <div className="flex justify-between text-sm font-bold text-indigo-100 relative z-10">
+                  <span>Split total</span>
+                  <span className={`${Math.abs((parseFloat(splitCash)||0)+(parseFloat(splitUpi)||0)+(parseFloat(splitCard)||0) - finalTotal) < 0.01 ? "text-emerald-400" : "text-white"}`}>
                     {currencySymbol}{((parseFloat(splitCash)||0)+(parseFloat(splitUpi)||0)+(parseFloat(splitCard)||0)).toFixed(2)}
                   </span>
                 </div>
-                <div className="flex justify-between text-sm mt-1">
-                  <span className="text-muted-foreground">Remaining</span>
-                  <span className="font-medium text-foreground">
+                <div className="h-px bg-white/15 relative z-10" />
+                <div className="flex justify-between text-sm relative z-10">
+                  <span className="font-bold text-indigo-200">Remaining</span>
+                  <span className="font-black text-white text-lg">
                     {currencySymbol}{Math.max(0, finalTotal - (parseFloat(splitCash)||0) - (parseFloat(splitUpi)||0) - (parseFloat(splitCard)||0)).toFixed(2)}
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="px-4 py-4 border-t border-border bg-card">
+            {/* Bottom confirm bar */}
+            <div className="px-4 pt-4 pb-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border-t border-white/40 dark:border-white/10 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.15)] z-10">
               <button
                 onClick={handleSplitPay}
                 disabled={isSaving}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-base font-black shadow-xl shadow-indigo-600/30 dark:shadow-none hover:shadow-2xl hover:scale-[1.01] active:scale-[0.98] transition-all disabled:opacity-50"
               >
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
                 {isSaving ? "Processing..." : "Confirm Split Payment"}
               </button>
             </div>
@@ -1339,24 +1373,38 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         {/* ─── SUCCESS STEP ──────────────────────────────────────────────── */}
         {step === "success" && (
           <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-6">
-            <div className="h-20 w-20 rounded-full bg-green-500/15 border-2 border-green-500 flex items-center justify-center">
-              <Check className="h-10 w-10 text-green-500" />
+            {/* Animated success icon */}
+            <div className="relative">
+              <div className="absolute inset-0 bg-emerald-400/20 rounded-full blur-2xl scale-150 animate-pulse pointer-events-none" />
+              <div className="relative h-24 w-24 rounded-full bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center shadow-2xl shadow-emerald-500/40">
+                <Check className="h-12 w-12 text-white drop-shadow-md" strokeWidth={3} />
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Payment Received!</h1>
-              <p className="text-muted-foreground mt-1">{currencySymbol}{finalTotal.toFixed(2)} collected</p>
+
+            {/* Payment info */}
+            <div className="space-y-2">
+              <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Payment Received!</h1>
+              <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{currencySymbol}{finalTotal.toFixed(2)} collected</p>
               {loyaltyPointsAwarded && loyaltyPointsAwarded > 0 && (
-                <p className="text-xs text-primary mt-2">+{loyaltyPointsAwarded} loyalty points awarded 🎉</p>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20">
+                  <Star className="h-3.5 w-3.5 text-indigo-500" />
+                  <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">+{loyaltyPointsAwarded} loyalty points awarded 🎉</p>
+                </div>
               )}
               {pointsToRedeem > 0 && (
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">{pointsToRedeem} pts redeemed</p>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
+                  <Gift className="h-3.5 w-3.5 text-amber-500" />
+                  <p className="text-xs font-bold text-amber-600 dark:text-amber-400">{pointsToRedeem} pts redeemed</p>
+                </div>
               )}
             </div>
-            <div className="flex gap-2 w-full flex-wrap">
+
+            {/* Action buttons */}
+            <div className="flex gap-3 w-full flex-wrap">
               <button
                 onClick={handlePrint}
                 disabled={isPrinting}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-border bg-muted/50 text-sm font-medium text-foreground min-w-[100px]"
+                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-white/60 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl text-sm font-bold text-slate-700 dark:text-slate-300 shadow-lg hover:bg-white dark:hover:bg-slate-800 active:scale-[0.97] transition-all min-w-[100px] disabled:opacity-50"
               >
                 <Printer className="h-4 w-4" />
                 {isPrinting ? "Printing..." : "Print"}
@@ -1365,7 +1413,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                 <button
                   onClick={handleSendWhatsApp}
                   disabled={isSendingWA}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-green-500/30 bg-green-500/10 text-sm font-medium text-green-600 dark:text-green-400 min-w-[100px]"
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-emerald-200/60 dark:border-emerald-500/20 bg-emerald-50/60 dark:bg-emerald-900/20 backdrop-blur-xl text-sm font-bold text-emerald-700 dark:text-emerald-400 shadow-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 active:scale-[0.97] transition-all min-w-[100px] disabled:opacity-50"
                 >
                   <MessageSquare className="h-4 w-4" />
                   {isSendingWA ? "Sending..." : "WhatsApp"}
@@ -1374,16 +1422,17 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
               {typeof navigator !== "undefined" && !!navigator.share && (
                 <button
                   onClick={handleNativeShare}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-border bg-muted/50 text-sm font-medium text-foreground min-w-[100px]"
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-white/60 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl text-sm font-bold text-slate-700 dark:text-slate-300 shadow-lg hover:bg-white dark:hover:bg-slate-800 active:scale-[0.97] transition-all min-w-[100px]"
                 >
                   <Share2 className="h-4 w-4" />
                   Share
                 </button>
               )}
             </div>
+
             <button
               onClick={() => { onSuccess(); onClose(); }}
-              className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold"
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-base font-black shadow-xl shadow-indigo-600/30 dark:shadow-none hover:shadow-2xl hover:scale-[1.01] active:scale-[0.98] transition-all"
             >
               New Order
             </button>
