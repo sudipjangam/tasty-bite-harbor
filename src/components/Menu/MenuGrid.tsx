@@ -12,6 +12,7 @@ import {
   Beef,
   Soup,
   Search,
+  Sparkles,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +21,8 @@ import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import AddMenuItemForm from "./AddMenuItemForm";
 import { LazyImage } from "@/components/ui/lazy-image";
+import { FeatureLock } from "@/components/Auth/FeatureLock";
+import AIImportDialog from "./AIImportDialog";
 
 interface MenuItem {
   id: string;
@@ -157,6 +160,7 @@ const MenuGrid = () => {
   const { restaurantId } = useRestaurantId();
   const { symbol: currencySymbol } = useCurrencyContext();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showAIImport, setShowAIImport] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
@@ -321,6 +325,17 @@ const MenuGrid = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+          <FeatureLock feature="menu.ai_import" interceptClicks={true}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 shadow-sm h-9 flex items-center gap-1"
+              onClick={() => setShowAIImport(true)}
+            >
+              <Sparkles className="w-4 h-4 text-emerald-500" />
+              AI Import
+            </Button>
+          </FeatureLock>
           <Button
             size="sm"
             className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md h-9"
@@ -426,6 +441,15 @@ const MenuGrid = () => {
             queryClient.invalidateQueries({ queryKey: ["menuItems"] })
           }
           editingItem={editingItem}
+        />
+      )}
+
+      {showAIImport && (
+        <AIImportDialog
+          onClose={() => setShowAIImport(false)}
+          onSuccess={() =>
+            queryClient.invalidateQueries({ queryKey: ["menuItems"] })
+          }
         />
       )}
     </div>
