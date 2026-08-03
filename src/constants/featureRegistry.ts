@@ -128,6 +128,7 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
       { key: 'menu.modifiers', label: 'Modifier Groups', description: 'Size, add-ons, customizations' },
       { key: 'menu.dynamic_pricing', label: 'Dynamic Pricing', description: 'Time-based / demand-based pricing' },
       { key: 'menu.multi_location', label: 'Multi-Location Sync', description: 'Sync menu across outlets' },
+      { key: 'menu.ai_import', label: 'AI Menu Import', description: 'Bulk import from text or image parser' },
     ],
   },
 
