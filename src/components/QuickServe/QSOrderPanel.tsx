@@ -17,6 +17,7 @@ import {
   Edit2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { LoyaltyCustomerInfo } from "./QSCustomerInput";
@@ -468,14 +469,20 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
                     1pt = {currencySymbol}{amountPerPoint} • Max {maxRedemptionPct}%
                   </span>
                 </div>
-                <input
-                  type="range"
-                  min="0"
-                  max={maxPointsCanUse}
-                  value={loyaltyPointsUsed}
-                  onChange={(e) => handleLoyaltyPointsChange(parseInt(e.target.value))}
-                  className="w-full h-2 bg-purple-200 dark:bg-purple-800 rounded-full appearance-none cursor-pointer accent-purple-600"
+                <Slider
+                  min={0}
+                  max={Math.max(1, maxPointsCanUse)}
+                  step={1}
+                  value={[loyaltyPointsUsed]}
+                  onValueChange={([val]) => handleLoyaltyPointsChange(val)}
+                  disabled={maxPointsCanUse === 0}
+                  className="[&_[data-radix-slider-track]]:bg-purple-200 dark:[&_[data-radix-slider-track]]:bg-purple-800 [&_[data-radix-slider-range]]:bg-purple-500 [&_[data-radix-slider-thumb]]:border-purple-500 [&_[data-radix-slider-thumb]]:bg-white"
                 />
+                {maxPointsCanUse === 0 && (
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-1">
+                    Order total too low to redeem points (min. {currencySymbol}{Math.ceil((amountPerPoint * 100) / maxRedemptionPct)} required).
+                  </p>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-purple-600 dark:text-purple-400 font-bold">
                     Using {loyaltyPointsUsed} pts
