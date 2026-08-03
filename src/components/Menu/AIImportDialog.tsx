@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,6 +49,7 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
   const { toast } = useToast();
   const { restaurantId } = useRestaurantId();
   const { categories, addCategory } = useCategories();
+  const queryClient = useQueryClient();
   
   const [activeTab, setActiveTab] = useState<"text" | "image">("text");
   const [rawText, setRawText] = useState("");
@@ -56,6 +58,7 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
   const [isParsing, setIsParsing] = useState(false);
   const [parsedItems, setParsedItems] = useState<ParsedItem[]>([]);
   const [categoryMappings, setCategoryMappings] = useState<Record<string, { create: boolean; mapTo: string }>>({});
+  const [showCategoriesManager, setShowCategoriesManager] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [parsingStep, setParsingStep] = useState("");
 
@@ -301,16 +304,19 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
       });
 
       for (const cat of categoriesToCreate) {
-        console.log(`Creating new category in DB: ${cat}`);
-        await new Promise<void>((resolve, reject) => {
-          addCategory(cat, {
-            onSuccess: () => resolve(),
-            onError: (err) => {
-              console.error("Error creating category:", err);
-              resolve(); // Continue anyway
-            }
-          });
-        });
+        console.log(`Upserting category in DB (overriding if duplicate): ${cat}`);
+        const { error: insertError } = await supabase
+          .from("categories")
+          .upsert({ name: cat, restaurant_id: restaurantId }, { onConflict: "name" });
+
+        if (insertError) {
+          console.error("Error creating category:", insertError);
+          // Continue anyway, but log it
+        }
+      }
+
+      if (categoriesToCreate.length > 0) {
+        queryClient.invalidateQueries({ queryKey: ["categories", restaurantId] });
       }
 
       // Step 2: Insert menu items
@@ -401,14 +407,6 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
                 </p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-              onClick={onClose}
-            >
-              <X className="h-4 w-4" />
-            </Button>
           </div>
         </div>
 
@@ -570,50 +568,68 @@ Veg Manchurian (Dry) - 150/220"
           ) : (
             /* Review and Edit Preview Step */
             <div className="h-full flex flex-col space-y-4">
-              <div className="flex items-center justify-between bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-100/50 dark:border-emerald-900/30 p-3 rounded-xl">
-                <div className="text-sm font-semibold text-emerald-800 dark:text-emerald-400 flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-500" />
-                  Successfully extracted {parsedItems.length} items. Review and edit before saving.
+              <div className="flex items-center justify-between bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-100/30 p-2.5 rounded-xl text-xs gap-3">
+                <div className="text-xs font-semibold text-emerald-800 dark:text-emerald-400 flex items-center gap-1.5 min-w-0">
+                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span className="truncate">Extracted {parsedItems.length} items.</span>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setParsedItems([])}
-                  className="text-xs h-8 border-gray-200 dark:border-gray-700"
-                >
-                  Clear & Start Over
-                </Button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {Object.keys(categoryMappings).length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowCategoriesManager(!showCategoriesManager)}
+                      className={`text-xs h-7 px-2.5 rounded-lg border-amber-250 dark:border-amber-900/40 ${
+                        showCategoriesManager 
+                          ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300" 
+                          : "bg-amber-50/40 dark:bg-amber-950/10 text-amber-700 dark:text-amber-400"
+                      }`}
+                    >
+                      📁 {showCategoriesManager ? "Hide" : "Manage"} Categories ({Object.keys(categoryMappings).length})
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setParsedItems([])}
+                    className="text-xs h-7 px-2 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                  >
+                    Clear All
+                  </Button>
+                </div>
               </div>
 
               {/* New Categories Manager */}
-              {Object.keys(categoryMappings).length > 0 && (
-                <div className="bg-amber-50/40 dark:bg-amber-950/10 border border-amber-200/50 dark:border-amber-900/30 p-3.5 rounded-xl space-y-2">
+              {Object.keys(categoryMappings).length > 0 && showCategoriesManager && (
+                <div className="bg-amber-50/40 dark:bg-amber-950/10 border border-amber-200/50 dark:border-amber-900/30 p-3 rounded-xl space-y-2">
                   <div className="text-xs font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                    📁 New Categories Detected ({Object.keys(categoryMappings).length})
+                    📁 New Categories Settings
                   </div>
                   <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                    The categories below were found in the menu but do not exist in your database. Choose to create them, or toggle off to map their items to an existing category.
+                    Map new categories to existing ones, or toggle on to create them automatically.
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 max-h-[160px] overflow-auto">
+                  <div className="grid grid-cols-1 gap-2 pt-1 max-h-[160px] overflow-auto">
                     {Object.entries(categoryMappings).map(([newCat, mapping]) => (
-                      <div key={newCat} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 border border-gray-150 dark:border-gray-700 rounded-lg gap-3">
-                        <span className="font-semibold text-xs text-gray-700 dark:text-gray-300 truncate flex-1">
+                      <div key={newCat} className="flex flex-col sm:flex-row sm:items-center justify-between p-2 bg-white dark:bg-gray-800 border border-gray-150 dark:border-gray-700 rounded-lg gap-2">
+                        <span className="font-semibold text-xs text-gray-750 dark:text-gray-300 truncate">
                           {newCat}
                         </span>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <Switch
-                            size="sm"
-                            checked={mapping.create}
-                            onCheckedChange={(checked) => {
-                              setCategoryMappings((prev) => ({
-                                ...prev,
-                                [newCat]: { ...prev[newCat], create: checked }
-                              }));
-                            }}
-                          />
-                          <span className="text-[10px] font-medium text-gray-500 w-16">
-                            {mapping.create ? "Create DB" : "Map Default"}
-                          </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <Switch
+                              size="sm"
+                              checked={mapping.create}
+                              onCheckedChange={(checked) => {
+                                setCategoryMappings((prev) => ({
+                                  ...prev,
+                                  [newCat]: { ...prev[newCat], create: checked }
+                                }));
+                              }}
+                            />
+                            <span className="text-[10px] font-medium text-gray-500">
+                              {mapping.create ? "Create DB" : "Map Default"}
+                            </span>
+                          </div>
                           {!mapping.create && (
                             <Select
                               value={mapping.mapTo}
@@ -624,7 +640,7 @@ Veg Manchurian (Dry) - 150/220"
                                 }));
                               }}
                             >
-                              <SelectTrigger className="h-6 w-[110px] text-[10px] bg-gray-50 dark:bg-gray-700 border-gray-200">
+                              <SelectTrigger className="h-7 w-[120px] text-[10px] bg-gray-50 dark:bg-gray-700 border-gray-200">
                                 <SelectValue placeholder="Map to..." />
                               </SelectTrigger>
                               <SelectContent className="max-h-[120px] bg-white dark:bg-gray-800">
@@ -641,40 +657,41 @@ Veg Manchurian (Dry) - 150/220"
                 </div>
               )}
 
-              {/* Responsive container for review */}
               <div className="flex-1 overflow-auto min-h-0 pr-1">
-                {/* Mobile View: Cards */}
-                <div className="block md:hidden space-y-4">
+                <div className="block md:hidden space-y-3">
                   {parsedItems.map((item, index) => (
                     <div
                       key={index}
-                      className="bg-white dark:bg-gray-800/80 border border-gray-150 dark:border-gray-700/60 rounded-xl p-4 shadow-sm space-y-3 relative group"
+                      className="bg-white dark:bg-gray-800 border border-gray-250 dark:border-gray-700 rounded-xl p-3 shadow-sm space-y-2.5 relative"
                     >
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(index)}
-                        className="absolute top-2 right-2 p-1.5 bg-red-50 dark:bg-red-950/20 text-red-500 dark:text-red-400 hover:bg-red-100 rounded-lg"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Item Name</label>
+                      {/* Row 1: Name and Delete button */}
+                      <div className="flex items-center gap-2">
                         <Input
+                          placeholder="Item Name"
                           value={item.name}
                           onChange={(e) => handleUpdateItem(index, "name", e.target.value)}
-                          className="h-8 bg-gray-50/50 dark:bg-gray-900/40 text-sm font-semibold border-gray-200 focus:border-emerald-500"
+                          className="h-9 bg-gray-50/50 dark:bg-gray-900/40 text-sm font-semibold border-gray-200 focus:border-emerald-500 flex-1"
                         />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          type="button"
+                          onClick={() => handleRemoveItem(index)}
+                          className="h-9 w-9 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg flex-shrink-0"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
 
+                      {/* Row 2: Category and Price */}
                       <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Category</label>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider pl-0.5">Category</span>
                           <Select
                             value={item.category}
                             onValueChange={(val) => handleUpdateItem(index, "category", val)}
                           >
-                            <SelectTrigger className="h-8 bg-gray-50/50 dark:bg-gray-900/40 text-xs border-gray-200">
+                            <SelectTrigger className="h-9 bg-gray-50/50 dark:bg-gray-900/40 text-xs border-gray-200">
                               <SelectValue placeholder="Category" />
                             </SelectTrigger>
                             <SelectContent className="max-h-[160px] bg-white dark:bg-gray-800">
@@ -685,58 +702,62 @@ Veg Manchurian (Dry) - 150/220"
                           </Select>
                         </div>
 
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Price</label>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider pl-0.5">Base Price</span>
                           <Input
                             type="number"
+                            placeholder="Price"
                             value={item.price}
                             onChange={(e) => handleUpdateItem(index, "price", parseFloat(e.target.value) || 0)}
-                            className="h-8 bg-gray-50/50 dark:bg-gray-900/40 text-xs border-gray-200"
+                            className="h-9 bg-gray-50/50 dark:bg-gray-900/40 text-xs border-gray-200"
                             disabled={item.variants && item.variants.length > 0}
                           />
                         </div>
                       </div>
 
-                      {/* Veg / Special Switches */}
-                      <div className="flex justify-between items-center bg-gray-50/50 dark:bg-gray-900/20 p-2 rounded-lg">
-                        <div className="flex items-center gap-2">
+                      {/* Row 3: Veg & Special Switches */}
+                      <div className="grid grid-cols-2 gap-2 bg-gray-50/50 dark:bg-gray-900/20 p-2 rounded-lg">
+                        <div className="flex items-center gap-1.5">
                           <Switch
+                            size="sm"
                             checked={item.is_veg}
                             onCheckedChange={(val) => handleUpdateItem(index, "is_veg", val)}
                           />
-                          <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
-                            {item.is_veg ? "🥬 Vegetarian" : "🍖 Non-Veg"}
+                          <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+                            {item.is_veg ? "🥬 Veg" : "🍖 Non-Veg"}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 justify-end">
                           <Switch
+                            size="sm"
                             checked={item.is_special}
                             onCheckedChange={(val) => handleUpdateItem(index, "is_special", val)}
                           />
-                          <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                          <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300">
                             ⭐ Special
                           </span>
                         </div>
                       </div>
 
-                      {/* Description */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Description</label>
+                      {/* Row 4: Description */}
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider pl-0.5">Description</span>
                         <Textarea
+                          placeholder="Description..."
                           value={item.description}
                           onChange={(e) => handleUpdateItem(index, "description", e.target.value)}
-                          className="min-h-[40px] text-xs bg-gray-50/50 dark:bg-gray-900/40 border-gray-200 focus:border-emerald-500"
+                          className="min-h-[40px] text-xs bg-gray-50/50 dark:bg-gray-900/40 border-gray-200 focus:border-emerald-500 resize-none py-1.5"
                         />
                       </div>
 
-                      {/* Size Variants Render */}
-                      <div className="pt-1">
+                      {/* Row 5: Size Variants */}
+                      <div className="pt-0.5 border-t border-gray-100 dark:border-gray-700/60 mt-1">
                         {item.variants && item.variants.length > 0 ? (
                           <div className="space-y-1.5">
-                            <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Size Variants</div>
+                            <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Size Variants</div>
                             <div className="flex flex-wrap gap-1.5 items-center">
                               {item.variants.map((v, vIdx) => (
-                                <div key={vIdx} className="flex items-center gap-1 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 text-xs font-medium border border-emerald-100 dark:border-emerald-900/40 rounded-full">
+                                <div key={vIdx} className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 text-[10px] font-medium border border-emerald-100 dark:border-emerald-900/40 rounded-full">
                                   <span>{v.name}: ₹{v.price}</span>
                                   <button
                                     type="button"
@@ -759,9 +780,9 @@ Veg Manchurian (Dry) - 150/220"
                                     if (!isNaN(parsedPrice)) handleAddVariant(index, name, parsedPrice);
                                   }
                                 }}
-                                className="h-6 rounded-full px-2 text-[10px] border-emerald-300 text-emerald-600"
+                                className="h-5 rounded-full px-2 text-[9px] border-emerald-300 text-emerald-600"
                               >
-                                <Plus className="w-3 h-3 mr-0.5" /> Size
+                                <Plus className="w-2.5 h-2.5 mr-0.5" /> Size
                               </Button>
                             </div>
                           </div>
@@ -779,7 +800,7 @@ Veg Manchurian (Dry) - 150/220"
                                 }
                               }
                             }}
-                            className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
+                            className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
                           >
                             + Convert to Size Variants (Half/Full)
                           </button>
