@@ -120,6 +120,7 @@ const BluetoothTab = ({
   const [loadingPaired, setLoadingPaired] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
+  const [webConnecting, setWebConnecting] = useState(false);
   const isNative = Capacitor.isNativePlatform();
 
   // Load paired devices on mount
@@ -199,6 +200,44 @@ const BluetoothTab = ({
       .filter((d) => !pairedDevices.find((p) => p.address === d.address))
       .map((d) => ({ ...d, _paired: false })),
   ];
+
+  const connectWeb = async () => {
+    setWebConnecting(true);
+    try {
+      await thermalPrinterService.connect();
+      toast({ title: "Printer Connected ✓" });
+      onStatusChange();
+    } catch (err: any) {
+      toast({ title: "Connection Failed", description: err?.message, variant: "destructive" });
+    } finally {
+      setWebConnecting(false);
+    }
+  };
+
+  if (!isNative) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">Web Bluetooth</span>
+          <StatusBadge connected={connected} />
+        </div>
+        
+        <div className="rounded-lg bg-muted/50 border border-border p-4 text-sm text-muted-foreground space-y-2">
+          <p>Web Bluetooth connects to thermal printers directly from your browser.</p>
+          <p>1. Ensure Bluetooth is enabled on your device</p>
+          <p>2. Turn on your thermal printer</p>
+          <p>3. Click Connect below and select your printer from the browser prompt</p>
+        </div>
+
+        <Button onClick={connectWeb} disabled={webConnecting} className="w-full">
+          <Bluetooth className="h-4 w-4 mr-2" />
+          {webConnecting ? "Connecting..." : "Connect Printer"}
+        </Button>
+
+        <TestPrintButton disabled={!connected} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -423,19 +462,40 @@ const USBTab = ({
 
 export const PrinterSettings = () => {
   const { toast } = useToast();
-  const [status, setStatus] = useState(nativePrinterBridge.getStatus);
+  
+  const getCombinedStatus = useCallback(() => {
+    if (Capacitor.isNativePlatform()) {
+      return nativePrinterBridge.getStatus();
+    }
+    return {
+      connected: thermalPrinterService.isConnected(),
+      type: "bluetooth" as const,
+      deviceName: thermalPrinterService.getDeviceName(),
+      address: "web-bluetooth"
+    };
+  }, []);
+
+  const [status, setStatus] = useState(getCombinedStatus);
 
   const refresh = useCallback(() => {
-    setStatus(nativePrinterBridge.getStatus());
-  }, []);
+    setStatus(getCombinedStatus());
+  }, [getCombinedStatus]);
 
   useEffect(() => {
-    const unsub = nativePrinterBridge.onStatusChange((s) => setStatus(s));
-    return unsub;
-  }, []);
+    const unsubNative = nativePrinterBridge.onStatusChange(() => refresh());
+    const unsubWeb = thermalPrinterService.onConnectionChange(() => refresh());
+    return () => {
+      unsubNative();
+      unsubWeb();
+    };
+  }, [refresh]);
 
   const handleDisconnect = async () => {
-    await nativePrinterBridge.disconnect();
+    if (Capacitor.isNativePlatform()) {
+      await nativePrinterBridge.disconnect();
+    } else {
+      await thermalPrinterService.disconnect();
+    }
     toast({ title: "Printer disconnected" });
   };
 
