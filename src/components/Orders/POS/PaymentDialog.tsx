@@ -1533,15 +1533,21 @@ const PaymentDialog = ({
     //  2. ₹ cash flat         → discount_percentage=0,  discount_amount=N
     //  3. Promo code (% type) → discount_percentage=N,  discount_amount=calculated
     //  4. Promo code (₹ type) → discount_percentage=0,  discount_amount=N
+    //
+    // NOTE: orderId may be a kitchen_orders.id (from POS/QSR) or an orders.id
+    // (from Orders Management → OrderList). We handle both cases below.
     if (orderId && totalDiscountAmount > 0) {
       try {
+        // First try: treat orderId as kitchen_orders.id and get linked orders.id
         const { data: kitchenOrder } = await supabase
           .from("kitchen_orders")
           .select("order_id")
           .eq("id", orderId)
           .maybeSingle();
 
-        const targetOrderId = kitchenOrder?.order_id ?? null;
+        // If kitchen_orders lookup succeeded and has a linked order, use it.
+        // Otherwise, treat orderId directly as the orders.id (Orders Management flow).
+        const targetOrderId = kitchenOrder?.order_id ?? orderId;
 
         if (targetOrderId) {
           // Determine effective discount_percentage:

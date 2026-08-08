@@ -695,19 +695,27 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       const { data: { user } } = await supabase.auth.getUser();
 
       if (orderId) {
+        // First try: treat orderId as a kitchen_orders.id
         const { data: ko } = await supabase
           .from("kitchen_orders")
           .select("order_id")
           .eq("id", orderId)
-          .single();
+          .maybeSingle();
 
-        await supabase.from("kitchen_orders").update({
-          status: "completed",
-          ...(customerName.trim() && { customer_name: customerName.trim() }),
-          ...(customerMobile && { customer_phone: customerMobile }),
-        }).eq("id", orderId);
+        // orderId may be kitchen_orders.id (POS/QSR) OR orders.id (Orders Management).
+        // Use the linked order_id when available; otherwise treat orderId as orders.id.
+        const targetOrderId = ko?.order_id ?? orderId;
 
-        if (ko?.order_id) {
+        // Only update kitchen_order status if it actually IS a kitchen_orders row
+        if (ko) {
+          await supabase.from("kitchen_orders").update({
+            status: "completed",
+            ...(customerName.trim() && { customer_name: customerName.trim() }),
+            ...(customerMobile && { customer_phone: customerMobile }),
+          }).eq("id", orderId);
+        }
+
+        if (targetOrderId) {
           await supabase.from("orders").update({
             payment_status: finalPaymentStatus,
             payment_method: finalPaymentMethod,
@@ -722,15 +730,15 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
             ...(splitData && { split_payments: splitData }),
             ...(customerName.trim() && { customer_name: customerName.trim() }),
             ...(customerMobile && { customer_phone: customerMobile }),
-          }).eq("id", ko.order_id);
+          }).eq("id", targetOrderId);
         }
 
         // Log transaction
         if (!isNonChargeable) {
           await supabase.from("pos_transactions").insert({
             restaurant_id: restaurantId,
-            order_id: ko?.order_id || null,
-            kitchen_order_id: orderId,
+            order_id: targetOrderId || null,
+            kitchen_order_id: ko ? orderId : null,
             amount: finalTotal,
             payment_method: finalPaymentMethod,
             status: finalPaymentMethod === "pay_later" ? "pending" : "completed",

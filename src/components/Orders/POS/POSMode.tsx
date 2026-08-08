@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 
 import { formatOrderItemString } from "@/lib/order-utils";
 import { useToast } from "@/hooks/use-toast";
+import { thermalPrinterService } from "@/services/thermalPrinterService";
 import { POSPayment } from "../Payment/POSPayment";
 import { OrderPayment } from "../Payment/OrderPayment";
 import type { OrderItem, TableData } from "@/types/orders";
@@ -805,6 +806,36 @@ const POSMode = () => {
       // Add to local duplicate prevention cache
       const hash = generateOrderHash(currentOrderItems, orderSource);
       recentlySentHashes[hash] = Date.now();
+
+      // ── Print KOT to thermal printer ────────────────────────────────────
+      if (thermalPrinterService.isConnected()) {
+        try {
+          await thermalPrinterService.printKOT({
+            tableName:
+              effectiveOrderType === "Dine-In" && tableNumber
+                ? `Table ${tableNumber}`
+                : effectiveOrderType,
+            serverName: attendantName || "Staff",
+            items: currentOrderItems.map((item) => ({
+              name: item.name,
+              quantity: item.quantity,
+              printed_qty: recalledKitchenOrderId ? (item as any).printed_qty ?? 0 : 0,
+              price: item.price,
+              notes: item.notes,
+            })),
+            isAddition: !!recalledKitchenOrderId,
+            orderType: effectiveOrderType.toLowerCase().replace("-", "_"),
+          });
+        } catch (printErr) {
+          console.error("[POSMode] KOT print failed:", printErr);
+          toast({
+            variant: "destructive",
+            title: "Print Failed",
+            description: "Order sent to kitchen but KOT could not be printed.",
+          });
+        }
+      }
+      // ────────────────────────────────────────────────────────────────────
 
       toast({
         title: "Order Sent",
