@@ -501,9 +501,11 @@ export const AppRoutes = () => {
           <Route
             path="/nc-orders"
             element={
-              <LazyRoute>
-                <NCOrders />
-              </LazyRoute>
+              <PermissionGuard>
+                <LazyRoute>
+                  <NCOrders />
+                </LazyRoute>
+              </PermissionGuard>
             }
           />
 
@@ -617,9 +619,11 @@ export const AppRoutes = () => {
           <Route
             path="/daily-summary-history"
             element={
-              <Suspense fallback={<PageLoader />}>
-                <DailySummaryHistory />
-              </Suspense>
+              <PermissionGuard permission="analytics.view">
+                <Suspense fallback={<PageLoader />}>
+                  <DailySummaryHistory />
+                </Suspense>
+              </PermissionGuard>
             }
           />
 

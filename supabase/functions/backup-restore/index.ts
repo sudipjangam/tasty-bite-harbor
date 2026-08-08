@@ -1,10 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { getCorsHeaders } from '../_shared/cors.ts'
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRequestIdentifier,
+  RATE_LIMITS,
+} from '../_shared/rate-limit.ts'
 
 // All 61 tables in dependency order (parents first)
 const ALL_TABLES_ORDERED = [
@@ -100,9 +102,18 @@ const ALL_TABLES_ORDERED = [
 ]
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req)
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // ── Rate limiting (SENSITIVE: 10 req/min) ──────────────────────────────────
+  const identifier = getRequestIdentifier(req, req.headers.get('Authorization'))
+  const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.SENSITIVE)
+  if (!rateLimitResult.allowed) {
+    return createRateLimitResponse(rateLimitResult, corsHeaders)
   }
 
   const supabaseClient = createClient(
@@ -114,12 +125,25 @@ serve(async (req) => {
   let activeBackupId: string | null = null
 
   try {
+    // ── Auth enforcement ──────────────────────────────────────────────────────
     const authHeader = req.headers.get('Authorization')
-    let userId: string | null = null
-    if (authHeader) {
-      const { data: { user } } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''))
-      userId = user?.id ?? null
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
+
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    )
+
+    if (userError || !user?.id) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    const userId = user.id
 
     const body = await req.json()
     action = body.action
@@ -128,7 +152,7 @@ serve(async (req) => {
     const name = body.name ?? null
     const backup_data = body.backup_data ?? null
     const requestedTables = body.tables ?? null // Array of tables to backup for partial backup
-    
+
     console.log('Action:', action, 'Restaurant ID:', restaurant_id, 'Backup ID:', activeBackupId)
 
     if (!restaurant_id) {
@@ -137,6 +161,32 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    // ── Restaurant ownership + role check ─────────────────────────────────────
+    // User must be owner/admin of the target restaurant
+    const { data: callerProfile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('restaurant_id, role')
+      .eq('id', userId)
+      .single()
+
+    if (profileError || !callerProfile) {
+      return new Response(JSON.stringify({ error: 'Profile not found' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    const ALLOWED_ROLES = ['owner', 'admin']
+    const isOwnerOrAdmin = ALLOWED_ROLES.includes(callerProfile.role)
+    const ownsRestaurant = callerProfile.restaurant_id === restaurant_id
+
+    if (!isOwnerOrAdmin || !ownsRestaurant) {
+      console.warn(`[backup-restore] Forbidden: user ${userId} (role: ${callerProfile.role}, restaurant: ${callerProfile.restaurant_id}) attempted ${action} on restaurant ${restaurant_id}`)
+      return new Response(JSON.stringify({ error: 'Forbidden: insufficient permissions for this restaurant' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
 
     // Helper to fetch table data securely keeping parent-child integrity
     const fetchTableData = async (tableName: string, backupData: any) => {

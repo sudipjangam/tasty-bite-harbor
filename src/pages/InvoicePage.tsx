@@ -21,11 +21,28 @@ const InvoicePage = () => {
         return;
       }
 
+      // ── Path traversal guard ──────────────────────────────────────────────
+      // Reject any path containing .. (parent dir), leading /, null bytes,
+      // or characters outside the safe set for UUID-named invoice files.
+      const decodedPath = decodeURIComponent(invoicePath);
+      const hasTraversal = /\.\./.test(decodedPath);
+      const hasLeadingSlash = decodedPath.startsWith('/');
+      const hasNullByte = decodedPath.includes('\0');
+      // Allow: hex chars, hyphens, dots, slashes (for folder/file structure), underscores
+      const hasUnsafeChars = /[^a-zA-Z0-9\-_./]/.test(decodedPath);
+
+      if (hasTraversal || hasLeadingSlash || hasNullByte || hasUnsafeChars) {
+        setError('Invalid invoice path');
+        setLoading(false);
+        return;
+      }
+      // ────────────────────────────────────────────────────────────────────────
+
       try {
         // Get the public URL from Supabase storage
         const { data } = supabase.storage
           .from('subscription-invoices')
-          .getPublicUrl(decodeURIComponent(invoicePath));
+          .getPublicUrl(decodedPath);
 
         if (!data?.publicUrl) {
           setError('Invoice not found');

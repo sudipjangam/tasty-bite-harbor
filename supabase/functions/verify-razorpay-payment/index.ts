@@ -1,9 +1,12 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders } from '../_shared/cors.ts';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRequestIdentifier,
+  RATE_LIMITS,
+} from '../_shared/rate-limit.ts';
 interface VerifyPaymentRequest {
   razorpay_payment_id: string;
   razorpay_order_id?: string;
@@ -84,10 +87,28 @@ function calculateEndDate(startDate: Date, interval: string): Date {
   return endDate;
 }
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // ── Rate limiting ──────────────────────────────────────────────────────────
+  const authHeaderEarly = req.headers.get('Authorization');
+  const identifier = getRequestIdentifier(req, authHeaderEarly);
+  const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.SENSITIVE);
+  if (!rateLimitResult.allowed) {
+    return createRateLimitResponse(rateLimitResult, corsHeaders);
+  }
+
   try {
+    // ── Auth enforcement ──────────────────────────────────────────────────────
+    if (!authHeaderEarly) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const RAZORPAY_KEY_SECRET = Deno.env.get('RAZORPAY_Live_Key_Secret');
     if (!RAZORPAY_KEY_SECRET) {
       console.error('Razorpay secret not configured');
@@ -100,6 +121,17 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // Verify the caller's identity and restaurant ownership
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(
+      authHeaderEarly.replace('Bearer ', '')
+    );
+    if (userError || !user?.id) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const {
       razorpay_payment_id,
       razorpay_order_id,
@@ -152,20 +184,23 @@ serve(async (req) => {
       console.error('Invalid payment signature for:', isPaymentLink ? razorpay_payment_link_id : razorpay_order_id);
       
       if (!isPaymentLink) {
-        // Update subscription status to failed for standard orders
-        await supabaseAdmin
-          .from('restaurant_subscriptions')
-          .update({
-            status: 'inactive',
-            payment_notes: {
-              error: 'Signature verification failed',
-              razorpay_order_id,
-              attempted_at: new Date().toISOString(),
-            },
-            updated_at: new Date().toISOString(),
-          })
-          .eq('restaurant_id', restaurant_id)
-          .eq('razorpay_order_id', razorpay_order_id);
+        // Verify caller owns this restaurant before writing failure status
+        const { data: cp } = await supabaseAdmin.from('profiles').select('restaurant_id').eq('id', user.id).single();
+        if (cp?.restaurant_id === restaurant_id) {
+          await supabaseAdmin
+            .from('restaurant_subscriptions')
+            .update({
+              status: 'inactive',
+              payment_notes: {
+                error: 'Signature verification failed',
+                razorpay_order_id,
+                attempted_at: new Date().toISOString(),
+              },
+              updated_at: new Date().toISOString(),
+            })
+            .eq('restaurant_id', restaurant_id)
+            .eq('razorpay_order_id', razorpay_order_id);
+        }
       }
       return new Response(
         JSON.stringify({ error: 'Payment verification failed. Signature mismatch.' }),
@@ -309,15 +344,13 @@ serve(async (req) => {
     // ── Send email + WhatsApp + invoice ──
     // Await this to ensure the edge function doesn't terminate before the request completes
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     let notifyData = null;
     try {
-      // Use the user's Authorization header so Kong API Gateway allows the request
-      const authHeader = req.headers.get('Authorization') || `Bearer ${serviceRoleKey}`;
+      // Use caller's auth token — do NOT fall back to service role key
       const notifyRes = await fetch(`${supabaseUrl}/functions/v1/send-subscription-confirmation`, {
         method: 'POST',
         headers: {
-          'Authorization': authHeader,
+          'Authorization': authHeaderEarly,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
