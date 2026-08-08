@@ -1,50 +1,60 @@
-import React from 'react';
-import { Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin, Youtube, ArrowRight } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import React from "react";
+import {
+  Mail,
+  Phone,
+  MapPin,
+  Facebook,
+  Twitter,
+  Instagram,
+  Linkedin,
+  Youtube,
+  ArrowRight,
+} from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
 
 export const FooterSection: React.FC = () => {
   const navigate = useNavigate();
   const currentYear = new Date().getFullYear();
 
   const productLinks = [
-    { name: 'POS System', href: '#features' },
-    { name: 'Inventory Management', href: '#features' },
-    { name: 'Staff Management', href: '#features' },
-    { name: 'CRM & Loyalty', href: '#features' },
-    { name: 'Analytics & Reports', href: '#features' },
-    { name: 'Revenue Management', href: '#features' },
+    { name: "POS System", href: "#features" },
+    { name: "Inventory Management", href: "#features" },
+    { name: "Staff Management", href: "#features" },
+    { name: "CRM & Loyalty", href: "#features" },
+    { name: "Analytics & Reports", href: "#features" },
+    { name: "Revenue Management", href: "#features" },
   ];
 
   const supportLinks = [
-    { name: 'Help Center', href: '#' },
-    { name: 'Documentation', href: '#' },
-    { name: 'Video Tutorials', href: '#' },
-    { name: 'API Reference', href: '#' },
-    { name: 'System Status', href: '#' },
-    { name: 'Contact Support', href: '#' },
+    { name: "Help Center", href: "#" },
+    { name: "Documentation", href: "#" },
+    { name: "Video Tutorials", href: "#" },
+    { name: "API Reference", href: "#" },
+    { name: "System Status", href: "#" },
+    { name: "Contact Support", href: "#" },
   ];
 
   const companyLinks = [
-    { name: 'About Us', href: '#' },
-    { name: 'Careers', href: '#' },
-    { name: 'Blog', href: '#' },
-    { name: 'Partners', href: '#' },
-    { name: 'Press Kit', href: '#' },
+    { name: "About Us", href: "#" },
+    { name: "Careers", href: "#" },
+    { name: "Blog", href: "#" },
+    { name: "Partners", href: "#" },
+    { name: "Press Kit", href: "#" },
   ];
 
   const socialLinks = [
-    { icon: <Facebook className="w-5 h-5" />, href: '#', label: 'Facebook' },
-    { icon: <Twitter className="w-5 h-5" />, href: '#', label: 'Twitter' },
-    { icon: <Instagram className="w-5 h-5" />, href: '#', label: 'Instagram' },
-    { icon: <Linkedin className="w-5 h-5" />, href: '#', label: 'LinkedIn' },
-    { icon: <Youtube className="w-5 h-5" />, href: '#', label: 'YouTube' },
+    { icon: <Facebook className="w-5 h-5" />, href: "#", label: "Facebook" },
+    { icon: <Twitter className="w-5 h-5" />, href: "#", label: "Twitter" },
+    { icon: <Instagram className="w-5 h-5" />, href: "#", label: "Instagram" },
+    { icon: <Linkedin className="w-5 h-5" />, href: "#", label: "LinkedIn" },
+    { icon: <Youtube className="w-5 h-5" />, href: "#", label: "YouTube" },
   ];
 
   const scrollToSection = (href: string) => {
-    if (href.startsWith('#')) {
+    if (href.startsWith("#")) {
       const element = document.querySelector(href);
       if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
+        element.scrollIntoView({ behavior: "smooth" });
       }
     }
   };
@@ -76,28 +86,38 @@ export const FooterSection: React.FC = () => {
               </div>
               <div>
                 <span className="text-2xl font-bold">Swadeshi</span>
-                <span className="text-2xl font-bold text-[#FF6B6B]"> Solutions</span>
+                <span className="text-2xl font-bold text-[#FF6B6B]">
+                  {" "}
+                  Solutions
+                </span>
               </div>
             </div>
-            
+
             <p className="text-gray-400 mb-6 leading-relaxed max-w-md">
-              India's most comprehensive restaurant and hotel management platform. 
-              Built for Indian businesses, by Indian innovators. Trusted by 500+ restaurants nationwide.
+              India's most comprehensive restaurant and hotel management
+              platform. Built for Indian businesses, by Indian innovators.
+              Trusted by 500+ restaurants nationwide.
             </p>
 
             {/* Contact Info */}
             <div className="space-y-3 mb-6">
-              <a href="tel:+918308903224" className="flex items-center gap-3 text-gray-400 hover:text-[#FF6B6B] transition-colors">
+              <a
+                href="tel:+918308903224"
+                className="flex items-center gap-3 text-gray-400 hover:text-[#FF6B6B] transition-colors"
+              >
                 <Phone className="w-5 h-5" />
                 <span>+91 8308903224</span>
               </a>
-              <a href="mailto:inquiry@swadeshisolutions.co.in" className="flex items-center gap-3 text-gray-400 hover:text-[#FF6B6B] transition-colors">
+              <a
+                href="mailto:inquiry@swadeshisolutions.co.in"
+                className="flex items-center gap-3 text-gray-400 hover:text-[#FF6B6B] transition-colors"
+              >
                 <Mail className="w-5 h-5" />
                 <span>inquiry@swadeshisolutions.co.in</span>
               </a>
               <div className="flex items-start gap-3 text-gray-400">
                 <MapPin className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                <span>1208, chilai nagar, ozarde, tal-wai,dist satara, MH 412803</span>
+                <span>Satara, MH 412803</span>
               </div>
             </div>
 
@@ -191,13 +211,38 @@ export const FooterSection: React.FC = () => {
             <p className="text-gray-400 text-sm">
               © {currentYear} Swadeshi Solutions. All rights reserved.
             </p>
-            
+
             <div className="flex flex-wrap gap-6 text-sm text-gray-400">
-              <Link to="/privacy" className="hover:text-[#FF6B6B] transition-colors">Privacy Policy</Link>
-              <Link to="/terms" className="hover:text-[#FF6B6B] transition-colors">Terms of Service</Link>
-              <Link to="/refund" className="hover:text-[#FF6B6B] transition-colors">Refund Policy</Link>
-              <Link to="/return" className="hover:text-[#FF6B6B] transition-colors">Return Policy</Link>
-              <Link to="/shipping" className="hover:text-[#FF6B6B] transition-colors">Shipping Policy</Link>
+              <Link
+                to="/privacy"
+                className="hover:text-[#FF6B6B] transition-colors"
+              >
+                Privacy Policy
+              </Link>
+              <Link
+                to="/terms"
+                className="hover:text-[#FF6B6B] transition-colors"
+              >
+                Terms of Service
+              </Link>
+              <Link
+                to="/refund"
+                className="hover:text-[#FF6B6B] transition-colors"
+              >
+                Refund Policy
+              </Link>
+              <Link
+                to="/return"
+                className="hover:text-[#FF6B6B] transition-colors"
+              >
+                Return Policy
+              </Link>
+              <Link
+                to="/shipping"
+                className="hover:text-[#FF6B6B] transition-colors"
+              >
+                Shipping Policy
+              </Link>
             </div>
 
             {/* Made in India badge */}
