@@ -1,10 +1,12 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders } from '../_shared/cors.ts';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRequestIdentifier,
+  RATE_LIMITS,
+} from '../_shared/rate-limit.ts';
 
 interface RefundRequest {
   subscription_id: string;
@@ -14,11 +16,28 @@ interface RefundRequest {
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // ── Rate limiting (SENSITIVE) ────────────────────────────────────────────
+  const authHeaderEarly = req.headers.get('Authorization');
+  const identifier = getRequestIdentifier(req, authHeaderEarly);
+  const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.SENSITIVE);
+  if (!rateLimitResult.allowed) {
+    return createRateLimitResponse(rateLimitResult, corsHeaders);
+  }
+
   try {
+    // ── Auth enforcement ──────────────────────────────────────────────────
+    if (!authHeaderEarly) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const RAZORPAY_KEY_ID = Deno.env.get('RAZORPAY_Live_Key_ID');
     const RAZORPAY_KEY_SECRET = Deno.env.get('RAZORPAY_Live_Key_Secret');
 
@@ -34,6 +53,16 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Verify caller identity
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(
+      authHeaderEarly.replace('Bearer ', '')
+    );
+    if (userError || !user?.id) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const { subscription_id, restaurant_id, amount, reason }: RefundRequest = await req.json();
 
     if (!subscription_id || !restaurant_id) {
@@ -41,6 +70,19 @@ serve(async (req) => {
         JSON.stringify({ error: 'Missing required fields: subscription_id, restaurant_id' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
+    }
+
+    // Verify caller owns target restaurant (prevents cross-tenant refunds)
+    const { data: callerProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('restaurant_id, role')
+      .eq('id', user.id)
+      .single();
+
+    if (!callerProfile || callerProfile.restaurant_id !== restaurant_id || !['owner','admin'].includes(callerProfile.role)) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // 1. Fetch the subscription record

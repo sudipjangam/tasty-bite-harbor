@@ -255,7 +255,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Clear any localStorage session data (but keep theme preference)
     const theme = localStorage.getItem("restaurant-pro-theme");
     sessionStorage.clear();
-    localStorage.removeItem("session_start_time");
+
+    // M4: Clear session-scoped sensitive data
+    const SENSITIVE_LS_KEYS = [
+      "session_start_time",
+      "pos_held_orders",      // Held POS orders (customer + item data)
+      "kds_tv_auth",          // Kitchen TV session
+      "qs_owner_whatsapp",    // Owner phone number
+    ];
+    SENSITIVE_LS_KEYS.forEach((key) => localStorage.removeItem(key));
+
     if (theme) localStorage.setItem("restaurant-pro-theme", theme);
 
     console.log("Signed out: cleared auth, cache, and session data");

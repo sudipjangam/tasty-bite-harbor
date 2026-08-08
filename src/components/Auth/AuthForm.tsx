@@ -32,7 +32,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode, onSuccess })
   useEffect(() => {
     const initializeGoogleSignIn = () => {
       if ((window as any).google) {
-        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "676565065582-0fvp89sb47q8lc3f7t9nh1m8o7gsns0m.apps.googleusercontent.com";
+        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+        if (!clientId) {
+          console.error('VITE_GOOGLE_CLIENT_ID is not configured. Google Sign-In is disabled.');
+          return null;
+        }
         (window as any).google.accounts.id.initialize({
           client_id: clientId,
           callback: async (response: any) => {

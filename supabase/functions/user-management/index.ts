@@ -1,10 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
+import { getCorsHeaders } from '../_shared/cors.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', // tighten for production to your admin origin
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 
 // Input validation schemas
 const systemRoles = ['owner', 'admin', 'manager', 'chef', 'waiter', 'staff', 'viewer'] as const
@@ -53,6 +50,8 @@ function successResponse(data: any, status = 200) {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req)
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -251,6 +250,20 @@ Deno.serve(async (req) => {
           }
         }
 
+        // ── M2: Verify target user belongs to caller's restaurant ───────────────
+        const { data: targetProfile, error: tpErr } = await supabaseAdmin
+          .from('profiles')
+          .select('restaurant_id')
+          .eq('id', validated.id)
+          .single()
+        if (tpErr || !targetProfile) {
+          return errorResponse('Target user not found', 404)
+        }
+        if (targetProfile.restaurant_id !== profile.restaurant_id) {
+          console.warn(`[${errorId}] Cross-restaurant update attempt: caller restaurant ${profile.restaurant_id} tried to update user in ${targetProfile.restaurant_id}`)
+          return errorResponse('Forbidden: cannot modify users in another restaurant', 403)
+        }
+
         if (Object.keys(adminUpdate).length > 0) {
           const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
             validated.id,
@@ -295,6 +308,20 @@ Deno.serve(async (req) => {
           return errorResponse('Invalid user ID', 400)
         }
         const { id: validatedId } = parseResult.data
+
+        // ── M2: Verify target user belongs to caller's restaurant ───────────────
+        const { data: delTargetProfile, error: dtpErr } = await supabaseAdmin
+          .from('profiles')
+          .select('restaurant_id')
+          .eq('id', validatedId)
+          .single()
+        if (dtpErr || !delTargetProfile) {
+          return errorResponse('Target user not found', 404)
+        }
+        if (delTargetProfile.restaurant_id !== profile.restaurant_id) {
+          console.warn(`[${errorId}] Cross-restaurant delete attempt: caller restaurant ${profile.restaurant_id} tried to delete user in ${delTargetProfile.restaurant_id}`)
+          return errorResponse('Forbidden: cannot delete users in another restaurant', 403)
+        }
 
         // Delete the user from auth (profile cascade or manual delete)
         const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(validatedId)

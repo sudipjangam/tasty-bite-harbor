@@ -29,7 +29,7 @@ const TV_AUTH_KEY = "kds_tv_auth";
 interface TVAuthSession {
   restaurantId: string;
   restaurantName: string;
-  pin?: string;
+  // NOTE: PIN is intentionally NOT stored here — never persist credentials to localStorage
   isEmailLogin: boolean;
 }
 
