@@ -21,6 +21,7 @@ import { registerServiceWorker } from "@/utils/serviceWorkerUtils";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
+import { App as CapacitorApp } from '@capacitor/app';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -65,6 +66,22 @@ function AppWithRealtime() {
 }
 
 function App() {
+  useEffect(() => {
+    // Listen for deep links (e.g. Supabase OAuth callback)
+    const listener = CapacitorApp.addListener('appUrlOpen', async (event) => {
+      const url = new URL(event.url);
+      if (url.protocol === 'com.swadeshisolutions.app:') {
+        if (url.hash) {
+          window.location.hash = url.hash;
+        }
+      }
+    });
+    
+    return () => {
+      listener.then(l => l.remove()).catch(console.error);
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="restaurant-pro-theme">

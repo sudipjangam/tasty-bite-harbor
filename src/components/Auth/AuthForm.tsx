@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
+import { Capacitor } from '@capacitor/core';
 import {
   Loader2,
   Eye,
@@ -35,7 +36,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode, onSuccess })
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: Capacitor.isNativePlatform() 
+            ? 'com.swadeshisolutions.app://login-callback' 
+            : `${window.location.origin}/dashboard`,
         },
       });
       if (error) throw error;

@@ -848,15 +848,18 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <>
-      {/* Outer Solid Wrapper - z-index set to maximum (9999) to block all POS elements underneath */}
-      <div className="fixed inset-0 z-[9999] flex flex-col bg-slate-100 dark:bg-slate-950 overflow-hidden text-slate-800 dark:text-slate-100">
+      {/* Outer Solid Wrapper - z-[9999] and solid color inline style to guarantee it blocks the background */}
+      <div 
+        className="fixed inset-0 z-[9999] flex flex-col overflow-hidden" 
+        style={{ backgroundColor: '#f8fafc' }}
+      >
         
         {/* ─── CONFIRM STEP ──────────────────────────────────────────────── */}
         {step === "confirm" && (
           <>
             {/* Header - Solid */}
             <div className="flex items-center justify-between px-4 py-3.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm z-10">
-              <h1 className="text-base font-bold text-slate-900 dark:text-white">
+              <h1 className="text-base font-medium text-slate-900 dark:text-white">
                 {tableNumber ? (tableNumber.toLowerCase().includes("table") ? tableNumber : `Table ${tableNumber}`) : "Checkout"}
               </h1>
               <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors">
@@ -865,21 +868,21 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
             </div>
 
             {/* Scrollable body */}
-            <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4">
+            <div className="flex-1 overflow-y-auto px-4 py-5" style={{ backgroundColor: '#f8fafc' }}>
               
               {/* Order Summary - Solid Card */}
-              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
-                <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">Order Summary</p>
+              <div className="mb-4 relative z-10 rounded-2xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-950/20 shadow-md overflow-hidden">
+                <div className="px-4 py-3 bg-blue-100/50 dark:bg-blue-900/30 border-b border-blue-200 dark:border-blue-900/40">
+                  <p className="text-xs font-medium text-blue-700 dark:text-blue-400 tracking-wider uppercase">Order Summary</p>
                 </div>
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
                   {orderItems.map((item, i) => (
                     <div key={i} className="flex items-center justify-between px-4 py-3">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{item.name}</p>
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{item.name}</p>
                         <p className="text-xs font-semibold text-slate-500 mt-0.5">Qty: {item.quantity}</p>
                       </div>
-                      <p className="text-sm font-bold text-slate-800 dark:text-slate-100 ml-3">
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-100 ml-3">
                         {currencySymbol}{(item.price * item.quantity).toFixed(2)}
                       </p>
                     </div>
@@ -888,9 +891,9 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
               </div>
 
               {/* Customer Details - Solid Card */}
-              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm p-4 space-y-3">
+              <div className="mb-4 relative z-10 rounded-2xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-md p-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">Customer Details</p>
+                  <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 tracking-wider uppercase">Customer Details</p>
                   {isLookingUp && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
                 </div>
 
@@ -923,7 +926,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                   <div className="flex items-start gap-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 px-3.5 py-2.5 mt-2">
                     <Star className="h-4 w-4 text-indigo-600 dark:text-indigo-400 mt-0.5 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-indigo-900 dark:text-indigo-300 truncate">Customer: {customerRecord.name}</p>
+                      <p className="text-xs font-medium text-indigo-900 dark:text-indigo-300 truncate">Customer: {customerRecord.name}</p>
                       {customerRecord.loyalty_enrolled && (
                         <p className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-400 mt-0.5">{customerRecord.loyalty_points} pts available (≈ {currencySymbol}{(customerRecord.loyalty_points * pointsValue).toFixed(2)})</p>
                       )}
@@ -934,9 +937,9 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
 
               {/* Loyalty Redemption */}
               {customerRecord?.loyalty_enrolled && (customerRecord.loyalty_points ?? 0) > 0 && (
-                <div className="rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/10 shadow-sm overflow-hidden">
+                <div className="mb-4 relative z-10 rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/10 shadow-md overflow-hidden">
                   <div className="px-4 py-2.5 bg-amber-100/50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-900/40">
-                    <p className="text-xs font-bold text-amber-800 dark:text-amber-400 tracking-wider uppercase flex items-center gap-1.5">
+                    <p className="text-xs font-medium text-amber-800 dark:text-amber-400 tracking-wider uppercase flex items-center gap-1.5">
                       <Gift className="h-4 w-4" />
                       Redeem Loyalty
                     </p>
@@ -944,7 +947,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                   <div className="p-4 space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-amber-900 dark:text-amber-300">{customerRecord.loyalty_points} pts available</p>
+                        <p className="text-xs font-medium text-amber-900 dark:text-amber-300">{customerRecord.loyalty_points} pts available</p>
                         <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-500 mt-0.5">Value: {currencySymbol}{(customerRecord.loyalty_points * pointsValue).toFixed(2)}</p>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
@@ -958,7 +961,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                           placeholder="0"
                           min={0}
                           max={customerRecord.loyalty_points}
-                          className="w-20 text-center rounded-xl border border-amber-200 dark:border-amber-900 bg-white dark:bg-slate-900 px-2 py-1.5 text-sm font-bold text-amber-950 dark:text-amber-100 outline-none"
+                          className="w-20 text-center rounded-xl border border-amber-200 dark:border-amber-900 bg-white dark:bg-slate-900 px-2 py-1.5 text-sm font-medium text-amber-950 dark:text-amber-100 outline-none"
                           inputMode="numeric"
                         />
                         <p className="text-xs font-semibold text-amber-800">pts</p>
@@ -966,7 +969,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                     </div>
                     {loyaltyDiscount > 0 && (
                       <div className="pt-2 border-t border-amber-200/50">
-                        <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center justify-between">
+                        <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center justify-between">
                           <span>Discount Applied</span>
                           <span>-{currencySymbol}{loyaltyDiscount.toFixed(2)}</span>
                         </p>
@@ -977,8 +980,8 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
               )}
 
               {/* Discounts & Promos - Solid Card */}
-              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm p-4 space-y-4">
-                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">Discounts & Promos</p>
+              <div className="mb-4 relative z-10 rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 shadow-md p-4 flex flex-col gap-4">
+                <p className="text-xs font-medium text-amber-700 dark:text-amber-500 tracking-wider uppercase">Discounts & Promos</p>
                 
                 {/* Promo code input */}
                 <div className="flex gap-2 w-full">
@@ -989,12 +992,12 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                       value={promoCode}
                       onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
                       placeholder="Promo code"
-                      className="flex-1 min-w-0 bg-transparent text-sm font-bold text-slate-800 dark:text-slate-100 placeholder:text-slate-400 outline-none uppercase"
+                      className="flex-1 min-w-0 bg-transparent text-sm font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 outline-none uppercase"
                     />
                   </div>
                   <button
                     onClick={() => handleApplyPromo()}
-                    className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow hover:bg-indigo-700 active:scale-95 transition-all shrink-0"
+                    className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-medium shadow hover:bg-indigo-700 active:scale-95 transition-all shrink-0"
                   >
                     Apply
                   </button>
@@ -1007,7 +1010,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                       <button
                         key={p.id}
                         onClick={() => { setPromoCode(p.promotion_code); handleApplyPromo(p.promotion_code); }}
-                        className="flex-shrink-0 px-3 py-1.5 rounded-lg border border-indigo-150 bg-indigo-50/50 text-indigo-700 text-xs font-bold hover:bg-indigo-100 transition-colors"
+                        className="flex-shrink-0 px-3 py-1.5 rounded-lg border border-indigo-150 bg-indigo-50/50 text-indigo-700 text-xs font-medium hover:bg-indigo-100 transition-colors"
                       >
                         {p.name}
                       </button>
@@ -1018,19 +1021,19 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                 {appliedPromo && (
                   <div className="flex items-center justify-between rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-150 dark:border-emerald-900/30 px-3.5 py-2.5">
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-emerald-800 dark:text-emerald-400 truncate">{appliedPromo.name}</p>
+                      <p className="text-xs font-medium text-emerald-800 dark:text-emerald-400 truncate">{appliedPromo.name}</p>
                       <p className="text-[11px] font-semibold text-emerald-600 mt-0.5">
                         {appliedPromo.discount_percentage ? `${appliedPromo.discount_percentage}% off` : `${currencySymbol}${appliedPromo.discount_amount} off`}
                       </p>
                     </div>
-                    <button onClick={() => { setAppliedPromo(null); setPromoCode(""); }} className="text-[10px] font-bold text-rose-600 px-2 py-1 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors shrink-0">Remove</button>
+                    <button onClick={() => { setAppliedPromo(null); setPromoCode(""); }} className="text-[10px] font-medium text-rose-600 px-2 py-1 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors shrink-0">Remove</button>
                   </div>
                 )}
 
                 {/* Manual discounts fields */}
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-500 pl-0.5">Discount %</label>
+                    <label className="text-[11px] font-medium text-slate-500 pl-0.5">Discount %</label>
                     <div className="relative">
                       <input
                         type="number"
@@ -1038,23 +1041,23 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                         onChange={(e) => setManualDiscountPct(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
                         placeholder="0"
                         min={0} max={100}
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 pl-3 pr-8 py-2 text-sm font-bold text-slate-800 dark:text-slate-100 outline-none"
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 pl-3 pr-8 py-2 text-sm font-medium text-slate-800 dark:text-slate-100 outline-none"
                         inputMode="decimal"
                       />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">%</span>
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-500 pl-0.5">Cash Off</label>
+                    <label className="text-[11px] font-medium text-slate-500 pl-0.5">Cash Off</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">{currencySymbol}</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">{currencySymbol}</span>
                       <input
                         type="number"
                         value={manualCash || ""}
                         onChange={(e) => setManualCash(Math.max(0, parseFloat(e.target.value) || 0))}
                         placeholder="0"
                         min={0}
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 pl-6 pr-3 py-2 text-sm font-bold text-slate-800 dark:text-slate-100 outline-none"
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 pl-6 pr-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-100 outline-none"
                         inputMode="decimal"
                       />
                     </div>
@@ -1065,7 +1068,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
               {/* NC reason */}
               {isNonChargeable && (
                 <div className="rounded-2xl border border-orange-200 dark:border-orange-900 bg-orange-50 dark:bg-orange-950/20 p-4 space-y-2">
-                  <p className="text-xs font-bold text-orange-700 dark:text-orange-400 flex items-center gap-1.5">
+                  <p className="text-xs font-medium text-orange-700 dark:text-orange-400 flex items-center gap-1.5">
                     <AlertCircle className="h-4 w-4" />
                     Non-Chargeable Order
                   </p>
@@ -1080,38 +1083,38 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
               )}
 
               {/* Bill summary - Solid Dark Card */}
-              <div className="rounded-2xl bg-slate-900 dark:bg-slate-900 p-5 space-y-2.5 shadow-md border border-slate-850">
-                <div className="flex justify-between text-xs font-semibold text-slate-350">
+              <div className="mb-4 relative z-10 rounded-2xl bg-slate-900 dark:bg-slate-900 p-5 flex flex-col gap-2.5 shadow-lg border border-slate-800">
+                <div className="flex justify-between text-xs font-semibold text-slate-300">
                   <span>Subtotal</span>
                   <span>{currencySymbol}{subtotal.toFixed(2)}</span>
                 </div>
                 {totalDiscount > 0 && (
-                  <div className="flex justify-between text-xs font-bold text-emerald-400">
+                  <div className="flex justify-between text-xs font-medium text-emerald-400">
                     <span>Discount</span>
                     <span>-{currencySymbol}{totalDiscount.toFixed(2)}</span>
                   </div>
                 )}
                 {loyaltyDiscount > 0 && (
-                  <div className="flex justify-between text-xs font-bold text-amber-400">
+                  <div className="flex justify-between text-xs font-medium text-amber-400">
                     <span>Loyalty Redeem</span>
                     <span>-{currencySymbol}{loyaltyDiscount.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="h-px bg-slate-800 my-2" />
                 <div className="flex justify-between items-end text-white">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">{isNonChargeable ? "Amount (NC)" : "Total Amount"}</span>
-                  <span className="text-3xl font-black leading-none">{currencySymbol}{finalTotal.toFixed(2)}</span>
+                  <span className="text-xs font-medium uppercase tracking-wider text-slate-400">{isNonChargeable ? "Amount (NC)" : "Total Amount"}</span>
+                  <span className="text-3xl font-bold leading-none">{currencySymbol}{finalTotal.toFixed(2)}</span>
                 </div>
               </div>
             </div>
 
             {/* Action bar - Solid Footer */}
-            <div className="px-4 pt-3.5 pb-6 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 space-y-3 shadow-md z-10">
+            <div className="px-4 pt-3.5 pb-6 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-3 shadow-md z-10">
               <div className="flex gap-3">
                 <button
                   onClick={handlePrint}
                   disabled={isPrinting}
-                  className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl border border-slate-200 dark:border-slate-750 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl border border-slate-200 dark:border-slate-750 bg-slate-50 dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors disabled:opacity-50"
                 >
                   {isPrinting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
                   {isPrinting ? "Printing..." : "Print Bill"}
@@ -1121,7 +1124,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                   <button
                     onClick={handleSendWhatsApp}
                     disabled={isSendingWA}
-                    className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl border border-emerald-250 bg-emerald-50 dark:bg-emerald-950/20 text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                    className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl border border-emerald-250 bg-emerald-50 dark:bg-emerald-950/20 text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 transition-colors disabled:opacity-50"
                   >
                     {isSendingWA ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
                     {isSendingWA ? "Sending..." : "WhatsApp"}
@@ -1131,7 +1134,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
 
               <button
                 onClick={() => setStep("method")}
-                className="w-full flex items-center justify-center gap-1.5 py-4 rounded-xl bg-indigo-600 text-white text-sm font-bold shadow-md hover:bg-indigo-700 transition-all active:scale-[0.99]"
+                className="w-full flex items-center justify-center gap-1.5 py-4 rounded-xl bg-indigo-600 text-white text-sm font-medium shadow-md hover:bg-indigo-700 transition-all active:scale-[0.99]"
               >
                 Collect Payment <ChevronRight className="h-4 w-4" />
               </button>
@@ -1148,8 +1151,8 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                 <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
               </button>
               <div className="flex-1">
-                <h1 className="text-base font-bold text-slate-900 dark:text-white">Payment Method</h1>
-                <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{currencySymbol}{finalTotal.toFixed(2)} to collect</p>
+                <h1 className="text-base font-medium text-slate-900 dark:text-white">Payment Method</h1>
+                <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{currencySymbol}{finalTotal.toFixed(2)} to collect</p>
               </div>
             </div>
 
@@ -1182,7 +1185,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                     <Icon className={`h-5 w-5 ${iconColor}`} />
                   </div>
                   <div className="text-left flex-1">
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{label}</p>
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{label}</p>
                     <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5">{desc}</p>
                   </div>
                   {isSaving ? (
@@ -1203,7 +1206,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                     <X className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                   </div>
                   <div className="text-left flex-1">
-                    <p className="text-sm font-bold text-orange-600 dark:text-orange-400">Non-Chargeable</p>
+                    <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Non-Chargeable</p>
                     <p className="text-xs font-semibold text-slate-500 mt-0.5">Mark as NC — no payment collected</p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -1222,8 +1225,8 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                 <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
               </button>
               <div className="flex-1">
-                <h1 className="text-base font-bold text-slate-900 dark:text-white">UPI / QR Payment</h1>
-                <p className="text-xs font-bold text-violet-600 dark:text-violet-400">{currencySymbol}{finalTotal.toFixed(2)} to collect</p>
+                <h1 className="text-base font-medium text-slate-900 dark:text-white">UPI / QR Payment</h1>
+                <p className="text-xs font-medium text-violet-600 dark:text-violet-400">{currencySymbol}{finalTotal.toFixed(2)} to collect</p>
               </div>
             </div>
 
@@ -1245,10 +1248,10 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
 
                   {/* Amount & UPI ID */}
                   <div className="text-center space-y-2">
-                    <p className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{currencySymbol}{finalTotal.toFixed(2)}</p>
-                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Scan with any UPI app</p>
+                    <p className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">{currencySymbol}{finalTotal.toFixed(2)}</p>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Scan with any UPI app</p>
                     {(paymentSettings as any)?.upi_id && (
-                      <p className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1.5 rounded-xl inline-block border border-indigo-100/50">{(paymentSettings as any).upi_id}</p>
+                      <p className="text-xs font-mono font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1.5 rounded-xl inline-block border border-indigo-100/50">{(paymentSettings as any).upi_id}</p>
                     )}
                   </div>
                 </>
@@ -1258,7 +1261,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                   <div className="h-48 w-48 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center shadow">
                     <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
                   </div>
-                  <p className="text-xs font-bold text-slate-500">Generating QR code...</p>
+                  <p className="text-xs font-medium text-slate-500">Generating QR code...</p>
                 </div>
               ) : (
                 /* No UPI Configured - Solid */
@@ -1266,7 +1269,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                   <div className="h-14 w-14 rounded-full bg-orange-500/10 flex items-center justify-center mx-auto">
                     <AlertCircle className="h-7 w-7 text-orange-500" />
                   </div>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">No UPI ID configured</p>
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">No UPI ID configured</p>
                   <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 leading-relaxed">Add your UPI ID in Settings → Payment Settings to show a QR code here.</p>
                 </div>
               )}
@@ -1277,7 +1280,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
               <button
                 onClick={() => processPayment("upi")}
                 disabled={isSaving}
-                className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-indigo-600 text-white text-sm font-bold shadow-md hover:bg-indigo-700 transition-all active:scale-[0.99] disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-indigo-600 text-white text-sm font-medium shadow-md hover:bg-indigo-700 transition-all active:scale-[0.99] disabled:opacity-50"
               >
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                 {isSaving ? "Processing..." : "Customer Has Paid — Confirm"}
@@ -1295,8 +1298,8 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                 <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
               </button>
               <div>
-                <h1 className="text-base font-bold text-slate-900 dark:text-white">Split Payment</h1>
-                <p className="text-xs font-bold text-amber-600 dark:text-amber-400">Total: {currencySymbol}{finalTotal.toFixed(2)}</p>
+                <h1 className="text-base font-medium text-slate-900 dark:text-white">Split Payment</h1>
+                <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Total: {currencySymbol}{finalTotal.toFixed(2)}</p>
               </div>
             </div>
 
@@ -1310,16 +1313,16 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                   <div className={`h-10 w-10 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
                     <Icon className={`h-5 w-5 ${iconColor}`} />
                   </div>
-                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200 w-12">{label}</p>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200 w-12">{label}</p>
                   <div className="flex items-center gap-1.5 flex-1">
-                    <span className="text-sm font-bold text-slate-400">{currencySymbol}</span>
+                    <span className="text-sm font-medium text-slate-400">{currencySymbol}</span>
                     <input
                       type="number"
                       value={state}
                       onChange={(e) => setter(e.target.value)}
                       placeholder="0.00"
                       min={0}
-                      className="flex-1 bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-xl text-sm font-bold text-slate-800 dark:text-slate-100 outline-none text-right placeholder:text-slate-400 border border-slate-250 dark:border-slate-700"
+                      className="flex-1 bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-100 outline-none text-right placeholder:text-slate-400 border border-slate-250 dark:border-slate-700"
                       inputMode="decimal"
                     />
                   </div>
@@ -1335,9 +1338,9 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                   </span>
                 </div>
                 <div className="h-px bg-slate-800 my-2" />
-                <div className="flex justify-between text-xs font-bold text-slate-400">
+                <div className="flex justify-between text-xs font-medium text-slate-400">
                   <span>Remaining</span>
-                  <span className="font-black text-white text-base">
+                  <span className="font-bold text-white text-base">
                     {currencySymbol}{Math.max(0, finalTotal - (parseFloat(splitCash)||0) - (parseFloat(splitUpi)||0) - (parseFloat(splitCard)||0)).toFixed(2)}
                   </span>
                 </div>
@@ -1349,7 +1352,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
               <button
                 onClick={handleSplitPay}
                 disabled={isSaving}
-                className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-indigo-600 text-white text-sm font-bold shadow-md hover:bg-indigo-700 transition-all active:scale-[0.99] disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-indigo-600 text-white text-sm font-medium shadow-md hover:bg-indigo-700 transition-all active:scale-[0.99] disabled:opacity-50"
               >
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                 {isSaving ? "Processing..." : "Confirm Split Payment"}
@@ -1369,18 +1372,18 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
 
             {/* Payment info */}
             <div className="space-y-1.5">
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Payment Received!</h1>
-              <p className="text-base font-bold text-indigo-600 dark:text-indigo-400">{currencySymbol}{finalTotal.toFixed(2)} collected</p>
+              <h1 className="text-xl font-medium text-slate-900 dark:text-white tracking-tight">Payment Received!</h1>
+              <p className="text-base font-medium text-indigo-600 dark:text-indigo-400">{currencySymbol}{finalTotal.toFixed(2)} collected</p>
               {loyaltyPointsAwarded && loyaltyPointsAwarded > 0 && (
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-150">
                   <Star className="h-3.5 w-3.5 text-indigo-500" />
-                  <p className="text-[11px] font-bold text-indigo-600">+{loyaltyPointsAwarded} loyalty points awarded 🎉</p>
+                  <p className="text-[11px] font-medium text-indigo-600">+{loyaltyPointsAwarded} loyalty points awarded 🎉</p>
                 </div>
               )}
               {pointsToRedeem > 0 && (
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-55 border border-amber-100">
                   <Gift className="h-3.5 w-3.5 text-amber-500" />
-                  <p className="text-xs font-bold text-amber-600 dark:text-amber-400">{pointsToRedeem} pts redeemed</p>
+                  <p className="text-xs font-medium text-amber-600 dark:text-amber-400">{pointsToRedeem} pts redeemed</p>
                 </div>
               )}
             </div>
@@ -1390,7 +1393,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
               <button
                 onClick={handlePrint}
                 disabled={isPrinting}
-                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-white/60 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl text-sm font-bold text-slate-700 dark:text-slate-300 shadow-lg hover:bg-white dark:hover:bg-slate-800 active:scale-[0.97] transition-all min-w-[100px] disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900  text-sm font-medium text-slate-700 dark:text-slate-300 shadow-lg hover:bg-white dark:hover:bg-slate-800 active:scale-[0.97] transition-all min-w-[100px] disabled:opacity-50"
               >
                 <Printer className="h-4 w-4" />
                 {isPrinting ? "Printing..." : "Print"}
@@ -1399,7 +1402,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                 <button
                   onClick={handleSendWhatsApp}
                   disabled={isSendingWA}
-                  className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-emerald-200/60 dark:border-emerald-500/20 bg-emerald-50/60 dark:bg-emerald-900/20 backdrop-blur-xl text-sm font-bold text-emerald-700 dark:text-emerald-400 shadow-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 active:scale-[0.97] transition-all min-w-[100px] disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-900  text-sm font-medium text-emerald-700 dark:text-emerald-400 shadow-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 active:scale-[0.97] transition-all min-w-[100px] disabled:opacity-50"
                 >
                   <MessageSquare className="h-4 w-4" />
                   {isSendingWA ? "Sending..." : "WhatsApp"}
@@ -1408,7 +1411,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
               {typeof navigator !== "undefined" && !!navigator.share && (
                 <button
                   onClick={handleNativeShare}
-                  className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-white/60 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl text-sm font-bold text-slate-700 dark:text-slate-300 shadow-lg hover:bg-white dark:hover:bg-slate-800 active:scale-[0.97] transition-all min-w-[100px]"
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900  text-sm font-medium text-slate-700 dark:text-slate-300 shadow-lg hover:bg-white dark:hover:bg-slate-800 active:scale-[0.97] transition-all min-w-[100px]"
                 >
                   <Share2 className="h-4 w-4" />
                   Share
@@ -1418,9 +1421,9 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
 
             <button
               onClick={() => { onSuccess(); onClose(); }}
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-base font-black shadow-xl shadow-indigo-600/30 dark:shadow-none hover:shadow-2xl hover:scale-[1.01] active:scale-[0.98] transition-all"
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-base font-bold shadow-xl shadow-indigo-600/30 dark:shadow-none hover:shadow-2xl hover:scale-[1.01] active:scale-[0.98] transition-all"
             >
-              New Order
+              Back to POS
             </button>
           </div>
         )}
