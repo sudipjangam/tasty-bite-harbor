@@ -1,0 +1,174 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Digital Twin — Skeuomorphic Visual Layer
+   Pure CSS textures, animations, and depth effects
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Status Glow Keyframes ─────────────────────────────────────── */
+@keyframes dt-glow-green {
+  0%, 100% { box-shadow: 0 2px 8px rgba(0,0,0,0.06), inset 0 1px 2px rgba(255,255,255,0.08), 0 0 14px rgba(34,197,94,0.15); }
+  50%      { box-shadow: 0 2px 8px rgba(0,0,0,0.06), inset 0 1px 2px rgba(255,255,255,0.08), 0 0 22px rgba(34,197,94,0.28); }
+}
+
+@keyframes dt-glow-red {
+  0%, 100% { box-shadow: 0 2px 8px rgba(0,0,0,0.06), inset 0 1px 2px rgba(255,255,255,0.08), 0 0 14px rgba(239,68,68,0.18); }
+  50%      { box-shadow: 0 2px 8px rgba(0,0,0,0.06), inset 0 1px 2px rgba(255,255,255,0.08), 0 0 24px rgba(239,68,68,0.35); }
+}
+
+@keyframes dt-glow-blue {
+  0%, 100% { box-shadow: 0 2px 8px rgba(0,0,0,0.06), inset 0 1px 2px rgba(255,255,255,0.08), 0 0 14px rgba(59,130,246,0.15); }
+  50%      { box-shadow: 0 2px 8px rgba(0,0,0,0.06), inset 0 1px 2px rgba(255,255,255,0.08), 0 0 22px rgba(59,130,246,0.3); }
+}
+
+@keyframes dt-glow-selected {
+  0%, 100% { box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 0 0 2px rgba(249,115,22,0.5), 0 0 20px rgba(249,115,22,0.18); }
+  50%      { box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 0 0 2.5px rgba(249,115,22,0.7), 0 0 28px rgba(249,115,22,0.32); }
+}
+
+/* ── Table Glow Classes ────────────────────────────────────────── */
+.dt-table-available { animation: dt-glow-green 3s ease-in-out infinite; }
+.dt-table-occupied  { animation: dt-glow-red 2s ease-in-out infinite; }
+.dt-table-reserved  { animation: dt-glow-blue 3s ease-in-out infinite; }
+.dt-table-selected  { animation: dt-glow-selected 1.5s ease-in-out infinite; }
+
+/* ── Floor Tile Pattern ────────────────────────────────────────── */
+.dt-floor-tiles {
+  background-image:
+    linear-gradient(45deg, rgba(148,163,184,0.045) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(148,163,184,0.045) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(148,163,184,0.045) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(148,163,184,0.045) 75%);
+  background-size: 28px 28px;
+  background-position: 0 0, 0 14px, 14px -14px, -14px 0px;
+}
+
+:is(.dark) .dt-floor-tiles {
+  background-image:
+    linear-gradient(45deg, rgba(148,163,184,0.025) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(148,163,184,0.025) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(148,163,184,0.025) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(148,163,184,0.025) 75%);
+  background-size: 28px 28px;
+  background-position: 0 0, 0 14px, 14px -14px, -14px 0px;
+}
+
+/* ── Wood Grain Texture ────────────────────────────────────────── */
+.dt-wood-grain {
+  background-image:
+    repeating-linear-gradient(
+      92deg,
+      transparent,
+      transparent 3px,
+      rgba(139, 90, 43, 0.05) 3px,
+      rgba(139, 90, 43, 0.05) 5px
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(180, 120, 60, 0.10) 0%,
+      rgba(160, 100, 50, 0.06) 40%,
+      rgba(170, 110, 55, 0.08) 60%,
+      rgba(150, 90, 45, 0.10) 100%
+    );
+}
+
+:is(.dark) .dt-wood-grain {
+  background-image:
+    repeating-linear-gradient(
+      92deg,
+      transparent,
+      transparent 3px,
+      rgba(139, 90, 43, 0.03) 3px,
+      rgba(139, 90, 43, 0.03) 5px
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(100, 65, 30, 0.08) 0%,
+      rgba(80, 50, 25, 0.04) 40%,
+      rgba(90, 55, 28, 0.06) 60%,
+      rgba(75, 45, 22, 0.08) 100%
+    );
+}
+
+/* ── Inner Shadow for Depth ────────────────────────────────────── */
+.dt-inner-shadow {
+  box-shadow:
+    inset 0 1px 3px rgba(255,255,255,0.12),
+    inset 0 -1px 3px rgba(0,0,0,0.08);
+}
+
+:is(.dark) .dt-inner-shadow {
+  box-shadow:
+    inset 0 1px 3px rgba(255,255,255,0.04),
+    inset 0 -1px 3px rgba(0,0,0,0.2);
+}
+
+/* ── Table Hover Effect ────────────────────────────────────────── */
+.dt-table-hover {
+  transition: transform 0.2s ease, box-shadow 0.3s ease, background-color 0.4s ease, border-color 0.4s ease;
+}
+
+.dt-table-hover:hover {
+  transform: scale(1.05);
+  z-index: 40 !important;
+}
+
+/* ── Tooltip ───────────────────────────────────────────────────── */
+.dt-tooltip {
+  animation: dt-tooltip-in 0.15s ease-out;
+}
+
+@keyframes dt-tooltip-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ── Timer Ring ────────────────────────────────────────────────── */
+.dt-timer-ring {
+  transform: rotate(-90deg);
+}
+
+/* ── Heatmap Transition ────────────────────────────────────────── */
+.dt-heatmap-transition {
+  transition: background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+}
+
+/* ── Kitchen Station Bar Animation ─────────────────────────────── */
+@keyframes dt-bar-fill {
+  from { width: 0; }
+}
+
+.dt-bar-animated {
+  animation: dt-bar-fill 1s ease-out;
+}
+
+/* ── Chair Style ───────────────────────────────────────────────── */
+.dt-chair {
+  background: linear-gradient(135deg, rgba(180,140,80,0.45) 0%, rgba(150,110,60,0.35) 100%);
+  border: 1px solid rgba(160,120,70,0.35);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
+:is(.dark) .dt-chair {
+  background: linear-gradient(135deg, rgba(100,70,30,0.35) 0%, rgba(80,55,25,0.25) 100%);
+  border: 1px solid rgba(120,80,40,0.25);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+
+/* ── Structural Object Depth ───────────────────────────────────── */
+.dt-structure-shadow {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06), inset 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+/* ── Heatmap Legend Gradient Bar ────────────────────────────────── */
+.dt-heatmap-gradient {
+  background: linear-gradient(to right, #22c55e, #eab308, #ef4444);
+}
+
+/* ── Plate Rotation Animation ──────────────────────────────────── */
+@keyframes dt-plate-shimmer {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.25; }
+}
+
+.dt-plate-shimmer {
+  animation: dt-plate-shimmer 4s ease-in-out infinite;
+}

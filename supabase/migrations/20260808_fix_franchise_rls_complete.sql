@@ -463,11 +463,11 @@ DROP POLICY IF EXISTS "Franchise-aware staff update" ON public.staff;
 DROP POLICY IF EXISTS "Franchise-aware staff delete" ON public.staff;
 
 CREATE POLICY "Franchise-aware staff select" ON public.staff FOR SELECT TO authenticated
-  USING (user_id = auth.uid() OR restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) OR public.is_platform_admin());
+  USING (id = auth.uid() OR restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) OR public.is_platform_admin());
 CREATE POLICY "Franchise-aware staff insert" ON public.staff FOR INSERT TO authenticated
   WITH CHECK (restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) AND public.user_is_admin_or_owner(auth.uid()));
 CREATE POLICY "Franchise-aware staff update" ON public.staff FOR UPDATE TO authenticated
-  USING (user_id = auth.uid() OR (restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) AND public.user_is_admin_or_owner(auth.uid())))
+  USING (id = auth.uid() OR (restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) AND public.user_is_admin_or_owner(auth.uid())))
   WITH CHECK (restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())));
 CREATE POLICY "Franchise-aware staff delete" ON public.staff FOR DELETE TO authenticated
   USING (restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) AND public.user_is_admin_or_owner(auth.uid()));
@@ -481,11 +481,11 @@ DROP POLICY IF EXISTS "Franchise-aware staff_time_clock insert" ON public.staff_
 DROP POLICY IF EXISTS "Franchise-aware staff_time_clock update" ON public.staff_time_clock;
 
 CREATE POLICY "Franchise-aware staff_time_clock select" ON public.staff_time_clock FOR SELECT TO authenticated
-  USING (user_id = auth.uid() OR restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) OR public.is_platform_admin());
+  USING (id = auth.uid() OR restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) OR public.is_platform_admin());
 CREATE POLICY "Franchise-aware staff_time_clock insert" ON public.staff_time_clock FOR INSERT TO authenticated
-  WITH CHECK (user_id = auth.uid() OR (restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) AND public.user_is_admin_or_owner(auth.uid())));
+  WITH CHECK (id = auth.uid() OR (restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) AND public.user_is_admin_or_owner(auth.uid())));
 CREATE POLICY "Franchise-aware staff_time_clock update" ON public.staff_time_clock FOR UPDATE TO authenticated
-  USING (user_id = auth.uid() OR (restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) AND public.user_is_admin_or_owner(auth.uid())))
+  USING (id = auth.uid() OR (restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) AND public.user_is_admin_or_owner(auth.uid())))
   WITH CHECK (restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())));
 
 -- 5c. STAFF LEAVE REQUESTS
@@ -497,11 +497,11 @@ DROP POLICY IF EXISTS "Franchise-aware staff_leave_requests insert" ON public.st
 DROP POLICY IF EXISTS "Franchise-aware staff_leave_requests update" ON public.staff_leave_requests;
 
 CREATE POLICY "Franchise-aware staff_leave_requests select" ON public.staff_leave_requests FOR SELECT TO authenticated
-  USING (user_id = auth.uid() OR restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) OR public.is_platform_admin());
+  USING (id = auth.uid() OR restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) OR public.is_platform_admin());
 CREATE POLICY "Franchise-aware staff_leave_requests insert" ON public.staff_leave_requests FOR INSERT TO authenticated
-  WITH CHECK (user_id = auth.uid() OR (restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) AND public.user_is_admin_or_owner(auth.uid())));
+  WITH CHECK (id = auth.uid() OR (restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) AND public.user_is_admin_or_owner(auth.uid())));
 CREATE POLICY "Franchise-aware staff_leave_requests update" ON public.staff_leave_requests FOR UPDATE TO authenticated
-  USING (user_id = auth.uid() OR (restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) AND public.user_is_admin_or_owner(auth.uid())))
+  USING (id = auth.uid() OR (restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) AND public.user_is_admin_or_owner(auth.uid())))
   WITH CHECK (restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())));
 
 -- 5d. STAFF LEAVES
@@ -509,7 +509,7 @@ DROP POLICY IF EXISTS "staff_leaves_select" ON public.staff_leaves;
 DROP POLICY IF EXISTS "Franchise-aware staff_leaves select" ON public.staff_leaves;
 
 CREATE POLICY "Franchise-aware staff_leaves select" ON public.staff_leaves FOR SELECT TO authenticated
-  USING (user_id = auth.uid() OR restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) OR public.is_platform_admin());
+  USING (id = auth.uid() OR restaurant_id = ANY(public.get_user_accessible_restaurants(auth.uid())) OR public.is_platform_admin());
 
 -- 5e. STAFF SHIFT ASSIGNMENTS
 DROP POLICY IF EXISTS "staff_shift_assignments_select" ON public.staff_shift_assignments;
