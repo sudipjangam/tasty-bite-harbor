@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "test": "vitest",
     "preview": "vite preview",
-    "cap:sync": "npx cap sync",
+    "cap:sync": "node scripts/sync-version.js && npx cap sync",
     "cap:open": "npx cap open android"
   },
   "dependencies": {
