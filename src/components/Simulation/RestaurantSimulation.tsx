@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSimulationData } from './useSimulationData';
 import { SimulationEventBus } from './SimulationEventBus';
-import { IsometricCanvas } from './IsometricCanvas';
+import { PixiSimulation } from './PixiSimulation';
 import { SpriteSettingsDialog } from './SpriteSettingsDialog';
 import { Button } from '@/components/ui/button';
 import { Volume2, VolumeX, Play, Pause, Settings, History } from 'lucide-react';
@@ -238,7 +238,7 @@ export const RestaurantSimulation: React.FC = () => {
             <p className="text-sm text-muted-foreground">Loading simulation…</p>
           </div>
         ) : (
-          <IsometricCanvas
+          <PixiSimulation
             tables={liveTables}
             layoutObjects={layoutObjects}
             eventBus={eventBus}
