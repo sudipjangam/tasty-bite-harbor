@@ -1,5 +1,5 @@
 import { Capacitor } from "@capacitor/core";
-import { nativePrinterBridge } from "./nativePrinterBridge";
+import { nativePrinterBridge, getPaperWidth } from "./nativePrinterBridge";
 
 export interface KOTItem {
   name: string;
@@ -64,7 +64,7 @@ class ThermalPrinterService {
   private BOLD_ON = `${this.ESC}E1`;
   private BOLD_OFF = `${this.ESC}E0`;
   
-  private TEXT_NORMAL = `${this.GS}!0`;
+  private TEXT_NORMAL = `${this.GS}!\x00`;
   private TEXT_DOUBLE_HEIGHT = `${this.GS}!\x01`;
   private TEXT_DOUBLE_WIDTH = `${this.GS}!\x10`;
   private TEXT_DOUBLE_BOTH = `${this.GS}!\x11`;
@@ -451,6 +451,22 @@ class ThermalPrinterService {
       return l + " ".repeat(pad) + r + "\n";
     };
 
+    const formatItemRow = (name: string, qty: string, rate: string, amt: string) => {
+      const qLen = W === 32 ? 3 : 4;
+      const rLen = W === 32 ? 5 : 7;
+      const aLen = W === 32 ? 6 : 8;
+      
+      const restLen = 1 + qLen + 1 + rLen + 1 + aLen;
+      const nameLen = W - restLen;
+      
+      const n = name.substring(0, nameLen).padEnd(nameLen);
+      const q = qty.substring(0, qLen).padStart(qLen);
+      const r = rate.substring(0, rLen).padStart(rLen);
+      const a = amt.substring(0, aLen).padStart(aLen);
+      
+      return `${n} ${q} ${r} ${a}\n`;
+    };
+
     let receipt = this.INIT;
 
     // Header
@@ -464,11 +480,6 @@ class ThermalPrinterService {
     if (data.address) receipt += data.address + "\n";
     if (data.phone) receipt += `Ph: ${data.phone}\n`;
     if (data.gstin) receipt += `GSTIN: ${data.gstin}\n`;
-    if (data.gstin) {
-      receipt += this.BOLD_ON;
-      receipt += "\nTAX INVOICE\n";
-      receipt += this.BOLD_OFF;
-    }
     receipt += SEP;
 
     // Info
@@ -479,25 +490,25 @@ class ThermalPrinterService {
     else receipt += `To: POS Order\n`;
     
     receipt += `Date: ${data.date}  Time: ${data.time}\n`;
-    
-    if (data.customerName) receipt += `Guest: ${data.customerName}\n`;
-    if (data.customerMobile) receipt += `Phone: ${data.customerMobile}\n`;
+    if (data.customerName && !data.tableName) receipt += `Guest: ${data.customerName}\n`;
     
     receipt += SEP;
 
-    // Items
+    // Items Header
+    receipt += this.ALIGN_CENTER;
     receipt += this.BOLD_ON;
-    receipt += row2("Item                 Qty", "Amount");
+    receipt += "Particulars\n";
+    receipt += this.ALIGN_LEFT;
+    receipt += formatItemRow("Item", "Qty", "Rate", "Amt");
     receipt += this.BOLD_OFF;
     receipt += SEP;
 
+    // Items
     for (const item of data.items) {
-      const name = item.name.substring(0, W - 14); 
-      const qtyStr = item.quantity.toString().padStart(3);
+      const qtyStr = item.quantity.toString();
+      const rateStr = item.price.toFixed(0);
       const amtStr = (item.price * item.quantity).toFixed(0);
-      
-      const leftPart = `${name.padEnd(W - 14)} ${qtyStr}`;
-      receipt += row2(leftPart, amtStr);
+      receipt += formatItemRow(item.name, qtyStr, rateStr, amtStr);
     }
     receipt += SEP;
 
@@ -517,9 +528,7 @@ class ThermalPrinterService {
 
     // Footer
     receipt += this.ALIGN_CENTER;
-    receipt += this.BOLD_ON;
     receipt += "Thank You!\n";
-    receipt += this.BOLD_OFF;
     receipt += "Please visit again\n\n\n";
 
     receipt += this.CUT_PAPER;
