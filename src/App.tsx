@@ -23,6 +23,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { App as CapacitorApp } from '@capacitor/app';
 import { supabase } from "@/integrations/supabase/client";
+import { isNativeApp } from "@/utils/platform";
 
 // Create a client
 const queryClient = new QueryClient({
