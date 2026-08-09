@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
 import { BrowserRouter as Router } from "react-router-dom";
 import { Toaster } from "./components/ui/toaster";
 import "./App.css";
@@ -22,12 +22,13 @@ import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { App as CapacitorApp } from '@capacitor/app';
+import { supabase } from "@/integrations/supabase/client";
 
 // Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true,
       staleTime: 1000 * 60 * 5, // 5 minutes
       retry: 1,
     },
@@ -48,6 +49,17 @@ function AppWithRealtime() {
         setUpdateAvailable(true);
       },
     });
+  }, []);
+
+  useEffect(() => {
+    if (isNativeApp()) {
+      const listener = CapacitorApp.addListener("appStateChange", ({ isActive }) => {
+        focusManager.setFocused(isActive);
+      });
+      return () => {
+        listener.then((l) => l.remove());
+      };
+    }
   }, []);
 
   return (
@@ -72,7 +84,18 @@ function App() {
       const url = new URL(event.url);
       if (url.protocol === 'com.swadeshisolutions.app:') {
         if (url.hash) {
-          window.location.hash = url.hash;
+          // Parse the hash to extract tokens
+          const hashStr = url.hash.startsWith('#') ? url.hash.substring(1) : url.hash;
+          const hashParams = new URLSearchParams(hashStr);
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+          
+          if (accessToken && refreshToken) {
+            await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            });
+          }
         }
       }
     });

@@ -1,5 +1,6 @@
 import React, { useState, Suspense, lazy, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ShoppingCart,
   ClipboardList,
@@ -14,6 +15,7 @@ import {
   WifiOff,
   LayoutDashboard,
   UtensilsCrossed,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PageLoader } from "@/components/ui/page-loader";
@@ -27,6 +29,8 @@ import {
 } from "@/hooks/useBiometricAuth";
 import { App } from "@capacitor/app";
 import { BiometricPromptDialog } from "@/components/Auth/BiometricPromptDialog";
+import { useAuth } from "@/hooks/useAuth";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
 
 // ─── Lazy-loaded operations pages ────────────────────────────────────────────
 const QSRPos          = lazy(() => import("@/pages/QSRPos"));
@@ -70,11 +74,19 @@ const NAV_ITEMS = [
 ] as const;
 
 // ─── More drawer items ───────────────────────────────────────────────────────
-const MORE_ITEMS = [
+type MoreItem = {
+  label: string;
+  icon: any;
+  path?: string;
+  action?: "logout";
+};
+
+const MORE_ITEMS: MoreItem[] = [
   { label: "Menu",          icon: UtensilsCrossed, path: "/menu" },
   { label: "Inventory",     icon: Package,  path: "/inventory" },
   { label: "Printer Setup", icon: Printer,  path: "/printer-settings" },
   { label: "Settings",      icon: Settings, path: "/settings" },
+  { label: "Logout",        icon: LogOut,   action: "logout" },
 ];
 
 // ─── Printer status indicator ────────────────────────────────────────────────
@@ -118,6 +130,7 @@ const MoreDrawer = ({
   onClose: () => void;
   onNavigate: (path: string) => void;
 }) => {
+  const { signOut } = useAuth();
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
@@ -134,17 +147,21 @@ const MoreDrawer = ({
         <div className="divide-y divide-border">
           {MORE_ITEMS.map((item) => (
             <button
-              key={item.path}
-              onClick={() => {
-                onNavigate(item.path);
+              key={item.label}
+              onClick={async () => {
+                if (item.action === "logout") {
+                  await signOut();
+                } else if (item.path) {
+                  onNavigate(item.path);
+                }
                 onClose();
               }}
               className="flex items-center w-full px-5 py-4 gap-4 hover:bg-muted/50 active:bg-muted transition-colors"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                <item.icon className="h-5 w-5 text-primary" />
+                <item.icon className={cn("h-5 w-5 text-primary", item.action === "logout" && "text-red-500")} />
               </div>
-              <span className="flex-1 text-left text-sm font-medium text-foreground">
+              <span className={cn("flex-1 text-left text-sm font-medium text-foreground", item.action === "logout" && "text-red-500")}>
                 {item.label}
               </span>
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -229,6 +246,7 @@ export const OperationsMobileLayout = () => {
   const [locked, setLocked] = useState(() => getBiometricEnabled());
   const location = useLocation();
   const navigate  = useNavigate();
+  const queryClient = useQueryClient();
 
   const title = ROUTE_TITLES[location.pathname] ?? "Operations";
 
@@ -260,7 +278,7 @@ export const OperationsMobileLayout = () => {
       <MobileHeader title={title} />
 
       {/* Page content — scrollable */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <PullToRefresh onRefresh={async () => { await queryClient.invalidateQueries(); }}>
         <Routes>
           {/* Dashboard — role-based */}
           <Route
@@ -363,7 +381,7 @@ export const OperationsMobileLayout = () => {
           {/* Catch-all → Dashboard */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </div>
+      </PullToRefresh>
 
       {/* Bottom Nav */}
       <BottomTabBar onMoreOpen={() => setMoreOpen(true)} />
