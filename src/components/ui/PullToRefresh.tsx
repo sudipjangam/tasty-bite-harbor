@@ -74,8 +74,8 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
       </div>
       <div
         ref={contentRef}
-        className="flex-1 w-full overflow-y-auto transition-transform duration-200"
-        style={{ transform: `translateY(${isRefreshing ? PULL_THRESHOLD / 2 : 0}px)` }}
+        className="flex-1 w-full overflow-y-auto transition-all duration-200 relative"
+        style={{ top: `${isRefreshing ? PULL_THRESHOLD / 2 : 0}px` }}
       >
         {children}
       </div>
