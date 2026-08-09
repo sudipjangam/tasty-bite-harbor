@@ -75,7 +75,7 @@ export default defineConfig(({ mode }) => {
     },
   },
   build: {
-    sourcemap: true,
+    sourcemap: false,
     chunkSizeWarningLimit: 1500, // Suppress warnings for expected large vendor chunks like pdf/excel utils
     rollupOptions: {
       output: {
