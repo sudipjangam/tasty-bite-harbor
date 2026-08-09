@@ -6,6 +6,7 @@ import {
   useBiometricAuth,
   clearBackgroundTs,
 } from "@/hooks/useBiometricAuth";
+import SwadeshiLoader from "@/styles/Loader/SwadeshiLoader";
 
 interface BiometricLockProps {
   onUnlocked: () => void;
@@ -56,59 +57,64 @@ export const BiometricLock: React.FC<BiometricLockProps> = ({ onUnlocked }) => {
 
       {/* Logo area */}
       <div className="relative flex flex-col items-center gap-8 px-8">
-        {/* Shield icon */}
-        <div
-          className={cn(
-            "flex h-28 w-28 items-center justify-center rounded-3xl shadow-2xl transition-all duration-300",
-            state === "prompting"
-              ? "bg-primary/20 border-2 border-primary/50 scale-105"
-              : state === "failed"
-              ? "bg-destructive/10 border-2 border-destructive/40"
-              : "bg-primary/10 border-2 border-primary/30"
-          )}
-        >
-          {state === "prompting" ? (
-            <Loader2 className="h-12 w-12 text-primary animate-spin" />
-          ) : state === "failed" ? (
-            <ShieldCheck className="h-12 w-12 text-destructive" />
-          ) : (
-            <Fingerprint className="h-12 w-12 text-primary" />
-          )}
-        </div>
+        
+        {state === "prompting" ? (
+          <div className="scale-110">
+            <SwadeshiLoader 
+              loadingText="verifying" 
+              words={["identity", "biometrics", "security", "access", "identity"]} 
+            />
+          </div>
+        ) : (
+          <>
+            {/* Shield icon */}
+            <div
+              className={cn(
+                "flex h-28 w-28 items-center justify-center rounded-3xl shadow-2xl transition-all duration-300",
+                state === "failed"
+                  ? "bg-destructive/10 border-2 border-destructive/40"
+                  : "bg-primary/10 border-2 border-primary/30"
+              )}
+            >
+              {state === "failed" ? (
+                <ShieldCheck className="h-12 w-12 text-destructive" />
+              ) : (
+                <Fingerprint className="h-12 w-12 text-primary" />
+              )}
+            </div>
 
-        {/* Text */}
-        <div className="text-center space-y-2">
-          <h2 className="text-xl font-bold text-foreground">
-            {state === "failed" ? "Authentication Failed" : "Swadeshi Solutions"}
-          </h2>
-          <p className="text-sm text-muted-foreground max-w-xs">
-            {state === "prompting"
-              ? "Waiting for authentication…"
-              : state === "failed"
-              ? "Biometric not recognized. Try again."
-              : "Use fingerprint, face ID, or device PIN to continue"}
-          </p>
-        </div>
-
-        {/* Retry / Authenticate button */}
-        <Button
-          size="lg"
-          className="w-48 gap-2"
-          onClick={prompt}
-          disabled={state === "prompting"}
-        >
-          {state === "failed" ? (
-            <>
-              <RefreshCw className="h-4 w-4" />
-              Try Again
-            </>
-          ) : (
-            <>
-              <Fingerprint className="h-4 w-4" />
-              {state === "prompting" ? "Authenticating…" : "Authenticate"}
-            </>
-          )}
-        </Button>
+            {/* Text */}
+            <div className="text-center space-y-2">
+              <h2 className="text-xl font-bold text-foreground">
+                {state === "failed" ? "Authentication Failed" : "Swadeshi Solutions"}
+              </h2>
+              <p className="text-sm text-muted-foreground max-w-xs">
+                {state === "failed"
+                  ? "Biometric not recognized. Try again."
+                  : "Use fingerprint, face ID, or device PIN to continue"}
+              </p>
+            </div>
+            
+            {/* Retry / Authenticate button */}
+            <Button
+              size="lg"
+              className="w-48 gap-2"
+              onClick={prompt}
+            >
+              {state === "failed" ? (
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  Try Again
+                </>
+              ) : (
+                <>
+                  <Fingerprint className="h-4 w-4" />
+                  Authenticate
+                </>
+              )}
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );

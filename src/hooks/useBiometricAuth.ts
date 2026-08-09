@@ -4,7 +4,7 @@ import { isNativeApp } from "@/utils/platform";
 
 const STORAGE_KEY = "biometric_lock_enabled";
 const BACKGROUND_TS_KEY = "app_background_ts";
-const LOCK_AFTER_SECONDS = 30;
+const LOCK_AFTER_SECONDS = 300; // 5 minutes
 
 // ─── Persistence helpers ──────────────────────────────────────────────────────
 export const getBiometricEnabled = (): boolean => {

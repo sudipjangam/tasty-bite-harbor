@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from "react";
 import { Routes as RouterRoutes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { AppRoutes } from "./AppRoutes";
+import { isNativeApp } from "@/utils/platform";
 import SubscriptionGate from "./SubscriptionGate";
 import Auth from "@/pages/Auth";
 import AuthCallback from "@/pages/AuthCallback";
@@ -49,7 +50,7 @@ const Routes = () => {
   if (!user) {
     return (
       <RouterRoutes>
-        <Route path="/" element={<LandingWebsite />} />
+        <Route path="/" element={isNativeApp() ? <Auth /> : <LandingWebsite />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/login" element={<Auth />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
@@ -69,16 +70,15 @@ const Routes = () => {
         <Route path="/order-status/*" element={<Suspense fallback={<PageLoader />}><OrderStatusPage /></Suspense>} />
         <Route path="/kitchen-tv" element={<Suspense fallback={<PageLoader />}><KitchenTV /></Suspense>} />
         <Route path="/offer/:discountId" element={<Suspense fallback={<PageLoader />}><SpecialOfferPage /></Suspense>} />
-        <Route path="*" element={<LandingWebsite />} />
+        <Route path="*" element={isNativeApp() ? <Auth /> : <LandingWebsite />} />
       </RouterRoutes>
     );
   }
 
   return (
     <RouterRoutes>
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/auth" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/login" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/auth" element={<Navigate to="/" replace />} />
+      <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="/website" element={<LandingWebsite />} />
       <Route path="/enroll/:slug" element={<PublicEnrollmentPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -106,15 +106,7 @@ const Routes = () => {
         }
       />
 
-      {/* Dashboard routes — wrapped with SubscriptionGate */}
-      <Route
-        path="/dashboard/*"
-        element={
-          <SubscriptionGate>
-            <AppRoutes />
-          </SubscriptionGate>
-        }
-      />
+      {/* All app routes — wrapped with SubscriptionGate */}
       <Route
         path="/*"
         element={

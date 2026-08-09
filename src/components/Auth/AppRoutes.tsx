@@ -195,6 +195,14 @@ export const AppRoutes = () => {
             }
           />
           <Route
+            path="/dashboard"
+            element={
+              <LazyRoute>
+                <RoleBasedDashboard />
+              </LazyRoute>
+            }
+          />
+          <Route
             path="/orders"
             element={
               <PermissionGuard permission="orders.view">
