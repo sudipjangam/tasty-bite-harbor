@@ -14,8 +14,14 @@ import {
   Edit,
   Save,
   HelpCircle,
+  Flame,
+  Clock,
+  EyeOff,
 } from "lucide-react";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import "@/styles/digital-twin.css";
+
+// ── Types ───────────────────────────────────────────────────────
 
 type ObjectType = "wall" | "restroom" | "storage" | "kitchen" | "host_stand" | "manager_desk" | "bar" | "grass" | "tree" | "staircase" | "door";
 
@@ -40,6 +46,40 @@ interface TableObject {
   height: number;
   shape: "square" | "circle" | "rectangle";
 }
+
+// ── Order Timer Ring Sub-component ──────────────────────────────
+
+const OrderTimerRing: React.FC<{ minutes: number }> = ({ minutes }) => {
+  const maxMinutes = 90;
+  const progress = Math.min(minutes / maxMinutes, 1);
+  const radius = 44;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference * (1 - progress);
+  const color = minutes < 30 ? "#22c55e" : minutes < 60 ? "#eab308" : "#ef4444";
+
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] pointer-events-none z-30 dt-timer-ring"
+    >
+      <circle cx="50" cy="50" r={radius} fill="none" stroke="rgba(148,163,184,0.1)" strokeWidth="2" />
+      <circle
+        cx="50"
+        cy="50"
+        r={radius}
+        fill="none"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeDasharray={circumference}
+        strokeDashoffset={strokeDashoffset}
+        strokeLinecap="round"
+        className="transition-all duration-1000"
+      />
+    </svg>
+  );
+};
+
+// ── Main Component ──────────────────────────────────────────────
 
 const DigitalTwin: React.FC = () => {
   const { restaurantName } = useRestaurantId();
@@ -71,7 +111,41 @@ const DigitalTwin: React.FC = () => {
   const gridCols = 24;
   const gridRows = 16;
 
-  // Render chairs around a square/rectangle table box
+  // ── Skeuomorphic Enhancement State ──────────────────────────
+  const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
+  const [hoveredTableId, setHoveredTableId] = useState<string | null>(null);
+
+  // Demo timer data (production: derive from kitchen_orders.created_at)
+  const demoTimers: Record<string, number> = {
+    t1: 23, t3: 45, t12: 12, t14: 67, t25: 34,
+  };
+
+  // Demo heatmap turnover data (turnovers per day)
+  const heatmapTurnover: Record<string, number> = {
+    t1: 8, t2: 3, t3: 7, t4: 5, t6: 2, t7: 9, t18: 4, t12: 6, t14: 8, t25: 3, t9: 1,
+  };
+
+  const getHeatmapColor = (tableId: string) => {
+    const turnover = heatmapTurnover[tableId] || 0;
+    const ratio = Math.min(turnover / 10, 1);
+    if (ratio < 0.35) return { bg: "rgba(34,197,94,0.25)", border: "#22c55e", label: `${turnover}/day` };
+    if (ratio < 0.65) return { bg: "rgba(234,179,8,0.25)", border: "#eab308", label: `${turnover}/day` };
+    return { bg: "rgba(239,68,68,0.25)", border: "#ef4444", label: `${turnover}/day` };
+  };
+
+  const getTableGlowClass = (status: string, isSelected: boolean) => {
+    if (isSelected) return "dt-table-selected";
+    if (status === "occupied") return "dt-table-occupied";
+    if (status === "reserved") return "dt-table-reserved";
+    return "dt-table-available";
+  };
+
+  const getElapsedMinutes = (tableId: string): number => {
+    return demoTimers[tableId] || 0;
+  };
+
+  // ── Chair Rendering (Skeuomorphic Wood Chairs) ──────────────
+
   const renderChairs = (capacity: number) => {
     const chairs = [];
     const sideCount = Math.ceil(capacity / 2);
@@ -82,7 +156,7 @@ const DigitalTwin: React.FC = () => {
       chairs.push(
         <div
           key={`left-${i}`}
-          className="absolute w-2 h-2 bg-slate-200 dark:bg-slate-800 border border-slate-400 dark:border-slate-600 rounded-sm -left-2.5"
+          className="absolute w-2.5 h-2.5 dt-chair rounded-sm -left-3"
           style={{ top: offset, transform: "translateY(-50%)" }}
         />
       );
@@ -95,7 +169,7 @@ const DigitalTwin: React.FC = () => {
       chairs.push(
         <div
           key={`right-${i}`}
-          className="absolute w-2 h-2 bg-slate-200 dark:bg-slate-800 border border-slate-400 dark:border-slate-600 rounded-sm -right-2.5"
+          className="absolute w-2.5 h-2.5 dt-chair rounded-sm -right-3"
           style={{ top: offset, transform: "translateY(-50%)" }}
         />
       );
@@ -114,7 +188,7 @@ const DigitalTwin: React.FC = () => {
       chairs.push(
         <div
           key={`circle-${i}`}
-          className="absolute w-2 h-2 bg-slate-200 dark:bg-slate-800 border border-slate-400 dark:border-slate-600 rounded-sm"
+          className="absolute w-2.5 h-2.5 dt-chair rounded-sm"
           style={{
             left: `${x}%`,
             top: `${y}%`,
@@ -126,7 +200,8 @@ const DigitalTwin: React.FC = () => {
     return chairs;
   };
 
-  // Auto-detect authentication & restaurant profiles to disable demoMode
+  // ── Auth Detection (unchanged) ──────────────────────────────
+
   useEffect(() => {
     const detectMode = async () => {
       try {
@@ -182,7 +257,8 @@ const DigitalTwin: React.FC = () => {
     detectMode();
   }, []);
 
-  // Fetch tables and layout objects
+  // ── Data Fetching (unchanged) ───────────────────────────────
+
   const loadTwinData = async () => {
     if (!activeBranchId) return;
 
@@ -293,6 +369,8 @@ const DigitalTwin: React.FC = () => {
     loadTwinData();
   }, [activeBranchId, isDemoMode]);
 
+  // ── Realtime Subscription (unchanged) ───────────────────────
+
   useEffect(() => {
     if (isDemoMode || !activeBranchId) return;
 
@@ -329,7 +407,8 @@ const DigitalTwin: React.FC = () => {
     };
   }, [isDemoMode, activeBranchId]);
 
-  // Handle Drag Events on Blueprint Grid
+  // ── Drag Handlers (unchanged) ───────────────────────────────
+
   const handleDragStart = (e: React.DragEvent, id: string, type: "table" | "object") => {
     if (!isEditMode) return;
     setDraggedId(id);
@@ -373,7 +452,8 @@ const DigitalTwin: React.FC = () => {
     setDraggedType(null);
   };
 
-  // Add layout object
+  // ── Add/Delete Handlers (unchanged) ─────────────────────────
+
   const handleAddObject = async () => {
     if (!newObjectName.trim()) return;
 
@@ -396,7 +476,6 @@ const DigitalTwin: React.FC = () => {
     });
   };
 
-  // Add table object
   const handleAddTable = () => {
     const tableNo = tables.length + 1;
     const newTab: TableObject = {
@@ -419,7 +498,6 @@ const DigitalTwin: React.FC = () => {
     });
   };
 
-  // Delete selected element
   const handleDeleteSelected = () => {
     if (!selectedObjectId || !selectedObjectType) return;
 
@@ -446,7 +524,8 @@ const DigitalTwin: React.FC = () => {
     setLayoutObjects((prev) => prev.map((o) => (o.id === id ? { ...o, ...updates } : o)));
   };
 
-  // Save changes to DB
+  // ── Save Layout (unchanged) ─────────────────────────────────
+
   const handleSaveLayout = async () => {
     if (isDemoMode) {
       setIsEditMode(false);
@@ -534,14 +613,21 @@ const DigitalTwin: React.FC = () => {
     }
   };
 
+  // ── Computed Stats ──────────────────────────────────────────
+
   const totalTables = tables.length;
   const occupiedTables = tables.filter((t) => t.status === "occupied").length;
   const availableTables = tables.filter((t) => t.status === "available").length;
   const reservedTables = tables.filter((t) => t.status === "reserved").length;
+  const capacityPercent = totalTables > 0 ? Math.round((occupiedTables / totalTables) * 100) : 0;
+
+  // ════════════════════════════════════════════════════════════
+  //  RENDER
+  // ════════════════════════════════════════════════════════════
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0A1220] text-slate-800 dark:text-slate-100 p-6 space-y-6 flex flex-col">
-      {/* Header controls */}
+      {/* ── Header Controls ──────────────────────────────────── */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
           {restaurantName && (
@@ -557,7 +643,7 @@ const DigitalTwin: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
           {dbBranches.length > 1 && (
             <select
               value={activeBranchId}
@@ -576,6 +662,23 @@ const DigitalTwin: React.FC = () => {
                 </option>
               ))}
             </select>
+          )}
+
+          {/* Heatmap Toggle */}
+          {!isEditMode && (
+            <Button
+              size="sm"
+              variant={showHeatmap ? "default" : "outline"}
+              onClick={() => setShowHeatmap(!showHeatmap)}
+              className={cn(
+                showHeatmap
+                  ? "bg-gradient-to-r from-red-500 via-amber-500 to-green-500 text-white border-0 shadow-md hover:opacity-90"
+                  : "border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              )}
+            >
+              {showHeatmap ? <EyeOff className="h-4 w-4 mr-1.5" /> : <Flame className="h-4 w-4 mr-1.5 text-orange-500" />}
+              {showHeatmap ? "Exit Heatmap" : "Heatmap"}
+            </Button>
           )}
 
           {isEditMode ? (
@@ -613,11 +716,12 @@ const DigitalTwin: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Layout Area */}
+      {/* ── Main Layout Area ─────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1">
-        {/* Left Control panel or Editor panel */}
+        {/* ── Left Control Panel ──────────────────────────────── */}
         <div className="lg:col-span-1 bg-white dark:bg-[#131F35] border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl p-5 space-y-6 flex flex-col justify-between">
           <div className="space-y-6">
+            {/* Layout Summary */}
             <div>
               <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-1.5">
                 <Info className="h-4 w-4 text-orange-500" /> Layout Summary
@@ -638,6 +742,30 @@ const DigitalTwin: React.FC = () => {
                 <div className="bg-slate-50 dark:bg-[#0A1220]/60 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
                   <div className="text-xs text-slate-500 dark:text-slate-400">Reserved</div>
                   <div className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">{reservedTables}</div>
+                </div>
+              </div>
+
+              {/* Live Capacity Bar */}
+              <div className="mt-4 bg-slate-50 dark:bg-[#0A1220]/60 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                <div className="flex justify-between text-xs mb-1.5">
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Live Capacity</span>
+                  <span className={cn(
+                    "font-bold",
+                    capacityPercent < 50 ? "text-green-600 dark:text-green-400" :
+                    capacityPercent < 80 ? "text-amber-600 dark:text-amber-400" :
+                    "text-red-600 dark:text-red-400"
+                  )}>{capacityPercent}%</span>
+                </div>
+                <div className="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
+                  <div
+                    className={cn(
+                      "h-full rounded-full dt-bar-animated transition-all duration-700",
+                      capacityPercent < 50 ? "bg-gradient-to-r from-green-400 to-green-500" :
+                      capacityPercent < 80 ? "bg-gradient-to-r from-amber-400 to-amber-500" :
+                      "bg-gradient-to-r from-red-400 to-red-500"
+                    )}
+                    style={{ width: `${capacityPercent}%` }}
+                  />
                 </div>
               </div>
             </div>
@@ -910,11 +1038,11 @@ const DigitalTwin: React.FC = () => {
 
           <div className="text-[10px] text-slate-500 flex items-center gap-1">
             <HelpCircle className="h-3 w-3 text-slate-400" />
-            {isEditMode ? "Drag shapes to place on grid." : "Click items to inspect."}
+            {isEditMode ? "Drag shapes to place on grid." : "Click items to inspect. Hover for details."}
           </div>
         </div>
 
-        {/* Blueprint Grid Layout */}
+        {/* ── Blueprint Grid Layout ───────────────────────────── */}
         <div className="lg:col-span-3 flex flex-col gap-6">
           <div className="bg-white dark:bg-[#0A1220] border-2 border-orange-500/60 rounded-3xl p-6 shadow-2xl relative overflow-hidden flex-1 min-h-[480px] flex flex-col">
             {/* Grid background lines */}
@@ -927,22 +1055,30 @@ const DigitalTwin: React.FC = () => {
             {/* Layout Title Badge */}
             <div className="flex justify-between items-center mb-4 z-10">
               <span className="text-xs font-semibold tracking-wider text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800/40 rounded-full px-3 py-1 uppercase">
-                Blueprint Layout (24 x 16 Grid)
+                {showHeatmap ? "🔥 Heatmap — Table Turnover Rate" : "Blueprint Layout (24 x 16 Grid)"}
               </span>
               {isEditMode && (
                 <span className="text-xs text-orange-600 dark:text-orange-500 animate-pulse font-bold">
                   ● EDITING MODE - DRAG TO POSITION
                 </span>
               )}
+              {showHeatmap && !isEditMode && (
+                <div className="flex items-center gap-2 text-[10px]">
+                  <span className="text-slate-500 dark:text-slate-400">Low</span>
+                  <div className="w-20 h-2 rounded-full dt-heatmap-gradient" />
+                  <span className="text-slate-500 dark:text-slate-400">High</span>
+                </div>
+              )}
             </div>
 
-            {/* Layout Canvas Grid Container */}
+            {/* ── Layout Canvas Grid ─────────────────────────── */}
             <div
               ref={gridRef}
               onDragOver={handleDragOver}
-              className="flex-1 relative bg-slate-50/50 dark:bg-[#060D1A]/80 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden min-h-[400px]"
+              className="flex-1 relative bg-slate-50/50 dark:bg-[#060D1A]/80 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden min-h-[400px] dt-floor-tiles"
+              style={{ boxShadow: "inset 0 0 80px rgba(0,0,0,0.03)" }}
             >
-              {/* Render Structural Elements */}
+              {/* ── Structural Elements ────────────────────── */}
               {layoutObjects.map((obj) => {
                 const style = {
                   left: `${(obj.x_pos / gridCols) * 100}%`,
@@ -963,7 +1099,7 @@ const DigitalTwin: React.FC = () => {
                     }}
                     style={style}
                     className={cn(
-                      "absolute border transition-all flex flex-col justify-center items-center p-1 text-[11px] font-bold select-none cursor-pointer overflow-hidden",
+                      "absolute border transition-all flex flex-col justify-center items-center p-1 text-[11px] font-bold select-none cursor-pointer overflow-hidden dt-structure-shadow",
                       selectedObjectId === obj.id
                         ? "border-orange-500 bg-orange-50 dark:bg-orange-950/20 text-orange-600 dark:text-orange-400 shadow-lg shadow-orange-500/10 z-30"
                         : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900/60 text-slate-700 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 z-10",
@@ -1076,14 +1212,21 @@ const DigitalTwin: React.FC = () => {
                 );
               })}
 
-              {/* Render Tables */}
+              {/* ── Enhanced Skeuomorphic Tables ───────────── */}
               {tables.map((t) => {
-                const style = {
+                const elapsed = getElapsedMinutes(t.id);
+                const isHovered = hoveredTableId === t.id;
+                const isSelected = selectedObjectId === t.id;
+                const heatmap = showHeatmap ? getHeatmapColor(t.id) : null;
+
+                const style: React.CSSProperties = {
                   left: `${(t.x_pos / gridCols) * 100}%`,
                   top: `${(t.y_pos / gridRows) * 100}%`,
                   width: `${(t.width / gridCols) * 100}%`,
                   height: `${(t.height / gridRows) * 100}%`,
+                  ...(heatmap ? { backgroundColor: heatmap.bg, borderColor: heatmap.border } : {}),
                 };
+
                 return (
                   <div
                     key={t.id}
@@ -1094,42 +1237,133 @@ const DigitalTwin: React.FC = () => {
                       setSelectedObjectId(t.id);
                       setSelectedObjectType("table");
                     }}
+                    onMouseEnter={() => setHoveredTableId(t.id)}
+                    onMouseLeave={() => setHoveredTableId(null)}
                     style={style}
                     className={cn(
-                      "absolute transition-all cursor-pointer select-none flex flex-col justify-center items-center border p-1 text-center font-bold z-20 shadow-sm",
+                      "absolute cursor-pointer select-none flex flex-col justify-center items-center border p-1 text-center font-bold z-20",
+                      "dt-wood-grain dt-inner-shadow dt-table-hover dt-heatmap-transition",
+                      !showHeatmap && getTableGlowClass(t.status, isSelected),
                       t.shape === "circle" ? "rounded-full" : "rounded-lg",
-                      selectedObjectId === t.id
-                        ? "border-orange-500 bg-orange-50/15 dark:bg-orange-950/20 text-orange-600 dark:text-orange-400 shadow-lg shadow-orange-500/20"
-                        : t.status === "occupied"
-                        ? "border-rose-500 dark:border-rose-700 bg-rose-50/5 dark:bg-rose-950/10 text-rose-600 dark:text-rose-550"
-                        : t.status === "reserved"
-                        ? "border-blue-500 dark:border-blue-700 bg-blue-50/5 dark:bg-blue-950/10 text-blue-600 dark:text-blue-400"
-                        : "border-green-500 dark:border-green-700 bg-green-50/5 dark:bg-green-950/10 text-green-600 dark:text-green-550"
+                      !heatmap && (
+                        isSelected
+                          ? "border-orange-500 text-orange-600 dark:text-orange-400"
+                          : t.status === "occupied"
+                          ? "border-rose-500 dark:border-rose-700 text-rose-600 dark:text-rose-500"
+                          : t.status === "reserved"
+                          ? "border-blue-500 dark:border-blue-700 text-blue-600 dark:text-blue-400"
+                          : "border-green-500 dark:border-green-700 text-green-600 dark:text-green-500"
+                      )
                     )}
                   >
-                    {/* Render Chairs Around the Table Box */}
+                    {/* Timer Ring for occupied tables */}
+                    {t.status === "occupied" && !showHeatmap && (
+                      <OrderTimerRing minutes={elapsed} />
+                    )}
+
+                    {/* Skeuomorphic plate SVG for occupied tables */}
+                    {t.status === "occupied" && !showHeatmap && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 dt-plate-shimmer">
+                        <svg viewBox="0 0 40 40" className="w-6 h-6">
+                          <circle cx="20" cy="20" r="16" fill="none" stroke="currentColor" strokeWidth="0.8" opacity="0.2" />
+                          <circle cx="20" cy="20" r="11" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
+                          <circle cx="20" cy="20" r="6" fill="none" stroke="currentColor" strokeWidth="0.3" opacity="0.1" />
+                        </svg>
+                      </div>
+                    )}
+
+                    {/* Chairs */}
                     {t.shape === "circle" ? renderCircleChairs(t.capacity) : renderChairs(t.capacity)}
 
-                    {/* Table Status Dot */}
+                    {/* Table Status Dot + Name */}
                     <div className="flex items-center justify-center gap-1 z-10">
                       <span
                         className={cn(
                           "w-2.5 h-2.5 rounded-full inline-block",
-                          t.status === "occupied" ? "bg-rose-500 shadow-sm shadow-rose-500/50" :
-                          t.status === "reserved" ? "bg-blue-500 shadow-sm shadow-blue-500/50" :
-                          "bg-green-500 shadow-sm shadow-green-500/50"
+                          showHeatmap
+                            ? "bg-slate-400"
+                            : t.status === "occupied" ? "bg-rose-500 shadow-sm shadow-rose-500/50" :
+                              t.status === "reserved" ? "bg-blue-500 shadow-sm shadow-blue-500/50" :
+                              "bg-green-500 shadow-sm shadow-green-500/50"
                         )}
                       />
                       <span className="text-[11px] font-black tracking-tight text-slate-800 dark:text-slate-100">{t.name}</span>
                     </div>
-                    
-                    <span className="text-[8px] opacity-75 mt-0.5 text-slate-500 dark:text-slate-400 z-10">
-                      {t.status === "occupied" ? "Occ" : t.status === "reserved" ? "Resv" : "Avail"}
-                    </span>
-                    <span className="text-[8px] opacity-60 text-slate-450 dark:text-slate-500 z-10">{t.capacity} Pax</span>
 
-                    {t.status === "occupied" && (
+                    {/* Status or Heatmap Label */}
+                    {showHeatmap ? (
+                      <span className="text-[8px] font-bold mt-0.5 z-10" style={{ color: getHeatmapColor(t.id).border }}>
+                        {getHeatmapColor(t.id).label}
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-[8px] opacity-75 mt-0.5 text-slate-500 dark:text-slate-400 z-10">
+                          {t.status === "occupied" ? "Occ" : t.status === "reserved" ? "Resv" : "Avail"}
+                        </span>
+                        <span className="text-[8px] opacity-60 text-slate-450 dark:text-slate-500 z-10">{t.capacity} Pax</span>
+                      </>
+                    )}
+
+                    {/* Occupied ping */}
+                    {t.status === "occupied" && !showHeatmap && (
                       <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                    )}
+
+                    {/* Timer badge for occupied tables */}
+                    {t.status === "occupied" && !showHeatmap && elapsed > 0 && (
+                      <div className={cn(
+                        "absolute -bottom-3 left-1/2 -translate-x-1/2 z-40 px-1.5 py-0.5 rounded-full text-[7px] font-bold text-white shadow-md whitespace-nowrap",
+                        elapsed < 30 ? "bg-green-500" : elapsed < 60 ? "bg-amber-500" : "bg-red-500"
+                      )}>
+                        <Clock className="inline h-2 w-2 mr-0.5" />{elapsed}m
+                      </div>
+                    )}
+
+                    {/* ── Hover Tooltip ────────────────────── */}
+                    {isHovered && !isEditMode && (
+                      <div className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full z-50 dt-tooltip pointer-events-none">
+                        <div className="bg-slate-900 text-white rounded-xl p-3 shadow-2xl min-w-[170px] text-xs border border-slate-700/60">
+                          {/* Arrow */}
+                          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-2.5 h-2.5 bg-slate-900 rotate-45 border-r border-b border-slate-700/60" />
+                          <div className="font-bold text-sm mb-2 flex items-center gap-1.5">
+                            {t.name}
+                            <span className={cn(
+                              "text-[9px] px-1.5 py-0.5 rounded-full font-semibold uppercase",
+                              t.status === "available" && "bg-green-500/20 text-green-400",
+                              t.status === "occupied" && "bg-rose-500/20 text-rose-400",
+                              t.status === "reserved" && "bg-blue-500/20 text-blue-400",
+                            )}>{t.status}</span>
+                          </div>
+                          <div className="space-y-1.5 text-slate-300">
+                            <div className="flex justify-between gap-4">
+                              <span>Capacity</span>
+                              <span className="text-white font-medium">{t.capacity} guests</span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                              <span>Shape</span>
+                              <span className="text-white font-medium capitalize">{t.shape}</span>
+                            </div>
+                            {t.status === "occupied" && elapsed > 0 && (
+                              <>
+                                <div className="border-t border-slate-700/60 my-1" />
+                                <div className="flex justify-between gap-4">
+                                  <span>Elapsed</span>
+                                  <span className={cn(
+                                    "font-bold",
+                                    elapsed < 30 ? "text-green-400" : elapsed < 60 ? "text-amber-400" : "text-red-400"
+                                  )}>
+                                    {elapsed} min
+                                  </span>
+                                </div>
+                                <div className="flex justify-between gap-4">
+                                  <span>Waiter</span>
+                                  <span className="text-white font-medium">Staff #{(t.id.charCodeAt(t.id.length - 1) % 5) + 1}</span>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 );
@@ -1137,7 +1371,7 @@ const DigitalTwin: React.FC = () => {
             </div>
           </div>
 
-          {/* Bottom Panels - Kitchen Station Loads & Info */}
+          {/* ── Bottom Panels ─────────────────────────────────── */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Kitchen Station Load */}
             <div className="bg-white dark:bg-[#131F35] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4">
@@ -1152,7 +1386,7 @@ const DigitalTwin: React.FC = () => {
                     <span className="text-rose-500 dark:text-rose-400 font-semibold">78% high load</span>
                   </div>
                   <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                    <div className="bg-rose-500 h-full rounded-full" style={{ width: "78%" }} />
+                    <div className="bg-rose-500 h-full rounded-full dt-bar-animated" style={{ width: "78%" }} />
                   </div>
                 </div>
 
@@ -1163,7 +1397,7 @@ const DigitalTwin: React.FC = () => {
                     <span className="text-orange-500 dark:text-orange-400 font-semibold">64% moderate load</span>
                   </div>
                   <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                    <div className="bg-orange-500 h-full rounded-full" style={{ width: "64%" }} />
+                    <div className="bg-orange-500 h-full rounded-full dt-bar-animated" style={{ width: "64%" }} />
                   </div>
                 </div>
 
@@ -1174,7 +1408,7 @@ const DigitalTwin: React.FC = () => {
                     <span className="text-green-600 dark:text-green-400 font-semibold">39% low load</span>
                   </div>
                   <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                    <div className="bg-green-400 h-full rounded-full" style={{ width: "39%" }} />
+                    <div className="bg-green-400 h-full rounded-full dt-bar-animated" style={{ width: "39%" }} />
                   </div>
                 </div>
 
@@ -1185,7 +1419,7 @@ const DigitalTwin: React.FC = () => {
                     <span className="text-rose-600 dark:text-rose-500 font-semibold">88% busy</span>
                   </div>
                   <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                    <div className="bg-rose-600 h-full rounded-full" style={{ width: "88%" }} />
+                    <div className="bg-rose-600 h-full rounded-full dt-bar-animated" style={{ width: "88%" }} />
                   </div>
                 </div>
               </div>
@@ -1214,10 +1448,31 @@ const DigitalTwin: React.FC = () => {
                   <span>Structural Area</span>
                 </div>
               </div>
+
+              {/* Timer Ring Legend */}
+              <div className="border-t border-slate-200 dark:border-slate-800 pt-3 space-y-2">
+                <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Timer Ring Colors</div>
+                <div className="grid grid-cols-3 gap-2 text-[10px] text-slate-600 dark:text-slate-400">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                    <span>&lt; 30 min</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                    <span>30-60 min</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                    <span>&gt; 60 min</span>
+                  </div>
+                </div>
+              </div>
               
               <div className="border-t border-slate-200 dark:border-slate-800 pt-3 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
                 <p>• Tables auto-refresh layout status via restaurant orders feed.</p>
                 <p>• In edit mode, click save to lock positions to database.</p>
+                <p>• Hover tables to see live order details &amp; elapsed time.</p>
+                <p>• Toggle 🔥 Heatmap to view table turnover rates.</p>
               </div>
             </div>
           </div>
