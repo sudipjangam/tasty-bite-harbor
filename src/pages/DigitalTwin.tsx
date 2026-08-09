@@ -19,6 +19,8 @@ import {
   EyeOff,
 } from "lucide-react";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RestaurantSimulation } from "@/components/Simulation/RestaurantSimulation";
 import "@/styles/digital-twin.css";
 
 // ── Types ───────────────────────────────────────────────────────
@@ -88,6 +90,7 @@ const DigitalTwin: React.FC = () => {
   const [activeBranchId, setActiveBranchId] = useState<string>("");
   const [activeBranchName, setActiveBranchName] = useState<string>("Active Branch");
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState("blueprint");
   
   // Data State
   const [tables, setTables] = useState<TableObject[]>([]);
@@ -716,8 +719,17 @@ const DigitalTwin: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Main Layout Area ─────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col">
+        <div className="flex justify-between items-center mb-4">
+           <TabsList className="grid w-64 grid-cols-2">
+              <TabsTrigger value="blueprint">Blueprint & Analytics</TabsTrigger>
+              <TabsTrigger value="simulation">Live Simulation</TabsTrigger>
+           </TabsList>
+        </div>
+
+        <TabsContent value="blueprint" className="flex-1 mt-0">
+          {/* ── Main Layout Area ─────────────────────────────────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* ── Left Control Panel ──────────────────────────────── */}
         <div className="lg:col-span-1 bg-white dark:bg-[#131F35] border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl p-5 space-y-6 flex flex-col justify-between">
           <div className="space-y-6">
@@ -1478,7 +1490,13 @@ const DigitalTwin: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
+    </TabsContent>
+
+    <TabsContent value="simulation" className="flex-1 mt-0">
+       <RestaurantSimulation />
+    </TabsContent>
+  </Tabs>
+</div>
   );
 };
 
