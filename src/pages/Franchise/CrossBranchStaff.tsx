@@ -31,7 +31,7 @@ const CrossBranchStaff: React.FC = () => {
 
   const present = filtered.filter((s) => s.status === "present").length;
   const absent = filtered.filter((s) => s.status === "absent").length;
-  const onLeave = filtered.filter((s) => s.status === "leave" || s.status === "on_leave").length;
+  const onLeave = filtered.filter((s) => (s.status as string) === "leave" || (s.status as string) === "on_leave").length;
 
   const handleToggleSecondary = (bId: string) => {
     if (secondaryBranches.includes(bId)) {

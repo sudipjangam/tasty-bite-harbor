@@ -232,13 +232,15 @@ const CrossBranchPnL: React.FC = () => {
     });
 
     // Add totals row
-    rows.push(["Total Expenses", ...divergeRows.map(r => r.expenses), totals.expenses]);
-    rows.push(["Revenue", ...divergeRows.map(r => r.revenue), totals.revenue]);
-    rows.push(["Net Profit", ...divergeRows.map(r => r.profit), totals.profit]);
+    const summaryRows: (string | number)[][] = [
+      ["Total Expenses", ...divergeRows.map(r => r.expenses), totals.expenses],
+      ["Revenue", ...divergeRows.map(r => r.revenue), totals.revenue],
+      ["Net Profit", ...divergeRows.map(r => r.profit), totals.profit],
+    ];
 
     // Format & Download file
     const csvContent = "data:text/csv;charset=utf-8," 
-      + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+      + [headers.join(","), ...rows.map(e => e.join(",")), ...summaryRows.map(e => e.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
