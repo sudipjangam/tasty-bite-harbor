@@ -2,9 +2,12 @@ import { Capacitor } from "@capacitor/core";
 
 // Minimal Web Bluetooth typings (not part of the default TS DOM lib)
 type BluetoothRemoteGATTCharacteristic = {
+  uuid: string;
+  properties: Record<string, boolean>;
   writeValue(value: BufferSource): Promise<void>;
 };
 type BluetoothRemoteGATTService = {
+  uuid: string;
   getCharacteristic(uuid: string): Promise<BluetoothRemoteGATTCharacteristic>;
   getCharacteristics(): Promise<BluetoothRemoteGATTCharacteristic[]>;
 };
@@ -20,6 +23,7 @@ type BluetoothDevice = {
   name?: string;
   gatt?: BluetoothRemoteGATTServer;
   addEventListener(type: string, listener: () => void): void;
+  removeEventListener(type: string, listener: () => void): void;
 };
 type BluetoothNavigator = Navigator & {
   bluetooth?: {
