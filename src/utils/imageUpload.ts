@@ -59,7 +59,9 @@ export const uploadImage = async (
     onProgress?.(10);
     
     // Validate file
-    if (!file.type.startsWith('image/')) {
+    const isHeic = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
+
+    if (!file.type.startsWith('image/') && !isHeic) {
       throw new Error('Please select an image file');
     }
     
@@ -69,9 +71,18 @@ export const uploadImage = async (
     
     onProgress?.(30);
     
-    let fileToUpload: File | Blob = file;
+    let fileToProcess: File | Blob = file;
+    
+    if (isHeic) {
+      const heic2any = (await import('heic2any')).default;
+      const converted = await heic2any({ blob: file, toType: 'image/jpeg' });
+      const blob = Array.isArray(converted) ? converted[0] : converted;
+      fileToProcess = new File([blob], file.name.replace(/\.hei[cf]$/i, '.jpg'), { type: 'image/jpeg' });
+    }
+
+    let fileToUpload: File | Blob = fileToProcess;
     if (resize) {
-      fileToUpload = await resizeImageToPassportSize(file);
+      fileToUpload = await resizeImageToPassportSize(fileToProcess as File);
     }
     
     onProgress?.(60);

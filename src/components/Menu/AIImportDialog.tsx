@@ -319,9 +319,36 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
         queryClient.invalidateQueries({ queryKey: ["categories", restaurantId] });
       }
 
+      // Fetch existing menu items to check for duplicates
+      const { data: existingItems, error: existingError } = await supabase
+        .from("menu_items")
+        .select("name")
+        .eq("restaurant_id", restaurantId);
+        
+      if (existingError) {
+        throw existingError;
+      }
+      
+      const existingNames = new Set(existingItems?.map(item => item.name.toLowerCase().trim()) || []);
+      
+      // Filter out duplicates
+      const uniqueItemsToInsert = finalItems.filter(item => !existingNames.has(item.name.toLowerCase().trim()));
+      const skippedCount = finalItems.length - uniqueItemsToInsert.length;
+      
+      if (uniqueItemsToInsert.length === 0) {
+        toast({
+          title: "Notice",
+          description: `All ${finalItems.length} items already exist. No new items were added.`,
+        });
+        setIsSaving(false);
+        onSuccess();
+        onClose();
+        return;
+      }
+
       // Step 2: Insert menu items
       console.log("Inserting menu items...");
-      for (const item of finalItems) {
+      for (const item of uniqueItemsToInsert) {
         const menuItemData = {
           name: item.name,
           description: item.description || "",
@@ -370,7 +397,7 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
 
       toast({
         title: "Success",
-        description: `Successfully imported ${parsedItems.length} menu items and their variants!`,
+        description: `Successfully imported ${uniqueItemsToInsert.length} menu items! ${skippedCount > 0 ? `(${skippedCount} duplicates skipped)` : ""}`,
       });
       
       onSuccess();
