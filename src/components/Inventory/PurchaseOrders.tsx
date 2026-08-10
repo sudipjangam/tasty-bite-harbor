@@ -58,6 +58,7 @@ interface PurchaseOrder {
   order_date: string;
   expected_delivery_date: string;
   notes?: string;
+  supplier_id?: string;
   supplier: {
     name: string;
     phone?: string;

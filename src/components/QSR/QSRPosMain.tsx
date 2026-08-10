@@ -948,7 +948,7 @@ export const QSRPosMain: React.FC = () => {
           name: item.name,
           price: item.price,
           quantity: item.quantity,
-          printed_qty: item.printed_qty || 0,
+          printed_qty: (item as any).printed_qty || 0,
           isCustom: !menuItem,
           notes: Array.isArray(item.notes) ? item.notes.join(", ") : item.notes,
         };
@@ -1008,7 +1008,7 @@ export const QSRPosMain: React.FC = () => {
           name: item.name,
           price: item.price,
           quantity: item.quantity,
-          printed_qty: item.printed_qty || 0,
+          printed_qty: (item as any).printed_qty || 0,
           isCustom: !menuItem,
           notes: Array.isArray(item.notes) ? item.notes.join(", ") : item.notes,
         };
