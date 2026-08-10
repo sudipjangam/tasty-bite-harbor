@@ -1,4 +1,32 @@
 import { Capacitor } from "@capacitor/core";
+
+// Minimal Web Bluetooth typings (not part of the default TS DOM lib)
+type BluetoothRemoteGATTCharacteristic = {
+  writeValue(value: BufferSource): Promise<void>;
+};
+type BluetoothRemoteGATTService = {
+  getCharacteristic(uuid: string): Promise<BluetoothRemoteGATTCharacteristic>;
+  getCharacteristics(): Promise<BluetoothRemoteGATTCharacteristic[]>;
+};
+type BluetoothRemoteGATTServer = {
+  connected: boolean;
+  connect(): Promise<BluetoothRemoteGATTServer>;
+  disconnect(): void;
+  getPrimaryService(uuid: string): Promise<BluetoothRemoteGATTService>;
+  getPrimaryServices(): Promise<BluetoothRemoteGATTService[]>;
+};
+type BluetoothDevice = {
+  id: string;
+  name?: string;
+  gatt?: BluetoothRemoteGATTServer;
+  addEventListener(type: string, listener: () => void): void;
+};
+type BluetoothNavigator = Navigator & {
+  bluetooth?: {
+    requestDevice(options: unknown): Promise<BluetoothDevice>;
+    getDevices?(): Promise<BluetoothDevice[]>;
+  };
+};
 import { nativePrinterBridge, getPaperWidth } from "./nativePrinterBridge";
 
 export interface KOTItem {
