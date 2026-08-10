@@ -184,43 +184,15 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
     }
   }, [editingItem, form]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      
-      // Check file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Maximum file size is 5MB",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Check file type
-      if (!file.type.startsWith("image/")) {
-        toast({
-          title: "Invalid file type",
-          description: "Please select an image file",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      setSelectedFile(file);
-    }
-  };
-
-  const uploadImage = async () => {
-    if (!selectedFile) return null;
+  const uploadImage = async (fileToUpload: File) => {
+    if (!fileToUpload) return null;
     
     try {
       setIsUploading(true);
       setUploadProgress(0);
       
       const { uploadImage: uploadToFreeHost } = await import('@/utils/imageUpload');
-      const imageUrl = await uploadToFreeHost(selectedFile, (progress) => {
+      const imageUrl = await uploadToFreeHost(fileToUpload, (progress) => {
         setUploadProgress(progress);
       });
       
@@ -244,6 +216,26 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: "File too large", description: "Maximum file size is 5MB", variant: "destructive" });
+        return;
+      }
+      
+      const isHeic = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
+      if (!file.type.startsWith("image/") && !isHeic) {
+        toast({ title: "Invalid file type", description: "Please select an image file", variant: "destructive" });
+        return;
+      }
+      
+      setSelectedFile(file);
+      await uploadImage(file);
     }
   };
 
@@ -276,7 +268,7 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
       // If there's a selected file but not yet uploaded, upload it now
       let imageUrl = uploadedImageUrl || data.image_url;
       if (selectedFile && !uploadedImageUrl) {
-        const uploadedUrl = await uploadImage();
+        const uploadedUrl = await uploadImage(selectedFile);
         if (uploadedUrl) {
           imageUrl = uploadedUrl;
         }
@@ -606,16 +598,16 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
               </div>
 
               {/* Pricing Configuration */}
-              <div className="bg-gradient-to-r from-blue-50/80 to-cyan-50/80 dark:from-blue-900/20 dark:to-cyan-900/20 backdrop-blur-sm rounded-2xl p-4 border border-blue-200/50 dark:border-blue-600/50">
-                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
-                  <Scale className="h-5 w-5 text-blue-500" />
-                  Pricing Configuration
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                  Configure how this item is priced - fixed price or by weight/volume
-                </p>
+              <div className="bg-gradient-to-r from-blue-50/80 to-cyan-50/80 dark:from-blue-900/20 dark:to-cyan-900/20 backdrop-blur-sm rounded-xl p-3 border border-blue-200/50 dark:border-blue-600/50">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                    <Scale className="h-4 w-4 text-blue-500" />
+                    Pricing Config
+                  </h3>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Fixed or weight/volume</span>
+                </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <FormField
                     control={form.control}
                     name="pricing_type"
@@ -723,14 +715,14 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
               </div>
 
               {/* Size Variants Section */}
-              <div className="bg-gradient-to-r from-indigo-50/80 to-violet-50/80 dark:from-indigo-900/20 dark:to-violet-900/20 backdrop-blur-sm rounded-2xl p-4 border border-indigo-200/50 dark:border-indigo-600/50">
-                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                  <Layers className="h-5 w-5 text-indigo-500" />
-                  Size Variants
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                  Add size options like Small/Medium/Large or 250ml/350ml/500ml
-                </p>
+              <div className="bg-gradient-to-r from-indigo-50/80 to-violet-50/80 dark:from-indigo-900/20 dark:to-violet-900/20 backdrop-blur-sm rounded-xl p-3 border border-indigo-200/50 dark:border-indigo-600/50">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-indigo-500" />
+                    Size Variants
+                  </h3>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">e.g. Small/Large</span>
+                </div>
 
                 {variants.map((variant, index) => (
                   <div key={index} className="mb-3">
@@ -795,20 +787,20 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
               </div>
 
               {/* Special Options */}
-              <div className="bg-gradient-to-r from-gray-50/80 to-white/80 dark:from-gray-700/50 dark:to-gray-800/50 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-600/50">
-                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-emerald-500" />
+              <div className="bg-gradient-to-r from-gray-50/80 to-white/80 dark:from-gray-700/50 dark:to-gray-800/50 backdrop-blur-sm rounded-xl p-3 border border-gray-200/50 dark:border-gray-600/50">
+                <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-emerald-500" />
                   Special Options
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <FormField
                     control={form.control}
                     name="is_veg"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between space-x-2 rounded-xl border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/20 p-4">
+                      <FormItem className="flex flex-row items-center justify-between space-x-2 rounded-xl border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/20 p-3">
                         <div className="space-y-0.5">
-                          <FormLabel className="text-base font-semibold text-green-700">🌱 Vegetarian</FormLabel>
-                          <FormDescription className="text-green-600 dark:text-green-400">
+                          <FormLabel className="text-sm font-semibold text-green-700">🌱 Vegetarian</FormLabel>
+                          <FormDescription className="text-xs text-green-600 dark:text-green-400">
                             Mark as vegetarian item
                           </FormDescription>
                         </div>
@@ -827,10 +819,10 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                     control={form.control}
                     name="is_special"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between space-x-2 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-900/20 p-4">
+                      <FormItem className="flex flex-row items-center justify-between space-x-2 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-900/20 p-3">
                         <div className="space-y-0.5">
-                          <FormLabel className="text-base font-semibold text-purple-700">⭐ Special</FormLabel>
-                          <FormDescription className="text-purple-600 dark:text-purple-400">
+                          <FormLabel className="text-sm font-semibold text-purple-700">⭐ Special</FormLabel>
+                          <FormDescription className="text-xs text-purple-600 dark:text-purple-400">
                             Mark as restaurant special
                           </FormDescription>
                         </div>
@@ -859,20 +851,20 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                         type="file"
                         ref={fileInputRef}
                         onChange={handleFileChange}
-                        accept="image/*"
+                        accept="image/*,.heic,.heif"
                         className="hidden"
                       />
                       
                       {!selectedFile && !uploadedImageUrl && (
                         <div 
                           onClick={triggerFileInput}
-                          className="border-2 border-dashed border-emerald-300 bg-emerald-50/50 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50 transition-all duration-300 group"
+                          className="border-2 border-dashed border-emerald-300 bg-emerald-50/50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50 transition-all duration-300 group"
                         >
-                          <div className="p-3 bg-emerald-100 rounded-xl group-hover:bg-emerald-200 transition-all duration-200">
-                            <ImageIcon className="h-8 w-8 text-emerald-600" />
+                          <div className="p-2 bg-emerald-100 rounded-lg group-hover:bg-emerald-200 transition-all duration-200">
+                            <ImageIcon className="h-6 w-6 text-emerald-600" />
                           </div>
-                          <p className="text-lg font-semibold text-emerald-700 mt-3">Upload Item Image</p>
-                          <p className="text-sm text-emerald-600 mt-1">PNG, JPG or GIF (max 5MB)</p>
+                          <p className="text-base font-semibold text-emerald-700 mt-2">Upload Item Image</p>
+                          <p className="text-xs text-emerald-600 mt-1">PNG, JPG, GIF or HEIC (max 5MB)</p>
                         </div>
                       )}
                       
@@ -882,18 +874,20 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                             <span className="text-sm font-semibold text-gray-700 truncate max-w-[250px]">
                               📁 {selectedFile.name}
                             </span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={removeImage}
-                              className="h-8 w-8 p-0 rounded-lg hover:bg-red-100 hover:text-red-600"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
+                            {!isUploading && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={removeImage}
+                                className="h-8 w-8 p-0 rounded-lg hover:bg-red-100 hover:text-red-600"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                           
-                          {isUploading ? (
+                          {isUploading && (
                             <div className="space-y-3">
                               <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
                                 <div 
@@ -903,17 +897,6 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                               </div>
                               <p className="text-sm text-gray-600 text-center font-medium">Uploading... {uploadProgress}%</p>
                             </div>
-                          ) : (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={uploadImage}
-                              className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-600 text-white border-0 rounded-xl"
-                            >
-                              <Upload className="h-4 w-4 mr-2" />
-                              Upload Image
-                            </Button>
                           )}
                         </div>
                       )}

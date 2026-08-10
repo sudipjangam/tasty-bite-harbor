@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -68,6 +68,7 @@
     "exceljs": "^4.4.0",
     "framer-motion": "^12.40.0",
     "graphifyy": "^0.10.0",
+    "heic2any": "^0.0.4",
     "highcharts": "^12.1.2",
     "highcharts-react-official": "^3.2.1",
     "html2canvas": "^1.4.1",
