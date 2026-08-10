@@ -47,6 +47,7 @@ interface MobileNavItem {
   icon: React.ComponentType<{ className?: string }>;
   requiredPermissions?: Permission[];
   adminOnly?: boolean;
+  requiredRole?: string;
   gradient: string;
   shadowColor: string;
   textColor: string;
