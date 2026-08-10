@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import QRCodeManagement from "@/components/QR/QRCodeManagement";
 
 const Rooms = () => {
   const { restaurantName } = useRestaurantId();
