@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState, useRef, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,34 +21,172 @@ import {
   Smartphone,
   Save,
   Check,
-  Shield,
-  Zap,
-  Eye,
-  EyeOff,
+  Upload,
+  Camera,
+  QrCode,
+  AlertCircle,
+  X,
+  ScanLine,
 } from "lucide-react";
+import jsQR from "jsqr";
 
+// ─── Security constants ────────────────────────────────────────────────
+/** Valid UPI ID: localpart@provider  — no script/SQL chars allowed */
+const UPI_ID_REGEX = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
+
+/** Business name: printable unicode only, max 100 chars */
+const BUSINESS_NAME_REGEX = /^[\p{L}\p{N}\p{P}\p{Z}]{1,100}$/u;
+
+/** Max upload: 5 MB — DoS mitigation */
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+
+/** Allowed MIME — reject arbitrary file uploads */
+const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+/** Max canvas dim — prevent memory DoS from giant images */
+const MAX_CANVAS_DIM = 2048;
+
+// ─── Sanitize helpers ──────────────────────────────────────────────────
+function sanitizeUpiId(raw: string): string {
+  return raw.replace(/[^a-zA-Z0-9.\-_@]/g, "").slice(0, 300);
+}
+
+function sanitizeBusinessName(raw: string): string {
+  // Remove control chars and HTML-dangerous chars
+  return raw.replace(/[\x00-\x1F\x7F<>&"'`]/g, "").slice(0, 100);
+}
+
+// ─── UPI QR parsing ────────────────────────────────────────────────────
+interface ParsedUPI {
+  upiId: string;
+  name: string;
+}
+
+/**
+ * Parse a UPI deep-link safely.
+ * Only accepts upi:// scheme — rejects data:, javascript:, etc.
+ * All extracted values are sanitised before returning.
+ */
+function parseUpiQrData(rawData: string): ParsedUPI | null {
+  try {
+    if (!rawData.startsWith("upi://")) return null;
+    const url = new URL(rawData.replace(/^upi:\/\//, "http://dummy/"));
+    const pa = url.searchParams.get("pa") ?? "";
+    const pn = url.searchParams.get("pn") ?? "";
+    const upiId = sanitizeUpiId(decodeURIComponent(pa));
+    const name = sanitizeBusinessName(decodeURIComponent(pn));
+    if (!UPI_ID_REGEX.test(upiId)) return null;
+    return { upiId, name };
+  } catch {
+    return null;
+  }
+}
+
+// ─── Image → QR decode ────────────────────────────────────────────────
+/**
+ * Decode QR from a File using canvas pixel data only.
+ * No innerHTML, no eval, no blob URL exposed to DOM long-term.
+ */
+async function decodeQrFromFile(file: File): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const scale = Math.min(
+        1,
+        MAX_CANVAS_DIM / Math.max(img.naturalWidth, img.naturalHeight)
+      );
+      const w = Math.round(img.naturalWidth * scale);
+      const h = Math.round(img.naturalHeight * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { resolve(null); return; }
+      ctx.drawImage(img, 0, 0, w, h);
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const result = jsQR(imageData.data, imageData.width, imageData.height);
+      resolve(result?.data ?? null);
+    };
+
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(null); };
+    img.src = objectUrl;
+  });
+}
+
+// ─── File validation ───────────────────────────────────────────────────
+function validateFile(file: File): { ok: boolean; error?: string } {
+  if (!ALLOWED_MIME.includes(file.type))
+    return { ok: false, error: "Only JPEG, PNG, WebP, or GIF images allowed" };
+  if (file.size > MAX_FILE_SIZE_BYTES)
+    return { ok: false, error: "Image must be smaller than 5 MB" };
+  return { ok: true };
+}
+
+type ScanState = "idle" | "scanning" | "success" | "error";
+
+// ─── Shared sub-component ──────────────────────────────────────────────
+interface ToggleProps {
+  isActive: boolean;
+  upiId: string;
+  onToggle: (v: boolean) => void;
+}
+
+const UpiToggleAndStatus: React.FC<ToggleProps> = ({ isActive, upiId, onToggle }) => (
+  <div className="space-y-4">
+    <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-2xl border border-blue-100 dark:border-blue-800">
+      <div className="flex items-center justify-between">
+        <div>
+          <Label htmlFor="isActive" className="text-sm font-semibold text-blue-600">
+            Enable UPI Payments
+          </Label>
+          <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">
+            Allow customers to pay via UPI QR codes
+          </p>
+        </div>
+        <Switch id="isActive" checked={isActive} onCheckedChange={onToggle} />
+      </div>
+    </div>
+
+    {isActive && upiId && UPI_ID_REGEX.test(upiId) && (
+      <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-2xl border border-green-100 dark:border-green-800">
+        <div className="flex items-center gap-2 mb-3">
+          <Check className="h-5 w-5 text-green-600" />
+          <span className="text-sm font-semibold text-green-600">Ready for Payments</span>
+        </div>
+        <p className="text-xs text-green-500 dark:text-green-400">
+          QR codes will be generated with UPI ID:{" "}
+          <code className="bg-white dark:bg-gray-700 px-1 rounded">{upiId}</code>
+        </p>
+      </div>
+    )}
+  </div>
+);
+
+// ─── Main component ────────────────────────────────────────────────────
 const PaymentSettingsTab = () => {
   const { toast } = useToast();
   const { restaurantId } = useRestaurantId();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
   const [loading, setLoading] = useState(false);
-  const [showMerchantKey, setShowMerchantKey] = useState(false);
+  const [scanState, setScanState] = useState<ScanState>("idle");
+  const [scanError, setScanError] = useState("");
+  const [qrPreviewUrl, setQrPreviewUrl] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
   const [formData, setFormData] = useState({
     upiId: "",
     upiName: "",
     isActive: true,
-    // Paytm fields
-    gatewayType: "upi" as "upi" | "paytm",
-    paytmMid: "",
-    paytmMerchantKey: "",
-    paytmWebsite: "DEFAULT",
-    paytmTestMode: true,
-    soundboxEnabled: false,
-    voiceAnnouncementLanguage: "en" as "en" | "hi",
-    voiceAnnouncementTemplate: "detailed" as "simple" | "detailed",
+    gatewayType: "upi" as "upi" | "qr_scan",
   });
 
-  // Fetch payment settings
+  // ── Fetch ─────────────────────────────────────────────────────────────
   const { data: paymentSettings, isLoading } = useQuery({
     queryKey: ["payment-settings", restaurantId],
     enabled: !!restaurantId,
@@ -61,7 +198,6 @@ const PaymentSettingsTab = () => {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-
       if (error) throw error;
       return data;
     },
@@ -73,19 +209,72 @@ const PaymentSettingsTab = () => {
         upiId: paymentSettings.upi_id || "",
         upiName: paymentSettings.upi_name || "",
         isActive: paymentSettings.is_active ?? true,
-        gatewayType: (paymentSettings as any).gateway_type || "upi",
-        paytmMid: (paymentSettings as any).paytm_mid || "",
-        paytmMerchantKey: (paymentSettings as any).paytm_merchant_key || "",
-        paytmWebsite: (paymentSettings as any).paytm_website || "DEFAULT",
-        paytmTestMode: (paymentSettings as any).paytm_test_mode ?? true,
-        soundboxEnabled: (paymentSettings as any).soundbox_enabled ?? false,
-        voiceAnnouncementLanguage:
-          (paymentSettings as any).voice_announcement_language || "en",
-        voiceAnnouncementTemplate:
-          (paymentSettings as any).voice_announcement_template || "detailed",
+        gatewayType: "upi",
       });
     }
   }, [paymentSettings]);
+
+  // ── QR file processor ─────────────────────────────────────────────────
+  const processFile = useCallback(
+    async (file: File) => {
+      const validation = validateFile(file);
+      if (!validation.ok) {
+        setScanState("error");
+        setScanError(validation.error!);
+        return;
+      }
+      // Show preview (revoke old one to avoid memory leak)
+      if (qrPreviewUrl) URL.revokeObjectURL(qrPreviewUrl);
+      const preview = URL.createObjectURL(file);
+      setQrPreviewUrl(preview);
+      setScanState("scanning");
+      setScanError("");
+
+      const rawData = await decodeQrFromFile(file);
+      if (!rawData) {
+        setScanState("error");
+        setScanError("No QR code found. Try a clearer, well-lit photo.");
+        return;
+      }
+
+      const parsed = parseUpiQrData(rawData);
+      if (!parsed) {
+        setScanState("error");
+        setScanError("QR found but it's not a valid UPI QR code.");
+        return;
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        upiId: parsed.upiId,
+        upiName: parsed.name || prev.upiName,
+      }));
+      setScanState("success");
+      toast({ title: "✅ UPI ID Extracted", description: `Found: ${parsed.upiId}` });
+    },
+    [qrPreviewUrl, toast]
+  );
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+    e.target.value = ""; // reset so same file can be re-selected
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const clearScan = () => {
+    if (qrPreviewUrl) URL.revokeObjectURL(qrPreviewUrl);
+    setQrPreviewUrl(null);
+    setScanState("idle");
+    setScanError("");
+  };
+
 
   const handleSave = async () => {
     if (!restaurantId) {
@@ -97,25 +286,29 @@ const PaymentSettingsTab = () => {
       return;
     }
 
-    // Validate based on gateway type
-    if (formData.gatewayType === "paytm") {
-      if (!formData.paytmMid.trim() || !formData.paytmMerchantKey.trim()) {
-        toast({
-          title: "Error",
-          description: "Paytm Merchant ID and Merchant Key are required",
-          variant: "destructive",
-        });
-        return;
-      }
-    } else {
-      if (!formData.upiId.trim()) {
-        toast({
-          title: "Error",
-          description: "UPI ID is required",
-          variant: "destructive",
-        });
-        return;
-      }
+    // ── Validate ────────────────────────────────────────────────────────
+    const trimmedUpi = formData.upiId.trim();
+    if (!trimmedUpi) {
+      toast({ title: "Error", description: "UPI ID is required", variant: "destructive" });
+      return;
+    }
+    // Strict regex — blocks SQL injection & XSS chars at the application layer
+    if (!UPI_ID_REGEX.test(trimmedUpi)) {
+      toast({
+        title: "Invalid UPI ID",
+        description: "Format: name@bank (letters, numbers, dots, hyphens, underscores only)",
+        variant: "destructive",
+      });
+      return;
+    }
+    const trimmedName = formData.upiName.trim();
+    if (trimmedName && !BUSINESS_NAME_REGEX.test(trimmedName)) {
+      toast({
+        title: "Invalid Business Name",
+        description: "Business name contains invalid characters",
+        variant: "destructive",
+      });
+      return;
     }
 
     setLoading(true);
@@ -123,48 +316,36 @@ const PaymentSettingsTab = () => {
       const upsertData: Record<string, unknown> = {
         ...(paymentSettings?.id ? { id: paymentSettings.id } : {}),
         restaurant_id: restaurantId,
-        upi_id: formData.upiId.trim() || null,
-        upi_name: formData.upiName.trim() || null,
+        upi_id: trimmedUpi,
+        upi_name: trimmedName || null,
         is_active: formData.isActive,
-        gateway_type: formData.gatewayType,
-        paytm_mid: formData.paytmMid.trim() || null,
-        paytm_merchant_key: formData.paytmMerchantKey.trim() || null,
-        paytm_website: formData.paytmWebsite.trim() || "DEFAULT",
-        paytm_test_mode: formData.paytmTestMode,
-        soundbox_enabled: formData.soundboxEnabled,
-        voice_announcement_language: formData.voiceAnnouncementLanguage,
-        voice_announcement_template: formData.voiceAnnouncementTemplate,
+        gateway_type: "upi",      // qr_scan is only a UI mode; both persist as "upi"
+        paytm_mid: null,
+        paytm_merchant_key: null,
+        paytm_website: null,
+        paytm_test_mode: false,
+        soundbox_enabled: false,
+        voice_announcement_language: "en",
+        voice_announcement_template: "detailed",
         updated_at: new Date().toISOString(),
       };
 
       const { error: upsertError } = await supabase
         .from("payment_settings")
-        .upsert(upsertData as any, {
-          onConflict: "restaurant_id",
-          ignoreDuplicates: false,
-        });
+        .upsert(upsertData as any, { onConflict: "restaurant_id", ignoreDuplicates: false });
 
       if (upsertError) throw upsertError;
 
-      // Also update restaurant table for backward compatibility
+      // Backward compatibility update
       const { error: restaurantError } = await supabase
         .from("restaurants")
-        .update({
-          upi_id: formData.upiId.trim() || null,
-          payment_gateway_enabled: formData.isActive,
-        })
+        .update({ upi_id: trimmedUpi, payment_gateway_enabled: formData.isActive })
         .eq("id", restaurantId);
 
-      if (restaurantError) {
-        console.warn("Restaurant table update failed:", restaurantError);
-      }
+      if (restaurantError) console.warn("Restaurant table update failed:", restaurantError);
 
       await queryClient.invalidateQueries({ queryKey: ["payment-settings"] });
-
-      toast({
-        title: "✅ Settings Saved",
-        description: `${formData.gatewayType === "paytm" ? "Paytm" : "UPI"} payment settings saved successfully`,
-      });
+      toast({ title: "✅ Settings Saved", description: "UPI payment settings saved successfully" });
     } catch (error: any) {
       console.error("Error saving payment settings:", error);
       toast({
@@ -187,7 +368,7 @@ const PaymentSettingsTab = () => {
 
   return (
     <div className="space-y-6">
-      {/* Gateway Type Selector */}
+      {/* ── Gateway Card ── */}
       <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-2xl">
         <CardHeader className="pb-4 border-b border-gray-100 dark:border-gray-700">
           <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
@@ -197,57 +378,67 @@ const PaymentSettingsTab = () => {
             Payment Gateway
           </CardTitle>
           <CardDescription className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
-            Choose your payment gateway and configure credentials
+            Configure UPI payments — type your UPI ID or auto-extract it from your QR sticker
           </CardDescription>
         </CardHeader>
+
         <CardContent className="p-8 space-y-6">
-          {/* Gateway Type Toggle */}
+          {/* ── Mode selector ── */}
           <div className="grid grid-cols-2 gap-4">
             <button
               type="button"
-              onClick={() =>
-                setFormData((prev) => ({ ...prev, gatewayType: "upi" }))
-              }
-              className={`p-6 rounded-2xl border-2 transition-all duration-300 ${
+              onClick={() => setFormData((prev) => ({ ...prev, gatewayType: "upi" }))}
+              className={`p-6 rounded-2xl border-2 transition-all duration-300 text-left ${
                 formData.gatewayType === "upi"
                   ? "border-green-500 bg-green-50 dark:bg-green-900/30 shadow-lg shadow-green-200/50"
                   : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
               }`}
             >
               <Smartphone
-                className={`h-8 w-8 mx-auto mb-2 ${formData.gatewayType === "upi" ? "text-green-600" : "text-gray-400"}`}
+                className={`h-8 w-8 mx-auto mb-2 ${
+                  formData.gatewayType === "upi" ? "text-green-600" : "text-gray-400"
+                }`}
               />
-              <p
-                className={`font-bold text-lg ${formData.gatewayType === "upi" ? "text-green-700 dark:text-green-300" : "text-gray-600 dark:text-gray-400"}`}
-              >
-                Static UPI
+              <p className={`font-bold text-lg text-center ${
+                formData.gatewayType === "upi"
+                  ? "text-green-700 dark:text-green-300"
+                  : "text-gray-600 dark:text-gray-400"
+              }`}>
+                Type UPI ID
               </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Basic QR code with your UPI ID
-              </p>
+              <p className="text-xs text-gray-500 mt-1 text-center">Enter your UPI ID manually</p>
             </button>
+
             <button
               type="button"
-              onClick={() => {}}
-              disabled
-              className={`p-6 rounded-2xl border-2 transition-all duration-300 relative opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700`}
+              onClick={() => setFormData((prev) => ({ ...prev, gatewayType: "qr_scan" }))}
+              className={`p-6 rounded-2xl border-2 transition-all duration-300 text-left ${
+                formData.gatewayType === "qr_scan"
+                  ? "border-violet-500 bg-violet-50 dark:bg-violet-900/30 shadow-lg shadow-violet-200/50"
+                  : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
+              }`}
             >
-              <Badge className="absolute -top-2 -right-2 bg-gradient-to-r from-gray-400 to-gray-500 text-white text-xs">
-                Coming Soon
-              </Badge>
-              <Zap className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-              <p className="font-bold text-lg text-gray-400 dark:text-gray-500">
-                Paytm Gateway
+              <QrCode
+                className={`h-8 w-8 mx-auto mb-2 ${
+                  formData.gatewayType === "qr_scan" ? "text-violet-600" : "text-gray-400"
+                }`}
+              />
+              <p className={`font-bold text-lg text-center ${
+                formData.gatewayType === "qr_scan"
+                  ? "text-violet-700 dark:text-violet-300"
+                  : "text-gray-600 dark:text-gray-400"
+              }`}>
+                Scan QR Code
               </p>
-              <p className="text-xs text-gray-400 mt-1">
-                Merchant account setup in progress
+              <p className="text-xs text-gray-500 mt-1 text-center">
+                Upload or photo your UPI QR sticker
               </p>
             </button>
           </div>
 
           <Separator />
 
-          {/* UPI Settings */}
+          {/* ── Manual UPI mode ── */}
           {formData.gatewayType === "upi" && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-4">
@@ -264,16 +455,15 @@ const PaymentSettingsTab = () => {
                     type="text"
                     placeholder="your-business@upi"
                     value={formData.upiId}
+                    maxLength={300}
+                    autoComplete="off"
                     onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        upiId: e.target.value,
-                      }))
+                      setFormData((prev) => ({ ...prev, upiId: sanitizeUpiId(e.target.value) }))
                     }
                     className="mt-2"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    This will be used to generate QR codes for customer payments
+                    Used to generate QR codes for customer payments
                   </p>
                 </div>
 
@@ -282,400 +472,246 @@ const PaymentSettingsTab = () => {
                     htmlFor="upiName"
                     className="text-sm font-semibold text-gray-700 dark:text-gray-300"
                   >
-                    Business Name (Optional)
+                    Business Name <span className="font-normal text-gray-400">(Optional)</span>
                   </Label>
                   <Input
                     id="upiName"
                     type="text"
                     placeholder="Your Business Name"
                     value={formData.upiName}
+                    maxLength={100}
+                    autoComplete="off"
                     onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        upiName: e.target.value,
-                      }))
+                      setFormData((prev) => ({ ...prev, upiName: sanitizeBusinessName(e.target.value) }))
                     }
                     className="mt-2"
                   />
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-2xl border border-blue-100 dark:border-blue-800">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label
-                        htmlFor="isActive"
-                        className="text-sm font-semibold text-blue-600"
-                      >
-                        Enable UPI Payments
-                      </Label>
-                      <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">
-                        Allow customers to pay via UPI QR codes
-                      </p>
-                    </div>
-                    <Switch
-                      id="isActive"
-                      checked={formData.isActive}
-                      onCheckedChange={(checked) =>
-                        setFormData((prev) => ({ ...prev, isActive: checked }))
-                      }
-                    />
-                  </div>
-                </div>
-
-                {formData.isActive && formData.upiId && (
-                  <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-2xl border border-green-100 dark:border-green-800">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Check className="h-5 w-5 text-green-600" />
-                      <span className="text-sm font-semibold text-green-600">
-                        Ready for Payments
-                      </span>
-                    </div>
-                    <p className="text-xs text-green-500 dark:text-green-400">
-                      QR codes will be generated with UPI ID:{" "}
-                      <code className="bg-white dark:bg-gray-700 px-1 rounded">
-                        {formData.upiId}
-                      </code>
-                    </p>
-                  </div>
-                )}
-              </div>
+              <UpiToggleAndStatus
+                isActive={formData.isActive}
+                upiId={formData.upiId}
+                onToggle={(v) => setFormData((prev) => ({ ...prev, isActive: v }))}
+              />
             </div>
           )}
 
-          {/* Paytm Settings */}
-          {formData.gatewayType === "paytm" && (
+          {/* ── QR Scan mode ── */}
+          {formData.gatewayType === "qr_scan" && (
             <div className="space-y-6">
+              {/* Hidden inputs */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={handleFileChange}
+                aria-label="Upload QR code image"
+              />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleFileChange}
+                aria-label="Capture QR code with camera"
+              />
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left: drop zone */}
+                <div className="space-y-4">
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Drop QR code image here or click to upload"
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
+                    className={`relative min-h-[200px] rounded-2xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center gap-3 cursor-pointer select-none
+                      ${isDragging
+                        ? "border-violet-500 bg-violet-50 dark:bg-violet-900/20 scale-[1.01]"
+                        : scanState === "success"
+                        ? "border-green-400 bg-green-50 dark:bg-green-900/20"
+                        : scanState === "error"
+                        ? "border-red-400 bg-red-50 dark:bg-red-900/20"
+                        : scanState === "scanning"
+                        ? "border-violet-400 bg-violet-50 dark:bg-violet-900/20 animate-pulse"
+                        : "border-gray-300 dark:border-gray-600 hover:border-violet-400 hover:bg-violet-50/50 dark:hover:bg-violet-900/10"
+                      }`}
+                  >
+                    {qrPreviewUrl && (
+                      <>
+                        <img
+                          src={qrPreviewUrl}
+                          alt="Uploaded QR code preview"
+                          className="max-h-36 max-w-full rounded-xl object-contain shadow-md"
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); clearScan(); }}
+                          className="absolute top-2 right-2 p-1 bg-white dark:bg-gray-700 rounded-full shadow hover:bg-gray-100 dark:hover:bg-gray-600 transition"
+                          aria-label="Remove image"
+                        >
+                          <X className="h-4 w-4 text-gray-500" />
+                        </button>
+                      </>
+                    )}
+
+                    {scanState === "idle" && !qrPreviewUrl && (
+                      <>
+                        <div className="p-4 bg-violet-100 dark:bg-violet-900/40 rounded-full">
+                          <ScanLine className="h-8 w-8 text-violet-500" />
+                        </div>
+                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          Drop your UPI QR image here
+                        </p>
+                        <p className="text-xs text-gray-400">or click to browse</p>
+                        <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">
+                          JPEG · PNG · WebP · GIF · max 5 MB
+                        </p>
+                      </>
+                    )}
+
+                    {scanState === "scanning" && (
+                      <div className="flex flex-col items-center gap-2 mt-2">
+                        <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
+                        <p className="text-sm text-violet-600 font-medium">Scanning QR code…</p>
+                      </div>
+                    )}
+
+                    {scanState === "success" && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <Check className="h-5 w-5 text-green-600" />
+                        <p className="text-sm text-green-600 font-semibold">QR decoded!</p>
+                      </div>
+                    )}
+
+                    {scanState === "error" && (
+                      <div className="flex flex-col items-center gap-1 mt-2 px-4">
+                        <AlertCircle className="h-5 w-5 text-red-500" />
+                        <p className="text-sm text-red-600 font-medium text-center">{scanError}</p>
+                        <p className="text-xs text-gray-400 mt-1">Tap to try a different image</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1 gap-2 border-violet-300 text-violet-700 hover:bg-violet-50 dark:hover:bg-violet-900/20"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="h-4 w-4" />
+                      Upload Image
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1 gap-2 border-violet-300 text-violet-700 hover:bg-violet-50 dark:hover:bg-violet-900/20"
+                      onClick={() => cameraInputRef.current?.click()}
+                    >
+                      <Camera className="h-4 w-4" />
+                      Use Camera
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Right: extracted fields */}
                 <div className="space-y-4">
                   <div>
                     <Label
-                      htmlFor="paytmMid"
+                      htmlFor="upiIdQr"
                       className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2"
                     >
-                      <Shield className="h-4 w-4" />
-                      Merchant ID (MID) *
+                      <Smartphone className="h-4 w-4" />
+                      UPI ID{" "}
+                      {scanState === "success" && (
+                        <span className="text-green-600 text-xs font-normal">(auto-filled)</span>
+                      )}{" "}
+                      *
                     </Label>
                     <Input
-                      id="paytmMid"
+                      id="upiIdQr"
                       type="text"
-                      placeholder="Enter your Paytm Merchant ID"
-                      value={formData.paytmMid}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          paytmMid: e.target.value,
-                        }))
-                      }
-                      className="mt-2"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Found in your Paytm for Business dashboard
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label
-                      htmlFor="paytmKey"
-                      className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2"
-                    >
-                      <Shield className="h-4 w-4" />
-                      Merchant Key *
-                    </Label>
-                    <div className="relative mt-2">
-                      <Input
-                        id="paytmKey"
-                        type={showMerchantKey ? "text" : "password"}
-                        placeholder="Enter your Paytm Merchant Key"
-                        value={formData.paytmMerchantKey}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            paytmMerchantKey: e.target.value,
-                          }))
-                        }
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowMerchantKey(!showMerchantKey)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showMerchantKey ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Keep this secret — used for checksum verification
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label
-                      htmlFor="paytmWebsite"
-                      className="text-sm font-semibold text-gray-700 dark:text-gray-300"
-                    >
-                      Website Name
-                    </Label>
-                    <Input
-                      id="paytmWebsite"
-                      type="text"
-                      placeholder="DEFAULT"
-                      value={formData.paytmWebsite}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          paytmWebsite: e.target.value,
-                        }))
-                      }
-                      className="mt-2"
-                    />
-                  </div>
-
-                  {/* UPI ID for fallback */}
-                  <div>
-                    <Label
-                      htmlFor="upiIdFallback"
-                      className="text-sm font-semibold text-gray-700 dark:text-gray-300"
-                    >
-                      UPI ID (Fallback)
-                    </Label>
-                    <Input
-                      id="upiIdFallback"
-                      type="text"
-                      placeholder="your-business@upi (optional)"
+                      placeholder="Will be filled after scan…"
                       value={formData.upiId}
+                      maxLength={300}
+                      autoComplete="off"
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, upiId: sanitizeUpiId(e.target.value) }))
+                      }
+                      className={`mt-2 transition-all ${
+                        scanState === "success"
+                          ? "border-green-400 bg-green-50 dark:bg-green-900/20"
+                          : ""
+                      }`}
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      You can also type or correct the UPI ID manually
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label
+                      htmlFor="upiNameQr"
+                      className="text-sm font-semibold text-gray-700 dark:text-gray-300"
+                    >
+                      Business Name{" "}
+                      {scanState === "success" && formData.upiName && (
+                        <span className="text-green-600 text-xs font-normal">(auto-filled)</span>
+                      )}
+                      <span className="text-gray-400 font-normal"> (Optional)</span>
+                    </Label>
+                    <Input
+                      id="upiNameQr"
+                      type="text"
+                      placeholder="Your Business Name"
+                      value={formData.upiName}
+                      maxLength={100}
+                      autoComplete="off"
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          upiId: e.target.value,
+                          upiName: sanitizeBusinessName(e.target.value),
                         }))
                       }
-                      className="mt-2"
+                      className={`mt-2 transition-all ${
+                        scanState === "success" && formData.upiName
+                          ? "border-green-400 bg-green-50 dark:bg-green-900/20"
+                          : ""
+                      }`}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Used as fallback if Paytm API is unavailable
-                    </p>
                   </div>
+
+                  <UpiToggleAndStatus
+                    isActive={formData.isActive}
+                    upiId={formData.upiId}
+                    onToggle={(v) => setFormData((prev) => ({ ...prev, isActive: v }))}
+                  />
                 </div>
+              </div>
 
-                <div className="space-y-4">
-                  {/* Test Mode Toggle */}
-                  <div className="p-6 bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/30 rounded-2xl border border-amber-200 dark:border-amber-800">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label
-                          htmlFor="testMode"
-                          className="text-sm font-semibold text-amber-700 dark:text-amber-300"
-                        >
-                          🧪 Test Mode
-                        </Label>
-                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                          Uses Paytm staging environment — no real transactions
-                        </p>
-                      </div>
-                      <Switch
-                        id="testMode"
-                        checked={formData.paytmTestMode}
-                        onCheckedChange={(checked) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            paytmTestMode: checked,
-                          }))
-                        }
-                      />
-                    </div>
-                    {!formData.paytmTestMode && (
-                      <div className="mt-3 p-2 bg-red-50 dark:bg-red-900/30 rounded-lg border border-red-200 dark:border-red-700">
-                        <p className="text-xs text-red-600 dark:text-red-400 font-medium">
-                          ⚠️ Production mode — real money will be charged
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Soundbox Toggle */}
-                  <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-2xl border border-purple-200 dark:border-purple-800">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label
-                          htmlFor="soundbox"
-                          className="text-sm font-semibold text-purple-700 dark:text-purple-300"
-                        >
-                          🔊 POS Voice Announcement
-                        </Label>
-                        <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
-                          Speak payment amount aloud when payment is detected
-                        </p>
-                      </div>
-                      <Switch
-                        id="soundbox"
-                        checked={formData.soundboxEnabled}
-                        onCheckedChange={(checked) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            soundboxEnabled: checked,
-                          }))
-                        }
-                      />
-                    </div>
-
-                    {formData.soundboxEnabled && (
-                      <div className="mt-4 space-y-3">
-                        <div>
-                          <Label className="text-xs text-purple-600">
-                            Language
-                          </Label>
-                          <div className="flex gap-2 mt-1">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  voiceAnnouncementLanguage: "en",
-                                }))
-                              }
-                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                formData.voiceAnnouncementLanguage === "en"
-                                  ? "bg-purple-500 text-white"
-                                  : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600"
-                              }`}
-                            >
-                              English
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  voiceAnnouncementLanguage: "hi",
-                                }))
-                              }
-                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                formData.voiceAnnouncementLanguage === "hi"
-                                  ? "bg-purple-500 text-white"
-                                  : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600"
-                              }`}
-                            >
-                              हिन्दी
-                            </button>
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-xs text-purple-600">
-                            Template
-                          </Label>
-                          <div className="flex gap-2 mt-1">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  voiceAnnouncementTemplate: "simple",
-                                }))
-                              }
-                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                formData.voiceAnnouncementTemplate === "simple"
-                                  ? "bg-purple-500 text-white"
-                                  : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600"
-                              }`}
-                            >
-                              Simple
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  voiceAnnouncementTemplate: "detailed",
-                                }))
-                              }
-                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                formData.voiceAnnouncementTemplate ===
-                                "detailed"
-                                  ? "bg-purple-500 text-white"
-                                  : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600"
-                              }`}
-                            >
-                              Detailed (with table)
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Active Toggle */}
-                  <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-2xl border border-blue-100 dark:border-blue-800">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label
-                          htmlFor="isActivePaytm"
-                          className="text-sm font-semibold text-blue-600"
-                        >
-                          Enable Payments
-                        </Label>
-                        <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">
-                          Allow customers to pay via Paytm
-                        </p>
-                      </div>
-                      <Switch
-                        id="isActivePaytm"
-                        checked={formData.isActive}
-                        onCheckedChange={(checked) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            isActive: checked,
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  {/* Ready Badge */}
-                  {formData.isActive &&
-                    formData.paytmMid &&
-                    formData.paytmMerchantKey && (
-                      <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-2xl border border-green-100 dark:border-green-800">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Check className="h-5 w-5 text-green-600" />
-                          <span className="text-sm font-semibold text-green-600">
-                            Paytm Gateway Ready
-                          </span>
-                        </div>
-                        <p className="text-xs text-green-500 dark:text-green-400">
-                          MID:{" "}
-                          <code className="bg-white dark:bg-gray-700 px-1 rounded">
-                            {formData.paytmMid}
-                          </code>
-                          {formData.paytmTestMode && (
-                            <Badge
-                              variant="outline"
-                              className="ml-2 text-amber-600 border-amber-300 text-[10px]"
-                            >
-                              TEST
-                            </Badge>
-                          )}
-                        </p>
-                      </div>
-                    )}
-                </div>
+              {/* Privacy note */}
+              <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800">
+                <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  <strong>100% private:</strong> QR decoding happens entirely in your browser.
+                  No image is sent to any server.
+                </p>
               </div>
             </div>
           )}
 
+          {/* Save */}
           <div className="flex justify-end pt-4">
             <Button
               onClick={handleSave}
-              disabled={
-                loading ||
-                (formData.gatewayType === "upi"
-                  ? !formData.upiId
-                  : !formData.paytmMid || !formData.paytmMerchantKey)
-              }
+              disabled={loading || !formData.upiId || !UPI_ID_REGEX.test(formData.upiId)}
               className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
             >
               {loading ? (
@@ -689,83 +725,39 @@ const PaymentSettingsTab = () => {
         </CardContent>
       </Card>
 
-      {/* How It Works Section */}
+      {/* ── How It Works ── */}
       <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-2xl">
         <CardHeader>
           <CardTitle className="text-xl font-bold text-gray-900 dark:text-white">
-            {formData.gatewayType === "paytm"
-              ? "How Paytm Integration Works"
-              : "How UPI QR Payments Work"}
+            How UPI QR Payments Work
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {formData.gatewayType === "paytm" ? (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-xl">
-                <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <span className="text-white font-bold">1</span>
-                </div>
-                <p className="text-sm font-medium dark:text-gray-300">
-                  Dynamic QR generated per order
-                </p>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-xl">
+              <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-white font-bold">1</span>
               </div>
-              <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-xl">
-                <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <span className="text-white font-bold">2</span>
-                </div>
-                <p className="text-sm font-medium dark:text-gray-300">
-                  Customer scans with any UPI app
-                </p>
-              </div>
-              <div className="text-center p-4 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/30 dark:to-green-900/30 rounded-xl">
-                <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <span className="text-white font-bold">3</span>
-                </div>
-                <p className="text-sm font-medium dark:text-gray-300">
-                  Payment auto-detected via webhook
-                </p>
-              </div>
-              <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/30 rounded-xl">
-                <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <span className="text-white font-bold">4</span>
-                </div>
-                <p className="text-sm font-medium dark:text-gray-300">
-                  Voice & popup notification on POS
-                </p>
-              </div>
+              <p className="text-sm font-medium dark:text-gray-300">Customer scans QR code</p>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-xl">
-                <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <span className="text-white font-bold">1</span>
-                </div>
-                <p className="text-sm font-medium dark:text-gray-300">
-                  Customer scans QR code
-                </p>
+            <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-xl">
+              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-white font-bold">2</span>
               </div>
-              <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-xl">
-                <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <span className="text-white font-bold">2</span>
-                </div>
-                <p className="text-sm font-medium dark:text-gray-300">
-                  UPI app opens with pre-filled amount
-                </p>
-              </div>
-              <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-xl">
-                <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <span className="text-white font-bold">3</span>
-                </div>
-                <p className="text-sm font-medium dark:text-gray-300">
-                  Payment completed instantly
-                </p>
-              </div>
+              <p className="text-sm font-medium dark:text-gray-300">UPI app opens with pre-filled amount</p>
             </div>
-          )}
+            <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-xl">
+              <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-white font-bold">3</span>
+              </div>
+              <p className="text-sm font-medium dark:text-gray-300">Payment completed instantly</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
   );
 };
 
+export { UPI_ID_REGEX };
 export default PaymentSettingsTab;
