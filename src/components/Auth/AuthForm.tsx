@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { safeNextPath } from "@/utils/safeNextPath";
 import { toast } from "@/components/ui/use-toast";
 import { Capacitor } from '@capacitor/core';
 import {
@@ -29,6 +30,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode, onSuccess })
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Preserve an in-app redirect target (e.g. the OAuth consent screen) across sign-in.
+  const nextPath = safeNextPath(searchParams.get("next"));
+  const postAuthPath = nextPath || "/dashboard";
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
@@ -38,7 +43,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode, onSuccess })
         options: {
           redirectTo: Capacitor.isNativePlatform() 
             ? 'com.swadeshisolutions.app://login-callback' 
-            : `${window.location.origin}/dashboard`,
+            : `${window.location.origin}${postAuthPath}`,
         },
       });
       if (error) throw error;
@@ -81,7 +86,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode, onSuccess })
             if (onSuccess) {
               onSuccess();
             } else {
-              navigate("/dashboard");
+              navigate(postAuthPath);
             }
           }, 100);
         }
@@ -90,7 +95,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode, onSuccess })
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`,
+            emailRedirectTo: `${window.location.origin}${postAuthPath}`,
           },
         });
 
