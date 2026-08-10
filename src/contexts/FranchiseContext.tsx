@@ -637,7 +637,7 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
       return true;
     } else {
       const { error } = await supabase.from("restaurants").insert({
-        organization_id: org.id,
+        organization_id: dbData?.org?.id,
         name: b.name,
         branch_code: b.code,
         address: b.address,
