@@ -217,13 +217,24 @@ const KitchenTV = () => {
         });
         setPinInput("");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Authentication failed. Please verify connection."
-      });
+      
+      // Handle the rate limiting lockout
+      if (err.message === "LOCKED_OUT" || err.details?.includes("LOCKED_OUT") || err.hint?.includes("LOCKED_OUT")) {
+        toast({
+          variant: "destructive",
+          title: "Terminal Locked",
+          description: "Too many failed attempts. Please try again in 5 minutes."
+        });
+        setPinInput("");
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Authentication failed. Please verify connection."
+        });
+      }
     } finally {
       setIsAuthLoading(false);
     }
