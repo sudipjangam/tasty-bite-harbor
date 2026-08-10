@@ -268,13 +268,13 @@ const OccupancyChart: React.FC<OccupancyChartProps> = ({ className }) => {
             <CardTitle className="text-lg">Occupancy Forecast</CardTitle>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={navigatePrevious}>
+            <Button variant="ghost" size="icon" onClick={navigatePrevious} aria-label="Previous">
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <Button variant="outline" size="sm" onClick={navigateToday}>
               Today
             </Button>
-            <Button variant="ghost" size="icon" onClick={navigateNext}>
+            <Button variant="ghost" size="icon" onClick={navigateNext} aria-label="Next">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

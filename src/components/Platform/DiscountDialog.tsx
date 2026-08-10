@@ -364,7 +364,7 @@ export function DiscountDialog({ isOpen, onClose, restaurantId, restaurantName, 
               <span className="text-sm font-mono truncate text-slate-700 dark:text-slate-300">
               {offerUrl}
               </span>
-              <Button size="icon" variant="ghost" onClick={handleCopyLink} className="shrink-0">
+              <Button size="icon" variant="ghost" onClick={handleCopyLink} className="shrink-0" aria-label="Copy Link">
                 {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>

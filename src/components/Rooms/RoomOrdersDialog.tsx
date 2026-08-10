@@ -356,7 +356,7 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
                 <p className="text-white/80 text-sm">Guest: <span className="font-semibold">{customerName}</span></p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20">
+            <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20" aria-label="Close">
               <X className="h-6 w-6" />
             </Button>
           </div>
