@@ -105,7 +105,7 @@ export const EnhancedChart: React.FC<EnhancedChartProps> = ({
           </div>
           <div className="flex items-center space-x-2">
             {actions}
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="More options">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </div>
@@ -153,12 +153,12 @@ export const ChartActions: React.FC<{ onExport?: () => void; onExpand?: () => vo
 }) => (
   <div className="flex items-center space-x-1">
     {onExport && (
-      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onExport}>
+      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onExport} aria-label="Export chart">
         <Download className="h-4 w-4" />
       </Button>
     )}
     {onExpand && (
-      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onExpand}>
+      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onExpand} aria-label="Expand chart">
         <Maximize2 className="h-4 w-4" />
       </Button>
     )}

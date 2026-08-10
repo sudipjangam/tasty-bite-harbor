@@ -97,10 +97,10 @@ export const ReplayTimeline: React.FC<ReplayTimelineUIProps> = ({
       <div className="flex items-center gap-4">
         {/* Playback Controls */}
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => controller.rewindToStart()} disabled={isLoading || !timeline}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => controller.rewindToStart()} disabled={isLoading || !timeline} aria-label="Rewind to start">
             <SkipBack className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => controller.stepBack()} disabled={isLoading || !timeline || currentIndex === 0}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => controller.stepBack()} disabled={isLoading || !timeline || currentIndex === 0} aria-label="Step back">
             <Rewind className="w-4 h-4" />
           </Button>
           
@@ -110,14 +110,15 @@ export const ReplayTimeline: React.FC<ReplayTimelineUIProps> = ({
             className="h-10 w-10 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white" 
             onClick={() => playState === 'playing' ? controller.pause() : controller.play()}
             disabled={isLoading || !timeline}
+            aria-label={playState === 'playing' ? 'Pause' : 'Play'}
           >
             {playState === 'playing' ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
           </Button>
 
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => controller.stepForward()} disabled={isLoading || !timeline || currentIndex === maxIndex}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => controller.stepForward()} disabled={isLoading || !timeline || currentIndex === maxIndex} aria-label="Step forward">
             <FastForward className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => controller.seek(maxIndex)} disabled={isLoading || !timeline}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => controller.seek(maxIndex)} disabled={isLoading || !timeline} aria-label="Seek to end">
             <SkipForward className="w-4 h-4" />
           </Button>
         </div>

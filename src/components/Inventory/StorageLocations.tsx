@@ -285,7 +285,7 @@ const StorageLocations = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenDialog(location)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenDialog(location)} aria-label="Edit location">
                         <Edit className="h-3.5 w-3.5" />
                       </Button>
                       <Button
@@ -293,6 +293,7 @@ const StorageLocations = () => {
                         size="icon"
                         className="h-7 w-7 hover:bg-red-100 dark:hover:bg-red-900/30"
                         onClick={() => deleteMutation.mutate(location.id)}
+                        aria-label="Delete location"
                       >
                         <Trash2 className="h-3.5 w-3.5 text-red-600" />
                       </Button>
