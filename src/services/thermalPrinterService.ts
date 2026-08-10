@@ -142,11 +142,11 @@ class ThermalPrinterService {
 
   async connect(): Promise<boolean> {
     try {
-      if (!navigator.bluetooth) {
+      if (!(navigator as BluetoothNavigator).bluetooth) {
         throw new Error("Web Bluetooth API is not available in this browser.");
       }
 
-      const device = await navigator.bluetooth.requestDevice({
+      const device = await (navigator as BluetoothNavigator).bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: this.PRINTER_SERVICE_UUIDS
       });
@@ -173,7 +173,7 @@ class ThermalPrinterService {
 
   /**
    * Auto-reconnect to previously paired printer after page reload.
-   * Uses navigator.bluetooth.getDevices() — no user gesture needed.
+   * Uses (navigator as BluetoothNavigator).bluetooth.getDevices() — no user gesture needed.
    * Returns true if reconnected, false if no saved device or reconnect failed.
    */
   async tryAutoReconnect(): Promise<boolean> {
@@ -186,15 +186,15 @@ class ThermalPrinterService {
       if (!savedDeviceId) return false;
 
       // getDevices() returns previously-granted devices without user gesture
-      if (!navigator.bluetooth?.getDevices) {
-        console.warn("navigator.bluetooth.getDevices() not supported. Auto-reconnect unavailable.");
+      if (!(navigator as BluetoothNavigator).bluetooth?.getDevices) {
+        console.warn("(navigator as BluetoothNavigator).bluetooth.getDevices() not supported. Auto-reconnect unavailable.");
         return false;
       }
 
       // Add a 1000ms delay to let the browser clean up previous connection
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const devices = await navigator.bluetooth.getDevices();
+      const devices = await (navigator as BluetoothNavigator).bluetooth.getDevices();
       const device = devices.find(d => d.id === savedDeviceId);
 
       if (!device) {
