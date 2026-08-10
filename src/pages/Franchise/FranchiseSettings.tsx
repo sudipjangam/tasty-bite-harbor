@@ -125,7 +125,7 @@ const FranchiseSettings: React.FC = () => {
   const [saving, setSaving] = useState(false);
 
   // Logo state
-  const [logoUrl, setLogoUrl] = useState<string | null>(org.logo || null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(org.logoUrl || null);
   const [logoUploading, setLogoUploading] = useState(false);
 
   // Audit logs state
@@ -153,8 +153,8 @@ const FranchiseSettings: React.FC = () => {
   useEffect(() => {
     setOrgName(org.name);
     setMenuMode(org.menuMode);
-    setLogoUrl(org.logo || null);
-  }, [org.name, org.menuMode, org.logo]);
+    setLogoUrl(org.logoUrl || null);
+  }, [org.name, org.menuMode, org.logoUrl]);
 
   // Initialise digest recipients to first 2 team members
   useEffect(() => {
