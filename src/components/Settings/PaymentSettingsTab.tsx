@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -82,18 +82,36 @@ function parseUpiQrData(rawData: string): ParsedUPI | null {
   }
 }
 
-// ─── Image → QR decode ────────────────────────────────────────────────
 /**
- * Decode QR from a File using canvas pixel data only.
- * No innerHTML, no eval, no blob URL exposed to DOM long-term.
+ * Decode QR from a File.
+ * 1. Tries native BarcodeDetector (highly accurate for blurry/tilted photos via native ML)
+ * 2. Falls back to jsQR (canvas pixel data) with inversion attempts for glare.
  */
 async function decodeQrFromFile(file: File): Promise<string | null> {
   return new Promise((resolve) => {
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
 
-    img.onload = () => {
+    img.onload = async () => {
       URL.revokeObjectURL(objectUrl);
+
+      // Attempt 1: Native BarcodeDetector (Android Chrome / macOS Safari)
+      // Exceptionally good at real-world photos with glare/tilt
+      if ("BarcodeDetector" in window) {
+        try {
+          // @ts-ignore - BarcodeDetector is not fully typed in TS standard DOM yet
+          const detector = new BarcodeDetector({ formats: ["qr_code"] });
+          const barcodes = await detector.detect(img);
+          if (barcodes.length > 0) {
+            resolve(barcodes[0].rawValue);
+            return;
+          }
+        } catch (e) {
+          console.warn("BarcodeDetector failed, falling back to jsQR", e);
+        }
+      }
+
+      // Attempt 2: jsQR Fallback
       const scale = Math.min(
         1,
         MAX_CANVAS_DIM / Math.max(img.naturalWidth, img.naturalHeight)
@@ -103,15 +121,26 @@ async function decodeQrFromFile(file: File): Promise<string | null> {
       const canvas = document.createElement("canvas");
       canvas.width = w;
       canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) { resolve(null); return; }
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) {
+        resolve(null);
+        return;
+      }
       ctx.drawImage(img, 0, 0, w, h);
       const imageData = ctx.getImageData(0, 0, w, h);
-      const result = jsQR(imageData.data, imageData.width, imageData.height);
+      
+      // Use inversionAttempts to help with glare/shadows
+      const result = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "attemptBoth",
+      });
+      
       resolve(result?.data ?? null);
     };
 
-    img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(null); };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(null);
+    };
     img.src = objectUrl;
   });
 }
