@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -391,7 +392,7 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
     });
   };
 
-  return (
+  return createPortal(
     <>
       {/* New Category Dialog */}
       <Dialog open={showNewCategoryDialog} onOpenChange={setShowNewCategoryDialog}>
@@ -971,7 +972,8 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
         </div>
       </div>
     </div>
-    </>
+    </>,
+    document.body
   );
 };
 
