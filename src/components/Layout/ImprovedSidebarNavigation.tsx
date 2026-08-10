@@ -92,6 +92,7 @@ interface NavigationItem {
   description?: string;
   requiredPermissions?: Permission[];
   requiredRole?: string; // Explicit role restriction (e.g., 'admin')
+  color?: string;
 }
 
 interface NavigationGroup {

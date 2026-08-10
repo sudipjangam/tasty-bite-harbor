@@ -95,13 +95,11 @@ export const useWhatsAppTemplates = () => {
     queryFn: async () => {
       if (!isAdmin && !restaurantId) return [];
 
-      let query = supabase.from("whatsapp_templates" as any);
+      const base = supabase.from("whatsapp_templates" as any);
 
-      if (isAdmin) {
-        query = query.select("*, restaurants(name)");
-      } else {
-        query = query.select("*").eq("restaurant_id", restaurantId);
-      }
+      const query: any = isAdmin
+        ? base.select("*, restaurants(name)")
+        : base.select("*").eq("restaurant_id", restaurantId);
 
       const { data, error } = await query
         .order("is_default", { ascending: false })

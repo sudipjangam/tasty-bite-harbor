@@ -29,7 +29,8 @@ const TV_AUTH_KEY = "kds_tv_auth";
 interface TVAuthSession {
   restaurantId: string;
   restaurantName: string;
-  // NOTE: PIN is intentionally NOT stored here — never persist credentials to localStorage
+  // NOTE: PIN is kept in memory only — it is stripped before persisting to localStorage
+  pin?: string;
   isEmailLogin: boolean;
 }
 
@@ -202,7 +203,7 @@ const KitchenTV = () => {
           pin: pinInput,
           isEmailLogin: false
         };
-        localStorage.setItem(TV_AUTH_KEY, JSON.stringify(newSession));
+        localStorage.setItem(TV_AUTH_KEY, JSON.stringify({ ...newSession, pin: undefined }));
         setSession(newSession);
         toast({
           title: "Access Granted",
@@ -271,7 +272,7 @@ const KitchenTV = () => {
               restaurantName,
               isEmailLogin: true
             };
-            localStorage.setItem(TV_AUTH_KEY, JSON.stringify(newSession));
+            localStorage.setItem(TV_AUTH_KEY, JSON.stringify({ ...newSession, pin: undefined }));
             setSession(newSession);
             toast({
               title: "Success",
@@ -547,7 +548,7 @@ const KitchenTV = () => {
                           restaurantName: setupPinRestaurantName,
                           isEmailLogin: true
                         };
-                        localStorage.setItem(TV_AUTH_KEY, JSON.stringify(newSession));
+                        localStorage.setItem(TV_AUTH_KEY, JSON.stringify({ ...newSession, pin: undefined }));
                         setSession(newSession);
                         setShowSetupPinPrompt(false);
                         toast({
@@ -673,7 +674,7 @@ const KitchenTV = () => {
                                     pin: newPin,
                                     isEmailLogin: true
                                   };
-                                  localStorage.setItem(TV_AUTH_KEY, JSON.stringify(newSession));
+                                  localStorage.setItem(TV_AUTH_KEY, JSON.stringify({ ...newSession, pin: undefined }));
                                   setSession(newSession);
                                   setShowSetupPinPrompt(false);
                                   toast({
@@ -723,7 +724,7 @@ const KitchenTV = () => {
                           restaurantName: setupPinRestaurantName,
                           isEmailLogin: true
                         };
-                        localStorage.setItem(TV_AUTH_KEY, JSON.stringify(newSession));
+                        localStorage.setItem(TV_AUTH_KEY, JSON.stringify({ ...newSession, pin: undefined }));
                         setSession(newSession);
                         setShowSetupPinPrompt(false);
                       }
