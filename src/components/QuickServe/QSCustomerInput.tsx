@@ -145,8 +145,8 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
           .select("id, name, phone, loyalty_points, loyalty_tier_id, visit_count, total_spent, loyalty_tiers(name, color)")
           .eq("restaurant_id", restaurantId)
           .eq("phone", customerPhone)
-          .maybeSingle()
-          .abortSignal(controller.signal);
+          .abortSignal(controller.signal)
+          .maybeSingle();
 
         // If aborted, bail
         if (controller.signal.aborted) return;
@@ -171,8 +171,8 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
             .eq("customer_phone", customerPhone)
             .order("created_at", { ascending: false })
             .limit(1)
-            .maybeSingle()
-            .abortSignal(controller.signal);
+            .abortSignal(controller.signal)
+            .maybeSingle();
 
           if (!orderError && orderData) {
             lastOrderData = {

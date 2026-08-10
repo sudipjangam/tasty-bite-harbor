@@ -1,5 +1,6 @@
 import React, { Suspense, lazy } from "react";
-import { Routes as RouterRoutes, Route, Navigate } from "react-router-dom";
+import { Routes as RouterRoutes, Route, Navigate, useSearchParams } from "react-router-dom";
+import { safeNextPath } from "@/utils/safeNextPath";
 import { useAuth } from "@/hooks/useAuth";
 import { AppRoutes } from "./AppRoutes";
 import { isNativeApp } from "@/utils/platform";
@@ -19,6 +20,7 @@ import CustomerOrder from "@/pages/CustomerOrder";
 import PublicBillPage from "@/pages/PublicBillPage";
 import PublicTruckPage from "@/pages/PublicTruckPage";
 import BlogZomatoSwiggyIntegration from "@/pages/BlogZomatoSwiggyIntegration";
+import OAuthConsent from "@/pages/OAuthConsent";
 import { PageLoader } from "@/components/ui/page-loader";
 
 // Public invoice viewer (accessible without login)
@@ -35,6 +37,12 @@ const SubscriptionPage = lazy(
 const SpecialOfferPage = lazy(
   () => import("@/pages/SpecialOfferPage"),
 );
+
+/** Sends an already-signed-in user to ?next= (same-origin relative paths only). */
+const PostAuthRedirect = () => {
+  const [searchParams] = useSearchParams();
+  return <Navigate to={safeNextPath(searchParams.get("next")) || "/"} replace />;
+};
 
 const Routes = () => {
   const { user, loading } = useAuth();
@@ -65,6 +73,7 @@ const Routes = () => {
         <Route path="/bill/:encodedData" element={<PublicBillPage />} />
         <Route path="/truck/:slug" element={<PublicTruckPage />} />
         <Route path="/blog/zomato-swiggy-integration" element={<BlogZomatoSwiggyIntegration />} />
+        <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
         <Route path="/reset-password" element={<Auth />} />
         <Route path="/invoice/*" element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
         <Route path="/order-status/*" element={<Suspense fallback={<PageLoader />}><OrderStatusPage /></Suspense>} />
@@ -77,8 +86,8 @@ const Routes = () => {
 
   return (
     <RouterRoutes>
-      <Route path="/auth" element={<Navigate to="/" replace />} />
-      <Route path="/login" element={<Navigate to="/" replace />} />
+      <Route path="/auth" element={<PostAuthRedirect />} />
+      <Route path="/login" element={<PostAuthRedirect />} />
       <Route path="/website" element={<LandingWebsite />} />
       <Route path="/enroll/:slug" element={<PublicEnrollmentPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -91,6 +100,7 @@ const Routes = () => {
       <Route path="/bill/:encodedData" element={<PublicBillPage />} />
       <Route path="/truck/:slug" element={<PublicTruckPage />} />
       <Route path="/blog/zomato-swiggy-integration" element={<BlogZomatoSwiggyIntegration />} />
+      <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
       <Route path="/invoice/*" element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
       <Route path="/order-status/*" element={<Suspense fallback={<PageLoader />}><OrderStatusPage /></Suspense>} />
       <Route path="/kitchen-tv" element={<Suspense fallback={<PageLoader />}><KitchenTV /></Suspense>} />
