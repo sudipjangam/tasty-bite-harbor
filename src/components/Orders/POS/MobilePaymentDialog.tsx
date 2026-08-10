@@ -748,7 +748,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
             discount_amount: totalDiscount,
             promotion_id: appliedPromo?.id || null,
             ...(splitData && { split_payments: splitData }),
-          }).then(() => {}).catch(console.error);
+          }).then(() => {}, console.error);
         }
 
         // Log promo usage
@@ -788,14 +788,13 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
           points: -pointsToRedeem,
           order_id: orderId || null,
           notes: `Redeemed at checkout — ${currencySymbol}${loyaltyDiscount.toFixed(2)} off`,
-        }).catch(console.error);
+        });
 
         // Update customer's loyalty_points balance in DB
         await supabase
           .from("customers")
           .update({ loyalty_points: (customerRecord.loyalty_points || 0) - pointsToRedeem })
-          .eq("id", customerRecord.id)
-          .catch(console.error);
+          .eq("id", customerRecord.id);
       }
 
       invalidateQueries();
