@@ -1595,6 +1595,7 @@ const PaymentDialog = ({
           discount: totalDiscountAmount,
           netAmount: total,
           currencySymbol: currencySymbol,
+          upiId: (paymentSettings as any)?.upi_id || undefined,
         });
 
         // Auto-share bill via WhatsApp if checkbox is checked

@@ -69,6 +69,8 @@ export interface ReceiptData {
   discount: number;
   netAmount: number;
   currencySymbol: string;
+  /** UPI ID to embed as ESC/POS QR code at the bottom of the receipt */
+  upiId?: string;
 }
 
 const STORAGE_KEY = "thermal_printer_device_id";
@@ -557,6 +559,37 @@ class ThermalPrinterService {
     receipt += this.TEXT_NORMAL;
     receipt += this.BOLD_OFF;
     receipt += SEP;
+
+    // QR Code for UPI payment
+    if (data.upiId) {
+      const upiUrl = `upi://pay?pa=${data.upiId}&pn=${encodeURIComponent(data.restaurantName)}&cu=INR`;
+      receipt += this.ALIGN_CENTER;
+      receipt += "Scan QR to pay\n";
+      // ESC/POS QR Code: GS ( k — store data, then print
+      const upiBytes = this.encodeText(upiUrl);
+      const dataLen = upiBytes.length + 3;
+      const lenL = dataLen & 0xff;
+      const lenH = (dataLen >> 8) & 0xff;
+      // Store QR data
+      const storeCmd = new Uint8Array([0x1d, 0x28, 0x6b, lenL, lenH, 0x31, 0x50, 0x30, ...upiBytes]);
+      // Set module size (3)
+      const sizeCmd = new Uint8Array([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x03]);
+      // Set error correction level L
+      const ecCmd = new Uint8Array([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x30]);
+      // Print QR
+      const printCmd = new Uint8Array([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30]);
+
+      // Write text so far, then binary QR commands, then continue
+      await this.writeBytes(this.encodeText(receipt));
+      receipt = ""; // reset receipt buffer — already sent above
+      await this.writeBytes(sizeCmd);
+      await this.writeBytes(ecCmd);
+      await this.writeBytes(storeCmd);
+      await this.writeBytes(printCmd);
+
+      receipt += "\n";
+      receipt += SEP;
+    }
 
     // Footer
     receipt += this.ALIGN_CENTER;

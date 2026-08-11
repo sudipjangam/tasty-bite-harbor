@@ -27,6 +27,7 @@ interface PrintBillButtonProps {
   paymentMethod: string;
   billId: string;
   className?: string;
+  upiQrCodeUrl?: string;
 }
 
 const PrintBillButton: React.FC<PrintBillButtonProps> = (props) => {
