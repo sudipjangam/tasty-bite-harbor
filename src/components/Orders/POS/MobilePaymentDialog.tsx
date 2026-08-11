@@ -16,7 +16,7 @@
  *  - Native Android share sheet via Web Share API (gap #5 fixed)
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { useCRMSync } from "@/hooks/useCRMSync";
 import { useBillSharing } from "@/hooks/useBillSharing";
@@ -552,13 +552,19 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   }, [promoCode, subtotal, restaurantInfo, toast]);
 
   // ── Print bill ────────────────────────────────────────────────────────────
+  const isPrintingRef = useRef(false);
+  
   const handlePrint = useCallback(async () => {
+    if (isPrintingRef.current) return;
+    
     const connected = nativePrinterBridge.getStatus().connected || thermalPrinterService.isConnected();
     if (!connected) {
       setPendingPrintAfterConnect(true);
       setShowPrinterModal(true);
       return;
     }
+    
+    isPrintingRef.current = true;
     setIsPrinting(true);
     try {
       // Resolve restaurant name: live query > localStorage cache > fallback
@@ -598,6 +604,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     } catch (err: any) {
       toast({ title: "Print failed", description: err?.message, variant: "destructive" });
     } finally {
+      isPrintingRef.current = false;
       setIsPrinting(false);
     }
   }, [restaurantInfo, paymentSettings, tableNumber, customerName, customerMobile, orderItems, subtotal, totalDiscount, finalTotal, currencySymbol, toast]);

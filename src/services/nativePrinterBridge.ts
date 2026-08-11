@@ -12,6 +12,7 @@
  */
 
 import { Capacitor, registerPlugin } from "@capacitor/core";
+import { App } from "@capacitor/app";
 
 // ─── TcpPrinterPlugin — inline Java bridge (no npm package needed) ────────────
 // Registered in MainActivity.java via registerPlugin(TcpPrinterPlugin.class)
@@ -65,9 +66,72 @@ let _connected = localStorage.getItem(KEYS.CONNECTED) === "1";
 
 const _listeners: Array<(status: NativePrinterStatus) => void> = [];
 
+// ─── Print Queue ──────────────────────────────────────────────────────────────
+let _isWriting = false;
+const _writeQueue: Array<() => Promise<void>> = [];
+
+async function _processWriteQueue() {
+  if (_isWriting) return;
+  _isWriting = true;
+  while (_writeQueue.length > 0) {
+    const fn = _writeQueue.shift();
+    if (fn) {
+      try {
+        await fn();
+      } catch (err) {
+        console.error("[NativePrinter] Queue item failed:", err);
+      }
+    }
+  }
+  _isWriting = false;
+}
+
+
 function _notify() {
   const status = nativePrinterBridge.getStatus();
   _listeners.forEach((l) => l(status));
+}
+
+// ─── Active Connection Verification ──────────────────────────────────────────
+async function verifyConnectionState() {
+  if (!_connected || !Capacitor.isNativePlatform()) return;
+  
+  if (_connectionType === "bluetooth") {
+    try {
+      const isActuallyConnected = await new Promise<boolean>((resolve) => {
+        try {
+          _getBT().isConnected(
+            () => resolve(true),
+            () => resolve(false)
+          );
+        } catch {
+          resolve(false);
+        }
+      });
+      
+      if (!isActuallyConnected) {
+        console.log("[NativePrinter] BT connection lost in background. Updating state...");
+        _connected = false;
+        _notify();
+        // Try to recover it automatically
+        nativePrinterBridge.tryAutoReconnect();
+      }
+    } catch {
+      // ignore
+    }
+  }
+}
+
+if (Capacitor.isNativePlatform()) {
+  // Check shortly after load
+  setTimeout(verifyConnectionState, 2000);
+  
+  // Check every time app comes to foreground
+  App.addListener("appStateChange", ({ isActive }) => {
+    if (isActive) {
+      verifyConnectionState();
+    }
+  });
 }
 
 // ─── Helper: get window.bluetoothSerial ──────────────────────────────────────
@@ -344,6 +408,21 @@ export const nativePrinterBridge = {
   async sendESCPOS(data: Uint8Array): Promise<void> {
     if (!_connected) throw new Error("Printer not connected");
 
+    // Add this print job to the mutex queue to prevent byte interleaving
+    return new Promise<void>((resolve, reject) => {
+      _writeQueue.push(async () => {
+        try {
+          await this._executeSendESCPOS(data);
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
+      });
+      _processWriteQueue();
+    });
+  },
+
+  async _executeSendESCPOS(data: Uint8Array): Promise<void> {
     // ── LAN / WiFi path ───────────────────────────────────────────────────────
     if (_connectionType === "lan") {
       const ip   = _address ?? localStorage.getItem(KEYS.LAN_IP);
