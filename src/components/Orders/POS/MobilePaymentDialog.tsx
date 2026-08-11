@@ -302,6 +302,19 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     enabled: isOpen,
   });
 
+  // ── Cache restaurant info to localStorage so print always has correct name ──
+  useEffect(() => {
+    if (restaurantInfo?.name) {
+      try {
+        localStorage.setItem("cached_restaurant_name", restaurantInfo.name);
+        localStorage.setItem("cached_restaurant_address", restaurantInfo.address || "");
+        localStorage.setItem("cached_restaurant_phone", restaurantInfo.phone || "");
+        localStorage.setItem("cached_restaurant_gstin", restaurantInfo.gstin || "");
+        localStorage.setItem("cached_restaurant_upi_id", (restaurantInfo as any).upi_id || "");
+      } catch {}
+    }
+  }, [restaurantInfo]);
+
   const { data: paymentSettings } = useQuery({
     queryKey: ["payment-settings", restaurantInfo?.id],
     queryFn: async () => {
@@ -548,15 +561,24 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     }
     setIsPrinting(true);
     try {
-      // Resolve restaurant name: prefer restaurantInfo.name, fallback to stored value
-      const rName = restaurantInfo?.name || (restaurantInfo as any)?.restaurant_name || "Restaurant";
-      const upiId = (paymentSettings as any)?.upi_id || restaurantInfo?.upi_id || undefined;
+      // Resolve restaurant name: live query > localStorage cache > fallback
+      const cachedName = localStorage.getItem("cached_restaurant_name") || "";
+      const cachedAddress = localStorage.getItem("cached_restaurant_address") || "";
+      const cachedPhone = localStorage.getItem("cached_restaurant_phone") || "";
+      const cachedGstin = localStorage.getItem("cached_restaurant_gstin") || "";
+      const cachedUpiId = localStorage.getItem("cached_restaurant_upi_id") || "";
+
+      const rName = restaurantInfo?.name || cachedName || "Restaurant";
+      const rAddress = restaurantInfo?.address || cachedAddress || undefined;
+      const rPhone = restaurantInfo?.phone || cachedPhone || undefined;
+      const rGstin = restaurantInfo?.gstin || cachedGstin || undefined;
+      const upiId = (paymentSettings as any)?.upi_id || (restaurantInfo as any)?.upi_id || cachedUpiId || undefined;
 
       await thermalPrinterService.printReceipt({
         restaurantName: rName,
-        address: restaurantInfo?.address || undefined,
-        phone: restaurantInfo?.phone || undefined,
-        gstin: restaurantInfo?.gstin || undefined,
+        address: rAddress,
+        phone: rPhone,
+        gstin: rGstin,
         billNumber: `#${Date.now().toString().slice(-6)}`,
         date: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
         time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
