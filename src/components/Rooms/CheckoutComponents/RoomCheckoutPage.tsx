@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { differenceInDays, format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import QRCode from "qrcode";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -99,6 +100,7 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
   const [restaurantPhone, setRestaurantPhone] = useState<string | null>(null);
   const [restaurantName, setRestaurantName] = useState<string>("");
   const [restaurantAddress, setRestaurantAddress] = useState<string>("");
+  const [upiQrCodeUrl, setUpiQrCodeUrl] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [showQRPayment, setShowQRPayment] = useState(false);
   const { getBillUrl } = useBillSharing();
@@ -174,6 +176,26 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
             setRestaurantPhone(restaurantData.phone || null);
             setRestaurantName(restaurantData.name || "Your Hotel");
             setRestaurantAddress(restaurantData.address || "Hotel Address");
+          }
+
+          // Fetch payment settings for QR code
+          const { data: paymentData } = await supabase
+            .from("payment_settings")
+            .select("upi_id")
+            .eq("restaurant_id", roomData.restaurant_id)
+            .eq("is_active", true)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (paymentData?.upi_id && restaurantData?.name) {
+            try {
+              const upiUrl = `upi://pay?pa=${paymentData.upi_id}&pn=${encodeURIComponent(restaurantData.name)}&cu=INR`;
+              const qrDataUrl = await QRCode.toDataURL(upiUrl, { width: 280, margin: 2 });
+              setUpiQrCodeUrl(qrDataUrl);
+            } catch (qrErr) {
+              console.error("QR generation failed:", qrErr);
+            }
           }
         }
 
@@ -978,6 +1000,7 @@ const RoomCheckoutPage: React.FC<RoomCheckoutPageProps> = ({
                   grandTotal={grandTotal}
                   paymentMethod={paymentMethod}
                   billId={billingId || "TEMP-" + new Date().getTime()}
+                  upiQrCodeUrl={upiQrCodeUrl || undefined}
                   className="w-full bg-white/10 hover:bg-white/20 text-white border-2 border-white/20 hover:border-white/40 rounded-xl py-6 font-semibold transition-all duration-300 backdrop-blur-sm"
                 />
               </div>

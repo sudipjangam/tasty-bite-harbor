@@ -59,7 +59,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
               <Sparkles className="h-4 w-4" />
             </div>
             <div>
-              <h3 className="text-base font-bold">Restaurant AI Assistant</h3>
+              <h3 className="text-base font-bold">Swadeshi AI</h3>
               <p className="text-xs text-purple-100 flex items-center gap-2">
                 <Bot className="h-3 w-3" />
                 Powered by advanced AI with full database access
@@ -170,7 +170,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             <Sparkles className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="font-semibold">Restaurant Assistant</h3>
+            <h3 className="font-semibold">Swadeshi AI</h3>
             <p className="text-xs text-purple-100">Ask me anything</p>
           </div>
         </div>

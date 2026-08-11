@@ -33,6 +33,8 @@ interface BillPrintProps {
   billDate: string;
   taxRate?: number;
   taxAmount?: number;
+  /** Base64 data URL of the UPI QR code to print at the bottom */
+  upiQrCodeUrl?: string;
 }
 
 const BillPrint = forwardRef<HTMLDivElement, BillPrintProps>(
@@ -64,6 +66,7 @@ const BillPrint = forwardRef<HTMLDivElement, BillPrintProps>(
       billDate,
       taxRate = 0,
       taxAmount = 0,
+      upiQrCodeUrl,
     },
     ref
   ) => {
@@ -303,6 +306,21 @@ const BillPrint = forwardRef<HTMLDivElement, BillPrintProps>(
 
         {/* Divider */}
         <div className="border-t border-dashed border-gray-400 my-1"></div>
+
+        {/* UPI QR Code */}
+        {upiQrCodeUrl && (
+          <>
+            <div className="text-center my-2">
+              <img
+                src={upiQrCodeUrl}
+                alt="Scan QR to pay"
+                style={{ width: "140px", height: "140px", margin: "0 auto", display: "block" }}
+              />
+              <p style={{ fontSize: "10px", marginTop: "4px" }}>Scan QR to pay</p>
+            </div>
+            <div className="border-t border-dashed border-gray-400 my-1"></div>
+          </>
+        )}
 
         {/* Footer */}
         <div className="text-center mt-2">
