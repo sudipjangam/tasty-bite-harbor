@@ -4,6 +4,8 @@ import { useRestaurantId } from '@/hooks/useRestaurantId';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { Capacitor } from '@capacitor/core';
 
 const NotificationListener: React.FC = () => {
   const { user } = useAuth();
@@ -47,7 +49,7 @@ const NotificationListener: React.FC = () => {
             table: 'staff_notifications',
             filter: `staff_id=eq.${staffId}`,
           },
-          (payload) => {
+          async (payload) => {
             // Play sound
             if (audioRef.current) {
               audioRef.current.play().catch(() => {});
@@ -55,11 +57,36 @@ const NotificationListener: React.FC = () => {
 
             // Show toast
             const newNotification = payload.new as any;
+            const title = newNotification.title || '🔔 New Notification';
+            const message = newNotification.message || '';
+            
             toast({
-              title: newNotification.title || '🔔 New Notification',
-              description: newNotification.message,
+              title,
+              description: message,
               duration: 5000,
             });
+
+            // Trigger OS level native notification if on mobile
+            if (Capacitor.isNativePlatform()) {
+              try {
+                await LocalNotifications.schedule({
+                  notifications: [
+                    {
+                      title: title,
+                      body: message,
+                      id: new Date().getTime(),
+                      schedule: { at: new Date(Date.now() + 100) }, // Trigger immediately
+                      sound: null, // Sound is already played by audioRef
+                      attachments: undefined,
+                      actionTypeId: '',
+                      extra: null
+                    }
+                  ]
+                });
+              } catch (e) {
+                console.error("Local notification failed", e);
+              }
+            }
 
             // Invalidate queries to refresh lists
             queryClient.invalidateQueries({ queryKey: ['staff-notifications'] });

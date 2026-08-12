@@ -58,3 +58,4 @@ docs/
 graphify-out/
 .graph-it/
 push_output.txt
+firebase-service-account.json

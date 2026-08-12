@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "123907088945",
+    "project_id": "fir-project-e1e79",
+    "storage_bucket": "fir-project-e1e79.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:123907088945:android:babba80f296e36e160eb10",
+        "android_client_info": {
+          "package_name": "com.swadeshisolutions.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAwUuDHKgIsUh_WGendzUSO63pbJdMzddM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
