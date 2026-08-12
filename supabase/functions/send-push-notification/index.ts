@@ -7,10 +7,11 @@ serve(async (req) => {
     const payload = await req.json();
     const record = payload.record;
 
-    console.log("Received payload for table:", payload.table);
-    console.log("Record:", JSON.stringify(record));
+    console.log(`[Push] Triggered for table: ${payload.table}`);
+    console.log(`[Push] Record ID: ${record.id}`);
+    console.log(`[Push] Record Title: ${record.title}`);
 
-    // Initialize Supabase Admin Client (uses built-in env vars in Edge Functions)
+    // Initialize Supabase Admin Client
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
@@ -21,22 +22,21 @@ serve(async (req) => {
     const restaurantId = record.restaurant_id;
 
     if (!restaurantId) {
-      console.log("No restaurant_id in record, skipping push");
+      console.warn("[Push] No restaurant_id in record, skipping push notification.");
       return new Response(JSON.stringify({ message: "No restaurant_id" }), { status: 200 });
     }
 
-    // Get ALL tokens for ALL users in this restaurant
-    // Simpler approach: get all user_push_tokens linked to profiles for this restaurant
+    // Get profiles for this restaurant to find relevant users
     const { data: profiles, error: profilesError } = await supabaseAdmin
       .from("profiles")
       .select("id")
       .eq("restaurant_id", restaurantId);
 
     if (profilesError) {
-      console.error("Error fetching profiles:", profilesError);
+      console.error("[Push] Error fetching profiles:", profilesError);
     }
 
-    console.log("Profiles found:", profiles?.length ?? 0);
+    console.log(`[Push] Profiles found for restaurant ${restaurantId}: ${profiles?.length ?? 0}`);
 
     let targetTokens: string[] = [];
 
@@ -49,41 +49,54 @@ serve(async (req) => {
         .in("user_id", userIds);
 
       if (tokensError) {
-        console.error("Error fetching tokens:", tokensError);
+        console.error("[Push] Error fetching tokens from user_push_tokens:", tokensError);
       }
-
-      console.log("Tokens found:", tokens?.length ?? 0);
 
       if (tokens) {
         targetTokens = tokens.map((t: any) => t.token);
       }
     }
 
+    console.log(`[Push] Unique FCM tokens found: ${targetTokens.length}`);
+
     if (targetTokens.length === 0) {
-      console.log("No push tokens found for restaurant:", restaurantId);
+      console.log(`[Push] No push tokens registered for restaurant: ${restaurantId}`);
       return new Response(
         JSON.stringify({ message: "No devices registered for push." }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Sending FCM to", targetTokens.length, "device(s)");
-
     // Get Firebase service account
     const serviceAccountStr = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
     if (!serviceAccountStr) {
+      console.error("[Push] FATAL: FIREBASE_SERVICE_ACCOUNT secret is missing in Supabase.");
       throw new Error("Missing FIREBASE_SERVICE_ACCOUNT secret.");
     }
 
-    // Strip surrounding single or double quotes if present (common secret storage issue)
+    // Clean the secret string
     let cleanedStr = serviceAccountStr.trim();
     if ((cleanedStr.startsWith("'") && cleanedStr.endsWith("'")) ||
         (cleanedStr.startsWith('"') && cleanedStr.endsWith('"'))) {
       cleanedStr = cleanedStr.slice(1, -1);
     }
 
-    const serviceAccount = JSON.parse(cleanedStr);
+    let serviceAccount;
+    try {
+      serviceAccount = JSON.parse(cleanedStr);
+      if (typeof serviceAccount === 'string') {
+        serviceAccount = JSON.parse(serviceAccount);
+      }
+      
+      console.log("[Push] Parsed JSON keys:", Object.keys(serviceAccount));
+      console.log("[Push] Is project_id undefined?", typeof serviceAccount.project_id === "undefined");
+    } catch (e) {
+      console.error("[Push] FATAL: FIREBASE_SERVICE_ACCOUNT is not valid JSON.");
+      throw e;
+    }
+
     const projectId = serviceAccount.project_id;
+    console.log("Edge Function sending push using Firebase Project ID:", projectId);
 
     // Get OAuth2 access token using service account JWT
     const getAccessToken = async (): Promise<string> => {
@@ -102,7 +115,6 @@ serve(async (req) => {
 
       const unsigned = `${encode(header)}.${encode(claim)}`;
 
-      // Import RSA private key
       const pemKey = serviceAccount.private_key;
       const keyData = pemKey
         .replace("-----BEGIN PRIVATE KEY-----", "")
@@ -137,12 +149,14 @@ serve(async (req) => {
 
       const tokenData = await tokenRes.json();
       if (!tokenData.access_token) {
-        throw new Error("Failed to get FCM access token: " + JSON.stringify(tokenData));
+        console.error("[Push] OAuth Token Error:", tokenData);
+        throw new Error("Failed to get FCM access token");
       }
       return tokenData.access_token;
     };
 
     const accessToken = await getAccessToken();
+    console.log("[Push] FCM Access Token acquired successfully");
 
     // Send FCM notification to each token
     const results = await Promise.allSettled(
@@ -161,12 +175,13 @@ serve(async (req) => {
                 notification: { title, body },
                 data: {
                   title: title || "",
-                  body: body || ""
+                  body: body || "",
+                  // Add click_action if needed for navigation
                 },
                 android: {
                   priority: "high",
                   notification: {
-                    channel_id: "tasty_bite_channel"
+                    channel_id: "swadeshi_solutions_channel_silent"
                   }
                 },
               },
@@ -174,13 +189,19 @@ serve(async (req) => {
           }
         );
         const result = await fcmRes.json();
-        console.log("FCM result for token:", token.slice(-10), JSON.stringify(result));
+        if (result.error) {
+          console.error(`[Push] FCM Error for token ...${token.slice(-6)}:`, result.error);
+        } else {
+          console.log(`[Push] FCM Success for token ...${token.slice(-6)}:`, result.name);
+        }
         return result;
       })
     );
 
-    const successCount = results.filter((r) => r.status === "fulfilled").length;
-    const failCount = results.filter((r) => r.status === "rejected").length;
+    const successCount = results.filter((r) => r.status === "fulfilled" && !(r.value as any).error).length;
+    const failCount = results.length - successCount;
+
+    console.log(`[Push] Batch complete. Success: ${successCount}, Failed: ${failCount}`);
 
     return new Response(
       JSON.stringify({ success: true, sentCount: successCount, failureCount: failCount }),
@@ -188,7 +209,7 @@ serve(async (req) => {
     );
 
   } catch (error: any) {
-    console.error("Error in send-push-notification:", error.message);
+    console.error("[Push] Critical Error in Edge Function:", error.message);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { "Content-Type": "application/json" } }
