@@ -33,18 +33,12 @@ BEGIN
   -- But usually, pg_net is used to hit the deployed URL.
   -- For maximum compatibility between environments, we'll use a webhook payload
   
-  endpoint := current_setting('app.settings.edge_function_url', true) || '/send-push-notification';
+  -- Since Supabase restricts ALTER DATABASE for custom settings, we will hardcode the endpoint
+  endpoint := 'https://clmsoetktmvhazctlans.supabase.co/functions/v1/send-push-notification';
   
-  -- If the setting isn't set, fallback to a sensible default or skip
-  IF endpoint IS NULL OR endpoint = '/send-push-notification' THEN
-    -- Try to construct it from standard env vars if available, otherwise skip
-    -- (In production, you'd set app.settings.edge_function_url via supabase secrets/settings)
-    RETURN NEW;
-  END IF;
-
   headers := jsonb_build_object(
     'Content-Type', 'application/json',
-    'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key', true)
+    'Authorization', 'Bearer anon'
   );
 
   payload := jsonb_build_object(

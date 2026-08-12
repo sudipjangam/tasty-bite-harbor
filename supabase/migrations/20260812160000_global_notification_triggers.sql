@@ -56,6 +56,14 @@ BEGIN
     END IF;
 
   -- 5. RESERVATIONS
+  ELSIF TG_TABLE_NAME = 'kitchen_orders' THEN
+    IF TG_OP = 'INSERT' THEN
+      v_title := 'New Kitchen Order';
+      v_message := 'Kitchen received a new order for ' || COALESCE(NEW.table_number, 'Unknown Table') || '.';
+    ELSIF TG_OP = 'UPDATE' AND NEW.status IS DISTINCT FROM OLD.status THEN
+      v_title := 'Kitchen Order ' || NEW.status;
+      v_message := 'Kitchen order for ' || COALESCE(NEW.table_number, 'Unknown Table') || ' is now ' || NEW.status || '.';
+    END IF;
   ELSIF TG_TABLE_NAME = 'reservations' THEN
     IF TG_OP = 'INSERT' THEN
       v_title := 'New Reservation';
@@ -120,3 +128,10 @@ CREATE TRIGGER trigger_reservations_owner_notification
   AFTER INSERT ON public.reservations
   FOR EACH ROW
   EXECUTE FUNCTION generate_owner_notification();
+
+-- 6. KITCHEN ORDERS
+DROP TRIGGER IF EXISTS trigger_kitchen_orders_owner_notification ON public.kitchen_orders;
+CREATE TRIGGER trigger_kitchen_orders_owner_notification
+    AFTER INSERT OR UPDATE ON public.kitchen_orders
+    FOR EACH ROW
+    EXECUTE FUNCTION generate_owner_notification();
