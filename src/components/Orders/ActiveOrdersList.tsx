@@ -348,8 +348,8 @@ const ActiveOrdersList = ({
                 title: "Order Ready!",
                 description: `Order from ${updatedOrder.source} is ready for pickup`,
               });
-              const audio = new Audio("/notification.mp3");
-              audio.play().catch(console.error);
+              // const audio = new Audio("/notification.mp3");
+              // audio.play().catch(console.error);
             }
           } else if (payload.eventType === "DELETE") {
             // Remove deleted order from UI immediately

@@ -90,7 +90,7 @@ export const LiveOrderStatus = () => {
                 const exists = prev.find(o => o.id === updatedOrder.id);
                 if (!exists) {
                   // Play notification sound
-                  audioRef.current?.play().catch(e => console.error('Audio play failed:', e));
+                  // audioRef.current?.play().catch(e => console.error('Audio play failed:', e));
                   
                   // Add to newly ready set for animation
                   setNewlyReadyIds(prevSet => new Set(prevSet).add(updatedOrder.id));
