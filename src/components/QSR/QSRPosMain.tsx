@@ -486,6 +486,7 @@ export const QSRPosMain: React.FC = () => {
     setItemCompletionStatus([]);
     setCustomerName(""); // Clear customer name
     setNcReason(""); // Clear NC reason
+    setSelectedTable(null);
     toast({
       title: "Order Cleared",
       description: "All items removed from order",
@@ -770,13 +771,13 @@ export const QSRPosMain: React.FC = () => {
         description: "Order sent. Ready for payment when customer is done.",
       });
 
-      // Reset cart but keep table selected for dine-in
+      // Reset cart and clear selected table to prevent duplicate orders
       setOrderItems([]);
       setRecalledKitchenOrderId(null);
       setShowMobileCart(false); // Close cart sheet on mobile
-      if (orderMode !== "dine_in") {
-        setSelectedTable(null);
-      }
+      setSelectedTable(null);
+      setCustomerName(""); // Clear customer name
+      setNcReason(""); // Clear NC reason
       refetchTables();
 
       // Invalidate active orders query immediately
@@ -903,6 +904,7 @@ export const QSRPosMain: React.FC = () => {
 
       setOrderItems([]);
       setRecalledKitchenOrderId(null);
+      setSelectedTable(null);
 
       // Invalidate active orders query immediately
       queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
