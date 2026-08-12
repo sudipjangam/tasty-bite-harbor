@@ -401,63 +401,6 @@ const LANTab = ({
   );
 };
 
-// ─── USB Tab ──────────────────────────────────────────────────────────────────
-
-const USBTab = ({
-  connected,
-  onStatusChange,
-}: {
-  connected: boolean;
-  onStatusChange: () => void;
-}) => {
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const isNative = Capacitor.isNativePlatform();
-
-  const handleConnect = async () => {
-    if (!isNative) {
-      toast({ title: "USB printing available on Android app only", variant: "destructive" });
-      return;
-    }
-    setLoading(true);
-    try {
-      const ok = await nativePrinterBridge.connectUSB();
-      if (ok) {
-        toast({ title: "USB Printer connected ✓" });
-        onStatusChange();
-      } else {
-        toast({ title: "No USB printer found", description: "Ensure OTG cable is connected", variant: "destructive" });
-      }
-    } catch (err: any) {
-      toast({ title: "Error", description: err?.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">USB OTG Thermal Printer</span>
-        <StatusBadge connected={connected} />
-      </div>
-
-      <div className="rounded-lg bg-muted/50 border border-border p-4 text-sm text-muted-foreground space-y-1">
-        <p>1. Connect printer via USB OTG cable</p>
-        <p>2. Grant USB permission when prompted</p>
-        <p>3. Tap Auto-detect below</p>
-      </div>
-
-      <Button onClick={handleConnect} disabled={loading} className="w-full">
-        <Usb className="h-4 w-4 mr-2" />
-        {loading ? "Detecting..." : "Auto-detect USB Printer"}
-      </Button>
-
-      <TestPrintButton disabled={!connected} />
-    </div>
-  );
-};
-
 // ─── Main PrinterSettings component ──────────────────────────────────────────
 
 export const PrinterSettings = () => {
@@ -540,7 +483,7 @@ export const PrinterSettings = () => {
       {/* Connection tabs */}
       <div className="rounded-xl border border-border overflow-hidden">
         <Tabs defaultValue="bluetooth">
-          <TabsList className="w-full rounded-none border-b border-border h-11 grid grid-cols-3">
+          <TabsList className="w-full rounded-none border-b border-border h-11 grid grid-cols-2">
             <TabsTrigger value="bluetooth" className="text-xs gap-1.5">
               <Bluetooth className="h-3.5 w-3.5" />
               Bluetooth
@@ -548,10 +491,6 @@ export const PrinterSettings = () => {
             <TabsTrigger value="lan" className="text-xs gap-1.5">
               <Wifi className="h-3.5 w-3.5" />
               LAN/WiFi
-            </TabsTrigger>
-            <TabsTrigger value="usb" className="text-xs gap-1.5">
-              <Usb className="h-3.5 w-3.5" />
-              USB
             </TabsTrigger>
           </TabsList>
 
@@ -565,12 +504,6 @@ export const PrinterSettings = () => {
             <TabsContent value="lan">
               <LANTab
                 connected={status.connected && status.type === "lan"}
-                onStatusChange={refresh}
-              />
-            </TabsContent>
-            <TabsContent value="usb">
-              <USBTab
-                connected={status.connected && status.type === "usb"}
                 onStatusChange={refresh}
               />
             </TabsContent>

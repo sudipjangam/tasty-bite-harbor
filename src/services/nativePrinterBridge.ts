@@ -335,6 +335,7 @@ export const nativePrinterBridge = {
    * Connect to Bluetooth Classic (SPP) printer by MAC address.
    */
   async connectBluetooth(address: string, name?: string): Promise<boolean> {
+    await _requestBluetoothPermissions();
     try {
       if (_connected && _connectionType === "bluetooth") {
         await _btDisconnect().catch(() => {});
