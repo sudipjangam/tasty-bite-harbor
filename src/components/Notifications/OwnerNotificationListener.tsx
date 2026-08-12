@@ -5,6 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { Capacitor } from '@capacitor/core';
 
 /**
  * Global listener for owner/admin notifications.
@@ -47,7 +49,7 @@ const OwnerNotificationListener: React.FC = () => {
             table: 'owner_notifications',
             filter: `restaurant_id=eq.${restaurantId}`,
           },
-          (payload) => {
+          async (payload) => {
             const n = payload.new as any;
 
             // Play notification sound
@@ -67,6 +69,28 @@ const OwnerNotificationListener: React.FC = () => {
                 navigate(n.action_url || '/staff');
               }
             });
+
+            // Trigger OS level native notification if on mobile
+            if (Capacitor.isNativePlatform()) {
+              try {
+                await LocalNotifications.schedule({
+                  notifications: [
+                    {
+                      title: n.title,
+                      body: n.message,
+                      id: new Date().getTime(),
+                      schedule: { at: new Date(Date.now() + 100) },
+                      sound: null,
+                      attachments: undefined,
+                      actionTypeId: '',
+                      extra: null
+                    }
+                  ]
+                });
+              } catch (e) {
+                console.error("Local notification failed", e);
+              }
+            }
 
             // Invalidate queries so bell icon and dashboard update
             queryClient.invalidateQueries({ queryKey: ['owner-notifications'] });

@@ -14,6 +14,7 @@ import { BrandingProvider } from "@/contexts/BrandingContext";
 import { useRealtimeAnalytics } from "@/hooks/useRealtimeAnalytics";
 import { useOfflineCache } from "@/hooks/useOfflineCache";
 import { usePermissions } from "@/hooks/usePermissions";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import Routes from "./components/Auth/Routes";
 import NotificationListener from "@/components/Notifications/NotificationListener";
 import OwnerNotificationListener from "@/components/Notifications/OwnerNotificationListener";
@@ -42,6 +43,7 @@ function AppWithRealtime() {
   useRealtimeAnalytics(); // Initialize real-time subscriptions
   useOfflineCache(); // Pre-populate IDB for offline use
   usePermissions(); // Request system permissions on startup
+  usePushNotifications(); // Register for Push Notifications and upload token to Supabase
   const [updateAvailable, setUpdateAvailable] = useState(false);
 
   useEffect(() => {
