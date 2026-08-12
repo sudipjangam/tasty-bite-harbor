@@ -32,6 +32,21 @@ export const usePushNotifications = () => {
 
         // Register with Apple / Google to receive push via APNS/FCM
         await PushNotifications.register();
+
+        if (Capacitor.getPlatform() === 'android') {
+          try {
+            await PushNotifications.createChannel({
+              id: 'tasty_bite_channel',
+              name: 'Tasty Bite Notifications',
+              description: 'General notifications for orders',
+              importance: 5,
+              visibility: 1,
+            });
+            console.log('Push channel created');
+          } catch (channelErr) {
+            console.error('Error creating push channel', channelErr);
+          }
+        }
       } catch (e) {
         console.error("Failed to register for push notifications:", e);
       }

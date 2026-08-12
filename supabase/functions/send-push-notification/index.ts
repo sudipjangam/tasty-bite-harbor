@@ -159,9 +159,15 @@ serve(async (req) => {
               message: {
                 token,
                 notification: { title, body },
+                data: {
+                  title: title || "",
+                  body: body || ""
+                },
                 android: {
                   priority: "high",
-                  notification: {},
+                  notification: {
+                    channel_id: "tasty_bite_channel"
+                  }
                 },
               },
             }),
