@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "1.0.15",
+  "version": "1.0.18",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -21,6 +21,8 @@
     "@capacitor/app": "^8.1.1",
     "@capacitor/cli": "^8.3.0",
     "@capacitor/core": "^8.3.0",
+    "@capacitor/local-notifications": "^8.2.1",
+    "@capacitor/push-notifications": "^8.1.2",
     "@google/genai": "^1.33.0",
     "@hello-pangea/dnd": "^18.0.1",
     "@hookform/resolvers": "^3.9.0",

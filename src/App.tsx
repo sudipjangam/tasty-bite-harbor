@@ -13,6 +13,7 @@ import { NetworkStatusProvider } from "@/contexts/NetworkStatusContext";
 import { BrandingProvider } from "@/contexts/BrandingContext";
 import { useRealtimeAnalytics } from "@/hooks/useRealtimeAnalytics";
 import { useOfflineCache } from "@/hooks/useOfflineCache";
+import { usePermissions } from "@/hooks/usePermissions";
 import Routes from "./components/Auth/Routes";
 import NotificationListener from "@/components/Notifications/NotificationListener";
 import OwnerNotificationListener from "@/components/Notifications/OwnerNotificationListener";
@@ -40,6 +41,7 @@ const queryClient = new QueryClient({
 function AppWithRealtime() {
   useRealtimeAnalytics(); // Initialize real-time subscriptions
   useOfflineCache(); // Pre-populate IDB for offline use
+  usePermissions(); // Request system permissions on startup
   const [updateAvailable, setUpdateAvailable] = useState(false);
 
   useEffect(() => {
