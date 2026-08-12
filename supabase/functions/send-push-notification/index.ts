@@ -72,10 +72,17 @@ serve(async (req) => {
     // Get Firebase service account
     const serviceAccountStr = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
     if (!serviceAccountStr) {
-      throw new Error("Missing FIREBASE_SERVICE_ACCOUNT secret. Please set it via: npx supabase secrets set FIREBASE_SERVICE_ACCOUNT='...'");
+      throw new Error("Missing FIREBASE_SERVICE_ACCOUNT secret.");
     }
 
-    const serviceAccount = JSON.parse(serviceAccountStr);
+    // Strip surrounding single or double quotes if present (common secret storage issue)
+    let cleanedStr = serviceAccountStr.trim();
+    if ((cleanedStr.startsWith("'") && cleanedStr.endsWith("'")) ||
+        (cleanedStr.startsWith('"') && cleanedStr.endsWith('"'))) {
+      cleanedStr = cleanedStr.slice(1, -1);
+    }
+
+    const serviceAccount = JSON.parse(cleanedStr);
     const projectId = serviceAccount.project_id;
 
     // Get OAuth2 access token using service account JWT
@@ -154,7 +161,7 @@ serve(async (req) => {
                 notification: { title, body },
                 android: {
                   priority: "high",
-                  notification: { sound: "default" },
+                  notification: {},
                 },
               },
             }),
