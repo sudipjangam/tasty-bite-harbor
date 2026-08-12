@@ -50,10 +50,10 @@ const NotificationListener: React.FC = () => {
             filter: `staff_id=eq.${staffId}`,
           },
           async (payload) => {
-            // Play sound
-            if (audioRef.current) {
-              audioRef.current.play().catch(() => {});
-            }
+            // Play notification sound
+            // if (audioRef.current) {
+            //   audioRef.current.play().catch(() => {});
+            // }
 
             // Show toast
             const newNotification = payload.new as any;

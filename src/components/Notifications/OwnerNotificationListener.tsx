@@ -53,9 +53,9 @@ const OwnerNotificationListener: React.FC = () => {
             const n = payload.new as any;
 
             // Play notification sound
-            if (audioRef.current) {
-              audioRef.current.play().catch(() => {});
-            }
+            // if (audioRef.current) {
+            //   audioRef.current.play().catch(() => {});
+            // }
 
             // Determine icon based on type
             const icon = n.type === 'leave_request' ? '📋' : '⏰';
