@@ -28,6 +28,8 @@ import { QSRPastOrdersDrawer } from "./QSRPastOrdersDrawer";
 import { QSRCustomItemDialog } from "./QSRCustomItemDialog";
 import { QSRCartBottomSheet, QSRCartFAB } from "./QSRCartBottomSheet";
 import { QSRMobileHeader } from "./QSRMobileHeader";
+import { QSRPrinterDialog } from "./QSRPrinterDialog";
+import { getPaperSize } from "@/services/nativePrinterBridge";
 import { useFeatureGate } from "@/hooks/useFeatureGate";
 import {
   Clock,
@@ -96,10 +98,18 @@ export const QSRPosMain: React.FC = () => {
     type: "active" | "past" | null;
   }>({ order: null, type: null });
 
-  // Printer connection state
+  // Printer connection & paper size state
   const [isPrinterConnected, setIsPrinterConnected] = useState(thermalPrinterService.isConnected());
   const [printerName, setPrinterName] = useState<string | null>(thermalPrinterService.getDeviceName());
+  const [paperSize, setPaperSizeState] = useState<"58" | "80">(getPaperSize);
+  const [showPrinterDialog, setShowPrinterDialog] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+
+  const refreshPrinterStatus = useCallback(() => {
+    setIsPrinterConnected(thermalPrinterService.isConnected());
+    setPrinterName(thermalPrinterService.getDeviceName());
+    setPaperSizeState(getPaperSize());
+  }, []);
 
   // Mobile UI V2 feature gate
   const { isLocked: mobileV2Locked } = useFeatureGate("qsr-pos.mobile_ui_v2");
@@ -744,22 +754,23 @@ export const QSRPosMain: React.FC = () => {
       }
 
       // Send to thermal printer if connected
-      if (thermalPrinterService.isConnected() && deltaItemsToPrint.length > 0) {
+      const itemsToPrint = deltaItemsToPrint.length > 0 ? deltaItemsToPrint : orderItems;
+      if (thermalPrinterService.isConnected() && itemsToPrint.length > 0) {
         try {
           await thermalPrinterService.printKOT({
             tableName: selectedTable ? selectedTable.name : orderSource,
             serverName: attendantName,
-            items: deltaItemsToPrint,
+            items: itemsToPrint,
             isAddition: currentRound > 1,
             roundNumber: currentRound,
             orderType: orderMode,
           });
-        } catch (printErr) {
+        } catch (printErr: any) {
           console.error("Printer failed:", printErr);
           toast({
             variant: "destructive",
             title: "Print Failed",
-            description: "Could not print KOT receipt",
+            description: printErr?.message || "Could not print KOT receipt",
           });
         }
       }
@@ -1348,11 +1359,13 @@ export const QSRPosMain: React.FC = () => {
             isPrinterConnected={isPrinterConnected}
             isReconnecting={isReconnecting}
             printerName={printerName}
+            paperSize={paperSize}
             onBackToTables={handleBackToTables}
             onRefreshTables={handleRefreshTables}
             onOpenActiveOrders={() => setShowActiveOrders(true)}
             onOpenPastOrders={() => setShowPastOrders(true)}
-            onPrinterToggle={handlePrinterToggle}
+            onPrinterToggle={() => setShowPrinterDialog(true)}
+            onOpenPrinterSetup={() => setShowPrinterDialog(true)}
           >
             <QSRModeSelector
               selectedMode={orderMode}
@@ -1399,7 +1412,7 @@ export const QSRPosMain: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handlePrinterToggle}
+                  onClick={() => setShowPrinterDialog(true)}
                   className={`flex items-center gap-1.5 ${
                     isPrinterConnected
                       ? "border-green-400 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-950/50"
@@ -1408,18 +1421,19 @@ export const QSRPosMain: React.FC = () => {
                       : "border-dashed"
                   }`}
                   disabled={isReconnecting}
+                  title="Configure Printer & Paper Size"
                 >
                   {isPrinterConnected ? (
                     <PrinterCheck className="w-4 h-4 text-green-600 dark:text-green-400" />
                   ) : (
                     <Printer className={`w-4 h-4 ${isReconnecting ? "animate-pulse text-amber-500" : "text-indigo-500"}`} />
                   )}
-                  <span className="hidden sm:inline text-xs">
+                  <span className="hidden sm:inline text-xs font-semibold">
                     {isPrinterConnected
-                      ? printerName || "Connected"
+                      ? `${printerName || "Printer"} (${paperSize}mm)`
                       : isReconnecting
                       ? "Reconnecting..."
-                      : "Connect Printer"}
+                      : `Printer (${paperSize}mm)`}
                   </span>
                 </Button>
                 <HelpProvider />
@@ -1691,6 +1705,12 @@ export const QSRPosMain: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Printer Setup Dialog */}
+      <QSRPrinterDialog
+        isOpen={showPrinterDialog}
+        onClose={() => setShowPrinterDialog(false)}
+        onPrinterStateChange={refreshPrinterStatus}
+      />
     </div>
   );
 };

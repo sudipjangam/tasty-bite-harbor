@@ -32,6 +32,8 @@ interface QSRMobileHeaderProps {
   onOpenActiveOrders: () => void;
   onOpenPastOrders: () => void;
   onPrinterToggle: () => void;
+  onOpenPrinterSetup?: () => void;
+  paperSize?: "58" | "80";
   /** Compact mode selector rendered in row 2 */
   children: React.ReactNode;
 }
@@ -50,6 +52,8 @@ export const QSRMobileHeader: React.FC<QSRMobileHeaderProps> = ({
   onOpenActiveOrders,
   onOpenPastOrders,
   onPrinterToggle,
+  onOpenPrinterSetup,
+  paperSize = "58",
   children,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -170,7 +174,7 @@ export const QSRMobileHeader: React.FC<QSRMobileHeaderProps> = ({
                     onClick={() => { setMenuOpen(false); onOpenPastOrders(); }}
                   />
 
-                  {/* Printer */}
+                  {/* Printer Setup */}
                   <MenuRow
                     icon={
                       isPrinterConnected
@@ -180,14 +184,25 @@ export const QSRMobileHeader: React.FC<QSRMobileHeaderProps> = ({
                     iconBg={isPrinterConnected ? "bg-green-100 dark:bg-green-900/40" : "bg-gray-100 dark:bg-gray-800"}
                     label={
                       isPrinterConnected
-                        ? "Disconnect Printer"
+                        ? "Printer Settings"
                         : isReconnecting
                         ? "Reconnecting…"
                         : "Connect Printer"
                     }
-                    sublabel={isPrinterConnected && printerName ? printerName : undefined}
+                    sublabel={
+                      isPrinterConnected && printerName
+                        ? `${printerName} (${paperSize}mm)`
+                        : `Setup (${paperSize}mm)`
+                    }
                     statusDot={isPrinterConnected ? "green" : undefined}
-                    onClick={() => { setMenuOpen(false); onPrinterToggle(); }}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      if (onOpenPrinterSetup) {
+                        onOpenPrinterSetup();
+                      } else {
+                        onPrinterToggle();
+                      }
+                    }}
                   />
 
                   {/* Refresh Tables */}
