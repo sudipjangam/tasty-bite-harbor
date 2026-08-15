@@ -21,8 +21,6 @@ import OwnerNotificationListener from "@/components/Notifications/OwnerNotificat
 import { UpdateNotification } from "@/components/UpdateNotification";
 import { registerServiceWorker } from "@/utils/serviceWorkerUtils";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/react";
 import { App as CapacitorApp } from '@capacitor/app';
 import { supabase } from "@/integrations/supabase/client";
 import { isNativeApp } from "@/utils/platform";
@@ -134,8 +132,6 @@ function App() {
           </AuthProvider>
         </TooltipProvider>
       </ThemeProvider>
-      <Analytics />
-      <SpeedInsights />
     </QueryClientProvider>
   );
 }
