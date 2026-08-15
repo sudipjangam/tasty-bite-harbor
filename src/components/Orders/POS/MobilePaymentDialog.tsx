@@ -643,15 +643,19 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     }
   }, [pendingPrintAfterConnect, handlePrint, toast]);
 
-  // ── Send WhatsApp bill ────────────────────────────────────────────────────
   const handleSendWhatsApp = useCallback(async () => {
-    if (!customerMobile || !restaurantInfo) {
+    if (!customerMobile) {
       toast({ title: "Enter customer mobile number", variant: "destructive" });
+      return;
+    }
+    if (!restaurantInfo) {
+      toast({ title: "Restaurant data loading...", description: "Please try again in a few seconds", variant: "destructive" });
       return;
     }
     setIsSendingWA(true);
     try {
       const billUrl = await getBillUrl({
+        restaurantId: restaurantInfo?.id,
         restaurantName: restaurantInfo?.name || "Restaurant",
         restaurantAddress: restaurantInfo?.address,
         restaurantPhone: restaurantInfo?.phone,
@@ -692,11 +696,12 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       });
 
       if (waErr || !waResp?.success) {
-        throw new Error(waErr?.message || waResp?.error || "WhatsApp API failure");
+        throw new Error(waErr?.message || waResp?.error || "WhatsApp API failure. Please check API keys.");
       }
       toast({ title: "Bill sent via WhatsApp ✓" });
     } catch (err: any) {
-      toast({ title: "WhatsApp failed", description: err?.message, variant: "destructive" });
+      console.error("WhatsApp sending error:", err);
+      toast({ title: "WhatsApp failed", description: err?.message || "Unknown error occurred", variant: "destructive" });
     } finally {
       setIsSendingWA(false);
     }

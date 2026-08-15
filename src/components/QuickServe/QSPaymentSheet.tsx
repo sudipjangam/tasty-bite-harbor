@@ -415,8 +415,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         const billParams = {
           restaurantId,
           restaurantName: restaurantNameForMsg,
-          restaurantAddress: restaurantDetails?.address,
-          restaurantPhone: restaurantDetails?.phone,
+          restaurantAddress: (restaurantDetails as any)?.address,
+          restaurantPhone: (restaurantDetails as any)?.phone,
           logoUrl:
             restaurantDetails?.logo_url ||
             (() => {

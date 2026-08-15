@@ -8,6 +8,7 @@
 import { sanitizeOrderItemDisplay } from "@/lib/order-utils";
 
 export interface BillFormatParams {
+  restaurantId?: string;
   restaurantName: string;
   restaurantAddress?: string;
   restaurantPhone?: string;
