@@ -1074,6 +1074,7 @@ const POSMode = () => {
         onSuccess={handlePaymentSuccess}
         tableNumber={tableNumber}
         onEditOrder={handleEditOrder}
+        serverName={attendantName || "Staff"}
       />
 
       {/* Clear Order Confirmation Dialog */}

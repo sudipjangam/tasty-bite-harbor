@@ -62,6 +62,7 @@ export interface ReceiptData {
   tableName?: string;
   customerName?: string;
   customerMobile?: string;
+  serverName?: string;
   items: { name: string; quantity: number; price: number }[];
   subtotal: number;
   cgst: number;
@@ -507,13 +508,37 @@ class ThermalPrinterService {
 
     // Info
     receipt += this.ALIGN_LEFT;
-    receipt += `Bill#: ${data.billNumber}\n`;
-    if (data.tableName) receipt += `To: ${data.tableName}\n`;
-    else if (data.customerName) receipt += `To: ${data.customerName}\n`;
-    else receipt += `To: POS Order\n`;
-    
-    receipt += `Date: ${data.date}  Time: ${data.time}\n`;
-    if (data.customerName && !data.tableName) receipt += `Guest: ${data.customerName}\n`;
+
+    const displayTable = data.tableName
+      ? (/^table/i.test(data.tableName) ? data.tableName : `Table ${data.tableName}`)
+      : undefined;
+
+    const leftBill = `Bill#: ${data.billNumber}`;
+    const rightTarget = displayTable
+      ? `To: ${displayTable}`
+      : data.customerName
+      ? `To: ${data.customerName}`
+      : `To: POS`;
+
+    if (leftBill.length + rightTarget.length + 1 <= W) {
+      receipt += row2(leftBill, rightTarget);
+    } else {
+      receipt += leftBill + "\n" + rightTarget + "\n";
+    }
+
+    if (data.serverName) receipt += `Server: ${data.serverName}\n`;
+
+    const dateStr = `Date: ${data.date}`;
+    const timeStr = `Time: ${data.time}`;
+    if (dateStr.length + timeStr.length + 1 <= W) {
+      receipt += row2(dateStr, timeStr);
+    } else {
+      receipt += `${dateStr}  ${timeStr}\n`;
+    }
+
+    if (data.customerName && displayTable && data.customerName !== displayTable) {
+      receipt += `Guest: ${data.customerName}\n`;
+    }
     
     receipt += SEP;
 

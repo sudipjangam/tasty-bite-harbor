@@ -956,6 +956,7 @@ const ActiveOrdersList = ({
         tableNumber={selectedOrder?.source || "Order"}
         orderId={selectedOrder?.id}
         itemCompletionStatus={selectedOrder?.item_completion_status}
+        serverName={selectedOrder?.server_name}
       />
     </div>
   );

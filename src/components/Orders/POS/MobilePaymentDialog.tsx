@@ -247,6 +247,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   tableNumber = "",
   orderId,
   isNonChargeable = false,
+  serverName,
 }) => {
   // ── Step state ────────────────────────────────────────────────────────────
   const [step, setStep] = useState<MobilePayStep>("confirm");
@@ -615,6 +616,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         tableName: tableNumber || undefined,
         customerName: customerName || undefined,
         customerMobile: customerMobile || undefined,
+        serverName: serverName || undefined,
         items: orderItems,
         subtotal,
         cgst: 0,
@@ -631,7 +633,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       isPrintingRef.current = false;
       setIsPrinting(false);
     }
-  }, [restaurantInfo, paymentSettings, tableNumber, customerName, customerMobile, orderItems, subtotal, totalDiscount, finalTotal, currencySymbol, toast]);
+  }, [restaurantInfo, paymentSettings, tableNumber, customerName, customerMobile, serverName, orderItems, subtotal, totalDiscount, finalTotal, currencySymbol, toast]);
 
   // ── After printer connects inline ─────────────────────────────────────────
   const handlePrinterConnected = useCallback(async () => {
