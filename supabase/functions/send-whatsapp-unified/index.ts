@@ -168,67 +168,52 @@ Deno.serve(async (req: Request) => {
       // 2. If variables is an object with positional keys ("1", "2", ...) → sort by key and use values
       // 3. If variables is a named object { customer_name: "X" } → use template mapping to order
       // 4. Fallback: legacy positional defaults
-      let positionalValues: string[] = [];
+      let bodyParams: any[] = [];
 
       if (variables) {
         const varKeys = Object.keys(variables);
         const allNumericKeys = varKeys.length > 0 && varKeys.every(k => /^\d+$/.test(k));
 
         if (allNumericKeys) {
-          // Case 2: Positional keys like { "1": "John", "2": "Restaurant" }
-          positionalValues = varKeys
+          // Positional templates (e.g. {{1}}, {{2}})
+          const positionalValues = varKeys
             .sort((a, b) => parseInt(a) - parseInt(b))
             .map(k => String(variables[k] || "-"));
+          bodyParams = positionalValues.map((val) => ({ type: "text", text: val }));
         } else {
-          // Case 3: Named keys like { customer_name: "John" }
-          // Look up template variable ordering from DB first, then fallback to hardcoded map
-          let varOrder: string[] | null = null;
-
-          // Try DB lookup
-          if (restaurantId) {
-            const { data: templateDef } = await supabase
-              .from("whatsapp_templates")
-              .select("variables")
-              .eq("name", usedTemplateName)
-              .eq("restaurant_id", restaurantId)
-              .maybeSingle();
-            if (templateDef?.variables && Array.isArray(templateDef.variables)) {
-              varOrder = (templateDef.variables as any[])
-                .sort((a: any, b: any) => (a.position || 0) - (b.position || 0))
-                .map((v: any) => v.name);
-            }
-          }
-
-          // Fallback to hardcoded map
-          if (!varOrder) {
-            varOrder = TEMPLATE_VAR_MAPS[usedTemplateName] || null;
-          }
-
-          if (varOrder) {
-            positionalValues = varOrder.map(name => String(variables[name] || "-"));
+          // Named variable templates (e.g. {{customer_name}}, {{amount}})
+          // Meta Cloud API REQUIRES 'parameter_name' field for templates created
+          // with Type=Name. Without it Meta returns (#100) 'Parameter name is missing or empty'.
+          // Use TEMPLATE_VAR_MAPS to ensure correct ordering.
+          const varOrder = TEMPLATE_VAR_MAPS[usedTemplateName];
+          if (varOrder && varOrder.length > 0) {
+            bodyParams = varOrder.map(key => ({
+              type: "text",
+              parameter_name: key,
+              text: String(variables[key] ?? "-")
+            }));
           } else {
-            // Last resort: just use values in insertion order
-            console.warn(`[unified] No variable mapping found for template: ${usedTemplateName}, using insertion order`);
-            positionalValues = Object.values(variables).map((v: any) => String(v || "-"));
+            // No map found — fall back to insertion order with parameter_name
+            bodyParams = Object.keys(variables).map(key => ({
+              type: "text",
+              parameter_name: key,
+              text: String(variables[key] || "-")
+            }));
           }
         }
       } else {
-        // No variables provided — use legacy defaults
-        positionalValues = [
+        // No variables provided — use legacy positional defaults
+        const positionalValues = [
           customerName || "Customer",
           restaurantName || "Restaurant",
           amount || "-",
           billDate || new Date().toLocaleDateString("en-IN"),
           googleReviewUrl || "-",
         ];
+        bodyParams = positionalValues.map((val) => ({ type: "text", text: val }));
       }
 
-      console.log(`[unified] Resolved ${positionalValues.length} positional values for template ${usedTemplateName}:`, positionalValues);
-
-      const bodyParams = positionalValues.map((val) => ({
-        type: "text",
-        text: val,
-      }));
+      console.log(`[unified] Resolved ${bodyParams.length} body parameters for template ${usedTemplateName}`);
 
       const metaComponents: any[] = bodyParams.length > 0
         ? [{ type: "body", parameters: bodyParams }]
@@ -330,7 +315,7 @@ Deno.serve(async (req: Request) => {
             error: metaData.error?.message || "Meta API error",
             details: metaData,
             template: usedTemplateName,
-            variableCount: positionalValues.length,
+            variableCount: bodyParams.length,
             language: templateLanguage,
           }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

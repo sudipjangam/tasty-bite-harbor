@@ -30,6 +30,7 @@ async function storeBillAndGetUrl(
 
   const { error } = await supabase.from("shared_bills" as any).insert({
     short_id: shortId,
+    restaurant_id: billParams.restaurantId,
     bill_data: billParams,
   } as any);
 

@@ -56,11 +56,11 @@ export function resolveInvoiceTemplate(
     return {
       templateName: "invoice_with_review",
       variables: {
-        customer_name: customerName || "Customer",
-        restaurant_name: restaurantName || "Restaurant",
-        amount,
-        order_date: billDate,
-        contact_number: googleReviewUrl,  // {{5}} = Google Review URL in body
+        "1": customerName || "Customer",
+        "2": restaurantName || "Restaurant",
+        "3": amount,
+        "4": billDate,
+        "5": googleReviewUrl,  // {{5}} = Google Review URL in body
       },
       buttons: [
         { type: "url", value: billUrlSuffix || "pending" },   // Button 0: View Bill
@@ -69,16 +69,16 @@ export function resolveInvoiceTemplate(
     };
   }
 
-  // ── Case 2: Only Google Review (no Instagram) ───────────────────
+  // ── Case 2: Only Google Review ──────────────────────────────────
   if (!hasInstagram && hasGoogleReview) {
     return {
       templateName: "invoice_with_review_only",
       variables: {
-        customer_name: customerName || "Customer",
-        restaurant_name: restaurantName || "Restaurant",
-        amount,
-        order_date: billDate,
-        contact_number: googleReviewUrl,  // {{5}} = Google Review URL in body
+        "1": customerName || "Customer",
+        "2": restaurantName || "Restaurant",
+        "3": amount,
+        "4": billDate,
+        "5": googleReviewUrl,  // {{5}} = Google Review URL in body
       },
       buttons: [
         { type: "url", value: billUrlSuffix || "pending" },   // Button 0: View Bill
@@ -86,15 +86,15 @@ export function resolveInvoiceTemplate(
     };
   }
 
-  // ── Case 3: Only Instagram (no Google Review) ───────────────────
+  // ── Case 3: Only Instagram ──────────────────────────────────────
   if (hasInstagram && !hasGoogleReview) {
     return {
       templateName: "invoice_with_instagram",
       variables: {
-        customer_name: customerName || "Customer",
-        restaurant_name: restaurantName || "Restaurant",
-        amount,
-        order_date: billDate,
+        "1": customerName || "Customer",
+        "2": restaurantName || "Restaurant",
+        "3": amount,
+        "4": billDate,
       },
       buttons: [
         { type: "url", value: billUrlSuffix || "pending" },   // Button 0: View Bill
@@ -104,6 +104,8 @@ export function resolveInvoiceTemplate(
   }
 
   // ── Case 4: Neither — default fallback ──────────────────────────
+  // invoice_with_contact uses NAMED variables ({{customer_name}} etc.)
+  // Use named keys so the edge function sends 'parameter_name' as required by Meta.
   return {
     templateName: "invoice_with_contact",
     variables: {
@@ -114,7 +116,8 @@ export function resolveInvoiceTemplate(
       contact_number: contactNumber || "-",
     },
     buttons: [
-      { type: "url", value: billUrlSuffix || "pending" },     // Button 0: View Bill
+      { type: "url", value: billUrlSuffix || "pending" },   // Button 0: View Bill
     ],
   };
 }
+
