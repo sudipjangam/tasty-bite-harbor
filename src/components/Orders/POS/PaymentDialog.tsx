@@ -78,6 +78,7 @@ const PaymentDialog = ({
   onOrderUpdated,
   itemCompletionStatus: initialItemCompletionStatus,
   isNonChargeable = false,
+  serverName,
 }: PaymentDialogProps) => {
   const [currentStep, setCurrentStep] = useState<
     "confirm" | "method" | "qr" | "success" | "edit" | "split"
@@ -1586,6 +1587,7 @@ const PaymentDialog = ({
           tableName: tableNumber || undefined,
           customerName: customerName || undefined,
           customerMobile: customerMobile || undefined,
+          serverName: serverName || undefined,
           items: orderItems,
           subtotal: subtotal,
           cgst: 0,

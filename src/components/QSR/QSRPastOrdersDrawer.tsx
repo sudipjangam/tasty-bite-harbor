@@ -668,6 +668,7 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
             .replace("Table ", "")}
           onEditOrder={handlePaymentDialogClose}
           orderId={selectedOrderForPayment.id}
+          serverName={selectedOrderForPayment.attendant}
         />
       )}
     </>

@@ -1653,6 +1653,7 @@ export const QSRPosMain: React.FC = () => {
         onEditOrder={handlePaymentDialogClose}
         orderId={pendingKitchenOrderId || recalledKitchenOrderId || undefined}
         isNonChargeable={orderMode === "nc"}
+        serverName={attendantName}
       />
 
       {/* Delete Order Confirmation Dialog */}
