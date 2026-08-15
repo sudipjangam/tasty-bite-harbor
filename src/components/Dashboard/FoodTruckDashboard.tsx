@@ -406,6 +406,7 @@ const FoodTruckDashboard: React.FC = () => {
             <WidgetRenderer
               key={widgetId}
               widgetId={widgetId}
+              restaurantId={restaurantId}
               scheduleComponent={
                 widgetId === "this-week" ? (
                   <div className="space-y-2">

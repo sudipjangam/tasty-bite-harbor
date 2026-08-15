@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getWidgetById } from "./WidgetRegistry";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 // Lazy-load existing widgets
 const WeeklySalesChart = lazy(
@@ -41,6 +42,7 @@ import { NCStatsCard } from "@/components/Dashboard/NCStatsCard";
 interface WidgetRendererProps {
   widgetId: string;
   scheduleComponent?: React.ReactNode;
+  restaurantId?: string | null;
 }
 
 const WidgetFallback = () => (
@@ -50,7 +52,8 @@ const WidgetFallback = () => (
 const WidgetContent: React.FC<{
   widgetId: string;
   scheduleComponent?: React.ReactNode;
-}> = ({ widgetId, scheduleComponent }) => {
+  restaurantId?: string | null;
+}> = ({ widgetId, scheduleComponent, restaurantId }) => {
   switch (widgetId) {
     case "weekly-sales":
       return <WeeklySalesChart />;
@@ -59,7 +62,7 @@ const WidgetContent: React.FC<{
     case "revenue-pie":
       return <RevenuePieChart />;
     case "recent-orders":
-      return <RecentOrdersTable />;
+      return <RecentOrdersTable restaurantId={restaurantId} />;
     case "nc-stats":
       return <NCStatsCard />;
     case "low-inventory":
@@ -102,6 +105,7 @@ const WidgetContent: React.FC<{
 export const WidgetRenderer: React.FC<WidgetRendererProps> = ({
   widgetId,
   scheduleComponent,
+  restaurantId,
 }) => {
   const definition = getWidgetById(widgetId);
   if (!definition) return null;
@@ -127,6 +131,7 @@ export const WidgetRenderer: React.FC<WidgetRendererProps> = ({
           <WidgetContent
             widgetId={widgetId}
             scheduleComponent={scheduleComponent}
+            restaurantId={restaurantId}
           />
         </Suspense>
       </CardContent>

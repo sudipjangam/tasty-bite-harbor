@@ -70,7 +70,9 @@ export const QSRMobileHeader: React.FC<QSRMobileHeaderProps> = ({
   const showBackBtn = orderMode === "dine_in" && !!selectedTableName;
   const title =
     orderMode === "dine_in" && selectedTableName
-      ? `Table ${selectedTableName}`
+      ? /^table/i.test(selectedTableName)
+        ? selectedTableName
+        : `Table ${selectedTableName}`
       : "QSR POS";
 
   return (

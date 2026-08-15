@@ -56,6 +56,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import AdaptivePaymentDialog from "@/components/Orders/POS/AdaptivePaymentDialog";
 
+// Helper: only prepend "Table " if name doesn't already start with "table"
+// Handles: "Table 1" → "Table 1", "Table1" → "Table1", "D1" → "Table D1"
+const tableLabel = (name: string) =>
+  /^table/i.test(name) ? name : `Table ${name}`;
+
 const TAX_RATE = 0.05; // 5% tax
 
 export const QSRPosMain: React.FC = () => {
@@ -552,7 +557,7 @@ export const QSRPosMain: React.FC = () => {
       // Use actual customer name for takeaway/delivery/NC, fallback to mode-based defaults
       let orderSource =
         orderMode === "dine_in" && selectedTable
-          ? `Table ${selectedTable.name}`
+          ? tableLabel(selectedTable.name)
           : orderMode.charAt(0).toUpperCase() +
             orderMode.slice(1).replace("_", " ");
 
@@ -560,7 +565,7 @@ export const QSRPosMain: React.FC = () => {
       const finalCustomerName =
         customerName.trim() ||
         (orderMode === "dine_in" && selectedTable
-          ? `Table ${selectedTable.name}`
+          ? tableLabel(selectedTable.name)
           : orderMode === "takeaway"
           ? "Takeaway Customer"
           : orderMode === "delivery"
@@ -815,7 +820,7 @@ export const QSRPosMain: React.FC = () => {
       // Determine order source/customer name
       let orderSource =
         orderMode === "dine_in" && selectedTable
-          ? `Table ${selectedTable.name}`
+          ? tableLabel(selectedTable.name)
           : orderMode.charAt(0).toUpperCase() +
             orderMode.slice(1).replace("_", " ");
 
@@ -823,7 +828,7 @@ export const QSRPosMain: React.FC = () => {
       const finalCustomerName =
         customerName.trim() ||
         (orderMode === "dine_in" && selectedTable
-          ? `Table ${selectedTable.name}`
+          ? tableLabel(selectedTable.name)
           : orderMode === "takeaway"
           ? "Takeaway Customer"
           : orderMode === "delivery"
@@ -1080,7 +1085,7 @@ export const QSRPosMain: React.FC = () => {
         // PRE-PAY: Create order directly as completed (skip kitchen queue since paid)
         const orderSource =
           currentMode === "dine_in" && currentTable
-            ? `Table ${currentTable.name}`
+            ? tableLabel(currentTable.name)
             : currentMode === "takeaway"
               ? "Takeaway"
               : currentMode === "delivery"
@@ -1090,7 +1095,7 @@ export const QSRPosMain: React.FC = () => {
         const paymentCustomerName =
           customerName.trim() ||
           (currentMode === "dine_in" && currentTable
-            ? `Table ${currentTable.name}`
+            ? tableLabel(currentTable.name)
             : currentMode === "takeaway"
             ? "Takeaway Customer"
             : currentMode === "delivery"
@@ -1385,7 +1390,7 @@ export const QSRPosMain: React.FC = () => {
                   )}
                   <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                     {orderMode === "dine_in" && selectedTable
-                      ? `Table ${selectedTable.name}`
+                      ? tableLabel(selectedTable.name)
                       : "QSR POS"}
                   </h1>
                 </div>
