@@ -74,7 +74,6 @@ const WeeklySalesChart = () => {
         .lte("checkout_date", endOfDay(endDate).toISOString());
 
       if (roomBillingsError) {
-        console.log("Room billings query error:", roomBillingsError.message);
       }
 
       // Calculate revenue per day

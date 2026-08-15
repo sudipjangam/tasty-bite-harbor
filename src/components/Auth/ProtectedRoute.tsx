@@ -21,7 +21,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     
     async function checkSession() {
       try {
-        console.log("ProtectedRoute: Checking session");
         const { data, error } = await supabase.auth.getSession();
         
         if (!mounted) return;
@@ -33,12 +32,10 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
           return;
         }
         
-        console.log("ProtectedRoute: Session result:", data.session ? "found" : "not found");
         setSession(data.session);
         
         if (data.session) {
           try {
-            console.log("ProtectedRoute: Checking profile and subscription");
             const { data: profile, error: profileError } = await supabase
               .from("profiles")
               .select("restaurant_id")
@@ -59,7 +56,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
               try {
                 const subscriptionActive = await checkSubscriptionStatus(profile.restaurant_id);
                 if (mounted) {
-                  console.log("ProtectedRoute: Subscription status:", subscriptionActive);
                   setHasActiveSubscription(subscriptionActive);
                 }
               } catch (subError) {
@@ -69,7 +65,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
                 }
               }
             } else {
-              console.log("ProtectedRoute: No restaurant_id found");
               if (mounted) {
                 setHasActiveSubscription(false);
               }
@@ -105,7 +100,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted) return;
       
-      console.log("ProtectedRoute: Auth state changed:", _event);
       setSession(session);
       
       if (session) {
@@ -168,7 +162,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     };
   }, []);
 
-  console.log("ProtectedRoute render - Loading:", loading, "Session:", !!session, "Subscription:", hasActiveSubscription);
 
   // Show loading indicator
   if (loading) {
@@ -183,16 +176,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   if (!session) {
-    console.log("ProtectedRoute: No session, redirecting to auth");
     return <Navigate to="/auth" replace />;
   }
 
   if (hasActiveSubscription === false) {
-    console.log("ProtectedRoute: No active subscription, showing subscription plans");
     return <SubscriptionPlans restaurantId={restaurantId} />;
   }
 
-  console.log("ProtectedRoute: Rendering children with SubscriptionGuard");
   return (
     <SubscriptionGuard>
       {children}

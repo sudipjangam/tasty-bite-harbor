@@ -304,7 +304,6 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
       });
 
       for (const cat of categoriesToCreate) {
-        console.log(`Upserting category in DB (overriding if duplicate): ${cat}`);
         const { error: insertError } = await supabase
           .from("categories")
           .upsert({ name: cat, restaurant_id: restaurantId }, { onConflict: "name" });
@@ -347,7 +346,6 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
       }
 
       // Step 2: Insert menu items
-      console.log("Inserting menu items...");
       for (const item of uniqueItemsToInsert) {
         const menuItemData = {
           name: item.name,
@@ -375,7 +373,6 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
 
         // Step 3: Insert variants if any
         if (insertedItem && item.variants && item.variants.length > 0) {
-          console.log(`Saving ${item.variants.length} variants for ${item.name}...`);
           const variantsData = item.variants.map((v, idx) => ({
             menu_item_id: insertedItem.id,
             restaurant_id: restaurantId,

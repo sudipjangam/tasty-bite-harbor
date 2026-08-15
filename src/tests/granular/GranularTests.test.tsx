@@ -59,12 +59,10 @@ beforeAll(async () => {
   }
 
   session = data.session;
-  console.log('Authenticated as:', session?.user.email);
 });
 
 afterAll(async () => {
   // --- CLEANUP: Delete all test data in reverse order of dependencies ---
-  console.log('Starting cleanup...');
 
   // Delete expenses
   for (const id of createdIds.expenses) {
@@ -108,7 +106,6 @@ afterAll(async () => {
 
   // Sign out
   await supabase.auth.signOut();
-  console.log('Cleanup complete. Signed out.');
 });
 
 // =============================================================================

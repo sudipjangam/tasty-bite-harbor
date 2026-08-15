@@ -188,7 +188,6 @@ export const PermissionManager = ({
           .single();
 
         if (profileError || !profile?.role_id) {
-          console.log("No role_id found for user, returning empty array");
           return [];
         }
 
@@ -203,7 +202,6 @@ export const PermissionManager = ({
           return [];
         }
 
-        console.log("Fetched role_components:", roleComps);
         return (roleComps || []).map((rc) => rc.component_id);
       },
       enabled: open && !!userId,
@@ -229,7 +227,6 @@ export const PermissionManager = ({
 
       // If we have role_component IDs directly, use those
       if (roleComponentIds && roleComponentIds.length > 0) {
-        console.log("Using role_component IDs directly:", roleComponentIds);
         setSelectedComponents(roleComponentIds);
       } else {
         // Fallback: Map component names to IDs (case-insensitive)
@@ -241,11 +238,6 @@ export const PermissionManager = ({
           )
           .map((c) => c.id);
 
-        console.log("Mapped from component names:", {
-          componentNames: userData.componentNames,
-          mappedIds: initialIds,
-          allComponents: components.map((c) => c.name),
-        });
 
         setSelectedComponents(initialIds);
       }

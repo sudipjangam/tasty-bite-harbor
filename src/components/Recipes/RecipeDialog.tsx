@@ -251,15 +251,8 @@ export const RecipeDialog = ({
     queryKey: ["menu-items", restaurantId],
     queryFn: async () => {
       if (!restaurantId?.restaurantId) {
-        console.log(
-          "RecipeDialog: No restaurant ID available for menu items query",
-        );
         return [];
       }
-      console.log(
-        "RecipeDialog: Fetching menu items for restaurant:",
-        restaurantId.restaurantId,
-      );
       const { data, error } = await supabase
         .from("menu_items")
         .select("id, name, category, price")
@@ -270,11 +263,6 @@ export const RecipeDialog = ({
         console.error("RecipeDialog: Error fetching menu items:", error);
         return [];
       }
-      console.log(
-        "RecipeDialog: Fetched menu items:",
-        data?.length || 0,
-        "items",
-      );
       return data || [];
     },
     enabled: !!restaurantId?.restaurantId && open,

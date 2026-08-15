@@ -338,7 +338,6 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
             });
             chartImages.push(canvas.toDataURL("image/jpeg", 0.7));
           } catch (e) {
-            console.log("Chart capture failed:", e);
           }
         }
       }
@@ -409,7 +408,6 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
             );
             yPos += imgHeight + 10;
           } catch (e) {
-            console.log("Failed to add chart image:", e);
           }
         }
         chartIndex++;

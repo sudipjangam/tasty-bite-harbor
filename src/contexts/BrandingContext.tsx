@@ -392,7 +392,6 @@ export function BrandingProvider({ children }: BrandingProviderProps) {
 
       // If column doesn't exist yet (migration pending), gracefully fall back to defaults
       if (settingsError?.code === '42703' || settingsError?.message?.includes('branding_config')) {
-        console.info('[BrandingProvider] branding_config column not yet migrated — using defaults');
         setIsLoading(false);
         return;
       }

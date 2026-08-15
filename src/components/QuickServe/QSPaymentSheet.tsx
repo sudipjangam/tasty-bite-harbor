@@ -1087,7 +1087,6 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                   duration: 6000,
                 });
               } else {
-                console.log("✅ Inventory deducted (background)");
               }
             } catch (invErr) {
               console.error("Inventory deduction failed (background):", invErr);
@@ -1154,7 +1153,6 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                 notes: `Redeemed ${loyaltyPointsUsed} points for order discount`,
               });
 
-              console.log(`✅ Deducted ${loyaltyPointsUsed} loyalty points`);
             }
           } catch (err) {
             console.error("Loyalty points deduction error:", err);

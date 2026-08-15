@@ -109,10 +109,6 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
         .eq("restaurant_id", restaurantId)
         .order("name");
       if (error) {
-        console.log(
-          "expense_categories table may not exist yet:",
-          error.message,
-        );
         return [];
       }
       return (data || []).map((c: any) => ({

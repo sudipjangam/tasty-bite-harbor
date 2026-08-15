@@ -215,7 +215,6 @@ export const syncAppComponentsWithRegistry = async (): Promise<Array<{
   // 3. Insert missing components
   const toInsert = Object.values(registryComponentNames);
   if (toInsert.length > 0) {
-    console.log('[syncAppComponents] Inserting missing components:', toInsert.map(c => c.name));
     const { error: insertError } = await supabase
       .from('app_components')
       .insert(toInsert);

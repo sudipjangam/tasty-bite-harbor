@@ -54,10 +54,6 @@ const ExcelAnalyzer: React.FC<{
           const sheet = workbook.Sheets[workbook.SheetNames[0]];
           const jsonData = utils.sheet_to_json(sheet);
           
-          console.log("=== EXCEL FILE ANALYSIS DATA ===");
-          console.log("File name:", file.name);
-          console.log("Sheet names:", workbook.SheetNames);
-          console.log("Raw JSON data sample:", jsonData.slice(0, 5));
           
           if (jsonData.length === 0) {
             toast({
@@ -94,13 +90,6 @@ const ExcelAnalyzer: React.FC<{
             insights = salesAnalysis.insights;
             chartData = salesAnalysis.chartData;
             
-            console.log("Sales data detected:", {
-              uniqueProducts,
-              totalSales,
-              avgValue,
-              topProduct,
-              dateRange
-            });
           } else {
             // Generic data analysis
             insights = [
@@ -118,11 +107,6 @@ const ExcelAnalyzer: React.FC<{
             
             // Generate generic chart data
             chartData = generateGenericChartData(jsonData);
-            console.log("Generic data analysis:", {
-              totalRows,
-              columnCount,
-              chartData: chartData.slice(0, 3)
-            });
           }
           
           const resultData = {
@@ -138,7 +122,6 @@ const ExcelAnalyzer: React.FC<{
             chartData
           };
           
-          console.log("Final analysis result:", resultData);
           setAnalysisResult(resultData);
           
           toast({
@@ -212,12 +195,6 @@ const ExcelAnalyzer: React.FC<{
     const quantityColumn = findColumn(['quantity', 'qty', 'count', 'units']) || null;
     const dateColumn = findColumn(['date', 'time', 'created', 'ordered']) || null;
     
-    console.log("Detected columns:", {
-      productColumn,
-      priceColumn,
-      quantityColumn,
-      dateColumn
-    });
     
     // Product analysis
     const productCounts: Record<string, number> = {};

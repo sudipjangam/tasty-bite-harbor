@@ -43,7 +43,6 @@ const LaborCostWidget: React.FC = () => {
         .eq('restaurant_id', restaurantId)
         .eq('status', 'active');
       if (error) {
-        console.log('Error fetching staff:', error.message);
         return [];
       }
       return data || [];

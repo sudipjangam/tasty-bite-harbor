@@ -67,12 +67,10 @@ const subscribeToRealtimeUpdates = () => {
         table: 'subscription_plans',
       },
       (payload) => {
-        console.log('[useFeatureGate] Plan updated via Realtime, invalidating cache:', payload.new?.id);
         invalidateFeatureCache();
       }
     )
     .subscribe((status) => {
-      console.log('[useFeatureGate] Realtime subscription status:', status);
     });
 };
 

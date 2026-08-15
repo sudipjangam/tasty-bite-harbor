@@ -549,7 +549,6 @@ const KitchenDisplay = () => {
               duration: 8000,
             });
           } else {
-            console.log("Inventory deducted successfully:", deductResult);
           }
         } catch (inventoryError) {
           console.error("Inventory deduction failed:", inventoryError);

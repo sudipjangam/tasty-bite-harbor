@@ -132,7 +132,6 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
         const sorted = sortOrders(mapped);
         
         if (sorted.length > orders.length && isSilent) {
-           console.log("New order detected!");
         }
         
         setOrders(sorted);

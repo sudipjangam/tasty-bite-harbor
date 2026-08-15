@@ -225,9 +225,6 @@ export const useWhatsAppCampaigns = () => {
       }
     }
 
-    console.log(
-      `Campaign: template="${useTemplate}", vars=${templateVars.length}, urlButton=${hasUrlButton}`,
-    );
 
     for (let i = 0; i < targetCustomers.length; i++) {
       const customer = targetCustomers[i];

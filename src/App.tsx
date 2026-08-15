@@ -51,7 +51,6 @@ function AppWithRealtime() {
     // Register service worker with update detection
     registerServiceWorker({
       onUpdateAvailable: () => {
-        console.log("[App] Update available!");
         setUpdateAvailable(true);
       },
     });

@@ -39,11 +39,6 @@ export const useChatWithApi = () => {
     setIsLoading(true);
 
     try {
-      console.log("Calling AI assistant with messages:", [
-        ...messages,
-        userMessage,
-      ]);
-      console.log("Using restaurant ID:", restaurantId);
 
       if (!restaurantId) {
         console.warn(
@@ -52,7 +47,6 @@ export const useChatWithApi = () => {
       }
 
       // Always use the chat-with-gemini function directly
-      console.log("Invoking chat-with-gemini function directly...");
       const { data, error } = await supabase.functions.invoke(
         "chat-with-gemini",
         {
@@ -75,7 +69,6 @@ export const useChatWithApi = () => {
         throw new Error("No data returned from function");
       }
 
-      console.log("Response data from AI:", data);
 
       // Check if the response contains a 503 error (model overloaded)
       if (data.error && typeof data.error === "string") {
@@ -86,11 +79,6 @@ export const useChatWithApi = () => {
             // Retry up to 2 times with exponential backoff
             if (retryCount < 2) {
               const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s
-              console.log(
-                `Model overloaded, retrying in ${delay}ms (attempt ${
-                  retryCount + 1
-                })...`
-              );
               toast({
                 title: "AI is busy",
                 description: `Retrying in ${delay / 1000} seconds...`,
@@ -122,7 +110,6 @@ export const useChatWithApi = () => {
               // Retry for 503 errors
               if (retryCount < 2) {
                 const delay = Math.pow(2, retryCount) * 1000;
-                console.log(`Model overloaded, retrying in ${delay}ms...`);
                 toast({
                   title: "AI is busy",
                   description: `Retrying in ${delay / 1000} seconds...`,
@@ -188,7 +175,6 @@ export const useChatWithApi = () => {
         retryCount < 2
       ) {
         const delay = Math.pow(2, retryCount) * 1000;
-        console.log(`Retrying due to overload in ${delay}ms...`);
         toast({
           title: "AI is busy",
           description: `Retrying in ${delay / 1000} seconds...`,
@@ -272,7 +258,6 @@ export const useChatWithApi = () => {
         description: `Uploading ${file.name}...`,
       });
 
-      console.log(`Uploading file: ${file.name}, type: ${file.type}`);
 
       // Send file to upload-image function with additional metadata
       const { data, error } = await supabase.functions.invoke("upload-image", {
@@ -294,7 +279,6 @@ export const useChatWithApi = () => {
         throw new Error(errorMsg);
       }
 
-      console.log("Upload response:", data);
 
       // Add message with uploaded file info
       const fileExtension = file.name.split(".").pop()?.toLowerCase();

@@ -631,7 +631,6 @@ export const QSRPosMain: React.FC = () => {
           .eq("id", recalledKitchenOrderId);
 
         if (updateError) throw updateError;
-        console.log("[QSR POS] Kitchen order updated with delta:", recalledKitchenOrderId);
 
         // Update linked order total
         if (existingOrderId) {
@@ -696,7 +695,6 @@ export const QSRPosMain: React.FC = () => {
           .select()
           .single();
 
-        console.log("[QSR POS] Kitchen order created:", kitchenOrder);
 
         if (kitchenError) throw kitchenError;
 
@@ -1126,10 +1124,6 @@ export const QSRPosMain: React.FC = () => {
           .single();
 
         if (kitchenError) throw kitchenError;
-        console.log(
-          "[QSR POS] Pre-pay order created (completed):",
-          kitchenOrder?.id,
-        );
 
         // Create order record as completed
         const orderTotal = orderItems.reduce(
@@ -1202,9 +1196,6 @@ export const QSRPosMain: React.FC = () => {
                 duration: 6000,
               });
             } else {
-              console.log(
-                "Inventory deducted successfully for QSR pre-pay order",
-              );
             }
           } catch (invErr) {
             console.error("Inventory deduction failed (non-blocking):", invErr);

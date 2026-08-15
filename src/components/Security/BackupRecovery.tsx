@@ -194,12 +194,10 @@ export const BackupRecovery = () => {
         .maybeSingle();
 
       if (error) {
-        console.log('Backup settings not available:', error.message);
         return;
       }
       if (data) setSettings(data);
     } catch (error) {
-      console.log('Backup settings feature not configured');
     }
   };
 
@@ -417,7 +415,6 @@ export const BackupRecovery = () => {
         });
 
       if (error) {
-        console.log('Could not save backup settings:', error.message);
         toast({
           title: "Note",
           description: "Backup settings feature is not yet configured for your account",
@@ -430,7 +427,6 @@ export const BackupRecovery = () => {
         description: "Backup settings updated successfully"
       });
     } catch (error) {
-      console.log('Backup settings update failed');
       toast({
         title: "Note",
         description: "Backup settings feature is not available",

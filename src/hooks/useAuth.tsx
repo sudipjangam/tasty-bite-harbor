@@ -82,7 +82,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const checkSessionTimeout = async () => {
       const elapsed = Date.now() - sessionStart;
       if (elapsed >= timeoutMs) {
-        console.log(`Session expired (${timeoutHours} hours limit). Forcing logout.`);
         // Call the local signOut function
         await signOut();
         // Force reload to redirect to login and clear all state completely
@@ -267,7 +266,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     if (theme) localStorage.setItem("restaurant-pro-theme", theme);
 
-    console.log("Signed out: cleared auth, cache, and session data");
   };
 
   const value: AuthContextType = {

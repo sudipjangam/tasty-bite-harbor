@@ -141,7 +141,6 @@ const StaffDialog: React.FC<StaffDialogProps> = ({
     try {
       const { uploadImage } = await import("@/utils/imageUpload");
       const imageUrl = await uploadImage(file, (progress) => {
-        console.log(`Upload progress: ${progress}%`);
       });
 
       toast({

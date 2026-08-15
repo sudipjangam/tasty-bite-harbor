@@ -22,14 +22,12 @@ export const AccessProvider: React.FC<AccessProviderProps> = ({ children }) => {
 
   const loadAccessibleComponents = async () => {
     if (!user?.id) {
-      console.log('AccessProvider: No user ID found');
       setAccessibleComponents([]);
       setLoading(false);
       return;
     }
 
     try {
-      console.log('AccessProvider: Loading accessible components for user:', user.id);
       
       // Call the database function to get user's accessible components
       const { data, error } = await supabase.rpc('get_user_components', {
@@ -44,7 +42,6 @@ export const AccessProvider: React.FC<AccessProviderProps> = ({ children }) => {
 
       // Extract component names from the result
       const componentNames = data?.map((row: any) => row.component_name) || [];
-      console.log('AccessProvider: Loaded components:', componentNames);
       setAccessibleComponents(componentNames);
     } catch (error) {
       console.error('Error in loadAccessibleComponents:', error);
@@ -63,7 +60,6 @@ export const AccessProvider: React.FC<AccessProviderProps> = ({ children }) => {
     if (loading) return false;
     
     const access = accessibleComponents.includes(componentName);
-    console.log(`AccessProvider: Checking access for ${componentName}:`, access);
     return access;
   };
 

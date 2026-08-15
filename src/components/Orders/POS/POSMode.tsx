@@ -487,7 +487,6 @@ const POSMode = () => {
 
       // If sent within the last 10 seconds, block it immediately
       if (lastSentTime && Date.now() - lastSentTime < 10000) {
-        console.log("Blocked by local duplicate cache");
         return { isDuplicate: true };
       }
 

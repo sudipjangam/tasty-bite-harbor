@@ -17,13 +17,11 @@ export const useAuthState = () => {
     }
     
     initialized.current = true;
-    console.log("useAuthState: Initializing authentication (single instance)");
     
     let mounted = true;
     
     const initializeAuth = async () => {
       try {
-        console.log("useAuthState: Getting current session");
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -35,7 +33,6 @@ export const useAuthState = () => {
           return;
         }
         
-        console.log("useAuthState: Initial session:", session ? "found" : "none");
         
         if (mounted) {
           setUser(session?.user || null);
@@ -55,7 +52,6 @@ export const useAuthState = () => {
       (event, session) => {
         if (!mounted) return;
         
-        console.log("useAuthState: Auth event:", event, session ? "with session" : "no session");
         
         setUser(session?.user || null);
         setLoading(false);
@@ -66,7 +62,6 @@ export const useAuthState = () => {
     initializeAuth();
     
     return () => {
-      console.log("useAuthState: Cleaning up");
       mounted = false;
       subscription.unsubscribe();
     };

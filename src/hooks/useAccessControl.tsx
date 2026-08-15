@@ -25,7 +25,6 @@ export const useAccessControl = (): AccessControl => {
   useEffect(() => {
     const loadAllowedComponents = async () => {
       if (!user?.restaurant_id || !user?.id) {
-        console.log('AccessControl: No user or restaurant_id found');
         setSubscriptionComponents([]);
         setUserRoleComponents([]);
         setLoading(false);
@@ -33,11 +32,9 @@ export const useAccessControl = (): AccessControl => {
       }
 
       try {
-        console.log('AccessControl: Fetching components for restaurant:', user.restaurant_id);
         
         // 1. Fetch subscription plan components
         const planComponents = await fetchAllowedComponents(user.restaurant_id);
-        console.log('AccessControl: Subscription components:', planComponents);
         setSubscriptionComponents(planComponents);
         
         // 2. Fetch user's role components (what they're allowed to access)
@@ -51,7 +48,6 @@ export const useAccessControl = (): AccessControl => {
         } else {
           // Extract component names from the RPC result
           const componentNames = (userComponents || []).map((c: any) => c.component_name);
-          console.log('AccessControl: User role components:', componentNames);
           setUserRoleComponents(componentNames);
         }
         
@@ -83,13 +79,11 @@ export const useAccessControl = (): AccessControl => {
     const subscriptionHasAccess = hasFeatureAccess(component, subscriptionComponents);
     
     if (!subscriptionHasAccess) {
-      console.log(`AccessControl: Subscription doesn't include ${component}`);
       return false;
     }
     
     // Admin/Owner with full_access bypasses role check
     if (user.role_has_full_access) {
-      console.log(`AccessControl: User has full_access, granting ${component}`);
       return true;
     }
     
@@ -102,7 +96,6 @@ export const useAccessControl = (): AccessControl => {
            c.toLowerCase() === topLevelComponent.toLowerCase()
     );
     
-    console.log(`AccessControl: Checking ${component} - subscription: ${subscriptionHasAccess}, role: ${roleHasAccess}`);
     return roleHasAccess;
   };
 

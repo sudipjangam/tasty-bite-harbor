@@ -51,7 +51,6 @@ export function NetworkStatusProvider({
   const triggerSync = useCallback(async () => {
     if (flushingRef.current) return;
     flushingRef.current = true;
-    console.log("[NetworkStatus] Online — flushing offline queue");
     try {
       await flushQueue(async (remaining) => {
         setPendingCount(remaining);

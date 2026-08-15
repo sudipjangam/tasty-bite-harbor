@@ -35,7 +35,6 @@ export const useSubscriptionAccess = () => {
       }
 
       if (!subscription || !subscription.subscription_plans) {
-        console.log('useSubscriptionAccess: No active subscription found');
         return [];
       }
 
@@ -48,7 +47,6 @@ export const useSubscriptionAccess = () => {
       }
 
       const components = planData?.components ?? [];
-      console.log('useSubscriptionAccess: Found components:', components);
       
       return Array.isArray(components) ? components : [];
     },
@@ -69,7 +67,6 @@ export const useSubscriptionAccess = () => {
           table: 'subscription_plans',
         },
         (payload) => {
-          console.log('[useSubscriptionAccess] Plan updated via Realtime, invalidating cache:', payload.new?.id);
           // Invalidate the subscription-components query to trigger re-fetch
           queryClient.invalidateQueries({
             queryKey: ['subscription-components', user?.restaurant_id],
@@ -77,7 +74,6 @@ export const useSubscriptionAccess = () => {
         }
       )
       .subscribe((status) => {
-        console.log('[useSubscriptionAccess] Realtime subscription status:', status);
       });
 
     return () => {

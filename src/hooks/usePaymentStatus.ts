@@ -165,13 +165,11 @@ export function usePaymentStatus({
           filter: `paytm_order_id=eq.${paytmOrderId}`,
         },
         (payload) => {
-          console.log('Realtime payment update:', payload);
           const newRecord = payload.new as PaymentTransaction;
           handleStatusChange(newRecord);
         }
       )
       .subscribe((status) => {
-        console.log(`Realtime subscription status: ${status}`);
         if (status === 'CHANNEL_ERROR') {
           setError('Realtime connection error');
         }

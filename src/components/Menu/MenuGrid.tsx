@@ -171,7 +171,6 @@ const MenuGrid = () => {
     queryFn: async () => {
       if (!restaurantId) return [];
 
-      console.log("Fetching menu items for restaurant:", restaurantId);
       const { data, error } = await supabase
         .from("menu_items")
         .select("*")
@@ -183,7 +182,6 @@ const MenuGrid = () => {
         throw error;
       }
 
-      console.log("Fetched menu items:", data);
       return data as MenuItem[];
     },
     enabled: !!restaurantId,

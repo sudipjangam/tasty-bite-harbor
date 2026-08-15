@@ -97,13 +97,11 @@ export const GDPRCompliance = () => {
 
       if (error) {
         // Table might not exist, log but don't show error to user
-        console.log('GDPR requests table not available:', error.message);
         setDataRequests([]);
         return;
       }
       setDataRequests(data || []);
     } catch (error) {
-      console.log('GDPR feature not configured');
       setDataRequests([]);
     } finally {
       setLoading(false);

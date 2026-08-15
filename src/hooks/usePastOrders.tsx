@@ -109,8 +109,6 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
           .select("id, total, discount_amount, discount_percentage, order_type, payment_method, payment_status")
           .in("id", orderIds);
 
-        console.log("[usePastOrders] Fetched orders data:", ordersData);
-        console.log("[usePastOrders] Orders error:", ordersError);
 
         if (!ordersError && ordersData) {
           ordersMap = ordersData.reduce(
@@ -123,8 +121,6 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
         }
       }
 
-      console.log("[usePastOrders] Order IDs:", orderIds);
-      console.log("[usePastOrders] Orders Map:", ordersMap);
 
       const data = kitchenData;
 

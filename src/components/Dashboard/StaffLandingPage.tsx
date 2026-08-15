@@ -204,7 +204,6 @@ const StaffLandingPage: React.FC = () => {
     queryKey: ['staff-cleaning-tasks', staff?.id],
     queryFn: async () => {
       if (!staff?.id || !restaurantId) {
-        console.log('[StaffLandingPage] No staff or restaurant ID');
         return [];
       }
       
@@ -225,7 +224,6 @@ const StaffLandingPage: React.FC = () => {
         console.error('[StaffLandingPage] Error fetching tasks:', error);
         throw error;
       }
-      console.log('[StaffLandingPage] Fetched tasks:', data);
       return data;
     },
     enabled: !!staff?.id && !!restaurantId,

@@ -291,7 +291,6 @@ const RestaurantManagement = () => {
         throw error;
       }
 
-      console.log("Fetched restaurants:", data?.length, data);
 
       let filtered = data || [];
       if (statusFilter !== "all") {
@@ -2710,10 +2709,6 @@ const RestaurantManagement = () => {
                     size="sm"
                     className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md"
                     onClick={async () => {
-                      console.log("Add User clicked", {
-                        newUserData,
-                        selectedRestaurant,
-                      });
 
                       if (
                         !selectedRestaurant ||
@@ -2740,7 +2735,6 @@ const RestaurantManagement = () => {
                       toast.info("Creating user...");
 
                       try {
-                        console.log("Calling Edge Function...");
                         // Call Edge Function to create user (uses Admin API server-side)
                         const { data, error } = await supabase.functions.invoke(
                           "user-management",
@@ -2759,7 +2753,6 @@ const RestaurantManagement = () => {
                           },
                         );
 
-                        console.log("Edge Function response:", { data, error });
 
                         if (error) {
                           console.error("Edge Function error:", error);

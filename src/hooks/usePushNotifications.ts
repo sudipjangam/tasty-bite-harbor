@@ -18,12 +18,10 @@ export const usePushNotifications = () => {
       await PushNotifications.removeAllListeners();
 
       await PushNotifications.addListener('registration', async (t: Token) => {
-        console.log('Push registration success, token capture started');
         setToken(t.value);
 
         // Save the token to our Supabase database so our Edge Function can target it
         if (user) {
-          console.log('Saving push token to Supabase for user:', user.id);
           const { error } = await supabase
             .from('user_push_tokens')
             .upsert({
@@ -35,7 +33,6 @@ export const usePushNotifications = () => {
           if (error) {
             console.error("Error saving push token to DB:", error);
           } else {
-            console.log("Push token successfully synced to DB");
           }
         }
       });
@@ -46,26 +43,20 @@ export const usePushNotifications = () => {
 
       // Show us the notification payload if the app is open on our device
       await PushNotifications.addListener('pushNotificationReceived', (notification: PushNotificationSchema) => {
-        console.log('Foreground push received: ', JSON.stringify(notification));
       });
 
       // Method called when tapping on a notification
       await PushNotifications.addListener('pushNotificationActionPerformed', (notification: ActionPerformed) => {
-        console.log('Push action performed (tapped): ', JSON.stringify(notification));
       });
 
-      console.log('Push listeners attached');
     };
 
     const registerPush = async () => {
       try {
-        console.log('Starting push registration process...');
         const permStatus = await PushNotifications.checkPermissions();
-        console.log('Initial permission status:', permStatus.receive);
 
         if (permStatus.receive === 'prompt') {
           const newStatus = await PushNotifications.requestPermissions();
-          console.log('New permission status after request:', newStatus.receive);
           if (newStatus.receive !== 'granted') {
             console.warn('User denied push notification permission');
             return;
@@ -84,7 +75,6 @@ export const usePushNotifications = () => {
               importance: 3,
               visibility: 1,
             });
-            console.log('Push channel "swadeshi_solutions_channel_silent" created/verified');
           } catch (channelErr) {
             console.error('Error creating push channel', channelErr);
           }
@@ -93,7 +83,6 @@ export const usePushNotifications = () => {
         // Register with Apple / Google to receive push via APNS/FCM
         // We MUST call this AFTER adding listeners to ensure we catch the 'registration' event
         await PushNotifications.register();
-        console.log('PushNotifications.register() called');
       } catch (e) {
         console.error("Failed to register for push notifications:", e);
       }

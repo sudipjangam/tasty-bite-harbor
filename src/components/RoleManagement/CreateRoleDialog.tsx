@@ -256,10 +256,6 @@ export const CreateRoleDialog = ({
         description: (description || "").trim() || null,
         componentIds: selectedComponents,
       };
-      console.log("CreateRoleDialog → sending payload", {
-        ...payload,
-        componentCount: selectedComponents.length,
-      });
 
       const { data, error } = await supabase.functions.invoke(
         "role-management",
@@ -268,7 +264,6 @@ export const CreateRoleDialog = ({
         }
       );
 
-      console.log("Function response:", { data, error });
 
       if (error) {
         console.error("Function invocation error:", error);

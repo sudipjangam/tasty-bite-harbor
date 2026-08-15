@@ -79,7 +79,6 @@ export const BillUploadDialog: React.FC<BillUploadDialogProps> = ({
     setError(null);
 
     try {
-      console.log("Invoking extract-bill-details function...");
       const { data, error } = await supabase.functions.invoke(
         "extract-bill-details",
         {
@@ -96,7 +95,6 @@ export const BillUploadDialog: React.FC<BillUploadDialogProps> = ({
         throw new Error(data.error);
       }
 
-      console.log("Extracted data:", data);
 
       // Validate data structure
       if (!data || !data.items) {

@@ -56,16 +56,6 @@ const CleaningSchedules = () => {
   } = useQuery({
     queryKey: ["cleaning-schedules", restaurantId],
     queryFn: async () => {
-      console.log("[CleaningSchedules] === QUERY START ===");
-      console.log("[CleaningSchedules] Restaurant ID:", restaurantId);
-      console.log(
-        "[CleaningSchedules] Restaurant ID type:",
-        typeof restaurantId
-      );
-      console.log(
-        "[CleaningSchedules] Restaurant ID is truthy?:",
-        !!restaurantId
-      );
 
       if (!restaurantId) {
         console.warn(
@@ -74,7 +64,6 @@ const CleaningSchedules = () => {
         return [];
       }
 
-      console.log("[CleaningSchedules] 🔍 Executing Supabase query...");
 
       const { data, error, count } = await supabase
         .from("room_cleaning_schedules")
@@ -91,37 +80,17 @@ const CleaningSchedules = () => {
         .order("scheduled_date", { ascending: true })
         .order("scheduled_time", { ascending: true });
 
-      console.log("[CleaningSchedules] Query completed");
-      console.log("[CleaningSchedules] Error:", error);
-      console.log("[CleaningSchedules] Count:", count);
-      console.log("[CleaningSchedules] Data length:", data?.length);
-      console.log(
-        "[CleaningSchedules] Raw data:",
-        JSON.stringify(data, null, 2)
-      );
 
       if (error) {
         console.error("[CleaningSchedules] ❌ Query error:", error);
         throw error;
       }
 
-      console.log(
-        "[CleaningSchedules] ✅ Successfully fetched",
-        data?.length || 0,
-        "schedules"
-      );
-      console.log("[CleaningSchedules] === QUERY END ===");
       return data || [];
     },
     enabled: !!restaurantId,
   });
 
-  console.log("[CleaningSchedules] Render - isLoading:", isLoading);
-  console.log("[CleaningSchedules] Render - schedules:", schedules);
-  console.log(
-    "[CleaningSchedules] Render - schedules length:",
-    schedules?.length
-  );
 
   // Query available staff for assignment
   const { data: staffList } = useQuery({
