@@ -71,7 +71,6 @@ export const LiveOrderStatus = () => {
           filter: `restaurant_id=eq.${restaurantId}`
         },
         (payload) => {
-          console.log('Kitchen order change detected:', payload);
           
           if (payload.eventType === 'UPDATE') {
             const updatedOrder = payload.new as KitchenOrder & { bumped_at?: string };

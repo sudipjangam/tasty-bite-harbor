@@ -115,7 +115,6 @@ export const AuditTrail = () => {
 
       if (countError) {
         // Table might not exist or access denied
-        console.log("Audit logs not available:", countError.message);
         setAuditLogs([]);
         setTotalCount(0);
         return;
@@ -154,7 +153,6 @@ export const AuditTrail = () => {
       const { data, error } = await query;
 
       if (error) {
-        console.log("Error fetching audit logs:", error.message);
         setAuditLogs([]);
         return;
       }
@@ -187,7 +185,6 @@ export const AuditTrail = () => {
 
       setAuditLogs(mappedData);
     } catch (error) {
-      console.log("Audit logs feature not available");
       setAuditLogs([]);
     } finally {
       setLoading(false);

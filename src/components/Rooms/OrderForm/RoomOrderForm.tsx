@@ -176,7 +176,6 @@ const RoomOrderForm: React.FC<RoomOrderFormProps> = ({
         status: 'pending'
       };
 
-      console.log("Submitting order data:", orderData);
 
       const { data, error } = await supabase
         .from('room_food_orders')

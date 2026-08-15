@@ -61,7 +61,6 @@ class ErrorMonitoringService {
     this.config = { ...this.config, ...config };
     
     if (this.config.debug) {
-      console.log('[ErrorMonitoring] Initialized with config:', this.config);
     }
 
     // Set up global error handlers
@@ -147,7 +146,6 @@ class ErrorMonitoringService {
   private sendEvent(event: ErrorEvent): void {
     // Log to console in debug mode
     if (this.config.debug) {
-      console.log('[ErrorMonitoring] Event:', event);
     }
 
     // TODO: Integrate with actual error monitoring service

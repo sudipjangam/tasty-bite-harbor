@@ -66,60 +66,37 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
 
   const { toast } = useToast();
 
-  console.log("📧 [CheckoutSuccessDialog] Rendered with:", {
-    open,
-    initialEmail,
-    billingId,
-    customerName,
-    autoSendAttempted,
-    emailSent,
-    customerEmail,
-  });
 
   // Use ref to track if auto-send was already triggered (to survive re-renders)
   const autoSendTriggeredRef = React.useRef(false);
 
   // Auto-send email when dialog opens if customer email is available
   useEffect(() => {
-    console.log("📧 [useEffect] Checking auto-send conditions:", {
-      open,
-      initialEmail,
-      autoSendTriggeredRef: autoSendTriggeredRef.current,
-      emailSent,
-    });
 
     if (open && initialEmail && !autoSendTriggeredRef.current && !emailSent) {
-      console.log(
-        "📧 [useEffect] ✅ Auto-send conditions met! Sending email now..."
-      );
       autoSendTriggeredRef.current = true;
       setAutoSendAttempted(true);
 
       // Call sendEmail function directly (defined below)
       sendEmailNow();
     } else {
-      console.log("📧 [useEffect] ❌ Auto-send conditions NOT met");
     }
   }, [open, initialEmail, emailSent]);
 
   // Separate function that can be called immediately
   const sendEmailNow = async () => {
     const emailToSend = initialEmail || customerEmail;
-    console.log("📧 [sendEmailNow] Starting with email:", emailToSend);
 
     if (!emailToSend) {
-      console.log("📧 [sendEmailNow] ❌ No email address");
       return;
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(emailToSend)) {
-      console.log("📧 [sendEmailNow] ❌ Invalid email format");
       return;
     }
 
-    console.log("📧 [sendEmailNow] ✅ Sending email to:", emailToSend);
 
     setIsSendingEmail(true);
 
@@ -140,16 +117,6 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
 
       const restaurantName = restaurantData?.name || "Our Hotel";
 
-      console.log(
-        "📧 [sendEmailNow] Calling send-email-bill edge function with:",
-        {
-          billingId,
-          email: emailToSend,
-          restaurantName,
-          customerName,
-          total: totalAmount,
-        }
-      );
 
       // Call the Email edge function
       const response = await supabase.functions.invoke("send-email-bill", {
@@ -171,7 +138,6 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
         },
       });
 
-      console.log("📧 [sendEmailNow] Edge function response:", response);
 
       if (response.error) {
         console.error(
@@ -184,7 +150,6 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
           description: response.error.message || "Failed to send email",
         });
       } else {
-        console.log("📧 [sendEmailNow] ✅ Email sent successfully!");
         setEmailSent(true);
         toast({
           title: "Bill Sent",
@@ -206,13 +171,8 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
   };
 
   const handleSendEmail = async () => {
-    console.log(
-      "📧 [handleSendEmail] Started with customerEmail:",
-      customerEmail
-    );
 
     if (!customerEmail) {
-      console.log("📧 [handleSendEmail] ❌ No email address provided");
       toast({
         variant: "destructive",
         title: "Email Required",
@@ -224,10 +184,6 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(customerEmail)) {
-      console.log(
-        "📧 [handleSendEmail] ❌ Invalid email format:",
-        customerEmail
-      );
       toast({
         variant: "destructive",
         title: "Invalid Email",
@@ -236,7 +192,6 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
       return;
     }
 
-    console.log("📧 [handleSendEmail] ✅ Email validation passed");
     setIsSendingEmail(true);
 
     try {
@@ -253,15 +208,6 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
 
       const restaurantName = restaurantData?.name || "Our Hotel";
 
-      console.log("Sending Email bill:", {
-        billingId,
-        email: customerEmail,
-        restaurantName,
-        customerName,
-        total: totalAmount,
-        roomName,
-        checkoutDate,
-      });
 
       // Call the Email edge function
       const response = await supabase.functions.invoke("send-email-bill", {
@@ -283,9 +229,6 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
         },
       });
 
-      console.log(
-        "📧 [handleSendEmail] Calling send-email-bill edge function..."
-      );
 
       if (response.error) {
         console.error(
@@ -295,10 +238,6 @@ const CheckoutSuccessDialog: React.FC<CheckoutSuccessDialogProps> = ({
         throw new Error(response.error);
       }
 
-      console.log(
-        "📧 [handleSendEmail] ✅ Edge function response:",
-        response.data
-      );
 
       setEmailSent(true);
       toast({

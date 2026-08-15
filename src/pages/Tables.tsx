@@ -60,7 +60,6 @@ const Tables = () => {
   const { data: tables = [], refetch } = useQuery({
     queryKey: ["tables"],
     queryFn: async () => {
-      console.log("Fetching tables...");
       const {
         data: { user },
       } = await supabase.auth.getUser();

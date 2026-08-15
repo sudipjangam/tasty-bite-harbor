@@ -44,7 +44,6 @@ const FileAnalysisUploader: React.FC<FileAnalysisUploaderProps> = ({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    console.log("Files selected:", files.length, "First file:", files[0].name, files[0].type);
 
     // Set the first file for Excel analysis
     const fileToAnalyze = files[0];
@@ -63,13 +62,11 @@ const FileAnalysisUploader: React.FC<FileAnalysisUploaderProps> = ({
 
     const promises = Array.from(files).map(async (file) => {
       try {
-        console.log("Processing file:", file.name, "Type:", file.type, "Size:", file.size);
         
         // Convert file to base64
         const base64 = await toBase64(file);
         const base64String = base64.split(',')[1]; // Remove data URL part
         
-        console.log("File converted to base64, uploading to Supabase...");
 
         // Upload file to Supabase Edge Function
         const { data, error } = await supabase.functions.invoke('upload-image', {
@@ -85,7 +82,6 @@ const FileAnalysisUploader: React.FC<FileAnalysisUploaderProps> = ({
           throw error;
         }
         
-        console.log("Supabase upload response:", data);
 
         // Generate analysis based on file type
         let analysis = '';
@@ -108,7 +104,6 @@ const FileAnalysisUploader: React.FC<FileAnalysisUploaderProps> = ({
           url: data?.image?.url || ''
         };
         
-        console.log("File upload complete, result:", fileResult);
         
         // File upload success
         return fileResult;
@@ -129,7 +124,6 @@ const FileAnalysisUploader: React.FC<FileAnalysisUploaderProps> = ({
     setIsUploading(false);
     
     if (validResults.length > 0) {
-      console.log("All files processed successfully:", validResults);
       
       toast({
         title: "Files Uploaded",
@@ -143,7 +137,6 @@ const FileAnalysisUploader: React.FC<FileAnalysisUploaderProps> = ({
       
       // If this is an Excel file, show the analyzer
       if (isExcelFile) {
-        console.log("Excel file detected, showing analyzer");
         setCurrentFile(fileToAnalyze);
         setShowAnalyzer(true);
       }
@@ -209,7 +202,6 @@ const FileAnalysisUploader: React.FC<FileAnalysisUploaderProps> = ({
   };
 
   const handleCloseAnalyzer = () => {
-    console.log("Closing analyzer");
     setShowAnalyzer(false);
     setCurrentFile(null);
   };

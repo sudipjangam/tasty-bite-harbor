@@ -417,7 +417,6 @@ const PaymentDialog = ({
   // Paytm real-time payment detection
   const handlePaytmSuccess = useCallback(
     (transaction: any) => {
-      console.log("Payment SUCCESS detected:", transaction);
       setPaymentAutoDetected(true);
 
       // Voice announcement
@@ -458,7 +457,6 @@ const PaymentDialog = ({
 
   const handlePaytmFailure = useCallback(
     (transaction: any) => {
-      console.log("Payment FAILED:", transaction);
       notifyPaymentFailure({
         amount: total,
         tableNumber: tableNumber || undefined,
@@ -1958,13 +1956,11 @@ const PaymentDialog = ({
 
       // Auto-share bill via WhatsApp if checkbox is checked (free — wa.me link)
       if (sendBillToMobile && customerMobile) {
-        console.log("📱 Sharing bill via WhatsApp (free wa.me link)");
         handleShareWhatsApp();
       }
 
       // Auto-share via generic share if email checkbox is checked (free)
       if (sendBillToEmail && customerEmail) {
-        console.log("📤 Sharing bill via generic share API");
         await handleShareGeneric();
       }
 
@@ -2061,19 +2057,11 @@ const PaymentDialog = ({
 
     // Only check if we have exactly 10 digits after sanitization
     if (!sanitizedMobile || sanitizedMobile.length !== 10) {
-      console.log("❌ Invalid mobile number for reservation check:", {
-        original: customerMobile,
-        sanitized: sanitizedMobile,
-      });
       setDetectedReservation(null);
       return;
     }
 
     try {
-      console.log(
-        "🔍 Checking for active reservation with sanitized mobile:",
-        sanitizedMobile,
-      );
 
       const { data, error } = await supabase.functions.invoke(
         "find-active-reservation",
@@ -2087,10 +2075,8 @@ const PaymentDialog = ({
         return;
       }
 
-      console.log("📊 Reservation check result:", data);
 
       if (data?.found) {
-        console.log("✅ Found active reservation:", data);
         setDetectedReservation({
           reservation_id: data.reservation_id,
           room_id: data.room_id,
@@ -2103,10 +2089,6 @@ const PaymentDialog = ({
           description: `This customer has an active reservation in ${data.roomName}`,
         });
       } else {
-        console.log(
-          "ℹ️ No active reservation found for mobile:",
-          sanitizedMobile,
-        );
         setDetectedReservation(null);
       }
     } catch (error) {
@@ -2374,7 +2356,6 @@ const PaymentDialog = ({
             if (existingOrders && existingOrders.length > 0) {
               // Found orphaned order — update it instead of creating duplicate
               const orphanedId = existingOrders[0].id;
-              console.log("✅ Found orphaned order, updating instead of creating duplicate:", orphanedId);
 
               await supabase
                 .from("orders")

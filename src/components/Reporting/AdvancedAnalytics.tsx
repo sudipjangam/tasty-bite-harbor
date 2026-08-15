@@ -45,7 +45,6 @@ const AdvancedAnalytics = () => {
           return data;
         }
       } catch (rpcError) {
-        console.log("RPC failed, using fallback", rpcError);
       }
 
       // Fallback: Fetch directly from tables

@@ -45,7 +45,6 @@ export const OrderTracker = ({ orderId }: OrderTrackerProps) => {
           filter: `id=eq.${orderId}`,
         },
         (payload: any) => {
-          console.log("Order status updated in real-time:", payload.new.status);
           setStatus(payload.new.status);
         }
       )

@@ -301,7 +301,6 @@ export const EditRoleDialog = ({
       if (!accessToken)
         throw new Error("You must be signed in to perform this action.");
 
-      console.log("Updating role with components:", selectedComponents);
 
       const { data, error } = await supabase.functions.invoke(
         "role-management",

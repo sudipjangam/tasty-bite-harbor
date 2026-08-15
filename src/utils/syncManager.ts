@@ -34,7 +34,6 @@ export async function enqueueWrite(
     retries: 0,
   };
   await db.put("writeQueue", item);
-  console.log(`[SyncManager] Queued ${type}:`, id);
   return id;
 }
 
@@ -63,7 +62,6 @@ export async function flushQueue(
     // Fetch all items sorted by timestamp (oldest first)
     const items = await db.getAllFromIndex("writeQueue", "by-timestamp");
 
-    console.log(`[SyncManager] Flushing ${items.length} queued writes`);
 
     for (const item of items) {
       try {

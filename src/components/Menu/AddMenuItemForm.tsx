@@ -130,7 +130,6 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
       if (error) throw error;
       if (!profile?.restaurant_id) throw new Error('No restaurant assigned');
 
-      console.log('Fetched user profile:', profile);
       return profile;
     },
   });
@@ -258,7 +257,6 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
   const onSubmit = async (data: FormData) => {
     try {
       setIsSubmitting(true);
-      console.log("Submitting menu item:", data);
 
       const targetRestaurantId = restaurantId || userProfile?.restaurant_id;
 

@@ -62,7 +62,6 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
 
     if (storedEntityKey && storedEntityKey !== currentEntityKey) {
       // Different table/room - clear the cart
-      console.log("Different entity detected, clearing cart");
       clearCart();
     }
 

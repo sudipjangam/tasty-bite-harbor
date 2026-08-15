@@ -110,7 +110,6 @@ async function verifyConnectionState() {
       });
       
       if (!isActuallyConnected) {
-        console.log("[NativePrinter] BT connection lost in background. Updating state...");
         _connected = false;
         _notify();
         // Try to recover it automatically
@@ -475,7 +474,6 @@ export const nativePrinterBridge = {
         _connected = true;
         _address = address;
         _deviceName = name ?? null;
-        console.log("[NativePrinter] Socket reconnected, retrying write...");
         await tryWrite();
       } catch (reconnectErr) {
         _connected = false;

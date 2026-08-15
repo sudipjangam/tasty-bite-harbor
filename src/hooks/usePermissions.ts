@@ -35,7 +35,7 @@ export const usePermissions = () => {
             if (PERMISSIONS.length > 0) {
               perms.requestPermissions(
                 PERMISSIONS,
-                (status: any) => console.log('Bluetooth permissions status:', status),
+                (status: any) => {},
                 (err: any) => console.error('Bluetooth permissions err:', err)
               );
             }

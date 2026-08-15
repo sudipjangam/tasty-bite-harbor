@@ -353,7 +353,6 @@ const Customers = () => {
   // Handle filter button click
   const handleFilterCustomers = (filters: any) => {
     // Implement filtering logic
-    console.log("Filter applied:", filters);
   };
 
   // Handle add note - uses actual logged in user's name

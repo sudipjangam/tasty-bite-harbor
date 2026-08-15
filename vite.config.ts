@@ -40,6 +40,9 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+  esbuild: {
+    pure: mode === 'production' ? ['console.log', 'console.info', 'console.debug'] : [],
+  },
   define: {
     __APP_VERSION__: JSON.stringify(APP_VERSION),
   },

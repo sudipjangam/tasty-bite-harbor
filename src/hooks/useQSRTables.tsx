@@ -154,7 +154,6 @@ export const useQSRTables = () => {
           filter: `restaurant_id=eq.${restaurantId}`,
         },
         () => {
-          console.log("🔄 [QSR] Restaurant table changed - refreshing");
           queryClient.invalidateQueries({
             queryKey: ["qsr-tables", restaurantId],
           });
@@ -169,7 +168,6 @@ export const useQSRTables = () => {
         },
         (payload) => {
           // Immediately refetch when order status changes (especially to 'completed')
-          console.log("🔄 [QSR] Kitchen order changed - refreshing", payload);
           queryClient.invalidateQueries({
             queryKey: ["qsr-tables", restaurantId],
           });
@@ -186,7 +184,6 @@ export const useQSRTables = () => {
         },
         (payload) => {
           // Listen to orders table for payment status changes
-          console.log("🔄 [QSR] Order changed - refreshing", payload);
           queryClient.invalidateQueries({
             queryKey: ["qsr-tables", restaurantId],
           });

@@ -401,7 +401,6 @@ const PublicBillPage = () => {
     billData.orderDate ||
     billData.total;
   const hasCustomerInfo = billData.customerName || billData.customerPhone;
-  console.log("billData", billData);
   const totalItems = billData.items.reduce(
     (sum, item) => sum + item.quantity,
     0,

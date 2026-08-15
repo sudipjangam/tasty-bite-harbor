@@ -109,7 +109,6 @@ export const loadRazorpayScript = (): Promise<void> => {
     script.async = true;
 
     script.onload = () => {
-      console.log('[Razorpay] Checkout script loaded');
       resolve();
     };
 

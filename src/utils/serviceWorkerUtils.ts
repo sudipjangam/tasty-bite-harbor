@@ -24,8 +24,6 @@ export async function checkForUpdates(): Promise<boolean> {
     // Get current version (injected at build time)
     const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0';
     
-    console.log('[SW] Current version:', currentVersion);
-    console.log('[SW] Remote version:', remoteVersion.version);
     
     return remoteVersion.version !== currentVersion;
   } catch (error) {
@@ -39,26 +37,22 @@ export async function checkForUpdates(): Promise<boolean> {
  */
 export function registerServiceWorker(callbacks?: ServiceWorkerUpdateCallbacks): void {
   if (!('serviceWorker' in navigator)) {
-    console.log('[SW] Service Worker not supported');
     return;
   }
 
   window.addEventListener('load', async () => {
     try {
       const registration = await navigator.serviceWorker.register('/sw.js');
-      console.log('[SW] Registered:', registration.scope);
 
       // Check for updates on registration
       registration.addEventListener('updatefound', () => {
         const newWorker = registration.installing;
         if (!newWorker) return;
 
-        console.log('[SW] New service worker found, installing...');
         
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
             // New version available
-            console.log('[SW] New version available!');
             callbacks?.onUpdateAvailable?.();
           }
         });
@@ -66,21 +60,18 @@ export function registerServiceWorker(callbacks?: ServiceWorkerUpdateCallbacks):
 
       // Check for updates periodically (every 5 minutes)
       setInterval(async () => {
-        console.log('[SW] Checking for updates...');
         await registration.update();
       }, 5 * 60 * 1000);
 
       // Check for updates when tab becomes visible
       document.addEventListener('visibilitychange', async () => {
         if (!document.hidden) {
-          console.log('[SW] Tab visible, checking for updates...');
           await registration.update();
         }
       });
 
       // Listen for controller change (new SW activated)
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        console.log('[SW] Controller changed, reloading page...');
         callbacks?.onUpdateInstalled?.();
       });
 

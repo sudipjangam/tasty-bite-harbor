@@ -18,7 +18,6 @@ export const useRealtimeAnalytics = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders' },
         () => {
-          console.log('🔄 Orders changed - invalidating all dashboard queries');
           queryClient.invalidateQueries({ queryKey: ['analytics-data'] });
           queryClient.invalidateQueries({ queryKey: ['dashboard-orders'] });
           queryClient.invalidateQueries({ queryKey: ['liveActivity'] });
@@ -30,7 +29,6 @@ export const useRealtimeAnalytics = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'room_billings' },
         () => {
-          console.log('🔄 Room billings changed - invalidating analytics');
           queryClient.invalidateQueries({ queryKey: ['analytics-data'] });
           queryClient.invalidateQueries({ queryKey: ['dashboard-orders'] });
         }
@@ -39,7 +37,6 @@ export const useRealtimeAnalytics = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'kitchen_orders' },
         () => {
-          console.log('🔄 Kitchen orders changed - invalidating all dashboard queries');
           queryClient.invalidateQueries({ queryKey: ['liveActivity'] });
           queryClient.invalidateQueries({ queryKey: ['analytics-data'] });
           queryClient.invalidateQueries({ queryKey: ['kitchen-orders'] });
@@ -50,7 +47,6 @@ export const useRealtimeAnalytics = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'check_ins' },
         () => {
-          console.log('🔄 Check-ins changed - invalidating analytics');
           queryClient.invalidateQueries({ queryKey: ['liveActivity'] });
         }
       )
@@ -58,7 +54,6 @@ export const useRealtimeAnalytics = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'daily_revenue_stats' },
         () => {
-          console.log('🔄 Revenue stats changed - invalidating analytics');
           queryClient.invalidateQueries({ queryKey: ['analytics-data'] });
         }
       )
@@ -66,7 +61,6 @@ export const useRealtimeAnalytics = () => {
 
     // Cleanup on unmount
     return () => {
-      console.log('🛑 Unsubscribing from realtime analytics');
       supabase.removeChannel(channel);
     };
   }, [queryClient]);

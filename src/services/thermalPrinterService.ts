@@ -168,7 +168,6 @@ class ThermalPrinterService {
         localStorage.setItem(STORAGE_KEY, this.device.id);
       }
 
-      console.log("Bluetooth Printer Connected:", this.device.name);
       this.notifyListeners(true);
       return true;
     } catch (error) {
@@ -204,7 +203,6 @@ class ThermalPrinterService {
       const device = devices.find(d => d.id === savedDeviceId);
 
       if (!device) {
-        console.log("Saved printer device not found in granted devices list.");
         // Don't clear storage — device might appear later
         return false;
       }
@@ -215,9 +213,7 @@ class ThermalPrinterService {
       const maxAttempts = 3;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
-          console.log(`Auto-reconnect attempt ${attempt}/${maxAttempts} for device:`, device.name);
           await this.connectToGATT();
-          console.log("Auto-reconnected to printer:", this.device.name);
           this.notifyListeners(true);
           return true;
         } catch (gattError) {
@@ -225,10 +221,8 @@ class ThermalPrinterService {
           if (attempt === maxAttempts) {
             // Last resort: check if watchAdvertisements can help
             if ('watchAdvertisements' in device) {
-              console.log("Trying watchAdvertisements as last resort...");
               return new Promise<boolean>((resolve) => {
                 const timeout = setTimeout(() => {
-                  console.log("Auto-reconnect timed out waiting for advertisements.");
                   resolve(false);
                 }, 5000);
 
@@ -237,7 +231,6 @@ class ThermalPrinterService {
                   clearTimeout(timeout);
                   try {
                     await this.connectToGATT();
-                    console.log("Auto-reconnected to printer via advertisement:", this.device!.name);
                     this.notifyListeners(true);
                     resolve(true);
                   } catch (err) {
@@ -281,10 +274,8 @@ class ThermalPrinterService {
       try {
         const service = await this.server.getPrimaryService(savedServiceUuid);
         this.characteristic = await service.getCharacteristic(savedCharUuid);
-        console.log("Reconnected to saved characteristic:", savedCharUuid);
         return;
       } catch {
-        console.log("Saved characteristic not found, scanning all services...");
       }
     }
 
@@ -309,7 +300,6 @@ class ThermalPrinterService {
             // Save for fast reconnect next time
             localStorage.setItem(SERVICE_STORAGE_KEY, service.uuid);
             localStorage.setItem(CHAR_STORAGE_KEY, char.uuid);
-            console.log("Found writable characteristic:", char.uuid);
             break;
           }
         }
@@ -338,7 +328,6 @@ class ThermalPrinterService {
   }
 
   private onDisconnected = () => {
-    console.log("Printer disconnected");
     this.cleanup();
     this.notifyListeners(false);
   }

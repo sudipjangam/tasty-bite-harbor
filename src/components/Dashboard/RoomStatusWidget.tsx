@@ -16,7 +16,6 @@ const RoomStatusWidget: React.FC = () => {
     queryFn: async () => {
       if (!restaurantId) return [];
       
-      console.log('[RoomStatusWidget] Fetching rooms for restaurant:', restaurantId);
       
       const { data, error } = await supabase
         .from('rooms')
@@ -29,7 +28,6 @@ const RoomStatusWidget: React.FC = () => {
         throw error;
       }
       
-      console.log('[RoomStatusWidget] Fetched rooms:', data);
       return data;
     },
     enabled: !!restaurantId,
