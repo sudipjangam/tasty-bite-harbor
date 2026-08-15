@@ -1347,15 +1347,15 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                     <Icon className={`h-5 w-5 ${iconColor}`} />
                   </div>
                   <p className="text-sm font-medium text-slate-700 dark:text-slate-200 w-12">{label}</p>
-                  <div className="flex items-center gap-1.5 flex-1">
-                    <span className="text-sm font-medium text-slate-400">{currencySymbol}</span>
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <span className="text-sm font-medium text-slate-400 shrink-0">{currencySymbol}</span>
                     <input
                       type="number"
                       value={state}
                       onChange={(e) => setter(e.target.value)}
                       placeholder="0.00"
                       min={0}
-                      className="flex-1 bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-100 outline-none text-right placeholder:text-slate-400 border border-slate-250 dark:border-slate-700"
+                      className="w-full min-w-0 flex-1 bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-100 outline-none text-right placeholder:text-slate-400 border border-slate-200 dark:border-slate-700"
                       inputMode="decimal"
                     />
                   </div>

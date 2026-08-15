@@ -26,6 +26,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import { App as CapacitorApp } from '@capacitor/app';
 import { supabase } from "@/integrations/supabase/client";
 import { isNativeApp } from "@/utils/platform";
+import { AppUpdateChecker } from "@/components/AppUpdateChecker";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -69,15 +70,17 @@ function AppWithRealtime() {
 
   return (
     <div className="min-h-screen w-full overflow-auto bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
-      {/* Global offline indicator */}
-      <OfflineBanner />
-      <NotificationListener />
-      <OwnerNotificationListener />
-      <Routes />
-      <Toaster />
-      {updateAvailable && (
-        <UpdateNotification onDismiss={() => setUpdateAvailable(false)} />
-      )}
+      <AppUpdateChecker>
+        {/* Global offline indicator */}
+        <OfflineBanner />
+        <NotificationListener />
+        <OwnerNotificationListener />
+        <Routes />
+        <Toaster />
+        {updateAvailable && (
+          <UpdateNotification onDismiss={() => setUpdateAvailable(false)} />
+        )}
+      </AppUpdateChecker>
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Fingerprint, ShieldCheck, RefreshCw, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Fingerprint, ShieldAlert, RefreshCw, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   useBiometricAuth,
@@ -37,7 +36,6 @@ export const BiometricLock: React.FC<BiometricLockProps> = ({ onUnlocked }) => {
   useEffect(() => {
     isAvailable().then((avail) => {
       if (!avail) {
-        // Device has no biometrics and no PIN → skip lock
         setSupported(false);
         clearBackgroundTs();
         onUnlocked();
@@ -51,68 +49,92 @@ export const BiometricLock: React.FC<BiometricLockProps> = ({ onUnlocked }) => {
   if (!supported) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-background pointer-events-none" />
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-50 dark:bg-[#12141c]">
+      {/* Dynamic Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-[20%] -left-[10%] w-[70%] h-[70%] rounded-full bg-blue-400/10 dark:bg-blue-600/10 blur-[120px]" />
+        <div className="absolute -bottom-[20%] -right-[10%] w-[70%] h-[70%] rounded-full bg-indigo-400/10 dark:bg-indigo-600/10 blur-[120px]" />
+      </div>
 
-      {/* Logo area */}
-      <div className="relative flex flex-col items-center gap-8 px-8">
+      <div className="relative flex flex-col items-center w-full max-w-sm px-6 animate-in fade-in zoom-in duration-500">
         
         {state === "prompting" ? (
-          <div className="scale-110">
+          <div className="scale-110 mb-8">
             <SwadeshiLoader 
-              loadingText="verifying" 
-              words={["identity", "biometrics", "security", "access", "identity"]} 
+              loadingText="Scanning" 
+              words={["identity", "biometrics", "security"]} 
             />
           </div>
         ) : (
           <>
-            {/* Shield icon */}
-            <div
-              className={cn(
-                "flex h-28 w-28 items-center justify-center rounded-3xl shadow-2xl transition-all duration-300",
-                state === "failed"
-                  ? "bg-destructive/10 border-2 border-destructive/40"
-                  : "bg-primary/10 border-2 border-primary/30"
-              )}
-            >
-              {state === "failed" ? (
-                <ShieldCheck className="h-12 w-12 text-destructive" />
-              ) : (
-                <Fingerprint className="h-12 w-12 text-primary" />
+            {/* Skeuomorphic Scanner Circle */}
+            <div className="relative mb-12">
+              {/* Outer Bevel */}
+              <div className="h-40 w-40 rounded-full flex items-center justify-center bg-slate-50 dark:bg-[#12141c] shadow-[12px_12px_24px_#d1d5db,-12px_-12px_24px_#ffffff] dark:shadow-[12px_12px_24px_#0a0b10,-12px_-12px_24px_#1a1d28] transition-all duration-300">
+                
+                {/* Inner well */}
+                <div className="h-32 w-32 rounded-full flex items-center justify-center bg-slate-100 dark:bg-[#0f1118] shadow-[inset_8px_8px_16px_#d1d5db,inset_-8px_-8px_16px_#ffffff] dark:shadow-[inset_8px_8px_16px_#07080b,inset_-8px_-8px_16px_#171a25]">
+                  
+                  {/* Glowing Icon */}
+                  <div className={cn(
+                    "flex items-center justify-center h-20 w-20 rounded-full transition-all duration-500",
+                    state === "failed" 
+                      ? "text-rose-500 drop-shadow-[0_0_15px_rgba(244,63,94,0.6)]" 
+                      : "text-blue-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.6)]"
+                  )}>
+                    {state === "failed" ? (
+                      <ShieldAlert className="h-12 w-12 animate-bounce" strokeWidth={1.5} />
+                    ) : (
+                      <Fingerprint className="h-12 w-12" strokeWidth={1.5} />
+                    )}
+                  </div>
+                  
+                  {/* Glass reflection overlay */}
+                  <div className="absolute top-0 left-0 w-full h-full rounded-full bg-gradient-to-tr from-transparent via-white/10 to-white/30 dark:via-white/5 dark:to-white/10 pointer-events-none" />
+                </div>
+              </div>
+              
+              {/* Pulsing ring if idle */}
+              {state === "idle" && (
+                <div className="absolute inset-0 rounded-full border-2 border-blue-500/30 animate-ping" />
               )}
             </div>
 
-            {/* Text */}
-            <div className="text-center space-y-2">
-              <h2 className="text-xl font-bold text-foreground">
-                {state === "failed" ? "Authentication Failed" : "Swadeshi Solutions"}
+            {/* Typography */}
+            <div className="text-center space-y-3 mb-10">
+              <h2 className="text-2xl font-black tracking-tight text-slate-800 dark:text-slate-100">
+                {state === "failed" ? "Access Denied" : "App Locked"}
               </h2>
-              <p className="text-sm text-muted-foreground max-w-xs">
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400 max-w-[260px] mx-auto leading-relaxed">
                 {state === "failed"
-                  ? "Biometric not recognized. Try again."
-                  : "Use fingerprint, face ID, or device PIN to continue"}
+                  ? "Biometric signature not recognized. Please try again or use your PIN."
+                  : "Verify your identity using fingerprint or face scan to continue."}
               </p>
             </div>
             
-            {/* Retry / Authenticate button */}
-            <Button
-              size="lg"
-              className="w-48 gap-2"
+            {/* Skeuomorphic Button */}
+            <button
               onClick={prompt}
+              className={cn(
+                "group relative w-full h-14 flex items-center justify-center gap-3 rounded-2xl font-bold text-[15px] transition-all duration-200",
+                "bg-slate-50 dark:bg-[#12141c] text-slate-700 dark:text-slate-200",
+                "shadow-[6px_6px_12px_#d1d5db,-6px_-6px_12px_#ffffff] dark:shadow-[6px_6px_12px_#0a0b10,-6px_-6px_12px_#1a1d28]",
+                "active:shadow-[inset_4px_4px_8px_#d1d5db,inset_-4px_-4px_8px_#ffffff] dark:active:shadow-[inset_4px_4px_8px_#07080b,inset_-4px_-4px_8px_#171a25]",
+                "active:scale-[0.98]"
+              )}
             >
               {state === "failed" ? (
                 <>
-                  <RefreshCw className="h-4 w-4" />
+                  <RefreshCw className="h-5 w-5 text-rose-500 group-active:-rotate-180 transition-transform duration-500" />
                   Try Again
                 </>
               ) : (
                 <>
-                  <Fingerprint className="h-4 w-4" />
-                  Authenticate
+                  <Lock className="h-5 w-5 text-blue-500 group-active:scale-90 transition-transform" />
+                  Unlock App
                 </>
               )}
-            </Button>
+            </button>
           </>
         )}
       </div>
