@@ -455,7 +455,7 @@ const Dashboard = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {selectedWidgets.map((widgetId) => (
-              <WidgetRenderer key={widgetId} widgetId={widgetId} />
+              <WidgetRenderer key={widgetId} widgetId={widgetId} restaurantId={restaurantId} />
             ))}
           </div>
         </div>

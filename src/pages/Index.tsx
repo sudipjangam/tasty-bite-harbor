@@ -398,7 +398,7 @@ const Index = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
-              <RecentOrdersTable />
+              <RecentOrdersTable restaurantId={restaurantId} />
             </CardContent>
           </Card>
         </div>

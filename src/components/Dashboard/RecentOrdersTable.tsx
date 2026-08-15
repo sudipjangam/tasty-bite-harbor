@@ -24,13 +24,17 @@ interface Order {
   order_type: string | null;
 }
 
-const RecentOrdersTable = () => {
+interface RecentOrdersTableProps {
+  restaurantId?: string | null;
+}
+
+const RecentOrdersTable = ({ restaurantId }: RecentOrdersTableProps) => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [page, setPage] = useState(0);
   const pageSize = 5;
 
   const { data, isLoading } = useQuery({
-    queryKey: ["top-orders-today", statusFilter, page],
+    queryKey: ["top-orders-today", restaurantId, statusFilter, page],
     queryFn: async () => {
       // Get today's date range in UTC
       const now = new Date();
@@ -49,7 +53,7 @@ const RecentOrdersTable = () => {
         )
       ).toISOString();
 
-      // Fetch from orders table - today's orders
+      // Fetch from orders table - today's orders for this restaurant
       let query = supabase
         .from("orders")
         .select(
@@ -59,6 +63,10 @@ const RecentOrdersTable = () => {
         .gte("created_at", todayStart)
         .lte("created_at", todayEnd)
         .order("created_at", { ascending: false });
+
+      if (restaurantId) {
+        query = query.eq("restaurant_id", restaurantId);
+      }
 
       if (statusFilter !== "all") {
         query = query.eq("status", statusFilter);
