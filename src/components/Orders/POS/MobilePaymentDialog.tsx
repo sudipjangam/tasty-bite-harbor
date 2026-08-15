@@ -486,8 +486,8 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   }, [isOpen]);
 
   // ── Auto-lookup customer by phone ─────────────────────────────────────────
-  const handlePhoneBlur = useCallback(async () => {
-    const phone = customerMobile.trim().replace(/\D/g, "");
+  const lookupCustomer = useCallback(async (phoneStr: string) => {
+    const phone = phoneStr.trim().replace(/\D/g, "");
     if (phone.length < 10) return;
     setIsLookingUp(true);
     try {
@@ -514,7 +514,21 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     } finally {
       setIsLookingUp(false);
     }
-  }, [customerMobile, customerName, toast, currencySymbol, pointsValue]);
+  }, [customerName, toast, currencySymbol, pointsValue]);
+
+  const handlePhoneBlur = useCallback(() => lookupCustomer(customerMobile), [lookupCustomer, customerMobile]);
+
+  useEffect(() => {
+    const phone = customerMobile.trim().replace(/\D/g, "");
+    if (phone.length === 10) {
+      lookupCustomer(customerMobile);
+    } else if (phone.length < 10 && customerRecord) {
+      // Clear customer record if they start deleting the phone number
+      setCustomerRecord(null);
+      setCustomerName("");
+    }
+  }, [customerMobile, lookupCustomer]);
+
 
   // ── Invalidate queries helper ─────────────────────────────────────────────
   const invalidateQueries = useCallback(() => {
