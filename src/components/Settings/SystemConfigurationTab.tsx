@@ -9,12 +9,15 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useRestaurantId } from '@/hooks/useRestaurantId';
+import { useAuth } from '@/hooks/useAuth';
 import { 
   Settings, Download, Upload, Database, Shield, 
   Loader2, Check, AlertTriangle, DollarSign, RefreshCw,
-  HardDrive, FileJson, Calendar, Star, Instagram, Save
+  HardDrive, FileJson, Calendar, Star, Instagram, Save, Smartphone
 } from 'lucide-react';
 import { format } from 'date-fns';
+
+declare const __APP_VERSION__: string;
 
 interface Currency {
   id: string;
@@ -26,6 +29,7 @@ interface Currency {
 
 export function SystemConfigurationTab() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const { restaurantId } = useRestaurantId();
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [selectedCurrency, setSelectedCurrency] = useState<string>('');
@@ -38,6 +42,9 @@ export function SystemConfigurationTab() {
   const [googleReviewUrl, setGoogleReviewUrl] = useState('');
   const [instagramUrl, setInstagramUrl] = useState('');
   const [isSavingSocial, setIsSavingSocial] = useState(false);
+  
+  // App Release state
+  const [isPublishingRelease, setIsPublishingRelease] = useState(false);
 
   // Load data
   useEffect(() => {
@@ -206,6 +213,39 @@ export function SystemConfigurationTab() {
       });
     } finally {
       setIsRestoreLoading(false);
+    }
+  };
+
+  const handlePublishRelease = async () => {
+    setIsPublishingRelease(true);
+    try {
+      const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0';
+      const { error } = await supabase
+        .from('platform_config')
+        .update({
+          value: {
+            latest_version: currentVersion,
+            required_version: currentVersion,
+            download_url: "https://clmsoetktmvhazctlans.supabase.co/storage/v1/object/public/releases/swadeshisolutions.apk"
+          }
+        })
+        .eq('key', 'app_update_info');
+
+      if (error) throw error;
+      
+      toast({ 
+        title: "Release Published 🚀", 
+        description: `Successfully set latest version to ${currentVersion}. Devices will now prompt for update.` 
+      });
+    } catch (error: any) {
+      console.error('Publish error:', error);
+      toast({ 
+        title: "Failed to publish release", 
+        description: error.message || "Could not update platform config", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsPublishingRelease(false);
     }
   };
 
@@ -386,6 +426,53 @@ export function SystemConfigurationTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* App Release Management */}
+      {user?.role_has_full_access && (
+        <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-2xl">
+          <CardHeader className="pb-4 border-b border-gray-100 dark:border-gray-700">
+            <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl shadow-lg">
+                <Smartphone className="h-6 w-6 text-white" />
+              </div>
+              App Release Management
+            </CardTitle>
+            <CardDescription className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
+              Automate OTA (Over The Air) updates. Publish the current web dashboard version to all mobile apps.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-8">
+            <div className="p-6 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-2xl border border-emerald-100 dark:border-emerald-800 flex flex-col md:flex-row items-center justify-between gap-6">
+              <div>
+                <h3 className="text-xl font-bold text-emerald-800 dark:text-emerald-300 mb-2">
+                  Current App Version: <span className="text-emerald-950 dark:text-emerald-100 font-mono bg-emerald-200/50 dark:bg-emerald-800/50 px-2 py-1 rounded">{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'Unknown'}</span>
+                </h3>
+                <p className="text-emerald-700 dark:text-emerald-400 text-sm max-w-lg">
+                  After you build a new APK and upload it to Supabase Storage (releases bucket), click the button below to update the database. 
+                  All Android devices running an older version will be forced to download the new update automatically.
+                </p>
+              </div>
+              <Button
+                onClick={handlePublishRelease}
+                disabled={isPublishingRelease}
+                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold py-6 px-8 rounded-xl shadow-lg shrink-0 text-lg w-full md:w-auto"
+              >
+                {isPublishingRelease ? (
+                  <>
+                    <Loader2 className="h-6 w-6 mr-3 animate-spin" />
+                    Publishing...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-6 w-6 mr-3" />
+                    Publish Update to Users
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Backup & Restore */}
       <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-2xl">
