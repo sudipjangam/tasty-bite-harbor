@@ -487,15 +487,25 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
 
   // ── Auto-lookup customer by phone ─────────────────────────────────────────
   const lookupCustomer = useCallback(async (phoneStr: string) => {
-    const phone = phoneStr.trim().replace(/\D/g, "");
+    if (!phoneStr) return;
+    const phone = phoneStr.trim();
     if (phone.length < 10) return;
     setIsLookingUp(true);
     try {
-      const { data: customer } = await supabase
+      let query = supabase
         .from("customers")
         .select("id, name, phone, loyalty_points, loyalty_enrolled, loyalty_tier_id")
-        .eq("phone", phone)
-        .maybeSingle();
+        .eq("phone", phone);
+        
+      if (restaurantInfo?.id) {
+        query = query.eq("restaurant_id", restaurantInfo.id);
+      }
+      
+      const { data: customer, error } = await query.maybeSingle();
+      
+      if (error) {
+        console.error("Customer lookup query error:", error);
+      }
 
       if (customer) {
         setCustomerRecord(customer as CustomerRecord);
@@ -514,13 +524,13 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     } finally {
       setIsLookingUp(false);
     }
-  }, [customerName, toast, currencySymbol, pointsValue]);
+  }, [customerName, toast, currencySymbol, pointsValue, restaurantInfo?.id]);
 
   const handlePhoneBlur = useCallback(() => lookupCustomer(customerMobile), [lookupCustomer, customerMobile]);
 
   useEffect(() => {
-    const phone = customerMobile.trim().replace(/\D/g, "");
-    if (phone.length === 10) {
+    const phone = customerMobile.trim();
+    if (phone.length >= 10) {
       lookupCustomer(customerMobile);
     } else if (phone.length < 10 && customerRecord) {
       // Clear customer record if they start deleting the phone number
