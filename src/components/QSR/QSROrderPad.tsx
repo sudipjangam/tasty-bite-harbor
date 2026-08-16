@@ -13,6 +13,7 @@ import {
   Edit2,
   Check,
   GripVertical,
+  Loader2,
 } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,7 @@ import { QSROrderItem, QSROrderMode, QSRTable } from "@/types/qsr";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 
 interface QSROrderPadProps {
   items: QSROrderItem[];
@@ -44,6 +46,11 @@ interface QSROrderPadProps {
   isRecalledOrder?: boolean;
   onSetItemPriority?: (id: string, priority: 'first' | 'normal' | 'last') => void;
   onReorderItems?: (startIndex: number, endIndex: number) => void;
+  customerName?: string;
+  onCustomerNameChange?: (name: string) => void;
+  customerPhone?: string;
+  onCustomerPhoneChange?: (phone: string) => void;
+  isLookingUpCustomer?: boolean;
 }
 
 const modeIcons: Record<
@@ -86,6 +93,11 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
   isRecalledOrder = false,
   onSetItemPriority,
   onReorderItems,
+  customerName,
+  onCustomerNameChange,
+  customerPhone,
+  onCustomerPhoneChange,
+  isLookingUpCustomer = false,
 }) => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
@@ -127,6 +139,33 @@ export const QSROrderPad: React.FC<QSROrderPadProps> = ({
               <ChevronRight className="w-4 h-4" />
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Customer Details Input */}
+      <div className="flex-shrink-0 p-3 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800 flex gap-2">
+        <div className="flex-1 relative">
+          <Input
+            type="tel"
+            placeholder="Phone (Optional)"
+            value={customerPhone || ""}
+            onChange={(e) => onCustomerPhoneChange?.(e.target.value)}
+            className="h-9 text-sm bg-white dark:bg-gray-900 pr-7"
+          />
+          {isLookingUpCustomer && (
+            <span className="absolute right-2 top-1/2 -translate-y-1/2">
+              <Loader2 className="w-3.5 h-3.5 text-indigo-500 animate-spin" />
+            </span>
+          )}
+        </div>
+        <div className="flex-1">
+          <Input
+            type="text"
+            placeholder="Customer Name (Optional)"
+            value={customerName || ""}
+            onChange={(e) => onCustomerNameChange?.(e.target.value)}
+            className="h-9 text-sm bg-white dark:bg-gray-900"
+          />
         </div>
       </div>
 

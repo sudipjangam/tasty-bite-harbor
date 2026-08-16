@@ -521,7 +521,7 @@ const PaymentDialog = ({
                 "qsr order",
                 "qsr-order",
               ];
-              if (name && !genericNames.includes(name.toLowerCase().trim())) {
+              if (name && !genericNames.includes(name.toLowerCase().trim()) && !name.toLowerCase().trim().startsWith('table')) {
                 setCustomerName(name);
               }
 
@@ -593,7 +593,8 @@ const PaymentDialog = ({
               kitchenOrder?.customer_name &&
               !genericNames.includes(
                 kitchenOrder.customer_name.toLowerCase().trim(),
-              )
+              ) &&
+              !kitchenOrder.customer_name.toLowerCase().trim().startsWith('table')
             ) {
               setCustomerName(kitchenOrder.customer_name);
             }
