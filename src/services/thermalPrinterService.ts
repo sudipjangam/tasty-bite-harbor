@@ -497,11 +497,7 @@ class ThermalPrinterService {
     receipt += this.CUT_PAPER;
 
     const bytes = this.encodeText(receipt);
-    if (Capacitor.isNativePlatform() && nativePrinterBridge.isConnected()) {
-      await nativePrinterBridge.write(bytes.buffer);
-    } else {
-      await this.writeBytes(bytes);
-    }
+    await this.writeBytes(bytes);
   }
 
   async printReceipt(data: ReceiptData) {

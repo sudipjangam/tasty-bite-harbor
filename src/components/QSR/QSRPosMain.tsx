@@ -118,13 +118,48 @@ export const QSRPosMain: React.FC = () => {
   // NC (Non-Chargeable) Reason state
   const [ncReason, setNcReason] = useState<string>("");
 
-  // Customer name state for takeaway, delivery, and NC orders
+  // Customer name and phone state for all orders
   const [customerName, setCustomerName] = useState<string>("");
+  const [customerPhone, setCustomerPhone] = useState<string>("");
+  const [isLookingUpCustomer, setIsLookingUpCustomer] = useState(false);
 
   // Hooks
   const { restaurantId, restaurantName } = useRestaurantId();
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Customer lookup by phone — auto-fills name if found in CRM
+  const handleCustomerPhoneChange = useCallback(async (phone: string) => {
+    setCustomerPhone(phone);
+    const cleaned = phone.replace(/\D/g, "");
+    if (cleaned.length < 10) {
+      // Don't clear manually-typed name
+      return;
+    }
+    setIsLookingUpCustomer(true);
+    try {
+      let query = supabase
+        .from("customers")
+        .select("id, name, phone, loyalty_points, loyalty_enrolled")
+        .eq("phone", cleaned);
+      if (restaurantId) query = query.eq("restaurant_id", restaurantId);
+      const { data: customer } = await query.maybeSingle();
+      if (customer?.name) {
+        setCustomerName(customer.name);
+        toast({
+          title: `Customer found: ${customer.name}`,
+          description: customer.loyalty_enrolled && (customer.loyalty_points ?? 0) > 0
+            ? `${customer.loyalty_points} loyalty pts`
+            : "Name auto-filled",
+          duration: 2500,
+        });
+      }
+    } catch (e) {
+      console.error("QSR customer lookup failed:", e);
+    } finally {
+      setIsLookingUpCustomer(false);
+    }
+  }, [restaurantId, toast]);
 
   // Printer toggle handler (shared between mobile kebab + desktop button)
   const handlePrinterToggle = useCallback(async () => {
@@ -292,6 +327,7 @@ export const QSRPosMain: React.FC = () => {
       if (orderItems.length > 0) {
         setOrderItems([]);
         setCustomerName(""); // Clear customer name when switching modes
+        setCustomerPhone(""); // Clear customer phone
         setNcReason(""); // Clear NC reason when switching modes
         setRecalledKitchenOrderId(null);
         setItemCompletionStatus([]);
@@ -500,6 +536,7 @@ export const QSRPosMain: React.FC = () => {
     setRecalledKitchenOrderId(null);
     setItemCompletionStatus([]);
     setCustomerName(""); // Clear customer name
+    setCustomerPhone(""); // Clear customer phone
     setNcReason(""); // Clear NC reason
     setSelectedTable(null);
     toast({
@@ -703,6 +740,7 @@ export const QSRPosMain: React.FC = () => {
             items: finalKitchenItems,
             order_type: orderTypeMap[orderMode],
             customer_name: finalCustomerName, // Use actual customer name
+            customer_phone: customerPhone || null, // Add phone
             server_name: attendantName,
             priority: "normal",
             round_number: 1,
@@ -719,6 +757,7 @@ export const QSRPosMain: React.FC = () => {
           .insert({
             restaurant_id: restaurantId,
             customer_name: finalCustomerName, // Use actual customer name
+            customer_phone: customerPhone || null, // Add phone
             items: orderItems.map((item) =>
               formatOrderItemString(item.quantity, item.name, item.price, item.notes)
             ),
@@ -791,6 +830,7 @@ export const QSRPosMain: React.FC = () => {
       setShowMobileCart(false); // Close cart sheet on mobile
       setSelectedTable(null);
       setCustomerName(""); // Clear customer name
+      setCustomerPhone(""); // Clear customer phone
       setNcReason(""); // Clear NC reason
       refetchTables();
 
@@ -1525,6 +1565,11 @@ export const QSRPosMain: React.FC = () => {
             }
             onSetItemPriority={handleSetItemPriority}
             onReorderItems={handleReorderItems}
+            customerName={customerName}
+            onCustomerNameChange={setCustomerName}
+            customerPhone={customerPhone}
+            onCustomerPhoneChange={handleCustomerPhoneChange}
+            isLookingUpCustomer={isLookingUpCustomer}
           />
         </div>
 
@@ -1597,6 +1642,9 @@ export const QSRPosMain: React.FC = () => {
         onNcReasonChange={setNcReason}
         customerName={customerName}
         onCustomerNameChange={setCustomerName}
+        customerPhone={customerPhone}
+        onCustomerPhoneChange={handleCustomerPhoneChange}
+        isLookingUpCustomer={isLookingUpCustomer}
         onSetItemPriority={handleSetItemPriority}
         onReorderItems={handleReorderItems}
       />

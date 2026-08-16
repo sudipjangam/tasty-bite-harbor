@@ -17,6 +17,7 @@ import {
   ChevronDown,
   MessageSquare,
   GripVertical,
+  Loader2,
 } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { cn } from "@/lib/utils";
@@ -63,6 +64,9 @@ interface QSRCartBottomSheetProps {
   // Customer name tracking
   customerName?: string;
   onCustomerNameChange?: (name: string) => void;
+  customerPhone?: string;
+  onCustomerPhoneChange?: (phone: string) => void;
+  isLookingUpCustomer?: boolean;
   onSetItemPriority?: (id: string, priority: 'first' | 'normal' | 'last') => void;
   onReorderItems?: (startIndex: number, endIndex: number) => void;
 }
@@ -110,6 +114,9 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
   onNcReasonChange,
   customerName = "",
   onCustomerNameChange,
+  customerPhone,
+  onCustomerPhoneChange,
+  isLookingUpCustomer = false,
   onSetItemPriority,
   onReorderItems,
 }) => {
@@ -217,6 +224,33 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
                 <ChevronRight className="w-4 h-4" />
               </button>
             )}
+          </div>
+        </div>
+
+        {/* Customer Details Input */}
+        <div className="flex-shrink-0 mx-4 mb-2 p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 rounded-xl flex gap-2">
+          <div className="flex-1 relative">
+            <Input
+              type="tel"
+              placeholder="Phone (Optional)"
+              value={customerPhone || ""}
+              onChange={(e) => onCustomerPhoneChange?.(e.target.value)}
+              className="h-9 text-sm bg-white dark:bg-gray-900 pr-7"
+            />
+            {isLookingUpCustomer && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2">
+                <Loader2 className="w-3.5 h-3.5 text-indigo-500 animate-spin" />
+              </span>
+            )}
+          </div>
+          <div className="flex-1">
+            <Input
+              type="text"
+              placeholder="Customer Name (Optional)"
+              value={customerName || ""}
+              onChange={(e) => onCustomerNameChange?.(e.target.value)}
+              className="h-9 text-sm bg-white dark:bg-gray-900"
+            />
           </div>
         </div>
 
@@ -550,22 +584,6 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
               )}
             </div>
           </div>
-
-          {/* Customer Name Input - Required for takeaway, delivery, and NC — shown BEFORE action buttons */}
-          {(mode === "takeaway" || mode === "delivery" || mode === "nc") && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Customer Name <span className="text-red-500">*</span>
-              </label>
-              <Input
-                type="text"
-                placeholder="Enter customer name"
-                value={customerName}
-                onChange={(e) => onCustomerNameChange?.(e.target.value)}
-                className="w-full"
-              />
-            </div>
-          )}
 
           {/* NC Reason Selector - Only shown in NC mode — before action buttons */}
           {mode === "nc" && (
