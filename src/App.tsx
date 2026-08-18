@@ -26,12 +26,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { isNativeApp } from "@/utils/platform";
 import { AppUpdateChecker } from "@/components/AppUpdateChecker";
 
-// Create a client
+// Create a client optimized to reduce memory footprint on mobile devices
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: true,
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      refetchOnWindowFocus: !isNativeApp(), // Disable focus refetch storm on native Android
+      staleTime: 1000 * 60 * 3, // 3 minutes
+      gcTime: 1000 * 60 * 10, // 10 minutes garbage collection
       retry: 1,
     },
   },
@@ -46,12 +47,14 @@ function AppWithRealtime() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
 
   useEffect(() => {
-    // Register service worker with update detection
-    registerServiceWorker({
-      onUpdateAvailable: () => {
-        setUpdateAvailable(true);
-      },
-    });
+    // Only register service worker in web browser — native Capacitor handles asset caching
+    if (!isNativeApp()) {
+      registerServiceWorker({
+        onUpdateAvailable: () => {
+          setUpdateAvailable(true);
+        },
+      });
+    }
   }, []);
 
   useEffect(() => {
