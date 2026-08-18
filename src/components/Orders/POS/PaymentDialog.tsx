@@ -1624,356 +1624,148 @@ const PaymentDialog = ({
     }
 
     try {
-      const doc = new jsPDF({
-        format: [58, 297], // 58mm thermal printer width
-        unit: "mm",
-      });
+      // ── Build receipt HTML and print via hidden iframe ──────────────────
+      // This is reliable across all browsers because we're printing HTML,
+      // not a PDF blob (Chrome's PDF viewer blocks iframe.contentWindow.print()).
 
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 0.5; // Reduced side margins for better readability
-
-      // Use Rs. for PDF since Helvetica doesn't support ₹ symbol
-      const printSymbol = currencySymbol === "₹" ? "Rs." : currencySymbol;
-      const contentWidth = pageWidth - margin * 2;
-      let yPos = 5; // Increased top margin to prevent cutting
-
-      // Restaurant Logo
-      try {
-        const savedLogo = localStorage.getItem("restaurant_logo_url");
-        if (savedLogo) {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          await new Promise<void>((resolve) => {
-            img.onload = () => {
-              const logoSize = 12;
-              doc.addImage(
-                img,
-                "PNG",
-                (pageWidth - logoSize) / 2,
-                yPos,
-                logoSize,
-                logoSize,
-              );
-              yPos += logoSize + 2;
-              resolve();
-            };
-            img.onerror = () => resolve();
-            img.src = savedLogo;
-          });
-        }
-      } catch {}
-
-      // Restaurant Header - Larger and prominent
-      doc.setFontSize(16); // Increased from 14
-      doc.setFont("helvetica", "bold");
-      const restaurantName =
-        restaurantInfo?.name || restaurantInfo?.restaurantName || "Restaurant";
-      const nameLines = doc.splitTextToSize(restaurantName, contentWidth);
-      doc.text(nameLines, pageWidth / 2, yPos, { align: "center" });
-      yPos += nameLines.length * 5 + 2;
-
-      doc.setFontSize(10); // Increased from 9
-      doc.setFont("helvetica", "normal");
-      if (restaurantInfo?.address) {
-        const addressLines = doc.splitTextToSize(
-          restaurantInfo.address,
-          contentWidth,
-        );
-        doc.text(addressLines, pageWidth / 2, yPos, { align: "center" });
-        yPos += addressLines.length * 4;
-      }
-      if (restaurantInfo?.phone) {
-        doc.text(`Ph: ${restaurantInfo.phone}`, pageWidth / 2, yPos, {
-          align: "center",
-        });
-        yPos += 4;
-      }
-      if (restaurantInfo?.gstin) {
-        doc.text(`GSTIN: ${restaurantInfo.gstin}`, pageWidth / 2, yPos, {
-          align: "center",
-        });
-        yPos += 4;
-      }
-
-      // // Dashed line
-      // yPos += 1;
-      // for (let i = margin; i < pageWidth - margin; i += 2) {
-      //   doc.line(i, yPos, i + 1, yPos);
-      // }
-      // yPos += 4;
-
-      // Invoice Title - Only show if GSTIN is present
-      if (restaurantInfo?.gstin) {
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.text("TAX INVOICE", pageWidth / 2, yPos, { align: "center" });
-        yPos += 4;
-      }
-
-      // Dashed line
-      for (let i = margin; i < pageWidth - margin; i += 2) {
-        doc.line(i, yPos, i + 1, yPos);
-      }
-      yPos += 4;
-
-      // Bill details - increased font size
-      doc.setFontSize(10); // Increased from 9
-      doc.setFont("helvetica", "normal");
       const billNumber = `#${Date.now().toString().slice(-6)}`;
-      const currentDate = new Date().toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
-      const currentTime = new Date().toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+      const currentDate = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+      const currentTime = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+      const printSymbol = currencySymbol === "₹" ? "Rs." : currencySymbol;
+      const rName = restaurantInfo?.name || restaurantInfo?.restaurantName || "Restaurant";
+      const savedLogo = localStorage.getItem("restaurant_logo_url");
 
-      doc.text(`Bill#: ${billNumber}`, margin, yPos);
-      yPos += 4;
+      // Build items rows HTML
+      const itemRowsHtml = orderItems.map(item => `
+        <tr>
+          <td style="padding:2px 0;font-size:11px;">${item.name}</td>
+          <td style="padding:2px 0;font-size:11px;text-align:right;">${item.quantity}</td>
+          <td style="padding:2px 0;font-size:11px;text-align:right;">${item.price.toFixed(0)}</td>
+          <td style="padding:2px 0;font-size:11px;text-align:right;">${(item.price * item.quantity).toFixed(0)}</td>
+        </tr>
+      `).join("");
 
-      if (tableNumber) {
-        doc.text(`To: ${tableNumber}`, margin, yPos);
-      } else if (customerName) {
-        doc.text(`To: ${customerName}`, margin, yPos);
-      } else {
-        doc.text("To: POS Order", margin, yPos);
-      }
-      yPos += 4;
-
-      doc.text(`Date: ${currentDate}  Time: ${currentTime}`, margin, yPos);
-      yPos += 4;
-
-      // Guest details if available
-      if (customerName) {
-        doc.text(`Guest: ${customerName}`, margin, yPos);
-        yPos += 4;
-      }
-      if (customerMobile) {
-        doc.text(`Phone: ${customerMobile}`, margin, yPos);
-        yPos += 4;
-      }
-
-      // Dashed line
-      for (let i = margin; i < pageWidth - margin; i += 2) {
-        doc.line(i, yPos, i + 1, yPos);
-      }
-      yPos += 4;
-
-      // Items header
-      doc.setFontSize(11); // Increased from 10
-      doc.setFont("helvetica", "bold");
-      doc.text("Particulars", pageWidth / 2, yPos, { align: "center" });
-      yPos += 4;
-
-      // Column headers - increased font with better spacing
-      doc.setFontSize(9.5);
-      doc.text("Item", margin, yPos);
-      doc.text("Qty", pageWidth - 32, yPos, { align: "right" });
-      doc.text("Rate", pageWidth - 18, yPos, { align: "right" });
-      doc.text("Amt", pageWidth - margin, yPos, { align: "right" });
-      yPos += 1;
-
-      // Line under headers
-      doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 3.5;
-
-      // Items - increased font with better column spacing
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      orderItems.forEach((item, index) => {
-        const itemName = doc.splitTextToSize(item.name, 22);
-        doc.text(itemName, margin, yPos);
-        doc.text(item.quantity.toString(), pageWidth - 32, yPos, {
-          align: "right",
-        });
-        doc.text(item.price.toFixed(0), pageWidth - 18, yPos, {
-          align: "right",
-        });
-        doc.text(
-          (item.price * item.quantity).toFixed(0),
-          pageWidth - margin,
-          yPos,
-          { align: "right" },
-        );
-        yPos += Math.max(itemName.length * 4, 4);
-        // Add space between items for better readability
-        if (index < orderItems.length - 1) {
-          yPos += 2;
-        }
-      });
-
-      // Dashed line
-      yPos += 1;
-      for (let i = margin; i < pageWidth - margin; i += 2) {
-        doc.line(i, yPos, i + 1, yPos);
-      }
-      yPos += 4;
-
-      // Totals - increased font
-      doc.setFontSize(10); // Increased from 9
-      doc.text("Sub Total:", margin, yPos);
-      doc.text(subtotal.toFixed(2), pageWidth - margin, yPos, {
-        align: "right",
-      });
-      yPos += 4;
-
-      const cgstRate = 0;
-      const sgstRate = 0;
-      const cgst = 0;
-      const sgst = 0;
-
-      if (cgst > 0 || sgst > 0) {
-        doc.text(`CGST @ ${(cgstRate * 100).toFixed(1)}%:`, margin, yPos);
-        doc.text(cgst.toFixed(2), pageWidth - margin, yPos, { align: "right" });
-        yPos += 4;
-
-        doc.text(`SGST @ ${(sgstRate * 100).toFixed(1)}%:`, margin, yPos);
-        doc.text(sgst.toFixed(2), pageWidth - margin, yPos, { align: "right" });
-        yPos += 4;
-      }
-
-      // Promotion discount if applied
+      // Build discount rows HTML
+      let discountRowsHtml = "";
       if (appliedPromotion && promotionDiscountAmount > 0) {
-        doc.setFont("helvetica", "normal");
-        doc.text(`Promo Discount (${appliedPromotion.name}):`, margin, yPos);
-        doc.text(
-          `-${promotionDiscountAmount.toFixed(2)}`,
-          pageWidth - margin,
-          yPos,
-          { align: "right" },
-        );
-        yPos += 4;
-        if (appliedPromotion.promotion_code) {
-          doc.setFontSize(9);
-          doc.text(`Code: ${appliedPromotion.promotion_code}`, margin, yPos);
-          yPos += 3.5;
-          doc.setFontSize(10);
-        }
+        discountRowsHtml += `<tr><td colspan="3" style="font-size:10px;">Promo (${appliedPromotion.name}):</td><td style="font-size:10px;text-align:right;">-${promotionDiscountAmount.toFixed(2)}</td></tr>`;
       }
-
-      // Manual discount if applied
       if (manualDiscountPercent > 0) {
-        doc.setFont("helvetica", "normal");
-        doc.text(`Discount (${manualDiscountPercent}%):`, margin, yPos);
-        doc.text(
-          `-${manualDiscountAmount.toFixed(2)}`,
-          pageWidth - margin,
-          yPos,
-          { align: "right" },
-        );
-        yPos += 4;
+        discountRowsHtml += `<tr><td colspan="3" style="font-size:10px;">Discount (${manualDiscountPercent}%):</td><td style="font-size:10px;text-align:right;">-${manualDiscountAmount.toFixed(2)}</td></tr>`;
       }
-
-      // Total discount
       if (totalDiscountAmount > 0) {
-        doc.setFont("helvetica", "bold");
-        doc.text("Total Discount:", margin, yPos);
-        doc.text(
-          `-${totalDiscountAmount.toFixed(2)}`,
-          pageWidth - margin,
-          yPos,
-          { align: "right" },
-        );
-        yPos += 4;
+        discountRowsHtml += `<tr><td colspan="3" style="font-size:11px;font-weight:bold;">Total Discount:</td><td style="font-size:11px;font-weight:bold;text-align:right;">-${totalDiscountAmount.toFixed(2)}</td></tr>`;
       }
 
-      // Dashed line
-      for (let i = margin; i < pageWidth - margin; i += 2) {
-        doc.line(i, yPos, i + 1, yPos);
-      }
-      yPos += 4;
-
-      // Net Amount - larger font
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14); // Increased from 12
-      doc.text("Net Amount:", margin, yPos);
-      doc.text(`${printSymbol}${total.toFixed(2)}`, pageWidth - margin, yPos, {
-        align: "right",
-      });
-      yPos += 6;
-
-      // Add QR code if UPI is configured — always generate fresh for print
+      // Build UPI QR section HTML
+      let upiHtml = "";
       if (paymentSettings?.upi_id) {
         try {
-          const upiUrl = `upi://pay?pa=${paymentSettings.upi_id}&pn=${encodeURIComponent(
-            restaurantInfo?.name || "Restaurant",
-          )}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(
-            `Order ${tableNumber || "POS"}`,
-          )}`;
-          const printQrUrl =
-            qrCodeUrl ||
-            (await QRCode.toDataURL(upiUrl, { width: 300, margin: 2 }));
-
-          for (let i = margin; i < pageWidth - margin; i += 2) {
-            doc.line(i, yPos, i + 1, yPos);
-          }
-          yPos += 3;
-
-          const qrSize = 32;
-          doc.addImage(
-            printQrUrl,
-            "PNG",
-            (pageWidth - qrSize) / 2,
-            yPos,
-            qrSize,
-            qrSize,
-          );
-          yPos += qrSize + 3;
-
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "normal");
-          doc.text("Scan QR to pay", pageWidth / 2, yPos, { align: "center" });
-          yPos += 4;
-        } catch (qrErr) {
-          console.error("QR code generation for print failed:", qrErr);
-        }
+          const upiUrl = `upi://pay?pa=${paymentSettings.upi_id}&pn=${encodeURIComponent(rName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Order ${tableNumber || "POS"}`)}`;
+          const qrDataUrl = qrCodeUrl || (await QRCode.toDataURL(upiUrl, { width: 200, margin: 1 }));
+          upiHtml = `
+            <tr><td colspan="4" style="padding-top:6px;text-align:center;">
+              <img src="${qrDataUrl}" width="90" height="90" style="display:block;margin:0 auto;" />
+              <div style="font-size:9px;margin-top:2px;">Scan QR to pay</div>
+            </td></tr>`;
+        } catch { /* QR optional */ }
       }
 
-      // Dashed line
-      for (let i = margin; i < pageWidth - margin; i += 2) {
-        doc.line(i, yPos, i + 1, yPos);
-      }
-      yPos += 4;
+      const toLine = tableNumber
+        ? `To: ${tableNumber}`
+        : customerName
+        ? `To: ${customerName}`
+        : "To: POS";
 
-      // Footer - larger font
-      doc.setFontSize(12); // Increased from 10
-      doc.setFont("helvetica", "bold");
-      doc.text("Thank You!", pageWidth / 2, yPos, { align: "center" });
-      yPos += 4;
-      doc.setFontSize(10); // Increased from 8
-      doc.setFont("helvetica", "normal");
-      doc.text("Please visit again", pageWidth / 2, yPos, { align: "center" });
+      const receiptHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Bill ${billNumber}</title>
+<style>
+  @page { size: 58mm auto; margin: 4mm 2mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; width: 54mm; margin: 0; padding: 0; color: #000; }
+  .center { text-align: center; }
+  .bold { font-weight: bold; }
+  .dash { border-top: 1px dashed #000; margin: 4px 0; }
+  table { width: 100%; border-collapse: collapse; }
+  td { vertical-align: top; }
+</style>
+</head>
+<body>
+  ${savedLogo ? `<div class="center"><img src="${savedLogo}" crossorigin="anonymous" style="max-width:36px;max-height:36px;margin-bottom:2px;" /></div>` : ""}
+  <div class="center bold" style="font-size:15px;">${rName}</div>
+  ${restaurantInfo?.address ? `<div class="center" style="font-size:9px;">${restaurantInfo.address}</div>` : ""}
+  ${restaurantInfo?.phone ? `<div class="center" style="font-size:9px;">Ph: ${restaurantInfo.phone}</div>` : ""}
+  ${restaurantInfo?.gstin ? `<div class="center" style="font-size:9px;">GSTIN: ${restaurantInfo.gstin}</div>` : ""}
+  <div class="dash"></div>
+  <div style="font-size:10px;">Bill#: ${billNumber}</div>
+  <div style="font-size:10px;">${toLine}</div>
+  <div style="font-size:10px;">Date: ${currentDate}&nbsp;&nbsp;Time: ${currentTime}</div>
+  ${customerName && tableNumber && customerName !== tableNumber ? `<div style="font-size:10px;">Guest: ${customerName}</div>` : ""}
+  ${customerMobile ? `<div style="font-size:10px;">Phone: ${customerMobile}</div>` : ""}
+  <div class="dash"></div>
+  <div class="center bold" style="font-size:11px;">Particulars</div>
+  <table>
+    <tr>
+      <th style="font-size:10px;text-align:left;">Item</th>
+      <th style="font-size:10px;text-align:right;">Qty</th>
+      <th style="font-size:10px;text-align:right;">Rate</th>
+      <th style="font-size:10px;text-align:right;">Amt</th>
+    </tr>
+    <tr><td colspan="4"><div style="border-top:1px solid #000;margin:2px 0;"></div></td></tr>
+    ${itemRowsHtml}
+    <tr><td colspan="4"><div class="dash"></div></td></tr>
+    <tr>
+      <td colspan="3" style="font-size:11px;">Sub Total:</td>
+      <td style="font-size:11px;text-align:right;">${subtotal.toFixed(2)}</td>
+    </tr>
+    ${discountRowsHtml}
+    <tr><td colspan="4"><div class="dash"></div></td></tr>
+    <tr>
+      <td colspan="2" style="font-size:14px;font-weight:bold;">Net Amount:</td>
+      <td colspan="2" style="font-size:14px;font-weight:bold;text-align:right;">${printSymbol}${total.toFixed(2)}</td>
+    </tr>
+    ${upiHtml}
+    <tr><td colspan="4"><div class="dash"></div></td></tr>
+    <tr><td colspan="4" style="text-align:center;font-size:13px;font-weight:bold;padding-top:4px;">Thank You!</td></tr>
+    <tr><td colspan="4" style="text-align:center;font-size:10px;color:#c00;">Please visit again</td></tr>
+  </table>
+</body>
+</html>`;
 
-      // Save and print — use hidden iframe so the OS print dialog opens
-      // directly without navigating to a new tab or requiring a second click.
-      const pdfBlob = doc.output("blob");
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-
-      // Remove any stale iframe from a previous print
-      const staleFrame = document.getElementById("_bill_print_frame");
-      if (staleFrame) staleFrame.remove();
+      // Remove stale iframe
+      const stale = document.getElementById("_bill_print_frame") as HTMLIFrameElement | null;
+      if (stale) stale.remove();
 
       const iframe = document.createElement("iframe");
       iframe.id = "_bill_print_frame";
-      iframe.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;border:none;";
-      iframe.src = pdfUrl;
+      iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:58mm;height:1px;border:none;visibility:hidden;";
       document.body.appendChild(iframe);
-      iframe.onload = () => {
-        try {
-          iframe.contentWindow?.focus();
-          iframe.contentWindow?.print();
-        } catch {
-          // Fallback: open in new tab if iframe print is blocked
-          window.open(pdfUrl, "_blank");
-        }
-        // Clean up after print dialog closes (delay to let print happen)
-        setTimeout(() => {
-          iframe.remove();
-          URL.revokeObjectURL(pdfUrl);
-        }, 60000);
-      };
+
+      // Write HTML into iframe document and print
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!iframeDoc) throw new Error("Could not access iframe document");
+      iframeDoc.open();
+      iframeDoc.write(receiptHtml);
+      iframeDoc.close();
+
+      // Wait for images (logo, QR) to load before printing
+      const imgs = Array.from(iframeDoc.images);
+      await Promise.all(
+        imgs.map(img =>
+          img.complete
+            ? Promise.resolve()
+            : new Promise<void>(res => { img.onload = () => res(); img.onerror = () => res(); })
+        )
+      );
+
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+
+      // Clean up after 2 minutes (user may take time to confirm print)
+      setTimeout(() => { try { iframe.remove(); } catch {} }, 120000);
 
       // Auto-share bill via WhatsApp if checkbox is checked (free — wa.me link)
       if (sendBillToMobile && customerMobile) {
