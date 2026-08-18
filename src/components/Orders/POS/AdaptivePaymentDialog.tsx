@@ -18,14 +18,16 @@ import type { PaymentDialogProps } from "./PaymentDialog/types";
 const MobilePaymentDialog = React.lazy(() => import("./MobilePaymentDialog"));
 
 const AdaptivePaymentDialog: React.FC<PaymentDialogProps> = (props) => {
+  const dialogKey = props.isOpen ? `${props.orderId || props.tableNumber || "pos"}` : "closed";
+
   if (Capacitor.isNativePlatform()) {
     return (
       <React.Suspense fallback={null}>
-        <MobilePaymentDialog {...props} />
+        <MobilePaymentDialog {...props} key={dialogKey} />
       </React.Suspense>
     );
   }
-  return <PaymentDialog {...props} />;
+  return <PaymentDialog {...props} key={dialogKey} />;
 };
 
 export default AdaptivePaymentDialog;
