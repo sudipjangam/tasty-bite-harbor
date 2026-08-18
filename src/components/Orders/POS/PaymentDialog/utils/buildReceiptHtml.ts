@@ -15,7 +15,12 @@ export interface BuildReceiptOptions {
   promotionDiscountAmount?: number;
   manualDiscountPercent?: number;
   manualDiscountAmount?: number;
+  loyaltyDiscountAmount?: number;
   totalDiscountAmount?: number;
+  tipAmount?: number;
+  cgstAmount?: number;
+  sgstAmount?: number;
+  roundOffAmount?: number;
   customAdjustmentAmount?: number;
   paymentSettings?: PaymentSettings | null;
   qrCodeUrl?: string;
@@ -36,7 +41,12 @@ export function buildReceiptHtml({
   promotionDiscountAmount = 0,
   manualDiscountPercent = 0,
   manualDiscountAmount = 0,
+  loyaltyDiscountAmount = 0,
   totalDiscountAmount = 0,
+  tipAmount = 0,
+  cgstAmount = 0,
+  sgstAmount = 0,
+  roundOffAmount = 0,
   customAdjustmentAmount = 0,
   paymentSettings,
   qrCodeUrl,
@@ -77,21 +87,38 @@ export function buildReceiptHtml({
     })
     .join("");
 
-  // Build discount & adjustments rows HTML
-  let discountRowsHtml = "";
+  // Build discount, taxes, tips & adjustments rows HTML
+  let breakdownRowsHtml = "";
   if (appliedPromotion && promotionDiscountAmount > 0) {
-    discountRowsHtml += `<tr><td colspan="3" style="font-size:10px;">Promo (${appliedPromotion.name || appliedPromotion.promotion_code}):</td><td style="font-size:10px;text-align:right;">-${promotionDiscountAmount.toFixed(2)}</td></tr>`;
+    breakdownRowsHtml += `<tr><td colspan="3" style="font-size:10px;">Promo (${appliedPromotion.name || appliedPromotion.promotion_code}):</td><td style="font-size:10px;text-align:right;">-${promotionDiscountAmount.toFixed(2)}</td></tr>`;
   }
-  if (manualDiscountPercent > 0) {
-    discountRowsHtml += `<tr><td colspan="3" style="font-size:10px;">Discount (${manualDiscountPercent}%):</td><td style="font-size:10px;text-align:right;">-${manualDiscountAmount.toFixed(2)}</td></tr>`;
+  if (manualDiscountAmount > 0) {
+    const label = manualDiscountPercent > 0 ? `Discount (${manualDiscountPercent}%):` : "Cash Discount:";
+    breakdownRowsHtml += `<tr><td colspan="3" style="font-size:10px;">${label}</td><td style="font-size:10px;text-align:right;">-${manualDiscountAmount.toFixed(2)}</td></tr>`;
   }
-  if (totalDiscountAmount > 0) {
-    discountRowsHtml += `<tr><td colspan="3" style="font-size:11px;font-weight:bold;">Total Discount:</td><td style="font-size:11px;font-weight:bold;text-align:right;">-${totalDiscountAmount.toFixed(2)}</td></tr>`;
+  if (loyaltyDiscountAmount > 0) {
+    breakdownRowsHtml += `<tr><td colspan="3" style="font-size:10px;">Loyalty Redemption:</td><td style="font-size:10px;text-align:right;">-${loyaltyDiscountAmount.toFixed(2)}</td></tr>`;
+  }
+  if (totalDiscountAmount > 0 && !appliedPromotion && !manualDiscountAmount && !loyaltyDiscountAmount) {
+    breakdownRowsHtml += `<tr><td colspan="3" style="font-size:11px;font-weight:bold;">Total Discount:</td><td style="font-size:11px;font-weight:bold;text-align:right;">-${totalDiscountAmount.toFixed(2)}</td></tr>`;
+  }
+  if (cgstAmount > 0) {
+    breakdownRowsHtml += `<tr><td colspan="3" style="font-size:10px;">CGST (2.5%):</td><td style="font-size:10px;text-align:right;">+${cgstAmount.toFixed(2)}</td></tr>`;
+  }
+  if (sgstAmount > 0) {
+    breakdownRowsHtml += `<tr><td colspan="3" style="font-size:10px;">SGST (2.5%):</td><td style="font-size:10px;text-align:right;">+${sgstAmount.toFixed(2)}</td></tr>`;
+  }
+  if (tipAmount > 0) {
+    breakdownRowsHtml += `<tr><td colspan="3" style="font-size:10px;font-weight:bold;">Tip / Gratuity:</td><td style="font-size:10px;font-weight:bold;text-align:right;">+${tipAmount.toFixed(2)}</td></tr>`;
+  }
+  if (roundOffAmount !== 0) {
+    const sign = roundOffAmount > 0 ? "+" : "";
+    breakdownRowsHtml += `<tr><td colspan="3" style="font-size:10px;">Round Off:</td><td style="font-size:10px;text-align:right;">${sign}${roundOffAmount.toFixed(2)}</td></tr>`;
   }
   if (customAdjustmentAmount !== 0) {
     const sign = customAdjustmentAmount > 0 ? "+" : "";
     const label = customAdjustmentAmount > 0 ? "Custom Adjustment / Charge:" : "Manual Adjustment:";
-    discountRowsHtml += `<tr><td colspan="3" style="font-size:10px;font-weight:bold;">${label}</td><td style="font-size:10px;text-align:right;">${sign}${customAdjustmentAmount.toFixed(2)}</td></tr>`;
+    breakdownRowsHtml += `<tr><td colspan="3" style="font-size:10px;font-weight:bold;">${label}</td><td style="font-size:10px;text-align:right;">${sign}${customAdjustmentAmount.toFixed(2)}</td></tr>`;
   }
 
   // Build UPI QR section HTML
@@ -155,7 +182,7 @@ export function buildReceiptHtml({
       <td colspan="3" style="font-size:11px;">Sub Total:</td>
       <td style="font-size:11px;text-align:right;">${subtotal.toFixed(2)}</td>
     </tr>
-    ${discountRowsHtml}
+    ${breakdownRowsHtml}
     <tr><td colspan="4"><div class="dash"></div></td></tr>
     <tr>
       <td colspan="2" style="font-size:14px;font-weight:bold;">Net Amount:</td>
