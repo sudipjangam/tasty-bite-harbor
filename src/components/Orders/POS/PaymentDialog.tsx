@@ -1946,16 +1946,34 @@ const PaymentDialog = ({
       doc.setFont("helvetica", "normal");
       doc.text("Please visit again", pageWidth / 2, yPos, { align: "center" });
 
-      // Save and print
+      // Save and print — use hidden iframe so the OS print dialog opens
+      // directly without navigating to a new tab or requiring a second click.
       const pdfBlob = doc.output("blob");
       const pdfUrl = URL.createObjectURL(pdfBlob);
-      const printWindow = window.open(pdfUrl, "_blank");
 
-      if (printWindow) {
-        printWindow.onload = () => {
-          printWindow.print();
-        };
-      }
+      // Remove any stale iframe from a previous print
+      const staleFrame = document.getElementById("_bill_print_frame");
+      if (staleFrame) staleFrame.remove();
+
+      const iframe = document.createElement("iframe");
+      iframe.id = "_bill_print_frame";
+      iframe.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;border:none;";
+      iframe.src = pdfUrl;
+      document.body.appendChild(iframe);
+      iframe.onload = () => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch {
+          // Fallback: open in new tab if iframe print is blocked
+          window.open(pdfUrl, "_blank");
+        }
+        // Clean up after print dialog closes (delay to let print happen)
+        setTimeout(() => {
+          iframe.remove();
+          URL.revokeObjectURL(pdfUrl);
+        }, 60000);
+      };
 
       // Auto-share bill via WhatsApp if checkbox is checked (free — wa.me link)
       if (sendBillToMobile && customerMobile) {
@@ -2518,6 +2536,14 @@ const PaymentDialog = ({
               ? `Split: ${splitDesc}`
               : `${currencySymbol}${finalTotal.toFixed(2)} received via ${finalPaymentMethod.toUpperCase()}`,
       });
+
+      // Auto-print bill after payment (skip for NC and Pay Later)
+      if (!isNonChargeable && finalPaymentMethod !== "pay_later") {
+        // Run in background — don't block close flow
+        handlePrintBill(false).catch((printErr) => {
+          console.warn("[PaymentDialog] Auto-print after payment failed:", printErr);
+        });
+      }
 
       if (isDirectClose) {
         // Fire WhatsApp bill in background if opted in

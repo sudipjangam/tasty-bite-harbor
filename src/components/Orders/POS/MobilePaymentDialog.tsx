@@ -863,6 +863,14 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       }
 
       invalidateQueries();
+
+      // Auto-print bill after successful payment (skip NC and Pay Later)
+      if (!isNonChargeable && paymentMethod !== "pay_later") {
+        handlePrint().catch((printErr) => {
+          console.warn("[MobilePaymentDialog] Auto-print after payment failed:", printErr);
+        });
+      }
+
       setStep("success");
 
       // Auto-close after 5s
@@ -880,7 +888,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     restaurantInfo, orderId, isNonChargeable, customerName, customerMobile, customerRecord,
     subtotal, totalDiscount, finalTotal, manualDiscountPct, manualCash,
     appliedPromo, promoDiscountAmt, ncReason, tableNumber, pointsToRedeem, loyaltyDiscount,
-    currencySymbol, syncCustomerToCRM, invalidateQueries, onSuccess, onClose, toast,
+    currencySymbol, syncCustomerToCRM, invalidateQueries, onSuccess, onClose, toast, handlePrint,
   ]);
 
   // ── Split payment ─────────────────────────────────────────────────────────
