@@ -121,6 +121,10 @@ const PaymentDialog = ({
   const [customerProfile, setCustomerProfile] = useState<CustomerLoyaltyProfile | null>(null);
   const [isLookingUpCustomer, setIsLookingUpCustomer] = useState(false);
   const [redeemedLoyaltyPoints, setRedeemedLoyaltyPoints] = useState<number>(0);
+  const [loyaltyProgram, setLoyaltyProgram] = useState<{
+    amount_per_point: number;
+    max_bill_percent: number;
+  } | null>(null);
 
   // ─── Discounts & Promotions ──────────────────────────────────────────────
   const [promotionCode, setPromotionCode] = useState("");
@@ -211,6 +215,8 @@ const PaymentDialog = ({
   useEffect(() => {
     requestPermission();
   }, [requestPermission]);
+
+
 
   // ─── Offline Queue Auto-Sync Listener ────────────────────────────────────
   useEffect(() => {
@@ -337,6 +343,25 @@ const PaymentDialog = ({
     },
     enabled: !!(restaurantInfo?.id || hookRestaurantId),
   });
+
+  // ─── Fetch Loyalty Program Settings ──────────────────────────────────────
+  useEffect(() => {
+    const rid = restaurantInfo?.id || hookRestaurantId;
+    if (!rid) return;
+    supabase
+      .from("loyalty_programs")
+      .select("amount_per_point, max_bill_percent")
+      .eq("restaurant_id", rid)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setLoyaltyProgram({
+            amount_per_point: Number(data.amount_per_point ?? 1),
+            max_bill_percent: Number((data as any).max_bill_percent ?? 100),
+          });
+        }
+      });
+  }, [restaurantInfo?.id, hookRestaurantId]);
 
   // ─── Customer Loyalty Auto-Lookup (Option 2) ─────────────────────────────
   const lookupCustomerProfile = useCallback(
@@ -515,16 +540,26 @@ const PaymentDialog = ({
       toast({ title: "No loyalty points available" });
       return;
     }
-    // Cap redeemable points at current subtotal (1 pt = ₹1)
-    const redeemable = Math.min(availablePoints, Math.floor(subtotal));
-    if (redeemable <= 0) {
+
+    // 1 pt = amount_per_point (e.g. ₹5)
+    const amountPerPoint = loyaltyProgram?.amount_per_point ?? 1;
+    // Max % of bill payable via points (e.g. 50%)
+    const maxBillPct = loyaltyProgram?.max_bill_percent ?? 100;
+
+    const maxDiscountByPercent = (subtotal * maxBillPct) / 100;       // e.g. 466 × 50% = ₹233
+    const pointsMonetaryValue  = availablePoints * amountPerPoint;     // e.g. 156 × ₹5 = ₹780
+    const discountAmount = Math.min(pointsMonetaryValue, maxDiscountByPercent, subtotal);
+
+    if (discountAmount <= 0) {
       toast({ title: "No remaining balance to redeem points against" });
       return;
     }
-    setRedeemedLoyaltyPoints(redeemable);
+
+    // Store as rupee discount (not points) so calculateOrderTotals gets correct value
+    setRedeemedLoyaltyPoints(discountAmount);
     toast({
-      title: `⭐ ${redeemable} Points Redeemed`,
-      description: `Loyalty discount of ${currencySymbol}${redeemable.toFixed(2)} applied`,
+      title: `⭐ Loyalty Points Applied`,
+      description: `${currencySymbol}${discountAmount.toFixed(2)} off (${availablePoints} pts × ${currencySymbol}${amountPerPoint}/pt, capped at ${maxBillPct}% of bill)`,
     });
   };
 
@@ -1578,11 +1613,19 @@ const PaymentDialog = ({
                           <div className="text-[11px]">
                             <span className="font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1">
                               <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
-                              {customerProfile.loyalty_points} Loyalty Pts
+                              {customerProfile.loyalty_points} pts
+                              {loyaltyProgram && loyaltyProgram.amount_per_point > 1 && (
+                                <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                                  = {currencySymbol}{(customerProfile.loyalty_points * loyaltyProgram.amount_per_point).toFixed(0)} value
+                                </span>
+                              )}
                             </span>
                             <span className="text-[10px] text-indigo-700 dark:text-indigo-400 block">
                               Visit #{customerProfile.visit_count} • Spent: {currencySymbol}
                               {customerProfile.total_spent.toFixed(0)}
+                              {loyaltyProgram && loyaltyProgram.max_bill_percent < 100 && (
+                                <> · max {loyaltyProgram.max_bill_percent}% of bill</>
+                              )}
                             </span>
                           </div>
 
@@ -1593,7 +1636,7 @@ const PaymentDialog = ({
                                 onClick={handleRemoveLoyalty}
                                 className="px-2 py-1 rounded bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-950 dark:text-rose-300 text-[10px] font-bold transition-colors"
                               >
-                                ✕ Remove (-{currencySymbol}{redeemedLoyaltyPoints})
+                                ✕ Remove (-{currencySymbol}{redeemedLoyaltyPoints.toFixed(2)})
                               </button>
                             ) : (
                               <button
@@ -1607,6 +1650,7 @@ const PaymentDialog = ({
                           )}
                         </div>
                       )}
+
 
                       <label className="flex items-center gap-2 cursor-pointer pt-1 border-t border-slate-200 dark:border-slate-700/80 select-none">
                         <input

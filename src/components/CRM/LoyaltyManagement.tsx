@@ -1011,6 +1011,7 @@ const ProgramSettingsForm: React.FC<{
     points_per_amount: program?.points_per_amount ?? 1,
     spend_threshold: program?.spend_threshold ?? 10,
     amount_per_point: program?.amount_per_point ?? 1,
+    max_bill_percent: program?.max_bill_percent ?? 100,
     points_expiry_days: program?.points_expiry_days ?? null,
   });
 
@@ -1158,9 +1159,37 @@ const ProgramSettingsForm: React.FC<{
             className="border-amber-200 dark:border-amber-700 focus:ring-amber-500 bg-white dark:bg-gray-800"
           />
         </div>
+
+        {/* Max bill % cap */}
+        <div className="max-w-xs space-y-1.5 mt-3">
+          <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+            <span className="p-0.5 bg-amber-200 dark:bg-amber-800 rounded">🛡️</span>
+            Max bill % payable by points
+          </Label>
+          <Input
+            id="maxBillPercent"
+            type="number"
+            min={1}
+            max={100}
+            value={settings.max_bill_percent}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSettings({
+                ...settings,
+                max_bill_percent: val === "" ? ("" as any) : Math.min(100, Math.max(1, Number(val))),
+              });
+            }}
+            placeholder="e.g. 50"
+            className="border-amber-200 dark:border-amber-700 focus:ring-amber-500 bg-white dark:bg-gray-800"
+          />
+          <p className="text-[11px] text-amber-600 dark:text-amber-400">
+            Customer can use points for up to {settings.max_bill_percent}% of the bill
+          </p>
+        </div>
       </div>
 
       {/* Points Expiry */}
+
       <div className="rounded-xl border border-rose-200 dark:border-rose-800/50 bg-gradient-to-br from-rose-50/60 to-pink-50/40 dark:from-rose-900/15 dark:to-pink-900/10 p-4 space-y-3">
         <div className="flex items-center gap-2">
           <span className="text-sm">⏳</span>
