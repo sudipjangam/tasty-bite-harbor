@@ -20,8 +20,7 @@ const config: CapacitorConfig = {
   android: {
     allowMixedContent: false,
     captureInput: true,
-    // Disable web view debugging in production
-    webContentsDebuggingEnabled: false,
+    webContentsDebuggingEnabled: true,
   },
 };
 
