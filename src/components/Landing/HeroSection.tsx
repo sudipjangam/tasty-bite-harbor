@@ -10,6 +10,7 @@ import {
   Receipt,
   Flame,
   Users,
+  Sparkles,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -119,16 +120,17 @@ export const HeroSection: React.FC = () => {
                 className="landing-btn-primary text-lg px-8 py-6 rounded-2xl font-semibold group"
                 onClick={() => navigate("/auth")}
               >
-                Start Your Free 14-Day Experience
+                Start Your Free 14-Day Trial
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
               <Button
                 size="lg"
                 variant="outline"
                 className="text-lg px-8 py-6 rounded-2xl font-semibold border-2 border-[#2D3A5F] text-[#2D3A5F] hover:bg-[#2D3A5F] hover:text-white dark:border-gray-300 dark:text-gray-200 dark:hover:bg-gray-200 dark:hover:text-[#2D3A5F] group"
+                onClick={() => navigate("/live-experience")}
               >
-                <Play className="mr-2 w-5 h-5 group-hover:scale-110 transition-transform" />
-                Watch Demo
+                <Sparkles className="mr-2 w-5 h-5 text-[#F26722] group-hover:scale-110 transition-transform" />
+                Live Demo Experience
               </Button>
             </div>
 
