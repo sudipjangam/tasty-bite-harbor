@@ -22,12 +22,12 @@ export interface LoyaltyProgramDB {
   points_per_amount: number;
   spend_threshold: number;
   amount_per_point: number;
-  max_bill_percent: number;        // max % of bill payable via loyalty points
+  max_redemption_percentage?: number | null;
+  free_order_interval?: number | null;
   points_expiry_days: number | null;
   created_at: string;
   updated_at: string;
 }
-
 
 export interface LoyaltyRewardDB {
   id: string;

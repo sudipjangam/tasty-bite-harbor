@@ -121,10 +121,6 @@ const PaymentDialog = ({
   const [customerProfile, setCustomerProfile] = useState<CustomerLoyaltyProfile | null>(null);
   const [isLookingUpCustomer, setIsLookingUpCustomer] = useState(false);
   const [redeemedLoyaltyPoints, setRedeemedLoyaltyPoints] = useState<number>(0);
-  const [loyaltyProgram, setLoyaltyProgram] = useState<{
-    amount_per_point: number;
-    max_bill_percent: number;
-  } | null>(null);
 
   // ─── Discounts & Promotions ──────────────────────────────────────────────
   const [promotionCode, setPromotionCode] = useState("");
@@ -215,8 +211,6 @@ const PaymentDialog = ({
   useEffect(() => {
     requestPermission();
   }, [requestPermission]);
-
-
 
   // ─── Offline Queue Auto-Sync Listener ────────────────────────────────────
   useEffect(() => {
@@ -344,24 +338,32 @@ const PaymentDialog = ({
     enabled: !!(restaurantInfo?.id || hookRestaurantId),
   });
 
-  // ─── Fetch Loyalty Program Settings ──────────────────────────────────────
-  useEffect(() => {
-    const rid = restaurantInfo?.id || hookRestaurantId;
-    if (!rid) return;
-    supabase
-      .from("loyalty_programs")
-      .select("amount_per_point, max_bill_percent")
-      .eq("restaurant_id", rid)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          setLoyaltyProgram({
-            amount_per_point: Number(data.amount_per_point ?? 1),
-            max_bill_percent: Number((data as any).max_bill_percent ?? 100),
-          });
-        }
-      });
-  }, [restaurantInfo?.id, hookRestaurantId]);
+  // ─── Loyalty Program Settings Query ──────────────────────────────────────
+  const { data: loyaltyProgram } = useQuery({
+    queryKey: ["loyalty-program-pos", restaurantInfo?.id || hookRestaurantId],
+    queryFn: async () => {
+      const targetId = restaurantInfo?.id || hookRestaurantId;
+      if (!targetId) return null;
+      const { data, error } = await supabase
+        .from("loyalty_programs")
+        .select("is_enabled, points_per_amount, spend_threshold, amount_per_point, max_redemption_percentage, points_expiry_days")
+        .eq("restaurant_id", targetId)
+        .maybeSingle();
+      if (error && error.code !== "PGRST116") {
+        console.warn("Loyalty program fetch error:", error);
+      }
+      return data;
+    },
+    enabled: !!(restaurantInfo?.id || hookRestaurantId),
+  });
+
+  const isLoyaltyEnabled = loyaltyProgram?.is_enabled !== false;
+  const amountPerPoint = Number(loyaltyProgram?.amount_per_point || 1);
+  const maxRedemptionPct =
+    loyaltyProgram?.max_redemption_percentage !== null &&
+    loyaltyProgram?.max_redemption_percentage !== undefined
+      ? Number(loyaltyProgram.max_redemption_percentage)
+      : 100;
 
   // ─── Customer Loyalty Auto-Lookup (Option 2) ─────────────────────────────
   const lookupCustomerProfile = useCallback(
@@ -491,13 +493,15 @@ const PaymentDialog = ({
   }, [orderId]);
 
   // ─── Calculations Engine (Totals, Loyalty, Tip, Round-off, Taxes) ─────────
+  const loyaltyDiscountRupees = redeemedLoyaltyPoints * amountPerPoint;
+
   const totals = useMemo(() => {
     return calculateOrderTotals({
       orderItems,
       appliedPromotion,
       manualDiscountPercent,
       manualDiscountCash,
-      loyaltyDiscount: redeemedLoyaltyPoints,
+      loyaltyDiscount: loyaltyDiscountRupees,
       tipAmount,
       isAutoRoundOff,
       gstPercent: 5,
@@ -510,7 +514,7 @@ const PaymentDialog = ({
     appliedPromotion,
     manualDiscountPercent,
     manualDiscountCash,
-    redeemedLoyaltyPoints,
+    loyaltyDiscountRupees,
     tipAmount,
     isAutoRoundOff,
     customTotalOverride,
@@ -532,34 +536,46 @@ const PaymentDialog = ({
     total,
   } = totals;
 
+  // Net bill amount eligible for loyalty discount (after promo & manual discount)
+  const eligibleBillForLoyalty = Math.max(
+    0,
+    subtotal - promotionDiscountAmount - manualDiscountAmount
+  );
+  // Max rupee discount allowed by max_redemption_percentage
+  const maxAllowedLoyaltyDiscountRupees = Math.min(
+    eligibleBillForLoyalty,
+    (eligibleBillForLoyalty * maxRedemptionPct) / 100
+  );
+  // Max points that can be redeemed given the cap and customer's point balance
+  const maxPointsCanRedeem = Math.min(
+    customerProfile ? Number(customerProfile.loyalty_points || 0) : 0,
+    Math.floor(maxAllowedLoyaltyDiscountRupees / (amountPerPoint > 0 ? amountPerPoint : 1))
+  );
+
   // ─── Loyalty Points Redemption Handlers ──────────────────────────────────
   const handleRedeemMaxLoyalty = () => {
     if (!customerProfile) return;
+    if (!isLoyaltyEnabled) {
+      toast({ title: "Loyalty Program is currently paused" });
+      return;
+    }
     const availablePoints = Number(customerProfile.loyalty_points || 0);
     if (availablePoints <= 0) {
       toast({ title: "No loyalty points available" });
       return;
     }
-
-    // 1 pt = amount_per_point (e.g. ₹5)
-    const amountPerPoint = loyaltyProgram?.amount_per_point ?? 1;
-    // Max % of bill payable via points (e.g. 50%)
-    const maxBillPct = loyaltyProgram?.max_bill_percent ?? 100;
-
-    const maxDiscountByPercent = (subtotal * maxBillPct) / 100;       // e.g. 466 × 50% = ₹233
-    const pointsMonetaryValue  = availablePoints * amountPerPoint;     // e.g. 156 × ₹5 = ₹780
-    const discountAmount = Math.min(pointsMonetaryValue, maxDiscountByPercent, subtotal);
-
-    if (discountAmount <= 0) {
-      toast({ title: "No remaining balance to redeem points against" });
+    if (maxPointsCanRedeem <= 0) {
+      toast({
+        title: "Cannot redeem points",
+        description: `Max ${maxRedemptionPct}% of bill can be paid using points (or bill already discounted)`,
+      });
       return;
     }
-
-    // Store as rupee discount (not points) so calculateOrderTotals gets correct value
-    setRedeemedLoyaltyPoints(discountAmount);
+    setRedeemedLoyaltyPoints(maxPointsCanRedeem);
+    const discountAmt = maxPointsCanRedeem * amountPerPoint;
     toast({
-      title: `⭐ Loyalty Points Applied`,
-      description: `${currencySymbol}${discountAmount.toFixed(2)} off (${availablePoints} pts × ${currencySymbol}${amountPerPoint}/pt, capped at ${maxBillPct}% of bill)`,
+      title: `⭐ ${maxPointsCanRedeem} Points Redeemed`,
+      description: `Applied ${currencySymbol}${discountAmt.toFixed(2)} discount (${maxRedemptionPct}% max bill cap)`,
     });
   };
 
@@ -887,21 +903,49 @@ const PaymentDialog = ({
         } else {
           // 1. Sync CRM customer details & deduct loyalty points
           if (customerMobile.trim() && targetRestaurantId) {
-            await syncCustomerToCRM({
-              phone: customerMobile.trim(),
-              name: customerName.trim() || undefined,
-              restaurantId: targetRestaurantId,
-              orderAmount: finalAmount,
-            }).catch(console.warn);
+            try {
+              await syncCustomerToCRM({
+                customerName: customerName.trim() || customerMobile.trim(),
+                customerPhone: customerMobile.trim(),
+                orderTotal: finalAmount,
+                orderId: orderId,
+                source: "pos",
+              });
+            } catch (err) {
+              console.warn("CRM Sync warning:", err);
+            }
 
             if (redeemedLoyaltyPoints > 0 && customerProfile?.id) {
-              await supabase
-                .from("customers")
-                .update({
-                  loyalty_points: Math.max(0, customerProfile.loyalty_points - redeemedLoyaltyPoints),
-                })
-                .eq("id", customerProfile.id)
-                .catch(console.warn);
+              const newPoints = Math.max(0, customerProfile.loyalty_points - redeemedLoyaltyPoints);
+              try {
+                await supabase
+                  .from("customers")
+                  .update({
+                    loyalty_points: newPoints,
+                  })
+                  .eq("id", customerProfile.id);
+              } catch (err) {
+                console.warn("Loyalty points update error:", err);
+              }
+
+              // Record in loyalty_transactions
+              try {
+                const { data: authData } = await supabase.auth.getUser();
+                await supabase
+                  .from("loyalty_transactions")
+                  .insert({
+                    restaurant_id: targetRestaurantId,
+                    customer_id: customerProfile.id,
+                    transaction_type: "redeem",
+                    points: -redeemedLoyaltyPoints,
+                    source: "pos",
+                    source_id: orderId || null,
+                    notes: `Redeemed ${redeemedLoyaltyPoints} points for ${currencySymbol}${loyaltyDiscountRupees.toFixed(2)} discount`,
+                    created_by: authData?.user?.id || null,
+                  });
+              } catch (err) {
+                console.warn("Loyalty transaction log error:", err);
+              }
             }
           }
 
@@ -1416,7 +1460,7 @@ const PaymentDialog = ({
                       {loyaltyDiscountAmount > 0 && (
                         <div className="flex justify-between text-amber-700 dark:text-amber-400 font-semibold">
                           <span className="flex items-center gap-1">
-                            <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> Loyalty Redemption
+                            <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> Loyalty Redemption ({redeemedLoyaltyPoints} pts)
                           </span>
                           <span>
                             -{currencySymbol}
@@ -1609,24 +1653,21 @@ const PaymentDialog = ({
 
                       {/* Loyalty Profile Banner (Option 2) */}
                       {customerProfile && (
-                        <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 flex items-center justify-between">
-                          <div className="text-[11px]">
+                        <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 flex items-center justify-between gap-2">
+                          <div className="text-[11px] min-w-0">
                             <span className="font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1">
-                              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
-                              {customerProfile.loyalty_points} pts
-                              {loyaltyProgram && loyaltyProgram.amount_per_point > 1 && (
-                                <span className="text-amber-600 dark:text-amber-400 font-semibold">
-                                  = {currencySymbol}{(customerProfile.loyalty_points * loyaltyProgram.amount_per_point).toFixed(0)} value
-                                </span>
-                              )}
+                              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0" />
+                              {customerProfile.loyalty_points} Loyalty Pts
                             </span>
-                            <span className="text-[10px] text-indigo-700 dark:text-indigo-400 block">
+                            <span className="text-[10px] text-indigo-700 dark:text-indigo-400 block truncate">
                               Visit #{customerProfile.visit_count} • Spent: {currencySymbol}
                               {customerProfile.total_spent.toFixed(0)}
-                              {loyaltyProgram && loyaltyProgram.max_bill_percent < 100 && (
-                                <> · max {loyaltyProgram.max_bill_percent}% of bill</>
-                              )}
                             </span>
+                            {maxRedemptionPct < 100 && (
+                              <span className="text-[9px] text-indigo-500 dark:text-indigo-400 font-medium block">
+                                (1 pt = {currencySymbol}{amountPerPoint} · Max {maxRedemptionPct}% of bill)
+                              </span>
+                            )}
                           </div>
 
                           {customerProfile.loyalty_points > 0 && (
@@ -1634,23 +1675,26 @@ const PaymentDialog = ({
                               <button
                                 type="button"
                                 onClick={handleRemoveLoyalty}
-                                className="px-2 py-1 rounded bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-950 dark:text-rose-300 text-[10px] font-bold transition-colors"
+                                className="px-2.5 py-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-950 dark:text-rose-300 text-[11px] font-bold transition-colors shrink-0 flex items-center gap-1"
                               >
-                                ✕ Remove (-{currencySymbol}{redeemedLoyaltyPoints.toFixed(2)})
+                                ✕ Remove (-{currencySymbol}{loyaltyDiscountRupees.toFixed(0)})
                               </button>
                             ) : (
                               <button
                                 type="button"
                                 onClick={handleRedeemMaxLoyalty}
-                                className="px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold shadow-2xs transition-colors flex items-center gap-1"
+                                disabled={maxPointsCanRedeem <= 0}
+                                className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:dark:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white text-[11px] font-bold shadow-2xs transition-colors flex items-center gap-1 shrink-0"
                               >
-                                <Sparkles className="w-3 h-3" /> Redeem Points
+                                <Sparkles className="w-3 h-3" />
+                                {maxPointsCanRedeem > 0
+                                  ? `Redeem ${maxPointsCanRedeem} pts (-${currencySymbol}${(maxPointsCanRedeem * amountPerPoint).toFixed(0)})`
+                                  : "Redeem Points"}
                               </button>
                             )
                           )}
                         </div>
                       )}
-
 
                       <label className="flex items-center gap-2 cursor-pointer pt-1 border-t border-slate-200 dark:border-slate-700/80 select-none">
                         <input
