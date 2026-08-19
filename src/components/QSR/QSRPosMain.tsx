@@ -1268,6 +1268,7 @@ export const QSRPosMain: React.FC = () => {
             console.error("Inventory deduction failed (non-blocking):", invErr);
           }
         }
+      }
 
       // Clear cart, order, and customer details
       setOrderItems([]);
