@@ -158,7 +158,7 @@ export function buildReceiptHtml({
   <div class="center bold" style="font-size:15px;">${rName}</div>
   ${restaurantInfo?.address ? `<div class="center" style="font-size:9px;">${restaurantInfo.address}</div>` : ""}
   ${restaurantInfo?.phone ? `<div class="center" style="font-size:9px;">Ph: ${restaurantInfo.phone}</div>` : ""}
-  ${restaurantInfo?.gstin ? `<div class="center" style="font-size:9px;">GSTIN: ${restaurantInfo.gstin}</div>` : ""}
+  ${restaurantInfo?.gstin && restaurantInfo.gstin.trim() !== "" && restaurantInfo.gstin.toLowerCase() !== "not set" ? `<div class="center" style="font-size:9px;">GSTIN: ${restaurantInfo.gstin}</div>` : ""}
   <div class="dash"></div>
   <div style="font-size:10px;">Bill#: ${billNumber}</div>
   <div style="font-size:10px;">${toLine}</div>
