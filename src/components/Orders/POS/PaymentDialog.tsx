@@ -493,6 +493,14 @@ const PaymentDialog = ({
   }, [orderId]);
 
   // ─── Calculations Engine (Totals, Loyalty, Tip, Round-off, Taxes) ─────────
+  const hasGstin = Boolean(
+    (restaurantInfo?.gstin && restaurantInfo.gstin.trim() !== "" && restaurantInfo.gstin.toLowerCase() !== "not set") ||
+    ((restaurantInfo as any)?.gst_number && (restaurantInfo as any).gst_number.trim() !== "" && (restaurantInfo as any).gst_number.toLowerCase() !== "not set")
+  );
+  const gstPercent = hasGstin
+    ? (Number((restaurantInfo as any)?.tax_rate || paymentSettings?.tax_rate || 5) || 5)
+    : 0;
+
   const loyaltyDiscountRupees = redeemedLoyaltyPoints * amountPerPoint;
 
   const totals = useMemo(() => {
@@ -504,7 +512,7 @@ const PaymentDialog = ({
       loyaltyDiscount: loyaltyDiscountRupees,
       tipAmount,
       isAutoRoundOff,
-      gstPercent: 5,
+      gstPercent,
       isTaxInclusive: true,
       customTotalOverride,
       isNonChargeable,
@@ -517,6 +525,7 @@ const PaymentDialog = ({
     loyaltyDiscountRupees,
     tipAmount,
     isAutoRoundOff,
+    gstPercent,
     customTotalOverride,
     isNonChargeable,
   ]);
@@ -1498,26 +1507,32 @@ const PaymentDialog = ({
                           className="text-[11px] font-bold text-slate-500 hover:text-indigo-600 flex items-center gap-1 transition-colors"
                         >
                           {showTaxBreakdown ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                          <span>Taxes (GST 5%) & Round-Off Details</span>
+                          <span>
+                            {hasGstin && gstPercent > 0 ? `Taxes (GST ${gstPercent}%) & Round-Off Details` : "Round-Off Details"}
+                          </span>
                         </button>
 
                         {showTaxBreakdown && (
                           <div className="mt-1 p-2 rounded-lg bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-1 text-[11px] text-slate-600 dark:text-slate-400">
-                            <div className="flex justify-between">
-                              <span>CGST (2.5%)</span>
-                              <span>
-                                {currencySymbol}
-                                {cgstAmount.toFixed(2)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>SGST (2.5%)</span>
-                              <span>
-                                {currencySymbol}
-                                {sgstAmount.toFixed(2)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center pt-1 border-t border-slate-200 dark:border-slate-800">
+                            {hasGstin && gstPercent > 0 && (
+                              <>
+                                <div className="flex justify-between">
+                                  <span>CGST ({(gstPercent / 2).toFixed(1)}%)</span>
+                                  <span>
+                                    {currencySymbol}
+                                    {cgstAmount.toFixed(2)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>SGST ({(gstPercent / 2).toFixed(1)}%)</span>
+                                  <span>
+                                    {currencySymbol}
+                                    {sgstAmount.toFixed(2)}
+                                  </span>
+                                </div>
+                              </>
+                            )}
+                            <div className={`flex justify-between items-center ${hasGstin && gstPercent > 0 ? "pt-1 border-t border-slate-200 dark:border-slate-800" : ""}`}>
                               <label className="flex items-center gap-1.5 cursor-pointer select-none">
                                 <input
                                   type="checkbox"
@@ -1528,7 +1543,7 @@ const PaymentDialog = ({
                                 <span className="font-semibold text-slate-700 dark:text-slate-300">Auto Round-Off</span>
                               </label>
                               <span className="font-mono">
-                                {roundOffAmount !== 0 ? (roundOffAmount > 0 ? `+${currencySymbol}${roundOffAmount.toFixed(2)}` : `-${currencySymbol}${Math.abs(roundOffAmount).toFixed(2)}`) : "₹0.00"}
+                                {roundOffAmount !== 0 ? (roundOffAmount > 0 ? `+${currencySymbol}${roundOffAmount.toFixed(2)}` : `-${currencySymbol}${Math.abs(roundOffAmount).toFixed(2)}`) : `${currencySymbol}0.00`}
                               </span>
                             </div>
                           </div>

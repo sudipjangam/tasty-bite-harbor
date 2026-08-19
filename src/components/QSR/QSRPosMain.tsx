@@ -388,6 +388,10 @@ export const QSRPosMain: React.FC = () => {
               setPaymentOrderItems(mappedItems);
             }
 
+            // Restore customer details if present on order
+            setCustomerName(kitchenOrder.customer_name || "");
+            setCustomerPhone(kitchenOrder.customer_phone || "");
+
             toast({
               title: "Order Recalled",
               description: `Loaded existing order for ${table.name}`,
@@ -402,7 +406,7 @@ export const QSRPosMain: React.FC = () => {
           });
         }
       } else {
-        // Table is available - clear any existing order data from previous table
+        // Table is available - clear any existing order and customer data from previous table
         // This prevents showing stale data when switching from an occupied table
         setOrderItems([]);
         setRecalledKitchenOrderId(null);
@@ -410,6 +414,9 @@ export const QSRPosMain: React.FC = () => {
         setPendingOrderId(null);
         setPendingKitchenOrderId(null);
         setPaymentOrderItems([]);
+        setCustomerName("");
+        setCustomerPhone("");
+        setNcReason("");
       }
       setSelectedTable(table);
     },
@@ -959,6 +966,9 @@ export const QSRPosMain: React.FC = () => {
       setOrderItems([]);
       setRecalledKitchenOrderId(null);
       setSelectedTable(null);
+      setCustomerName("");
+      setCustomerPhone("");
+      setNcReason("");
 
       // Invalidate active orders query immediately
       queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
@@ -987,8 +997,9 @@ export const QSRPosMain: React.FC = () => {
   // Recall order from active orders drawer
   const handleRecallOrder = useCallback(
     (order: ActiveKitchenOrder) => {
-      // Clear previous order data if any
-      setCustomerName("");
+      // Restore customer details from recalled order if available
+      setCustomerName((order as any).customer_name || "");
+      setCustomerPhone((order as any).customer_phone || "");
       setNcReason("");
       setPendingKitchenOrderId(null);
       setPendingOrderId(null);
@@ -1258,10 +1269,15 @@ export const QSRPosMain: React.FC = () => {
           }
         }
 
-        // Clear cart
-        setOrderItems([]);
-        setRecalledKitchenOrderId(null);
-      }
+      // Clear cart, order, and customer details
+      setOrderItems([]);
+      setRecalledKitchenOrderId(null);
+      setPendingOrderId(null);
+      setPendingKitchenOrderId(null);
+      setPaymentOrderItems([]);
+      setCustomerName("");
+      setCustomerPhone("");
+      setNcReason("");
 
       // Free up table if dine-in
       if (currentMode === "dine_in" && currentTable) {
