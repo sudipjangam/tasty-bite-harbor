@@ -133,7 +133,15 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
       const dayStart = startOfDay(displayDate).toISOString();
       const dayEnd = endOfDay(displayDate).toISOString();
 
-      // Fetch kitchen_orders for items, order types, peak hour
+      // 1. Fetch main orders (primary table for POS, Dine-in, Takeaway, Online)
+      const { data: mainOrders } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .gte("created_at", dayStart)
+        .lte("created_at", dayEnd);
+
+      // 2. Fetch kitchen_orders for items, order types, peak hour
       const { data: orders, error } = await supabase
         .from("kitchen_orders")
         .select("*")
@@ -143,7 +151,7 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
 
       if (error) throw error;
 
-      // Fetch pos_transactions for revenue & payment breakdown
+      // 3. Fetch pos_transactions for revenue & payment breakdown
       const { data: transactions, error: txnError } = await supabase
         .from("pos_transactions")
         .select("amount, payment_method, status, discount_amount, created_at, split_payments")
@@ -153,7 +161,7 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
 
       if (txnError) throw txnError;
 
-      // Fetch today's expenses (use expense_date column)
+      // 4. Fetch today's expenses (use expense_date column)
       const { data: expensesData } = await supabase
         .from("expenses")
         .select("amount, category")
@@ -161,27 +169,52 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         .gte("expense_date", dayStart.split("T")[0])
         .lte("expense_date", dayEnd.split("T")[0]);
 
-      const allOrders = orders || [];
+      const rawOrders = (mainOrders && mainOrders.length > 0)
+        ? mainOrders
+        : (orders || []);
+
+      const allOrders = rawOrders.filter((o: any) => o.status !== "cancelled");
+      const completedOrders = rawOrders.filter(
+        (o: any) =>
+          o.status === "completed" &&
+          o.order_type !== "nc" &&
+          o.order_type !== "non-chargeable"
+      );
       const allTxns = (transactions || []).filter(
         (t) => t.status === "completed",
       );
 
       // Calculate summary
       const totalOrders = allOrders.length;
-      const ncOrders = allOrders.filter(
-        (o) => o.order_type === "nc" || o.order_type === "non-chargeable",
+      const ncOrders = rawOrders.filter(
+        (o: any) => o.order_type === "nc" || o.order_type === "non-chargeable",
       );
 
-      // Revenue from pos_transactions (accurate source)
-      const totalRevenue = allTxns.reduce(
-        (sum, t) => sum + (Number(t.amount) || 0),
-        0,
-      );
+      // Revenue: use pos_transactions if available, otherwise completed orders
+      let totalRevenue = 0;
+      let discountAmount = 0;
+
+      if (allTxns.length > 0) {
+        totalRevenue = allTxns.reduce(
+          (sum, t) => sum + (Number(t.amount) || 0),
+          0,
+        );
+        discountAmount = allTxns.reduce(
+          (sum, t) => sum + (Number(t.discount_amount) || 0),
+          0,
+        );
+      } else {
+        totalRevenue = completedOrders.reduce(
+          (sum: number, o: any) => sum + (Number(o.total || o.total_amount) || 0),
+          0
+        );
+        discountAmount = completedOrders.reduce(
+          (sum: number, o: any) => sum + (Number(o.discount_amount || o.discount) || 0),
+          0
+        );
+      }
+
       const ncAmount = 0; // NC orders have ₹0 in pos_transactions
-      const discountAmount = allTxns.reduce(
-        (sum, t) => sum + (Number(t.discount_amount) || 0),
-        0,
-      );
 
       // ─── Calculate inventory cost from today's orders ───
       // For each order item, look up the recipe → ingredients → costs
@@ -308,23 +341,23 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
 
       const netProfit = totalRevenue - totalExpenses;
 
-      // Payment breakdown from pos_transactions
+      // Payment breakdown from pos_transactions or completed orders
       const paymentBreakdown: PaymentBreakdown = {
         cash: 0,
         upi: 0,
         card: 0,
         other: 0,
       };
-      allTxns.forEach((t) => {
-        const method = (t.payment_method || "cash").toLowerCase();
-        const amt = Number(t.amount) || 0;
-        if (method === "split" && (t as any).split_payments) {
-          const splits: Array<{method: string; amount: number}> = Array.isArray((t as any).split_payments)
-            ? (t as any).split_payments
+
+      const processPaymentItem = (methodStr: string, amt: number, splitData?: any) => {
+        const method = (methodStr || "cash").toLowerCase();
+        if (method === "split" && splitData) {
+          const splits: Array<{method: string; amount: number}> = Array.isArray(splitData)
+            ? splitData
             : [];
           splits.forEach((s) => {
             const m = (s.method || "").toLowerCase();
-            const a = s.amount || 0;
+            const a = Number(s.amount) || 0;
             if (m.includes("cash")) paymentBreakdown.cash += a;
             else if (m.includes("upi")) paymentBreakdown.upi += a;
             else if (m.includes("card")) paymentBreakdown.card += a;
@@ -334,7 +367,18 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         else if (method.includes("upi")) paymentBreakdown.upi += amt;
         else if (method.includes("card")) paymentBreakdown.card += amt;
         else paymentBreakdown.other += amt;
-      });
+      };
+
+      if (allTxns.length > 0) {
+        allTxns.forEach((t) => {
+          processPaymentItem(t.payment_method, Number(t.amount) || 0, (t as any).split_payments);
+        });
+      } else {
+        completedOrders.forEach((o: any) => {
+          const amt = Number(o.total || o.total_amount) || 0;
+          processPaymentItem(o.payment_method, amt, o.split_payments);
+        });
+      }
 
       // Order type breakdown (from kitchen_orders)
       const orderTypeBreakdown: OrderTypeBreakdown = {
