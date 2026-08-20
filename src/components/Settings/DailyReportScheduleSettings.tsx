@@ -263,23 +263,39 @@ export const DailyReportScheduleSettings: React.FC = () => {
     }));
   };
 
+  const [testDateOption, setTestDateOption] = useState<"today" | "yesterday">("today");
+
   // Send test report
   const handleSendTest = async () => {
     if (!restaurantId) return;
     setSendingTest(true);
     try {
+      const now = new Date();
+      let selectedDate = format(now, "yyyy-MM-dd");
+      if (testDateOption === "yesterday") {
+        const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        selectedDate = format(yesterday, "yyyy-MM-dd");
+      }
+
       const { data, error } = await supabase.functions.invoke(
         "send-daily-report",
         {
-          body: { restaurantId },
+          body: {
+            restaurantId,
+            reportDate: selectedDate,
+          },
         }
       );
 
       if (error) throw error;
 
+      const result = data?.results?.[0];
+      const waStatus = result?.whatsappSent ? "WhatsApp ✓" : "WhatsApp ✗";
+      const emStatus = result?.emailSent ? "Email ✓" : "Email ✗";
+
       toast({
         title: "Test Report Sent! 🧪",
-        description: `Report generated with ${data?.results?.[0]?.orders || 0} orders`,
+        description: `Date: ${selectedDate} • Orders: ${result?.orders || 0} • Revenue: ₹${result?.revenue || 0} (${waStatus}, ${emStatus})`,
       });
 
       queryClient.invalidateQueries({
@@ -523,6 +539,37 @@ export const DailyReportScheduleSettings: React.FC = () => {
           </div>
         )}
 
+        {/* Test Report Date Selection */}
+        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-600">
+          <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+            Test Report Data Date:
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setTestDateOption("today")}
+              className={`px-3 py-1 text-xs font-medium rounded-lg transition-all ${
+                testDateOption === "today"
+                  ? "bg-orange-500 text-white shadow-sm"
+                  : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              }`}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => setTestDateOption("yesterday")}
+              className={`px-3 py-1 text-xs font-medium rounded-lg transition-all ${
+                testDateOption === "yesterday"
+                  ? "bg-orange-500 text-white shadow-sm"
+                  : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              }`}
+            >
+              Yesterday
+            </button>
+          </div>
+        </div>
+
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
           <Button
@@ -548,7 +595,7 @@ export const DailyReportScheduleSettings: React.FC = () => {
             ) : (
               <Send className="h-4 w-4 mr-2" />
             )}
-            Send Test Report
+            Send Test Report ({testDateOption === "today" ? "Today" : "Yesterday"})
           </Button>
         </div>
       </CardContent>
