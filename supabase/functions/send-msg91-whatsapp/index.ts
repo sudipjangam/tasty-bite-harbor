@@ -32,6 +32,8 @@ interface SendPayload {
   templateName: string;
   variables?: Record<string, string>;   // named var → value
   buttons?: { type: string; value: string }[];
+  restaurantId?: string;
+  messageType?: string;
   // Legacy fields (backward compat with POS/QSR bill senders)
   customerName?: string;
   restaurantName?: string;
@@ -47,6 +49,11 @@ serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
     // ── Auth ──────────────────────────────────────────────────────────────
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -57,8 +64,8 @@ serve(async (req) => {
     }
 
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      supabaseUrl,
+      supabaseAnonKey,
       { global: { headers: { Authorization: authHeader } } }
     );
 
@@ -222,11 +229,71 @@ serve(async (req) => {
       throw new Error(`MSG91 returned non-JSON: ${rawText}`);
     }
 
+    // Resolve restaurant_id for logging
+    let effectiveRestaurantId = payload.restaurantId;
+    if (!effectiveRestaurantId && user?.id) {
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("restaurant_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      effectiveRestaurantId = profile?.restaurant_id;
+    }
+
     if (!response.ok) {
       console.error("MSG91 API error:", data);
+      const failReason = typeof data === "object" ? JSON.stringify(data) : String(data);
+      if (effectiveRestaurantId) {
+        try {
+          await supabaseAdmin.from("whatsapp_campaign_sends").insert({
+            restaurant_id: effectiveRestaurantId,
+            restaurant_name: payload.restaurantName || null,
+            customer_phone: cleanPhone,
+            customer_name: payload.customerName || "Customer",
+            template_name: payload.templateName,
+            provider: "msg91",
+            message_type: payload.messageType || "transactional",
+            status: "failed",
+            failure_reason: failReason,
+            metadata: {
+              variables: payload.variables || {},
+              amount: payload.amount || null,
+              restaurantName: payload.restaurantName || null,
+            },
+          });
+        } catch (logErr) {
+          console.error("Log error in send-msg91-whatsapp:", logErr);
+        }
+      }
       throw new Error(
-        `MSG91 API returned ${response.status}: ${JSON.stringify(data)}`
+        `MSG91 API returned ${response.status}: ${failReason}`
       );
+    }
+
+    // Log success
+    if (effectiveRestaurantId) {
+      try {
+        await supabaseAdmin.from("whatsapp_campaign_sends").insert({
+          restaurant_id: effectiveRestaurantId,
+          restaurant_name: payload.restaurantName || null,
+          customer_phone: cleanPhone,
+          customer_name: payload.customerName || "Customer",
+          template_name: payload.templateName,
+          provider: "msg91",
+          message_type: payload.messageType || "transactional",
+          message_id: data?.request_id || null,
+          msg91_request_id: data?.request_id || null,
+          status: "sent",
+          sent_at: new Date().toISOString(),
+          metadata: {
+            variables: payload.variables || {},
+            amount: payload.amount || null,
+            restaurantName: payload.restaurantName || null,
+          },
+        });
+      } catch (logErr) {
+        console.error("Log error in send-msg91-whatsapp:", logErr);
+      }
     }
 
     return new Response(JSON.stringify({ success: true, data }), {

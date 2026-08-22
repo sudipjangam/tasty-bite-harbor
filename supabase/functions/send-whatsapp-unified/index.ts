@@ -49,6 +49,7 @@ Deno.serve(async (req: Request) => {
       buttons,
       customerId,
       campaignId,
+      messageType,
     } = body;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -121,32 +122,55 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Helper: atomic wallet deduction + campaign log via RPC
-    const deductAndLog = async (tplName: string, status: string, msgId?: string, failReason?: string) => {
+    // Master Logger: atomic wallet deduction + comprehensive log to whatsapp_campaign_sends
+    const logWhatsAppSend = async (
+      tplName: string,
+      status: "sent" | "failed",
+      msgProvider: string,
+      msgId?: string,
+      failReason?: string,
+      shouldDeductWallet = false
+    ) => {
       if (!restaurantId) return;
-      // Atomic deduction — prevents race conditions and stale balance writes
-      const { error: rpcError } = await supabase.rpc('adjust_wallet_balance', {
-        p_restaurant_id: restaurantId,
-        p_amount: -messageCost,
-        p_type: 'deduction',
-        p_description: `WhatsApp Message (${tplName}) to ${phoneNumber}`,
-      });
-      if (rpcError) {
-        console.error('[unified] Wallet deduction failed:', rpcError.message);
-        // Don't throw — message was already sent, log the campaign send anyway
+
+      if (shouldDeductWallet && status === "sent") {
+        const { error: rpcError } = await supabase.rpc("adjust_wallet_balance", {
+          p_restaurant_id: restaurantId,
+          p_amount: -messageCost,
+          p_type: "deduction",
+          p_description: `WhatsApp Message (${tplName}) to ${phoneNumber}`,
+        });
+        if (rpcError) {
+          console.error("[unified] Wallet deduction failed:", rpcError.message);
+        }
       }
-      // Log campaign send
-      await supabase.from("whatsapp_campaign_sends").insert({
-        campaign_id: campaignId || null,
-        restaurant_id: restaurantId,
-        customer_id: customerId || null,
-        customer_phone: phoneNumber,
-        customer_name: customerName || "Customer",
-        template_name: tplName,
-        status: status,
-        msg91_request_id: msgId || null,
-        failure_reason: failReason || null,
-      });
+
+      try {
+        await supabase.from("whatsapp_campaign_sends").insert({
+          campaign_id: campaignId || null,
+          restaurant_id: restaurantId,
+          restaurant_name: restaurantName || null,
+          customer_id: customerId || null,
+          customer_phone: phoneNumber,
+          customer_name: customerName || "Customer",
+          template_name: tplName,
+          status: status,
+          msg91_request_id: msgId || null,
+          message_id: msgId || null,
+          provider: msgProvider,
+          message_type: messageType || (campaignId ? "marketing" : "transactional"),
+          failure_reason: failReason || null,
+          sent_at: status === "sent" ? new Date().toISOString() : null,
+          metadata: {
+            variables: variables || {},
+            amount: amount || null,
+            restaurantName: restaurantName || null,
+            error: failReason || null,
+          },
+        });
+      } catch (logErr) {
+        console.error("[unified] Failed to log to whatsapp_campaign_sends:", logErr);
+      }
     };
 
     console.log(`[unified] provider=${provider}, template=${usedTemplateName}, lang=${templateLanguage}, phone=${phoneNumber}, hasToken=${!!metaConfig.access_token}, phoneId=${metaConfig.phone_number_id}, cost=${messageCost}`);
@@ -309,6 +333,14 @@ Deno.serve(async (req: Request) => {
 
       if (!metaRes.ok) {
         console.error("[meta] Error:", JSON.stringify(metaData));
+        await logWhatsAppSend(
+          usedTemplateName,
+          "failed",
+          "meta_cloud",
+          undefined,
+          metaData?.error?.message || "Meta API error",
+          false
+        );
         return new Response(
           JSON.stringify({
             success: false,
@@ -322,8 +354,15 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      // Atomic deduction + campaign log
-      await deductAndLog(usedTemplateName, "sent", metaData?.messages?.[0]?.id);
+      // Master Logger: atomic deduction + log
+      await logWhatsAppSend(
+        usedTemplateName,
+        "sent",
+        "meta_cloud",
+        metaData?.messages?.[0]?.id,
+        undefined,
+        true
+      );
 
       return new Response(
         JSON.stringify({ success: true, provider: "meta_cloud", data: metaData }),
@@ -472,7 +511,14 @@ Deno.serve(async (req: Request) => {
         console.log("[msg91] Fallback result:", JSON.stringify(fallbackData));
 
         if (fallbackRes.ok && fallbackData?.message !== "error") {
-          await deductAndLog(FALLBACK_TEMPLATE, "sent", fallbackData?.request_id);
+          await logWhatsAppSend(
+            FALLBACK_TEMPLATE,
+            "sent",
+            "msg91",
+            fallbackData?.request_id,
+            undefined,
+            true
+          );
           return new Response(
             JSON.stringify({ success: true, provider: "msg91", data: fallbackData, usedFallback: true }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -481,18 +527,14 @@ Deno.serve(async (req: Request) => {
       }
 
       // Log failure (no wallet deduction for failed sends)
-      if (restaurantId) {
-        await supabase.from("whatsapp_campaign_sends").insert({
-          campaign_id: campaignId || null,
-          restaurant_id: restaurantId,
-          customer_id: customerId || null,
-          customer_phone: phoneNumber,
-          customer_name: customerName || "Customer",
-          template_name: usedTemplateName,
-          status: "failed",
-          failure_reason: msg91Data?.msg || msg91Data?.message || "MSG91 API error",
-        });
-      }
+      await logWhatsAppSend(
+        usedTemplateName,
+        "failed",
+        "msg91",
+        undefined,
+        msg91Data?.msg || msg91Data?.message || "MSG91 API error",
+        false
+      );
 
       return new Response(
         JSON.stringify({ success: false, error: msg91Data?.msg || msg91Data?.message || "MSG91 API error", details: msg91Data }),
@@ -500,8 +542,15 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Atomic deduction + campaign log for MSG91 success
-    await deductAndLog(usedTemplateName, "sent", msg91Data?.request_id);
+    // Master Logger: atomic deduction + log for MSG91 success
+    await logWhatsAppSend(
+      usedTemplateName,
+      "sent",
+      "msg91",
+      msg91Data?.request_id,
+      undefined,
+      true
+    );
 
     return new Response(
       JSON.stringify({ success: true, provider: "msg91", data: msg91Data }),

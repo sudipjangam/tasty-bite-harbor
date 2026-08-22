@@ -263,32 +263,40 @@ serve(async (req: Request) => {
     );
 
     
-    // Update order record if orderId provided
-    if (orderId && result.success) {
-      try {
-        const supabaseUrl = Deno.env.get('SUPABASE_URL');
-        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-        
-        if (supabaseUrl && supabaseServiceKey) {
-          const supabase = createClient(supabaseUrl, supabaseServiceKey);
-          
-          const { error: updateError } = await supabase
+    // Log to whatsapp_campaign_sends master table
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL');
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      if (supabaseUrl && supabaseServiceKey && restaurantId) {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        await supabase.from('whatsapp_campaign_sends').insert({
+          restaurant_id: restaurantId,
+          restaurant_name: restaurantName || null,
+          customer_phone: phone,
+          customer_name: customerName || 'Customer',
+          template_name: templateToUse || 'text_message',
+          provider: 'meta_cloud',
+          message_type: orderId ? 'bill' : 'transactional',
+          message_id: result.messageId || null,
+          status: result.success ? 'sent' : 'failed',
+          failure_reason: result.error || null,
+          sent_at: result.success ? new Date().toISOString() : null,
+          metadata: { orderId, total, tableNumber, items: items || [] },
+        });
+
+        // Update kitchen_orders if orderId provided
+        if (orderId && result.success) {
+          await supabase
             .from('kitchen_orders')
             .update({ 
               whatsapp_sent: true,
               updated_at: new Date().toISOString()
             })
             .eq('id', orderId);
-
-          if (updateError) {
-            console.warn('Could not update order record:', updateError);
-          } else {
-            console.log('✅ Order record updated with whatsapp_sent flag');
-          }
         }
-      } catch (dbError) {
-        console.error('Database update error:', dbError);
       }
+    } catch (logErr) {
+      console.error('Master log error in send-whatsapp-cloud:', logErr);
     }
     
     // Return response

@@ -15,6 +15,7 @@ interface WhatsAppBillRequest {
   total: number;
   roomName: string;
   checkoutDate: string;
+  restaurantId?: string;
 }
 
 async function sendWhatsAppMessage(to: string, message: string) {
@@ -188,9 +189,20 @@ ${restaurantName || "Hotel"} Team`;
       sendStatus = 'failed';
     }
 
-    // Update billing record
+    // Update billing record & log to master table
     try {
-      const { error: updateError } = await supabase
+      let resolvedRestaurantId = restaurantId;
+      const { data: billData } = await supabase
+        .from('room_billings')
+        .select('restaurant_id')
+        .eq('id', billingId)
+        .maybeSingle();
+
+      if (billData?.restaurant_id) {
+        resolvedRestaurantId = billData.restaurant_id;
+      }
+
+      await supabase
         .from('room_billings')
         .update({ 
           whatsapp_sent: sendStatus === 'sent',
@@ -198,10 +210,21 @@ ${restaurantName || "Hotel"} Team`;
         })
         .eq('id', billingId);
 
-      if (updateError) {
-        console.error("Failed to update billing record:", updateError);
-      } else {
-        console.log("✅ Billing record updated successfully");
+      if (resolvedRestaurantId) {
+        await supabase.from('whatsapp_campaign_sends').insert({
+          restaurant_id: resolvedRestaurantId,
+          restaurant_name: restaurantName || null,
+          customer_phone: phoneNumber,
+          customer_name: customerName || 'Guest',
+          template_name: 'room_bill',
+          provider: 'twilio',
+          message_type: 'bill',
+          message_id: sendResult?.sid || null,
+          status: sendStatus,
+          failure_reason: errorMessage || null,
+          sent_at: sendStatus === 'sent' ? new Date().toISOString() : null,
+          metadata: { billingId, roomName, total, checkoutDate },
+        });
       }
     } catch (dbError) {
       console.error("Database error:", dbError);
