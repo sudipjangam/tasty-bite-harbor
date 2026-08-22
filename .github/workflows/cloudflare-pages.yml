@@ -32,6 +32,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: tasty-bite-harbor # change this to your Cloudflare Pages project name
-          directory: dist # change if your build folder is different
+          projectName: swadeshi-solutions
+          directory: dist
           githubToken: ${{ secrets.GITHUB_TOKEN }}
