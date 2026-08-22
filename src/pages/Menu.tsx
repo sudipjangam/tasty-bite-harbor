@@ -1,92 +1,91 @@
 import { Suspense, lazy } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChefHat, Sparkles, Utensils, Zap } from "lucide-react";
+import { ChefHat, Sparkles, Utensils } from "lucide-react";
 import HelpProvider from "@/components/Help/HelpProvider";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Lazy load the MenuGrid component
 const MenuGrid = lazy(() => import("@/components/Menu/MenuGrid"));
 
 const Menu = () => {
   const { restaurantName } = useRestaurantId();
+  const isMobile = useIsMobile();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-teal-100 dark:from-gray-900 dark:via-slate-900 dark:to-emerald-950">
-      {/* Modern 3D Header with Vibrant Gradient */}
-      <div className="sticky top-0 z-40">
-        <div className="relative overflow-hidden">
-          {/* 3D Gradient Background */}
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600"></div>
-          <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent"></div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/50 to-teal-50/70 dark:from-gray-950 dark:via-slate-900 dark:to-emerald-950/40">
+      {/* Header: Compact on Mobile, Rich 3D Hero on Desktop */}
+      <div className="sticky top-0 z-30 shadow-xs">
+        <div className="relative overflow-hidden bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600">
+          <div className="absolute inset-0 bg-gradient-to-b from-white/15 to-transparent"></div>
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-yellow-400/20 via-transparent to-transparent"></div>
 
-          {/* Decorative Elements */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-white/20 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-teal-400/30 to-transparent rounded-full blur-2xl translate-y-1/2 -translate-x-1/4"></div>
+          {/* Desktop Decorative Element */}
+          <div className="hidden md:block absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-white/20 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
 
-          {/* Content */}
-          <div className="relative py-4 md:py-6 px-4 md:px-6">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                {/* 3D Icon Badge */}
-                <div className="relative">
-                  <div className="absolute inset-0 bg-white/30 rounded-2xl blur-lg"></div>
-                  <div className="relative p-3 md:p-4 bg-white/20 backdrop-blur-sm border border-white/30 rounded-2xl shadow-2xl">
-                    <ChefHat className="w-6 h-6 md:w-8 md:h-8 text-white drop-shadow-lg" />
+          {/* Header Content */}
+          <div className="relative py-2.5 px-3.5 md:py-5 md:px-6">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 md:gap-4">
+                {/* Icon Badge */}
+                <div className="relative flex-shrink-0">
+                  <div className="p-2 md:p-3.5 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl md:rounded-2xl shadow-lg">
+                    <ChefHat className="w-5 h-5 md:w-7 md:h-7 text-white drop-shadow-md" />
                   </div>
                 </div>
 
-                {/* Title */}
-                <div className="flex-1">
+                {/* Title & Info */}
+                <div className="min-w-0">
                   {restaurantName && (
-                    <p className="text-[10px] font-semibold tracking-widest uppercase text-white/60 mb-0.5">
+                    <p className="text-[9px] md:text-[10px] font-bold tracking-wider uppercase text-white/75 truncate">
                       {restaurantName}
                     </p>
                   )}
-                  <div className="flex items-center gap-2 mb-1">
-                    <h1 className="text-2xl md:text-4xl font-bold text-white drop-shadow-lg tracking-tight">
+                  <div className="flex items-center gap-1.5">
+                    <h1 className="text-lg md:text-3xl font-bold text-white drop-shadow-sm tracking-tight truncate">
                       Menu Management
                     </h1>
-                    <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-yellow-300 animate-pulse" />
+                    <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 text-yellow-300 animate-pulse flex-shrink-0" />
                   </div>
-                  <p className="text-white/80 text-sm md:text-base font-medium flex items-center gap-2">
+                  {/* Subtitle hidden on mobile to conserve screen real-estate */}
+                  <p className="hidden md:flex text-white/80 text-sm font-medium items-center gap-2 mt-0.5">
                     <Utensils className="w-4 h-4" />
-                    Manage your restaurant's delicious offerings
+                    Manage items, pricing, availability & categories
                   </p>
                 </div>
               </div>
+
               <div className="hidden md:block">
                 <HelpProvider />
               </div>
             </div>
           </div>
 
-          {/* Bottom Glow Effect */}
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-emerald-400 to-teal-500"></div>
+          {/* Bottom Accent Glow */}
+          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-yellow-400 via-emerald-400 to-teal-500"></div>
         </div>
       </div>
 
-      {/* Menu Grid Container with Scroll */}
-      <div className="p-4 md:p-6" style={{ height: "calc(100vh - 120px)" }}>
-        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-2xl shadow-xl overflow-hidden h-full flex flex-col">
+      {/* Main Content Area */}
+      <div className="p-2.5 sm:p-4 md:p-6 max-w-7xl mx-auto">
+        <div className="md:bg-white/90 md:dark:bg-gray-800/90 md:backdrop-blur-sm md:border md:border-white/30 md:dark:border-gray-700/30 md:rounded-2xl md:shadow-xl md:p-6">
           <Suspense
             fallback={
-              <div className="p-6 space-y-6">
+              <div className="p-4 md:p-6 space-y-4">
                 <div className="flex items-center justify-between">
-                  <Skeleton className="h-8 w-48" />
-                  <Skeleton className="h-10 w-32" />
+                  <Skeleton className="h-9 w-40 rounded-xl" />
+                  <Skeleton className="h-9 w-28 rounded-xl" />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {[...Array(8)].map((_, i) => (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {[...Array(6)].map((_, i) => (
                     <div
                       key={i}
-                      className="bg-white/50 backdrop-blur-sm rounded-xl p-4 space-y-3"
+                      className="bg-white/60 dark:bg-gray-800/60 rounded-xl p-3 space-y-2.5"
                     >
-                      <Skeleton className="h-32 w-full rounded-lg" />
-                      <Skeleton className="h-5 w-3/4" />
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-28 w-full rounded-lg" />
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
                     </div>
                   ))}
                 </div>
@@ -94,9 +93,7 @@ const Menu = () => {
             }
           >
             <FeatureLock feature="menu.basic" interceptClicks={true}>
-              <div className="p-4 md:p-6 overflow-auto flex-1">
-                <MenuGrid />
-              </div>
+              <MenuGrid />
             </FeatureLock>
           </Suspense>
         </div>
