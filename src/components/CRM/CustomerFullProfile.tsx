@@ -214,7 +214,7 @@ const getOrderInsights = (orders: any[]) => {
   };
 
   return (
-    <div className="h-full flex flex-col space-y-2 overflow-y-auto lg:overflow-hidden">
+    <div className="h-full flex flex-col space-y-2 overflow-y-auto lg:overflow-hidden pb-28 lg:pb-0">
       {/* Customer Header Card — compact flat design, no tall banner */}
       <Card className="bg-white/80 backdrop-blur-xl border-white/20 shadow-xl overflow-hidden flex-shrink-0">
         {/* Thin gradient accent bar — purely decorative, only 6px */}

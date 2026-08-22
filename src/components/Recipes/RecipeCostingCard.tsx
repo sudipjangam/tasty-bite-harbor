@@ -33,19 +33,19 @@ export const RecipeCostingCard = ({ recipes }: RecipeCostingCardProps) => {
   return (
     <div className="space-y-6">
       {/* Header Card */}
-      <Card className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-emerald-900/20 dark:via-teal-900/20 dark:to-cyan-900/20 shadow-lg border-0 rounded-2xl overflow-hidden">
+      <Card className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-emerald-900/20 dark:via-teal-900/20 dark:to-cyan-900/20 shadow-md border-0 rounded-2xl overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" />
-        <CardHeader className="pb-4">
+        <CardHeader className="p-3 sm:p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg shadow-emerald-500/30">
-                <PieChart className="h-6 w-6 text-white" />
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <div className="p-2 sm:p-3 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-md shadow-emerald-500/30 flex-shrink-0">
+                <PieChart className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
               </div>
-              <div>
-                <CardTitle className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent font-bold text-xl">
+              <div className="min-w-0">
+                <CardTitle className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent font-bold text-base sm:text-xl truncate">
                   Cost Analysis
                 </CardTitle>
-                <CardDescription className="text-emerald-700/70 dark:text-emerald-300/70">
+                <CardDescription className="text-emerald-700/70 dark:text-emerald-300/70 text-xs sm:text-sm truncate">
                   Detailed breakdown of food costs and profitability
                 </CardDescription>
               </div>

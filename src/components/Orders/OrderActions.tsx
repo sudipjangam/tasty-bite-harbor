@@ -38,13 +38,13 @@ const OrderActions: React.FC<OrderActionsProps> = ({
   const isPayLater = order.payment_method === "pay_later";
 
   return (
-    <div className="flex items-center gap-[7px] flex-wrap">
+    <div className="flex items-center gap-1.5 sm:gap-[7px] flex-wrap">
       {/* Edit */}
       {onEdit && (
         <button
           onClick={() => onEdit(order)}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-white/85 text-slate-600 border border-blue-100 shadow-sm transition-all hover:bg-white hover:text-blue-600 hover:border-blue-300 hover:shadow-md disabled:opacity-50"
+          className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-[11px] font-bold bg-white/85 text-slate-600 border border-blue-100 shadow-sm transition-all hover:bg-white hover:text-blue-600 hover:border-blue-300 hover:shadow-md disabled:opacity-50"
         >
           <Edit className="w-3 h-3" />
           Edit
@@ -57,7 +57,7 @@ const OrderActions: React.FC<OrderActionsProps> = ({
         <button
           onClick={() => onStatusUpdate(order.id, "completed")}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white transition-all hover:shadow-lg hover:-translate-y-px disabled:opacity-50"
+          className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-[11px] font-bold text-white transition-all hover:shadow-lg hover:-translate-y-px disabled:opacity-50"
           style={{
             background: "linear-gradient(135deg, #059669 0%, #10b981 100%)",
             boxShadow: "0 3px 12px rgba(5,150,105,0.38)",
@@ -70,7 +70,7 @@ const OrderActions: React.FC<OrderActionsProps> = ({
         <button
           onClick={() => onStatusUpdate(order.id, "pending")}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 transition-all hover:bg-amber-100 disabled:opacity-50"
+          className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 transition-all hover:bg-amber-100 disabled:opacity-50"
         >
           <Clock className="w-3 h-3" />
           Revert
@@ -83,7 +83,7 @@ const OrderActions: React.FC<OrderActionsProps> = ({
           onClick={handleRemind}
           disabled={loading || isSendingReminder || !order.customer_phone}
           title={!order.customer_phone ? "No phone number on record" : "Send WhatsApp payment reminder"}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white transition-all hover:shadow-lg hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-[11px] font-bold text-white transition-all hover:shadow-lg hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             background: isSendingReminder
               ? "linear-gradient(135deg, #6b7280, #9ca3af)"
@@ -105,7 +105,7 @@ const OrderActions: React.FC<OrderActionsProps> = ({
         <button
           onClick={() => onPrintBill(order)}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:bg-blue-100/80 disabled:opacity-50"
+          className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-[11px] font-bold transition-all hover:bg-blue-100/80 disabled:opacity-50"
           style={{
             background: "linear-gradient(135deg, rgba(29,78,216,0.1), rgba(59,130,246,0.13))",
             color: "#1d4ed8",
@@ -122,9 +122,9 @@ const OrderActions: React.FC<OrderActionsProps> = ({
         <button
           onClick={() => onDelete(order.id)}
           disabled={loading}
-          className="flex items-center justify-center w-7 h-7 rounded-[7px] text-slate-400 bg-transparent border-none transition-all hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+          className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-[7px] text-slate-400 bg-transparent border-none transition-all hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
         >
-          <Trash2 className="w-3.5 h-3.5" />
+          <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
         </button>
       )}
     </div>

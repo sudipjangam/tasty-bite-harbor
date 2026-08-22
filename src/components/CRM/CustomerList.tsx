@@ -362,20 +362,20 @@ const CustomerList: React.FC<CustomerListProps> = ({
 
   return (
     <div className="h-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 rounded-2xl shadow-xl flex flex-col overflow-hidden min-h-0">
-      <div className="p-6 border-b border-white/30 dark:border-gray-700/50">
-        <div className="flex items-center justify-between mb-4">
+      <div className="p-3.5 sm:p-4 md:p-6 border-b border-white/30 dark:border-gray-700/50">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
           <div>
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-purple-600" />
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Users className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
+              <h2 className="text-base sm:text-xl font-semibold text-gray-900 dark:text-white">
                 Customers
               </h2>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5">
               {filteredCustomers.length} of {customers.length} customers
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {/* Export Button */}
             {isRole("admin") && (
               <Button
@@ -767,7 +767,7 @@ const CustomerList: React.FC<CustomerListProps> = ({
       </div>
 
       <ScrollArea className="flex-1 min-h-0">
-        <div className="p-4 space-y-3">
+        <div className="p-3 sm:p-4 space-y-2.5 sm:space-y-3 pb-28 sm:pb-8">
           {filteredCustomers.length === 0 ? (
             <div className="text-center py-8">
               <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />

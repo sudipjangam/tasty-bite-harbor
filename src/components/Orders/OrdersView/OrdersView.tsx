@@ -357,19 +357,24 @@ const OrdersView = ({
         }} />
         <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-white/[0.06]" />
 
-        <div className="relative z-10 h-full flex items-center gap-2 md:gap-4 px-3 md:px-7 py-2 md:py-0" style={{ minHeight: isMobile ? 56 : 80 }}>
+        <div className="relative z-10 h-full flex items-center gap-2 md:gap-4 px-3 md:px-7 py-2 md:py-0" style={{ minHeight: isMobile ? 50 : 80 }}>
           <div className="flex-1 min-w-0">
             {!isMobile && (
               <div className="text-[10px] font-semibold tracking-widest uppercase text-white/60 mb-0.5">
                 {restaurantName || ""}
               </div>
             )}
-            <h1 className="text-lg md:text-[22px] font-extrabold text-white tracking-tight truncate">
-              Orders Management ✦
-            </h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-base md:text-[22px] font-extrabold text-white tracking-tight truncate">
+                Orders Management ✦
+              </h1>
+              {isMobile && (
+                <span className="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_6px_#4ade80] animate-pulse flex-shrink-0" />
+              )}
+            </div>
           </div>
 
-          {/* Live indicator */}
+          {/* Live indicator (Desktop) */}
           {!isMobile && (
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-white bg-white/15 px-3 py-1.5 rounded-full border border-white/25 backdrop-blur-sm">
               <span className="w-[7px] h-[7px] rounded-full bg-green-400 shadow-[0_0_8px_#4ade80] animate-pulse" />
@@ -379,13 +384,21 @@ const OrdersView = ({
 
           {/* Action buttons */}
           <div className="flex items-center gap-1.5 md:gap-2">
+            <button
+              onClick={() => refetchOrders()}
+              disabled={isLoading}
+              className="flex items-center justify-center rounded-[10px] text-xs font-semibold text-white bg-white/15 border border-white/30 backdrop-blur-sm hover:bg-white/25 transition-all disabled:opacity-40 w-8 h-8 md:w-auto md:gap-1.5 md:px-3 md:py-2"
+              title="Refresh"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              {!isMobile && 'Refresh'}
+            </button>
+
             {(isRole("admin") || isRole("manager") || isRole("owner")) && (
               <button
                 onClick={handleExportOrders}
                 disabled={!filteredOrders || filteredOrders.length === 0}
-                className={`flex items-center justify-center rounded-[10px] text-xs font-semibold text-white bg-white/15 border border-white/30 backdrop-blur-sm hover:bg-white/25 transition-all disabled:opacity-40 ${
-                  isMobile ? 'w-8 h-8' : 'gap-1.5 px-4 py-2'
-                }`}
+                className="flex items-center justify-center rounded-[10px] text-xs font-semibold text-white bg-white/15 border border-white/30 backdrop-blur-sm hover:bg-white/25 transition-all disabled:opacity-40 w-8 h-8 md:w-auto md:gap-1.5 md:px-4 md:py-2"
                 title="Export"
               >
                 <Download className="w-3.5 h-3.5" />
@@ -394,79 +407,95 @@ const OrdersView = ({
             )}
 
             {isRole("admin") && !isMobile && <SyncOrdersButton />}
-
-            <button
-              onClick={() => setShowAddForm(true)}
-              className={`flex items-center justify-center rounded-[10px] font-bold bg-white text-blue-700 shadow-lg hover:shadow-xl hover:-translate-y-px transition-all ${
-                isMobile ? 'w-8 h-8 text-xs' : 'gap-1.5 px-4 py-2 text-xs'
-              }`}
-              title="New Order"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              {!isMobile && 'New Order'}
-            </button>
           </div>
         </div>
       </div>
 
       {/* ═══ Content ═══ */}
       <ScrollArea className="flex-1 overflow-auto">
-        <div className="px-4 md:px-7 py-5 md:py-6 max-w-[1400px] mx-auto">
+        <div className="px-3 sm:px-7 py-3.5 sm:py-6 pb-28 sm:pb-8 max-w-[1400px] mx-auto">
 
           {/* ── Stat Cards ── */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-3.5 mb-5 md:mb-6">
-            {/* Active Orders */}
-            <div className="relative overflow-hidden rounded-2xl p-4 md:p-[18px] text-white cursor-default transition-transform hover:-translate-y-0.5"
-              style={{ background: "linear-gradient(135deg, #f97316 0%, #fb923c 100%)", boxShadow: "0 8px 28px rgba(249,115,22,0.45)" }}>
-              <div className="absolute -right-5 -bottom-5 w-[90px] h-[90px] rounded-full bg-white/[0.12]" />
-              <div className="absolute right-5 bottom-5 w-[50px] h-[50px] rounded-full bg-white/[0.08]" />
-              <div className="relative z-10">
-                <div className="text-[10px] font-bold tracking-widest uppercase text-white/70 mb-2">Active Orders</div>
-                <div className="text-[28px] md:text-[30px] font-extrabold font-mono leading-none tracking-tight">{orderStats.pendingOrders}</div>
-                <div className="text-[11px] text-white/65 mt-1.5 font-medium">In preparation now</div>
+          {isMobile ? (
+            /* Compact Mobile Micro-Stats Row (<55px) */
+            <div className="grid grid-cols-4 gap-1.5 mb-3">
+              {/* Active */}
+              <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl p-2 text-white shadow-sm flex flex-col justify-center text-center">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-amber-100/90 leading-none mb-1">Active</span>
+                <span className="text-base font-extrabold font-mono leading-none">{orderStats.pendingOrders}</span>
+              </div>
+              {/* Completed */}
+              <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl p-2 text-white shadow-sm flex flex-col justify-center text-center">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-100/90 leading-none mb-1">Done</span>
+                <span className="text-base font-extrabold font-mono leading-none">{orderStats.completedOrders}</span>
+              </div>
+              {/* Total */}
+              <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl p-2 text-white shadow-sm flex flex-col justify-center text-center">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-blue-100/90 leading-none mb-1">Total</span>
+                <span className="text-base font-extrabold font-mono leading-none">{orderStats.totalOrders}</span>
+              </div>
+              {/* Revenue */}
+              <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl p-2 text-white shadow-sm flex flex-col justify-center text-center">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-purple-100/90 leading-none mb-1">Revenue</span>
+                <span className="text-xs font-extrabold font-mono leading-none truncate">{currencySymbol}{orderStats.totalRevenue.toLocaleString()}</span>
               </div>
             </div>
-
-            {/* Completed */}
-            <div className="relative overflow-hidden rounded-2xl p-4 md:p-[18px] text-white cursor-default transition-transform hover:-translate-y-0.5"
-              style={{ background: "linear-gradient(135deg, #059669 0%, #10b981 100%)", boxShadow: "0 8px 28px rgba(5,150,105,0.40)" }}>
-              <div className="absolute -right-5 -bottom-5 w-[90px] h-[90px] rounded-full bg-white/[0.12]" />
-              <div className="absolute right-5 bottom-5 w-[50px] h-[50px] rounded-full bg-white/[0.08]" />
-              <div className="relative z-10">
-                <div className="text-[10px] font-bold tracking-widest uppercase text-white/70 mb-2">Completed</div>
-                <div className="text-[28px] md:text-[30px] font-extrabold font-mono leading-none tracking-tight">{orderStats.completedOrders}</div>
-                <div className="text-[11px] text-white/65 mt-1.5 font-medium">Today so far</div>
-              </div>
-            </div>
-
-            {/* Total Orders */}
-            <div className="relative overflow-hidden rounded-2xl p-4 md:p-[18px] text-white cursor-default transition-transform hover:-translate-y-0.5"
-              style={{ background: "linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)", boxShadow: "0 8px 28px rgba(29,78,216,0.40)" }}>
-              <div className="absolute -right-5 -bottom-5 w-[90px] h-[90px] rounded-full bg-white/[0.12]" />
-              <div className="absolute right-5 bottom-5 w-[50px] h-[50px] rounded-full bg-white/[0.08]" />
-              <div className="relative z-10">
-                <div className="text-[10px] font-bold tracking-widest uppercase text-white/70 mb-2">Total Orders</div>
-                <div className="text-[28px] md:text-[30px] font-extrabold font-mono leading-none tracking-tight">{orderStats.totalOrders}</div>
-                <div className="text-[11px] text-white/65 mt-1.5 font-medium">{getDateFilterLabel()}</div>
-              </div>
-            </div>
-
-            {/* Revenue */}
-            {(isRole("admin") || isRole("manager") || isRole("owner")) && (
+          ) : (
+            /* Full Desktop 4 Cards */
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-3.5 mb-5 md:mb-6">
+              {/* Active Orders */}
               <div className="relative overflow-hidden rounded-2xl p-4 md:p-[18px] text-white cursor-default transition-transform hover:-translate-y-0.5"
-                style={{ background: "linear-gradient(135deg, #f97316 0%, #1d4ed8 100%)", boxShadow: "0 8px 28px rgba(249,115,22,0.35)" }}>
+                style={{ background: "linear-gradient(135deg, #f97316 0%, #fb923c 100%)", boxShadow: "0 8px 28px rgba(249,115,22,0.45)" }}>
                 <div className="absolute -right-5 -bottom-5 w-[90px] h-[90px] rounded-full bg-white/[0.12]" />
                 <div className="absolute right-5 bottom-5 w-[50px] h-[50px] rounded-full bg-white/[0.08]" />
                 <div className="relative z-10">
-                  <div className="text-[10px] font-bold tracking-widest uppercase text-white/70 mb-2">Revenue</div>
-                  <div className="text-[28px] md:text-[30px] font-extrabold font-mono leading-none tracking-tight">
-                    {currencySymbol}{orderStats.totalRevenue.toLocaleString()}
-                  </div>
-                  <div className="text-[11px] text-white/65 mt-1.5 font-medium">Pending collection</div>
+                  <div className="text-[10px] font-bold tracking-widest uppercase text-white/70 mb-2">Active Orders</div>
+                  <div className="text-[28px] md:text-[30px] font-extrabold font-mono leading-none tracking-tight">{orderStats.pendingOrders}</div>
+                  <div className="text-[11px] text-white/65 mt-1.5 font-medium">In preparation now</div>
                 </div>
               </div>
-            )}
-          </div>
+
+              {/* Completed */}
+              <div className="relative overflow-hidden rounded-2xl p-4 md:p-[18px] text-white cursor-default transition-transform hover:-translate-y-0.5"
+                style={{ background: "linear-gradient(135deg, #059669 0%, #10b981 100%)", boxShadow: "0 8px 28px rgba(5,150,105,0.40)" }}>
+                <div className="absolute -right-5 -bottom-5 w-[90px] h-[90px] rounded-full bg-white/[0.12]" />
+                <div className="absolute right-5 bottom-5 w-[50px] h-[50px] rounded-full bg-white/[0.08]" />
+                <div className="relative z-10">
+                  <div className="text-[10px] font-bold tracking-widest uppercase text-white/70 mb-2">Completed</div>
+                  <div className="text-[28px] md:text-[30px] font-extrabold font-mono leading-none tracking-tight">{orderStats.completedOrders}</div>
+                  <div className="text-[11px] text-white/65 mt-1.5 font-medium">Today so far</div>
+                </div>
+              </div>
+
+              {/* Total Orders */}
+              <div className="relative overflow-hidden rounded-2xl p-4 md:p-[18px] text-white cursor-default transition-transform hover:-translate-y-0.5"
+                style={{ background: "linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)", boxShadow: "0 8px 28px rgba(29,78,216,0.40)" }}>
+                <div className="absolute -right-5 -bottom-5 w-[90px] h-[90px] rounded-full bg-white/[0.12]" />
+                <div className="absolute right-5 bottom-5 w-[50px] h-[50px] rounded-full bg-white/[0.08]" />
+                <div className="relative z-10">
+                  <div className="text-[10px] font-bold tracking-widest uppercase text-white/70 mb-2">Total Orders</div>
+                  <div className="text-[28px] md:text-[30px] font-extrabold font-mono leading-none tracking-tight">{orderStats.totalOrders}</div>
+                  <div className="text-[11px] text-white/65 mt-1.5 font-medium">{getDateFilterLabel()}</div>
+                </div>
+              </div>
+
+              {/* Revenue */}
+              {(isRole("admin") || isRole("manager") || isRole("owner")) && (
+                <div className="relative overflow-hidden rounded-2xl p-4 md:p-[18px] text-white cursor-default transition-transform hover:-translate-y-0.5"
+                  style={{ background: "linear-gradient(135deg, #f97316 0%, #1d4ed8 100%)", boxShadow: "0 8px 28px rgba(249,115,22,0.35)" }}>
+                  <div className="absolute -right-5 -bottom-5 w-[90px] h-[90px] rounded-full bg-white/[0.12]" />
+                  <div className="absolute right-5 bottom-5 w-[50px] h-[50px] rounded-full bg-white/[0.08]" />
+                  <div className="relative z-10">
+                    <div className="text-[10px] font-bold tracking-widest uppercase text-white/70 mb-2">Revenue</div>
+                    <div className="text-[28px] md:text-[30px] font-extrabold font-mono leading-none tracking-tight">
+                      {currencySymbol}{orderStats.totalRevenue.toLocaleString()}
+                    </div>
+                    <div className="text-[11px] text-white/65 mt-1.5 font-medium">Pending collection</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── Search + Filters Bar ── */}
           <div className="flex flex-col gap-2 mb-4">
