@@ -164,11 +164,12 @@ const HelpGuideShell = ({
         <Button
           variant="outline"
           size="sm"
-          className="group relative overflow-hidden bg-gradient-to-r from-violet-500/10 via-purple-500/10 to-fuchsia-500/10 hover:from-violet-500/20 hover:via-purple-500/20 hover:to-fuchsia-500/20 text-gray-700 dark:text-gray-200 border-violet-200/50 dark:border-violet-500/30 backdrop-blur-sm rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/10 hover:-translate-y-0.5"
+          className="group relative overflow-hidden bg-gradient-to-r from-violet-500/10 via-purple-500/10 to-fuchsia-500/10 hover:from-violet-500/20 hover:via-purple-500/20 hover:to-fuchsia-500/20 text-gray-700 dark:text-gray-200 border-violet-200/50 dark:border-violet-500/30 backdrop-blur-sm rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/10 hover:-translate-y-0.5 h-8 w-8 sm:w-auto p-0 sm:px-3"
+          title="Help & Guide"
         >
-          <HelpCircle className="w-4 h-4 mr-2 text-violet-500" />
-          <span className="font-medium text-sm">Help & Guide</span>
-          <Sparkles className="w-3 h-3 ml-1.5 text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <HelpCircle className="w-4 h-4 sm:mr-2 text-violet-500 flex-shrink-0" />
+          <span className="font-medium text-sm hidden sm:inline">Help & Guide</span>
+          <Sparkles className="w-3 h-3 ml-1.5 text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden sm:inline" />
         </Button>
       </DialogTrigger>
 

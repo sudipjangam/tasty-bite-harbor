@@ -263,23 +263,23 @@ export const MenuEngineering = ({ recipes }: MenuEngineeringProps) => {
   return (
     <div className="space-y-6">
       {/* Header Row */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-lg shadow-amber-500/30">
-            <BarChart3 className="h-6 w-6 text-white" />
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="p-2 sm:p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-md shadow-amber-500/30 flex-shrink-0">
+            <BarChart3 className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
           </div>
-          <div>
-            <h2 className="text-xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent truncate">
               Menu Engineering Matrix
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
               Profitability vs Popularity analysis — last {periodDays} days
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Select value={String(periodDays)} onValueChange={(v) => setPeriodDays(Number(v))}>
-            <SelectTrigger className="w-[130px] rounded-xl">
+            <SelectTrigger className="flex-1 sm:w-[130px] rounded-xl text-xs h-8 sm:h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -290,7 +290,7 @@ export const MenuEngineering = ({ recipes }: MenuEngineeringProps) => {
             </SelectContent>
           </Select>
           <Select value={filterQuadrant} onValueChange={setFilterQuadrant}>
-            <SelectTrigger className="w-[140px] rounded-xl">
+            <SelectTrigger className="flex-1 sm:w-[140px] rounded-xl text-xs h-8 sm:h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -305,32 +305,32 @@ export const MenuEngineering = ({ recipes }: MenuEngineeringProps) => {
       </div>
 
       {/* Quadrant Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
         {(Object.entries(QUADRANT_CONFIG) as [keyof typeof QUADRANT_CONFIG, typeof QUADRANT_CONFIG["star"]][]).map(
           ([key, config]) => {
             const Icon = config.icon;
             return (
               <Card
                 key={key}
-                className={`overflow-hidden border-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl cursor-pointer ${
+                className={`overflow-hidden border-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-md hover:shadow-xl transition-all duration-300 rounded-xl sm:rounded-2xl cursor-pointer ${
                   filterQuadrant === key ? "ring-2 ring-offset-2 ring-amber-500" : ""
                 }`}
                 onClick={() => setFilterQuadrant(filterQuadrant === key ? "all" : key)}
               >
                 <div className={`h-1.5 w-full bg-gradient-to-r ${config.bgGradient}`} />
-                <CardContent className="p-4">
+                <CardContent className="p-2.5 sm:p-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={`p-1.5 bg-gradient-to-br ${config.bgGradient} rounded-lg`}>
-                        <Icon className="h-3.5 w-3.5 text-white" />
+                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                      <div className={`p-1 sm:p-1.5 bg-gradient-to-br ${config.bgGradient} rounded-lg flex-shrink-0`}>
+                        <Icon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" />
                       </div>
-                      <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                      <span className="text-[11px] sm:text-xs font-semibold text-gray-700 dark:text-gray-300 truncate">
                         {config.label}
                       </span>
                     </div>
-                    <span className="text-2xl font-bold">{quadrantCounts[key]}</span>
+                    <span className="text-lg sm:text-2xl font-bold font-mono ml-1">{quadrantCounts[key]}</span>
                   </div>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2 leading-tight">
+                  <p className="text-[9.5px] sm:text-[10px] text-gray-500 dark:text-gray-400 mt-1 sm:mt-2 leading-tight line-clamp-2">
                     {config.description}
                   </p>
                 </CardContent>
