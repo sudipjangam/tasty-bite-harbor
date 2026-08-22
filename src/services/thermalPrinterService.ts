@@ -31,7 +31,7 @@ type BluetoothNavigator = Navigator & {
     getDevices?(): Promise<BluetoothDevice[]>;
   };
 };
-import { nativePrinterBridge, getPaperWidth } from "./nativePrinterBridge";
+import { nativePrinterBridge, getPaperWidth, getPaperSize } from "./nativePrinterBridge";
 
 export interface KOTItem {
   name: string;
@@ -405,11 +405,252 @@ class ThermalPrinterService {
     return left + ' '.repeat(spaces) + right + '\n';
   }
 
-  async printKOT(data: KOTData) {
+  /**
+   * Browser / USB Printer Fallback for KOT:
+   * Formats KOT as thermal HTML and prints via hidden iframe to default system/USB printer.
+   */
+  async printKOTViaBrowser(data: KOTData): Promise<void> {
+    const size = getPaperSize();
+    const is58 = size === "58";
+    const paperMm = is58 ? 58 : 80;
+    const bodyWidthMm = is58 ? 50 : 72;
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+
+    const typeLabels: Record<string, string> = {
+      dine_in: "Dine In",
+      takeaway: "Takeaway",
+      delivery: "Delivery",
+      nc: "NC",
+    };
+
+    const cleanTable = data.tableName
+      ? (/^table/i.test(data.tableName) ? data.tableName : `Table ${data.tableName}`)
+      : "Order";
+    const tableStr = cleanTable.startsWith("Table:") ? cleanTable : `Table: ${cleanTable.replace(/^table\s*/i, "")}`;
+    const typeStr = data.orderType ? (typeLabels[data.orderType] || data.orderType) : "";
+
+    let totalItems = 0;
+    const itemsHtml = data.items
+      .map((item) => {
+        const deltaQty = item.printed_qty !== undefined ? (item.quantity - item.printed_qty) : item.quantity;
+        const printQty = deltaQty > 0 ? deltaQty : item.quantity;
+        if (printQty <= 0) return "";
+        totalItems += printQty;
+
+        return `
+          <div style="margin: 4px 0;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; font-size:${is58 ? "12px" : "13px"}; font-weight:bold;">
+              <span style="width: 24px; flex-shrink:0;">${printQty}x</span>
+              <span style="flex:1; word-break:break-word;">${item.name}</span>
+            </div>
+            ${item.notes ? `<div style="font-size:10px; font-style:italic; margin-left:24px; color:#444;">* ${item.notes}</div>` : ""}
+          </div>
+        `;
+      })
+      .filter(Boolean)
+      .join("");
+
+    const kotHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>KOT - ${tableStr}</title>
+<style>
+  @page {
+    size: ${paperMm}mm auto;
+    margin: 2mm 1mm;
+  }
+  @media print {
+    body {
+      width: ${bodyWidthMm}mm;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Courier New', Courier, monospace, Arial, sans-serif;
+    width: ${bodyWidthMm}mm;
+    margin: 0 auto;
+    padding: 0;
+    color: #000;
+    line-height: 1.25;
+  }
+  .center { text-align: center; }
+  .bold { font-weight: bold; }
+  .dash { border-top: 1px dashed #000; margin: 4px 0; }
+  .row { display: flex; justify-content: space-between; font-size: ${is58 ? "11px" : "12px"}; margin-bottom: 2px; }
+  .title { font-size: ${is58 ? "15px" : "17px"}; font-weight: bold; }
+</style>
+</head>
+<body>
+  <div class="center title">${data.isAddition ? "*** ADDITION ***" : "*** KOT ***"}</div>
+  <div class="dash"></div>
+  <div class="row">
+    <span><b>${tableStr}</b></span>
+    ${data.roundNumber && data.roundNumber > 1 ? `<span><b>Round ${data.roundNumber}</b></span>` : ""}
+  </div>
+  <div class="row">
+    <span>Server: ${data.serverName || "Staff"}</span>
+    <span>${typeStr}</span>
+  </div>
+  <div class="row">
+    <span>${dateStr}</span>
+    <span>${timeStr}</span>
+  </div>
+  <div class="dash"></div>
+  <div style="margin: 4px 0;">
+    ${itemsHtml}
+  </div>
+  <div class="dash"></div>
+  <div class="row bold" style="font-size:${is58 ? "12px" : "13px"};">
+    <span>Total Items:</span>
+    <span>${totalItems}</span>
+  </div>
+  ${data.isAddition ? '<div class="center bold" style="margin-top:4px; font-size:12px;">** ADDITION ONLY **</div>' : ""}
+  <div style="height: 10mm;"></div>
+</body>
+</html>`;
+
+    const stale = document.getElementById("_kot_print_frame") as HTMLIFrameElement | null;
+    if (stale) stale.remove();
+
+    const iframe = document.createElement("iframe");
+    iframe.id = "_kot_print_frame";
+    iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:58mm;height:1px;border:none;visibility:hidden;";
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) throw new Error("Could not access print frame");
+    iframeDoc.open();
+    iframeDoc.write(kotHtml);
+    iframeDoc.close();
+
+    await new Promise((r) => setTimeout(r, 100));
+
+    iframe.contentWindow?.focus();
+    iframe.contentWindow?.print();
+  }
+
+  /**
+   * Browser / USB Printer Fallback for Bills:
+   * Formats Bill receipt as thermal HTML and prints via hidden iframe to default system/USB printer.
+   */
+  async printReceiptViaBrowser(data: ReceiptData): Promise<void> {
+    const size = getPaperSize();
+    const is58 = size === "58";
+    const paperMm = is58 ? 58 : 80;
+    const bodyWidthMm = is58 ? 50 : 72;
+
+    const printSymbol = data.currencySymbol === "₹" ? "Rs." : data.currencySymbol;
+    const displayTable = data.tableName
+      ? (/^table/i.test(data.tableName) ? data.tableName : `Table ${data.tableName}`)
+      : undefined;
+
+    const itemRowsHtml = data.items.map(item => `
+      <tr>
+        <td style="padding:2px 0;font-size:${is58 ? "10px" : "11px"};">${item.name}</td>
+        <td style="padding:2px 0;font-size:${is58 ? "10px" : "11px"};text-align:right;">${item.quantity}</td>
+        <td style="padding:2px 0;font-size:${is58 ? "10px" : "11px"};text-align:right;">${item.price.toFixed(0)}</td>
+        <td style="padding:2px 0;font-size:${is58 ? "10px" : "11px"};text-align:right;">${(item.price * item.quantity).toFixed(0)}</td>
+      </tr>
+    `).join("");
+
+    const receiptHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Bill ${data.billNumber}</title>
+<style>
+  @page { size: ${paperMm}mm auto; margin: 2mm 1mm; }
+  @media print {
+    body { width: ${bodyWidthMm}mm; margin: 0; padding: 0; -webkit-print-color-adjust: exact; }
+  }
+  * { box-sizing: border-box; }
+  body { font-family: 'Courier New', Courier, monospace, Arial, sans-serif; width: ${bodyWidthMm}mm; margin: 0 auto; padding: 0; color: #000; line-height: 1.25; }
+  .center { text-align: center; }
+  .bold { font-weight: bold; }
+  .dash { border-top: 1px dashed #000; margin: 4px 0; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { vertical-align: top; }
+</style>
+</head>
+<body>
+  <div class="center bold" style="font-size:15px;">${data.restaurantName}</div>
+  ${data.address ? `<div class="center" style="font-size:9px;">${data.address}</div>` : ""}
+  ${data.phone ? `<div class="center" style="font-size:9px;">Ph: ${data.phone}</div>` : ""}
+  ${data.gstin ? `<div class="center" style="font-size:9px;">GSTIN: ${data.gstin}</div>` : ""}
+  <div class="dash"></div>
+  <div style="font-size:10px;">Bill#: ${data.billNumber}</div>
+  <div style="font-size:10px;">${displayTable ? `To: ${displayTable}` : data.customerName ? `To: ${data.customerName}` : "To: POS"}</div>
+  <div style="font-size:10px;">Date: ${data.date}&nbsp;&nbsp;Time: ${data.time}</div>
+  ${data.serverName ? `<div style="font-size:10px;">Server: ${data.serverName}</div>` : ""}
+  ${data.customerName && displayTable && data.customerName !== displayTable ? `<div style="font-size:10px;">Guest: ${data.customerName}</div>` : ""}
+  ${data.customerMobile ? `<div style="font-size:10px;">Phone: ${data.customerMobile}</div>` : ""}
+  <div class="dash"></div>
+  <div class="center bold" style="font-size:11px;">Particulars</div>
+  <table>
+    <tr>
+      <th style="font-size:10px;text-align:left;">Item</th>
+      <th style="font-size:10px;text-align:right;">Qty</th>
+      <th style="font-size:10px;text-align:right;">Rate</th>
+      <th style="font-size:10px;text-align:right;">Amt</th>
+    </tr>
+    <tr><td colspan="4"><div style="border-top:1px solid #000;margin:2px 0;"></div></td></tr>
+    ${itemRowsHtml}
+    <tr><td colspan="4"><div class="dash"></div></td></tr>
+    <tr>
+      <td colspan="3" style="font-size:11px;">Sub Total:</td>
+      <td style="font-size:11px;text-align:right;">${data.subtotal.toFixed(2)}</td>
+    </tr>
+    ${data.discount > 0 ? `<tr><td colspan="3" style="font-size:10px;">Discount:</td><td style="font-size:10px;text-align:right;">-${data.discount.toFixed(2)}</td></tr>` : ""}
+    ${data.cgst > 0 ? `<tr><td colspan="3" style="font-size:10px;">CGST:</td><td style="font-size:10px;text-align:right;">${data.cgst.toFixed(2)}</td></tr>` : ""}
+    ${data.sgst > 0 ? `<tr><td colspan="3" style="font-size:10px;">SGST:</td><td style="font-size:10px;text-align:right;">${data.sgst.toFixed(2)}</td></tr>` : ""}
+    <tr><td colspan="4"><div class="dash"></div></td></tr>
+    <tr>
+      <td colspan="2" style="font-size:14px;font-weight:bold;">Net Amount:</td>
+      <td colspan="2" style="font-size:14px;font-weight:bold;text-align:right;">${printSymbol}${data.netAmount.toFixed(2)}</td>
+    </tr>
+    <tr><td colspan="4"><div class="dash"></div></td></tr>
+    <tr><td colspan="4" style="text-align:center;font-size:13px;font-weight:bold;padding-top:4px;">Thank You!</td></tr>
+    <tr><td colspan="4" style="text-align:center;font-size:10px;">Please visit again</td></tr>
+  </table>
+  <div style="height: 10mm;"></div>
+</body>
+</html>`;
+
+    const stale = document.getElementById("_bill_print_frame") as HTMLIFrameElement | null;
+    if (stale) stale.remove();
+
+    const iframe = document.createElement("iframe");
+    iframe.id = "_bill_print_frame";
+    iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:58mm;height:1px;border:none;visibility:hidden;";
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) throw new Error("Could not access print frame");
+    iframeDoc.open();
+    iframeDoc.write(receiptHtml);
+    iframeDoc.close();
+
+    await new Promise((r) => setTimeout(r, 100));
+
+    iframe.contentWindow?.focus();
+    iframe.contentWindow?.print();
+  }
+
+  async printKOT(data: KOTData, options?: { forceBrowser?: boolean }) {
     const nativeConnected = Capacitor.isNativePlatform() && nativePrinterBridge.isConnected();
     const webConnected = !Capacitor.isNativePlatform() && this.isConnected();
-    if (!nativeConnected && !webConnected) {
-      throw new Error("Printer is not connected");
+
+    // Fallback for USB / Web App when direct Bluetooth/Native is not connected
+    if (options?.forceBrowser || (!nativeConnected && !webConnected)) {
+      await this.printKOTViaBrowser(data);
+      return;
     }
 
     const W = getPaperWidth();
@@ -500,11 +741,14 @@ class ThermalPrinterService {
     await this.writeBytes(bytes);
   }
 
-  async printReceipt(data: ReceiptData) {
+  async printReceipt(data: ReceiptData, options?: { forceBrowser?: boolean }) {
     const nativeConnected = Capacitor.isNativePlatform() && nativePrinterBridge.isConnected();
     const webConnected = !Capacitor.isNativePlatform() && this.isConnected();
-    if (!nativeConnected && !webConnected) {
-      throw new Error("Printer is not connected");
+
+    // Fallback for USB / Web App when direct Bluetooth/Native is not connected
+    if (options?.forceBrowser || (!nativeConnected && !webConnected)) {
+      await this.printReceiptViaBrowser(data);
+      return;
     }
 
     const W = getPaperWidth();
