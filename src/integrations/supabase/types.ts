@@ -8052,9 +8052,14 @@ export type Database = {
           delivered_at: string | null
           failure_reason: string | null
           id: string
+          message_id: string | null
+          message_type: string | null
+          metadata: Json | null
           msg91_request_id: string | null
+          provider: string | null
           read_at: string | null
           restaurant_id: string
+          restaurant_name: string | null
           sent_at: string | null
           status: string | null
           template_name: string
@@ -8068,9 +8073,14 @@ export type Database = {
           delivered_at?: string | null
           failure_reason?: string | null
           id?: string
+          message_id?: string | null
+          message_type?: string | null
+          metadata?: Json | null
           msg91_request_id?: string | null
+          provider?: string | null
           read_at?: string | null
           restaurant_id: string
+          restaurant_name?: string | null
           sent_at?: string | null
           status?: string | null
           template_name?: string
@@ -8084,9 +8094,14 @@ export type Database = {
           delivered_at?: string | null
           failure_reason?: string | null
           id?: string
+          message_id?: string | null
+          message_type?: string | null
+          metadata?: Json | null
           msg91_request_id?: string | null
+          provider?: string | null
           read_at?: string | null
           restaurant_id?: string
+          restaurant_name?: string | null
           sent_at?: string | null
           status?: string | null
           template_name?: string

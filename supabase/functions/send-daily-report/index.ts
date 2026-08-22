@@ -1085,6 +1085,27 @@ async function sendWhatsAppReport(
     // 4. If template succeeded
     if (templateRes.ok) {
       console.log(`📱 WhatsApp template sent successfully to ${cleanPhone}`);
+      try {
+        await supabase.from("whatsapp_campaign_sends").insert({
+          restaurant_id: restaurantId,
+          restaurant_name: restaurantName || null,
+          customer_phone: cleanPhone,
+          customer_name: restaurantName || "Restaurant Admin",
+          template_name: "daily_sales_report",
+          provider: "meta_cloud",
+          message_type: "daily_report",
+          message_id: templateRes.data?.messages?.[0]?.id || null,
+          status: "sent",
+          sent_at: new Date().toISOString(),
+          metadata: {
+            reportDate: reportDate || formattedDate,
+            revenue: summary?.totalRevenue || 0,
+            orders: summary?.totalOrders || 0,
+          },
+        });
+      } catch (logErr) {
+        console.error("Log error in send-daily-report:", logErr);
+      }
       return { success: true };
     }
 
@@ -1112,13 +1133,56 @@ async function sendWhatsAppReport(
 
     if (textRes.ok) {
       console.log(`📱 WhatsApp plain text sent to ${cleanPhone}`);
+      try {
+        await supabase.from("whatsapp_campaign_sends").insert({
+          restaurant_id: restaurantId,
+          restaurant_name: restaurantName || null,
+          customer_phone: cleanPhone,
+          customer_name: restaurantName || "Restaurant Admin",
+          template_name: "daily_report_text",
+          provider: "meta_cloud",
+          message_type: "daily_report",
+          message_id: textData?.messages?.[0]?.id || null,
+          status: "sent",
+          sent_at: new Date().toISOString(),
+          metadata: {
+            reportDate: reportDate || formattedDate,
+            revenue: summary?.totalRevenue || 0,
+            orders: summary?.totalOrders || 0,
+          },
+        });
+      } catch (logErr) {
+        console.error("Log error in send-daily-report:", logErr);
+      }
       return { success: true };
     }
 
+    const failReason = `WhatsApp API error (${templateRes.data?.error?.code || textData?.error?.code}): ${templateRes.data?.error?.message || textData?.error?.message || "Unknown error"}`;
     console.error("All WhatsApp methods failed:", JSON.stringify(templateRes.data?.error || textData?.error));
+
+    try {
+      await supabase.from("whatsapp_campaign_sends").insert({
+        restaurant_id: restaurantId,
+        restaurant_name: restaurantName || null,
+        customer_phone: cleanPhone,
+        customer_name: restaurantName || "Restaurant Admin",
+        template_name: "daily_sales_report",
+        provider: "meta_cloud",
+        message_type: "daily_report",
+        status: "failed",
+        failure_reason: failReason,
+        metadata: {
+          reportDate: reportDate || formattedDate,
+          error: templateRes.data?.error || textData?.error,
+        },
+      });
+    } catch (logErr) {
+      console.error("Log error in send-daily-report:", logErr);
+    }
+
     return {
       success: false,
-      error: `WhatsApp API error (${templateRes.data?.error?.code || textData?.error?.code}): ${templateRes.data?.error?.message || textData?.error?.message || "Unknown error"}`,
+      error: failReason,
     };
   } catch (err) {
     console.error("WhatsApp send error:", err);
