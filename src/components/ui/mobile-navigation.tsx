@@ -660,6 +660,14 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
                   <span className="text-sm font-semibold">Logout</span>
                 </button>
               </div>
+
+              {/* Version & copyright footer for Android / Mobile */}
+              <div className="mt-3 pt-2.5 border-t border-gray-100 dark:border-gray-700/60 flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+                <span>© {new Date().getFullYear()} Swadeshi Solutions</span>
+                <span className="font-mono font-semibold bg-gray-100 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-md">
+                  v{typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.0.0"}
+                </span>
+              </div>
             </div>
           </div>
         </div>

@@ -53,6 +53,14 @@ export const SidebarFooter = ({ staffName }: Props) => {
           <LogOut className="h-4 w-4" />
         </Button>
       </div>
+      <div className="mt-2 text-center flex items-center justify-center gap-1.5 flex-wrap">
+        <span className="text-[11px] text-white/60">
+          © {new Date().getFullYear()} Swadeshi Solutions
+        </span>
+        <span className="text-[10px] font-mono bg-white/10 text-white/80 px-1.5 py-0.5 rounded-md border border-white/10">
+          v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0'}
+        </span>
+      </div>
     </div>
   );
 };
