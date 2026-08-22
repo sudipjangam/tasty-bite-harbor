@@ -24,7 +24,6 @@ const RoleBasedDashboard = lazy(
 
 // Operations
 const Orders = lazy(() => import("@/pages/Orders"));
-const POS = lazy(() => import("@/pages/POS"));
 const QSRPos = lazy(() => import("@/pages/QSRPos"));
 const QuickServePOS = lazy(() => import("@/pages/QuickServePOS"));
 const Kitchen = lazy(() => import("@/pages/Kitchen"));
@@ -214,13 +213,7 @@ export const AppRoutes = () => {
           />
           <Route
             path="/pos"
-            element={
-              <PermissionGuard permission="orders.view">
-                <LazyRoute>
-                  <POS />
-                </LazyRoute>
-              </PermissionGuard>
-            }
+            element={<Navigate to="/qsr-pos" replace />}
           />
           <Route
             path="/qsr-pos"

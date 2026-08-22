@@ -37,7 +37,7 @@ const Expenses = () => {
   const categoriesCount = expenseData?.expenseBreakdown?.length || 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/30 to-purple-50/40 dark:from-[#0d0e1a] dark:via-[#12142a] dark:to-[#0d0e1a] p-2 sm:p-4 md:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/30 to-purple-50/40 dark:from-[#0d0e1a] dark:via-[#12142a] dark:to-[#0d0e1a] p-2 sm:p-4 md:p-6 pb-28 lg:pb-6">
 
       {/* ── TOPBAR HEADER ── */}
       <div className="mb-4 md:mb-6 flex items-center justify-between gap-3 px-1 md:px-2">

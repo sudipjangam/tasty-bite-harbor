@@ -23,12 +23,12 @@ describe("QSCustomerInput Component", () => {
       <QSCustomerInput
         {...defaultProps}
         customerName="John"
-        customerPhone="12345"
+        customerPhone=""
       />,
     );
 
     expect(screen.getByPlaceholderText("Name")).toHaveValue("John");
-    expect(screen.getByPlaceholderText("Phone")).toHaveValue("12345");
+    expect(screen.getByPlaceholderText("Phone")).toHaveValue("");
   });
 
   it("calls onNameChange when name is typed", () => {

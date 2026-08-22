@@ -35,6 +35,7 @@ import { useBillSharing } from "@/hooks/useBillSharing";
 import { useNetworkStatus } from "@/contexts/NetworkStatusContext";
 import { enqueueWrite, generateOfflineOrderNumber } from "@/utils/syncManager";
 import { resolveInvoiceTemplate } from "@/utils/resolveInvoiceTemplate";
+import { calculateOrderTotals } from "@/hooks/useOrderCalculations";
 
 interface QSPaymentSheetProps {
   isOpen: boolean;
@@ -219,21 +220,18 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   // not from existingOrder.total (which is now just the cart total passed in)
   const isEditMode = !!existingOrder && editingOrderItems.length > 0;
 
-  const itemsSubtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const orderCalculations = calculateOrderTotals({
+    items: items.map((i) => ({ name: i.name, price: i.price, quantity: i.quantity })),
+    discountPercentage,
+    discountAmount,
+    loyaltyDiscount: loyaltyDiscountAmount + couponDiscountAmount,
+    taxRate: 0,
+    roundToNearestRupee: false,
+  });
 
-  const discountValue = (existingOrder && !isEditMode)
-    ? 0
-    : discountPercentage > 0
-      ? (itemsSubtotal * discountPercentage) / 100
-      : discountAmount;
-
-  const afterDiscount = (existingOrder && !isEditMode)
-    ? existingOrder.total
-    : Math.max(0, itemsSubtotal - discountValue - couponDiscountAmount);
-
-  const subtotal = (existingOrder && !isEditMode)
-    ? existingOrder.total
-    : Math.max(0, afterDiscount - loyaltyDiscountAmount);
+  const itemsSubtotal = orderCalculations.subtotal;
+  const discountValue = (existingOrder && !isEditMode) ? 0 : orderCalculations.discountFromPercentage + orderCalculations.discountFromFixed;
+  const subtotal = (existingOrder && !isEditMode) ? existingOrder.total : orderCalculations.finalTotal;
 
   // Amount still due after prior payments (for "add items to paid order" flow)
   const additionalDue = Math.max(0, subtotal - alreadyPaid);
