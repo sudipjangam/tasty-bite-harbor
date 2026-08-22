@@ -45,13 +45,15 @@ interface AddMenuItemFormProps {
   editingItem?: MenuItem | null;
 }
 
+type DietaryType = "veg" | "non_veg" | "other";
+
 type FormData = {
   name: string;
   description: string;
   price: string;
   category: string;
   image_url: string;
-  is_veg: boolean;
+  dietary_type: DietaryType;
   is_special: boolean;
   pricing_type: string;
   pricing_unit: string;
@@ -64,6 +66,13 @@ interface VariantRow {
   price: string;
   isExisting?: boolean;
 }
+
+const getDietaryType = (item?: MenuItem | null): DietaryType => {
+  if (!item) return "veg"; // Default new item to Veg
+  if (item.is_veg === true) return "veg";
+  if (item.is_veg === false) return "non_veg";
+  return "other";
+};
 
 const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormProps) => {
   const { toast } = useToast();
@@ -141,7 +150,7 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
       price: editingItem?.price ? String(editingItem.price) : "",
       category: editingItem?.category || "",
       image_url: editingItem?.image_url || "",
-      is_veg: editingItem ? (editingItem.is_veg ?? true) : true, // Default to veg for new items
+      dietary_type: getDietaryType(editingItem),
       is_special: editingItem?.is_special ?? false,
       pricing_type: editingItem?.pricing_type || "fixed",
       pricing_unit: editingItem?.pricing_unit || "piece",
@@ -159,7 +168,7 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
         price: editingItem.price ? String(editingItem.price) : "",
         category: editingItem.category || "",
         image_url: editingItem.image_url || "",
-        is_veg: editingItem.is_veg ?? true,
+        dietary_type: getDietaryType(editingItem),
         is_special: editingItem.is_special ?? false,
         pricing_type: editingItem.pricing_type || "fixed",
         pricing_unit: editingItem.pricing_unit || "piece",
@@ -167,14 +176,14 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
       });
       setUploadedImageUrl(editingItem.image_url || "");
     } else {
-      // New item - reset to defaults with is_veg = true
+      // New item - reset to defaults with dietary_type = "veg"
       form.reset({
         name: "",
         description: "",
         price: "",
         category: "",
         image_url: "",
-        is_veg: true, // Default to vegetarian
+        dietary_type: "veg",
         is_special: false,
         pricing_type: "fixed",
         pricing_unit: UNITS.PIECE,
@@ -220,23 +229,29 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      
-      if (file.size > 5 * 1024 * 1024) {
-        toast({ title: "File too large", description: "Maximum file size is 5MB", variant: "destructive" });
-        return;
-      }
-      
-      const isHeic = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
-      if (!file.type.startsWith("image/") && !isHeic) {
-        toast({ title: "Invalid file type", description: "Please select an image file", variant: "destructive" });
-        return;
-      }
-      
-      setSelectedFile(file);
-      await uploadImage(file);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/') && !file.name.toLowerCase().endsWith('.heic') && !file.name.toLowerCase().endsWith('.heif')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an image file (PNG, JPG, GIF, or HEIC)",
+        variant: "destructive",
+      });
+      return;
     }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Image size must be less than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSelectedFile(file);
+    await uploadImage(file);
   };
 
   const triggerFileInput = () => {
@@ -273,14 +288,17 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
         }
       }
 
+      // Map dietary_type: "veg" -> true, "non_veg" -> false, "other" -> null
+      const isVeg = data.dietary_type === "veg" ? true : data.dietary_type === "non_veg" ? false : null;
+
       const menuItemData = {
         name: data.name,
         description: data.description,
         price: parseFloat(data.price),
-        category: data.category,
+        category: data.category || "Other",
         image_url: imageUrl,
         is_available: true,
-        is_veg: Boolean(data.is_veg),
+        is_veg: isVeg,
         is_special: Boolean(data.is_special),
         pricing_type: data.pricing_type || "fixed",
         pricing_unit: data.pricing_type !== "fixed" ? data.pricing_unit : null,
@@ -319,31 +337,33 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
       if (savedItemId) {
         // Delete removed variants
         if (deletedVariantIds.length > 0) {
-          await supabase.from('menu_item_variants').delete().in('id', deletedVariantIds);
+          await supabase
+            .from('menu_item_variants')
+            .delete()
+            .in('id', deletedVariantIds);
         }
 
-        // Filter valid variants
-        const validVariants = variants.filter(v => v.name.trim() && v.price.trim());
-
+        // Upsert / insert current variants
+        const validVariants = variants.filter(v => v.name.trim() && v.price && parseFloat(v.price) > 0);
         for (let i = 0; i < validVariants.length; i++) {
           const v = validVariants[i];
-          const variantData = {
+          const variantPayload = {
+            menu_item_id: savedItemId,
+            restaurant_id: targetRestaurantId,
             name: v.name.trim(),
             price: parseFloat(v.price),
             sort_order: i,
-            updated_at: new Date().toISOString(),
+            is_available: true,
           };
-
           if (v.id && v.isExisting) {
-            // Update existing variant
-            await supabase.from('menu_item_variants').update(variantData).eq('id', v.id);
+            await supabase
+              .from('menu_item_variants')
+              .update(variantPayload)
+              .eq('id', v.id);
           } else {
-            // Insert new variant
-            await supabase.from('menu_item_variants').insert([{
-              ...variantData,
-              menu_item_id: savedItemId,
-              restaurant_id: userProfile.restaurant_id,
-            }]);
+            await supabase
+              .from('menu_item_variants')
+              .insert([variantPayload]);
           }
         }
       }
@@ -351,7 +371,7 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
       onSuccess();
       onClose();
     } catch (error) {
-      console.error("Error adding/updating menu item:", error);
+      console.error("Error saving menu item:", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to save menu item",
@@ -366,7 +386,7 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
     if (!newCategoryName.trim()) {
       toast({
         title: "Error",
-        description: "Category name cannot be empty",
+        description: "Please enter a category name",
         variant: "destructive",
       });
       return;
@@ -452,40 +472,42 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-start justify-center z-50 overflow-auto py-8">
-      <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 rounded-2xl shadow-2xl w-full max-w-lg mx-4 relative animate-fade-in flex flex-col" style={{ maxHeight: 'calc(100vh - 64px)' }}>
-        {/* Header with transparent gradient overlay */}
-        <div className="flex-shrink-0 bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-green-500/20 dark:from-emerald-900/30 dark:via-teal-900/30 dark:to-green-900/30 border-b border-white/20 dark:border-gray-700/30 p-4 rounded-t-2xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl shadow-lg">
-                <ChefHat className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 bg-clip-text text-transparent">
-                  {editingItem ? "Edit Menu Item" : "Add New Item"}
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400 text-xs flex items-center gap-1">
-                  <Sparkles className="h-3 w-3" />
-                  Create delicious offerings
-                </p>
-              </div>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+      <div 
+        className="bg-white dark:bg-gray-900 border-t sm:border border-gray-200 dark:border-gray-800 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-lg h-[92vh] sm:h-auto sm:max-h-[88vh] relative flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 sm:slide-in-from-bottom-2 duration-300"
+      >
+        {/* Mobile Drag Indicator */}
+        <div className="sm:hidden w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mt-2.5 mb-1 flex-shrink-0" />
+
+        {/* Sticky Header */}
+        <div className="flex-shrink-0 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-green-500/15 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-green-950/40 border-b border-gray-100 dark:border-gray-800 px-4 py-3 sm:px-5 sm:py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl shadow-md text-white">
+              <ChefHat className="h-5 w-5" />
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-              onClick={onClose}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            <div>
+              <h2 className="text-lg font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent leading-tight">
+                {editingItem ? "Edit Menu Item" : "Add New Item"}
+              </h2>
+              <p className="text-gray-500 dark:text-gray-400 text-xs">
+                {editingItem ? "Update dish details, pricing & options" : "Create delicious restaurant offering"}
+              </p>
+            </div>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600"
+            onClick={onClose}
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
 
         {/* Scrollable Form Content */}
-        <div className="flex-1 overflow-auto p-4">
+        <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-5">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form id="menu-item-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               {/* Name and Price in 2 columns */}
               <div className="grid grid-cols-2 gap-3">
                 <FormField
@@ -493,13 +515,13 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-700 dark:text-gray-300 text-sm font-semibold flex items-center gap-1">
-                        📝 Name
+                      <FormLabel className="text-gray-700 dark:text-gray-300 text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+                        📝 Item Name
                       </FormLabel>
                       <FormControl>
                         <Input 
-                          placeholder="Item name" 
-                          className="h-9 bg-gradient-to-r from-white to-emerald-50/50 dark:from-gray-700 dark:to-emerald-900/20 border-2 border-emerald-200/50 dark:border-emerald-700/30 rounded-lg text-sm focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200/50" 
+                          placeholder="e.g., Paneer Tikka" 
+                          className="h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus-visible:ring-emerald-500 font-medium" 
                           {...field} 
                         />
                       </FormControl>
@@ -513,15 +535,15 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                   name="price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-700 dark:text-gray-300 text-sm font-semibold flex items-center gap-1">
-                        💰 Price
+                      <FormLabel className="text-gray-700 dark:text-gray-300 text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+                        💰 Price (₹)
                       </FormLabel>
                       <FormControl>
                         <Input 
                           type="number"
                           step="0.01"
                           placeholder="0.00" 
-                          className="h-9 bg-gradient-to-r from-white to-purple-50/50 dark:from-gray-700 dark:to-purple-900/20 border-2 border-purple-200/50 dark:border-purple-700/30 rounded-lg text-sm focus:border-purple-400 focus:ring-2 focus:ring-purple-200/50" 
+                          className="h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus-visible:ring-emerald-500 font-bold text-indigo-600 dark:text-indigo-400" 
                           {...field} 
                         />
                       </FormControl>
@@ -531,33 +553,17 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                 />
               </div>
 
-              {/* Description and Category in a row */}
-              <div className="grid grid-cols-2 gap-3">
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-gray-700 dark:text-gray-300 text-sm font-semibold">📄 Description</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Brief description..." 
-                          className="bg-gradient-to-r from-white to-blue-50/50 dark:from-gray-700 dark:to-blue-900/20 border-2 border-blue-200/50 dark:border-blue-700/30 rounded-lg text-sm min-h-[50px] resize-none focus:border-blue-400" 
-                          {...field} 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
+              {/* Category and Description in a row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Category selector */}
                 <FormField
                   control={form.control}
                   name="category"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-700 dark:text-gray-300 text-sm font-semibold">📂 Category</FormLabel>
+                      <FormLabel className="text-gray-700 dark:text-gray-300 text-xs font-bold uppercase tracking-wider">
+                        📂 Category
+                      </FormLabel>
                       <Select 
                         onValueChange={(value) => {
                           if (value === "__create_new__") {
@@ -569,22 +575,22 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                         value={field.value}
                       >
                         <FormControl>
-                          <SelectTrigger className="h-9 bg-gradient-to-r from-white to-orange-50/50 dark:from-gray-700 dark:to-orange-900/20 border-2 border-orange-200/50 dark:border-orange-700/30 rounded-lg text-sm focus:border-orange-400">
+                          <SelectTrigger className="h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus-visible:ring-emerald-500">
                             <SelectValue placeholder="Select category" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent className="bg-white/95 dark:bg-gray-800/95 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-[200px]">
+                        <SelectContent className="bg-white/95 dark:bg-gray-800/95 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-[220px]">
                           {categories.map((category) => (
-                            <SelectItem key={category} value={category} className="text-sm">
+                            <SelectItem key={category} value={category} className="text-sm rounded-lg">
                               {category}
                             </SelectItem>
                           ))}
                           <SelectItem 
                             value="__create_new__" 
-                            className="text-sm text-emerald-700 font-medium"
+                            className="text-sm text-emerald-600 dark:text-emerald-400 font-bold rounded-lg"
                           >
                             <div className="flex items-center gap-2">
-                              <Plus className="h-3 w-3" />
+                              <Plus className="h-3.5 w-3.5" />
                               New Category
                             </div>
                           </SelectItem>
@@ -594,36 +600,144 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                     </FormItem>
                   )}
                 />
+
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-gray-700 dark:text-gray-300 text-xs font-bold uppercase tracking-wider">
+                        📄 Description
+                      </FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Short description..." 
+                          className="h-10 min-h-[40px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm resize-none focus-visible:ring-emerald-500 py-2" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Dietary Type & Special Option */}
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="dietary_type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-700 dark:text-gray-300 text-xs font-bold uppercase tracking-wider flex items-center justify-between">
+                            <span>Diet / Food Type</span>
+                            <span className="text-[10px] text-gray-400 font-normal">Select one</span>
+                          </FormLabel>
+                          <div className="grid grid-cols-3 gap-1.5 p-1 bg-gray-100 dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700">
+                            <button
+                              type="button"
+                              onClick={() => field.onChange("veg")}
+                              className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition-all ${
+                                field.value === "veg"
+                                  ? "bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm border border-emerald-200 dark:border-emerald-800"
+                                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900"
+                              }`}
+                            >
+                              <span className="w-3.5 h-3.5 rounded-xs border-[1.5px] border-emerald-600 p-[1px] flex items-center justify-center bg-white flex-shrink-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                              </span>
+                              <span>Veg</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => field.onChange("non_veg")}
+                              className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition-all ${
+                                field.value === "non_veg"
+                                  ? "bg-white dark:bg-gray-700 text-rose-600 dark:text-rose-400 shadow-sm border border-rose-200 dark:border-rose-800"
+                                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900"
+                              }`}
+                            >
+                              <span className="w-3.5 h-3.5 rounded-xs border-[1.5px] border-rose-600 p-[1px] flex items-center justify-center bg-white flex-shrink-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                              </span>
+                              <span>Non-Veg</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => field.onChange("other")}
+                              className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition-all ${
+                                field.value === "other"
+                                  ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm border border-gray-300 dark:border-gray-600"
+                                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900"
+                              }`}
+                            >
+                              <span>⚪</span>
+                              <span>Other</span>
+                            </button>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="is_special"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-2xl border border-purple-200/80 dark:border-purple-800/50 bg-purple-50/40 dark:bg-purple-950/20 p-3 shadow-xs self-end h-[58px]">
+                        <div className="space-y-0.5 pr-2">
+                          <FormLabel className="text-xs font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1 cursor-pointer">
+                            ⭐ Special
+                          </FormLabel>
+                          <FormDescription className="text-[10px] text-purple-600/80 dark:text-purple-400/80">
+                            Highlight
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            className="data-[state=checked]:bg-purple-500 scale-90"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
 
               {/* Pricing Configuration */}
-              <div className="bg-gradient-to-r from-blue-50/80 to-cyan-50/80 dark:from-blue-900/20 dark:to-cyan-900/20 backdrop-blur-sm rounded-xl p-3 border border-blue-200/50 dark:border-blue-600/50">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                    <Scale className="h-4 w-4 text-blue-500" />
-                    Pricing Config
+              <div className="bg-blue-50/50 dark:bg-blue-950/20 rounded-2xl p-3.5 border border-blue-200/60 dark:border-blue-800/40">
+                <div className="flex items-center justify-between mb-2.5">
+                  <h3 className="text-xs font-bold text-blue-900 dark:text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Scale className="h-3.5 w-3.5 text-blue-500" />
+                    Pricing Configuration
                   </h3>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Fixed or weight/volume</span>
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400">Fixed or weight/volume</span>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <FormField
                     control={form.control}
                     name="pricing_type"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-gray-700 dark:text-gray-300 font-semibold">Pricing Type</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger className="bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:border-blue-400 transition-all duration-200 text-gray-900 dark:text-white">
-                              <SelectValue placeholder="Select pricing type" />
+                            <SelectTrigger className="h-9 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                              <SelectValue placeholder="Pricing type" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 rounded-xl shadow-xl">
-                            <SelectItem value="fixed" className="rounded-lg">📦 Fixed Price</SelectItem>
-                            <SelectItem value="weight" className="rounded-lg">⚖️ By Weight (kg/g)</SelectItem>
-                            <SelectItem value="volume" className="rounded-lg">🧴 By Volume (L/ml)</SelectItem>
-                            <SelectItem value="unit" className="rounded-lg">🔢 By Unit/Piece</SelectItem>
+                          <SelectContent className="bg-white/95 dark:bg-gray-800/95 rounded-xl shadow-xl">
+                            <SelectItem value="fixed" className="rounded-lg text-xs">📦 Fixed Price</SelectItem>
+                            <SelectItem value="weight" className="rounded-lg text-xs">⚖️ By Weight (kg/g)</SelectItem>
+                            <SelectItem value="volume" className="rounded-lg text-xs">🧴 By Volume (L/ml)</SelectItem>
+                            <SelectItem value="unit" className="rounded-lg text-xs">🔢 By Unit/Piece</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -638,31 +752,30 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                         name="pricing_unit"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-gray-700 dark:text-gray-300 font-semibold">Unit</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
-                                <SelectTrigger className="bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:border-blue-400 transition-all duration-200 text-gray-900 dark:text-white">
+                                <SelectTrigger className="h-9 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
                                   <SelectValue placeholder="Select unit" />
                                 </SelectTrigger>
                               </FormControl>
-                              <SelectContent className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 rounded-xl shadow-xl">
+                              <SelectContent className="bg-white/95 dark:bg-gray-800/95 rounded-xl shadow-xl">
                                 {form.watch("pricing_type") === "weight" && (
                                   <>
-                                    <SelectItem value="kg" className="rounded-lg">Kilogram (kg)</SelectItem>
-                                    <SelectItem value="g" className="rounded-lg">Gram (g)</SelectItem>
+                                    <SelectItem value="kg" className="rounded-lg text-xs">Kilogram (kg)</SelectItem>
+                                    <SelectItem value="g" className="rounded-lg text-xs">Gram (g)</SelectItem>
                                   </>
                                 )}
                                 {form.watch("pricing_type") === "volume" && (
                                   <>
-                                    <SelectItem value={UNITS.L} className="rounded-lg">Litre (l)</SelectItem>
-                                    <SelectItem value={UNITS.ML} className="rounded-lg">Millilitre (ml)</SelectItem>
+                                    <SelectItem value={UNITS.L} className="rounded-lg text-xs">Litre (l)</SelectItem>
+                                    <SelectItem value={UNITS.ML} className="rounded-lg text-xs">Millilitre (ml)</SelectItem>
                                   </>
                                 )}
                                 {form.watch("pricing_type") === "unit" && (
                                   <>
-                                    <SelectItem value={UNITS.PIECE} className="rounded-lg">Piece</SelectItem>
-                                    <SelectItem value="plate" className="rounded-lg">Plate</SelectItem>
-                                    <SelectItem value="unit" className="rounded-lg">Unit</SelectItem>
+                                    <SelectItem value={UNITS.PIECE} className="rounded-lg text-xs">Piece</SelectItem>
+                                    <SelectItem value="plate" className="rounded-lg text-xs">Plate</SelectItem>
+                                    <SelectItem value="unit" className="rounded-lg text-xs">Unit</SelectItem>
                                   </>
                                 )}
                               </SelectContent>
@@ -677,20 +790,16 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                         name="base_unit_quantity"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-gray-700 dark:text-gray-300 font-semibold">Base Quantity</FormLabel>
                             <FormControl>
                               <Input
                                 type="number"
                                 step="0.01"
                                 min="0.01"
-                                placeholder="1"
-                                className="bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                                placeholder="Base Qty (e.g. 1)"
+                                className="h-9 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs"
                                 {...field}
                               />
                             </FormControl>
-                            <FormDescription className="text-xs text-gray-500">
-                              e.g., 1 for "per kg"
-                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -701,58 +810,56 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
 
                 {/* Price Preview */}
                 {form.watch("price") && (
-                  <div className="mt-4 bg-white/60 dark:bg-gray-800/60 rounded-xl p-3 border border-blue-200 dark:border-blue-700">
-                    <p className="text-sm font-medium text-blue-700 dark:text-blue-400">
-                      💰 Price Preview: ₹{form.watch("price")}
-                      {form.watch("pricing_type") !== "fixed" && form.watch("pricing_unit") && (
-                        <> per {form.watch("base_unit_quantity") || 1} {form.watch("pricing_unit")}</>
-                      )}
-                      {form.watch("pricing_type") === "fixed" && " (fixed price)"}
-                    </p>
+                  <div className="mt-2.5 bg-white/70 dark:bg-gray-800/70 rounded-xl px-3 py-1.5 border border-blue-200/50 dark:border-blue-700/50 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                    💰 Preview: ₹{form.watch("price")}
+                    {form.watch("pricing_type") !== "fixed" && form.watch("pricing_unit") && (
+                      <> per {form.watch("base_unit_quantity") || 1} {form.watch("pricing_unit")}</>
+                    )}
+                    {form.watch("pricing_type") === "fixed" && " (fixed price)"}
                   </div>
                 )}
               </div>
 
               {/* Size Variants Section */}
-              <div className="bg-gradient-to-r from-indigo-50/80 to-violet-50/80 dark:from-indigo-900/20 dark:to-violet-900/20 backdrop-blur-sm rounded-xl p-3 border border-indigo-200/50 dark:border-indigo-600/50">
+              <div className="bg-indigo-50/50 dark:bg-indigo-950/20 rounded-2xl p-3.5 border border-indigo-200/60 dark:border-indigo-800/40">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-indigo-500" />
+                  <h3 className="text-xs font-bold text-indigo-900 dark:text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Layers className="h-3.5 w-3.5 text-indigo-500" />
                     Size Variants
                   </h3>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">e.g. Small/Large</span>
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400">e.g. Half / Full</span>
                 </div>
 
                 {variants.map((variant, index) => (
-                  <div key={index} className="mb-3">
+                  <div key={index} className="mb-2">
                     <div className="flex gap-2 items-center">
                       <Input
-                        placeholder="e.g., Small, 250ml"
+                        placeholder="e.g. Half, Large"
                         value={variant.name}
                         onChange={(e) => {
                           const updated = [...variants];
                           updated[index] = { ...updated[index], name: e.target.value };
                           setVariants(updated);
                         }}
-                        className="flex-1 h-9 bg-white/80 dark:bg-gray-700/80 border-2 border-indigo-200/50 dark:border-indigo-700/30 rounded-lg text-sm"
+                        className="flex-1 h-9 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-medium"
                       />
                       <Input
                         type="number"
                         step="0.01"
-                        placeholder="Price"
+                        placeholder="Price (₹)"
                         value={variant.price}
                         onChange={(e) => {
                           const updated = [...variants];
                           updated[index] = { ...updated[index], price: e.target.value };
                           setVariants(updated);
                         }}
-                        className="w-24 h-9 bg-white/80 dark:bg-gray-700/80 border-2 border-indigo-200/50 dark:border-indigo-700/30 rounded-lg text-sm"
+                        className="w-24 h-9 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-indigo-600 dark:text-indigo-400"
                       />
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-9 w-9 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
+                        className="h-9 w-9 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl flex-shrink-0"
                         onClick={() => {
                           if (variant.id && variant.isExisting) {
                             setDeletedVariantIds(prev => [...prev, variant.id!]);
@@ -763,9 +870,8 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
-                    {/* Smart pricing hint */}
                     {getVariantPriceHint(index) && !variant.price && (
-                      <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 ml-1 flex items-center gap-1">
+                      <p className="text-[10px] text-indigo-600 dark:text-indigo-400 mt-0.5 ml-1 flex items-center gap-1 font-medium">
                         <Lightbulb className="h-3 w-3" />
                         {getVariantPriceHint(index)}
                       </p>
@@ -778,64 +884,11 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                   variant="outline"
                   size="sm"
                   onClick={() => setVariants([...variants, { name: '', price: '' }])}
-                  className="w-full border-2 border-dashed border-indigo-300 dark:border-indigo-600 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg"
+                  className="w-full h-8 border border-dashed border-indigo-300 dark:border-indigo-600 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/30 rounded-xl text-xs font-semibold mt-1"
                 >
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Plus className="h-3.5 w-3.5 mr-1" />
                   Add Size Variant
                 </Button>
-              </div>
-
-              {/* Special Options */}
-              <div className="bg-gradient-to-r from-gray-50/80 to-white/80 dark:from-gray-700/50 dark:to-gray-800/50 backdrop-blur-sm rounded-xl p-3 border border-gray-200/50 dark:border-gray-600/50">
-                <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-emerald-500" />
-                  Special Options
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <FormField
-                    control={form.control}
-                    name="is_veg"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between space-x-2 rounded-xl border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/20 p-3">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-sm font-semibold text-green-700">🌱 Vegetarian</FormLabel>
-                          <FormDescription className="text-xs text-green-600 dark:text-green-400">
-                            Mark as vegetarian item
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            className="data-[state=checked]:bg-green-500"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="is_special"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between space-x-2 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-900/20 p-3">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-sm font-semibold text-purple-700">⭐ Special</FormLabel>
-                          <FormDescription className="text-xs text-purple-600 dark:text-purple-400">
-                            Mark as restaurant special
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            className="data-[state=checked]:bg-purple-500"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
               </div>
 
               {/* Image Upload Section */}
@@ -844,8 +897,10 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                 name="image_url"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-gray-700 dark:text-gray-300 font-semibold">Item Image</FormLabel>
-                    <div className="space-y-4">
+                    <FormLabel className="text-gray-700 dark:text-gray-300 text-xs font-bold uppercase tracking-wider">
+                      Item Photo
+                    </FormLabel>
+                    <div className="space-y-2">
                       <input
                         type="file"
                         ref={fileInputRef}
@@ -857,20 +912,22 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                       {!selectedFile && !uploadedImageUrl && (
                         <div 
                           onClick={triggerFileInput}
-                          className="border-2 border-dashed border-emerald-300 bg-emerald-50/50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50 transition-all duration-300 group"
+                          className="border border-dashed border-emerald-300 dark:border-emerald-700 bg-emerald-50/40 dark:bg-emerald-950/20 rounded-2xl p-4 flex items-center justify-center gap-3 cursor-pointer hover:border-emerald-400 hover:bg-emerald-50 transition-all duration-200 group"
                         >
-                          <div className="p-2 bg-emerald-100 rounded-lg group-hover:bg-emerald-200 transition-all duration-200">
-                            <ImageIcon className="h-6 w-6 text-emerald-600" />
+                          <div className="p-2 bg-emerald-100 dark:bg-emerald-900/50 rounded-xl group-hover:scale-105 transition-transform text-emerald-600 dark:text-emerald-400">
+                            <ImageIcon className="h-5 w-5" />
                           </div>
-                          <p className="text-base font-semibold text-emerald-700 mt-2">Upload Item Image</p>
-                          <p className="text-xs text-emerald-600 mt-1">PNG, JPG, GIF or HEIC (max 5MB)</p>
+                          <div>
+                            <p className="text-xs font-bold text-emerald-800 dark:text-emerald-200">Upload Dish Image</p>
+                            <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80">PNG, JPG, GIF or HEIC (max 5MB)</p>
+                          </div>
                         </div>
                       )}
                       
                       {selectedFile && !uploadedImageUrl && (
-                        <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl p-4">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm font-semibold text-gray-700 truncate max-w-[250px]">
+                        <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate max-w-[200px]">
                               📁 {selectedFile.name}
                             </span>
                             {!isUploading && (
@@ -879,7 +936,7 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                                 variant="ghost"
                                 size="sm"
                                 onClick={removeImage}
-                                className="h-8 w-8 p-0 rounded-lg hover:bg-red-100 hover:text-red-600"
+                                className="h-7 w-7 p-0 rounded-lg text-rose-500 hover:bg-rose-50"
                               >
                                 <X className="h-4 w-4" />
                               </Button>
@@ -887,42 +944,36 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                           </div>
                           
                           {isUploading && (
-                            <div className="space-y-3">
-                              <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
+                            <div className="space-y-1.5">
+                              <div className="h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                 <div 
-                                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500" 
+                                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-300" 
                                   style={{ width: `${uploadProgress}%` }}
                                 ></div>
                               </div>
-                              <p className="text-sm text-gray-600 text-center font-medium">Uploading... {uploadProgress}%</p>
+                              <p className="text-[10px] text-gray-500 text-center font-medium">Uploading... {uploadProgress}%</p>
                             </div>
                           )}
                         </div>
                       )}
                       
                       {uploadedImageUrl && (
-                        <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl overflow-hidden">
-                          <div className="relative aspect-video">
+                        <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
+                          <div className="relative h-28 w-full bg-gray-100 dark:bg-gray-700">
                             <img 
                               src={uploadedImageUrl} 
                               alt="Uploaded item" 
                               className="object-cover w-full h-full"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
                             <Button
                               type="button"
                               variant="destructive"
                               size="sm"
                               onClick={removeImage}
-                              className="absolute top-3 right-3 h-8 w-8 p-0 rounded-full shadow-lg backdrop-blur-sm"
+                              className="absolute top-2 right-2 h-7 w-7 p-0 rounded-full shadow-md"
                             >
-                              <X className="h-4 w-4" />
+                              <X className="h-3.5 w-3.5" />
                             </Button>
-                          </div>
-                          <div className="p-3 bg-gray-50/80">
-                            <p className="text-xs text-gray-600 truncate">
-                              ✅ Image uploaded successfully
-                            </p>
                           </div>
                         </div>
                       )}
@@ -936,37 +987,38 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
                   </FormItem>
                 )}
               />
-
-              {/* Action Buttons */}
-              <div className="flex justify-end gap-3 pt-6 border-t border-gray-200/50 dark:border-gray-700/50">
-                <Button 
-                  variant="outline" 
-                  onClick={onClose} 
-                  type="button"
-                  className="px-6 py-2.5 rounded-xl border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all duration-200"
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={isSubmitting || isUploading}
-                  className="px-8 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {editingItem ? "Updating..." : "Adding..."}
-                    </>
-                  ) : (
-                    <>
-                      <ChefHat className="mr-2 h-4 w-4" />
-                      {editingItem ? "Update Item" : "Add Item"}
-                    </>
-                  )}
-                </Button>
-              </div>
             </form>
           </Form>
+        </div>
+
+        {/* Sticky Footer Action Bar */}
+        <div className="flex-shrink-0 border-t border-gray-150 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm p-3.5 sm:p-4 flex items-center justify-end gap-2.5 rounded-b-none sm:rounded-b-3xl">
+          <Button 
+            variant="outline" 
+            onClick={onClose} 
+            type="button"
+            className="px-5 h-10 rounded-xl border-gray-200 dark:border-gray-700 text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Cancel
+          </Button>
+          <Button 
+            type="submit" 
+            form="menu-item-form"
+            disabled={isSubmitting || isUploading}
+            className="px-6 h-10 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl shadow-md shadow-emerald-600/25 disabled:opacity-50 transition-transform active:scale-95"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {editingItem ? "Updating..." : "Adding..."}
+              </>
+            ) : (
+              <>
+                <ChefHat className="mr-2 h-4 w-4" />
+                {editingItem ? "Update Item" : "Add Item"}
+              </>
+            )}
+          </Button>
         </div>
       </div>
     </div>
