@@ -117,10 +117,17 @@ const navigationGroups: NavigationGroup[] = [
     title: "Operations",
     items: [
       {
-        title: "POS",
-        icon: ShoppingCart,
-        href: "/pos",
-        description: "Point of Sale system",
+        title: "QSR POS",
+        icon: Zap,
+        href: "/qsr-pos",
+        description: "Dine-in & Table POS system",
+        requiredPermissions: ["orders.view"],
+      },
+      {
+        title: "QuickServe POS",
+        icon: Store,
+        href: "/quickserve-pos",
+        description: "Express counter & food truck POS",
         requiredPermissions: ["orders.view"],
       },
       {
@@ -128,20 +135,6 @@ const navigationGroups: NavigationGroup[] = [
         icon: ShoppingCart,
         href: "/orders",
         description: "View & manage orders",
-        requiredPermissions: ["orders.view"],
-      },
-      {
-        title: "QSR POS",
-        icon: Zap,
-        href: "/qsr-pos",
-        description: "Quick service restaurant POS",
-        requiredPermissions: ["orders.view"],
-      },
-      {
-        title: "QuickServe POS",
-        icon: Store,
-        href: "/quickserve-pos",
-        description: "Counter & takeaway POS",
         requiredPermissions: ["orders.view"],
       },
       {

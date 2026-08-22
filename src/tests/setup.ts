@@ -53,8 +53,21 @@ Object.defineProperty(window, 'scrollTo', {
   value: vi.fn(),
 });
 
+// Mock offlineDB for node test environment
+vi.mock('@/utils/offlineDB', () => ({
+  getDB: vi.fn().mockResolvedValue({
+    get: vi.fn().mockResolvedValue(null),
+    put: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
+    getAll: vi.fn().mockResolvedValue([]),
+    clear: vi.fn().mockResolvedValue(undefined),
+    count: vi.fn().mockResolvedValue(0),
+  }),
+}));
+
 // Cleanup after each test
 afterEach(() => {
   cleanup();
 });
+
 

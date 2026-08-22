@@ -832,7 +832,7 @@ const Inventory = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(16,185,129,0.12),transparent),radial-gradient(ellipse_60%_40%_at_80%_50%,rgba(139,92,246,0.08),transparent)] bg-gradient-to-br from-slate-50 via-emerald-50/30 to-violet-50/20 dark:from-gray-950 dark:via-gray-900 dark:to-emerald-950/40 p-3 md:p-6">
+    <div className="min-h-screen bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(16,185,129,0.12),transparent),radial-gradient(ellipse_60%_40%_at_80%_50%,rgba(139,92,246,0.08),transparent)] bg-gradient-to-br from-slate-50 via-emerald-50/30 to-violet-50/20 dark:from-gray-950 dark:via-gray-900 dark:to-emerald-950/40 p-3 md:p-6 pb-28 lg:pb-6">
       {/* Header — Glassmorphic Floating Card */}
       <div className="mb-6 relative overflow-hidden bg-white/40 dark:bg-gray-900/40 backdrop-blur-2xl border border-white/40 dark:border-white/[0.06] rounded-2xl md:rounded-3xl shadow-xl shadow-black/[0.03] p-4 md:p-8">
         {/* Gradient mesh decoration */}

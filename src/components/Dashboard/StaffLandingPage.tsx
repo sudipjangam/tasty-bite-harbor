@@ -43,7 +43,7 @@ const allQuickActions = [
     title: "POS",
     description: "Take new orders",
     icon: ShoppingCart,
-    path: "/pos",
+    path: "/qsr-pos",
     permission: "orders.view",
     gradient: "from-emerald-500 to-teal-600",
   },

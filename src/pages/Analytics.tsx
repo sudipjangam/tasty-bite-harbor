@@ -363,7 +363,7 @@ const Analytics = () => {
 
   return (
     <FeatureLock feature="reports.analytics" interceptClicks={true}>
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-950 dark:via-purple-950/50 dark:to-indigo-950 animate-fade-in">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100 dark:from-gray-950 dark:via-purple-950/50 dark:to-indigo-950 animate-fade-in pb-28 lg:pb-6">
       <div className="p-4 md:p-6">
         {/* Compact Header with Date Range */}
         <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-purple-500/20 rounded-2xl shadow-xl dark:shadow-purple-500/10 p-5 mb-6">

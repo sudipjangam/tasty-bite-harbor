@@ -103,7 +103,7 @@ const Marketing = () => {
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-6 space-y-6 bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50 dark:from-[#080B14] dark:via-[#0C0F1C] dark:to-[#080B14]">
+    <div className="min-h-screen p-4 md:p-6 pb-28 lg:pb-6 space-y-6 bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50 dark:from-[#080B14] dark:via-[#0C0F1C] dark:to-[#080B14]">
 
       {/* ── Page Header ── */}
       <div className="flex items-center justify-between">

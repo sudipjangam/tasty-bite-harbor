@@ -127,7 +127,7 @@ const Reservations = () => {
 
   return (
     <FeatureLock feature="reservations.basic" interceptClicks={true}>
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 p-4 md:p-6 pb-28 lg:pb-6">
       {/* Header */}
       <div className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl p-8">
         <div className="flex items-center gap-4 mb-4">

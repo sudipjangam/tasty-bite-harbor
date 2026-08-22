@@ -7,6 +7,9 @@ import CustomerFullProfile from "@/components/CRM/CustomerFullProfile";
 import CustomerDialog from "@/components/CRM/CustomerDialog";
 import RealtimeCustomers from "@/components/CRM/RealtimeCustomers";
 import QRCodeGenerator from "@/components/CRM/QRCodeGenerator";
+import { CustomerStatsStrip } from "@/components/CRM/CustomerStatsStrip";
+import { LoyaltyProgramSettingsDialog } from "@/components/CRM/dialogs/LoyaltyProgramSettingsDialog";
+import { LoyaltyTierManagerDialog } from "@/components/CRM/dialogs/LoyaltyTierManagerDialog";
 import { Customer } from "@/types/customer";
 import { LoyaltyProgramDB, LoyaltyTierDB } from "@/types/loyalty";
 import {
@@ -609,96 +612,20 @@ const Customers = () => {
                 Manage Tiers
               </Button>
             </div>
-
             {/* Desktop Quick Stats Cards */}
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mt-4">
-              <div className="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl p-3.5 shadow-lg shadow-blue-200/60 dark:shadow-blue-900/30">
-                <div className="flex flex-col gap-1">
-                  <div className="p-1.5 bg-white/20 rounded-lg w-fit">
-                    <Users className="h-4 w-4 text-white" />
-                  </div>
-                  <p className="text-[10px] sm:text-xs text-blue-100 font-medium mt-1">Total Customers</p>
-                  <p className="text-xl sm:text-2xl font-bold text-white">
-                    {customers.filter(c => c.id !== "walk-in-customer").length}
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-3.5 shadow-lg shadow-indigo-200/60 dark:shadow-indigo-900/30">
-                <div className="flex flex-col gap-1">
-                  <div className="p-1.5 bg-white/20 rounded-lg w-fit">
-                    <TrendingUp className="h-4 w-4 text-white" />
-                  </div>
-                  <p className="text-[10px] sm:text-xs text-indigo-100 font-medium mt-1">Registered Rev</p>
-                  <p className="text-xl sm:text-2xl font-bold text-white">
-                    <CurrencyDisplay
-                      amount={totalSpent - (displayCustomers.find(c => c.id === 'walk-in-customer')?.total_spent || 0)}
-                      className="text-xl sm:text-2xl font-bold text-white"
-                    />
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-teal-500 to-emerald-500 rounded-2xl p-3.5 shadow-lg shadow-teal-200/60 dark:shadow-teal-900/30">
-                <div className="flex flex-col gap-1">
-                  <div className="p-1.5 bg-white/20 rounded-lg w-fit">
-                    <Users className="h-4 w-4 text-white" />
-                  </div>
-                  <p className="text-[10px] sm:text-xs text-teal-100 font-medium mt-1">Walk In Rev</p>
-                  <p className="text-xl sm:text-2xl font-bold text-white">
-                    <CurrencyDisplay
-                      amount={displayCustomers.find(c => c.id === 'walk-in-customer')?.total_spent || 0}
-                      className="text-xl sm:text-2xl font-bold text-white"
-                    />
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-3.5 shadow-lg shadow-green-200/60 dark:shadow-green-900/30">
-                <div className="flex flex-col gap-1">
-                  <div className="p-1.5 bg-white/20 rounded-lg w-fit">
-                    <TrendingUp className="h-4 w-4 text-white" />
-                  </div>
-                  <p className="text-[10px] sm:text-xs text-green-100 font-medium mt-1">Total Revenue</p>
-                  <p className="text-xl sm:text-2xl font-bold text-white">
-                    <CurrencyDisplay
-                      amount={totalSpent}
-                      className="text-xl sm:text-2xl font-bold text-white"
-                    />
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl p-3.5 shadow-lg shadow-orange-200/60 dark:shadow-orange-900/30">
-                <div className="flex flex-col gap-1">
-                  <div className="p-1.5 bg-white/20 rounded-lg w-fit">
-                    <TrendingUp className="h-4 w-4 text-white" />
-                  </div>
-                  <p className="text-[10px] sm:text-xs text-orange-100 font-medium mt-1">Avg Order Val</p>
-                  <p className="text-xl sm:text-2xl font-bold text-white">
-                    <CurrencyDisplay
-                      amount={Number(averageOrderValue.toFixed(2))}
-                      className="text-xl sm:text-2xl font-bold text-white"
-                    />
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-3.5 shadow-lg shadow-purple-200/60 dark:shadow-purple-900/30">
-                <div className="flex flex-col gap-1">
-                  <div className="p-1.5 bg-white/20 rounded-lg w-fit">
-                    <Heart className="h-4 w-4 text-white" />
-                  </div>
-                  <p className="text-[10px] sm:text-xs text-purple-100 font-medium mt-1">Loyal Users</p>
-                  <p className="text-xl sm:text-2xl font-bold text-white">{loyalCustomers}</p>
-                </div>
-              </div>
-            </div>
+            <CustomerStatsStrip
+              totalCustomers={customers.filter((c) => c.id !== "walk-in-customer").length}
+              registeredRevenue={totalSpent - (displayCustomers.find((c) => c.id === "walk-in-customer")?.total_spent || 0)}
+              walkInRevenue={displayCustomers.find((c) => c.id === "walk-in-customer")?.total_spent || 0}
+              totalSpent={totalSpent}
+              averageOrderValue={averageOrderValue}
+              totalPoints={totalPoints}
+            />
           </div>
         )}
       </div>
 
-      {/* ── Dialogs: Rendered once with full contents ── */}
+      {/* ── Dialogs: Rendered modularly ── */}
 
       {/* 1. QR Code Dialog */}
       <Dialog open={showQRGenerator} onOpenChange={setShowQRGenerator}>
@@ -711,509 +638,41 @@ const Customers = () => {
       </Dialog>
 
       {/* 2. Loyalty Points Settings Dialog */}
-      <Dialog open={showPointsSettings} onOpenChange={setShowPointsSettings}>
-        <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto p-0 gap-0 border-0">
-          <div className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 p-5 sm:p-6 rounded-t-lg">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl">
-                <Gift className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <DialogTitle className="text-white text-lg font-bold">
-                  Loyalty Program Settings
-                </DialogTitle>
-                <DialogDescription className="text-emerald-100 text-sm mt-0.5">
-                  Configure how customers earn & redeem points
-                </DialogDescription>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4 sm:p-6 space-y-5">
-            {/* Toggle Section */}
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/60 dark:to-gray-800/40 border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={`p-1.5 rounded-lg ${loyaltyEnabled ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-gray-200 dark:bg-gray-700"}`}
-                >
-                  <Star
-                    className={`h-4 w-4 ${loyaltyEnabled ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400"}`}
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-semibold">
-                    Loyalty Program
-                  </Label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {loyaltyEnabled
-                      ? "Customers earn points on every order"
-                      : "Points earning is paused"}
-                  </p>
-                </div>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                className={`rounded-full px-4 font-semibold shadow-sm transition-all ${
-                  loyaltyEnabled
-                    ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
-                    : "bg-gray-300 hover:bg-gray-400 text-gray-700 dark:bg-gray-600 dark:text-gray-300"
-                }`}
-                onClick={() => setLoyaltyEnabled(!loyaltyEnabled)}
-              >
-                {loyaltyEnabled ? "✓ Active" : "Inactive"}
-              </Button>
-            </div>
-
-            <div className={`space-y-5 transition-all ${!loyaltyEnabled ? 'opacity-40 blur-[1px] pointer-events-none select-none' : ''}`}>
-              {/* How Points Are Earned */}
-              <div className="rounded-xl border border-purple-200 dark:border-purple-800/50 bg-gradient-to-br from-purple-50/80 to-indigo-50/50 dark:from-purple-900/20 dark:to-indigo-900/10 p-4 space-y-4">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                  <h3 className="text-sm font-bold text-purple-800 dark:text-purple-300">
-                    How Points Are Earned
-                  </h3>
-                </div>
-
-                <div className="rounded-lg bg-purple-100/60 dark:bg-purple-900/30 p-3">
-                  <p className="text-sm font-medium text-purple-800 dark:text-purple-200">
-                    On every <span className="font-bold text-purple-600 dark:text-purple-300">₹{spendThreshold || '___'}</span> spend, customer earns <span className="font-bold text-purple-600 dark:text-purple-300">{pointsPerAmount || '___'}</span> points
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
-                      <span className="p-0.5 bg-purple-200 dark:bg-purple-800 rounded">
-                        💰
-                      </span>
-                      For every ₹ (spend)
-                    </Label>
-                    <Input
-                      type="number"
-                      value={spendThreshold}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setSpendThreshold(val === "" ? ("" as any) : Number(val));
-                      }}
-                      placeholder="e.g. 50"
-                      className="border-purple-200 dark:border-purple-700 focus:ring-purple-500 bg-white dark:bg-gray-800"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
-                      <span className="p-0.5 bg-purple-200 dark:bg-purple-800 rounded">
-                        ⭐
-                      </span>
-                      Points earned
-                    </Label>
-                    <Input
-                      type="number"
-                      value={pointsPerAmount}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setPointsPerAmount(val === "" ? ("" as any) : Number(val));
-                      }}
-                      placeholder="e.g. 10"
-                      className="border-purple-200 dark:border-purple-700 focus:ring-purple-500 bg-white dark:bg-gray-800"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* How Points Are Used */}
-              <div className="rounded-xl border border-amber-200 dark:border-amber-800/50 bg-gradient-to-br from-amber-50/80 to-orange-50/50 dark:from-amber-900/20 dark:to-orange-900/10 p-4 space-y-4">
-                <div className="flex items-center gap-2">
-                  <Gift className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                  <h3 className="text-sm font-bold text-amber-800 dark:text-amber-300">
-                    How Points Are Used
-                  </h3>
-                </div>
-
-                <div className="rounded-lg bg-amber-100/60 dark:bg-amber-900/30 p-3">
-                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                    1 point = <span className="font-bold text-amber-600 dark:text-amber-300">₹{amountPerPoint || '___'}</span> discount · Customer can use points for up to <span className="font-bold text-amber-600 dark:text-amber-300">{maxRedemptionPercentage || '___'}%</span> of the bill
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
-                      <span className="p-0.5 bg-amber-200 dark:bg-amber-800 rounded">
-                        💎
-                      </span>
-                      1 point = ₹ ?
-                    </Label>
-                    <Input
-                      type="number"
-                      value={amountPerPoint}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setAmountPerPoint(val === "" ? ("" as any) : Number(val));
-                      }}
-                      placeholder="e.g. 1"
-                      className="border-amber-200 dark:border-amber-700 focus:ring-amber-500 bg-white dark:bg-gray-800"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
-                      <span className="p-0.5 bg-amber-200 dark:bg-amber-800 rounded">
-                        🛡️
-                      </span>
-                      Max bill % payable by points
-                    </Label>
-                    <Input
-                      type="number"
-                      value={maxRedemptionPercentage}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === "") {
-                          setMaxRedemptionPercentage("" as any);
-                        } else {
-                          setMaxRedemptionPercentage(Number(val));
-                        }
-                      }}
-                      placeholder="e.g. 50"
-                      className="border-amber-200 dark:border-amber-700 focus:ring-amber-500 bg-white dark:bg-gray-800"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Points Expiry */}
-              <div className="rounded-xl border border-rose-200 dark:border-rose-800/50 bg-gradient-to-br from-rose-50/60 to-pink-50/40 dark:from-rose-900/15 dark:to-pink-900/10 p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">⏳</span>
-                  <h3 className="text-sm font-bold text-rose-800 dark:text-rose-300">
-                    Points Expiry
-                  </h3>
-                </div>
-                <div className="max-w-xs space-y-1.5">
-                  <Label className="text-xs font-semibold text-rose-700 dark:text-rose-300">
-                    Expire after how many days?
-                  </Label>
-                  <Input
-                    type="number"
-                    value={pointsExpiryDays || ""}
-                    onChange={(e) =>
-                      setPointsExpiryDays(
-                        e.target.value ? Number(e.target.value) : null,
-                      )
-                    }
-                    placeholder="Leave empty = never expire"
-                    className="border-rose-200 dark:border-rose-700 focus:ring-rose-500 bg-white dark:bg-gray-800"
-                  />
-                  <p className="text-[11px] text-rose-500 dark:text-rose-400">
-                    {pointsExpiryDays
-                      ? `Points will expire ${pointsExpiryDays} days after last visit`
-                      : "Points will never expire ✓"}
-                  </p>
-                </div>
-              </div>
-
-              {/* Live Preview */}
-              {loyaltyProgram && (
-                <div className="rounded-xl overflow-hidden border border-indigo-200 dark:border-indigo-800/50">
-                  <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-4 py-2">
-                    <p className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <span>📋</span> Summary
-                    </p>
-                  </div>
-                  <div className="px-4 py-3 bg-indigo-50 dark:bg-indigo-900/20 space-y-1.5">
-                    <div className="flex flex-wrap gap-2">
-                      <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200 dark:border-purple-700 text-xs">
-                        ₹{spendThreshold} → {pointsPerAmount} pts
-                      </Badge>
-                      <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 border-amber-200 dark:border-amber-700 text-xs">
-                        1 pt = ₹{amountPerPoint}
-                      </Badge>
-                      <Badge className="bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300 border-rose-200 dark:border-rose-700 text-xs">
-                        Max {maxRedemptionPercentage}% of bill
-                      </Badge>
-                      <Badge
-                        className={`text-xs ${pointsExpiryDays ? "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300 border-orange-200 dark:border-orange-700" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700"}`}
-                      >
-                        {pointsExpiryDays
-                          ? `Expires in ${pointsExpiryDays} days`
-                          : "No expiry ✓"}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Save Button */}
-              <Button
-                className="w-full py-5 rounded-xl font-bold text-base bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-600 text-white shadow-lg shadow-emerald-500/25 transition-all hover:shadow-emerald-500/40 hover:scale-[1.01]"
-                onClick={saveProgramSettings}
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Save Settings
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <LoyaltyProgramSettingsDialog
+        open={showPointsSettings}
+        onOpenChange={setShowPointsSettings}
+        loyaltyEnabled={loyaltyEnabled}
+        setLoyaltyEnabled={setLoyaltyEnabled}
+        spendThreshold={spendThreshold}
+        setSpendThreshold={setSpendThreshold}
+        pointsPerAmount={pointsPerAmount}
+        setPointsPerAmount={setPointsPerAmount}
+        amountPerPoint={amountPerPoint}
+        setAmountPerPoint={setAmountPerPoint}
+        maxRedemptionPercentage={maxRedemptionPercentage}
+        setMaxRedemptionPercentage={setMaxRedemptionPercentage}
+        pointsExpiryDays={pointsExpiryDays}
+        setPointsExpiryDays={setPointsExpiryDays}
+        onSave={saveProgramSettings}
+        saving={saveProgramMutation.isPending}
+        loyaltyProgram={loyaltyProgram}
+      />
 
       {/* 3. Manage Loyalty Tiers Dialog */}
-      <Dialog
+      <LoyaltyTierManagerDialog
         open={showTierManager}
         onOpenChange={(open) => {
           setShowTierManager(open);
           if (!open) setEditingTier(null);
         }}
-      >
-        <DialogContent className="sm:max-w-[650px] max-h-[85vh]">
-          <DialogHeader>
-            <DialogTitle>
-              {editingTier
-                ? `${editingTier.id ? "Edit" : "Create"} Tier`
-                : "Manage Loyalty Tiers"}
-            </DialogTitle>
-            <DialogDescription>
-              {editingTier
-                ? "Set spending thresholds, visit requirements, and benefits for this tier"
-                : "Customize your loyalty tiers — set different levels based on spending and visits"}
-            </DialogDescription>
-          </DialogHeader>
-
-          {editingTier ? (
-            /* Tier Edit Form */
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Tier Name</Label>
-                  <Input
-                    value={editingTier.name}
-                    onChange={(e) =>
-                      setEditingTier({
-                        ...editingTier,
-                        name: e.target.value,
-                      })
-                    }
-                    placeholder="e.g. Gold, VIP"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Points Required</Label>
-                  <Input
-                    type="number"
-                    value={editingTier.points_required}
-                    onChange={(e) =>
-                      setEditingTier({
-                        ...editingTier,
-                        points_required: Number(e.target.value),
-                      })
-                    }
-                    min="0"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Min Total Spend (₹)</Label>
-                  <Input
-                    type="number"
-                    value={editingTier.min_spent}
-                    onChange={(e) =>
-                      setEditingTier({
-                        ...editingTier,
-                        min_spent: Number(e.target.value),
-                      })
-                    }
-                    min="0"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Min Visits</Label>
-                  <Input
-                    type="number"
-                    value={editingTier.min_visits}
-                    onChange={(e) =>
-                      setEditingTier({
-                        ...editingTier,
-                        min_visits: Number(e.target.value),
-                      })
-                    }
-                    min="0"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Points Multiplier</Label>
-                  <Input
-                    type="number"
-                    value={editingTier.points_multiplier}
-                    onChange={(e) =>
-                      setEditingTier({
-                        ...editingTier,
-                        points_multiplier: Number(e.target.value),
-                      })
-                    }
-                    min="1"
-                    step="0.1"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Higher-tier customers earn more points per order
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label>Color Class</Label>
-                  <Select
-                    value={editingTier.color}
-                    onValueChange={(v) =>
-                      setEditingTier({ ...editingTier, color: v })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="bg-amber-500">
-                        Gold (Amber)
-                      </SelectItem>
-                      <SelectItem value="bg-purple-500">
-                        Diamond (Purple)
-                      </SelectItem>
-                      <SelectItem value="bg-slate-400">
-                        Silver (Slate)
-                      </SelectItem>
-                      <SelectItem value="bg-amber-700">
-                        Bronze (Brown)
-                      </SelectItem>
-                      <SelectItem value="bg-emerald-500">
-                        Emerald (Green)
-                      </SelectItem>
-                      <SelectItem value="bg-blue-500">
-                        Sapphire (Blue)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Display Order</Label>
-                  <Input
-                    type="number"
-                    value={editingTier.display_order}
-                    onChange={(e) =>
-                      setEditingTier({
-                        ...editingTier,
-                        display_order: Number(e.target.value),
-                      })
-                    }
-                    min="0"
-                  />
-                </div>
-              </div>
-
-              {/* Benefits */}
-              <div className="space-y-2">
-                <Label className="text-xs">Benefits (comma-separated)</Label>
-                <Input
-                  value={(editingTier.benefits || []).join(", ")}
-                  onChange={(e) =>
-                    setEditingTier({
-                      ...editingTier,
-                      benefits: e.target.value
-                        .split(",")
-                        .map((b) => b.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                  placeholder="e.g. 10% discount, Free dessert on birthday, Priority seating"
-                />
-              </div>
-
-              <DialogFooter className="gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setEditingTier(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => saveTierMutation.mutate(editingTier)}
-                  disabled={!editingTier.name || saveTierMutation.isPending}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  {saveTierMutation.isPending
-                    ? "Saving..."
-                    : editingTier.id
-                      ? "Update Tier"
-                      : "Create Tier"}
-                </Button>
-              </DialogFooter>
-            </div>
-          ) : (
-            /* Tier List */
-            <ScrollArea className="max-h-[55vh]">
-              <div className="space-y-3">
-                {loyaltyTiers.length === 0 && (
-                  <p className="text-center text-gray-500 py-6">
-                    No tiers configured yet. Add your first tier below.
-                  </p>
-                )}
-                {loyaltyTiers.map((tier) => (
-                  <div
-                    key={tier.id}
-                    className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-xl border shadow-sm"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-3 h-3 rounded-full ${tier.color}`}
-                      />
-                      <div>
-                        <p className="font-semibold">{tier.name}</p>
-                        <p className="text-xs text-gray-500">
-                          ₹{tier.min_spent} min spend · {tier.min_visits}{" "}
-                          visits · {tier.points_multiplier}× points
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditingTier(tier)}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-600 hover:text-red-700"
-                        onClick={() => deleteTierMutation.mutate(tier.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-                <Button
-                  variant="outline"
-                  className="w-full gap-2 border-dashed"
-                  onClick={() =>
-                    setEditingTier({
-                      id: "",
-                      restaurant_id: restaurantId || "",
-                      name: "",
-                      points_required: 0,
-                      min_spent: 0,
-                      min_visits: 0,
-                      points_multiplier: 1,
-                      benefits: [],
-                      color: "bg-gray-500",
-                      display_order: loyaltyTiers.length,
-                      created_at: "",
-                      updated_at: "",
-                    })
-                  }
-                >
-                  <Plus className="h-4 w-4" />
-                  Add New Tier
-                </Button>
-              </div>
-            </ScrollArea>
-          )}
-        </DialogContent>
-      </Dialog>
+        loyaltyTiers={loyaltyTiers}
+        editingTier={editingTier}
+        setEditingTier={setEditingTier}
+        onSaveTier={(tier) => saveTierMutation.mutate(tier)}
+        onDeleteTier={(id) => deleteTierMutation.mutate(id)}
+        isSaving={saveTierMutation.isPending}
+        restaurantId={restaurantId}
+      />
 
       {isLoadingCustomers && customers.length === 0 ? (
         <div className="flex-1 flex items-center justify-center p-8">

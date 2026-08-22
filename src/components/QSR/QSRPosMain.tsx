@@ -29,6 +29,7 @@ import { QSRCustomItemDialog } from "./QSRCustomItemDialog";
 import { QSRCartBottomSheet, QSRCartFAB } from "./QSRCartBottomSheet";
 import { QSRMobileHeader } from "./QSRMobileHeader";
 import { QSRPrinterDialog } from "./QSRPrinterDialog";
+import { useOrderCalculations } from "@/hooks/useOrderCalculations";
 import { getPaperSize } from "@/services/nativePrinterBridge";
 import { useFeatureGate } from "@/hooks/useFeatureGate";
 import {
@@ -293,13 +294,12 @@ export const QSRPosMain: React.FC = () => {
     };
   }, [restaurantId, queryClient]);
 
-  // Calculations - No tax in QSR POS (per user request)
-  const subtotal = useMemo(
-    () => orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
-    [orderItems],
-  );
-  const tax = 0; // No tax in QSR POS
-  const total = subtotal;
+  // Calculations - Single source of truth calculation engine
+  const { subtotal, totalTax: tax, finalTotal: total } = useOrderCalculations({
+    items: orderItems,
+    taxRate: 0, // 0% tax for QSR counter mode
+    roundToNearestRupee: true,
+  });
 
   // Cart item counts for menu badges (aggregates base menuItemId if variant selected)
   const cartItemCounts = useMemo(() => {
