@@ -264,9 +264,14 @@ const Settings = () => {
                     {restaurantName}
                   </p>
                 )}
-                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  Settings
-                </h1>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                    Settings
+                  </h1>
+                  <span className="text-xs font-mono font-bold bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-2.5 py-1 rounded-full shadow-xs">
+                    v{typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.0.0"}
+                  </span>
+                </div>
                 <p className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
                   Manage your account, restaurant, and subscription settings
                 </p>
@@ -439,16 +444,33 @@ const Settings = () => {
 
                 <Separator className="my-8" />
 
-                <div className="p-6 bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-700/50 dark:to-slate-700/50 rounded-2xl border border-gray-100 dark:border-gray-600">
-                  <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-2">
-                    <Clock className="h-4 w-4" />
-                    Account Created
-                  </p>
-                  <p className="font-bold text-xl text-gray-900 dark:text-white">
-                    {user?.created_at
-                      ? format(new Date(user.created_at), "PPPP")
-                      : "N/A"}
-                  </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-6 bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-700/50 dark:to-slate-700/50 rounded-2xl border border-gray-100 dark:border-gray-600">
+                    <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-2">
+                      <Clock className="h-4 w-4" />
+                      Account Created
+                    </p>
+                    <p className="font-bold text-lg md:text-xl text-gray-900 dark:text-white truncate">
+                      {user?.created_at
+                        ? format(new Date(user.created_at), "PPPP")
+                        : "N/A"}
+                    </p>
+                  </div>
+
+                  <div className="p-6 bg-gradient-to-br from-indigo-50/50 via-purple-50/40 to-pink-50/30 dark:from-indigo-900/20 dark:via-purple-900/20 dark:to-pink-900/10 rounded-2xl border border-indigo-100 dark:border-indigo-800/50">
+                    <p className="text-sm font-semibold text-indigo-700 dark:text-indigo-300 flex items-center gap-2 mb-2">
+                      <Sparkles className="h-4 w-4" />
+                      App & Software Version
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-lg md:text-xl text-gray-900 dark:text-white">
+                        v{typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.0.0"}
+                      </span>
+                      <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/50 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-700">
+                        Production Build
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
