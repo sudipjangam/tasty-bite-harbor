@@ -220,6 +220,56 @@ async function generateDailyReport(
     else orderTypeBreakdown.counter++;
   });
 
+// Helper to parse order items whether stored as objects or strings
+function parseOrderItem(item: any): { name: string; quantity: number; price: number; menuItemId?: string } {
+  if (!item) return { name: "Unknown", quantity: 1, price: 0 };
+
+  if (typeof item === "object") {
+    const name = item.name || item.item_name || item.itemName || "Unknown";
+    const quantity = Number(item.quantity) || 1;
+    const price = Number(item.price || item.unitPrice || item.rate || item.total) || 0;
+    const menuItemId = item.menuItemId || item.menu_item_id;
+    return { name, quantity, price, menuItemId };
+  }
+
+  if (typeof item === "string") {
+    let str = item.trim();
+    let quantity = 1;
+    let price = 0;
+    let name = str;
+
+    // Extract price if @price or ₹price exists at end
+    const priceMatch = str.match(/[@₹Rs\.]+\s*([0-9]+(?:\.[0-9]+)?)\s*$/i);
+    if (priceMatch) {
+      price = parseFloat(priceMatch[1]) || 0;
+      str = str.replace(/[@₹Rs\.]+\s*[0-9]+(?:\.[0-9]+)?\s*$/i, "").trim();
+    }
+
+    // Extract quantity at start: "2x Item Name" or "2 x Item Name"
+    const startQtyMatch = str.match(/^(\d+)\s*[xX]\s*(.+)$/);
+    if (startQtyMatch) {
+      quantity = parseInt(startQtyMatch[1], 10) || 1;
+      name = startQtyMatch[2].trim();
+    } else {
+      // Extract quantity at end: "Item Name x2" or "Item Name x 2"
+      const endQtyMatch = str.match(/^(.+?)\s*[xX]\s*(\d+)$/);
+      if (endQtyMatch) {
+        name = endQtyMatch[1].trim();
+        quantity = parseInt(endQtyMatch[2], 10) || 1;
+      } else {
+        name = str;
+      }
+    }
+
+    // Clean notes suffix in parentheses if any, e.g. "Margherita Pizza (Extra Cheese)" -> "Margherita Pizza"
+    name = name.replace(/\s*\([^)]*\)\s*$/, "").trim();
+
+    return { name: name || "Item", quantity, price };
+  }
+
+  return { name: "Unknown", quantity: 1, price: 0 };
+}
+
   // ── Top Items & Total Items Sold ───────────────────────────────────────
   const itemMap = new Map<
     string,
@@ -232,17 +282,18 @@ async function generateDailyReport(
 
   nonCancelledOrders.forEach((o: any) => {
     const items = (o.items as any[]) || [];
-    items.forEach((item: any) => {
-      const name = item.name || item.item_name || "Unknown";
-      const qty = Number(item.quantity) || 1;
-      const rev = (Number(item.price || item.total) || 0) * qty;
+    items.forEach((rawItem: any) => {
+      const parsed = parseOrderItem(rawItem);
+      const name = parsed.name;
+      const qty = parsed.quantity;
+      const rev = parsed.price * qty;
       const existing = itemMap.get(name) || { quantity: 0, revenue: 0 };
       itemMap.set(name, {
         quantity: existing.quantity + qty,
         revenue: existing.revenue + rev,
       });
 
-      const menuItemId = item.menuItemId || item.menu_item_id;
+      const menuItemId = parsed.menuItemId;
       if (menuItemId) {
         const existingQty = menuItemQtyMap.get(menuItemId);
         if (existingQty) {
@@ -1187,14 +1238,18 @@ Deno.serve(async (req: Request) => {
 
       try {
         // Get restaurant details
-        const { data: restaurant } = await supabase
+        const { data: restaurant, error: restErr } = await supabase
           .from("restaurants")
-          .select("name, currency")
+          .select("name, branch_code, address, phone, logo_url")
           .eq("id", restaurantId)
-          .single();
+          .maybeSingle();
 
-        const restaurantName = restaurant?.name || "Restaurant";
-        const currencySymbol = restaurant?.currency || "₹";
+        if (restErr) {
+          console.error(`Error querying restaurant ${restaurantId}:`, restErr);
+        }
+
+        const restaurantName = restaurant?.name || "Tasty Bite Restaurant";
+        const currencySymbol = "₹";
 
         // Determine effective report date
         const tz = report.timezone || "Asia/Kolkata";

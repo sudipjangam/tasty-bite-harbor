@@ -223,18 +223,21 @@ const BluetoothTab = ({
         </div>
         
         <div className="rounded-lg bg-muted/50 border border-border p-4 text-sm text-muted-foreground space-y-2">
-          <p>Web Bluetooth connects to thermal printers directly from your browser.</p>
-          <p>1. Ensure Bluetooth is enabled on your device</p>
-          <p>2. Turn on your thermal printer</p>
-          <p>3. Click Connect below and select your printer from the browser prompt</p>
+          <p className="font-semibold text-foreground">USB / System Thermal Printer:</p>
+          <p>Plug in your USB thermal printer. KOT and Bill receipts print automatically via the Windows/system printer driver.</p>
+          <div className="border-t border-border/50 my-2 pt-2">
+            <p className="font-semibold text-foreground">Bluetooth Wireless Printer:</p>
+            <p>1. Turn on Bluetooth & thermal printer</p>
+            <p>2. Click "Connect Bluetooth Printer" below to pair directly</p>
+          </div>
         </div>
 
         <Button onClick={connectWeb} disabled={webConnecting} className="w-full">
           <Bluetooth className="h-4 w-4 mr-2" />
-          {webConnecting ? "Connecting..." : "Connect Printer"}
+          {webConnecting ? "Connecting..." : "Connect Bluetooth Printer"}
         </Button>
 
-        <TestPrintButton disabled={!connected} />
+        <TestPrintButton disabled={false} />
       </div>
     );
   }

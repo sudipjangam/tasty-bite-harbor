@@ -792,9 +792,9 @@ export const QSRPosMain: React.FC = () => {
         }
       }
 
-      // Send to thermal printer if connected
+      // Send to thermal printer (Bluetooth or USB/Browser auto-fallback)
       const itemsToPrint = deltaItemsToPrint.length > 0 ? deltaItemsToPrint : orderItems;
-      if (thermalPrinterService.isConnected() && itemsToPrint.length > 0) {
+      if (itemsToPrint.length > 0) {
         try {
           await thermalPrinterService.printKOT({
             tableName: selectedTable ? selectedTable.name : orderSource,
@@ -805,10 +805,10 @@ export const QSRPosMain: React.FC = () => {
             orderType: orderMode,
           });
         } catch (printErr: any) {
-          console.error("Printer failed:", printErr);
+          console.error("[QSR POS] KOT print failed:", printErr);
           toast({
             variant: "destructive",
-            title: "Print Failed",
+            title: "KOT Print Notice",
             description: printErr?.message || "Could not print KOT receipt",
           });
         }

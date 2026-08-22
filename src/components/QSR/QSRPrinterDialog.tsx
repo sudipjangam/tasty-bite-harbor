@@ -75,10 +75,6 @@ export const QSRPrinterDialog: React.FC<QSRPrinterDialogProps> = ({
   };
 
   const handleTestKOT = async () => {
-    if (!isConnected) {
-      toast({ variant: "destructive", title: "Printer Not Connected", description: "Please connect printer first" });
-      return;
-    }
     setIsTestPrinting(true);
     try {
       await thermalPrinterService.printKOT({
@@ -91,7 +87,7 @@ export const QSRPrinterDialog: React.FC<QSRPrinterDialogProps> = ({
         orderType: "dine_in",
         roundNumber: 1,
       });
-      toast({ title: "Test KOT Printed ✓", description: `Printed in ${paperSize}mm format` });
+      toast({ title: "Test KOT Sent ✓", description: `Printed in ${paperSize}mm format` });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Test Print Failed", description: err.message });
     } finally {
@@ -100,10 +96,6 @@ export const QSRPrinterDialog: React.FC<QSRPrinterDialogProps> = ({
   };
 
   const handleTestBill = async () => {
-    if (!isConnected) {
-      toast({ variant: "destructive", title: "Printer Not Connected", description: "Please connect printer first" });
-      return;
-    }
     setIsTestPrinting(true);
     try {
       await thermalPrinterService.printReceipt({
@@ -127,7 +119,7 @@ export const QSRPrinterDialog: React.FC<QSRPrinterDialogProps> = ({
         netAmount: 360,
         currencySymbol: "₹",
       });
-      toast({ title: "Test Bill Printed ✓", description: `Printed in ${paperSize}mm format` });
+      toast({ title: "Test Bill Sent ✓", description: `Printed in ${paperSize}mm format` });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Test Print Failed", description: err.message });
     } finally {
