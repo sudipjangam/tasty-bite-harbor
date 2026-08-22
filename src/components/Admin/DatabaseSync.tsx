@@ -157,7 +157,10 @@ export const DatabaseSync: React.FC = () => {
           Accept: "application/vnd.github.v3+json",
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ ref: "main" })
+        body: JSON.stringify({
+          ref: "main",
+          inputs: { sync_mode: "full" }
+        })
       });
 
       if (!triggerRes.ok) {
