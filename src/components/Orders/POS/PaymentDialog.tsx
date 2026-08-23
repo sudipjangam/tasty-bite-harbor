@@ -1,21 +1,19 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useBillSharing } from "@/hooks/useBillSharing";
 import { usePaymentStatus } from "@/hooks/usePaymentStatus";
 import { useCRMSync } from "@/hooks/useCRMSync";
 import { useSpeechAnnouncement } from "@/hooks/useSpeechAnnouncement";
 import { usePaymentNotification } from "@/hooks/usePaymentNotification";
+import { useAccessControl } from "@/hooks/useAccessControl";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft,
   Receipt,
   CreditCard,
   Wallet,
@@ -24,19 +22,25 @@ import {
   Printer,
   Trash2,
   Plus,
-  X,
   Search,
   Loader2,
   Share2,
   MessageSquare,
-  Smartphone,
-  Copy,
-  Mail,
-  Link,
+  Sparkles,
+  Percent,
   Clock,
+  ArrowLeft,
+  Pencil,
+  Building2,
+  Gift,
+  Star,
+  Tag,
+  Coins,
+  ChevronDown,
+  ChevronUp,
+  WifiOff,
 } from "lucide-react";
-import QRCode from "qrcode";
-import jsPDF from "jspdf";
+
 import type { OrderItem } from "@/types/orders";
 import { Input } from "@/components/ui/input";
 import {
@@ -46,7 +50,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,18 +62,25 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { thermalPrinterService } from "@/services/thermalPrinterService";
-import { formatOrderItemString } from "@/lib/order-utils";
 import { CustomItemDialog, CustomItem } from "./CustomItemDialog";
 import { PaymentDialogProps } from "./PaymentDialog/types";
 import { resolveInvoiceTemplate } from "@/utils/resolveInvoiceTemplate";
+import { buildReceiptHtml } from "./PaymentDialog/utils/buildReceiptHtml";
+import { calculateOrderTotals } from "./PaymentDialog/utils/paymentCalculations";
 
-// Removed local PaymentStep type definition as it's not used in the props anymore
-// and we can infer or import if needed, but for now we just need PaymentDialogProps
+interface CustomerLoyaltyProfile {
+  id: string;
+  name: string;
+  phone: string;
+  loyalty_points: number;
+  visit_count: number;
+  total_spent: number;
+}
 
 const PaymentDialog = ({
   isOpen,
   onClose,
-  orderItems,
+  orderItems: initialOrderItems,
   onSuccess,
   tableNumber = "",
   onEditOrder,
@@ -80,1505 +90,635 @@ const PaymentDialog = ({
   isNonChargeable = false,
   serverName,
 }: PaymentDialogProps) => {
-  const [currentStep, setCurrentStep] = useState<
-    "confirm" | "method" | "qr" | "success" | "edit" | "split"
-  >("confirm");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { symbol: currencySymbol } = useCurrencyContext();
+  const { hasAccess } = useAccessControl();
+  const { restaurantName: hookRestaurantName, restaurantId: hookRestaurantId } = useRestaurantId();
 
-  // Split payment state
-  const [splitCash, setSplitCash] = useState<string>("");
-  const [splitUpi, setSplitUpi] = useState<string>("");
-  const [splitCard, setSplitCard] = useState<string>("");
+  // Check if restaurant subscription plan includes rooms/hotel management
+  const hasRoomsPlan = hasAccess("rooms") || hasAccess("hotel");
+
+  // ─── Flow State ──────────────────────────────────────────────────────────
+  const [currentStep, setCurrentStep] = useState<"checkout" | "qr" | "split" | "edit" | "success">("checkout");
+
+  // ─── Items & Custom Pricing State ────────────────────────────────────────
+  const [orderItems, setOrderItems] = useState<(OrderItem & { customPrice?: number })[]>(initialOrderItems || []);
+  const [customTotalOverride, setCustomTotalOverride] = useState<number | null>(null);
+  const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
+  const [tempItemPrice, setTempItemPrice] = useState<string>("");
+  const [isEditingTotal, setIsEditingTotal] = useState(false);
+  const [tempTotalInput, setTempTotalInput] = useState<string>("");
+
+  // ─── Customer Details & Sharing ──────────────────────────────────────────
   const [customerName, setCustomerName] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
-  const [sendBillToEmail, setSendBillToEmail] = useState(false);
-  const [sendBillToMobile, setSendBillToMobile] = useState(false);
+  const [sendBillToWhatsApp, setSendBillToWhatsApp] = useState(false);
+  const [orderType, setOrderType] = useState<string | null>(null);
+
+  // ─── Customer Loyalty State (Option 2) ───────────────────────────────────
+  const [customerProfile, setCustomerProfile] = useState<CustomerLoyaltyProfile | null>(null);
+  const [isLookingUpCustomer, setIsLookingUpCustomer] = useState(false);
+  const [redeemedLoyaltyPoints, setRedeemedLoyaltyPoints] = useState<number>(0);
+
+  // ─── Discounts & Promotions ──────────────────────────────────────────────
+  const [promotionCode, setPromotionCode] = useState("");
+  const [manualPromoInput, setManualPromoInput] = useState("");
+  const [appliedPromotion, setAppliedPromotion] = useState<any>(null);
+  const [manualDiscountPercent, setManualDiscountPercent] = useState<number>(0);
+  const [manualDiscountCash, setManualDiscountCash] = useState<number>(0);
+  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
+  const [ncReason, setNcReason] = useState<string>("");
+
+  // ─── Tip / Gratuity State (Option 4) ─────────────────────────────────────
+  const [tipAmount, setTipAmount] = useState<number>(0);
+  const [isCustomTip, setIsCustomTip] = useState(false);
+  const [customTipInput, setCustomTipInput] = useState<string>("");
+
+  // ─── Taxes & Round-Off State (Option 5) ──────────────────────────────────
+  const [isAutoRoundOff, setIsAutoRoundOff] = useState<boolean>(true);
+  const [showTaxBreakdown, setShowTaxBreakdown] = useState<boolean>(false);
+
+  // ─── Split Payment State ─────────────────────────────────────────────────
+  const [splitCash, setSplitCash] = useState<string>("");
+  const [splitUpi, setSplitUpi] = useState<string>("");
+  const [splitCard, setSplitCard] = useState<string>("");
+
+  // ─── Dynamic QR State ────────────────────────────────────────────────────
   const [qrCodeUrl, setQrCodeUrl] = useState("");
-  // Paytm Integration State
   const [paytmOrderId, setPaytmOrderId] = useState<string | null>(null);
   const [isPaytmQR, setIsPaytmQR] = useState(false);
   const [qrExpiresAt, setQrExpiresAt] = useState<string | null>(null);
   const [isGeneratingQR, setIsGeneratingQR] = useState(false);
   const [paymentAutoDetected, setPaymentAutoDetected] = useState(false);
+
+  // ─── Edit Mode & Extras ──────────────────────────────────────────────────
   const [menuSearchQuery, setMenuSearchQuery] = useState("");
   const [newItemsBuffer, setNewItemsBuffer] = useState<OrderItem[]>([]);
+  const [showCustomItemDialog, setShowCustomItemDialog] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [promotionCode, setPromotionCode] = useState("");
-  const [appliedPromotion, setAppliedPromotion] = useState<any>(null);
-  const [manualDiscountPercent, setManualDiscountPercent] = useState<number>(0);
-  const [manualDiscountCash, setManualDiscountCash] = useState<number>(0);
-  const [localDiscountPctStr, setLocalDiscountPctStr] = useState("");
-  const [localDiscountCashStr, setLocalDiscountCashStr] = useState("");
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [itemCompletionStatus, setItemCompletionStatus] = useState<boolean[]>(initialItemCompletionStatus || []);
 
-  // Sync POS manual discount inputs
+  // ─── Reset dialog state whenever opened or switching orders ───────────────
+  // IMPORTANT: keep initialOrderItems OUT of deps — its reference changes on
+  // every parent render, which would reset redeemedLoyaltyPoints/customerProfile
+  // immediately after the user clicks "Redeem Points".
+  const prevOrderKeyRef = useRef<string>("");
   useEffect(() => {
-    setLocalDiscountPctStr(manualDiscountPercent > 0 ? manualDiscountPercent.toString() : "");
-  }, [manualDiscountPercent]);
+    if (!isOpen) return;
+    const orderKey = `${orderId ?? ""}|${tableNumber ?? ""}`;
+    const isNewOrder = orderKey !== prevOrderKeyRef.current;
+    if (!isNewOrder && prevOrderKeyRef.current !== "") return; // already initialised this order
+    prevOrderKeyRef.current = orderKey;
+
+    setCurrentStep("checkout");
+    setIsProcessingPayment(false);
+    setCustomTotalOverride(null);
+    setEditingItemIdx(null);
+    setTempItemPrice("");
+    setIsEditingTotal(false);
+    setTempTotalInput("");
+    setPromotionCode("");
+    setManualPromoInput("");
+    setAppliedPromotion(null);
+    setManualDiscountPercent(0);
+    setManualDiscountCash(0);
+    setRedeemedLoyaltyPoints(0);
+    setCustomerProfile(null);
+    setTipAmount(0);
+    setIsCustomTip(false);
+    setCustomTipInput("");
+    setShowTaxBreakdown(false);
+    setNcReason("");
+    setSplitCash("");
+    setSplitUpi("");
+    setSplitCard("");
+    setQrCodeUrl("");
+    setOrderItems(initialOrderItems || []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, orderId, tableNumber]);
+
+
+  // ─── Hooks ───────────────────────────────────────────────────────────────
+  const { announcePayment } = useSpeechAnnouncement();
+  const { notifyPaymentSuccess, requestPermission } = usePaymentNotification();
+  const { syncCustomerToCRM } = useCRMSync();
+  const { getBillUrl, shareViaWhatsApp, shareViaWebShareAPI, isWebShareSupported } = useBillSharing();
 
   useEffect(() => {
-    setLocalDiscountCashStr(manualDiscountCash > 0 ? manualDiscountCash.toString() : "");
-  }, [manualDiscountCash]);
+    requestPermission();
+  }, [requestPermission]);
+
+  // ─── Offline Queue Auto-Sync Listener ────────────────────────────────────
+  useEffect(() => {
+    const handleOnline = async () => {
+      const offlineQueue = JSON.parse(localStorage.getItem("pos_offline_payments_queue") || "[]");
+      if (offlineQueue.length === 0) return;
+
+      toast({ title: `Syncing ${offlineQueue.length} offline payment(s)...` });
+      const remaining: any[] = [];
+
+      for (const item of offlineQueue) {
+        try {
+          if (item.orderId) {
+            await supabase
+              .from("kitchen_orders")
+              .update({
+                status: "completed",
+                payment_status: item.payment_status,
+                payment_method: item.payment_method,
+                total_amount: item.total_amount,
+                ...(item.customer_name && { customer_name: item.customer_name }),
+                ...(item.customer_phone && { customer_phone: item.customer_phone }),
+              })
+              .eq("id", item.orderId);
+          }
+        } catch {
+          remaining.push(item);
+        }
+      }
+
+      localStorage.setItem("pos_offline_payments_queue", JSON.stringify(remaining));
+      if (remaining.length === 0) {
+        toast({ title: "All offline payments synced to cloud ✓" });
+        queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+      }
+    };
+
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [queryClient, toast]);
+
+  // ─── Restaurant Info Query ───────────────────────────────────────────────
+  const { data: restaurantInfo } = useQuery({
+    queryKey: ["restaurant-info-pos", hookRestaurantId],
+    queryFn: async () => {
+      if (hookRestaurantId) {
+        const { data: rData } = await supabase
+          .from("restaurants")
+          .select("*")
+          .eq("id", hookRestaurantId)
+          .maybeSingle();
+        if (rData) {
+          if (rData.name) localStorage.setItem("cached_restaurant_name", rData.name);
+          return rData;
+        }
+      }
+
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) return null;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("restaurant_id")
+        .eq("id", userData.user.id)
+        .maybeSingle();
+
+      if (profile?.restaurant_id) {
+        const { data: rData } = await supabase
+          .from("restaurants")
+          .select("*")
+          .eq("id", profile.restaurant_id)
+          .maybeSingle();
+        if (rData?.name) localStorage.setItem("cached_restaurant_name", rData.name);
+        return rData;
+      }
+      return null;
+    },
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const resolvedRestaurantName = useMemo(() => {
+    return (
+      hookRestaurantName ||
+      restaurantInfo?.name ||
+      localStorage.getItem("active_branch_name") ||
+      localStorage.getItem("restaurant_name") ||
+      localStorage.getItem("cached_restaurant_name") ||
+      "Tasty Bite Harbor"
+    );
+  }, [hookRestaurantName, restaurantInfo]);
+
+  // ─── Payment Settings Query ──────────────────────────────────────────────
+  const { data: paymentSettings } = useQuery({
+    queryKey: ["payment-settings-pos", restaurantInfo?.id || hookRestaurantId],
+    queryFn: async () => {
+      const targetId = restaurantInfo?.id || hookRestaurantId;
+      if (!targetId) return null;
+      const { data } = await supabase
+        .from("payment_settings")
+        .select("*")
+        .eq("restaurant_id", targetId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!(restaurantInfo?.id || hookRestaurantId),
+  });
+
+  // ─── Active Promotions Query ─────────────────────────────────────────────
+  const { data: activePromotions = [] } = useQuery({
+    queryKey: ["active-promotions-pos", restaurantInfo?.id || hookRestaurantId],
+    queryFn: async () => {
+      const targetId = restaurantInfo?.id || hookRestaurantId;
+      if (!targetId) return [];
+      const today = new Date().toISOString().split("T")[0];
+      const { data } = await supabase
+        .from("promotions")
+        .select("*")
+        .eq("restaurant_id", targetId)
+        .eq("is_active", true)
+        .lte("start_date", today)
+        .gte("end_date", today);
+      return data || [];
+    },
+    enabled: !!(restaurantInfo?.id || hookRestaurantId),
+  });
+
+  // ─── Loyalty Program Settings Query ──────────────────────────────────────
+  const { data: loyaltyProgram } = useQuery({
+    queryKey: ["loyalty-program-pos", restaurantInfo?.id || hookRestaurantId],
+    queryFn: async () => {
+      const targetId = restaurantInfo?.id || hookRestaurantId;
+      if (!targetId) return null;
+      const { data, error } = await supabase
+        .from("loyalty_programs")
+        .select("is_enabled, points_per_amount, spend_threshold, amount_per_point, max_redemption_percentage, points_expiry_days")
+        .eq("restaurant_id", targetId)
+        .maybeSingle();
+      if (error && error.code !== "PGRST116") {
+        console.warn("Loyalty program fetch error:", error);
+      }
+      return data;
+    },
+    enabled: !!(restaurantInfo?.id || hookRestaurantId),
+  });
+
+  const isLoyaltyEnabled = loyaltyProgram?.is_enabled !== false;
+  const amountPerPoint = Number(loyaltyProgram?.amount_per_point || 1);
+  const maxRedemptionPct =
+    loyaltyProgram?.max_redemption_percentage !== null &&
+    loyaltyProgram?.max_redemption_percentage !== undefined
+      ? Number(loyaltyProgram.max_redemption_percentage)
+      : 100;
+
+  // ─── Customer Loyalty Auto-Lookup (Option 2) ─────────────────────────────
+  const lookupCustomerProfile = useCallback(
+    async (phoneNum: string) => {
+      const clean = phoneNum.trim().replace(/\D/g, "");
+      const targetRestaurantId = restaurantInfo?.id || hookRestaurantId;
+      if (clean.length < 10 || !targetRestaurantId) {
+        setCustomerProfile(null);
+        return;
+      }
+
+      setIsLookingUpCustomer(true);
+      try {
+        const { data, error } = await supabase
+          .from("customers")
+          .select("id, name, phone, loyalty_points, visit_count, total_spent")
+          .eq("restaurant_id", targetRestaurantId)
+          .eq("phone", clean)
+          .order("created_at", { ascending: true })
+          .limit(1);
+
+        if (!error && data && data.length > 0) {
+          const profile = data[0];
+          setCustomerProfile({
+            id: profile.id,
+            name: profile.name || "",
+            phone: profile.phone,
+            loyalty_points: Number(profile.loyalty_points || 0),
+            visit_count: Number(profile.visit_count || 1),
+            total_spent: Number(profile.total_spent || 0),
+          });
+          if (!customerName.trim() && profile.name) {
+            setCustomerName(profile.name);
+          }
+        } else {
+          setCustomerProfile(null);
+        }
+      } catch (err) {
+        console.warn("Customer lookup failed:", err);
+      } finally {
+        setIsLookingUpCustomer(false);
+      }
+    },
+    [restaurantInfo, hookRestaurantId, customerName]
+  );
+
+  useEffect(() => {
+    if (customerMobile.length >= 10) {
+      lookupCustomerProfile(customerMobile);
+    } else {
+      setCustomerProfile(null);
+      setRedeemedLoyaltyPoints(0);
+    }
+  }, [customerMobile, lookupCustomerProfile]);
+
+  // ─── Hotel Reservation Check ─────────────────────────────────────────────
   const [detectedReservation, setDetectedReservation] = useState<{
     reservation_id: string;
     room_id: string;
     roomName: string;
     customerName: string;
   } | null>(null);
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [itemCompletionStatus, setItemCompletionStatus] = useState<boolean[]>(
-    initialItemCompletionStatus || [],
-  );
-  const [isSendingWhatsAppBill, setIsSendingWhatsAppBill] = useState(false);
-  const { toast } = useToast();
 
-  // Paytm hooks
-  const { announcePayment } = useSpeechAnnouncement();
-  const { notifyPaymentSuccess, notifyPaymentFailure, requestPermission } =
-    usePaymentNotification();
+  const checkForActiveReservation = useCallback(async () => {
+    if (!hasRoomsPlan) return;
+    if (!customerName.trim() && !customerMobile.trim()) return;
+    try {
+      let query = supabase
+        .from("check_ins")
+        .select(`
+          id,
+          customer_name,
+          customer_phone,
+          status,
+          room_id,
+          rooms:room_id (id, room_number)
+        `)
+        .eq("status", "checked_in");
 
-  // Request browser notification permission on mount
+      if (customerMobile.trim()) {
+        query = query.eq("customer_phone", customerMobile.trim());
+      } else if (customerName.trim()) {
+        query = query.ilike("customer_name", `%${customerName.trim()}%`);
+      }
+
+      const { data } = await query.limit(1);
+      if (data && data.length > 0) {
+        const checkIn = data[0];
+        setDetectedReservation({
+          reservation_id: checkIn.id,
+          room_id: checkIn.room_id,
+          roomName: (checkIn.rooms as any)?.room_number || "Room",
+          customerName: checkIn.customer_name,
+        });
+      } else {
+        setDetectedReservation(null);
+      }
+    } catch {
+      setDetectedReservation(null);
+    }
+  }, [hasRoomsPlan, customerName, customerMobile]);
+
   useEffect(() => {
-    requestPermission();
-  }, [requestPermission]);
-  const queryClient = useQueryClient();
-  const invalidateOrderQueries = () => {
-    queryClient.invalidateQueries({ queryKey: ["all-orders"] });
-    queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
-    queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
-    queryClient.invalidateQueries({ queryKey: ["active-orders"] });
-    queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
-    queryClient.invalidateQueries({ queryKey: ["orders"] });
-    queryClient.invalidateQueries({ queryKey: ["dashboard-orders"] });
-  };
-  const { symbol: currencySymbol } = useCurrencyContext();
+    if (customerMobile.length >= 10 || customerName.length >= 3) {
+      checkForActiveReservation();
+    }
+  }, [customerMobile, customerName, checkForActiveReservation]);
 
-  // CRM auto-sync hook - upserts customer & awards loyalty points on payment
-  const { syncCustomerToCRM } = useCRMSync();
-
-  // Free bill sharing hook (wa.me links, Web Share API, Email, Bill Link)
-  const {
-    isMobileDevice,
-    shareViaWhatsApp,
-    shareViaSms,
-    shareViaEmail,
-    shareViaLink,
-    getBillUrl,
-    shareViaWebShareAPI,
-    getBillText,
-    isWebShareSupported,
-  } = useBillSharing();
-
-  // NC (Non-Chargeable) Reason State
-  const [ncReason, setNcReason] = useState<string>("");
-
-  // Order Type State - to determine if customer name is mandatory
-  const [orderType, setOrderType] = useState<string | null>(null);
-
-  // Custom Item State
-  const [showCustomItemDialog, setShowCustomItemDialog] = useState(false);
-
-  // Fetch restaurant info
-  const { data: restaurantInfo } = useQuery({
-    queryKey: ["restaurant-info"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return null;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("restaurant_id")
-        .eq("id", user.id)
-        .single();
-
-      if (!profile?.restaurant_id) return null;
-
+  // ─── Load Existing Order Details ─────────────────────────────────────────
+  useEffect(() => {
+    if (!orderId) return;
+    const fetchOrder = async () => {
       const { data } = await supabase
-        .from("restaurants")
-        .select("*")
-        .eq("id", profile.restaurant_id)
-        .single();
-
-      return data;
-    },
-  });
-
-  // Fetch menu items for edit mode
-  const { data: menuItems = [] } = useQuery({
-    queryKey: ["menu-items-for-edit"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return [];
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("restaurant_id")
-        .eq("id", user.id)
-        .single();
-
-      if (!profile?.restaurant_id) return [];
-
-      const { data } = await supabase
-        .from("menu_items")
-        .select("*")
-        .eq("restaurant_id", profile.restaurant_id)
-        .eq("is_available", true)
-        .order("name");
-
-      return data || [];
-    },
-    enabled: isOpen,
-  });
-
-  // Fetch payment settings
-  const { data: paymentSettings } = useQuery({
-    queryKey: [
-      "payment-settings",
-      restaurantInfo?.restaurantId || restaurantInfo?.id,
-    ],
-    queryFn: async () => {
-      const restaurantIdToUse =
-        restaurantInfo?.restaurantId || restaurantInfo?.id;
-      if (!restaurantIdToUse) return null;
-
-      const { data, error } = await supabase
-        .from("payment_settings")
-        .select("*")
-        .eq("restaurant_id", restaurantIdToUse)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
-        .limit(1)
+        .from("kitchen_orders")
+        .select("order_type, customer_name, customer_phone, manual_discount_percent, promotion_id")
+        .eq("id", orderId)
         .maybeSingle();
 
-      if (error) {
-        console.error("Error fetching payment settings:", error);
-        return null;
+      if (data) {
+        if (data.order_type) setOrderType(data.order_type);
+        if (data.customer_name) setCustomerName(data.customer_name);
+        if (data.customer_phone) setCustomerMobile(data.customer_phone);
+        if (data.manual_discount_percent) setManualDiscountPercent(data.manual_discount_percent);
       }
+    };
+    fetchOrder();
+  }, [orderId]);
 
-      return data;
-    },
-    enabled: !!(restaurantInfo?.restaurantId || restaurantInfo?.id),
-  });
-
-  // Fetch active promotions
-  const { data: activePromotions = [] } = useQuery({
-    queryKey: [
-      "active-promotions",
-      restaurantInfo?.restaurantId || restaurantInfo?.id,
-    ],
-    queryFn: async () => {
-      const restaurantIdToUse =
-        restaurantInfo?.restaurantId || restaurantInfo?.id;
-      if (!restaurantIdToUse) return [];
-
-      const today = new Date().toISOString().split("T")[0];
-      const { data, error } = await supabase
-        .from("promotion_campaigns")
-        .select("*")
-        .eq("restaurant_id", restaurantIdToUse)
-        .eq("is_active", true)
-        .not("promotion_code", "is", null)
-        .lte("start_date", today)
-        .gte("end_date", today);
-
-      if (error) {
-        console.error("Error fetching promotions:", error);
-        return [];
-      }
-
-      return data || [];
-    },
-    enabled: !!(restaurantInfo?.restaurantId || restaurantInfo?.id),
-  });
-
-  // Calculate totals with promotion discount and manual discount
-  // Handle weight-based pricing by using calculatedPrice when available
-  const subtotal = orderItems.reduce((sum, item) => {
-    if (item.calculatedPrice !== undefined) {
-      return sum + item.calculatedPrice;
-    }
-    return sum + item.price * item.quantity;
-  }, 0);
-
-  // Calculate promotion discount amount if promotion is applied
-  const promotionDiscountAmount = appliedPromotion
-    ? appliedPromotion.discount_percentage
-      ? (subtotal * appliedPromotion.discount_percentage) / 100
-      : appliedPromotion.discount_amount || 0
+  // ─── Calculations Engine (Totals, Loyalty, Tip, Round-off, Taxes) ─────────
+  const hasGstin = Boolean(
+    (restaurantInfo?.gstin && restaurantInfo.gstin.trim() !== "" && restaurantInfo.gstin.toLowerCase() !== "not set") ||
+    ((restaurantInfo as any)?.gst_number && (restaurantInfo as any).gst_number.trim() !== "" && (restaurantInfo as any).gst_number.toLowerCase() !== "not set")
+  );
+  const gstPercent = hasGstin
+    ? (Number((restaurantInfo as any)?.tax_rate || paymentSettings?.tax_rate || 5) || 5)
     : 0;
 
-  // Calculate manual discount amount (percentage + cash)
-  const manualDiscountPercentAmount =
-    manualDiscountPercent > 0 ? (subtotal * manualDiscountPercent) / 100 : 0;
-  const manualDiscountAmount = manualDiscountPercentAmount + manualDiscountCash;
+  const loyaltyDiscountRupees = redeemedLoyaltyPoints * amountPerPoint;
 
-  // Total discount is sum of promotion + manual discounts
-  const totalDiscountAmount = promotionDiscountAmount + manualDiscountAmount;
-
-  const totalAfterDiscount = subtotal - totalDiscountAmount;
-  const total = totalAfterDiscount;
-
-  // Generate QR code when UPI method is selected
-  // Paytm Dynamic QR (if configured) or Static UPI QR (fallback)
-  const generatePaytmDynamicQR = useCallback(async () => {
-    const restaurantId = restaurantInfo?.restaurantId || restaurantInfo?.id;
-    if (!restaurantId || !total || total <= 0) return;
-
-    setIsGeneratingQR(true);
-    setQrCodeUrl("");
-    setPaymentAutoDetected(false);
-
-    try {
-      const { data, error } = await supabase.functions.invoke(
-        "create-paytm-qr",
-        {
-          body: {
-            restaurantId,
-            orderId: orderId || undefined,
-            amount: total,
-            tableNumber: tableNumber || undefined,
-            orderDescription: `Table ${tableNumber || "POS"} Order`,
-          },
-        },
-      );
-
-      if (error) throw error;
-
-      if (data?.success && data?.payment) {
-        const payment = data.payment;
-        if (payment.isPaytm) {
-          // Paytm Dynamic QR
-          setQrCodeUrl(
-            payment.qrImage ? `data:image/png;base64,${payment.qrImage}` : "",
-          );
-          setPaytmOrderId(payment.paytmOrderId);
-          setIsPaytmQR(true);
-          setQrExpiresAt(payment.expiresAt);
-        } else {
-          // Static UPI QR fallback
-          setQrCodeUrl(payment.qrImage || "");
-          setIsPaytmQR(false);
-          setPaytmOrderId(null);
-        }
-      }
-    } catch (err) {
-      console.error("Error generating Paytm QR:", err);
-      // Fallback to static UPI QR
-      if (paymentSettings?.upi_id) {
-        const upiUrl = `upi://pay?pa=${paymentSettings.upi_id}&pn=${encodeURIComponent(
-          restaurantInfo?.name || "Restaurant",
-        )}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(
-          `Order ${tableNumber || "POS"}`,
-        )}`;
-        const url = await QRCode.toDataURL(upiUrl, { width: 300, margin: 2 });
-        setQrCodeUrl(url);
-        setIsPaytmQR(false);
-      }
-    } finally {
-      setIsGeneratingQR(false);
-    }
-  }, [restaurantInfo, total, orderId, tableNumber, paymentSettings]);
-
-  useEffect(() => {
-    if (currentStep === "qr") {
-      // Check if Paytm is configured
-      if (
-        paymentSettings?.gateway_type === "paytm" &&
-        paymentSettings?.paytm_mid
-      ) {
-        generatePaytmDynamicQR();
-      } else if (paymentSettings?.upi_id) {
-        // Static UPI QR fallback
-        const upiUrl = `upi://pay?pa=${
-          paymentSettings.upi_id
-        }&pn=${encodeURIComponent(
-          restaurantInfo?.name || "Restaurant",
-        )}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(
-          `Order ${tableNumber || "POS"}`,
-        )}`;
-        QRCode.toDataURL(upiUrl, { width: 300, margin: 2 })
-          .then((url) => setQrCodeUrl(url))
-          .catch((err) => console.error("QR generation error:", err));
-        setIsPaytmQR(false);
-      }
-    }
-  }, [
-    currentStep,
-    paymentSettings,
-    total,
-    restaurantInfo,
-    tableNumber,
-    generatePaytmDynamicQR,
-  ]);
-
-  // Paytm real-time payment detection
-  const handlePaytmSuccess = useCallback(
-    (transaction: any) => {
-      setPaymentAutoDetected(true);
-
-      // Voice announcement
-      announcePayment({
-        amount: total,
-        tableNumber: tableNumber || undefined,
-        language:
-          (paymentSettings as any)?.voice_announcement_language === "hi"
-            ? "hi"
-            : "en",
-        template:
-          ((paymentSettings as any)?.voice_announcement_template as
-            | "simple"
-            | "detailed") || "detailed",
-      });
-
-      // Popup notification
-      notifyPaymentSuccess({
-        amount: total,
-        tableNumber: tableNumber || undefined,
-        currencySymbol,
-      });
-
-      // Auto-mark as paid after a brief delay for the user to see the success state
-      setTimeout(() => {
-        handleMarkAsPaid("upi");
-      }, 6000);
-    },
-    [
-      total,
-      tableNumber,
-      currencySymbol,
-      paymentSettings,
-      announcePayment,
-      notifyPaymentSuccess,
-    ],
-  );
-
-  const handlePaytmFailure = useCallback(
-    (transaction: any) => {
-      notifyPaymentFailure({
-        amount: total,
-        tableNumber: tableNumber || undefined,
-        currencySymbol,
-      });
-    },
-    [total, tableNumber, currencySymbol, notifyPaymentFailure],
-  );
-
-  // Real-time payment status listener (only active when Paytm QR is showing)
-  const { status: paymentStatus } = usePaymentStatus({
-    paytmOrderId: isPaytmQR ? paytmOrderId : null,
-    restaurantId: restaurantInfo?.restaurantId || restaurantInfo?.id || "",
-    onSuccess: handlePaytmSuccess,
-    onFailure: handlePaytmFailure,
-    enablePolling: isPaytmQR && currentStep === "qr",
-  });
-
-  // Fetch existing customer details and discount if orderId exists
-  useEffect(() => {
-    const fetchCustomerDetails = async () => {
-      if (orderId && isOpen) {
-        try {
-          const { data: kitchenOrder } = await supabase
-            .from("kitchen_orders")
-            .select("order_id, customer_name, customer_phone, order_type")
-            .eq("id", orderId)
-            .single();
-
-          // Set order type for conditional validation
-          if (kitchenOrder) {
-            setOrderType(kitchenOrder.order_type || null);
-          }
-
-          if (kitchenOrder?.order_id) {
-            // Try fetching from orders with both naming conventions AND discount fields
-            const { data: order } = await supabase
-              .from("orders")
-              .select(
-                "Customer_Name, Customer_MobileNumber, customer_name, customer_phone, discount_percentage, discount_amount, promotion_code, promotion_name",
-              )
-              .eq("id", kitchenOrder.order_id)
-              .maybeSingle();
-
-            if (order) {
-              const name =
-                (order as any).Customer_Name || (order as any).customer_name;
-              const phone =
-                (order as any).Customer_MobileNumber ||
-                (order as any).customer_phone;
-
-              // Only set customer name if it's not a generic value
-              // Skip: Nc, NC, Delivery, Takeaway, Dine-in, etc.
-              const genericNames = [
-                "nc",
-                "delivery",
-                "takeaway",
-                "dine-in",
-                "dine in",
-                "pos order",
-                "qsr order",
-                "qsr-order",
-              ];
-              if (name && !genericNames.includes(name.toLowerCase().trim()) && !name.toLowerCase().trim().startsWith('table')) {
-                setCustomerName(name);
-              }
-
-              if (phone) {
-                setCustomerMobile(String(phone));
-                setSendBillToEmail(true);
-              }
-
-              // Load existing discount percentage from DB, or reset to 0 if no discount
-              const discountPercent =
-                parseFloat((order as any).discount_percentage) || 0;
-              setManualDiscountPercent(discountPercent);
-
-              // Also restore cash discount: stored discount_amount minus the %-based portion
-              const storedDiscountAmount =
-                parseFloat((order as any).discount_amount) || 0;
-              const percentBasedAmount = discountPercent > 0
-                ? (subtotal * discountPercent) / 100
-                : 0;
-              const cashDiscount = Math.max(
-                0,
-                storedDiscountAmount - percentBasedAmount,
-              );
-              if (cashDiscount > 0) {
-                setManualDiscountCash(cashDiscount);
-              }
-
-              // Restore promotion state if present, otherwise clear it
-              const storedPromoCode = (order as any).promotion_code;
-              const storedPromoName = (order as any).promotion_name;
-              
-              if (storedPromoCode) {
-                setPromotionCode(storedPromoCode);
-                setAppliedPromotion({
-                  name: storedPromoName || "Applied Promotion",
-                  code: storedPromoCode,
-                  promotion_code: storedPromoCode,
-                  discount_percentage: discountPercent,
-                  discount_amount: cashDiscount > 0 ? cashDiscount : undefined,
-                });
-                setManualDiscountPercent(0);
-                setManualDiscountCash(0);
-              } else if (discountPercent === 0 && cashDiscount === 0) {
-                setAppliedPromotion(null);
-                setPromotionCode("");
-              } else {
-                setAppliedPromotion(null);
-                setPromotionCode("");
-              }
-            } else {
-              // No order found - reset discount state
-              setManualDiscountPercent(0);
-              setAppliedPromotion(null);
-              setPromotionCode("");
-            }
-          } else {
-            // Fall back to details stored on the kitchen order
-            const genericNames = [
-              "nc",
-              "delivery",
-              "takeaway",
-              "dine-in",
-              "dine in",
-              "pos order",
-              "qsr order",
-              "qsr-order",
-            ];
-            if (
-              kitchenOrder?.customer_name &&
-              !genericNames.includes(
-                kitchenOrder.customer_name.toLowerCase().trim(),
-              ) &&
-              !kitchenOrder.customer_name.toLowerCase().trim().startsWith('table')
-            ) {
-              setCustomerName(kitchenOrder.customer_name);
-            }
-            if ((kitchenOrder as any)?.customer_phone) {
-              setCustomerMobile(String((kitchenOrder as any).customer_phone));
-              setSendBillToEmail(true);
-            } else {
-              setSendBillToEmail(false);
-            }
-            // No linked order - reset discount state
-            setManualDiscountPercent(0);
-            setAppliedPromotion(null);
-            setPromotionCode("");
-          }
-        } catch (error) {
-          console.error("Error fetching customer details:", error);
-          // Reset discount state on error
-          setManualDiscountPercent(0);
-          setAppliedPromotion(null);
-          setPromotionCode("");
-        }
-      } else if (isOpen && !orderId) {
-        // New order (no orderId) - reset discount state
-        setManualDiscountPercent(0);
-        setAppliedPromotion(null);
-        setPromotionCode("");
-      }
-    };
-
-    fetchCustomerDetails();
-  }, [orderId, isOpen]);
-
-  // Fetch item completion status from KDS (synced with kitchen display)
-  useEffect(() => {
-    const fetchItemCompletionStatus = async () => {
-      if (orderId && isOpen) {
-        try {
-          const { data, error } = await supabase
-            .from("kitchen_orders")
-            .select("item_completion_status")
-            .eq("id", orderId)
-            .single();
-
-          if (!error && data?.item_completion_status) {
-            setItemCompletionStatus(data.item_completion_status);
-          } else {
-            setItemCompletionStatus([]);
-          }
-        } catch (err) {
-          console.error("Error fetching item completion status:", err);
-          setItemCompletionStatus([]);
-        }
-      } else {
-        setItemCompletionStatus([]);
-      }
-    };
-
-    fetchItemCompletionStatus();
-  }, [orderId, isOpen]);
-
-  // Reset state when dialog closes
-  useEffect(() => {
-    if (!isOpen) {
-      setCurrentStep("confirm");
-      setCustomerName("");
-      setCustomerMobile("");
-      setCustomerEmail("");
-      setSendBillToEmail(false);
-      setQrCodeUrl("");
-      setMenuSearchQuery("");
-      setNewItemsBuffer([]);
-      setIsSaving(false);
-      setDetectedReservation(null);
-      // Reset discount state to prevent stale values persisting between orders
-      setManualDiscountPercent(0);
-      setManualDiscountCash(0);
-      setAppliedPromotion(null);
-      setPromotionCode("");
-      setItemCompletionStatus([]);
-      setOrderType(null); // Reset order type
-      // Reset Paytm state
-      setPaytmOrderId(null);
-      setIsPaytmQR(false);
-      setQrExpiresAt(null);
-      setIsGeneratingQR(false);
-      setPaymentAutoDetected(false);
-      // Reset split state
-      setSplitCash("");
-      setSplitUpi("");
-      setSplitCard("");
-    }
-  }, [isOpen]);
-
-  const handleEditOrder = () => {
-    setCurrentStep("edit");
-    setNewItemsBuffer([]);
-    setMenuSearchQuery("");
-  };
-
-  const handleDeleteOrder = async () => {
-    // This is now triggered after confirming from the AlertDialog
-    setShowDeleteConfirm(false);
-
-    try {
-      if (orderId) {
-        // First, get the order_id from kitchen_orders to delete related order
-        const { data: kitchenOrder } = await supabase
-          .from("kitchen_orders")
-          .select("order_id")
-          .eq("id", orderId)
-          .single();
-
-        // Delete from kitchen_orders table
-        const { error: kitchenError } = await supabase
-          .from("kitchen_orders")
-          .delete()
-          .eq("id", orderId);
-
-        if (kitchenError) throw kitchenError;
-
-        // Delete corresponding order from orders table if it exists
-        if (kitchenOrder?.order_id) {
-          const { error: orderError } = await supabase
-            .from("orders")
-            .delete()
-            .eq("id", kitchenOrder.order_id);
-
-          if (orderError)
-            console.error("Error deleting from orders table:", orderError);
-        }
-
-        invalidateOrderQueries();
-      }
-
-      toast({
-        title: "Order Deleted Successfully",
-        description: "The order has been permanently deleted.",
-      });
-
-      onClose();
-      onSuccess(); // Refresh the order list
-    } catch (error) {
-      console.error("Error deleting order:", error);
-      toast({
-        title: "Delete Failed",
-        description: "Failed to delete the order. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleAddMenuItem = (item: any) => {
-    // Check if item already exists in buffer
-    const existingIndex = newItemsBuffer.findIndex(
-      (bufferItem) => bufferItem.name === item.name,
-    );
-
-    if (existingIndex >= 0) {
-      // Increase quantity if item exists
-      setNewItemsBuffer((prev) =>
-        prev.map((bufferItem, idx) =>
-          idx === existingIndex
-            ? { ...bufferItem, quantity: bufferItem.quantity + 1 }
-            : bufferItem,
-        ),
-      );
-      toast({
-        title: "Quantity Increased",
-        description: `${item.name} quantity increased to ${
-          newItemsBuffer[existingIndex].quantity + 1
-        }.`,
-      });
-    } else {
-      // Add new item
-      const newItem: OrderItem = {
-        id: `new-${Date.now()}-${Math.random()}`,
-        menuItemId: item.id, // Will be undefined for custom items if we reuse this logic? No, item.id is from menu.
-        name: item.name,
-        price: item.price,
-        quantity: 1,
-        modifiers: [],
-      };
-      setNewItemsBuffer((prev) => [...prev, newItem]);
-      toast({
-        title: "Item Added",
-        description: `${item.name} added to new items list.`,
-      });
-    }
-  };
-
-  const handleAddCustomItem = (item: CustomItem) => {
-    const newItem: OrderItem = {
-      id: `custom-${Date.now()}-${Math.random()}`,
-      // No menuItemId for custom items
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity,
-      modifiers: [],
-    };
-
-    setNewItemsBuffer((prev) => [...prev, newItem]);
-    toast({
-      title: "Custom Item Added",
-      description: `${item.quantity}x ${item.name} added to order.`,
-    });
-  };
-
-  const handleRemoveNewItem = (itemId: string) => {
-    setNewItemsBuffer((prev) => prev.filter((item) => item.id !== itemId));
-  };
-
-  const handleRemoveExistingItem = async (itemIndex: number) => {
-    if (!orderId) return;
-
-    try {
-      // Get current kitchen order including order_id for syncing
-      const { data: currentOrder, error: fetchError } = await supabase
-        .from("kitchen_orders")
-        .select("items, order_id")
-        .eq("id", orderId)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      // Remove the item at the specified index
-      const updatedItems = [...(currentOrder?.items || [])];
-      updatedItems.splice(itemIndex, 1);
-
-      // Calculate new total from remaining items
-      const newTotal = updatedItems.reduce((sum, item: any) => {
-        const price = item.price || 0;
-        const quantity = item.quantity || 1;
-        return sum + price * quantity;
-      }, 0);
-
-      // Update the kitchen_orders table
-      const { error: updateError } = await supabase
-        .from("kitchen_orders")
-        .update({
-          items: updatedItems,
-          status: "new",
-        })
-        .eq("id", orderId);
-
-      if (updateError) throw updateError;
-
-      // Also update the linked orders table to keep Orders Management in sync
-      if (currentOrder?.order_id) {
-        // Format items for orders table (string array format: "2x Item Name @price")
-        const ordersTableItems = updatedItems.map((item: any) => {
-          const itemName = item.name || "Unknown Item";
-          const itemQty = item.quantity || 1;
-          const itemPrice = item.price || 0;
-          return formatOrderItemString(itemQty, itemName, itemPrice, item.notes);
-        });
-
-        const { error: ordersUpdateError } = await supabase
-          .from("orders")
-          .update({
-            items: ordersTableItems,
-            total: newTotal,
-          })
-          .eq("id", currentOrder.order_id);
-
-        if (ordersUpdateError) {
-          console.error("Error updating orders table:", ordersUpdateError);
-          // Don't fail the whole operation - kitchen order is already updated
-        }
-      }
-
-      toast({
-        title: "Item Removed",
-        description: "Item has been removed from the order.",
-      });
-
-      // Refresh the order data immediately
-      if (onOrderUpdated) {
-        onOrderUpdated();
-      }
-      onSuccess();
-    } catch (error) {
-      console.error("Error removing item:", error);
-      toast({
-        title: "Failed to Remove Item",
-        description: "There was an error removing the item.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleUpdateNewItemQuantity = (itemId: string, newQuantity: number) => {
-    if (newQuantity < 1) {
-      handleRemoveNewItem(itemId);
-      return;
-    }
-    setNewItemsBuffer((prev) =>
-      prev.map((item) =>
-        item.id === itemId ? { ...item, quantity: newQuantity } : item,
-      ),
-    );
-  };
-
-  const handleUpdateExistingItemQuantity = async (
-    itemIndex: number,
-    newQuantity: number,
-  ) => {
-    if (!orderId) return;
-
-    if (newQuantity < 1) {
-      // If quantity drops to 0 or less, confirm removal?
-      // For now, let's just trigger the remove flow which is safer
-      handleRemoveExistingItem(itemIndex);
-      return;
-    }
-
-    try {
-      // Get current kitchen order
-      const { data: currentOrder, error: fetchError } = await supabase
-        .from("kitchen_orders")
-        .select("items, order_id")
-        .eq("id", orderId)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      // Deep copy items
-      const updatedItems = [...(currentOrder?.items || [])];
-
-      // Update quantity of specific item
-      // Need to handle string format vs object format
-      const targetItem = updatedItems[itemIndex];
-      if (typeof targetItem === "string") {
-        // Parse "1x Name" if needed, but ideally we should normalize first.
-        // If it's a string, we might need to parse it to update quantity.
-        const match = targetItem.match(/^(\d+)x\s+(.+)$/);
-        if (match) {
-          const name = match[2];
-          updatedItems[itemIndex] = { name, quantity: newQuantity, price: 0 };
-        } else {
-          // Fallback if parsing fails, assume name only
-          updatedItems[itemIndex] = {
-            name: targetItem,
-            quantity: newQuantity,
-            price: 0,
-          };
-        }
-      } else {
-        // It's an object
-        updatedItems[itemIndex] = { ...targetItem, quantity: newQuantity };
-      }
-
-      // Calculate new total
-      const newTotal = updatedItems.reduce((sum, item: any) => {
-        const price = item.price || 0;
-        const quantity = item.quantity || 1;
-        return sum + price * quantity;
-      }, 0);
-
-      // Update kitchen_orders
-      const { error: updateError } = await supabase
-        .from("kitchen_orders")
-        .update({
-          items: updatedItems,
-          // CRITICAL: Reset status to 'new' so kitchen sees the change
-          status: "new",
-        })
-        .eq("id", orderId);
-
-      if (updateError) throw updateError;
-
-      // Update linked orders table
-      if (currentOrder?.order_id) {
-        const ordersTableItems = updatedItems.map((item: any) => {
-          const itemName = item.name || "Unknown Item";
-          const itemQty = item.quantity || 1;
-          const itemPrice = item.price || 0;
-          return formatOrderItemString(itemQty, itemName, itemPrice, item.notes);
-        });
-
-        const { error: ordersUpdateError } = await supabase
-          .from("orders")
-          .update({
-            items: ordersTableItems,
-            total: newTotal,
-          })
-          .eq("id", currentOrder.order_id);
-
-        if (ordersUpdateError) {
-          console.error("Error updating orders table:", ordersUpdateError);
-        }
-      }
-
-      toast({
-        title: "Order Updated",
-        description: `Item quantity updated to ${newQuantity}.`,
-      });
-
-      if (onOrderUpdated) {
-        onOrderUpdated();
-      } else {
-        onSuccess();
-      }
-    } catch (error) {
-      console.error("Error updating item quantity:", error);
-      toast({
-        title: "Update Failed",
-        description: "Could not update item quantity.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleSaveNewItems = async () => {
-    if (newItemsBuffer.length === 0) {
-      toast({
-        title: "No Items to Add",
-        description: "Please add at least one item from the menu.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      if (!orderId) {
-        toast({
-          title: "Error",
-          description: "Order ID not found. Cannot add items.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Get restaurant ID
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("restaurant_id")
-        .eq("id", user.id)
-        .single();
-
-      if (!profile?.restaurant_id) throw new Error("Restaurant not found");
-
-      // Get current kitchen order to update items and get linked order_id
-      const { data: currentOrder, error: fetchError } = await supabase
-        .from("kitchen_orders")
-        .select("items, order_id")
-        .eq("id", orderId)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      // Normalize old items to ensure they are objects
-      const normalizedOldItems = (currentOrder?.items || []).map((item) => {
-        if (typeof item === "string") {
-          // Parse string format "1x Item Name" to object
-          const match = item.match(/^(\d+)x\s+(.+)$/);
-          if (match) {
-            return { name: match[2], quantity: parseInt(match[1]), price: 0 };
-          }
-          return { name: item, quantity: 1, price: 0 };
-        }
-        return item;
-      });
-
-      // Convert newItemsBuffer to proper format
-      const formattedNewItems = newItemsBuffer.map((item) => ({
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-      }));
-
-      // Combine old items with new items as objects
-      const combinedItems = [...normalizedOldItems, ...formattedNewItems];
-
-      // Calculate new total from combined items
-      const newTotal = combinedItems.reduce((sum, item: any) => {
-        const price = item.price || 0;
-        const quantity = item.quantity || 1;
-        return sum + price * quantity;
-      }, 0);
-
-      // Update the kitchen_orders table
-      const { error: updateError } = await supabase
-        .from("kitchen_orders")
-        .update({
-          items: combinedItems,
-          status: "new",
-        })
-        .eq("id", orderId);
-
-      if (updateError) throw updateError;
-
-      // Also update the linked orders table to keep Orders Management in sync
-      if (currentOrder?.order_id) {
-        // Format items for orders table (string array format: "2x Item Name @price")
-        const ordersTableItems = combinedItems.map((item: any) => {
-          const itemName = item.name || "Unknown Item";
-          const itemQty = item.quantity || 1;
-          const itemPrice = item.price || 0;
-          return formatOrderItemString(itemQty, itemName, itemPrice, item.notes);
-        });
-
-        const { error: ordersUpdateError } = await supabase
-          .from("orders")
-          .update({
-            items: ordersTableItems,
-            total: newTotal,
-          })
-          .eq("id", currentOrder.order_id);
-
-        if (ordersUpdateError) {
-          console.error("Error updating orders table:", ordersUpdateError);
-          // Don't fail the whole operation - kitchen order is already updated
-        }
-      }
-
-      toast({
-        title: "Items Added Successfully",
-        description: `${newItemsBuffer.length} new item(s) have been sent to the kitchen.`,
-      });
-
-      // Update the local orderItems and go back to confirm step
-      setCurrentStep("confirm");
-      setNewItemsBuffer([]);
-
-      // Refresh order data to show updated items immediately
-      if (onOrderUpdated) {
-        onOrderUpdated();
-      }
-      onSuccess(); // Refresh the order list
-    } catch (error) {
-      console.error("Error adding items to order:", error);
-      toast({
-        title: "Failed to Add Items",
-        description: "There was an error adding items to the order.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Filter menu items based on search
-  const filteredMenuItems = menuItems.filter(
-    (item) =>
-      item.name.toLowerCase().includes(menuSearchQuery.toLowerCase()) ||
-      (item.category &&
-        item.category.toLowerCase().includes(menuSearchQuery.toLowerCase())),
-  );
-
-  const saveCustomerDetails = async (): Promise<boolean> => {
-    // If checkbox not checked, return success
-    if (!sendBillToEmail) {
-      return true;
-    }
-
-    if (!orderId) {
-      console.error("❌ No orderId provided");
-      toast({
-        title: "Error",
-        description: "Order ID not found. Cannot save customer details.",
-        variant: "destructive",
-      });
-      return false;
-    }
-
-    // Validate inputs
-    if (!customerName.trim()) {
-      toast({
-        title: "Customer Name Required",
-        description: "Please enter customer name to send bill.",
-        variant: "destructive",
-      });
-      return false;
-    }
-
-    // Email is optional - only validate format if provided
-    const emailStr = String(customerEmail).trim();
-    if (emailStr) {
-      // Validate email format only if email is provided
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(emailStr)) {
-        toast({
-          title: "Invalid Email",
-          description: "Please enter a valid email address.",
-          variant: "destructive",
-        });
-        return false;
-      }
-    }
-
-    setIsSaving(true);
-
-    try {
-      // Try to find the order_id from kitchen_orders
-      const { data: kitchenOrder, error: kitchenError } = await supabase
-        .from("kitchen_orders")
-        .select("order_id")
-        .eq("id", orderId)
-        .maybeSingle();
-
-      let targetOrderId = null;
-
-      if (kitchenOrder?.order_id) {
-        // Found a linked order_id
-        targetOrderId = kitchenOrder.order_id;
-      } else {
-        // Maybe orderId is directly the orders table ID
-
-        const { data: directOrder, error: directError } = await supabase
-          .from("orders")
-          .select("id")
-          .eq("id", orderId)
-          .maybeSingle();
-
-        if (directOrder) {
-          targetOrderId = orderId;
-        } else {
-          console.error("❌ No order found with ID:", orderId, { directError });
-        }
-      }
-
-      if (targetOrderId) {
-        // Use snake_case column names (standardized)
-        const { data: updateData, error: updateError } = await supabase
-          .from("orders")
-          .update({
-            customer_name: customerName.trim(),
-            customer_phone: String(customerMobile).trim(),
-          })
-          .eq("id", targetOrderId)
-          .select();
-
-        if (updateError) {
-          console.error("❌ Update error:", updateError);
-          throw updateError;
-        }
-
-        toast({
-          title: "Details Saved",
-          description: "Customer details saved successfully.",
-        });
-      } else {
-        console.warn(
-          "⚠️ No linked order found. Saving name on kitchen order and proceeding.",
-        );
-        // Fallback: store the customer name on the kitchen order so it is visible to staff
-        try {
-          const { error: koUpdateError } = await supabase
-            .from("kitchen_orders")
-            .update({
-              customer_name: customerName.trim(),
-              customer_phone: customerMobile.trim(),
-            })
-            .eq("id", orderId);
-
-          if (koUpdateError) {
-            console.error(
-              "⚠️ Failed to save on kitchen_orders:",
-              koUpdateError,
-            );
-            toast({
-              title: "Proceeding without DB save",
-              description:
-                "Could not link order yet. We'll still proceed and include details on the bill.",
-            });
-          } else {
-            toast({
-              title: "Details Saved (Temporary)",
-              description:
-                "Name saved for this order. It will be attached when the order is created.",
-            });
-          }
-        } catch (e) {
-          console.error("⚠️ Kitchen order fallback failed:", e);
-        }
-        setIsSaving(false);
-        return true;
-      }
-
-      setIsSaving(false);
-      return true;
-    } catch (error) {
-      console.error("❌ Error saving customer details:", error);
-      toast({
-        title: "Save Failed",
-        description: "Failed to save customer details. Please try again.",
-        variant: "destructive",
-      });
-      setIsSaving(false);
-      return false;
-    }
-  };
-
-  // Build bill text for sharing (free — no API keys needed)
-  const currentBillText = useMemo(() => {
-    return getBillText({
-      restaurantName:
-        restaurantInfo?.name || restaurantInfo?.restaurantName || "Restaurant",
-      restaurantAddress: restaurantInfo?.address,
-      restaurantPhone: restaurantInfo?.phone,
-      gstin: restaurantInfo?.gstin,
-      items: orderItems.map((item) => ({
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-      })),
-      subtotal,
-      total,
-      discount: totalDiscountAmount > 0 ? totalDiscountAmount : undefined,
-      promotionName: appliedPromotion?.name,
-      manualDiscountPercent:
-        manualDiscountPercent > 0 ? manualDiscountPercent : undefined,
-      tableNumber: tableNumber || undefined,
-      customerName: customerName || undefined,
-      orderDate: new Date().toLocaleString("en-IN"),
-      currencySymbol,
-      isNonChargeable,
-    });
-  }, [
-    restaurantInfo,
-    orderItems,
-    subtotal,
-    total,
-    totalDiscountAmount,
-    appliedPromotion,
-    manualDiscountPercent,
-    tableNumber,
-    customerName,
-    currencySymbol,
-    isNonChargeable,
-    getBillText,
-  ]);
-
-  // Share bill via WhatsApp (free — uses wa.me link)
-  const handleShareWhatsApp = useCallback(() => {
-    if (customerMobile) {
-      shareViaWhatsApp(customerMobile, currentBillText);
-    }
-  }, [customerMobile, currentBillText, shareViaWhatsApp]);
-
-  // Share bill via SMS (free — uses sms: URI)
-  const handleShareSms = useCallback(() => {
-    if (customerMobile) {
-      shareViaSms(customerMobile, currentBillText);
-    }
-  }, [customerMobile, currentBillText, shareViaSms]);
-
-  // Share bill via Web Share API or clipboard (free)
-  const handleShareGeneric = useCallback(async () => {
-    const restaurantName =
-      restaurantInfo?.name || restaurantInfo?.restaurantName || "Restaurant";
-    await shareViaWebShareAPI(currentBillText, restaurantName);
-  }, [currentBillText, restaurantInfo, shareViaWebShareAPI]);
-
-  // Share bill via Email (mailto: link — works great on desktop)
-  const handleShareEmail = useCallback(() => {
-    const restaurantName =
-      restaurantInfo?.name || restaurantInfo?.restaurantName || "Restaurant";
-    shareViaEmail(customerEmail || "", currentBillText, restaurantName);
-  }, [customerEmail, currentBillText, restaurantInfo, shareViaEmail]);
-
-  // Bill params for generating shareable link
-  const currentBillParams = useMemo(
-    () => ({
-      restaurantName:
-        restaurantInfo?.name || restaurantInfo?.restaurantName || "Restaurant",
-      restaurantAddress: restaurantInfo?.address,
-      restaurantPhone: restaurantInfo?.phone,
-      gstin: restaurantInfo?.gstin,
-      logoUrl: restaurantInfo?.logo_url || (() => {
-        try {
-          return localStorage.getItem("restaurant_logo_url") || undefined;
-        } catch {
-          return undefined;
-        }
-      })(),
-      items: orderItems.map((item) => ({
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-      })),
-      subtotal,
-      total,
-      discount: totalDiscountAmount > 0 ? totalDiscountAmount : undefined,
-      promotionName: appliedPromotion?.name,
-      manualDiscountPercent:
-        manualDiscountPercent > 0 ? manualDiscountPercent : undefined,
-      tableNumber: tableNumber || undefined,
-      customerName: customerName || undefined,
-      orderDate: new Date().toLocaleString("en-IN"),
-      currencySymbol,
-      isNonChargeable,
-    }),
-    [
-      restaurantInfo,
+  const totals = useMemo(() => {
+    return calculateOrderTotals({
       orderItems,
-      subtotal,
-      total,
-      totalDiscountAmount,
       appliedPromotion,
       manualDiscountPercent,
-      tableNumber,
-      customerName,
-      currencySymbol,
+      manualDiscountCash,
+      loyaltyDiscount: loyaltyDiscountRupees,
+      tipAmount,
+      isAutoRoundOff,
+      gstPercent,
+      isTaxInclusive: true,
+      customTotalOverride,
       isNonChargeable,
-    ],
+    });
+  }, [
+    orderItems,
+    appliedPromotion,
+    manualDiscountPercent,
+    manualDiscountCash,
+    loyaltyDiscountRupees,
+    tipAmount,
+    isAutoRoundOff,
+    gstPercent,
+    customTotalOverride,
+    isNonChargeable,
+  ]);
+
+  const {
+    subtotal,
+    promotionDiscountAmount,
+    manualDiscountAmount,
+    loyaltyDiscountAmount,
+    totalDiscountAmount,
+    netTaxableAmount,
+    taxAmount,
+    cgstAmount,
+    sgstAmount,
+    roundOffAmount,
+    customAdjustmentAmount,
+    total,
+  } = totals;
+
+  // Net bill amount eligible for loyalty discount (after promo & manual discount)
+  const eligibleBillForLoyalty = Math.max(
+    0,
+    subtotal - promotionDiscountAmount - manualDiscountAmount
+  );
+  // Max rupee discount allowed by max_redemption_percentage
+  const maxAllowedLoyaltyDiscountRupees = Math.min(
+    eligibleBillForLoyalty,
+    (eligibleBillForLoyalty * maxRedemptionPct) / 100
+  );
+  // Max points that can be redeemed given the cap and customer's point balance
+  const maxPointsCanRedeem = Math.min(
+    customerProfile ? Number(customerProfile.loyalty_points || 0) : 0,
+    Math.floor(maxAllowedLoyaltyDiscountRupees / (amountPerPoint > 0 ? amountPerPoint : 1))
   );
 
-  // Share bill via link (sends short WhatsApp message with premium bill page URL)
-  const handleShareBillLink = useCallback(async () => {
-    if (customerMobile) {
-      await shareViaLink(customerMobile, currentBillParams);
+  // ─── Loyalty Points Redemption Handlers ──────────────────────────────────
+  const handleRedeemMaxLoyalty = () => {
+    if (!customerProfile) return;
+    if (!isLoyaltyEnabled) {
+      toast({ title: "Loyalty Program is currently paused" });
+      return;
     }
-  }, [customerMobile, currentBillParams, shareViaLink]);
-
-  // Copy bill link to clipboard
-  const handleCopyBillLink = useCallback(async () => {
-    const url = await getBillUrl(currentBillParams);
-    if (!url) return;
-    try {
-      await navigator.clipboard.writeText(url);
+    const availablePoints = Number(customerProfile.loyalty_points || 0);
+    if (availablePoints <= 0) {
+      toast({ title: "No loyalty points available" });
+      return;
+    }
+    if (maxPointsCanRedeem <= 0) {
       toast({
-        title: "Bill Link Copied!",
-        description: "Paste this link in any messaging app.",
+        title: "Cannot redeem points",
+        description: `Max ${maxRedemptionPct}% of bill can be paid using points (or bill already discounted)`,
       });
-    } catch {
-      toast({ title: "Could Not Copy", variant: "destructive" });
+      return;
     }
-  }, [currentBillParams, getBillUrl, toast]);
+    setRedeemedLoyaltyPoints(maxPointsCanRedeem);
+    const discountAmt = maxPointsCanRedeem * amountPerPoint;
+    toast({
+      title: `⭐ ${maxPointsCanRedeem} Points Redeemed`,
+      description: `Applied ${currencySymbol}${discountAmt.toFixed(2)} discount (${maxRedemptionPct}% max bill cap)`,
+    });
+  };
 
-  // Send bill via WhatsApp API (automated — routes via unified gateway based on restaurant settings)
-  const handleSendWhatsAppBill = useCallback(async () => {
-    if (!customerMobile || !restaurantInfo) return;
-    setIsSendingWhatsAppBill(true);
+  const handleRemoveLoyalty = () => {
+    setRedeemedLoyaltyPoints(0);
+    toast({ title: "Loyalty redemption removed" });
+  };
+
+  // ─── Tip Selection Handlers (Option 4) ───────────────────────────────────
+  const handleSelectTipPreset = (amount: number) => {
+    setTipAmount(amount);
+    setIsCustomTip(false);
+    setCustomTipInput("");
+  };
+
+  const handleSelectTipPercent = (pct: number) => {
+    const calculatedTip = Math.round((netTaxableAmount * pct) / 100);
+    setTipAmount(calculatedTip);
+    setIsCustomTip(false);
+    setCustomTipInput("");
+  };
+
+  const handleCustomTipChange = (val: string) => {
+    setCustomTipInput(val);
+    const num = parseFloat(val);
+    setTipAmount(!isNaN(num) && num >= 0 ? num : 0);
+  };
+
+  // ─── Promo Code Validation Handler ───────────────────────────────────────
+  const handleApplyPromoCode = async (codeToUse: string) => {
+    const code = codeToUse.trim();
+    if (!code) {
+      toast({ title: "Enter promo code", variant: "destructive" });
+      return;
+    }
+    setIsApplyingPromo(true);
     try {
-      const restaurantName =
-        restaurantInfo?.name || restaurantInfo?.restaurantName || "Restaurant";
-
-      // 1. Generate bill URL
-      const billUrl = await getBillUrl(currentBillParams);
-      const billUrlSuffix = billUrl
-        ? billUrl.split("/bill/").pop() ?? billUrl
-        : undefined;
-
-      // 2. Format amount and date
-      const formattedAmount = `${currencySymbol === "₹" ? "Rs." : currencySymbol}${total.toFixed(2)}`;
-      const now = new Date();
-      const formattedDate = `${now.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })} ${now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
-
-      // 3. Call unified WhatsApp edge function
-      const cleanPhone = customerMobile.replace(/[\+\-\s]/g, "");
-      const phoneWithCountryCode =
-        cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone;
-
-        // Extract social links for smart template selection
-            const rawIgUrl = (restaurantInfo?.social_media as any)?.instagram_url || "";
-            const igHandle = rawIgUrl
-              .replace(/^https?:\/\/(www\.)?instagram\.com\//, "")
-              .replace(/\/$/, "") || "";
-            const googleReviewUrl = (restaurantInfo?.social_media as any)?.google_review_url || "";
-            const contactNumber = (restaurantInfo as any)?.phone || "-";
-
-            // Smart template resolution: picks correct template + params based on social links
-            const { templateName, variables, buttons } = resolveInvoiceTemplate({
-              customerName: customerName || "Customer",
-              restaurantName,
-              amount: formattedAmount,
-              billDate: formattedDate,
-              billUrlSuffix: billUrlSuffix || "pending",
-              igHandle,
-              googleReviewUrl,
-              contactNumber,
-            });
-
-            const { data: waResponse, error: waError } =
-              await supabase.functions.invoke("send-whatsapp-unified", {
-                body: {
-                  phoneNumber: phoneWithCountryCode,
-                  restaurantId: restaurantInfo?.id,
-                  templateName,
-                  variables,
-                  buttons,
-                },
-              });
-
-
-      if (waError || !waResponse?.success) {
-        throw new Error(
-          waError?.message || waResponse?.error || "WhatsApp API failure",
-        );
+      const { data, error } = await supabase.functions.invoke("validate-promo-code", {
+        body: { code, orderSubtotal: subtotal, restaurantId: restaurantInfo?.id || hookRestaurantId },
+      });
+      if (error) throw error;
+      if (data?.valid && data?.promotion) {
+        setAppliedPromotion(data.promotion);
+        setPromotionCode(code);
+        setManualDiscountPercent(0);
+        setManualDiscountCash(0);
+        toast({ title: `Promo Applied ✓`, description: `${data.promotion.name || code}` });
+      } else {
+        toast({
+          title: "Invalid Promo Code",
+          description: data?.error || "Code is not valid for this order",
+          variant: "destructive",
+        });
       }
-
+    } catch (err: any) {
       toast({
-        title: "Bill Sent!",
-        description: `Bill sent to ${customerMobile} via WhatsApp.`,
-      });
-      onClose(); // Close the dialog after successful send
-    } catch (error) {
-      console.error("Failed to send WhatsApp bill:", error);
-      toast({
-        title: "Failed to Send Bill",
-        description:
-          error instanceof Error
-            ? error.message
-            : "An unexpected error occurred",
+        title: "Promo Validation Failed",
+        description: err?.message || "Please try again",
         variant: "destructive",
       });
     } finally {
-      setIsSendingWhatsAppBill(false);
+      setIsApplyingPromo(false);
     }
-  }, [
-    customerMobile,
-    customerName,
-    restaurantInfo,
-    currentBillParams,
-    total,
-    currencySymbol,
-    getBillUrl,
-    toast,
-    onClose,
-  ]);
+  };
 
-  const handlePrintBill = async (navigateAfter: boolean = false) => {
-    // Save customer details first
-    const saved = await saveCustomerDetails();
-    if (!saved) {
-      return;
+  // ─── Dynamic QR Generator ────────────────────────────────────────────────
+  const generateQRCode = useCallback(async () => {
+    const rName = resolvedRestaurantName;
+    const upiId = paymentSettings?.upi_id;
+    if (!upiId) return;
+
+    try {
+      const { default: QRCodeLib } = await import("qrcode");
+      const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(rName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Order ${tableNumber || "POS"}`)}`;
+      const url = await QRCodeLib.toDataURL(upiUrl, { width: 300, margin: 2 });
+      setQrCodeUrl(url);
+    } catch (err) {
+      console.error("QR Generation error:", err);
     }
+  }, [resolvedRestaurantName, paymentSettings, total, tableNumber]);
 
-    // ── Persist discount to orders table on Print ─────────────────────────
-    // Covers all 3 discount types:
-    //  1. % manual discount   → discount_percentage=N,  discount_amount=calculated
-    //  2. ₹ cash flat         → discount_percentage=0,  discount_amount=N
-    //  3. Promo code (% type) → discount_percentage=N,  discount_amount=calculated
-    //  4. Promo code (₹ type) → discount_percentage=0,  discount_amount=N
-    //
-    // NOTE: orderId may be a kitchen_orders.id (from POS/QSR) or an orders.id
-    // (from Orders Management → OrderList). We handle both cases below.
-    if (orderId && totalDiscountAmount > 0) {
-      try {
-        // First try: treat orderId as kitchen_orders.id and get linked orders.id
-        const { data: kitchenOrder } = await supabase
-          .from("kitchen_orders")
-          .select("order_id")
-          .eq("id", orderId)
-          .maybeSingle();
+  // ─── Direct Inline Price Editing Handlers ─────────────────────────────────
+  const handleStartEditItemPrice = (idx: number, currentPrice: number) => {
+    setEditingItemIdx(idx);
+    setTempItemPrice(currentPrice.toString());
+  };
 
-        // If kitchen_orders lookup succeeded and has a linked order, use it.
-        // Otherwise, treat orderId directly as the orders.id (Orders Management flow).
-        const targetOrderId = kitchenOrder?.order_id ?? orderId;
-
-        if (targetOrderId) {
-          // Determine effective discount_percentage:
-          // manual % wins → else promo % → else 0 (flat cash / flat promo)
-          const effectiveDiscountPct =
-            manualDiscountPercent > 0
-              ? manualDiscountPercent
-              : (appliedPromotion?.discount_percentage ?? 0);
-
-          await supabase
-            .from("orders")
-            .update({
-              discount_percentage: effectiveDiscountPct,
-              discount_amount: totalDiscountAmount,   // always the full ₹ value saved
-              promotion_code: (appliedPromotion as any)?.promotion_code || (appliedPromotion as any)?.code || null,
-              promotion_name: appliedPromotion?.name || null,
-              total: total,                            // discounted total persisted
-            })
-            .eq("id", targetOrderId);
-        }
-      } catch (discountSaveError) {
-        // Non-fatal — log but don't block printing
-        console.error("Failed to persist discount on print:", discountSaveError);
-      }
+  const handleSaveItemPrice = (idx: number) => {
+    const val = parseFloat(tempItemPrice);
+    if (!isNaN(val) && val >= 0) {
+      setOrderItems((prev) => {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], customPrice: val };
+        return copy;
+      });
     }
-    // ─────────────────────────────────────────────────────────────────────
+    setEditingItemIdx(null);
+    setTempItemPrice("");
+  };
 
-    if (thermalPrinterService.isConnected()) {
-      try {
+  const handleStartEditTotal = () => {
+    setIsEditingTotal(true);
+    setTempTotalInput(total.toFixed(2));
+  };
+
+  const handleSaveTotal = () => {
+    const val = parseFloat(tempTotalInput);
+    if (!isNaN(val) && val >= 0) {
+      setCustomTotalOverride(val);
+      toast({
+        title: "Total Price Overridden",
+        description: `Order total set to ${currencySymbol}${val.toFixed(2)}`,
+      });
+    }
+    setIsEditingTotal(false);
+  };
+
+  const handleResetPriceOverrides = () => {
+    setCustomTotalOverride(null);
+    setOrderItems((prev) =>
+      prev.map((item) => {
+        const { customPrice, ...rest } = item;
+        return rest as OrderItem;
+      })
+    );
+    toast({ title: "Prices reset to original menu rates" });
+  };
+
+  // ─── Printing & Thermal Support ──────────────────────────────────────────
+  const handlePrint = useCallback(async () => {
+    try {
+      if (thermalPrinterService.isConnected()) {
         await thermalPrinterService.printReceipt({
-          restaurantName: restaurantInfo?.name || restaurantInfo?.restaurantName || "Restaurant",
+          restaurantName: resolvedRestaurantName,
           address: restaurantInfo?.address,
           phone: restaurantInfo?.phone,
           gstin: restaurantInfo?.gstin,
@@ -1589,2324 +729,1383 @@ const PaymentDialog = ({
           customerName: customerName || undefined,
           customerMobile: customerMobile || undefined,
           serverName: serverName || undefined,
-          items: orderItems,
-          subtotal: subtotal,
-          cgst: 0,
-          sgst: 0,
+          items: orderItems.map((i) => ({
+            name: i.name,
+            quantity: i.quantity,
+            price: i.customPrice !== undefined ? i.customPrice : i.price,
+          })),
+          subtotal,
+          cgst: cgstAmount,
+          sgst: sgstAmount,
           discount: totalDiscountAmount,
           netAmount: total,
-          currencySymbol: currencySymbol,
-          upiId: (paymentSettings as any)?.upi_id || undefined,
+          currencySymbol,
+          upiId: paymentSettings?.upi_id,
         });
-
-        // Auto-share bill via WhatsApp if checkbox is checked
-        if (sendBillToMobile && customerMobile) {
-          handleShareWhatsApp();
-        }
-
-        // Auto-share via generic share if email checkbox is checked
-        if (sendBillToEmail && customerEmail) {
-          await handleShareGeneric();
-        }
-
-        toast({
-          title: "Bill Generated",
-          description: "The bill has been sent to the thermal printer.",
-        });
-
-        if (navigateAfter) {
-          setCurrentStep("method");
-        }
-        return; // Skip PDF generation
-      } catch (err) {
-        console.error("Thermal printer failed, falling back to PDF:", err);
-      }
-    }
-
-    try {
-      // ── Build receipt HTML and print via hidden iframe ──────────────────
-      // This is reliable across all browsers because we're printing HTML,
-      // not a PDF blob (Chrome's PDF viewer blocks iframe.contentWindow.print()).
-
-      const billNumber = `#${Date.now().toString().slice(-6)}`;
-      const currentDate = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-      const currentTime = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-      const printSymbol = currencySymbol === "₹" ? "Rs." : currencySymbol;
-      const rName = restaurantInfo?.name || restaurantInfo?.restaurantName || "Restaurant";
-      const savedLogo = localStorage.getItem("restaurant_logo_url");
-
-      // Build items rows HTML
-      const itemRowsHtml = orderItems.map(item => `
-        <tr>
-          <td style="padding:2px 0;font-size:11px;">${item.name}</td>
-          <td style="padding:2px 0;font-size:11px;text-align:right;">${item.quantity}</td>
-          <td style="padding:2px 0;font-size:11px;text-align:right;">${item.price.toFixed(0)}</td>
-          <td style="padding:2px 0;font-size:11px;text-align:right;">${(item.price * item.quantity).toFixed(0)}</td>
-        </tr>
-      `).join("");
-
-      // Build discount rows HTML
-      let discountRowsHtml = "";
-      if (appliedPromotion && promotionDiscountAmount > 0) {
-        discountRowsHtml += `<tr><td colspan="3" style="font-size:10px;">Promo (${appliedPromotion.name}):</td><td style="font-size:10px;text-align:right;">-${promotionDiscountAmount.toFixed(2)}</td></tr>`;
-      }
-      if (manualDiscountPercent > 0) {
-        discountRowsHtml += `<tr><td colspan="3" style="font-size:10px;">Discount (${manualDiscountPercent}%):</td><td style="font-size:10px;text-align:right;">-${manualDiscountAmount.toFixed(2)}</td></tr>`;
-      }
-      if (totalDiscountAmount > 0) {
-        discountRowsHtml += `<tr><td colspan="3" style="font-size:11px;font-weight:bold;">Total Discount:</td><td style="font-size:11px;font-weight:bold;text-align:right;">-${totalDiscountAmount.toFixed(2)}</td></tr>`;
+        toast({ title: "Bill printed via thermal printer ✓" });
+        return;
       }
 
-      // Build UPI QR section HTML
-      let upiHtml = "";
-      if (paymentSettings?.upi_id) {
-        try {
-          const upiUrl = `upi://pay?pa=${paymentSettings.upi_id}&pn=${encodeURIComponent(rName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Order ${tableNumber || "POS"}`)}`;
-          const qrDataUrl = qrCodeUrl || (await QRCode.toDataURL(upiUrl, { width: 200, margin: 1 }));
-          upiHtml = `
-            <tr><td colspan="4" style="padding-top:6px;text-align:center;">
-              <img src="${qrDataUrl}" width="90" height="90" style="display:block;margin:0 auto;" />
-              <div style="font-size:9px;margin-top:2px;">Scan QR to pay</div>
-            </td></tr>`;
-        } catch { /* QR optional */ }
-      }
+      // Browser iframe print fallback with dynamic restaurant name
+      const html = buildReceiptHtml({
+        restaurantInfo: restaurantInfo || null,
+        restaurantName: resolvedRestaurantName,
+        orderItems,
+        subtotal,
+        total,
+        currencySymbol,
+        tableNumber,
+        customerName,
+        customerMobile,
+        appliedPromotion,
+        promotionDiscountAmount,
+        manualDiscountPercent,
+        manualDiscountAmount,
+        loyaltyDiscountAmount,
+        totalDiscountAmount,
+        tipAmount,
+        cgstAmount,
+        sgstAmount,
+        roundOffAmount,
+        customAdjustmentAmount,
+        paymentSettings,
+        qrCodeUrl,
+        serverName,
+      });
 
-      const toLine = tableNumber
-        ? `To: ${tableNumber}`
-        : customerName
-        ? `To: ${customerName}`
-        : "To: POS";
-
-      const receiptHtml = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8"/>
-<title>Bill ${billNumber}</title>
-<style>
-  @page { size: 58mm auto; margin: 4mm 2mm; }
-  * { box-sizing: border-box; }
-  body { font-family: Arial, sans-serif; width: 54mm; margin: 0; padding: 0; color: #000; }
-  .center { text-align: center; }
-  .bold { font-weight: bold; }
-  .dash { border-top: 1px dashed #000; margin: 4px 0; }
-  table { width: 100%; border-collapse: collapse; }
-  td { vertical-align: top; }
-</style>
-</head>
-<body>
-  ${savedLogo ? `<div class="center"><img src="${savedLogo}" crossorigin="anonymous" style="max-width:36px;max-height:36px;margin-bottom:2px;" /></div>` : ""}
-  <div class="center bold" style="font-size:15px;">${rName}</div>
-  ${restaurantInfo?.address ? `<div class="center" style="font-size:9px;">${restaurantInfo.address}</div>` : ""}
-  ${restaurantInfo?.phone ? `<div class="center" style="font-size:9px;">Ph: ${restaurantInfo.phone}</div>` : ""}
-  ${restaurantInfo?.gstin ? `<div class="center" style="font-size:9px;">GSTIN: ${restaurantInfo.gstin}</div>` : ""}
-  <div class="dash"></div>
-  <div style="font-size:10px;">Bill#: ${billNumber}</div>
-  <div style="font-size:10px;">${toLine}</div>
-  <div style="font-size:10px;">Date: ${currentDate}&nbsp;&nbsp;Time: ${currentTime}</div>
-  ${customerName && tableNumber && customerName !== tableNumber ? `<div style="font-size:10px;">Guest: ${customerName}</div>` : ""}
-  ${customerMobile ? `<div style="font-size:10px;">Phone: ${customerMobile}</div>` : ""}
-  <div class="dash"></div>
-  <div class="center bold" style="font-size:11px;">Particulars</div>
-  <table>
-    <tr>
-      <th style="font-size:10px;text-align:left;">Item</th>
-      <th style="font-size:10px;text-align:right;">Qty</th>
-      <th style="font-size:10px;text-align:right;">Rate</th>
-      <th style="font-size:10px;text-align:right;">Amt</th>
-    </tr>
-    <tr><td colspan="4"><div style="border-top:1px solid #000;margin:2px 0;"></div></td></tr>
-    ${itemRowsHtml}
-    <tr><td colspan="4"><div class="dash"></div></td></tr>
-    <tr>
-      <td colspan="3" style="font-size:11px;">Sub Total:</td>
-      <td style="font-size:11px;text-align:right;">${subtotal.toFixed(2)}</td>
-    </tr>
-    ${discountRowsHtml}
-    <tr><td colspan="4"><div class="dash"></div></td></tr>
-    <tr>
-      <td colspan="2" style="font-size:14px;font-weight:bold;">Net Amount:</td>
-      <td colspan="2" style="font-size:14px;font-weight:bold;text-align:right;">${printSymbol}${total.toFixed(2)}</td>
-    </tr>
-    ${upiHtml}
-    <tr><td colspan="4"><div class="dash"></div></td></tr>
-    <tr><td colspan="4" style="text-align:center;font-size:13px;font-weight:bold;padding-top:4px;">Thank You!</td></tr>
-    <tr><td colspan="4" style="text-align:center;font-size:10px;color:#c00;">Please visit again</td></tr>
-  </table>
-</body>
-</html>`;
-
-      // Remove stale iframe
-      const stale = document.getElementById("_bill_print_frame") as HTMLIFrameElement | null;
+      const stale = document.getElementById("_bill_print_frame");
       if (stale) stale.remove();
 
       const iframe = document.createElement("iframe");
       iframe.id = "_bill_print_frame";
-      iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:58mm;height:1px;border:none;visibility:hidden;";
+      iframe.style.cssText =
+        "position:fixed;top:-9999px;left:-9999px;width:58mm;height:1px;border:none;visibility:hidden;";
       document.body.appendChild(iframe);
 
-      // Write HTML into iframe document and print
       const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!iframeDoc) throw new Error("Could not access iframe document");
-      iframeDoc.open();
-      iframeDoc.write(receiptHtml);
-      iframeDoc.close();
-
-      // Wait for images (logo, QR) to load before printing
-      const imgs = Array.from(iframeDoc.images);
-      await Promise.all(
-        imgs.map(img =>
-          img.complete
-            ? Promise.resolve()
-            : new Promise<void>(res => { img.onload = () => res(); img.onerror = () => res(); })
-        )
-      );
-
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-
-      // Clean up after 2 minutes (user may take time to confirm print)
-      setTimeout(() => { try { iframe.remove(); } catch {} }, 120000);
-
-      // Auto-share bill via WhatsApp if checkbox is checked (free — wa.me link)
-      if (sendBillToMobile && customerMobile) {
-        handleShareWhatsApp();
+      if (iframeDoc) {
+        iframeDoc.open();
+        iframeDoc.write(html);
+        iframeDoc.close();
+        setTimeout(() => {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          setTimeout(() => iframe.remove(), 60000);
+        }, 300);
       }
-
-      // Auto-share via generic share if email checkbox is checked (free)
-      if (sendBillToEmail && customerEmail) {
-        await handleShareGeneric();
-      }
-
-      toast({
-        title: "Bill Generated",
-        description: "The bill has been generated and sent to printer.",
-      });
-
-      if (navigateAfter) {
-        setCurrentStep("method");
-      }
-    } catch (error) {
-      console.error("Error generating bill:", error);
-      toast({
-        title: "Print Error",
-        description: "Failed to generate bill. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Bill preview sent to printer ✓" });
+    } catch (err: any) {
+      console.error("Print error:", err);
+      toast({ title: "Printing failed", description: err?.message, variant: "destructive" });
     }
-  };
+  }, [
+    restaurantInfo,
+    resolvedRestaurantName,
+    orderItems,
+    subtotal,
+    total,
+    currencySymbol,
+    tableNumber,
+    customerName,
+    customerMobile,
+    appliedPromotion,
+    promotionDiscountAmount,
+    manualDiscountPercent,
+    manualDiscountAmount,
+    loyaltyDiscountAmount,
+    totalDiscountAmount,
+    tipAmount,
+    cgstAmount,
+    sgstAmount,
+    roundOffAmount,
+    customAdjustmentAmount,
+    paymentSettings,
+    qrCodeUrl,
+    serverName,
+    toast,
+  ]);
 
-  const handleApplyPromotion = async (passedCode?: string) => {
-    const codeToValidate = (passedCode ?? promotionCode).trim();
-    if (!codeToValidate) {
-      toast({
-        title: "Enter Promotion Code",
-        description: "Please enter a promotion code to apply.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  // ─── WhatsApp Auto-Share ─────────────────────────────────────────────────
+  const handleAutoSendWhatsApp = useCallback(async () => {
+    if (!customerMobile) return;
     try {
-      const restaurantIdToUse =
-        restaurantInfo?.restaurantId || restaurantInfo?.id;
+      const cleanPhone = customerMobile.replace(/[\+\-\s]/g, "");
+      const phoneWithCode = cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone;
+      const formattedAmount = `Rs.${total.toFixed(2)}`;
+      const now = new Date();
+      const formattedDate = `${now.toLocaleDateString("en-IN")} ${now.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })}`;
 
-      // Call backend validation function with the exact code we want to validate
-      const { data, error } = await supabase.functions.invoke(
-        "validate-promo-code",
-        {
-          body: {
-            code: codeToValidate,
-            orderSubtotal: subtotal,
-            restaurantId: restaurantIdToUse,
-          },
+      const { templateName, variables, buttons } = resolveInvoiceTemplate({
+        customerName: customerName || "Customer",
+        restaurantName: resolvedRestaurantName,
+        amount: formattedAmount,
+        billDate: formattedDate,
+        billUrlSuffix: "paid",
+        contactNumber: restaurantInfo?.phone || "-",
+      });
+
+      await supabase.functions.invoke("send-whatsapp-unified", {
+        body: {
+          phoneNumber: phoneWithCode,
+          restaurantId: restaurantInfo?.id || hookRestaurantId,
+          templateName,
+          variables,
+          buttons,
         },
-      );
-
-      if (error) throw error;
-
-      if (data.valid && data.promotion) {
-        setPromotionCode(codeToValidate);
-        setAppliedPromotion(data.promotion);
-        toast({
-          title: "Promotion Applied!",
-          description: `${data.promotion.name} - ${
-            data.promotion.discount_percentage
-              ? `${data.promotion.discount_percentage}% off`
-              : `${currencySymbol}${data.promotion.discount_amount} off`
-          }`,
-        });
-      } else {
-        toast({
-          title: "Invalid Code",
-          description:
-            data.error ||
-            "The promotion code you entered is not valid or has expired.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error validating promo code:", error);
-      toast({
-        title: "Validation Error",
-        description: "Failed to validate promotion code. Please try again.",
-        variant: "destructive",
       });
+    } catch (e) {
+      console.warn("WhatsApp auto-send error:", e);
     }
-  };
+  }, [customerMobile, restaurantInfo, hookRestaurantId, resolvedRestaurantName, total, customerName]);
 
-  const handleRemovePromotion = () => {
-    setAppliedPromotion(null);
-    setPromotionCode("");
-    toast({
-      title: "Promotion Removed",
-      description: "The promotion code has been removed from this order.",
-    });
-  };
+  // ─── 1-CLICK INSTANT PAYMENT EXECUTION ───────────────────────────────────
+  const handleQuickPay = useCallback(
+    async (
+      method: "cash" | "upi" | "card" | "pay_later" | "room" | "nc",
+      splitPayload?: Array<{ method: string; amount: number }>
+    ) => {
+      if (isProcessingPayment) return;
+      setIsProcessingPayment(true);
 
-  const checkForActiveReservation = async () => {
-    // Sanitize mobile number: extract last 10 digits
-    const mobileStr = String(customerMobile || "").replace(/\D/g, "");
-    const sanitizedMobile = mobileStr.slice(-10);
-
-    // Only check if we have exactly 10 digits after sanitization
-    if (!sanitizedMobile || sanitizedMobile.length !== 10) {
-      setDetectedReservation(null);
-      return;
-    }
-
-    try {
-
-      const { data, error } = await supabase.functions.invoke(
-        "find-active-reservation",
-        {
-          body: { mobileNumber: sanitizedMobile },
-        },
-      );
-
-      if (error) {
-        console.error("❌ Error checking reservation:", error);
-        return;
-      }
-
-
-      if (data?.found) {
-        setDetectedReservation({
-          reservation_id: data.reservation_id,
-          room_id: data.room_id,
-          roomName: data.roomName,
-          customerName: data.customerName,
-        });
-
-        toast({
-          title: "Guest Detected!",
-          description: `This customer has an active reservation in ${data.roomName}`,
-        });
-      } else {
-        setDetectedReservation(null);
-      }
-    } catch (error) {
-      console.error("❌ Error checking reservation:", error);
-      setDetectedReservation(null);
-    }
-  };
-
-  const handleMethodSelect = (method: string) => {
-    if (method === "upi") {
-      // Check if Paytm is configured OR static UPI is configured
-      const hasPaytm =
-        (paymentSettings as any)?.gateway_type === "paytm" &&
-        (paymentSettings as any)?.paytm_mid;
-      const hasUPI = paymentSettings?.upi_id;
-
-      if (!hasPaytm && !hasUPI) {
-        toast({
-          title: "Payment Not Configured",
-          description:
-            "Please configure Paytm or UPI settings in the Payment Settings tab first.",
-          variant: "destructive",
-        });
-        return;
-      }
-      setCurrentStep("qr");
-    } else if (method === "split") {
-      // Show split payment entry UI
-      setSplitCash("");
-      setSplitUpi("");
-      setSplitCard("");
-      setCurrentStep("split");
-    } else if (method === "room") {
-      // Handle charge to room
-      handleChargeToRoom();
-    } else if (method === "pay_later") {
-      if (!customerName.trim()) {
-        toast({
-          title: "Customer Name Required",
-          description: "Please enter a customer name in the billing section before choosing Pay Later.",
-          variant: "destructive",
-        });
-        return;
-      }
-      handleMarkAsPaid(method);
-    } else {
-      // For cash/card, mark as paid immediately
-      handleMarkAsPaid(method);
-    }
-  };
-
-  const handleChargeToRoom = async () => {
-    if (!detectedReservation) {
-      toast({
-        title: "No Reservation Found",
-        description:
-          "Unable to charge to room. No active reservation detected.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      // Update order with reservation_id and payment status
-      if (orderId) {
-        // First get the order_id from kitchen_orders
-        const { data: kitchenOrder } = await supabase
-          .from("kitchen_orders")
-          .select("order_id")
-          .eq("id", orderId)
-          .single();
-
-        if (kitchenOrder?.order_id) {
-          // Update the order with reservation link, payment status, and discount info
-          const { error: updateError } = await supabase
-            .from("orders")
-            .update({
-              reservation_id: detectedReservation.reservation_id,
-              payment_status: "Pending - Room Charge",
-              payment_method: "room",
-              status: "completed",
-              total: total, // Save final amount after discount
-              discount_amount: totalDiscountAmount,
-              discount_percentage:
-                manualDiscountPercent > 0
-                  ? manualDiscountPercent
-                  : appliedPromotion?.discount_percentage || 0,
-              promotion_code: (appliedPromotion as any)?.promotion_code || (appliedPromotion as any)?.code || null,
-              promotion_name: appliedPromotion?.name || null,
-            })
-            .eq("id", kitchenOrder.order_id);
-
-          if (updateError) throw updateError;
-        }
-
-        // Update kitchen order status
-        const { error: kitchenError } = await supabase
-          .from("kitchen_orders")
-          .update({ status: "completed" })
-          .eq("id", orderId);
-
-        if (kitchenError) throw kitchenError;
-
-        // Create room food order entry
-        const { error: roomOrderError } = await supabase
-          .from("room_food_orders")
-          .insert({
-            room_id: detectedReservation.room_id,
-            order_id: kitchenOrder?.order_id,
-            total: total,
-            status: "pending",
-          });
-
-        if (roomOrderError) {
-          console.error("Error creating room food order:", roomOrderError);
-          // Don't fail the whole operation if this fails
-        }
-      }
-
-      toast({
-        title: "Charged to Room",
-        description: `Order charged to ${detectedReservation.roomName}. Will be settled at checkout.`,
-      });
-
-      setCurrentStep("success");
-
-      // Auto-close after 6 seconds (gives user time to share bill)
-      setTimeout(() => {
-        onSuccess();
-        onClose();
-      }, 6000);
-    } catch (error) {
-      console.error("Error charging to room:", error);
-      toast({
-        title: "Charge Failed",
-        description:
-          "Failed to charge order to room. Please try another payment method.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleMarkAsPaid = async (paymentMethod: string = "upi", splitPaymentsData?: Array<{method: string; amount: number}>) => {
-    // ✅ Prevent double-click: if already processing, bail out
-    if (isProcessingPayment) return;
-    setIsProcessingPayment(true);
-    try {
-      // Here you would integrate with your payment verification system
-      // For now, we'll simulate a successful payment
-
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const restaurantIdToUse =
-        restaurantInfo?.restaurantId || restaurantInfo?.id;
-
-      // For NC orders, the total is 0 and order_type is non-chargeable
-      const finalTotal = isNonChargeable ? 0 : total;
-      const finalOrderType = isNonChargeable ? "non-chargeable" : undefined;
-      const finalPaymentMethod = isNonChargeable ? "nc" : paymentMethod;
-      const finalPaymentStatus = isNonChargeable 
-        ? "nc" 
-        : (finalPaymentMethod === "pay_later" ? "pending" : "paid");
-
-      // Get current user for staff_id
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      // Update order status to completed in database if orderId is provided
-      if (orderId) {
-        // First get the kitchen order to find linked order_id
-        const { data: kitchenOrder } = await supabase
-          .from("kitchen_orders")
-          .select("order_id")
-          .eq("id", orderId)
-          .single();
-
-        // Update kitchen order status
-        const { error } = await supabase
-          .from("kitchen_orders")
-          .update({
-            status: "completed",
-            ...(customerName.trim() && { customer_name: customerName.trim() }),
-            ...(customerMobile && { customer_phone: customerMobile }),
-          })
-          .eq("id", orderId);
-
-        if (error) {
-          console.error("Error updating order status:", error);
+      try {
+        // Validate NC
+        if (method === "nc" && !ncReason) {
           toast({
-            title: "Warning",
-            description: "Payment received but order status update failed.",
+            title: "Select NC Reason",
+            description: "Please select a reason for this complimentary order.",
             variant: "destructive",
           });
+          setIsProcessingPayment(false);
+          return;
         }
 
-        // Build discount notes for owner visibility
-        const discountNotesParts: string[] = [];
-        if (manualDiscountPercent > 0) {
-          discountNotesParts.push(`${manualDiscountPercent}% off (₹${manualDiscountPercentAmount.toFixed(2)})`);
-        }
-        if (manualDiscountCash > 0) {
-          discountNotesParts.push(`Manual ₹${manualDiscountCash.toFixed(2)} off`);
-        }
-        if (appliedPromotion) {
-          const promoLabel = appliedPromotion.promotion_code || appliedPromotion.name || 'Promo';
-          discountNotesParts.push(`${promoLabel} (₹${promotionDiscountAmount.toFixed(2)})`);
-        }
-        const discountNotes = discountNotesParts.join(' + ');
-        const effectiveDiscountPct = subtotal > 0 && totalDiscountAmount > 0
-          ? Math.round((totalDiscountAmount / subtotal) * 100)
-          : 0;
+        const targetRestaurantId = restaurantInfo?.id || hookRestaurantId;
+        const finalMethod = method === "nc" ? "nc" : method;
+        const finalStatus = method === "nc" ? "nc" : method === "pay_later" ? "pending" : "paid";
+        const finalAmount = method === "nc" ? 0 : total;
 
-        // Update the linked order with payment status and discount info
-        if (kitchenOrder?.order_id) {
-          const { error: orderError } = await supabase
-            .from("orders")
-            .update({
-              payment_status: finalPaymentStatus,
-              payment_method: finalPaymentMethod,
-              status: "completed",
-              total: finalTotal, // Save final amount (0 for NC orders)
-              discount_amount: isNonChargeable ? subtotal : totalDiscountAmount, // For NC, discount is the full subtotal
-              discount_percentage: isNonChargeable
-                ? 100
-                : effectiveDiscountPct,
-              promotion_code: isNonChargeable ? null : ((appliedPromotion as any)?.promotion_code || (appliedPromotion as any)?.code || null),
-              promotion_name: isNonChargeable ? null : (appliedPromotion?.name || null),
-              ...(discountNotes && { discount_notes: isNonChargeable ? 'Non-Chargeable (100% off)' : discountNotes }),
-              ...(finalOrderType && { order_type: finalOrderType }),
-              // Save NC reason for non-chargeable orders
-              ...(isNonChargeable && ncReason && { nc_reason: ncReason }),
-              // Save split payments breakdown for reporting
-              ...(splitPaymentsData && { split_payments: splitPaymentsData }),
-              // Update customer details if provided
-              ...(customerName.trim() && {
-                customer_name: customerName.trim(),
-              }),
-              ...(customerMobile && { customer_phone: customerMobile }),
-            })
-            .eq("id", kitchenOrder.order_id);
+        // Check if offline
+        const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
 
-          if (orderError) {
-            console.error("Error updating order payment status:", orderError);
-          }
+        if (isOffline) {
+          // Save to local offline queue
+          const queue = JSON.parse(localStorage.getItem("pos_offline_payments_queue") || "[]");
+          queue.push({
+            orderId,
+            tableNumber,
+            total_amount: finalAmount,
+            payment_status: finalStatus,
+            payment_method: finalMethod,
+            customer_name: customerName.trim() || undefined,
+            customer_phone: customerMobile.trim() || undefined,
+            created_at: new Date().toISOString(),
+          });
+          localStorage.setItem("pos_offline_payments_queue", JSON.stringify(queue));
+          toast({
+            title: "Offline Mode: Saved locally",
+            description: "Payment queued. Will auto-sync when online.",
+          });
         } else {
-          // No linked order_id — FIRST search for an existing orphaned order
-          // that matches this kitchen order (prevents creating duplicates)
-          try {
-            const todayStart = new Date();
-            todayStart.setHours(0, 0, 0, 0);
-            const finalCustName = customerName.trim() || tableNumber || "QSR-Order";
+          // 1. Sync CRM customer details & deduct loyalty points
+          if (customerMobile.trim() && targetRestaurantId) {
+            try {
+              await syncCustomerToCRM({
+                customerName: customerName.trim() || customerMobile.trim(),
+                customerPhone: customerMobile.trim(),
+                orderTotal: finalAmount,
+                orderId: orderId,
+                source: "pos",
+              });
+            } catch (err) {
+              console.warn("CRM Sync warning:", err);
+            }
 
-            // Look for an existing order with same customer + restaurant + today + similar total
-            const { data: existingOrders } = await supabase
-              .from("orders")
-              .select("id")
-              .eq("restaurant_id", restaurantIdToUse)
-              .ilike("customer_name", finalCustName)
-              .gte("created_at", todayStart.toISOString())
-              .in("status", ["preparing", "ready", "pending", "served"])
-              .order("created_at", { ascending: false })
-              .limit(1);
-
-            if (existingOrders && existingOrders.length > 0) {
-              // Found orphaned order — update it instead of creating duplicate
-              const orphanedId = existingOrders[0].id;
-
-              await supabase
-                .from("orders")
-                .update({
-                  payment_status: finalPaymentStatus,
-                  payment_method: finalPaymentMethod,
-                  status: "completed",
-                  total: finalTotal,
-                  discount_amount: isNonChargeable ? subtotal : totalDiscountAmount,
-                  discount_percentage: isNonChargeable ? 100 : effectiveDiscountPct,
-                  promotion_code: isNonChargeable ? null : ((appliedPromotion as any)?.promotion_code || (appliedPromotion as any)?.code || null),
-                  promotion_name: isNonChargeable ? null : (appliedPromotion?.name || null),
-                  ...(discountNotes && { discount_notes: isNonChargeable ? 'Non-Chargeable (100% off)' : discountNotes }),
-                  ...(finalOrderType && { order_type: finalOrderType }),
-                  ...(isNonChargeable && ncReason && { nc_reason: ncReason }),
-                  ...(splitPaymentsData && { split_payments: splitPaymentsData }),
-                  ...(customerName.trim() && { customer_name: customerName.trim() }),
-                  ...(customerMobile && { customer_phone: customerMobile }),
-                })
-                .eq("id", orphanedId);
-
-              // Link it back
-              await supabase
-                .from("kitchen_orders")
-                .update({ order_id: orphanedId })
-                .eq("id", orderId);
-            } else {
-              // Truly no existing order — create one
-              const formattedItems = orderItems.map(
-                (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
-              );
-
-              const { data: newOrder, error: insertError } = await supabase
-                .from("orders")
-                .insert({
-                  restaurant_id: restaurantIdToUse,
-                  customer_name: finalCustName,
-                  items: formattedItems,
-                  total: finalTotal,
-                  status: "completed",
-                  payment_status: finalPaymentStatus,
-                  payment_method: finalPaymentMethod,
-                  source: "qsr",
-                  order_type: finalOrderType || "dine-in",
-                  discount_amount: isNonChargeable
-                    ? subtotal
-                    : totalDiscountAmount,
-                  discount_percentage: isNonChargeable
-                    ? 100
-                    : effectiveDiscountPct,
-                  promotion_code: isNonChargeable ? null : ((appliedPromotion as any)?.promotion_code || (appliedPromotion as any)?.code || null),
-                  promotion_name: isNonChargeable ? null : (appliedPromotion?.name || null),
-                  ...(discountNotes && { discount_notes: isNonChargeable ? 'Non-Chargeable (100% off)' : discountNotes }),
-                  ...(isNonChargeable && ncReason && { nc_reason: ncReason }),
-                  ...(customerMobile && { customer_phone: customerMobile }),
-                })
-                .select()
-                .single();
-
-              if (insertError) {
-                console.error("Error creating order record:", insertError);
-              } else if (newOrder) {
-                // Link the new order back to the kitchen_order
+            if (redeemedLoyaltyPoints > 0 && customerProfile?.id) {
+              const newPoints = Math.max(0, customerProfile.loyalty_points - redeemedLoyaltyPoints);
+              try {
                 await supabase
-                  .from("kitchen_orders")
-                  .update({ order_id: newOrder.id })
-                  .eq("id", orderId);
+                  .from("customers")
+                  .update({
+                    loyalty_points: newPoints,
+                  })
+                  .eq("id", customerProfile.id);
+              } catch (err) {
+                console.warn("Loyalty points update error:", err);
+              }
+
+              // Record in loyalty_transactions
+              try {
+                const { data: authData } = await supabase.auth.getUser();
+                await supabase
+                  .from("loyalty_transactions")
+                  .insert({
+                    restaurant_id: targetRestaurantId,
+                    customer_id: customerProfile.id,
+                    transaction_type: "redeem",
+                    points: -redeemedLoyaltyPoints,
+                    source: "pos",
+                    source_id: orderId || null,
+                    notes: `Redeemed ${redeemedLoyaltyPoints} points for ${currencySymbol}${loyaltyDiscountRupees.toFixed(2)} discount`,
+                    created_by: authData?.user?.id || null,
+                  });
+              } catch (err) {
+                console.warn("Loyalty transaction log error:", err);
               }
             }
-          } catch (createOrderError) {
-            console.error("Error creating/finding order for QSR:", createOrderError);
-            // Don't fail the payment if order creation fails
           }
-        }
 
-        // Log promotion usage if promotion was applied
-        if (appliedPromotion && restaurantIdToUse) {
-          try {
-            await supabase.functions.invoke("log-promotion-usage", {
-              body: {
-                orderId: orderId,
-                promotionId: appliedPromotion.id,
-                restaurantId: restaurantIdToUse,
-                customerName: customerName || "Walk-in Customer",
-                customerPhone: customerMobile || null,
-                orderTotal: total,
-                discountAmount: promotionDiscountAmount,
-              },
+          // 2. Update kitchen order in DB if orderId exists
+          if (orderId) {
+            await supabase
+              .from("kitchen_orders")
+              .update({
+                status: "completed",
+                payment_status: finalStatus,
+                payment_method: finalMethod,
+                total_amount: finalAmount,
+                ...(customerName.trim() && { customer_name: customerName.trim() }),
+                ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
+                ...(method === "nc" && { nc_reason: ncReason }),
+              })
+              .eq("id", orderId);
+          }
+
+          // 3. Room Charge handler
+          if (method === "room" && detectedReservation) {
+            await supabase.from("room_food_orders").insert({
+              room_id: detectedReservation.room_id,
+              order_id: orderId || null,
+              total: finalAmount,
+              status: "pending",
             });
-          } catch (promoError) {
-            console.error("Error logging promotion usage:", promoError);
-            // Don't fail the payment if logging fails
           }
         }
 
-        // Log transaction to pos_transactions table (skip for NC orders as they have no payment)
-        if (!isNonChargeable) {
-          try {
-            await supabase.from("pos_transactions").insert({
-              restaurant_id: restaurantIdToUse,
-              order_id: kitchenOrder?.order_id || null,
-              kitchen_order_id: orderId,
-              amount: finalTotal,
-              payment_method: finalPaymentMethod,
-              status: finalPaymentMethod === "pay_later" ? "pending" : "completed",
-              customer_name: customerName || null,
-              customer_phone: customerMobile || null,
-              staff_id: user?.id || null,
-              discount_amount: totalDiscountAmount,
-              promotion_id: appliedPromotion?.id || null,
-              ...(splitPaymentsData && { split_payments: splitPaymentsData }),
-            });
-          } catch (transactionError) {
-            console.error("Error logging transaction:", transactionError);
-            // Don't fail the payment if transaction logging fails
-          }
-        }
-      }
+        // 4. Invalidate all POS queries
+        queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["orders"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboard-orders"] });
 
-      // --- CRM Auto-Sync: upsert customer & award loyalty points ---
-      if (customerName.trim()) {
-        try {
-          await syncCustomerToCRM({
-            customerName: customerName.trim(),
-            customerPhone: customerMobile || undefined,
-            orderTotal: finalTotal,
-            orderId: orderId || undefined,
-            source: tableNumber ? "pos" : "qsr",
+        // 5. Soundbox announcement & local popup notification
+        if (method !== "nc") {
+          announcePayment({
+            amount: finalAmount,
+            tableNumber: tableNumber || undefined,
+            language: (paymentSettings as any)?.voice_announcement_language === "hi" ? "hi" : "en",
           });
-        } catch (crmError) {
-          console.error("CRM sync error (non-blocking):", crmError);
-          // CRM sync is best-effort, don't fail payment
+          notifyPaymentSuccess({
+            amount: finalAmount,
+            tableNumber: tableNumber || undefined,
+            currencySymbol,
+          });
         }
-      }
 
-      // Skip success screen — close immediately with toast
-      const isDirectClose = true;
+        // 6. Auto-print bill
+        handlePrint().catch(console.warn);
 
-      const splitDesc = splitPaymentsData?.length
-        ? splitPaymentsData
-            .filter(s => s.amount > 0)
-            .map(s => `${currencySymbol}${s.amount.toFixed(2)} ${s.method.toUpperCase()}`)
-            .join(" + ")
-        : null;
+        // 7. Auto-send WhatsApp if checkbox enabled
+        if (sendBillToWhatsApp && customerMobile.trim()) {
+          handleAutoSendWhatsApp().catch(console.warn);
+        }
 
-      toast({
-        title: isNonChargeable 
-          ? "NC Order Completed" 
-          : finalPaymentMethod === "pay_later"
-            ? "Pay Later Order Recorded ✓"
-            : "Payment Complete ✓",
-        description: isNonChargeable
-          ? "Complimentary order has been completed successfully."
-          : finalPaymentMethod === "pay_later"
-            ? `${currencySymbol}${finalTotal.toFixed(2)} recorded to tab for ${customerName.trim()}`
-            : splitDesc
-              ? `Split: ${splitDesc}`
-              : `${currencySymbol}${finalTotal.toFixed(2)} received via ${finalPaymentMethod.toUpperCase()}`,
-      });
-
-      // Auto-print bill after payment (skip for NC and Pay Later)
-      if (!isNonChargeable && finalPaymentMethod !== "pay_later") {
-        // Run in background — don't block close flow
-        handlePrintBill(false).catch((printErr) => {
-          console.warn("[PaymentDialog] Auto-print after payment failed:", printErr);
+        toast({
+          title: method === "nc" ? "🎁 Order Marked Complimentary" : "✅ Payment Successful",
+          description: `${currencySymbol}${finalAmount.toFixed(2)} settled via ${method.toUpperCase()}`,
         });
-      }
 
-      if (isDirectClose) {
-        // Fire WhatsApp bill in background if opted in
-        if (sendBillToEmail && customerMobile && restaurantInfo) {
-          handleSendWhatsAppBill();
-        }
-        invalidateOrderQueries();
-        onSuccess();
-        onClose();
-      } else {
+        // 8. Success transition & quick auto-close
         setCurrentStep("success");
-        // Auto-close after 6 seconds for UPI/room flows
         setTimeout(() => {
+          setCurrentStep("checkout");
           onSuccess();
           onClose();
-        }, 6000);
+        }, 1800);
+      } catch (err: any) {
+        console.error("Payment processing error:", err);
+        toast({
+          title: "Payment Failed",
+          description: err?.message || "Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsProcessingPayment(false);
       }
-    } catch (error) {
+    },
+    [
+      isProcessingPayment,
+      ncReason,
+      restaurantInfo,
+      hookRestaurantId,
+      total,
+      customerMobile,
+      customerName,
+      orderId,
+      detectedReservation,
+      tableNumber,
+      paymentSettings,
+      currencySymbol,
+      sendBillToWhatsApp,
+      syncCustomerToCRM,
+      redeemedLoyaltyPoints,
+      customerProfile,
+      queryClient,
+      announcePayment,
+      notifyPaymentSuccess,
+      handlePrint,
+      handleAutoSendWhatsApp,
+      onSuccess,
+      onClose,
+      toast,
+    ]
+  );
+
+  // ─── Split Payment Confirmation ──────────────────────────────────────────
+  const handleConfirmSplit = async () => {
+    const cash = parseFloat(splitCash) || 0;
+    const upi = parseFloat(splitUpi) || 0;
+    const card = parseFloat(splitCard) || 0;
+    const sum = cash + upi + card;
+
+    if (Math.abs(sum - total) > 0.05) {
       toast({
-        title: "Payment Failed",
-        description: "There was an error processing the payment.",
+        title: "Split Amount Mismatch",
+        description: `Split total (${currencySymbol}${sum.toFixed(2)}) must equal Total Due (${currencySymbol}${total.toFixed(2)})`,
         variant: "destructive",
       });
-    } finally {
-      setIsProcessingPayment(false);
+      return;
     }
+
+    const payload = [
+      { method: "cash", amount: cash },
+      { method: "upi", amount: upi },
+      { method: "card", amount: card },
+    ].filter((p) => p.amount > 0);
+
+    await handleQuickPay("cash", payload);
   };
 
-  const handleItemToggle = async (index: number) => {
-    if (!orderId) return;
+  // ─── Global Keyboard Shortcuts ───────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (["INPUT", "TEXTAREA", "SELECT"].includes((document.activeElement as HTMLElement)?.tagName)) {
+        return;
+      }
+      if (!isOpen || currentStep !== "checkout") return;
 
-    // Create a copy of current status or initialize new array
-    const newCompletionStatus = [
-      ...(itemCompletionStatus || new Array(orderItems.length).fill(false)),
-    ];
+      if (e.key === "Enter" || e.code === "Space") {
+        e.preventDefault();
+        handleQuickPay("cash");
+      } else if (e.key.toLowerCase() === "u") {
+        e.preventDefault();
+        generateQRCode();
+        setCurrentStep("qr");
+      } else if (e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        handleQuickPay("card");
+      } else if (e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        handlePrint();
+      }
+    };
 
-    // Ensure array is long enough
-    while (newCompletionStatus.length <= index) {
-      newCompletionStatus.push(false);
-    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, currentStep, handleQuickPay, generateQRCode, handlePrint]);
 
-    // Toggle status
-    newCompletionStatus[index] = !newCompletionStatus[index];
+  const hasCustomOverrides = customTotalOverride !== null || orderItems.some((i) => i.customPrice !== undefined);
 
-    try {
-      const { error } = await supabase
-        .from("kitchen_orders")
-        .update({ item_completion_status: newCompletionStatus })
-        .eq("id", orderId);
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────────────
+  return (
+    <>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCurrentStep("checkout");
+            onClose();
+          }
+        }}
+      >
+        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 shadow-2xl rounded-2xl">
+          <VisuallyHidden>
+            <DialogTitle>Quick POS Payment Settlement</DialogTitle>
+          </VisuallyHidden>
 
-      if (error) throw error;
-
-      // Update local state (like KDS pattern)
-      setItemCompletionStatus(newCompletionStatus);
-    } catch (error) {
-      console.error("Error toggling item status:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to update item status",
-      });
-    }
-  };
-
-  const renderConfirmStep = () => (
-    <div className="flex flex-col h-full max-h-[85vh]">
-      {/* Compact Header */}
-      <div className="text-center py-2.5 px-4 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-md">
-        <h2 className="text-lg font-bold text-white mb-0.5 drop-shadow-sm">
-          Confirm Order
-        </h2>
-        <p className="text-white/80 text-xs">
-          Review the details for{" "}
-          <span className="font-semibold text-white">
-            {tableNumber ? `Table ${tableNumber}` : "POS Order"}
-            {orderType && orderType !== "dine-in" && (
-              <span className="ml-1">
-                (
-                {orderType === "nc"
-                  ? "Non-Chargeable"
-                  : orderType.charAt(0).toUpperCase() + orderType.slice(1)}
-                )
-              </span>
-            )}
-          </span>
-        </p>
-      </div>
-
-      {/* Two-Column Layout */}
-      <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-2 gap-0">
-        {/* LEFT COLUMN - Order Items & Totals */}
-        <div className="p-4 space-y-4 bg-gray-50/50 dark:bg-gray-900/50 border-r border-gray-200 dark:border-gray-700 overflow-y-auto max-h-[60vh]">
-          {/* Order Items Card */}
-          <Card className="p-0 overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg">
-            {/* Card Header */}
-            <div className="bg-gradient-to-r from-slate-100 to-gray-50 dark:from-gray-800 dark:to-gray-750 px-4 py-3 border-b border-gray-200/50 dark:border-gray-700/50">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full animate-pulse"></div>
-                  Order Items
-                </span>
-                <span className="text-xs bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-2.5 py-1 rounded-full font-medium">
-                  {orderItems.length} item{orderItems.length !== 1 ? "s" : ""}
-                </span>
+          {/* ════════════════════════════════════════════════════════════════ */}
+          {/* STEP 1: SUCCESS ANIMATION SCREEN                                 */}
+          {/* ════════════════════════════════════════════════════════════════ */}
+          {currentStep === "success" && (
+            <div className="p-10 flex flex-col items-center justify-center text-center space-y-4 bg-white dark:bg-slate-900">
+              <div className="w-20 h-20 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 animate-bounce">
+                <Check className="w-10 h-10 text-white stroke-[3]" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Payment Completed!</h2>
+              <p className="text-slate-500 text-sm">
+                Table {tableNumber || "Order"} settled for {currencySymbol}
+                {total.toFixed(2)}
+              </p>
+              <div className="flex gap-2 pt-2">
+                <Button onClick={handlePrint} variant="outline" size="sm" className="gap-2">
+                  <Printer className="w-4 h-4" /> Print Again
+                </Button>
+                {sendBillToWhatsApp && customerMobile && (
+                  <Button onClick={handleAutoSendWhatsApp} variant="outline" size="sm" className="gap-2 text-emerald-600">
+                    <Share2 className="w-4 h-4" /> Resend WhatsApp
+                  </Button>
+                )}
               </div>
             </div>
-            <div className="p-4 space-y-2 max-h-60 overflow-y-auto">
-              {orderItems.map((item, idx) => {
-                const isWeightBased =
-                  item.pricingType && item.pricingType !== "fixed";
-                const itemTotal =
-                  item.calculatedPrice ?? item.price * item.quantity;
-                const isCompleted = itemCompletionStatus[idx] === true;
+          )}
 
+          {/* ════════════════════════════════════════════════════════════════ */}
+          {/* STEP 2: DYNAMIC UPI QR POPUP SCREEN                              */}
+          {/* ════════════════════════════════════════════════════════════════ */}
+          {currentStep === "qr" && (
+            <div className="p-6 space-y-5 bg-white dark:bg-slate-900">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                <Button variant="ghost" size="sm" onClick={() => setCurrentStep("checkout")} className="gap-1.5">
+                  <ArrowLeft className="w-4 h-4" /> Back to Payment
+                </Button>
+                <Badge variant="outline" className="font-mono text-xs">
+                  {tableNumber ? `Table ${tableNumber}` : "POS Quick Pay"}
+                </Badge>
+              </div>
+
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-100/80 dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800">
+                {qrCodeUrl ? (
+                  <img src={qrCodeUrl} alt="UPI QR Code" className="w-56 h-56 rounded-xl shadow-md bg-white p-2" />
+                ) : (
+                  <div className="w-56 h-56 flex flex-col items-center justify-center gap-2 text-slate-400">
+                    <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                    <span className="text-xs">Generating Dynamic UPI QR...</span>
+                  </div>
+                )}
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-3 flex items-center gap-1.5 font-medium">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> Customer can scan with GPay, PhonePe, Paytm, BHIM
+                </p>
+                <div className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">
+                  {currencySymbol}
+                  {total.toFixed(2)}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  onClick={() => handleQuickPay("upi")}
+                  disabled={isProcessingPayment}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11"
+                >
+                  {isProcessingPayment ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
+                  Confirm Received
+                </Button>
+                <Button variant="outline" onClick={() => setCurrentStep("checkout")} className="h-11">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ════════════════════════════════════════════════════════════════ */}
+          {/* STEP 3: SPLIT BILL SCREEN                                        */}
+          {/* ════════════════════════════════════════════════════════════════ */}
+          {currentStep === "split" && (
+            <div className="p-6 space-y-4 bg-white dark:bg-slate-900">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                <Button variant="ghost" size="sm" onClick={() => setCurrentStep("checkout")} className="gap-1.5">
+                  <ArrowLeft className="w-4 h-4" /> Back to Payment
+                </Button>
+                <div className="text-right">
+                  <span className="text-xs text-slate-400 block">Total Due</span>
+                  <span className="text-lg font-bold text-slate-900 dark:text-white">
+                    {currencySymbol}
+                    {total.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <div className="p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20 flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400 flex items-center gap-1.5">
+                    <Wallet className="w-4 h-4" /> Cash Share
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-bold text-slate-500">{currencySymbol}</span>
+                    <Input
+                      type="number"
+                      placeholder="0.00"
+                      value={splitCash}
+                      onChange={(e) => setSplitCash(e.target.value)}
+                      className="w-28 h-8 text-right font-bold text-xs bg-white dark:bg-slate-900"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-purple-200 dark:border-purple-900/40 bg-purple-50/50 dark:bg-purple-950/20 flex items-center justify-between">
+                  <span className="text-xs font-bold text-purple-800 dark:text-purple-400 flex items-center gap-1.5">
+                    <QrCode className="w-4 h-4" /> UPI / QR Share
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-bold text-slate-500">{currencySymbol}</span>
+                    <Input
+                      type="number"
+                      placeholder="0.00"
+                      value={splitUpi}
+                      onChange={(e) => setSplitUpi(e.target.value)}
+                      className="w-28 h-8 text-right font-bold text-xs bg-white dark:bg-slate-900"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900/40 bg-blue-50/50 dark:bg-blue-950/20 flex items-center justify-between">
+                  <span className="text-xs font-bold text-blue-800 dark:text-blue-400 flex items-center gap-1.5">
+                    <CreditCard className="w-4 h-4" /> Card Share
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-bold text-slate-500">{currencySymbol}</span>
+                    <Input
+                      type="number"
+                      placeholder="0.00"
+                      value={splitCard}
+                      onChange={(e) => setSplitCard(e.target.value)}
+                      className="w-28 h-8 text-right font-bold text-xs bg-white dark:bg-slate-900"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Split Summary */}
+              {(() => {
+                const c = parseFloat(splitCash) || 0;
+                const u = parseFloat(splitUpi) || 0;
+                const cd = parseFloat(splitCard) || 0;
+                const sum = c + u + cd;
+                const diff = total - sum;
                 return (
-                  <div
-                    key={idx}
-                    onClick={() => handleItemToggle(idx)}
-                    className={`flex justify-between items-center cursor-pointer transition-all duration-200 p-3 rounded-xl group ${
-                      isCompleted
-                        ? "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/20 border border-green-200 dark:border-green-700"
-                        : "hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-indigo-900/20 dark:hover:to-purple-900/20 border border-transparent hover:border-indigo-200 dark:hover:border-indigo-700"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      {/* Completion indicator */}
-                      <div
-                        className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                          isCompleted
-                            ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white"
-                            : "border-2 border-gray-300 dark:border-gray-600 group-hover:border-indigo-400"
-                        }`}
-                      >
-                        {isCompleted && <span className="text-xs">✓</span>}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span
-                          className={`font-medium block truncate ${
-                            isCompleted
-                              ? "line-through text-gray-400 dark:text-gray-500"
-                              : "text-gray-700 dark:text-gray-200"
-                          }`}
-                        >
-                          {isWeightBased && item.actualQuantity ? (
-                            <>
-                              {item.actualQuantity} {item.unit} {item.name}
-                            </>
-                          ) : (
-                            <>
-                              <span className="text-indigo-600 dark:text-indigo-400">
-                                {item.quantity}x
-                              </span>{" "}
-                              {item.name}
-                            </>
-                          )}
-                        </span>
-                        {item.isCustomExtra && (
-                          <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 px-2 py-0.5 rounded-full ml-2">
-                            Custom
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {isCompleted && (
-                        <span className="text-xs bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">
-                          Ready
-                        </span>
-                      )}
-                      <span
-                        className={`font-bold ${
-                          isCompleted
-                            ? "line-through text-gray-400 dark:text-gray-500"
-                            : "text-gray-900 dark:text-white"
-                        }`}
-                      >
+                  <div className="p-4 rounded-xl bg-slate-900 text-white flex justify-between items-center text-xs">
+                    <div>
+                      <span className="text-xs text-slate-400">Entered: </span>
+                      <span className="font-bold">
                         {currencySymbol}
-                        {itemTotal.toFixed(2)}
+                        {sum.toFixed(2)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-400">Remaining: </span>
+                      <span className={`font-bold ${Math.abs(diff) < 0.05 ? "text-emerald-400" : "text-amber-400"}`}>
+                        {currencySymbol}
+                        {diff.toFixed(2)}
                       </span>
                     </div>
                   </div>
                 );
-              })}
-            </div>
+              })()}
 
-            {/* Totals Section */}
-            <div className="bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/50 dark:to-gray-700/50 rounded-xl p-4 mt-4 border border-gray-100 dark:border-gray-700">
-              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
-                <span>Subtotal</span>
-                <span className="font-medium text-gray-700 dark:text-gray-300">
-                  {currencySymbol}
-                  {subtotal.toFixed(2)}
-                </span>
-              </div>
-
-              {appliedPromotion && promotionDiscountAmount > 0 && (
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-emerald-600 dark:text-emerald-400">
-                    Promo Discount ({appliedPromotion.name})
-                  </span>
-                  <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                    -{currencySymbol}
-                    {promotionDiscountAmount.toFixed(2)}
-                  </span>
-                </div>
-              )}
-
-              {manualDiscountPercent > 0 && (
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-emerald-600 dark:text-emerald-400">
-                    Discount ({manualDiscountPercent}%)
-                  </span>
-                  <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                    -{currencySymbol}
-                    {manualDiscountAmount.toFixed(2)}
-                  </span>
-                </div>
-              )}
-
-              {totalDiscountAmount > 0 && (
-                <div className="flex justify-between text-sm font-semibold mb-3">
-                  <span className="text-emerald-600 dark:text-emerald-400">
-                    Total Discount
-                  </span>
-                  <span className="text-emerald-600 dark:text-emerald-400">
-                    -{currencySymbol}
-                    {totalDiscountAmount.toFixed(2)}
-                  </span>
-                </div>
-              )}
-
-              <div className="border-t border-gray-200 dark:border-gray-600 pt-3 mt-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-bold text-gray-800 dark:text-white">
-                    {isNonChargeable ? "NC Total" : "Total Due"}
-                  </span>
-                  {isNonChargeable ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-gray-400 line-through">
-                        {currencySymbol}
-                        {subtotal.toFixed(2)}
-                      </span>
-                      <span className="text-2xl font-extrabold text-purple-600 dark:text-purple-400">
-                        {currencySymbol}0.00
-                      </span>
-                      <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 px-2 py-0.5 rounded-full font-medium">
-                        🎁 Non-Chargeable
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="text-2xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                      {currencySymbol}
-                      {total.toFixed(2)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* RIGHT COLUMN - Payment Controls (Modernized) */}
-        <div className="p-3 space-y-2 overflow-y-auto max-h-[60vh] bg-white dark:bg-gray-900">
-
-          {/* Premium Unified Customer & Receipt Options Card */}
-          <div className="p-3 rounded-xl border border-purple-100 dark:border-purple-900/50 bg-gradient-to-br from-purple-50/40 to-indigo-50/20 dark:from-purple-950/10 dark:to-indigo-950/5 space-y-2.5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold flex items-center gap-1.5 text-purple-700 dark:text-purple-300">
-                <span>👤 Customer Details</span>
-                {(orderType === "takeaway" || orderType === "delivery" || orderType === "nc") && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-semibold uppercase tracking-wider">Required</span>
-                )}
-              </h3>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Input
-                  id="customer-name"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder={(orderType === "takeaway" || orderType === "delivery" || orderType === "nc") ? "Name *" : "Name (optional)"}
-                  className={`h-8 text-xs rounded-lg transition-all ${
-                    (orderType === "takeaway" || orderType === "delivery" || orderType === "nc") && !customerName.trim()
-                      ? "border-red-300 focus-visible:ring-red-400 bg-red-50/20"
-                      : "border-gray-200 dark:border-gray-800 focus-visible:ring-purple-400"
-                  }`}
-                />
-                {(orderType === "takeaway" || orderType === "delivery" || orderType === "nc") && !customerName.trim() && (
-                  <p className="text-[9px] text-red-500 mt-0.5 ml-1">Required</p>
-                )}
-              </div>
-              <div>
-                <Input
-                  id="customer-phone"
-                  value={customerMobile}
-                  onChange={(e) => setCustomerMobile(e.target.value)}
-                  placeholder="Phone number"
-                  className="h-8 text-xs rounded-lg border-gray-200 dark:border-gray-800 focus-visible:ring-purple-400"
-                  type="tel"
-                />
-              </div>
-            </div>
-
-            {/* Elegant WhatsApp Bill Toggle within Customer Panel */}
-            <div className="pt-2 border-t border-purple-100/50 dark:border-purple-900/30">
-              <label className="flex items-center gap-2 px-1 py-0.5 rounded cursor-pointer select-none group">
-                <input
-                  type="checkbox"
-                  id="send-bill-checkbox"
-                  checked={sendBillToEmail}
-                  onChange={(e) => setSendBillToEmail(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer shrink-0"
-                />
-                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
-                  📲 Send receipt via WhatsApp
-                </span>
-                {sendBillToEmail && customerMobile && customerMobile.replace(/\D/g, "").length >= 10 && (
-                  <span className="text-xs text-green-600 dark:text-green-400 font-bold shrink-0 animate-in fade-in">✓</span>
-                )}
-              </label>
-              {sendBillToEmail && !customerMobile && (
-                <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 ml-5 animate-in slide-in-from-top-1">
-                  ⚠️ Enter phone number above to receive WhatsApp bill
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* 3. NC Reason — compact (NC orders only) */}
-          {(isNonChargeable || orderType === "nc") && (
-            <div className="p-2.5 rounded-lg border border-amber-200 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-900/10 space-y-1.5">
-              <h3 className="text-xs font-semibold flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
-                🎁 NC Reason <span className="text-red-500">*</span>
-              </h3>
-              <Select
-                value={ncReason}
-                onValueChange={(value) => setNcReason(value)}
-              >
-                <SelectTrigger
-                  id="nc-reason"
-                  className={`h-8 text-sm ${
-                    !ncReason
-                      ? "border-red-300 focus-visible:ring-red-500"
-                      : "border-green-300 focus-visible:ring-green-500"
-                  }`}
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <Button
+                  onClick={handleConfirmSplit}
+                  disabled={isProcessingPayment}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-11"
                 >
-                  <SelectValue placeholder="Select reason..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="staff_meal">Staff Meal</SelectItem>
-                  <SelectItem value="owner_complimentary">Owner Complimentary</SelectItem>
-                  <SelectItem value="customer_complaint">Customer Complaint</SelectItem>
-                  <SelectItem value="promotional_giveaway">Promotional Giveaway</SelectItem>
-                  <SelectItem value="wastage">Wastage/Spoilage</SelectItem>
-                  <SelectItem value="testing">Testing/Quality Check</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-              {!ncReason && (
-                <p className="text-[10px] text-red-500">Select a reason</p>
-              )}
+                  {isProcessingPayment ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
+                  Settle Split
+                </Button>
+                <Button variant="outline" onClick={() => setCurrentStep("checkout")} className="h-11">
+                  Cancel
+                </Button>
+              </div>
             </div>
           )}
 
-          {/* 4. Promo + Discount — MERGED into one card */}
-          <div className="p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 space-y-2">
-            {/* Promotion */}
-            <div className="space-y-1.5">
-              <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-300">Promo & Discount</h3>
+          {/* ════════════════════════════════════════════════════════════════ */}
+          {/* STEP 4: MAIN 1-CLICK CHECKOUT INTERFACE                          */}
+          {/* ════════════════════════════════════════════════════════════════ */}
+          {currentStep === "checkout" && (
+            <div className="relative">
 
-              {!appliedPromotion ? (
-                <div className="space-y-1.5">
-                  <Select
-                    value={promotionCode}
-                    onValueChange={(value) => {
-                      setPromotionCode(value);
-                      if (value && value !== "manual") {
-                        handleApplyPromotion(value);
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-full h-8 text-sm">
-                      <SelectValue placeholder="Select promo code" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      {activePromotions.length > 0 ? (
-                        <>
-                          {activePromotions.map((promo) => (
-                            <SelectItem
-                              key={promo.id}
-                              value={promo.promotion_code || ""}
-                            >
-                              <div className="flex items-center justify-between w-full gap-3 pr-2">
-                                <div className="flex flex-col min-w-0 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-semibold text-xs">
-                                      {promo.promotion_code}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground truncate">
-                                      {promo.name}
-                                    </span>
-                                  </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-12 min-h-[560px]">
+                {/* ──────────────────────────────────────────────────────────── */}
+                {/* LEFT HALF (50%): BILL PREVIEW & INLINE EDITABLE PRICES        */}
+                {/* ──────────────────────────────────────────────────────────── */}
+                <div className="md:col-span-6 p-5 border-r border-slate-300 dark:border-slate-800 flex flex-col justify-between bg-slate-100/90 dark:bg-slate-950/80">
+                  <div className="space-y-3">
+                    {/* Dynamic Restaurant / Branch Header */}
+                    <div className="flex items-center justify-between pb-2.5 border-b border-slate-300/80 dark:border-slate-800">
+                      <div>
+                        <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                          <Receipt className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                          <span>{resolvedRestaurantName}</span>
+                        </h2>
+                        <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-400">
+                          {tableNumber ? `Table: ${tableNumber}` : "Quick Order"} • {orderItems.length} items
+                        </span>
+                      </div>
+
+                      {hasCustomOverrides && (
+                        <button
+                          onClick={handleResetPriceOverrides}
+                          title="Reset all prices to original menu rates"
+                          className="text-[11px] font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400 underline"
+                        >
+                          Reset Prices
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Compact Item Table Header */}
+                    <div className="grid grid-cols-12 text-[10px] font-bold uppercase text-slate-600 dark:text-slate-400 px-2 tracking-wider">
+                      <span className="col-span-7">Item</span>
+                      <span className="col-span-2 text-center">Qty</span>
+                      <span className="col-span-3 text-right">Price (Edit)</span>
+                    </div>
+
+                    {/* Scrollable Items List with Inline Click-to-Edit Price */}
+                    <div className="space-y-1.5 max-h-[170px] overflow-y-auto pr-1">
+                      {orderItems.map((item, idx) => {
+                        const unitPrice = item.customPrice !== undefined ? item.customPrice : item.price;
+                        const isEditingThis = editingItemIdx === idx;
+
+                        return (
+                          <div
+                            key={`${item.id || idx}-${idx}`}
+                            className="grid grid-cols-12 items-center text-xs py-2 px-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300/90 dark:border-slate-700/80 shadow-2xs hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors"
+                          >
+                            <div className="col-span-7 truncate font-semibold text-slate-900 dark:text-slate-100">
+                              {item.name}
+                            </div>
+                            <div className="col-span-2 text-center text-slate-600 dark:text-slate-400 font-bold">
+                              ×{item.quantity}
+                            </div>
+                            <div className="col-span-3 text-right">
+                              {isEditingThis ? (
+                                <div className="flex items-center justify-end gap-1">
+                                  <span className="text-[10px] text-slate-500 font-bold">{currencySymbol}</span>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    inputMode="decimal"
+                                    autoFocus
+                                    value={tempItemPrice}
+                                    onChange={(e) => setTempItemPrice(e.target.value)}
+                                    onBlur={() => handleSaveItemPrice(idx)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleSaveItemPrice(idx);
+                                      }
+                                      if (e.key === "Escape") {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setEditingItemIdx(null);
+                                      }
+                                    }}
+                                    className="w-16 px-1.5 py-0.5 text-right font-bold text-xs bg-indigo-50 dark:bg-indigo-950/60 border-2 border-indigo-500 rounded outline-none text-slate-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  />
                                 </div>
-                                <Badge
-                                  variant="secondary"
-                                  className="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200 text-xs whitespace-nowrap"
+                              ) : (
+                                <button
+                                  onClick={() => handleStartEditItemPrice(idx, unitPrice)}
+                                  title="Click to edit price for this order"
+                                  className="group inline-flex items-center gap-1 font-bold text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400"
                                 >
-                                  {promo.discount_percentage
-                                    ? `${promo.discount_percentage}% off`
-                                    : `₹${promo.discount_amount} off`}
-                                </Badge>
-                              </div>
-                            </SelectItem>
-                          ))}
-                          <Separator className="my-1" />
-                          <SelectItem value="manual">
-                            ✏️ Enter code manually...
-                          </SelectItem>
-                        </>
-                      ) : (
-                        <SelectItem value="manual">
-                          Enter code manually...
-                        </SelectItem>
+                                  {item.customPrice !== undefined && (
+                                    <span className="text-[9px] px-1 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-bold">
+                                      edited
+                                    </span>
+                                  )}
+                                  <span>
+                                    {currencySymbol}
+                                    {(unitPrice * item.quantity).toFixed(2)}
+                                  </span>
+                                  <Pencil className="w-3 h-3 opacity-40 group-hover:opacity-100 text-indigo-600 dark:text-indigo-400 transition-opacity" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Subtotal & Breakdown */}
+                    <div className="pt-2 border-t border-slate-300/80 dark:border-slate-800 space-y-1 text-xs">
+                      <div className="flex justify-between text-slate-700 dark:text-slate-300 font-medium">
+                        <span>Subtotal</span>
+                        <span className="font-bold">
+                          {currencySymbol}
+                          {subtotal.toFixed(2)}
+                        </span>
+                      </div>
+
+                      {promotionDiscountAmount > 0 && (
+                        <div className="flex justify-between text-emerald-700 dark:text-emerald-400 font-semibold">
+                          <span>Promo Discount ({appliedPromotion?.name || appliedPromotion?.promotion_code})</span>
+                          <span>
+                            -{currencySymbol}
+                            {promotionDiscountAmount.toFixed(2)}
+                          </span>
+                        </div>
                       )}
-                    </SelectContent>
-                  </Select>
 
-                  {(promotionCode === "manual" ||
-                    activePromotions.length === 0) && (
-                    <div className="flex items-center gap-1.5">
-                      <Input
-                        value={promotionCode === "manual" ? "" : promotionCode}
-                        onChange={(e) =>
-                          setPromotionCode(e.target.value.toUpperCase())
-                        }
-                        placeholder="Enter code"
-                        className="flex-1 h-7 text-xs"
-                        onKeyPress={(e) => {
-                          if (e.key === "Enter") {
-                            handleApplyPromotion();
-                          }
-                        }}
-                      />
-                      <Button onClick={() => handleApplyPromotion()} size="sm" className="h-7 text-xs px-3">
-                        Apply
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-200 dark:border-green-700">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Badge variant="default" className="bg-green-600 text-xs shrink-0">
-                      {appliedPromotion.code}
-                    </Badge>
-                    <span className="text-xs text-green-700 dark:text-green-300 truncate">
-                      -{currencySymbol}{promotionDiscountAmount.toFixed(2)}
-                    </span>
-                  </div>
-                  <Button
-                    onClick={handleRemovePromotion}
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/20 shrink-0"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-gray-200 dark:border-gray-700" />
-
-            {/* Manual Discount */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Discount %</label>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <Input
-                    type="number"
-                    placeholder="0"
-                    min="0"
-                    max="100"
-                    value={localDiscountPctStr}
-                    onChange={(e) => {
-                      const valStr = e.target.value;
-                      setLocalDiscountPctStr(valStr);
-                      const value = parseFloat(valStr) || 0;
-                      if (value >= 0 && value <= 100) {
-                        setManualDiscountPercent(value);
-                      } else if (valStr === "") {
-                        setManualDiscountPercent(0);
-                      }
-                    }}
-                    className="flex-1 h-7 text-xs"
-                  />
-                  <span className="text-[10px] text-muted-foreground">%</span>
-                </div>
-              </div>
-              <div>
-                <label className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cash Off</label>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <span className="text-[10px] text-muted-foreground">{currencySymbol}</span>
-                  <Input
-                    type="number"
-                    placeholder="0"
-                    min="0"
-                    value={localDiscountCashStr}
-                    onChange={(e) => {
-                      const valStr = e.target.value;
-                      setLocalDiscountCashStr(valStr);
-                      const value = parseFloat(valStr) || 0;
-                      if (value >= 0 && value <= subtotal) {
-                        setManualDiscountCash(value);
-                      } else if (valStr === "") {
-                        setManualDiscountCash(0);
-                      }
-                    }}
-                    className="flex-1 h-7 text-xs"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {(manualDiscountPercent > 0 || manualDiscountCash > 0) && (
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">
-                  ✓ Save {currencySymbol}{manualDiscountAmount.toFixed(2)}
-                </span>
-                <button
-                  onClick={() => {
-                    setManualDiscountPercent(0);
-                    setManualDiscountCash(0);
-                    setLocalDiscountPctStr("");
-                    setLocalDiscountCashStr("");
-                  }}
-                  className="text-[10px] text-red-500 hover:text-red-700 underline"
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* 5. Action Buttons — compact row */}
-          <div className="grid grid-cols-3 gap-1.5">
-            <Button
-              variant="outline"
-              onClick={handleEditOrder}
-              className="w-full h-8 text-[11px]"
-              size="sm"
-            >
-              <Receipt className="w-3 h-3 mr-1" />
-              Edit
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => handlePrintBill(true)}
-              className="w-full h-8 text-[11px]"
-              size="sm"
-              disabled={isSaving}
-            >
-              <Printer className="w-3 h-3 mr-1" />
-              {isSaving ? "..." : "Print"}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => setShowDeleteConfirm(true)}
-              className="w-full h-8 text-[11px]"
-              size="sm"
-            >
-              <Trash2 className="w-3 h-3 mr-1" />
-              Delete
-            </Button>
-          </div>
-
-          {/* Delete Confirmation Dialog */}
-          <AlertDialog
-            open={showDeleteConfirm}
-            onOpenChange={setShowDeleteConfirm}
-          >
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Order</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete this order permanently? This
-                  action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDeleteOrder}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </div>
-
-      {/* Sticky Footer - Always visible */}
-      <div className="sticky bottom-0 bg-gradient-to-t from-white via-white to-white/80 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900/80 pt-4 pb-3 px-4 border-t border-gray-200/50 dark:border-gray-700/50">
-        {isNonChargeable ? (
-          /* NC Order - Complete directly without payment */
-          <Button
-            onClick={async () => {
-              // Validate customer name for NC orders
-              if (!customerName.trim()) {
-                toast({
-                  title: "Customer name required",
-                  description: "Please enter a customer name for this NC order",
-                  variant: "destructive",
-                });
-                return;
-              }
-              // Validate NC reason
-              if (!ncReason) {
-                toast({
-                  title: "NC reason required",
-                  description: "Please select a reason for this NC order",
-                  variant: "destructive",
-                });
-                return;
-              }
-              await handleMarkAsPaid("nc");
-            }}
-            className={`w-full bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 hover:from-purple-600 hover:via-pink-600 hover:to-rose-600 text-white shadow-lg shadow-purple-300/50 dark:shadow-purple-900/30 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] font-semibold ${
-              !customerName.trim() || !ncReason
-                ? "opacity-60 cursor-not-allowed"
-                : ""
-            }`}
-            size="lg"
-            disabled={isProcessingPayment || !customerName.trim() || !ncReason}
-          >
-            {isProcessingPayment ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Completing...
-              </>
-            ) : !customerName.trim() ? (
-              "⚠️ Enter Customer Name First"
-            ) : !ncReason ? (
-              "⚠️ Select NC Reason First"
-            ) : (
-              "🎁 Complete Non-Chargeable Order"
-            )}
-          </Button>
-        ) : (
-          /* Regular Order - Proceed to payment methods */
-          <Button
-            onClick={async () => {
-              // Validate customer name for takeaway/delivery/NC
-              if (
-                (orderType === "takeaway" ||
-                  orderType === "delivery" ||
-                  orderType === "nc") &&
-                !customerName.trim()
-              ) {
-                toast({
-                  title: "Customer Name Required",
-                  description:
-                    "Please enter customer name before proceeding to payment.",
-                  variant: "destructive",
-                });
-                return;
-              }
-              const saved = await saveCustomerDetails();
-              if (saved) {
-                // Check for active reservation before proceeding to payment
-                await checkForActiveReservation();
-                setCurrentStep("method");
-              }
-            }}
-            className="w-full bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-green-300/50 dark:shadow-green-900/30 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] font-semibold"
-            size="lg"
-            disabled={
-              isSaving ||
-              ((orderType === "takeaway" ||
-                orderType === "delivery" ||
-                orderType === "nc") &&
-                !customerName.trim())
-            }
-          >
-            {isSaving ? "Saving Details..." : "Proceed to Payment Methods →"}
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderMethodStep = () => (
-    <div className="space-y-4 p-4">
-      {/* Back Button */}
-      <Button
-        variant="ghost"
-        onClick={() => setCurrentStep("confirm")}
-        className="mb-1 h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
-        size="sm"
-      >
-        <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
-        Back
-      </Button>
-
-      {/* NC Order - Complimentary View */}
-      {isNonChargeable ? (
-        <>
-          {/* NC Header */}
-          <div className="text-center py-6 px-8 rounded-2xl bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 shadow-lg shadow-purple-200/50 dark:shadow-purple-900/30">
-            <h2 className="text-2xl font-bold text-white mb-2 drop-shadow-sm">
-              🎁 Complimentary Order
-            </h2>
-            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
-              <span className="text-white/80 text-sm">Amount:</span>
-              <span className="text-xl font-extrabold text-white line-through opacity-60">
-                {currencySymbol}
-                {subtotal.toFixed(2)}
-              </span>
-              <span className="text-2xl font-extrabold text-white">
-                {currencySymbol}0.00
-              </span>
-            </div>
-          </div>
-
-          {/* NC Explanation */}
-          <Card className="p-4 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/30 border-2 border-amber-300 dark:border-amber-600">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-amber-400 to-yellow-400 rounded-full flex items-center justify-center shadow-md flex-shrink-0">
-                <span className="text-lg">🎁</span>
-              </div>
-              <div>
-                <p className="font-semibold text-amber-800 dark:text-amber-300">
-                  Non-Chargeable Order
-                </p>
-                <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
-                  This order will be marked as complimentary. No payment will be
-                  collected and the amount will not be added to revenue.
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          {/* Complete Non-Chargeable Order Button */}
-          <Button
-            onClick={() => handleMethodSelect("nc")}
-            className="w-full h-16 text-lg bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 hover:from-purple-600 hover:via-pink-600 hover:to-rose-600 text-white shadow-lg shadow-purple-300/50 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
-            disabled={isProcessingPayment}
-          >
-            {isProcessingPayment ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <Check className="w-5 h-5 mr-3" />
-                Complete Non-Chargeable Order
-              </>
-            )}
-          </Button>
-        </>
-      ) : (
-        <>
-          {/* Compact Header - Normal Orders */}
-          <div className="text-center py-3 px-6 rounded-xl bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 shadow-md">
-            <h2 className="text-lg font-bold text-white mb-1 drop-shadow-sm">
-              Select Payment Method
-            </h2>
-            <div className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
-              <span className="text-white/80 text-xs">Total:</span>
-              <span className="text-lg font-extrabold text-white">
-                {currencySymbol}
-                {total.toFixed(2)}
-              </span>
-            </div>
-          </div>
-
-          {/* Show room charge option if guest is detected */}
-          {detectedReservation && (
-            <Card className="p-4 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/30 dark:to-green-900/30 border-2 border-emerald-400 dark:border-emerald-600 shadow-lg shadow-emerald-200/50 dark:shadow-emerald-900/30">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-300/50">
-                  <Check className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <p className="font-bold text-emerald-700 dark:text-emerald-300">
-                    In-House Guest Detected
-                  </p>
-                  <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                    {detectedReservation.customerName} -{" "}
-                    {detectedReservation.roomName}
-                  </p>
-                </div>
-              </div>
-              <Button
-                onClick={() => handleMethodSelect("room")}
-                className="w-full h-14 text-lg bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-lg shadow-emerald-300/50 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
-              >
-                <Receipt className="w-5 h-5 mr-3" />
-                Charge to {detectedReservation.roomName}
-              </Button>
-            </Card>
-          )}
-
-          {/* Payment Methods Grid */}
-          <div className="space-y-2">
-            {/* Cash */}
-            <button
-              onClick={() => handleMethodSelect("cash")}
-              className="w-full h-14 rounded-xl flex items-center px-4 transition-all duration-200 hover:scale-[1.01] hover:shadow-lg bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border border-green-200 dark:border-green-700 hover:border-green-400 dark:hover:border-green-500 group"
-            >
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center shadow-md group-hover:scale-105 transition-all duration-200">
-                <Wallet className="w-5 h-5 text-white" />
-              </div>
-              <div className="ml-3 text-left">
-                <span className="text-base font-bold text-gray-800 dark:text-white">
-                  Cash
-                </span>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Pay with cash
-                </p>
-              </div>
-            </button>
-
-            {/* Card */}
-            <button
-              onClick={() => handleMethodSelect("card")}
-              className="w-full h-14 rounded-xl flex items-center px-4 transition-all duration-200 hover:scale-[1.01] hover:shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border border-blue-200 dark:border-blue-700 hover:border-blue-400 dark:hover:border-blue-500 group"
-            >
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center shadow-md group-hover:scale-105 transition-all duration-200">
-                <CreditCard className="w-5 h-5 text-white" />
-              </div>
-              <div className="ml-3 text-left">
-                <span className="text-base font-bold text-gray-800 dark:text-white">
-                  Card
-                </span>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Credit or Debit card
-                </p>
-              </div>
-            </button>
-
-            {/* UPI */}
-            <button
-              onClick={() => handleMethodSelect("upi")}
-              className="w-full h-14 rounded-xl flex items-center px-4 transition-all duration-200 hover:scale-[1.01] hover:shadow-lg bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/30 dark:to-violet-900/30 border border-purple-200 dark:border-purple-600 hover:border-purple-400 dark:hover:border-purple-500 group"
-            >
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 flex items-center justify-center shadow-md group-hover:scale-105 transition-all duration-200">
-                <QrCode className="w-5 h-5 text-white" />
-              </div>
-              <div className="ml-3 text-left">
-                <span className="text-base font-bold text-gray-800 dark:text-white">
-                  UPI / QR Code
-                </span>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Scan QR to pay
-                </p>
-              </div>
-            </button>
-
-            {/* Split Payment */}
-            <button
-              onClick={() => handleMethodSelect("split")}
-              className="w-full h-14 rounded-xl flex items-center px-4 transition-all duration-200 hover:scale-[1.01] hover:shadow-lg bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/30 border border-orange-200 dark:border-orange-700 hover:border-orange-400 dark:hover:border-orange-500 group"
-            >
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 flex items-center justify-center shadow-md group-hover:scale-105 transition-all duration-200">
-                <span className="text-white font-bold text-base">&#8361;</span>
-              </div>
-              <div className="ml-3 text-left flex-1">
-                <span className="text-base font-bold text-gray-800 dark:text-white">Split Payment</span>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Pay with Cash + UPI + Card mix</p>
-              </div>
-              <span className="text-[10px] font-bold bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 px-2 py-0.5 rounded-full ml-2">NEW</span>
-            </button>
-
-            {/* Pay Later */}
-            <button
-              onClick={() => handleMethodSelect("pay_later")}
-              className="w-full h-14 rounded-xl flex items-center px-4 transition-all duration-200 hover:scale-[1.01] hover:shadow-lg bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/30 border border-amber-200 dark:border-amber-700 hover:border-amber-400 dark:hover:border-amber-500 group"
-            >
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-500 flex items-center justify-center shadow-md group-hover:scale-105 transition-all duration-200">
-                <Clock className="w-5 h-5 text-white" />
-              </div>
-              <div className="ml-3 text-left flex-1">
-                <span className="text-base font-bold text-gray-800 dark:text-white">Pay Later (Tab)</span>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Collect payment at a later time</p>
-              </div>
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-
-  const renderSplitStep = () => {
-    const cashAmt = parseFloat(splitCash) || 0;
-    const upiAmt = parseFloat(splitUpi) || 0;
-    const cardAmt = parseFloat(splitCard) || 0;
-    const splitSum = cashAmt + upiAmt + cardAmt;
-    const remaining = parseFloat((total - splitSum).toFixed(2));
-    const isValid = Math.abs(remaining) < 0.01 && splitSum > 0 && (cashAmt > 0 || upiAmt > 0 || cardAmt > 0);
-
-    const handleConfirmSplit = async () => {
-      if (!isValid) return;
-      const splits = [
-        ...(cashAmt > 0 ? [{ method: "cash", amount: cashAmt }] : []),
-        ...(upiAmt > 0 ? [{ method: "upi", amount: upiAmt }] : []),
-        ...(cardAmt > 0 ? [{ method: "card", amount: cardAmt }] : []),
-      ];
-      await handleMarkAsPaid("split", splits);
-    };
-
-    return (
-      <div className="flex flex-col h-full max-h-[80vh] overflow-y-auto p-5 space-y-4">
-        {/* Back */}
-        <button
-          onClick={() => setCurrentStep("method")}
-          className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors self-start"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Payment Methods
-        </button>
-
-        {/* Header */}
-        <div className="text-center py-4 px-6 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 shadow-lg">
-          <h2 className="text-lg font-bold text-white mb-1">Split Payment</h2>
-          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-1.5 rounded-full">
-            <span className="text-white/80 text-xs">Total to split:</span>
-            <span className="text-xl font-extrabold text-white">{currencySymbol}{total.toFixed(2)}</span>
-          </div>
-        </div>
-
-        {/* Split Inputs */}
-        <div className="space-y-3">
-          {/* Cash */}
-          <div className="flex items-center gap-3 p-3.5 rounded-xl border-2 border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 transition-all focus-within:border-green-500">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center shadow-sm flex-shrink-0">
-              <Wallet className="w-4 h-4 text-white" />
-            </div>
-            <div className="flex-1">
-              <label className="block text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wide mb-1">Cash</label>
-              <div className="flex items-center">
-                <span className="text-sm font-bold text-gray-500 dark:text-gray-400 mr-1.5">{currencySymbol}</span>
-                <Input
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="0"
-                  value={splitCash}
-                  onChange={e => setSplitCash(e.target.value)}
-                  className="h-8 text-base font-bold border-0 bg-transparent focus:ring-0 p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* UPI */}
-          <div className="flex items-center gap-3 p-3.5 rounded-xl border-2 border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 transition-all focus-within:border-purple-500">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 flex items-center justify-center shadow-sm flex-shrink-0">
-              <QrCode className="w-4 h-4 text-white" />
-            </div>
-            <div className="flex-1">
-              <label className="block text-xs font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wide mb-1">UPI</label>
-              <div className="flex items-center">
-                <span className="text-sm font-bold text-gray-500 dark:text-gray-400 mr-1.5">{currencySymbol}</span>
-                <Input
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="0"
-                  value={splitUpi}
-                  onChange={e => setSplitUpi(e.target.value)}
-                  className="h-8 text-base font-bold border-0 bg-transparent focus:ring-0 p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Card */}
-          <div className="flex items-center gap-3 p-3.5 rounded-xl border-2 border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 transition-all focus-within:border-blue-500">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center shadow-sm flex-shrink-0">
-              <CreditCard className="w-4 h-4 text-white" />
-            </div>
-            <div className="flex-1">
-              <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide mb-1">Card</label>
-              <div className="flex items-center">
-                <span className="text-sm font-bold text-gray-500 dark:text-gray-400 mr-1.5">{currencySymbol}</span>
-                <Input
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="0"
-                  value={splitCard}
-                  onChange={e => setSplitCard(e.target.value)}
-                  className="h-8 text-base font-bold border-0 bg-transparent focus:ring-0 p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Balance Indicator */}
-        <div className={`rounded-xl p-3 text-center border-2 transition-all duration-200 ${
-          Math.abs(remaining) < 0.01 && splitSum > 0
-            ? "border-green-400 bg-green-50 dark:bg-green-900/20"
-            : remaining > 0
-              ? "border-orange-400 bg-orange-50 dark:bg-orange-900/20"
-              : "border-red-400 bg-red-50 dark:bg-red-900/20"
-        }`}>
-          {Math.abs(remaining) < 0.01 && splitSum > 0 ? (
-            <p className="text-green-700 dark:text-green-400 font-bold text-sm">&#10003; Amounts balance perfectly!</p>
-          ) : remaining > 0 ? (
-            <p className="text-orange-700 dark:text-orange-400 font-semibold text-sm">
-              Still needed: <span className="font-black">{currencySymbol}{remaining.toFixed(2)}</span>
-            </p>
-          ) : (
-            <p className="text-red-700 dark:text-red-400 font-semibold text-sm">
-              Over by: <span className="font-black">{currencySymbol}{Math.abs(remaining).toFixed(2)}</span>
-            </p>
-          )}
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            {currencySymbol}{splitSum.toFixed(2)} entered / {currencySymbol}{total.toFixed(2)} required
-          </p>
-        </div>
-
-        {/* Confirm Button */}
-        <Button
-          onClick={handleConfirmSplit}
-          disabled={!isValid || isProcessingPayment}
-          className="w-full h-12 bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 text-white font-bold shadow-lg shadow-orange-200/60 dark:shadow-orange-900/30 disabled:opacity-50 transition-all"
-          size="lg"
-        >
-          {isProcessingPayment ? (
-            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</>
-          ) : (
-            <>Confirm Split — {currencySymbol}{total.toFixed(2)}</>
-          )}
-        </Button>
-      </div>
-    );
-  };
-
-  const renderQRStep = () => (
-    <div className="flex flex-col h-full max-h-[80vh]">
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto space-y-6 p-2 pb-4">
-        <Button
-          variant="ghost"
-          onClick={() => {
-            setCurrentStep("method");
-            setPaytmOrderId(null);
-            setIsPaytmQR(false);
-            setPaymentAutoDetected(false);
-          }}
-          className="mb-2"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Methods
-        </Button>
-
-        <div className="text-center space-y-4">
-          {/* Success State */}
-          {paymentAutoDetected ? (
-            <>
-              <div className="w-20 h-20 mx-auto bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-green-300/50 animate-bounce">
-                <Check className="w-10 h-10 text-white" />
-              </div>
-              <h2 className="text-2xl font-bold text-green-600">
-                Payment Received!
-              </h2>
-              <p className="text-muted-foreground">
-                {currencySymbol}
-                {total.toFixed(2)} received successfully
-                {tableNumber ? ` from Table ${tableNumber}` : ""}
-              </p>
-              <div className="text-sm text-muted-foreground animate-pulse">
-                Completing order automatically...
-              </div>
-            </>
-          ) : (
-            <>
-              <h2 className="text-2xl font-bold text-foreground">
-                Scan to Pay
-              </h2>
-              <p className="text-muted-foreground">
-                {isPaytmQR ? (
-                  <>
-                    Ask the customer to scan the QR code using any UPI app
-                    <br />
-                    <span className="text-xs text-purple-500 font-medium">
-                      ⚡ Powered by Paytm • Auto-detection enabled
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    Ask the customer to scan the QR code using any UPI app
-                    <br />
-                    (Google Pay, PhonePe, etc.)
-                  </>
-                )}
-              </p>
-
-              {/* QR Code Display */}
-              {isGeneratingQR ? (
-                <div className="flex justify-center my-6">
-                  <div className="bg-muted p-4 rounded-lg w-64 h-64 flex flex-col items-center justify-center gap-3">
-                    <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
-                    <p className="text-muted-foreground text-sm">
-                      Generating Dynamic QR...
-                    </p>
-                  </div>
-                </div>
-              ) : qrCodeUrl ? (
-                <div className="flex justify-center my-6">
-                  <div
-                    className={`bg-white p-4 rounded-lg shadow-lg border-4 ${
-                      paymentStatus === "waiting"
-                        ? "border-purple-300 animate-pulse"
-                        : "border-gray-200"
-                    }`}
-                  >
-                    <img
-                      src={qrCodeUrl}
-                      alt="Payment QR Code"
-                      className="w-64 h-64"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="flex justify-center my-6">
-                  <div className="bg-muted p-4 rounded-lg w-64 h-64 flex items-center justify-center">
-                    <p className="text-muted-foreground">
-                      Generating QR code...
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Waiting Indicator (Paytm only) */}
-              {isPaytmQR && paymentStatus === "waiting" && (
-                <div className="flex items-center justify-center gap-2 text-purple-600">
-                  <div className="flex gap-1">
-                    <div
-                      className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"
-                      style={{ animationDelay: "0ms" }}
-                    />
-                    <div
-                      className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"
-                      style={{ animationDelay: "150ms" }}
-                    />
-                    <div
-                      className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"
-                      style={{ animationDelay: "300ms" }}
-                    />
-                  </div>
-                  <span className="text-sm font-medium">
-                    Waiting for payment...
-                  </span>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  Amount to be Paid:
-                </p>
-                <p className="text-4xl font-bold text-blue-600">
-                  {currencySymbol}
-                  {total.toFixed(2)}
-                </p>
-              </div>
-
-              {/* Paytm badge */}
-              {isPaytmQR && (
-                <div className="flex items-center justify-center gap-2 mt-2">
-                  <Badge
-                    variant="secondary"
-                    className="bg-blue-50 text-blue-700 border-blue-200"
-                  >
-                    🔒 Secure Paytm Payment
-                  </Badge>
-                  {qrExpiresAt && (
-                    <Badge variant="outline" className="text-xs">
-                      Expires in 10 min
-                    </Badge>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Sticky Footer */}
-      {!paymentAutoDetected && (
-        <div className="sticky bottom-0 bg-background pt-3 pb-2 px-2 border-t shadow-lg">
-          <Button
-            onClick={() => handleMarkAsPaid("upi")}
-            className="w-full bg-green-600 hover:bg-green-700 text-white"
-            size="lg"
-            disabled={isProcessingPayment}
-          >
-            {isProcessingPayment ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Processing Payment...
-              </>
-            ) : isPaytmQR ? (
-              "Manual Override: Mark as Paid"
-            ) : (
-              "Mark as Paid"
-            )}
-          </Button>
-          {isPaytmQR && (
-            <p className="text-xs text-center text-muted-foreground mt-2">
-              Payment will be auto-detected. Use manual override only if
-              auto-detection fails.
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-
-  const renderSuccessStep = () => (
-    <div className="flex flex-col items-center justify-center py-8 px-6">
-      {/* Animated Success Icon */}
-      <div className="relative mb-4">
-        <div className="absolute inset-0 w-20 h-20 bg-gradient-to-r from-green-400 to-emerald-400 rounded-full animate-ping opacity-25"></div>
-        <div className="relative w-20 h-20 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center shadow-xl shadow-green-300/50">
-          <Check className="w-12 h-12 text-white drop-shadow-sm" strokeWidth={3} />
-        </div>
-      </div>
-
-      {/* Success Message */}
-      <h2 className="text-2xl font-extrabold bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent mb-1">
-        Payment Successful!
-      </h2>
-      <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
-        The order for{" "}
-        <span className="font-semibold text-gray-800 dark:text-white">
-          {tableNumber ? `Table ${tableNumber}` : "POS"}
-        </span>{" "}
-        is now complete.
-      </p>
-
-      {/* Simple Action Buttons */}
-      <div className="w-full max-w-sm space-y-3">
-        <Button
-          onClick={onClose}
-          className="w-full bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-green-300/50 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
-          size="lg"
-        >
-          Close
-        </Button>
-
-        <Button
-          variant="outline"
-          onClick={() => handlePrintBill(false)}
-          className="w-full border-2 border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-indigo-900/20 dark:hover:to-purple-900/20 transition-all duration-300"
-        >
-          <Printer className="w-4 h-4 mr-2" />
-          Print Bill
-        </Button>
-
-        {/* Send Bill via WhatsApp (MSG91 API — automated, no browser needed) */}
-        {customerMobile && (
-          <Button
-            onClick={handleSendWhatsAppBill}
-            disabled={isSendingWhatsAppBill}
-            className="w-full h-11 bg-[#25D366] hover:bg-[#1DA851] text-white font-semibold text-sm rounded-xl shadow-md transition-all duration-300 hover:shadow-lg hover:scale-[1.02] active:scale-95"
-          >
-            <MessageSquare className="w-4 h-4 mr-2" />
-            {isSendingWhatsAppBill ? "Sending via WhatsApp..." : "Send Bill via WhatsApp"}
-          </Button>
-        )}
-
-        {/* Free Share (wa.me link or clipboard) */}
-        <Button
-          variant="outline"
-          onClick={customerMobile ? handleShareWhatsApp : handleShareGeneric}
-          className="w-full h-11 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl font-semibold text-sm transition-all active:scale-95"
-        >
-          <Share2 className="w-4 h-4 mr-2" />
-          {customerMobile ? "Share Text Bill (Free)" : "Copy Bill Text"}
-        </Button>
-      </div>
-    </div>
-  );
-
-  const renderEditStep = () => (
-    <div className="flex flex-col h-full max-h-[85vh]">
-      {/* Vibrant Header */}
-      <div className="text-center py-4 px-6 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 shadow-lg">
-        <div className="flex items-center justify-between mb-2">
-          <Button
-            variant="ghost"
-            onClick={() => setCurrentStep("confirm")}
-            className="text-white hover:bg-white/20"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Order
-          </Button>
-          <div className="w-20" /> {/* Spacer for centering */}
-        </div>
-        <h2 className="text-2xl font-bold text-white mb-1 drop-shadow-sm">
-          Edit Order
-        </h2>
-        <p className="text-white/80 text-sm">
-          Add new items to{" "}
-          <span className="font-semibold text-white">
-            {tableNumber ? `Table ${tableNumber}` : "this order"}
-          </span>
-        </p>
-      </div>
-
-      {/* Content Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* Previously Sent Items */}
-        <Card className="p-0 overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg">
-          <div className="bg-gradient-to-r from-slate-100 to-gray-50 dark:from-gray-800 dark:to-gray-750 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-indigo-500" />
-              Previously Sent Items
-              <span className="text-xs bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full ml-auto">
-                {orderItems.length} items
-              </span>
-            </h3>
-          </div>
-          <div className="p-3 space-y-2 max-h-40 overflow-y-auto">
-            {orderItems.map((item, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between gap-3 p-2 rounded-lg bg-gray-50 dark:bg-gray-900/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              >
-                <span className="flex-1 font-medium text-sm text-gray-700 dark:text-gray-200 truncate">
-                  {item.name}
-                </span>
-
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        handleUpdateExistingItemQuantity(idx, item.quantity - 1)
-                      }
-                      className="h-8 w-8 p-0 rounded-none hover:bg-gray-100 dark:hover:bg-gray-700"
-                    >
-                      -
-                    </Button>
-                    <span className="text-sm font-bold w-8 text-center text-gray-800 dark:text-white">
-                      {item.quantity}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        handleUpdateExistingItemQuantity(idx, item.quantity + 1)
-                      }
-                      className="h-8 w-8 p-0 rounded-none hover:bg-gray-100 dark:hover:bg-gray-700"
-                    >
-                      +
-                    </Button>
-                  </div>
-
-                  <span className="font-bold text-sm w-20 text-right text-gray-800 dark:text-white">
-                    {currencySymbol}
-                    {(item.price * item.quantity).toFixed(2)}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleRemoveExistingItem(idx)}
-                    className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* New Items to Add */}
-        {newItemsBuffer.length > 0 && (
-          <Card className="p-0 overflow-hidden bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-300 dark:border-green-700 shadow-lg">
-            <div className="bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-3">
-              <h3 className="font-semibold text-white flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                New Items to Add
-                <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full ml-auto">
-                  {newItemsBuffer.length} new
-                </span>
-              </h3>
-            </div>
-            <div className="p-3 space-y-2 max-h-40 overflow-y-auto">
-              {newItemsBuffer.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between gap-3 p-2 rounded-lg bg-white dark:bg-gray-800 border border-green-200 dark:border-green-700"
-                >
-                  <span className="text-sm flex-1 font-medium text-gray-700 dark:text-gray-200">
-                    {item.name}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() =>
-                          handleUpdateNewItemQuantity(
-                            item.id,
-                            item.quantity - 1,
-                          )
-                        }
-                        className="h-7 w-7 p-0 rounded-none"
-                      >
-                        -
-                      </Button>
-                      <span className="text-sm font-bold w-8 text-center">
-                        {item.quantity}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() =>
-                          handleUpdateNewItemQuantity(
-                            item.id,
-                            item.quantity + 1,
-                          )
-                        }
-                        className="h-7 w-7 p-0 rounded-none"
-                      >
-                        +
-                      </Button>
-                    </div>
-                    <span className="text-sm font-bold w-16 text-right">
-                      {currencySymbol}
-                      {(item.price * item.quantity).toFixed(2)}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleRemoveNewItem(item.id)}
-                      className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {/* Custom Item Button */}
-        <Button
-          variant="outline"
-          onClick={() => setShowCustomItemDialog(true)}
-          className="w-full border-2 border-dashed border-purple-300 dark:border-purple-600 hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-purple-600 dark:text-purple-400 transition-all"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Custom Item
-        </Button>
-
-        {/* Search Menu Items */}
-        <div className="space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Search menu items..."
-              value={menuSearchQuery}
-              onChange={(e) => setMenuSearchQuery(e.target.value)}
-              className="pl-10 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 focus:border-indigo-400 dark:focus:border-indigo-500 rounded-xl"
-            />
-          </div>
-
-          {/* Menu Items List */}
-          <Card className="max-h-52 overflow-y-auto border border-gray-200 dark:border-gray-700 shadow-lg">
-            <div className="p-2 space-y-1">
-              {filteredMenuItems.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">
-                  {menuSearchQuery
-                    ? "No items found matching your search"
-                    : "No menu items available"}
-                </p>
-              ) : (
-                filteredMenuItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => handleAddMenuItem(item)}
-                    className="w-full flex items-center justify-between p-3 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 dark:hover:from-green-900/20 dark:hover:to-emerald-900/20 rounded-xl transition-all group border border-transparent hover:border-green-200 dark:hover:border-green-700"
-                  >
-                    <div className="flex-1 text-left">
-                      <p className="font-medium text-sm text-gray-800 dark:text-white group-hover:text-green-700 dark:group-hover:text-green-400">
-                        {item.name}
-                      </p>
-                      {item.category && (
-                        <p className="text-xs text-gray-400">{item.category}</p>
+                      {manualDiscountAmount > 0 && (
+                        <div className="flex justify-between text-emerald-700 dark:text-emerald-400 font-semibold">
+                          <span>
+                            Manual Discount {manualDiscountPercent > 0 ? `(${manualDiscountPercent}%)` : `(Cash Off)`}
+                          </span>
+                          <span>
+                            -{currencySymbol}
+                            {manualDiscountAmount.toFixed(2)}
+                          </span>
+                        </div>
                       )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold text-sm text-gray-700 dark:text-gray-300">
-                        {currencySymbol}
-                        {item.price.toFixed(2)}
-                      </span>
-                      <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center group-hover:bg-green-500 group-hover:scale-110 transition-all">
-                        <Plus className="w-4 h-4 text-green-600 group-hover:text-white" />
+
+                      {loyaltyDiscountAmount > 0 && (
+                        <div className="flex justify-between text-amber-700 dark:text-amber-400 font-semibold">
+                          <span className="flex items-center gap-1">
+                            <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> Loyalty Redemption ({redeemedLoyaltyPoints} pts)
+                          </span>
+                          <span>
+                            -{currencySymbol}
+                            {loyaltyDiscountAmount.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+
+                      {tipAmount > 0 && (
+                        <div className="flex justify-between text-indigo-700 dark:text-indigo-400 font-semibold">
+                          <span>Tip / Gratuity</span>
+                          <span>
+                            +{currencySymbol}
+                            {tipAmount.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+
+                      {customAdjustmentAmount !== 0 && (
+                        <div className="flex justify-between text-indigo-700 dark:text-indigo-400 font-bold">
+                          <span>{customAdjustmentAmount > 0 ? "Custom Adjustment (+)" : "Manual Price Adjustment (-)"}</span>
+                          <span>
+                            {customAdjustmentAmount > 0 ? "+" : ""}
+                            {currencySymbol}
+                            {customAdjustmentAmount.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Tax & Round-off breakdown expandable drawer (Option 5) */}
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowTaxBreakdown(!showTaxBreakdown)}
+                          className="text-[11px] font-bold text-slate-500 hover:text-indigo-600 flex items-center gap-1 transition-colors"
+                        >
+                          {showTaxBreakdown ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                          <span>
+                            {hasGstin && gstPercent > 0 ? `Taxes (GST ${gstPercent}%) & Round-Off Details` : "Round-Off Details"}
+                          </span>
+                        </button>
+
+                        {showTaxBreakdown && (
+                          <div className="mt-1 p-2 rounded-lg bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-1 text-[11px] text-slate-600 dark:text-slate-400">
+                            {hasGstin && gstPercent > 0 && (
+                              <>
+                                <div className="flex justify-between">
+                                  <span>CGST ({(gstPercent / 2).toFixed(1)}%)</span>
+                                  <span>
+                                    {currencySymbol}
+                                    {cgstAmount.toFixed(2)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>SGST ({(gstPercent / 2).toFixed(1)}%)</span>
+                                  <span>
+                                    {currencySymbol}
+                                    {sgstAmount.toFixed(2)}
+                                  </span>
+                                </div>
+                              </>
+                            )}
+                            <div className={`flex justify-between items-center ${hasGstin && gstPercent > 0 ? "pt-1 border-t border-slate-200 dark:border-slate-800" : ""}`}>
+                              <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={isAutoRoundOff}
+                                  onChange={(e) => setIsAutoRoundOff(e.target.checked)}
+                                  className="w-3 h-3 text-indigo-600 rounded"
+                                />
+                                <span className="font-semibold text-slate-700 dark:text-slate-300">Auto Round-Off</span>
+                              </label>
+                              <span className="font-mono">
+                                {roundOffAmount !== 0 ? (roundOffAmount > 0 ? `+${currencySymbol}${roundOffAmount.toFixed(2)}` : `-${currencySymbol}${Math.abs(roundOffAmount).toFixed(2)}`) : `${currencySymbol}0.00`}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </button>
-                ))
-              )}
+                  </div>
+
+                  {/* Net Total Card with Click-to-Edit Total */}
+                  <div className="mt-3 pt-2 border-t border-slate-300/80 dark:border-slate-800 space-y-2">
+                    <div className="p-3 rounded-xl bg-slate-900 dark:bg-indigo-950 text-white shadow-md flex items-center justify-between border border-slate-800 dark:border-indigo-900">
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">
+                          {isNonChargeable ? "Complimentary Order" : "Net Total (Click to override)"}
+                        </span>
+                        <span className="text-[11px] text-indigo-300 font-medium">
+                          {isNonChargeable ? "No payment collected" : "Tap amount to type custom price"}
+                        </span>
+                      </div>
+
+                      <div>
+                        {isNonChargeable ? (
+                          <span className="text-2xl font-extrabold text-emerald-400">{currencySymbol}0.00</span>
+                        ) : isEditingTotal ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-bold text-slate-400">{currencySymbol}</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              inputMode="decimal"
+                              autoFocus
+                              value={tempTotalInput}
+                              onChange={(e) => setTempTotalInput(e.target.value)}
+                              onBlur={handleSaveTotal}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleSaveTotal();
+                                }
+                                if (e.key === "Escape") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setIsEditingTotal(false);
+                                }
+                              }}
+                              className="w-28 px-2 py-1 text-right font-extrabold text-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg border-2 border-indigo-400 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                          </div>
+                        ) : (
+                          <button
+                            onClick={handleStartEditTotal}
+                            title="Click to directly override final total"
+                            className="group inline-flex items-center gap-2 hover:scale-105 transition-transform"
+                          >
+                            <span className="text-2xl font-extrabold text-white tracking-tight">
+                              {currencySymbol}
+                              {total.toFixed(2)}
+                            </span>
+                            <Pencil className="w-4 h-4 text-indigo-300 opacity-60 group-hover:opacity-100" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bill Bottom Helper Actions */}
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handlePrint}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs gap-1.5 h-8 bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold shadow-2xs hover:bg-slate-100"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Print Preview (P)
+                      </Button>
+                      {onEditOrder && (
+                        <Button
+                          onClick={onEditOrder}
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs text-slate-600 dark:text-slate-400 font-semibold h-8 hover:bg-slate-200 dark:hover:bg-slate-800"
+                        >
+                          Edit Items
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ──────────────────────────────────────────────────────────── */}
+                {/* RIGHT HALF (50%): 1-CLICK PAYMENT ACTIONS & CUSTOMER PANEL   */}
+                {/* ──────────────────────────────────────────────────────────── */}
+                <div className="md:col-span-6 p-4 flex flex-col justify-between space-y-2.5 bg-white dark:bg-slate-900">
+                  <div className="space-y-2.5">
+                    {/* Customer Phone & Loyalty Badge (Option 2) */}
+                    <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-850/60 space-y-2 shadow-2xs">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                            Mobile {isLookingUpCustomer && <Loader2 className="inline w-2.5 h-2.5 animate-spin ml-1 text-indigo-500" />}
+                          </span>
+                          <Input
+                            value={customerMobile}
+                            onChange={(e) => setCustomerMobile(e.target.value)}
+                            placeholder="Phone (10 digits)"
+                            type="tel"
+                            className="h-8 text-xs bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                            Customer Name
+                          </span>
+                          <Input
+                            value={customerName}
+                            onChange={(e) => setCustomerName(e.target.value)}
+                            placeholder="Name (Optional)"
+                            className="h-8 text-xs bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Loyalty Profile Banner (Option 2) */}
+                      {customerProfile && (
+                        <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 flex items-center justify-between gap-2">
+                          <div className="text-[11px] min-w-0">
+                            <span className="font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1">
+                              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0" />
+                              {customerProfile.loyalty_points} Loyalty Pts
+                            </span>
+                            <span className="text-[10px] text-indigo-700 dark:text-indigo-400 block truncate">
+                              Visit #{customerProfile.visit_count} • Spent: {currencySymbol}
+                              {customerProfile.total_spent.toFixed(0)}
+                            </span>
+                            {maxRedemptionPct < 100 && (
+                              <span className="text-[9px] text-indigo-500 dark:text-indigo-400 font-medium block">
+                                (1 pt = {currencySymbol}{amountPerPoint} · Max {maxRedemptionPct}% of bill)
+                              </span>
+                            )}
+                          </div>
+
+                          {customerProfile.loyalty_points > 0 && (
+                            redeemedLoyaltyPoints > 0 ? (
+                              <button
+                                type="button"
+                                onClick={handleRemoveLoyalty}
+                                className="px-2.5 py-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-950 dark:text-rose-300 text-[11px] font-bold transition-colors shrink-0 flex items-center gap-1"
+                              >
+                                ✕ Remove (-{currencySymbol}{loyaltyDiscountRupees.toFixed(0)})
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={handleRedeemMaxLoyalty}
+                                disabled={maxPointsCanRedeem <= 0}
+                                className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:dark:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white text-[11px] font-bold shadow-2xs transition-colors flex items-center gap-1 shrink-0"
+                              >
+                                <Sparkles className="w-3 h-3" />
+                                {maxPointsCanRedeem > 0
+                                  ? `Redeem ${maxPointsCanRedeem} pts (-${currencySymbol}${(maxPointsCanRedeem * amountPerPoint).toFixed(0)})`
+                                  : "Redeem Points"}
+                              </button>
+                            )
+                          )}
+                        </div>
+                      )}
+
+                      <label className="flex items-center gap-2 cursor-pointer pt-1 border-t border-slate-200 dark:border-slate-700/80 select-none">
+                        <input
+                          type="checkbox"
+                          checked={sendBillToWhatsApp}
+                          onChange={(e) => setSendBillToWhatsApp(e.target.checked)}
+                          className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                          📲 Auto-send WhatsApp Bill upon payment
+                        </span>
+                      </label>
+                    </div>
+
+                    {/* ──────────────────────────────────────────────────────── */}
+                    {/* PROMO & DISCOUNT SECTION (Dropdown + Code Input + Cash)  */}
+                    {/* ──────────────────────────────────────────────────────── */}
+                    <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-850/60 space-y-2 shadow-2xs">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
+                        <span className="flex items-center gap-1">
+                          <Tag className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Promo & Discounts
+                        </span>
+                        {appliedPromotion && (
+                          <button
+                            onClick={() => {
+                              setAppliedPromotion(null);
+                              setPromotionCode("");
+                              setManualPromoInput("");
+                            }}
+                            className="text-[11px] font-bold text-rose-600 hover:underline flex items-center gap-0.5"
+                          >
+                            <X className="w-3 h-3" /> Remove Promo
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Promo Dropdown & Manual Input */}
+                      <div className="space-y-1.5">
+                        {activePromotions.length > 0 && (
+                          <Select
+                            value={promotionCode}
+                            onValueChange={(code) => {
+                              const promo = activePromotions.find((p: any) => p.promotion_code === code);
+                              if (promo) {
+                                setAppliedPromotion(promo);
+                                setPromotionCode(code);
+                                setManualPromoInput(code);
+                                setManualDiscountPercent(0);
+                                setManualDiscountCash(0);
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-7 text-xs bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white">
+                              <SelectValue placeholder="Select active promo code..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {activePromotions.map((p: any) => (
+                                <SelectItem key={p.id} value={p.promotion_code}>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="font-bold">{p.promotion_code}</span>
+                                    <span className="text-[11px] text-emerald-600 font-bold">
+                                      ({p.discount_percentage ? `${p.discount_percentage}% off` : `${currencySymbol}${p.discount_amount} off`})
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+
+                        <div className="flex gap-1.5">
+                          <Input
+                            value={manualPromoInput}
+                            onChange={(e) => setManualPromoInput(e.target.value)}
+                            placeholder="Enter promo code"
+                            className="h-7 text-xs bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white flex-1"
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={isApplyingPromo || !manualPromoInput.trim()}
+                            onClick={() => handleApplyPromoCode(manualPromoInput)}
+                            className="h-7 px-3 text-xs bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-700 dark:hover:bg-slate-600 font-bold"
+                          >
+                            {isApplyingPromo ? <Loader2 className="w-3 h-3 animate-spin" /> : "Apply"}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Manual Discounts: DISCOUNT % and CASH OFF (₹) */}
+                      <div className="pt-1.5 border-t border-slate-200 dark:border-slate-700/80 grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-0.5">
+                            Discount %
+                          </span>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              min="0"
+                              max="100"
+                              value={manualDiscountPercent > 0 ? manualDiscountPercent : ""}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setManualDiscountPercent(Math.min(100, Math.max(0, val)));
+                                setManualDiscountCash(0);
+                              }}
+                              placeholder="0"
+                              className="w-full h-7 px-2.5 pr-6 text-right font-bold text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg outline-none text-slate-900 dark:text-white focus:border-indigo-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                            <span className="absolute right-2 top-1.5 text-[11px] font-bold text-slate-400 pointer-events-none">%</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-0.5">
+                            Cash Off ({currencySymbol})
+                          </span>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              min="0"
+                              value={manualDiscountCash > 0 ? manualDiscountCash : ""}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setManualDiscountCash(Math.max(0, val));
+                                setManualDiscountPercent(0);
+                              }}
+                              placeholder="0"
+                              className="w-full h-7 px-2.5 pr-6 text-right font-bold text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg outline-none text-slate-900 dark:text-white focus:border-indigo-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                            <span className="absolute right-2 top-1.5 text-[11px] font-bold text-slate-400 pointer-events-none">{currencySymbol}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Quick Discount Shortcut Chips */}
+                      <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                        {[
+                          { label: "None", pct: 0 },
+                          { label: "5%", pct: 5 },
+                          { label: "10%", pct: 10 },
+                          { label: "15%", pct: 15 },
+                          { label: "20%", pct: 20 },
+                        ].map((d) => (
+                          <button
+                            key={d.pct}
+                            type="button"
+                            onClick={() => {
+                              setManualDiscountPercent(d.pct);
+                              setManualDiscountCash(0);
+                            }}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                              manualDiscountPercent === d.pct && manualDiscountCash === 0 && !appliedPromotion
+                                ? "bg-indigo-600 text-white shadow-2xs"
+                                : "bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700"
+                            }`}
+                          >
+                            {d.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* ──────────────────────────────────────────────────────── */}
+                    {/* TIP / GRATUITY QUICK CHIPS (Option 4)                    */}
+                    {/* ──────────────────────────────────────────────────────── */}
+                    <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-850/60 space-y-1.5 shadow-2xs">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
+                        <span className="flex items-center gap-1">
+                          <Coins className="w-3.5 h-3.5 text-amber-500" /> Tip / Gratuity
+                        </span>
+                        {tipAmount > 0 && (
+                          <span className="text-[11px] font-bold text-emerald-600">
+                            +{currencySymbol}{tipAmount.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectTipPreset(0)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            tipAmount === 0 && !isCustomTip
+                              ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                              : "bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                          }`}
+                        >
+                          None
+                        </button>
+                        {[20, 50, 100].map((amt) => (
+                          <button
+                            key={amt}
+                            type="button"
+                            onClick={() => handleSelectTipPreset(amt)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              tipAmount === amt && !isCustomTip
+                                ? "bg-amber-500 text-white shadow-2xs"
+                                : "bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                            }`}
+                          >
+                            +{currencySymbol}{amt}
+                          </button>
+                        ))}
+                        {[5, 10].map((pct) => (
+                          <button
+                            key={`${pct}pct`}
+                            type="button"
+                            onClick={() => handleSelectTipPercent(pct)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              tipAmount > 0 && Math.abs(tipAmount - Math.round((netTaxableAmount * pct) / 100)) < 1 && !isCustomTip
+                                ? "bg-amber-500 text-white shadow-2xs"
+                                : "bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                            }`}
+                          >
+                            {pct}%
+                          </button>
+                        ))}
+                        {isCustomTip ? (
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            autoFocus
+                            placeholder="Amt"
+                            value={customTipInput}
+                            onChange={(e) => handleCustomTipChange(e.target.value)}
+                            className="w-14 h-5 px-1 text-right text-[10px] font-bold bg-white dark:bg-slate-900 border border-amber-400 rounded outline-none"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setIsCustomTip(true)}
+                            className="px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-600 hover:underline"
+                          >
+                            Custom
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* NC Reason (If complimentary order) */}
+                    {(isNonChargeable || orderType === "nc") && (
+                      <div className="p-3 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 space-y-1.5">
+                        <span className="text-xs font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1">
+                          🎁 NC Reason <span className="text-rose-500">*</span>
+                        </span>
+                        <Select value={ncReason} onValueChange={setNcReason}>
+                          <SelectTrigger className="h-7 text-xs bg-white dark:bg-slate-900 border-amber-300">
+                            <SelectValue placeholder="Select complimentary reason..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="staff_meal">Staff Meal</SelectItem>
+                            <SelectItem value="owner_complimentary">Owner Complimentary</SelectItem>
+                            <SelectItem value="customer_complaint">Customer Complaint</SelectItem>
+                            <SelectItem value="promotional_giveaway">Promotional Giveaway</SelectItem>
+                            <SelectItem value="wastage">Wastage / Quality Check</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {/* Hotel Room Guest Indicator (Only if hotel plan is active & guest detected) */}
+                    {hasRoomsPlan && detectedReservation && (
+                      <div className="p-2 rounded-xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/20 flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-xs">
+                          <Building2 className="w-4 h-4 text-emerald-600" />
+                          <div>
+                            <span className="font-bold text-emerald-900 dark:text-emerald-200">
+                              In-House Guest: {detectedReservation.customerName}
+                            </span>
+                            <span className="text-[10px] text-emerald-700 block">{detectedReservation.roomName}</span>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => handleQuickPay("room")}
+                          className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                        >
+                          Charge Room
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ──────────────────────────────────────────────────────────── */}
+                  {/* 1-CLICK DIRECT PAYMENT ACTIONS GRID                          */}
+                  {/* ──────────────────────────────────────────────────────────── */}
+                  <div className="space-y-1.5 pt-1.5 border-t border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      ⚡ 1-Click Settlement (Choose Method)
+                    </span>
+
+                    {isNonChargeable ? (
+                      <Button
+                        onClick={() => handleQuickPay("nc")}
+                        disabled={isProcessingPayment || !ncReason}
+                        className="w-full py-5 bg-gradient-to-r from-purple-600 to-rose-600 hover:from-purple-700 hover:to-rose-700 text-white font-bold text-base shadow-lg"
+                      >
+                        {isProcessingPayment ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Gift className="w-5 h-5 mr-2" />}
+                        Complete Complimentary Order (₹0.00)
+                      </Button>
+                    ) : (
+                      <>
+                        {/* Big 1-Click Primary Buttons */}
+                        <div className="grid grid-cols-3 gap-2">
+                          {/* CASH BUTTON */}
+                          <button
+                            onClick={() => handleQuickPay("cash")}
+                            disabled={isProcessingPayment}
+                            className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all disabled:opacity-50 group cursor-pointer"
+                          >
+                            <Wallet className="w-5 h-5 mb-0.5 group-hover:scale-110 transition-transform" />
+                            <span className="font-bold text-xs">Cash</span>
+                            <span className="text-[11px] font-semibold opacity-95">
+                              {currencySymbol}
+                              {total.toFixed(2)}
+                            </span>
+                            <span className="text-[8px] opacity-80 font-mono">[Enter]</span>
+                          </button>
+
+                          {/* UPI / QR BUTTON */}
+                          <button
+                            onClick={() => {
+                              generateQRCode();
+                              setCurrentStep("qr");
+                            }}
+                            disabled={isProcessingPayment}
+                            className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-md shadow-indigo-500/20 active:scale-[0.98] transition-all disabled:opacity-50 group cursor-pointer"
+                          >
+                            <QrCode className="w-5 h-5 mb-0.5 group-hover:scale-110 transition-transform" />
+                            <span className="font-bold text-xs">UPI / QR</span>
+                            <span className="text-[11px] font-semibold opacity-95">
+                              {currencySymbol}
+                              {total.toFixed(2)}
+                            </span>
+                            <span className="text-[8px] opacity-80 font-mono">[U]</span>
+                          </button>
+
+                          {/* CARD BUTTON */}
+                          <button
+                            onClick={() => handleQuickPay("card")}
+                            disabled={isProcessingPayment}
+                            className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all disabled:opacity-50 group cursor-pointer"
+                          >
+                            <CreditCard className="w-5 h-5 mb-0.5 group-hover:scale-110 transition-transform" />
+                            <span className="font-bold text-xs">Card</span>
+                            <span className="text-[11px] font-semibold opacity-95">
+                              {currencySymbol}
+                              {total.toFixed(2)}
+                            </span>
+                            <span className="text-[8px] opacity-80 font-mono">[C]</span>
+                          </button>
+                        </div>
+
+                        {/* Secondary Quick Action Row - Conditioned on Hotel Plan */}
+                        <div className={`grid gap-1.5 pt-0.5 ${hasRoomsPlan ? "grid-cols-3" : "grid-cols-2"}`}>
+                          <button
+                            onClick={() => setCurrentStep("split")}
+                            className="py-1.5 px-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11px] font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-center active:scale-95 transition-all cursor-pointer shadow-2xs"
+                          >
+                            ✂️ Split Bill
+                          </button>
+                          <button
+                            onClick={() => handleQuickPay("pay_later")}
+                            className="py-1.5 px-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11px] font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-center active:scale-95 transition-all cursor-pointer shadow-2xs"
+                          >
+                            ⏳ Pay Later
+                          </button>
+                          {hasRoomsPlan && (
+                            <button
+                              onClick={() => {
+                                if (detectedReservation) {
+                                  handleQuickPay("room");
+                                } else {
+                                  toast({ title: "No checked-in guest detected for this order" });
+                                }
+                              }}
+                              className="py-1.5 px-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11px] font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-center active:scale-95 transition-all cursor-pointer shadow-2xs"
+                            >
+                              🏨 Room
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-          </Card>
-        </div>
-      </div>
-
-      {/* Sticky Footer */}
-      <div className="bg-gradient-to-t from-white via-white to-white/80 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900/80 pt-3 pb-3 px-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
-        <Button
-          onClick={handleSaveNewItems}
-          disabled={newItemsBuffer.length === 0}
-          className="w-full bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-green-300/50 dark:shadow-green-900/30 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
-          size="lg"
-        >
-          <Check className="w-4 h-4 mr-2" />
-          Save & Send New Items to Kitchen
-        </Button>
-        <Button
-          onClick={() => setCurrentStep("confirm")}
-          variant="outline"
-          className="w-full border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
-        >
-          Cancel
-        </Button>
-      </div>
-    </div>
-  );
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0">
-        <VisuallyHidden>
-          <DialogTitle>
-            {currentStep === "confirm" && "Confirm Order"}
-            {currentStep === "method" && "Select Payment Method"}
-            {currentStep === "qr" && "UPI Payment"}
-            {currentStep === "success" && "Payment Successful"}
-            {currentStep === "edit" && "Edit Order"}
-            {currentStep === "split" && "Split Payment"}
-          </DialogTitle>
-        </VisuallyHidden>
-        {currentStep === "confirm" && renderConfirmStep()}
-        {currentStep === "method" && renderMethodStep()}
-        {currentStep === "qr" && renderQRStep()}
-        {currentStep === "success" && renderSuccessStep()}
-        {currentStep === "edit" && renderEditStep()}
-        {currentStep === "split" && renderSplitStep()}
-      </DialogContent>
-
-      <CustomItemDialog
-        isOpen={showCustomItemDialog}
-        onClose={() => setShowCustomItemDialog(false)}
-        onAddItem={handleAddCustomItem}
-      />
-    </Dialog>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
