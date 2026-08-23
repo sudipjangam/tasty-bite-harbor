@@ -1299,6 +1299,9 @@ export const QSRPosMain: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
       queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
       queryClient.invalidateQueries({ queryKey: ["active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["all-orders"] }); // Orders Management view
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-orders"] });
     } catch (error) {
       console.error("Error completing payment:", error);
       toast({

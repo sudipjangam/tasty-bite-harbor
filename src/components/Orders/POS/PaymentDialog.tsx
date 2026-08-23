@@ -960,18 +960,37 @@ const PaymentDialog = ({
 
           // 2. Update kitchen order in DB if orderId exists
           if (orderId) {
-            await supabase
+            const { data: updatedKitchenOrder } = await supabase
               .from("kitchen_orders")
               .update({
                 status: "completed",
                 payment_status: finalStatus,
                 payment_method: finalMethod,
                 total_amount: finalAmount,
+                bumped_at: new Date().toISOString(),
                 ...(customerName.trim() && { customer_name: customerName.trim() }),
                 ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
                 ...(method === "nc" && { nc_reason: ncReason }),
               })
-              .eq("id", orderId);
+              .eq("id", orderId)
+              .select("order_id")
+              .single();
+
+            // Also update the linked orders table record so Orders Management reflects completed status
+            const linkedOrderId = updatedKitchenOrder?.order_id;
+            if (linkedOrderId) {
+              await supabase
+                .from("orders")
+                .update({
+                  status: method === "nc" ? "nc" : "completed",
+                  payment_status: finalStatus,
+                  payment_method: finalMethod,
+                  total: finalAmount,
+                  ...(customerName.trim() && { customer_name: customerName.trim() }),
+                  ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
+                })
+                .eq("id", linkedOrderId);
+            }
           }
 
           // 3. Room Charge handler
