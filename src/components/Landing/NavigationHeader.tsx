@@ -25,18 +25,22 @@ export const NavigationHeader: React.FC = () => {
   }, []);
 
   const navLinks = [
+    { name: "Live Demo", href: "/live-experience", isRoute: true },
     { name: "Features", href: "#features" },
-    { name: "Why Us", href: "#why-choose-us" },
-    { name: "About", href: "#about" },
+    { name: "Compare", href: "#compare" },
+    { name: "ROI Calc", href: "#roi-calculator" },
     { name: "Pricing", href: "#pricing" },
-    { name: "Testimonials", href: "#testimonials" },
     { name: "FAQ", href: "#faq" },
   ];
 
-  const scrollToSection = (href: string) => {
-    const element = document.querySelector(href);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth" });
+  const handleNavClick = (link: { name: string; href: string; isRoute?: boolean }) => {
+    if (link.isRoute) {
+      navigate(link.href);
+    } else {
+      const element = document.querySelector(link.href);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth" });
+      }
     }
     setIsMobileMenuOpen(false);
   };
@@ -84,11 +88,15 @@ export const NavigationHeader: React.FC = () => {
               {navLinks.map((link) => (
                 <button
                   key={link.name}
-                  onClick={() => scrollToSection(link.href)}
-                  className="text-[#2D3A5F] dark:text-gray-200 hover:text-[#FF6B6B] font-medium transition-colors duration-300 relative group"
+                  onClick={() => handleNavClick(link)}
+                  className={`text-[#2D3A5F] dark:text-gray-200 hover:text-[#FF6B6B] font-medium transition-colors duration-300 relative group ${
+                    link.isRoute ? "px-3 py-1 rounded-full bg-[#2E3192]/10 text-[#2E3192] dark:text-[#F26722] font-bold" : ""
+                  }`}
                 >
                   {link.name}
-                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#FF6B6B] group-hover:w-full transition-all duration-300" />
+                  {!link.isRoute && (
+                    <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#FF6B6B] group-hover:w-full transition-all duration-300" />
+                  )}
                 </button>
               ))}
             </nav>
@@ -136,7 +144,7 @@ export const NavigationHeader: React.FC = () => {
             {navLinks.map((link) => (
               <button
                 key={link.name}
-                onClick={() => scrollToSection(link.href)}
+                onClick={() => handleNavClick(link)}
                 className="block w-full text-left text-[#2D3A5F] dark:text-gray-200 hover:text-[#FF6B6B] font-medium py-2 transition-colors"
               >
                 {link.name}

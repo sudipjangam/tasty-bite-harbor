@@ -1011,6 +1011,7 @@ const ProgramSettingsForm: React.FC<{
     points_per_amount: program?.points_per_amount ?? 1,
     spend_threshold: program?.spend_threshold ?? 10,
     amount_per_point: program?.amount_per_point ?? 1,
+    max_redemption_percentage: program?.max_redemption_percentage ?? 100,
     points_expiry_days: program?.points_expiry_days ?? null,
   });
 
@@ -1132,31 +1133,55 @@ const ProgramSettingsForm: React.FC<{
 
         <div className="rounded-lg bg-amber-100/60 dark:bg-amber-900/30 p-3">
           <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-            1 point = <span className="font-bold text-amber-600 dark:text-amber-300">₹{settings.amount_per_point || '___'}</span> discount
+            1 point = <span className="font-bold text-amber-600 dark:text-amber-300">₹{settings.amount_per_point || '___'}</span> discount · Customer can use points for up to <span className="font-bold text-amber-600 dark:text-amber-300">{settings.max_redemption_percentage ?? 100}%</span> of the bill
           </p>
         </div>
 
-        <div className="max-w-xs space-y-1.5">
-          <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
-            <span className="p-0.5 bg-amber-200 dark:bg-amber-800 rounded">
-              💎
-            </span>
-            1 point = ₹ ?
-          </Label>
-          <Input
-            id="amountPerPoint"
-            type="number"
-            value={settings.amount_per_point}
-            onChange={(e) => {
-              const val = e.target.value;
-              setSettings({
-                ...settings,
-                amount_per_point: val === "" ? ("" as any) : Number(val),
-              });
-            }}
-            placeholder="e.g. 1"
-            className="border-amber-200 dark:border-amber-700 focus:ring-amber-500 bg-white dark:bg-gray-800"
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+              <span className="p-0.5 bg-amber-200 dark:bg-amber-800 rounded">
+                💎
+              </span>
+              1 point = ₹ ?
+            </Label>
+            <Input
+              id="amountPerPoint"
+              type="number"
+              value={settings.amount_per_point}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSettings({
+                  ...settings,
+                  amount_per_point: val === "" ? ("" as any) : Number(val),
+                });
+              }}
+              placeholder="e.g. 1"
+              className="border-amber-200 dark:border-amber-700 focus:ring-amber-500 bg-white dark:bg-gray-800"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+              <span className="p-0.5 bg-amber-200 dark:bg-amber-800 rounded">
+                🛡️
+              </span>
+              Max bill % payable by points
+            </Label>
+            <Input
+              id="maxRedemptionPct"
+              type="number"
+              value={settings.max_redemption_percentage ?? 100}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSettings({
+                  ...settings,
+                  max_redemption_percentage: val === "" ? ("" as any) : Number(val),
+                });
+              }}
+              placeholder="e.g. 50"
+              className="border-amber-200 dark:border-amber-700 focus:ring-amber-500 bg-white dark:bg-gray-800"
+            />
+          </div>
         </div>
       </div>
 
@@ -1192,6 +1217,27 @@ const ProgramSettingsForm: React.FC<{
               ? `Points will expire ${settings.points_expiry_days} days after last visit`
               : "Points will never expire ✓"}
           </p>
+        </div>
+      </div>
+
+      {/* Summary Box */}
+      <div className="p-3 rounded-xl bg-slate-900 text-white dark:bg-slate-950 dark:border dark:border-slate-800 space-y-2">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+          <span>📋</span> Summary
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs font-medium">
+          <span className="px-2 py-1 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+            ₹{settings.spend_threshold || 0} → {settings.points_per_amount || 0} pts
+          </span>
+          <span className="px-2 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            1 pt = ₹{settings.amount_per_point || 0}
+          </span>
+          <span className="px-2 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+            Max {settings.max_redemption_percentage ?? 100}% of bill
+          </span>
+          <span className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            {settings.points_expiry_days ? `${settings.points_expiry_days}d expiry` : "No expiry ✓"}
+          </span>
         </div>
       </div>
 

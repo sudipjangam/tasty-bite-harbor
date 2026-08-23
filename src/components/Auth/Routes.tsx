@@ -27,6 +27,7 @@ import { PageLoader } from "@/components/ui/page-loader";
 const InvoicePage = lazy(() => import("@/pages/InvoicePage"));
 const OrderStatusPage = lazy(() => import("@/pages/OrderStatusPage"));
 const KitchenTV = lazy(() => import("@/pages/KitchenTV"));
+const LiveExperience = lazy(() => import("@/pages/LiveExperience"));
 
 // Standalone subscription page (outside dashboard layout — no sidebar)
 const SubscriptionPage = lazy(
@@ -78,6 +79,7 @@ const Routes = () => {
         <Route path="/invoice/*" element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
         <Route path="/order-status/*" element={<Suspense fallback={<PageLoader />}><OrderStatusPage /></Suspense>} />
         <Route path="/kitchen-tv" element={<Suspense fallback={<PageLoader />}><KitchenTV /></Suspense>} />
+        <Route path="/live-experience" element={<Suspense fallback={<PageLoader />}><LiveExperience /></Suspense>} />
         <Route path="/offer/:discountId" element={<Suspense fallback={<PageLoader />}><SpecialOfferPage /></Suspense>} />
         <Route path="*" element={isNativeApp() ? <Auth /> : <LandingWebsite />} />
       </RouterRoutes>
@@ -89,6 +91,7 @@ const Routes = () => {
       <Route path="/auth" element={<PostAuthRedirect />} />
       <Route path="/login" element={<PostAuthRedirect />} />
       <Route path="/website" element={<LandingWebsite />} />
+      <Route path="/live-experience" element={<Suspense fallback={<PageLoader />}><LiveExperience /></Suspense>} />
       <Route path="/enroll/:slug" element={<PublicEnrollmentPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsAndConditions />} />

@@ -251,11 +251,20 @@ function _btDisconnect(): Promise<void> {
 
 function _btWrite(data: ArrayBuffer): Promise<void> {
   return new Promise((resolve, reject) => {
-    _getBT().write(
-      data,
-      () => resolve(),
-      (err: any) => reject(new Error(String(err)))
-    );
+    try {
+      const bt = _getBT();
+      if (!bt || typeof bt.write !== "function") {
+        reject(new Error("Bluetooth serial plugin not initialized or write method unavailable"));
+        return;
+      }
+      bt.write(
+        data,
+        () => resolve(),
+        (err: any) => reject(new Error(String(err ?? "Bluetooth write failed")))
+      );
+    } catch (e) {
+      reject(e);
+    }
   });
 }
 
@@ -454,8 +463,9 @@ export const nativePrinterBridge = {
     const tryWrite = async () => {
       const CHUNK = 512;
       for (let i = 0; i < data.length; i += CHUNK) {
-        const chunk = data.slice(i, i + CHUNK);
-        await _btWrite(chunk.buffer as ArrayBuffer);
+        const chunk = data.subarray(i, i + CHUNK);
+        const buf = chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength);
+        await _btWrite(buf);
         await new Promise((r) => setTimeout(r, 15));
       }
     };
