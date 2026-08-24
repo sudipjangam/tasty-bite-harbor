@@ -207,7 +207,21 @@ const OrdersView = ({
         [`Discount (${currencySymbol})`]: order.discount_amount
           ? `${order.discount_amount.toFixed(2)} (${order.discount_percentage}%)`
           : "-",
-        "Payment Method": order.payment_method ? order.payment_method.toUpperCase() : "-",
+        "Payment Method": (() => {
+          if (!order.payment_method) return "-";
+          if (order.payment_method === "split" && (order as any).split_payments) {
+            try {
+              const splits = typeof (order as any).split_payments === "string"
+                ? JSON.parse((order as any).split_payments)
+                : (order as any).split_payments;
+              if (Array.isArray(splits)) {
+                const breakdown = splits.map((s: any) => `${s.method?.toUpperCase()}: ${currencySymbol}${s.amount}`).join(", ");
+                return `SPLIT (${breakdown})`;
+              }
+            } catch { /* ignore */ }
+          }
+          return order.payment_method.toUpperCase();
+        })(),
         Status: order.status as string,
         "Created Date": new Date(order.created_at).toLocaleDateString(),
         "Created Time": new Date(order.created_at).toLocaleTimeString(),

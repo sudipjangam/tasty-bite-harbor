@@ -381,11 +381,13 @@ export const QSRPosMain: React.FC = () => {
               (kitchenOrder.item_completion_status as boolean[]) || [],
             );
 
-            // Restore payment state if order exists
+            // Always set pendingKitchenOrderId so payment flow knows there's an existing kitchen order
+            setPendingKitchenOrderId(kitchenOrder.id);
+            setPaymentOrderItems(mappedItems);
+
+            // Restore linked order ID if it exists
             if (kitchenOrder.order_id) {
               setPendingOrderId(kitchenOrder.order_id);
-              setPendingKitchenOrderId(kitchenOrder.id);
-              setPaymentOrderItems(mappedItems);
             }
 
             // Restore customer details if present on order
@@ -1119,32 +1121,105 @@ export const QSRPosMain: React.FC = () => {
       const currentTable = selectedTable;
       const currentMode = orderMode;
 
-      // Check if this is post-pay (order already in kitchen)
-      if (pendingOrderId && pendingKitchenOrderId) {
-        // POST-PAY: Order already in kitchen, just mark as completed
-        await supabase
-          .from("orders")
-          .update({ status: "completed" })
-          .eq("id", pendingOrderId);
+      // Determine the effective kitchen order ID (pendingKitchenOrderId OR recalledKitchenOrderId)
+      const effectiveKitchenOrderId = pendingKitchenOrderId || recalledKitchenOrderId;
 
-        await supabase
+      // Check if this is post-pay (order already in kitchen)
+      if (effectiveKitchenOrderId) {
+        // POST-PAY: Order already in kitchen — update existing order, don't create a new one
+        const orderTotal = (orderItems.length > 0 ? orderItems : paymentOrderItems).reduce(
+          (sum, item) => sum + item.price * item.quantity, 0
+        );
+        const activeItems = orderItems.length > 0 ? orderItems : paymentOrderItems;
+        const isNC = currentMode === "nc";
+
+        // Prepare updated kitchen items
+        const kitchenItems = activeItems.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          menuItemId: item.menuItemId,
+          notes: item.notes ? [item.notes] : [],
+        }));
+
+        // Update kitchen order with latest items and mark completed
+        const { data: updatedKitchenOrder } = await supabase
           .from("kitchen_orders")
           .update({
+            items: kitchenItems,
             bumped_at: new Date().toISOString(),
             status: "completed",
           })
-          .eq("id", pendingKitchenOrderId);
+          .eq("id", effectiveKitchenOrderId)
+          .select("order_id")
+          .single();
+
+        // Determine the linked order ID
+        const linkedOrderId = pendingOrderId || updatedKitchenOrder?.order_id;
+
+        // Prepare formatted items for orders table
+        const orderItemsFormatted = activeItems.map(
+          (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
+        );
+
+        if (linkedOrderId) {
+          // Update existing orders record with latest items, total, and status
+          await supabase
+            .from("orders")
+            .update({
+              status: isNC ? "nc" : "completed",
+              items: orderItemsFormatted,
+              total: isNC ? 0 : orderTotal,
+            })
+            .eq("id", linkedOrderId);
+        } else if (restaurantId) {
+          // No linked order exists yet — create one and link it
+          const paymentCustomerName =
+            customerName.trim() ||
+            (currentMode === "dine_in" && currentTable
+              ? tableLabel(currentTable.name)
+              : currentMode === "takeaway"
+              ? "Takeaway Customer"
+              : currentMode === "delivery"
+              ? "Delivery Customer"
+              : "Walk-in Customer");
+
+          const { data: createdOrder } = await supabase
+            .from("orders")
+            .insert({
+              restaurant_id: restaurantId,
+              customer_name: paymentCustomerName,
+              items: orderItemsFormatted,
+              status: isNC ? "nc" : "completed",
+              total: isNC ? 0 : orderTotal,
+              order_type: isNC ? "non-chargeable" : currentMode.replace("_", "-"),
+              nc_reason: isNC ? ncReason || null : null,
+              source: "pos",
+              payment_status: isNC ? "nc" : "paid",
+              attendant: attendantName,
+            })
+            .select()
+            .single();
+
+          // Link kitchen order to this new orders record
+          if (createdOrder?.id) {
+            await supabase
+              .from("kitchen_orders")
+              .update({ order_id: createdOrder.id })
+              .eq("id", effectiveKitchenOrderId);
+          }
+        }
 
         // Clear pending order state
         setPendingOrderId(null);
         setPendingKitchenOrderId(null);
         setPaymentOrderItems([]);
 
-        // Clear cart items (they were loaded from the recalled order)
+        // Clear cart items
         setOrderItems([]);
         setRecalledKitchenOrderId(null);
       } else if (orderItems.length > 0 && restaurantId) {
-        // PRE-PAY: Create order directly as completed (skip kitchen queue since paid)
+        // PRE-PAY: No existing kitchen order — create order directly as completed
         const orderSource =
           currentMode === "dine_in" && currentTable
             ? tableLabel(currentTable.name)
@@ -1313,10 +1388,14 @@ export const QSRPosMain: React.FC = () => {
   }, [
     pendingOrderId,
     pendingKitchenOrderId,
+    recalledKitchenOrderId,
     orderItems,
+    paymentOrderItems,
     orderMode,
     selectedTable,
     restaurantId,
+    customerName,
+    ncReason,
     attendantName,
     updateTableStatus,
     refetchTables,

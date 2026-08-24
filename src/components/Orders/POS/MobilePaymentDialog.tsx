@@ -775,6 +775,10 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         if (ko) {
           await supabase.from("kitchen_orders").update({
             status: "completed",
+            payment_status: finalPaymentStatus,
+            payment_method: finalPaymentMethod,
+            total_amount: finalTotal,
+            bumped_at: new Date().toISOString(),
             ...(customerName.trim() && { customer_name: customerName.trim() }),
             ...(customerMobile && { customer_phone: customerMobile }),
           }).eq("id", orderId);
