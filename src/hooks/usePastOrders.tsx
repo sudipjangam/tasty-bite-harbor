@@ -243,7 +243,7 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
         `*, orders:order_id (total, discount_amount, discount_percentage)`,
       )
       .eq("id", orderId)
-      .single();
+      .maybeSingle();
 
     if (error || !data) return null;
 

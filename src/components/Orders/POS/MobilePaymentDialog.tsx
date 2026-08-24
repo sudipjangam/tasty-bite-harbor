@@ -280,6 +280,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   const [loyaltyPointsAwarded, setLoyaltyPointsAwarded] = useState<number | null>(null);
   const [showPrinterModal, setShowPrinterModal] = useState(false);
   const [pendingPrintAfterConnect, setPendingPrintAfterConnect] = useState(false);
+  const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { symbol: currencySymbol } = useCurrencyContext();
   const { toast } = useToast();
@@ -294,10 +295,10 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
       const { data: profile } = await supabase
-        .from("profiles").select("restaurant_id").eq("id", user.id).single();
+        .from("profiles").select("restaurant_id").eq("id", user.id).maybeSingle();
       if (!profile?.restaurant_id) return null;
       const { data } = await supabase
-        .from("restaurants").select("*").eq("id", profile.restaurant_id).single();
+        .from("restaurants").select("*").eq("id", profile.restaurant_id).maybeSingle();
       return data;
     },
     enabled: isOpen,
@@ -425,7 +426,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
           .from("kitchen_orders")
           .select("order_id, customer_name, customer_phone")
           .eq("id", orderId)
-          .single();
+          .maybeSingle();
 
         if (ko?.customer_name && !["nc", "delivery", "takeaway", "dine-in"].includes(ko.customer_name.toLowerCase())) {
           setCustomerName(ko.customer_name);
@@ -466,6 +467,11 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   // ── Reset on close ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isOpen) {
+      // Cancel auto-close timer if dialog is closed before it fires
+      if (autoCloseTimerRef.current) {
+        clearTimeout(autoCloseTimerRef.current);
+        autoCloseTimerRef.current = null;
+      }
       setStep("confirm");
       setCustomerName("");
       setCustomerMobile("");
@@ -485,6 +491,15 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       setPendingPrintAfterConnect(false);
     }
   }, [isOpen]);
+
+  // Cleanup timer on component unmount
+  useEffect(() => {
+    return () => {
+      if (autoCloseTimerRef.current) {
+        clearTimeout(autoCloseTimerRef.current);
+      }
+    };
+  }, []);
 
   // ── Auto-lookup customer by phone ─────────────────────────────────────────
   const lookupCustomer = useCallback(async (phoneStr: string) => {
@@ -550,6 +565,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
     queryClient.invalidateQueries({ queryKey: ["orders"] });
     queryClient.invalidateQueries({ queryKey: ["dashboard-orders"] });
+    queryClient.invalidateQueries({ queryKey: ["qsr-tables"] });
   }, [queryClient]);
 
   // ── Apply promo ───────────────────────────────────────────────────────────
@@ -782,6 +798,16 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
             ...(customerName.trim() && { customer_name: customerName.trim() }),
             ...(customerMobile && { customer_phone: customerMobile }),
           }).eq("id", orderId);
+        } else {
+          await supabase.from("kitchen_orders").update({
+            status: "completed",
+            payment_status: finalPaymentStatus,
+            payment_method: finalPaymentMethod,
+            total_amount: finalTotal,
+            bumped_at: new Date().toISOString(),
+            ...(customerName.trim() && { customer_name: customerName.trim() }),
+            ...(customerMobile && { customer_phone: customerMobile }),
+          }).eq("order_id", orderId);
         }
 
         if (targetOrderId) {
@@ -790,6 +816,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
             payment_method: finalPaymentMethod,
             status: "completed",
             total: finalTotal,
+            updated_at: new Date().toISOString(),
             discount_amount: isNonChargeable ? subtotal : totalDiscount,
             discount_percentage: isNonChargeable ? 100 : effectiveDiscountPct,
             promotion_code: isNonChargeable ? null : (appliedPromo?.promotion_code || appliedPromo?.code || null),
@@ -868,18 +895,29 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
 
       invalidateQueries();
 
-      // Auto-print bill after successful payment (skip NC and Pay Later)
+      // Auto-print bill after successful payment (skip NC and Pay Later).
+      // Only attempt if printer is already connected — avoids opening the printer
+      // modal over the success screen.
       if (!isNonChargeable && paymentMethod !== "pay_later") {
-        handlePrint().catch((printErr) => {
-          console.warn("[MobilePaymentDialog] Auto-print after payment failed:", printErr);
-        });
+        const printerConnected = nativePrinterBridge.getStatus().connected || thermalPrinterService.isConnected();
+        if (printerConnected) {
+          handlePrint().catch((printErr) => {
+            console.warn("[MobilePaymentDialog] Auto-print after payment failed:", printErr);
+          });
+        }
       }
 
       setStep("success");
 
-      // Auto-close after 5s
-      setTimeout(() => {
-        onSuccess();
+      // Auto-close after 5s — stored in ref so it can be cancelled on unmount / early close
+      autoCloseTimerRef.current = setTimeout(() => {
+        autoCloseTimerRef.current = null;
+        onSuccess({
+          method: finalPaymentMethod,
+          paymentStatus: finalPaymentStatus,
+          total: finalTotal,
+          splitPayments: splitData,
+        });
         onClose();
       }, 5000);
     } catch (err: any) {

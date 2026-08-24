@@ -64,6 +64,17 @@ const OrderItem: React.FC<OrderItemProps> = ({
         .update({ priority })
         .eq("id", order.id);
       if (error) throw error;
+
+      // Sync priority to kitchen_orders
+      const { error: kitchenError } = await supabase
+        .from("kitchen_orders")
+        .update({ priority })
+        .eq("order_id", order.id);
+
+      if (kitchenError) {
+        console.error("Error updating kitchen priority:", kitchenError);
+      }
+
       toast({ title: "Priority Updated", description: `Order priority changed to ${priority.toUpperCase()}` });
       if (onPriorityChange) onPriorityChange(order.id, priority);
     } catch (error) {

@@ -198,7 +198,7 @@ export const useActiveKitchenOrders = (
       .from("kitchen_orders")
       .select("*")
       .eq("id", orderId)
-      .single();
+      .maybeSingle();
 
     if (error || !data) return null;
 
@@ -300,12 +300,25 @@ export const useActiveKitchenOrders = (
     priority: "normal" | "rush" | "vip",
   ) => {
     try {
+      const { data: existingKitchen } = await supabase
+        .from("kitchen_orders")
+        .select("order_id")
+        .eq("id", orderId)
+        .maybeSingle();
+
       const { error } = await supabase
         .from("kitchen_orders")
         .update({ priority })
         .eq("id", orderId);
 
       if (error) throw error;
+
+      if (existingKitchen?.order_id) {
+        await supabase
+          .from("orders")
+          .update({ priority, updated_at: new Date().toISOString() })
+          .eq("id", existingKitchen.order_id);
+      }
 
       toast({
         title: "Priority Updated",
@@ -314,6 +327,7 @@ export const useActiveKitchenOrders = (
 
       // Refetch to update the list
       await refetch();
+      queryClient.invalidateQueries({ queryKey: ["all-orders"] });
     } catch (error) {
       console.error("Error updating priority:", error);
       toast({
@@ -331,12 +345,35 @@ export const useActiveKitchenOrders = (
     status: ActiveKitchenOrder["status"],
   ) => {
     try {
+      const { data: existingKitchen } = await supabase
+        .from("kitchen_orders")
+        .select("order_id")
+        .eq("id", orderId)
+        .maybeSingle();
+
+      const updateData: any = { status };
+      if (status === "completed") {
+        updateData.bumped_at = new Date().toISOString();
+      }
+
       const { error } = await supabase
         .from("kitchen_orders")
-        .update({ status })
+        .update(updateData)
         .eq("id", orderId);
 
       if (error) throw error;
+
+      if (existingKitchen?.order_id) {
+        let orderStatus = "pending";
+        if (status === "preparing") orderStatus = "preparing";
+        if (status === "ready") orderStatus = "ready";
+        if (status === "completed") orderStatus = "completed";
+
+        await supabase
+          .from("orders")
+          .update({ status: orderStatus, updated_at: new Date().toISOString() })
+          .eq("id", existingKitchen.order_id);
+      }
 
       toast({
         title: "Status Updated",
@@ -345,6 +382,9 @@ export const useActiveKitchenOrders = (
 
       // Refetch to update the list
       await refetch();
+      queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qsr-tables"] });
     } catch (error) {
       console.error("Error updating status:", error);
       toast({

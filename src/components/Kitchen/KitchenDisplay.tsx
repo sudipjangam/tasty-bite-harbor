@@ -166,7 +166,7 @@ const KitchenDisplay = () => {
         .from("profiles")
         .select("restaurant_id")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
       if (profile?.restaurant_id) {
         setRestaurantId(profile.restaurant_id);
@@ -569,7 +569,7 @@ const KitchenDisplay = () => {
         .from("kitchen_orders")
         .select("order_id")
         .eq("id", orderId)
-        .single();
+        .maybeSingle();
 
       // Update kitchen order status WITHOUT select to avoid triggering circular database triggers
       const { error: kitchenError } = await supabase
@@ -583,11 +583,12 @@ const KitchenDisplay = () => {
       if (existingOrder?.order_id) {
         let orderStatus = "pending";
         if (newStatus === "preparing") orderStatus = "preparing";
-        if (newStatus === "ready") orderStatus = "completed";
+        if (newStatus === "ready") orderStatus = "ready";
+        if (newStatus === "completed") orderStatus = "completed";
 
         await supabase
           .from("orders")
-          .update({ status: orderStatus })
+          .update({ status: orderStatus, updated_at: new Date().toISOString() })
           .eq("id", existingOrder.order_id);
       }
 
@@ -595,6 +596,8 @@ const KitchenDisplay = () => {
       queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
       queryClient.invalidateQueries({ queryKey: ["active-orders"] });
       queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-orders"] });
 
       // Optimistic UI update - immediately move the order in local state
       setOrders((prev) =>
@@ -636,15 +639,36 @@ const KitchenDisplay = () => {
   // Handle bumping (archiving) an order
   const handleBumpOrder = async (orderId: string) => {
     try {
+      const { data: existingOrder } = await supabase
+        .from("kitchen_orders")
+        .select("order_id")
+        .eq("id", orderId)
+        .maybeSingle();
+
       const { error } = await supabase
         .from("kitchen_orders")
-        .update({ bumped_at: new Date().toISOString() })
+        .update({ bumped_at: new Date().toISOString(), status: "completed" })
         .eq("id", orderId);
 
       if (error) throw error;
 
+      // Sync status to orders table
+      if (existingOrder?.order_id) {
+        await supabase
+          .from("orders")
+          .update({ status: "completed", updated_at: new Date().toISOString() })
+          .eq("id", existingOrder.order_id);
+      }
+
       // Optimistically remove from UI (realtime will also handle this)
       setOrders((prev) => prev.filter((order) => order.id !== orderId));
+
+      queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-orders"] });
 
       toast({
         title: "Order Bumped",
@@ -737,12 +761,27 @@ const KitchenDisplay = () => {
     newPriority: KitchenOrder["priority"],
   ) => {
     try {
+      const { data: existingOrder } = await supabase
+        .from("kitchen_orders")
+        .select("order_id")
+        .eq("id", orderId)
+        .maybeSingle();
+
       const { error } = await supabase
         .from("kitchen_orders")
         .update({ priority: newPriority })
         .eq("id", orderId);
 
       if (error) throw error;
+
+      if (existingOrder?.order_id) {
+        await supabase
+          .from("orders")
+          .update({ priority: newPriority, updated_at: new Date().toISOString() })
+          .eq("id", existingOrder.order_id);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["all-orders"] });
 
       // Update local state and re-sort by priority
       setOrders((prev) => {

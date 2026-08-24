@@ -4,12 +4,21 @@ import { RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatOrderItemString } from "@/lib/order-utils";
 import { useToast } from "@/hooks/use-toast";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { useQueryClient } from "@tanstack/react-query";
 
 export const SyncOrdersButton = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const { toast } = useToast();
+  const { restaurantId } = useRestaurantId();
+  const queryClient = useQueryClient();
 
   const handleSync = async () => {
+    if (!restaurantId) {
+      toast({ title: "No restaurant selected", variant: "destructive" });
+      return;
+    }
+
     setIsSyncing(true);
     try {
       const today = new Date();
@@ -17,10 +26,11 @@ export const SyncOrdersButton = () => {
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
 
-      // 1. Fetch all kitchen orders for today that have an order_id
+      // 1. Fetch all kitchen orders for today that have an order_id, scoped to restaurant
       const { data: kitchenOrders, error: koError } = await supabase
         .from("kitchen_orders")
         .select("*")
+        .eq("restaurant_id", restaurantId)
         .gte("created_at", today.toISOString())
         .lt("created_at", tomorrow.toISOString())
         .not("order_id", "is", null);
@@ -36,10 +46,11 @@ export const SyncOrdersButton = () => {
         return;
       }
 
-      // 2. Fetch all orders for today to get discount info
+      // 2. Fetch all orders for today to get discount info, scoped to restaurant
       const { data: existingOrders, error: ordersError } = await supabase
         .from("orders")
         .select("id, discount_amount")
+        .eq("restaurant_id", restaurantId)
         .gte("created_at", today.toISOString())
         .lt("created_at", tomorrow.toISOString());
 
@@ -86,6 +97,11 @@ export const SyncOrdersButton = () => {
           console.error("Failed to update order", ko.order_id, updateError);
         }
       }
+
+      // Invalidate caches so UI reflects synced data
+      queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-orders"] });
 
       toast({
         title: "Sync Complete",

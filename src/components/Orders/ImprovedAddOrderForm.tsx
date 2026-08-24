@@ -92,7 +92,7 @@ const ImprovedAddOrderForm = ({
         .from("profiles")
         .select("restaurant_id")
         .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .single();
+        .maybeSingle();
 
       if (!profile?.restaurant_id) {
         throw new Error("No restaurant found for user");
@@ -116,7 +116,7 @@ const ImprovedAddOrderForm = ({
         .from("profiles")
         .select("restaurant_id")
         .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .single();
+        .maybeSingle();
 
       if (!profile?.restaurant_id) {
         throw new Error("No restaurant found for user");
@@ -141,7 +141,7 @@ const ImprovedAddOrderForm = ({
         .from("profiles")
         .select("restaurant_id")
         .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .single();
+        .maybeSingle();
 
       if (!profile?.restaurant_id) {
         throw new Error("No restaurant found for user");
@@ -330,7 +330,7 @@ const ImprovedAddOrderForm = ({
         .from("profiles")
         .select("restaurant_id")
         .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .single();
+        .maybeSingle();
 
       if (!profile?.restaurant_id) {
         throw new Error("No restaurant found for user");
@@ -378,7 +378,7 @@ const ImprovedAddOrderForm = ({
           .from("kitchen_orders")
           .select("id")
           .eq("order_id", editingOrder.id)
-          .single();
+          .maybeSingle();
 
         if (linkedKitchenOrder) {
           const { error: kitchenError } = await supabase
@@ -387,7 +387,7 @@ const ImprovedAddOrderForm = ({
               items: kitchenItems,
               source: orderData.customer_name,
             })
-            .eq("id", linkedKitchenOrder.id);
+            .eq("order_id", editingOrder.id);
 
           if (kitchenError) {
             console.error("Failed to update kitchen order:", kitchenError);
@@ -444,6 +444,8 @@ const ImprovedAddOrderForm = ({
       queryClient.invalidateQueries({ queryKey: ["active-orders"] });
       queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
       queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
       queryClient.invalidateQueries({
         queryKey: ["quickserve-todays-revenue"],

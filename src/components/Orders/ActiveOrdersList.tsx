@@ -133,7 +133,7 @@ const ActiveOrdersList = ({
         .from("profiles")
         .select("restaurant_id")
         .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .single();
+        .maybeSingle();
 
       if (!profile?.restaurant_id) return;
 
@@ -142,7 +142,7 @@ const ActiveOrdersList = ({
         .from("restaurants")
         .select("name")
         .eq("id", profile.restaurant_id)
-        .single();
+        .maybeSingle();
 
       if (restaurant?.name) {
         setRestaurantName(restaurant.name);
@@ -217,41 +217,82 @@ const ActiveOrdersList = ({
           if (payload.eventType === "INSERT") {
             const newOrder = payload.new;
 
-            // Fetch the discount information from orders table
-            supabase
-              .from("orders")
-              .select("discount_amount, discount_percentage")
-              .eq("id", newOrder.order_id)
-              .single()
-              .then(({ data: orderData }) => {
-                const formattedOrder: ActiveOrder = {
-                  id: newOrder.id,
-                  source: newOrder.source,
-                  status: newOrder.status as
-                    | "new"
-                    | "preparing"
-                    | "ready"
-                    | "completed"
-                    | "held",
-                  priority:
-                    (newOrder.priority as "normal" | "rush" | "vip") ||
-                    "normal",
-                  items: parseOrderItems(newOrder.items),
-                  created_at: newOrder.created_at,
-                  updated_at: newOrder.updated_at,
-                  discount_amount: orderData?.discount_amount || 0,
-                  discount_percentage: orderData?.discount_percentage || 0,
-                  item_completion_status: Array.isArray(
-                    newOrder.item_completion_status,
-                  )
-                    ? newOrder.item_completion_status
-                    : [],
-                };
+            const handleNewOrder = (orderData?: { discount_amount?: number; discount_percentage?: number } | null) => {
+              const formattedOrder: ActiveOrder = {
+                id: newOrder.id,
+                source: newOrder.source,
+                status: newOrder.status as
+                  | "new"
+                  | "preparing"
+                  | "ready"
+                  | "completed"
+                  | "held",
+                priority:
+                  (newOrder.priority as "normal" | "rush" | "vip") ||
+                  "normal",
+                items: parseOrderItems(newOrder.items),
+                created_at: newOrder.created_at,
+                updated_at: newOrder.updated_at,
+                discount_amount: orderData?.discount_amount || 0,
+                discount_percentage: orderData?.discount_percentage || 0,
+                item_completion_status: Array.isArray(
+                  newOrder.item_completion_status,
+                )
+                  ? newOrder.item_completion_status
+                  : [],
+              };
 
-                setActiveOrders((prev) => [formattedOrder, ...prev]);
-              });
+              setActiveOrders((prev) => [formattedOrder, ...prev]);
+            };
+
+            // Fetch the discount information from orders table if linked
+            if (newOrder.order_id) {
+              supabase
+                .from("orders")
+                .select("discount_amount, discount_percentage")
+                .eq("id", newOrder.order_id)
+                .maybeSingle()
+                .then(({ data: orderData }) => {
+                  handleNewOrder(orderData);
+                });
+            } else {
+              handleNewOrder(null);
+            }
           } else if (payload.eventType === "UPDATE") {
             const updatedOrder = payload.new;
+
+            const applyUpdate = (orderData?: { discount_amount?: number; discount_percentage?: number } | null) => {
+              setActiveOrders((prev) => {
+                const updatedOrders = prev.map((order) =>
+                  order.id === updatedOrder.id
+                    ? {
+                        ...order,
+                        source: updatedOrder.source,
+                        status: updatedOrder.status as
+                          | "new"
+                          | "preparing"
+                          | "ready"
+                          | "completed"
+                          | "held",
+                        priority:
+                          (updatedOrder.priority as
+                            | "normal"
+                            | "rush"
+                            | "vip") || "normal",
+                        discount_amount: orderData?.discount_amount ?? order.discount_amount,
+                        discount_percentage:
+                          orderData?.discount_percentage ?? order.discount_percentage,
+                        item_completion_status: Array.isArray(
+                          updatedOrder.item_completion_status,
+                        )
+                          ? updatedOrder.item_completion_status
+                          : [],
+                      }
+                    : order,
+                );
+                return updatedOrders;
+              });
+            };
 
             // Re-fetch discount data from the linked orders table
             if (updatedOrder.order_id) {
@@ -259,36 +300,13 @@ const ActiveOrdersList = ({
                 .from("orders")
                 .select("discount_amount, discount_percentage")
                 .eq("id", updatedOrder.order_id)
-                .single()
+                .maybeSingle()
                 .then(({ data: orderData }) => {
-                  setActiveOrders((prev) => {
-                    const updatedOrders = prev.map((order) =>
-                      order.id === updatedOrder.id
-                        ? {
-                            ...order,
-                            source: updatedOrder.source,
-                            status: updatedOrder.status as
-                              | "new"
-                              | "preparing"
-                              | "ready"
-                              | "completed"
-                              | "held",
-                            priority:
-                              (updatedOrder.priority as
-                                | "normal"
-                                | "rush"
-                                | "vip") || "normal",
-                            discount_amount: orderData?.discount_amount || 0,
-                            discount_percentage:
-                              orderData?.discount_percentage || 0,
-                            item_completion_status: Array.isArray(
-                              updatedOrder.item_completion_status,
-                            )
-                              ? updatedOrder.item_completion_status
-                              : [],
-                          }
-                        : order,
-                    );
+                  applyUpdate(orderData);
+                });
+            } else {
+              applyUpdate(null);
+            }
 
                     // If status filter is not "all" and not "completed", filter out completed orders
                     if (
@@ -924,7 +942,7 @@ const ActiveOrdersList = ({
               "*, orders!kitchen_orders_order_id_fkey(discount_amount, discount_percentage)",
             )
             .eq("id", selectedOrder.id)
-            .single();
+            .maybeSingle();
 
           if (updatedOrder) {
             const orderData = updatedOrder.orders as any;

@@ -3,12 +3,20 @@ import type { OrderItem } from "@/types/orders";
 // Payment flow steps
 export type PaymentStep = "confirm" | "method" | "qr" | "success" | "edit";
 
+// Payment success payload
+export interface PaymentSuccessDetails {
+  method?: string;
+  paymentStatus?: string;
+  total?: number;
+  splitPayments?: Array<{ method: string; amount: number }>;
+}
+
 // Payment dialog props
 export interface PaymentDialogProps {
   isOpen: boolean;
   onClose: () => void;
   orderItems: OrderItem[];
-  onSuccess: () => void;
+  onSuccess: (paymentDetails?: PaymentSuccessDetails) => void;
   tableNumber?: string;
   onEditOrder?: () => void;
   orderId?: string;
