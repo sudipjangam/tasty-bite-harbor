@@ -14,6 +14,9 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Wallet,
+  Scissors,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PastOrder } from "@/hooks/usePastOrders";
@@ -182,6 +185,20 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
         Source: order.source,
         Items: order.items.map((i) => `${i.quantity}x ${i.name}`).join(", "),
         [`Total (${currencySymbol})`]: parseFloat(order.total.toFixed(2)),
+        "Payment Method": (() => {
+          if (!order.paymentMethod) return "-";
+          if (order.paymentMethod === "split" && order.splitPayments) {
+            try {
+              const splits = typeof order.splitPayments === "string"
+                ? JSON.parse(order.splitPayments)
+                : order.splitPayments;
+              if (Array.isArray(splits)) {
+                return `SPLIT (${splits.map((s: any) => `${s.method?.toUpperCase()}: ${currencySymbol}${s.amount}`).join(", ")})`;
+              }
+            } catch { /* ignore */ }
+          }
+          return order.paymentMethod.toUpperCase();
+        })(),
         Status: order.status,
         "Created Date": format(new Date(order.createdAt), "yyyy-MM-dd"),
         "Completed Time": order.completedAt
@@ -475,15 +492,53 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                                 <span className="px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wide bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-300/50">
                                   🎁 Non-Chargeable
                                 </span>
-                              ) : order.paymentMethod === "pay_later" ? (
-                                <span className="px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wide bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-lg shadow-amber-300/50 animate-pulse">
-                                  🕐 Pay Later
-                                </span>
-                              ) : (
-                                <span className="px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wide bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-300/50">
-                                  ✓ Paid
-                                </span>
-                              )}
+                              ) : (() => {
+                                const method = order.paymentMethod;
+                                if (!method) {
+                                  return (
+                                    <span className="px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wide bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-300/50">
+                                      ✓ Paid
+                                    </span>
+                                  );
+                                }
+
+                                const badgeConfig: Record<string, { bg: string; icon: React.ReactNode; label: string }> = {
+                                  cash: { bg: "bg-emerald-600 text-white shadow-emerald-300/50", icon: <Wallet className="w-3 h-3" />, label: "CASH" },
+                                  card: { bg: "bg-blue-600 text-white shadow-blue-300/50", icon: <Wallet className="w-3 h-3" />, label: "CARD" },
+                                  upi: { bg: "bg-purple-600 text-white shadow-purple-300/50", icon: <Wallet className="w-3 h-3" />, label: "UPI" },
+                                  split: { bg: "bg-orange-600 text-white shadow-orange-300/50", icon: <Scissors className="w-3 h-3" />, label: "SPLIT" },
+                                  pay_later: { bg: "bg-amber-500 text-white shadow-amber-300/50 animate-pulse", icon: <Clock className="w-3 h-3" />, label: "PAY LATER" },
+                                  room: { bg: "bg-indigo-600 text-white shadow-indigo-300/50", icon: <Building2 className="w-3 h-3" />, label: "ROOM" },
+                                };
+                                const config = badgeConfig[method] || { bg: "bg-blue-500 text-white shadow-blue-300/50", icon: null, label: method.toUpperCase() };
+
+                                let splitTooltip = "";
+                                if (method === "split" && order.splitPayments) {
+                                  try {
+                                    const splits = typeof order.splitPayments === "string"
+                                      ? JSON.parse(order.splitPayments)
+                                      : order.splitPayments;
+                                    if (Array.isArray(splits)) {
+                                      splitTooltip = splits.map((s: any) => `${s.method?.toUpperCase()}: ${currencySymbol}${s.amount}`).join(" | ");
+                                    }
+                                  } catch { /* ignore */ }
+                                }
+
+                                return (
+                                  <span
+                                    className={`px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wide flex items-center gap-1 shadow-md ${config.bg}`}
+                                    title={splitTooltip || undefined}
+                                  >
+                                    {config.icon}
+                                    {config.label}
+                                    {splitTooltip && (
+                                      <span className="text-[10px] opacity-90 lowercase font-medium">
+                                        ({splitTooltip})
+                                      </span>
+                                    )}
+                                  </span>
+                                );
+                              })()}
                             </div>
                             {/* Time Info */}
                             <div className="flex items-center gap-3 mt-2">

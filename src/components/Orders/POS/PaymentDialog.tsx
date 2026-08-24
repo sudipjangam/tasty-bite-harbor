@@ -884,9 +884,11 @@ const PaymentDialog = ({
         }
 
         const targetRestaurantId = restaurantInfo?.id || hookRestaurantId;
-        const finalMethod = method === "nc" ? "nc" : method;
+        const isSplit = !!splitPayload && splitPayload.length > 0;
+        const finalMethod = method === "nc" ? "nc" : isSplit ? "split" : method;
         const finalStatus = method === "nc" ? "nc" : method === "pay_later" ? "pending" : "paid";
         const finalAmount = method === "nc" ? 0 : total;
+        const splitPaymentsJson = isSplit ? JSON.stringify(splitPayload) : null;
 
         // Check if offline
         const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
@@ -986,6 +988,7 @@ const PaymentDialog = ({
                   payment_status: finalStatus,
                   payment_method: finalMethod,
                   total: finalAmount,
+                  ...(splitPaymentsJson && { split_payments: splitPaymentsJson }),
                   ...(customerName.trim() && { customer_name: customerName.trim() }),
                   ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
                 })

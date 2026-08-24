@@ -13,6 +13,8 @@ import {
   Zap,
   User,
   Wallet,
+  Scissors,
+  Building2,
 } from "lucide-react";
 import { sanitizeOrderItemDisplay } from "@/lib/order-utils";
 import {
@@ -247,22 +249,46 @@ const OrderItem: React.FC<OrderItemProps> = ({
               )}
 
               {/* Payment Method Badge */}
-              {order.payment_method && order.payment_method !== "nc" && (
-                <span
-                  className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md tracking-wider flex items-center gap-1 shadow-sm uppercase ${
-                    order.payment_method === "cash"
-                      ? "bg-emerald-600 text-white border border-emerald-500"
-                      : order.payment_method === "card"
-                        ? "bg-blue-600 text-white border border-blue-500"
-                        : order.payment_method === "upi"
-                          ? "bg-purple-600 text-white border border-purple-500"
-                          : "bg-slate-600 text-white border border-slate-500"
-                  }`}
-                >
-                  <Wallet className="w-3 h-3" />
-                  {order.payment_method.toUpperCase()}
-                </span>
-              )}
+              {order.payment_method && order.payment_method !== "nc" && (() => {
+                const method = order.payment_method;
+                const badgeConfig: Record<string, { bg: string; icon: React.ReactNode; label: string }> = {
+                  cash: { bg: "bg-emerald-600 text-white border border-emerald-500", icon: <Wallet className="w-3 h-3" />, label: "CASH" },
+                  card: { bg: "bg-blue-600 text-white border border-blue-500", icon: <Wallet className="w-3 h-3" />, label: "CARD" },
+                  upi: { bg: "bg-purple-600 text-white border border-purple-500", icon: <Wallet className="w-3 h-3" />, label: "UPI" },
+                  split: { bg: "bg-orange-600 text-white border border-orange-500", icon: <Scissors className="w-3 h-3" />, label: "SPLIT" },
+                  pay_later: { bg: "bg-amber-600 text-white border border-amber-500", icon: <Clock className="w-3 h-3" />, label: "PAY LATER" },
+                  room: { bg: "bg-indigo-600 text-white border border-indigo-500", icon: <Building2 className="w-3 h-3" />, label: "ROOM" },
+                };
+                const config = badgeConfig[method] || { bg: "bg-slate-600 text-white border border-slate-500", icon: <Wallet className="w-3 h-3" />, label: method.toUpperCase() };
+
+                // Parse split payment details for tooltip
+                let splitTooltip = "";
+                if (method === "split" && order.split_payments) {
+                  try {
+                    const splits = typeof order.split_payments === "string"
+                      ? JSON.parse(order.split_payments)
+                      : order.split_payments;
+                    if (Array.isArray(splits)) {
+                      splitTooltip = splits.map((s: any) => `${s.method?.toUpperCase()}: ₹${s.amount}`).join(" | ");
+                    }
+                  } catch { /* ignore parse errors */ }
+                }
+
+                return (
+                  <span
+                    className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md tracking-wider flex items-center gap-1 shadow-sm uppercase ${config.bg}`}
+                    title={splitTooltip || undefined}
+                  >
+                    {config.icon}
+                    {config.label}
+                    {splitTooltip && (
+                      <span className="text-[8px] font-semibold opacity-90 ml-0.5 normal-case">
+                        ({splitTooltip})
+                      </span>
+                    )}
+                  </span>
+                );
+              })()}
             </div>
             {order.discount_amount && order.discount_amount > 0 ? (
               <p className="text-[10px] text-emerald-600 font-medium mt-0.5">

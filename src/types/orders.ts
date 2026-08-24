@@ -18,6 +18,7 @@ export interface Order {
   discount_notes?: string;
   payment_status?: string;
   payment_method?: string;
+  split_payments?: any; // JSON: Array<{ method: string; amount: number }> for split payments
   attendant?: string | null; // Name of staff who took the order
 }
 

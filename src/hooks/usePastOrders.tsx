@@ -23,6 +23,7 @@ export interface PastOrder {
   orderType?: string; // To identify NC (non-chargeable) orders
   paymentMethod?: string;
   paymentStatus?: string;
+  splitPayments?: any;
 }
 
 interface UsePastOrdersOptions {
@@ -72,7 +73,7 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
       const { data: kitchenData, error: kitchenError } = await supabase
         .from("kitchen_orders")
         .select(
-          "id, source, items, status, created_at, bumped_at, order_id, server_name, customer_name",
+          "id, source, items, status, created_at, bumped_at, order_id, server_name, customer_name, payment_method, payment_status",
         )
         .eq("restaurant_id", restaurantId)
         .eq("status", "completed")
@@ -100,13 +101,14 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
           order_type?: string;
           payment_method?: string;
           payment_status?: string;
+          split_payments?: any;
         }
       > = {};
 
       if (orderIds.length > 0) {
         const { data: ordersData, error: ordersError } = await supabase
           .from("orders")
-          .select("id, total, discount_amount, discount_percentage, order_type, payment_method, payment_status")
+          .select("id, total, discount_amount, discount_percentage, order_type, payment_method, payment_status, split_payments")
           .in("id", orderIds);
 
 
@@ -179,8 +181,9 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
             customerName: order.customer_name || undefined,
             attendant: order.server_name || undefined,
             orderType: linkedOrder?.order_type || undefined,
-            paymentMethod: linkedOrder?.payment_method || undefined,
-            paymentStatus: linkedOrder?.payment_status || undefined,
+            paymentMethod: linkedOrder?.payment_method || (order as any).payment_method || undefined,
+            paymentStatus: linkedOrder?.payment_status || (order as any).payment_status || undefined,
+            splitPayments: linkedOrder?.split_payments || undefined,
           };
         })
         .filter((order) => {
