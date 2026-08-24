@@ -17,7 +17,7 @@ export const useRestaurantId = () => {
         .from("profiles")
         .select("restaurant_id")
         .eq("id", profile.user.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       
@@ -27,15 +27,17 @@ export const useRestaurantId = () => {
           .from("restaurants")
           .select("id, name")
           .eq("id", userProfile.restaurant_id)
-          .single();
+          .maybeSingle();
           
         if (restError) throw restError;
         
-        return {
-          restaurantId: restaurant.id,
-          restaurantName: restaurant.name,
-          id : restaurant.id
-        };
+        if (restaurant) {
+          return {
+            restaurantId: restaurant.id,
+            restaurantName: restaurant.name,
+            id: restaurant.id,
+          };
+        }
       }
       
       return { restaurantId: null, restaurantName: null };

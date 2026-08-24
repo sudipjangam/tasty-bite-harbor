@@ -349,7 +349,7 @@ export const QSRPosMain: React.FC = () => {
             .from("kitchen_orders")
             .select("*")
             .eq("id", table.activeOrderId)
-            .single();
+            .maybeSingle();
 
           if (error) throw error;
 
@@ -639,9 +639,17 @@ export const QSRPosMain: React.FC = () => {
           .from("kitchen_orders")
           .select("id, items, order_id, round_number")
           .eq("id", recalledKitchenOrderId)
-          .single();
+          .maybeSingle();
           
         if (fetchError) throw fetchError;
+        if (!existingKitchenOrder) {
+          toast({
+            variant: "destructive",
+            title: "Order not found",
+            description: "The order might have been completed or deleted",
+          });
+          return;
+        }
 
         currentRound = (existingKitchenOrder.round_number || 1) + 1;
         existingOrderId = existingKitchenOrder.order_id;
@@ -976,6 +984,7 @@ export const QSRPosMain: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
       queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
       queryClient.invalidateQueries({ queryKey: ["active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["all-orders"] });
     } catch (error) {
       console.error("Error holding order:", error);
       toast({
@@ -1115,65 +1124,136 @@ export const QSRPosMain: React.FC = () => {
   }, []);
 
   // Payment success handler - Supports both pre-pay and post-pay flows
-  const handlePaymentSuccess = useCallback(async () => {
-    try {
-      // Capture current table before any state changes
-      const currentTable = selectedTable;
-      const currentMode = orderMode;
+  const handlePaymentSuccess = useCallback(
+    async (paymentDetails?: {
+      method?: string;
+      paymentStatus?: string;
+      total?: number;
+      splitPayments?: Array<{ method: string; amount: number }>;
+    }) => {
+      try {
+        const currentTable = selectedTable;
+        const currentMode = orderMode;
+        const finalMethod = paymentDetails?.method || (currentMode === "nc" ? "nc" : "paid");
+        const finalPaymentStatus = paymentDetails?.paymentStatus || (currentMode === "nc" ? "nc" : "paid");
+        const splitPayments = paymentDetails?.splitPayments || null;
 
-      // Determine the effective kitchen order ID (pendingKitchenOrderId OR recalledKitchenOrderId)
-      const effectiveKitchenOrderId = pendingKitchenOrderId || recalledKitchenOrderId;
+        // Determine the effective kitchen order ID (pendingKitchenOrderId OR recalledKitchenOrderId)
+        const effectiveKitchenOrderId = pendingKitchenOrderId || recalledKitchenOrderId;
 
-      // Check if this is post-pay (order already in kitchen)
-      if (effectiveKitchenOrderId) {
-        // POST-PAY: Order already in kitchen — update existing order, don't create a new one
-        const orderTotal = (orderItems.length > 0 ? orderItems : paymentOrderItems).reduce(
-          (sum, item) => sum + item.price * item.quantity, 0
-        );
-        const activeItems = orderItems.length > 0 ? orderItems : paymentOrderItems;
-        const isNC = currentMode === "nc";
+        // Check if this is post-pay (order already in kitchen)
+        if (effectiveKitchenOrderId) {
+          // POST-PAY: Order already in kitchen — update existing order, don't create a new one
+          const orderTotal = (orderItems.length > 0 ? orderItems : paymentOrderItems).reduce(
+            (sum, item) => sum + item.price * item.quantity, 0
+          );
+          const activeItems = orderItems.length > 0 ? orderItems : paymentOrderItems;
+          const isNC = currentMode === "nc";
 
-        // Prepare updated kitchen items
-        const kitchenItems = activeItems.map((item) => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          menuItemId: item.menuItemId,
-          notes: item.notes ? [item.notes] : [],
-        }));
+          // Prepare updated kitchen items
+          const kitchenItems = activeItems.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            menuItemId: item.menuItemId,
+            notes: item.notes ? [item.notes] : [],
+          }));
 
-        // Update kitchen order with latest items and mark completed
-        const { data: updatedKitchenOrder } = await supabase
-          .from("kitchen_orders")
-          .update({
-            items: kitchenItems,
-            bumped_at: new Date().toISOString(),
-            status: "completed",
-          })
-          .eq("id", effectiveKitchenOrderId)
-          .select("order_id")
-          .single();
-
-        // Determine the linked order ID
-        const linkedOrderId = pendingOrderId || updatedKitchenOrder?.order_id;
-
-        // Prepare formatted items for orders table
-        const orderItemsFormatted = activeItems.map(
-          (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
-        );
-
-        if (linkedOrderId) {
-          // Update existing orders record with latest items, total, and status
-          await supabase
-            .from("orders")
+          // Update kitchen order with latest items and mark completed
+          const { data: updatedKitchenOrder } = await supabase
+            .from("kitchen_orders")
             .update({
-              status: isNC ? "nc" : "completed",
-              items: orderItemsFormatted,
-              total: isNC ? 0 : orderTotal,
+              items: kitchenItems,
+              bumped_at: new Date().toISOString(),
+              status: "completed",
+              payment_status: finalPaymentStatus,
+              payment_method: finalMethod,
             })
-            .eq("id", linkedOrderId);
-        } else if (restaurantId) {
-          // No linked order exists yet — create one and link it
+            .eq("id", effectiveKitchenOrderId)
+            .select("order_id")
+            .maybeSingle();
+
+          // Determine the linked order ID
+          const linkedOrderId = pendingOrderId || updatedKitchenOrder?.order_id;
+
+          // Prepare formatted items for orders table
+          const orderItemsFormatted = activeItems.map(
+            (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
+          );
+
+          if (linkedOrderId) {
+            // Update existing orders record with latest items, total, and status
+            await supabase
+              .from("orders")
+              .update({
+                status: isNC ? "nc" : "completed",
+                items: orderItemsFormatted,
+                total: isNC ? 0 : orderTotal,
+                payment_status: finalPaymentStatus,
+                payment_method: finalMethod,
+                ...(splitPayments && splitPayments.length > 0 && { split_payments: splitPayments }),
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", linkedOrderId);
+          } else if (restaurantId) {
+            // No linked order exists yet — create one and link it
+            const paymentCustomerName =
+              customerName.trim() ||
+              (currentMode === "dine_in" && currentTable
+                ? tableLabel(currentTable.name)
+                : currentMode === "takeaway"
+                ? "Takeaway Customer"
+                : currentMode === "delivery"
+                ? "Delivery Customer"
+                : "Walk-in Customer");
+
+            const { data: createdOrder } = await supabase
+              .from("orders")
+              .insert({
+                restaurant_id: restaurantId,
+                customer_name: paymentCustomerName,
+                items: orderItemsFormatted,
+                status: isNC ? "nc" : "completed",
+                total: isNC ? 0 : orderTotal,
+                order_type: isNC ? "non-chargeable" : currentMode.replace("_", "-"),
+                nc_reason: isNC ? ncReason || null : null,
+                source: "pos",
+                payment_status: finalPaymentStatus,
+                payment_method: finalMethod,
+                ...(splitPayments && splitPayments.length > 0 && { split_payments: splitPayments }),
+                attendant: attendantName,
+              })
+              .select()
+              .maybeSingle();
+
+            // Link kitchen order to this new orders record
+            if (createdOrder?.id) {
+              await supabase
+                .from("kitchen_orders")
+                .update({ order_id: createdOrder.id })
+                .eq("id", effectiveKitchenOrderId);
+            }
+          }
+
+          // Clear pending order state
+          setPendingOrderId(null);
+          setPendingKitchenOrderId(null);
+          setPaymentOrderItems([]);
+
+          // Clear cart items
+          setOrderItems([]);
+          setRecalledKitchenOrderId(null);
+        } else if (orderItems.length > 0 && restaurantId) {
+          // PRE-PAY: No existing kitchen order — create order directly as completed
+          const orderSource =
+            currentMode === "dine_in" && currentTable
+              ? tableLabel(currentTable.name)
+              : currentMode === "takeaway"
+                ? "Takeaway"
+                : currentMode === "delivery"
+                  ? "Delivery"
+                  : "Non-Chargeable";
+
           const paymentCustomerName =
             customerName.trim() ||
             (currentMode === "dine_in" && currentTable
@@ -1184,176 +1264,124 @@ export const QSRPosMain: React.FC = () => {
               ? "Delivery Customer"
               : "Walk-in Customer");
 
-          const { data: createdOrder } = await supabase
+          // Prepare kitchen items
+          const kitchenItems = orderItems.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            menuItemId: item.menuItemId,
+            notes: item.notes ? [item.notes] : [],
+          }));
+
+          // Create kitchen order as bumped (completed) - for record keeping
+          const { data: kitchenOrder, error: kitchenError } = await supabase
+            .from("kitchen_orders")
+            .insert({
+              restaurant_id: restaurantId,
+              source: `QSR-${orderSource}`,
+              status: "completed", // Already completed since paid
+              payment_status: finalPaymentStatus,
+              payment_method: finalMethod,
+              items: kitchenItems,
+              order_type: currentMode === "nc" ? "takeaway" : currentMode,
+              customer_name: paymentCustomerName,
+              server_name: attendantName,
+              priority: "normal",
+              bumped_at: new Date().toISOString(), // Mark as completed immediately
+            })
+            .select()
+            .maybeSingle();
+
+          if (kitchenError) throw kitchenError;
+
+          // Create order record as completed
+          const orderTotal = orderItems.reduce(
+            (sum, item) => sum + item.price * item.quantity,
+            0,
+          );
+          const isNC = currentMode === "nc";
+
+          // Prepare items array for orders table
+          const orderItemsFormatted = orderItems.map(
+            (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
+          );
+
+          const { data: createdOrder, error: orderError } = await supabase
             .from("orders")
             .insert({
               restaurant_id: restaurantId,
               customer_name: paymentCustomerName,
-              items: orderItemsFormatted,
-              status: isNC ? "nc" : "completed",
+              items: orderItemsFormatted, // Required field - array of strings
+              status: "completed", // Already completed since paid
               total: isNC ? 0 : orderTotal,
-              order_type: isNC ? "non-chargeable" : currentMode.replace("_", "-"),
-              nc_reason: isNC ? ncReason || null : null,
+              // For NC orders, store original value in discount_amount (100% discount)
+              order_type: isNC ? "non-chargeable" : currentMode,
+              nc_reason: isNC ? ncReason || null : null, // Save NC reason if provided
               source: "pos",
-              payment_status: isNC ? "nc" : "paid",
+              payment_status: finalPaymentStatus,
+              payment_method: finalMethod,
+              ...(splitPayments && splitPayments.length > 0 && { split_payments: splitPayments }),
+              discount_amount: isNC ? orderTotal : 0, // Original value for NC orders
+              discount_percentage: isNC ? 100 : 0,
               attendant: attendantName,
             })
             .select()
-            .single();
+            .maybeSingle();
 
-          // Link kitchen order to this new orders record
-          if (createdOrder?.id) {
+          if (orderError) throw orderError;
+
+          // Link kitchen order to order record
+          if (createdOrder?.id && kitchenOrder?.id) {
             await supabase
               .from("kitchen_orders")
               .update({ order_id: createdOrder.id })
-              .eq("id", effectiveKitchenOrderId);
+              .eq("id", kitchenOrder.id);
+          }
+
+          // Deduct inventory based on recipe ingredients (non-blocking)
+          if (kitchenOrder?.id) {
+            try {
+              const {
+                data: { session },
+              } = await supabase.auth.getSession();
+
+              const { data: deductResult, error: deductError } =
+                await supabase.functions.invoke("deduct-inventory-on-prep", {
+                  body: { order_id: kitchenOrder.id },
+                  headers: {
+                    Authorization: `Bearer ${session?.access_token}`,
+                  },
+                });
+
+              if (deductError) {
+                console.error("Inventory deduction error:", deductError.message);
+              } else if (!deductResult?.success && deductResult?.errors) {
+                console.warn(
+                  "Inventory deduction warnings:",
+                  deductResult.errors,
+                );
+                toast({
+                  variant: "destructive",
+                  title: "Inventory Warning",
+                  description: deductResult.errors.join("\n"),
+                  duration: 6000,
+                });
+              }
+            } catch (invErr) {
+              console.error("Inventory deduction failed (non-blocking):", invErr);
+            }
           }
         }
 
-        // Clear pending order state
+        // Clear cart, order, and customer details
+        setOrderItems([]);
+        setRecalledKitchenOrderId(null);
         setPendingOrderId(null);
         setPendingKitchenOrderId(null);
         setPaymentOrderItems([]);
-
-        // Clear cart items
-        setOrderItems([]);
-        setRecalledKitchenOrderId(null);
-      } else if (orderItems.length > 0 && restaurantId) {
-        // PRE-PAY: No existing kitchen order — create order directly as completed
-        const orderSource =
-          currentMode === "dine_in" && currentTable
-            ? tableLabel(currentTable.name)
-            : currentMode === "takeaway"
-              ? "Takeaway"
-              : currentMode === "delivery"
-                ? "Delivery"
-                : "Non-Chargeable";
-
-        const paymentCustomerName =
-          customerName.trim() ||
-          (currentMode === "dine_in" && currentTable
-            ? tableLabel(currentTable.name)
-            : currentMode === "takeaway"
-            ? "Takeaway Customer"
-            : currentMode === "delivery"
-            ? "Delivery Customer"
-            : "Walk-in Customer");
-
-        // Prepare kitchen items
-        const kitchenItems = orderItems.map((item) => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          menuItemId: item.menuItemId,
-          notes: item.notes ? [item.notes] : [],
-        }));
-
-        // Create kitchen order as bumped (completed) - for record keeping
-        const { data: kitchenOrder, error: kitchenError } = await supabase
-          .from("kitchen_orders")
-          .insert({
-            restaurant_id: restaurantId,
-            source: `QSR-${orderSource}`,
-            status: "completed", // Already completed since paid
-            items: kitchenItems,
-            order_type: currentMode === "nc" ? "takeaway" : currentMode,
-            customer_name: paymentCustomerName,
-            server_name: attendantName,
-            priority: "normal",
-            bumped_at: new Date().toISOString(), // Mark as completed immediately
-          })
-          .select()
-          .single();
-
-        if (kitchenError) throw kitchenError;
-
-        // Create order record as completed
-        const orderTotal = orderItems.reduce(
-          (sum, item) => sum + item.price * item.quantity,
-          0,
-        );
-        const isNC = currentMode === "nc";
-
-        // Prepare items array for orders table
-        const orderItemsFormatted = orderItems.map(
-          (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
-        );
-
-        const { data: createdOrder, error: orderError } = await supabase
-          .from("orders")
-          .insert({
-            restaurant_id: restaurantId,
-            customer_name: paymentCustomerName,
-            items: orderItemsFormatted, // Required field - array of strings
-            status: "completed", // Already completed since paid
-            total: isNC ? 0 : orderTotal,
-            // For NC orders, store original value in discount_amount (100% discount)
-            order_type: isNC ? "non-chargeable" : currentMode,
-            nc_reason: isNC ? ncReason || null : null, // Save NC reason if provided
-            source: "pos",
-            payment_status: isNC ? "nc" : "paid",
-            discount_amount: isNC ? orderTotal : 0, // Original value for NC orders
-            discount_percentage: isNC ? 100 : 0,
-            attendant: attendantName,
-          })
-          .select()
-          .single();
-
-        if (orderError) throw orderError;
-
-        // Link kitchen order to order record
-        if (createdOrder?.id && kitchenOrder?.id) {
-          await supabase
-            .from("kitchen_orders")
-            .update({ order_id: createdOrder.id })
-            .eq("id", kitchenOrder.id);
-        }
-
-        // Deduct inventory based on recipe ingredients (non-blocking)
-        if (kitchenOrder?.id) {
-          try {
-            const {
-              data: { session },
-            } = await supabase.auth.getSession();
-
-            const { data: deductResult, error: deductError } =
-              await supabase.functions.invoke("deduct-inventory-on-prep", {
-                body: { order_id: kitchenOrder.id },
-                headers: {
-                  Authorization: `Bearer ${session?.access_token}`,
-                },
-              });
-
-            if (deductError) {
-              console.error("Inventory deduction error:", deductError.message);
-            } else if (!deductResult?.success && deductResult?.errors) {
-              console.warn(
-                "Inventory deduction warnings:",
-                deductResult.errors,
-              );
-              toast({
-                variant: "destructive",
-                title: "Inventory Warning",
-                description: deductResult.errors.join("\n"),
-                duration: 6000,
-              });
-            } else {
-            }
-          } catch (invErr) {
-            console.error("Inventory deduction failed (non-blocking):", invErr);
-          }
-        }
-      }
-
-      // Clear cart, order, and customer details
-      setOrderItems([]);
-      setRecalledKitchenOrderId(null);
-      setPendingOrderId(null);
-      setPendingKitchenOrderId(null);
-      setPaymentOrderItems([]);
-      setCustomerName("");
-      setCustomerPhone("");
-      setNcReason("");
+        setCustomerName("");
+        setCustomerPhone("");
+        setNcReason("");
 
       // Free up table if dine-in
       if (currentMode === "dine_in" && currentTable) {
@@ -1399,6 +1427,7 @@ export const QSRPosMain: React.FC = () => {
     attendantName,
     updateTableStatus,
     refetchTables,
+    queryClient,
     toast,
   ]);
 
@@ -1448,6 +1477,10 @@ export const QSRPosMain: React.FC = () => {
           queryKey: ["past-orders", restaurantId],
         });
       }
+      // Always invalidate Orders Management and QSR caches
+      queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
 
       toast({
         title: "Order Deleted",

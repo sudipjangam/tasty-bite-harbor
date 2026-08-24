@@ -43,7 +43,7 @@ const MenuItemsGrid = ({
         .from("profiles")
         .select("restaurant_id")
         .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .single();
+        .maybeSingle();
 
       if (!profile?.restaurant_id) {
         throw new Error("No restaurant found for user");

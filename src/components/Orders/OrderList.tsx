@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import OrderItem from "./OrderItem";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Order } from "@/types/orders";
 import AddOrderForm from "./AddOrderForm";
@@ -39,6 +40,7 @@ const OrderList: React.FC<OrderListProps> = ({
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
   const { toast } = useToast();
   const { restaurantId } = useRestaurantId();
+  const queryClient = useQueryClient();
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     try {
@@ -48,6 +50,20 @@ const OrderList: React.FC<OrderListProps> = ({
         .eq("id", orderId);
 
       if (error) throw error;
+
+      // Sync status to linked kitchen_orders so KDS reflects the change
+      const kitchenUpdate: Record<string, any> = { status: newStatus };
+      if (newStatus === "completed" || newStatus === "cancelled") {
+        kitchenUpdate.bumped_at = new Date().toISOString();
+      }
+      const { error: kitchenError } = await supabase
+        .from("kitchen_orders")
+        .update(kitchenUpdate)
+        .eq("order_id", orderId);
+
+      if (kitchenError) {
+        console.error("Failed to sync kitchen order status:", kitchenError);
+      }
 
       toast({
         title: "Status Updated",
@@ -76,6 +92,16 @@ const OrderList: React.FC<OrderListProps> = ({
         .eq("id", orderId);
 
       if (error) throw error;
+
+      // Sync priority to kitchen_orders
+      const { error: kitchenError } = await supabase
+        .from("kitchen_orders")
+        .update({ priority })
+        .eq("order_id", orderId);
+
+      if (kitchenError) {
+        console.error("Error updating kitchen priority:", kitchenError);
+      }
 
       toast({
         title: "Priority Updated",
@@ -129,6 +155,10 @@ const OrderList: React.FC<OrderListProps> = ({
       });
 
       onOrdersChange();
+      // Invalidate KDS and QSR caches
+      queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["all-orders"] });
     } catch (error) {
       console.error("Error deleting order:", error);
       toast({

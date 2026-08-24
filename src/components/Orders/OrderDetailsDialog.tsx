@@ -92,7 +92,7 @@ const OrderDetailsDialog = ({
         .from("profiles")
         .select("restaurant_id")
         .eq("id", profile.user.id)
-        .single();
+        .maybeSingle();
 
       if (!userProfile?.restaurant_id) {
         throw new Error("No restaurant found");
@@ -227,12 +227,36 @@ const OrderDetailsDialog = ({
     newStatus: "completed" | "pending" | "preparing" | "ready" | "cancelled",
   ) => {
     try {
+      // Update kitchen_orders status and set bumped_at for terminal states
+      const kitchenUpdate: Record<string, any> = { status: newStatus };
+      if (newStatus === "completed" || newStatus === "cancelled") {
+        kitchenUpdate.bumped_at = new Date().toISOString();
+      }
+
       const { error } = await supabase
         .from("kitchen_orders")
-        .update({ status: newStatus })
+        .update(kitchenUpdate)
         .eq("id", order.id);
 
       if (error) throw error;
+
+      // Also sync status to linked orders table
+      const { data: kitchenRow } = await supabase
+        .from("kitchen_orders")
+        .select("order_id")
+        .eq("id", order.id)
+        .maybeSingle();
+
+      if (kitchenRow?.order_id) {
+        const { error: orderError } = await supabase
+          .from("orders")
+          .update({ status: newStatus, updated_at: new Date().toISOString() })
+          .eq("id", kitchenRow.order_id);
+
+        if (orderError) {
+          console.error("Failed to sync order status:", orderError);
+        }
+      }
 
       toast({
         title: "Order Updated",
@@ -242,6 +266,8 @@ const OrderDetailsDialog = ({
       queryClient.invalidateQueries({ queryKey: ["active-orders"] });
       queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
       queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
       queryClient.invalidateQueries({
         queryKey: ["quickserve-todays-revenue"],
@@ -318,7 +344,7 @@ const OrderDetailsDialog = ({
         .from("profiles")
         .select("restaurant_id")
         .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .single();
+        .maybeSingle();
 
       if (profile?.restaurant_id) {
         const { data: existingCustomers } = await supabase
@@ -575,6 +601,25 @@ const OrderDetailsDialog = ({
                       {grandTotal.toFixed(2)}
                     </span>
                   </div>
+
+                  {(order as any).payment_method && (
+                    <div className="flex justify-between text-xs text-muted-foreground pt-2 border-t">
+                      <span>Payment Method</span>
+                      <span className="font-bold uppercase text-slate-700 dark:text-slate-200">
+                        {(order as any).payment_method === "split" && (order as any).split_payments ? (() => {
+                          try {
+                            const splits = typeof (order as any).split_payments === "string"
+                              ? JSON.parse((order as any).split_payments)
+                              : (order as any).split_payments;
+                            if (Array.isArray(splits)) {
+                              return `SPLIT (${splits.map((s: any) => `${s.method?.toUpperCase()}: ${currencySymbol}${s.amount}`).join(", ")})`;
+                            }
+                          } catch {}
+                          return "SPLIT";
+                        })() : (order as any).payment_method}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </Card>

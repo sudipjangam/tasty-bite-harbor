@@ -96,7 +96,7 @@ const POSMode = () => {
         .from("profiles")
         .select("restaurant_id")
         .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .single();
+        .maybeSingle();
 
       if (!profile?.restaurant_id) return 0;
 
@@ -157,7 +157,7 @@ const POSMode = () => {
         .from("profiles")
         .select("restaurant_id")
         .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .single();
+        .maybeSingle();
 
       if (!profile?.restaurant_id) {
         throw new Error("No restaurant found for user");
@@ -297,7 +297,7 @@ const POSMode = () => {
         .from("profiles")
         .select("restaurant_id")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
       if (!profile?.restaurant_id) throw new Error("Restaurant not found");
 
@@ -330,7 +330,7 @@ const POSMode = () => {
           .from("kitchen_orders")
           .select("order_id")
           .eq("id", recalledKitchenOrderId)
-          .single();
+          .maybeSingle();
 
         const { error: updateError } = await supabase
           .from("kitchen_orders")
@@ -420,6 +420,10 @@ const POSMode = () => {
       queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
       queryClient.invalidateQueries({ queryKey: ["active-orders"] });
       queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qsr-tables"] });
     } catch (error) {
       console.error("Error holding order:", error);
       toast({
@@ -636,7 +640,7 @@ const POSMode = () => {
         .from("profiles")
         .select("restaurant_id")
         .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .single();
+        .maybeSingle();
 
       if (!profile?.restaurant_id) {
         throw new Error("No restaurant found for user");
@@ -678,7 +682,7 @@ const POSMode = () => {
           .from("kitchen_orders")
           .select("order_id")
           .eq("id", recalledKitchenOrderId)
-          .single();
+          .maybeSingle();
 
         const kitchenPayload = {
           source: orderSource,
@@ -842,6 +846,10 @@ const POSMode = () => {
       queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
       queryClient.invalidateQueries({ queryKey: ["active-orders"] });
       queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qsr-tables"] });
 
       setCurrentOrderItems([]);
       setRecalledKitchenOrderId(null);

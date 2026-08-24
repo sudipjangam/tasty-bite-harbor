@@ -131,9 +131,6 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
         const mapped = activeOrders.map(transformOrderData);
         const sorted = sortOrders(mapped);
         
-        if (sorted.length > orders.length && isSilent) {
-        }
-        
         setOrders(sorted);
       }
     } catch (err) {
@@ -142,7 +139,7 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
       setIsLoading(false);
       lastUpdateRef.current = Date.now();
     }
-  }, [restaurantId, transformOrderData, orders.length]);
+  }, [restaurantId, transformOrderData]);
 
   // ── Fetch via PIN RPC ──
   const fetchOrdersPin = useCallback(async (isSilent = false) => {
@@ -232,6 +229,14 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
       const completedAt = newStatus === "ready" ? new Date().toISOString() : null;
 
       if (useDirectQuery) {
+        // Fetch order_id first
+        const { data: existingOrder } = await supabase
+          .from("kitchen_orders")
+          .select("order_id")
+          .eq("id", orderId)
+          .eq("restaurant_id", restaurantId)
+          .maybeSingle();
+
         // Direct table update
         const updatePayload: any = { status: newStatus };
         if (startedAt) updatePayload.started_at = startedAt;
@@ -244,6 +249,19 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
           .eq("restaurant_id", restaurantId);
 
         if (error) throw error;
+
+        // Also sync status to orders table
+        if (existingOrder?.order_id) {
+          let orderStatus = "pending";
+          if (newStatus === "preparing") orderStatus = "preparing";
+          if (newStatus === "ready") orderStatus = "ready";
+          if (newStatus === "completed") orderStatus = "completed";
+
+          await supabase
+            .from("orders")
+            .update({ status: orderStatus, updated_at: new Date().toISOString() })
+            .eq("id", existingOrder.order_id);
+        }
       } else {
         const payload: any = {
           p_order_id: orderId,
@@ -359,12 +377,26 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
     if (!restaurantId) return;
     try {
       if (useDirectQuery) {
+        const { data: existingOrder } = await supabase
+          .from("kitchen_orders")
+          .select("order_id")
+          .eq("id", orderId)
+          .eq("restaurant_id", restaurantId)
+          .maybeSingle();
+
         const { error } = await supabase
           .from("kitchen_orders")
           .update({ status: "completed", bumped_at: new Date().toISOString() })
           .eq("id", orderId)
           .eq("restaurant_id", restaurantId);
         if (error) throw error;
+
+        if (existingOrder?.order_id) {
+          await supabase
+            .from("orders")
+            .update({ status: "completed", updated_at: new Date().toISOString() })
+            .eq("id", existingOrder.order_id);
+        }
       } else {
         const { error } = await supabase.rpc("bump_kitchen_order_by_pin", {
           p_order_id: orderId,
@@ -387,12 +419,26 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
     if (!restaurantId) return;
     try {
       if (useDirectQuery) {
+        const { data: existingOrder } = await supabase
+          .from("kitchen_orders")
+          .select("order_id")
+          .eq("id", orderId)
+          .eq("restaurant_id", restaurantId)
+          .maybeSingle();
+
         const { error } = await supabase
           .from("kitchen_orders")
           .update({ priority: newPriority })
           .eq("id", orderId)
           .eq("restaurant_id", restaurantId);
         if (error) throw error;
+
+        if (existingOrder?.order_id) {
+          await supabase
+            .from("orders")
+            .update({ priority: newPriority, updated_at: new Date().toISOString() })
+            .eq("id", existingOrder.order_id);
+        }
       } else {
         const { error } = await supabase.rpc("update_kitchen_order_priority_by_pin", {
           p_order_id: orderId,

@@ -769,6 +769,9 @@ const QuickServePOS: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
       queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
       queryClient.invalidateQueries({ queryKey: ["food-truck-today-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
     } catch (error) {
       console.error("Send to kitchen error:", error);
       toast({

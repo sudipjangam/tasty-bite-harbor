@@ -960,27 +960,50 @@ const PaymentDialog = ({
             }
           }
 
-          // 2. Update kitchen order in DB if orderId exists
+          // 2. Update kitchen order and orders in DB if orderId exists
           if (orderId) {
-            const { data: updatedKitchenOrder } = await supabase
+            // First check if orderId is a kitchen_orders.id
+            const { data: ko } = await supabase
               .from("kitchen_orders")
-              .update({
-                status: "completed",
-                payment_status: finalStatus,
-                payment_method: finalMethod,
-                total_amount: finalAmount,
-                bumped_at: new Date().toISOString(),
-                ...(customerName.trim() && { customer_name: customerName.trim() }),
-                ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
-                ...(method === "nc" && { nc_reason: ncReason }),
-              })
-              .eq("id", orderId)
               .select("order_id")
-              .single();
+              .eq("id", orderId)
+              .maybeSingle();
 
-            // Also update the linked orders table record so Orders Management reflects completed status
-            const linkedOrderId = updatedKitchenOrder?.order_id;
-            if (linkedOrderId) {
+            const targetOrderId = ko?.order_id ?? orderId;
+
+            if (ko) {
+              await supabase
+                .from("kitchen_orders")
+                .update({
+                  status: "completed",
+                  payment_status: finalStatus,
+                  payment_method: finalMethod,
+                  total_amount: finalAmount,
+                  bumped_at: new Date().toISOString(),
+                  ...(customerName.trim() && { customer_name: customerName.trim() }),
+                  ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
+                  ...(method === "nc" && { nc_reason: ncReason }),
+                })
+                .eq("id", orderId);
+            } else {
+              // orderId might be orders.id — update linked kitchen_orders if any
+              await supabase
+                .from("kitchen_orders")
+                .update({
+                  status: "completed",
+                  payment_status: finalStatus,
+                  payment_method: finalMethod,
+                  total_amount: finalAmount,
+                  bumped_at: new Date().toISOString(),
+                  ...(customerName.trim() && { customer_name: customerName.trim() }),
+                  ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
+                  ...(method === "nc" && { nc_reason: ncReason }),
+                })
+                .eq("order_id", orderId);
+            }
+
+            // Always update the orders table record so Orders Management reflects completed status and split payments
+            if (targetOrderId) {
               await supabase
                 .from("orders")
                 .update({
@@ -988,11 +1011,13 @@ const PaymentDialog = ({
                   payment_status: finalStatus,
                   payment_method: finalMethod,
                   total: finalAmount,
-                  ...(splitPaymentsJson && { split_payments: splitPaymentsJson }),
+                  updated_at: new Date().toISOString(),
+                  ...(isSplit && splitPayload && { split_payments: splitPayload }),
                   ...(customerName.trim() && { customer_name: customerName.trim() }),
                   ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
+                  ...(method === "nc" && { nc_reason: ncReason }),
                 })
-                .eq("id", linkedOrderId);
+                .eq("id", targetOrderId);
             }
           }
 
@@ -1009,9 +1034,13 @@ const PaymentDialog = ({
 
         // 4. Invalidate all POS queries
         queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["active-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
         queryClient.invalidateQueries({ queryKey: ["all-orders"] });
         queryClient.invalidateQueries({ queryKey: ["orders"] });
         queryClient.invalidateQueries({ queryKey: ["dashboard-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["qsr-tables"] });
 
         // 5. Soundbox announcement & local popup notification
         if (method !== "nc") {
@@ -1044,7 +1073,12 @@ const PaymentDialog = ({
         setCurrentStep("success");
         setTimeout(() => {
           setCurrentStep("checkout");
-          onSuccess();
+          onSuccess({
+            method: finalMethod,
+            paymentStatus: finalStatus,
+            total: finalAmount,
+            splitPayments: splitPayload,
+          });
           onClose();
         }, 1800);
       } catch (err: any) {
