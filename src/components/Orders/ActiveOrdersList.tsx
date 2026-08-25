@@ -279,6 +279,7 @@ const ActiveOrdersList = ({
                             | "normal"
                             | "rush"
                             | "vip") || "normal",
+                        items: parseOrderItems(updatedOrder.items),
                         discount_amount: orderData?.discount_amount ?? order.discount_amount,
                         discount_percentage:
                           orderData?.discount_percentage ?? order.discount_percentage,
@@ -290,6 +291,17 @@ const ActiveOrdersList = ({
                       }
                     : order,
                 );
+
+                // If status filter is not "all" and not "completed", filter out completed orders
+                if (
+                  statusFilter !== "all" &&
+                  statusFilter !== "completed"
+                ) {
+                  return updatedOrders.filter(
+                    (order) => order.status !== "completed",
+                  );
+                }
+
                 return updatedOrders;
               });
             };
@@ -306,59 +318,6 @@ const ActiveOrdersList = ({
                 });
             } else {
               applyUpdate(null);
-            }
-
-                    // If status filter is not "all" and not "completed", filter out completed orders
-                    if (
-                      statusFilter !== "all" &&
-                      statusFilter !== "completed"
-                    ) {
-                      return updatedOrders.filter(
-                        (order) => order.status !== "completed",
-                      );
-                    }
-
-                    return updatedOrders;
-                  });
-                });
-            } else {
-              // No linked order_id, just update without discount info
-              setActiveOrders((prev) => {
-                const updatedOrders = prev.map((order) =>
-                  order.id === updatedOrder.id
-                    ? {
-                        ...order,
-                        source: updatedOrder.source,
-                        status: updatedOrder.status as
-                          | "new"
-                          | "preparing"
-                          | "ready"
-                          | "completed"
-                          | "held",
-                        priority:
-                          (updatedOrder.priority as
-                            | "normal"
-                            | "rush"
-                            | "vip") || "normal",
-                        items: parseOrderItems(updatedOrder.items),
-                        item_completion_status: Array.isArray(
-                          updatedOrder.item_completion_status,
-                        )
-                          ? updatedOrder.item_completion_status
-                          : [],
-                      }
-                    : order,
-                );
-
-                // If status filter is not "all" and not "completed", filter out completed orders
-                if (statusFilter !== "all" && statusFilter !== "completed") {
-                  return updatedOrders.filter(
-                    (order) => order.status !== "completed",
-                  );
-                }
-
-                return updatedOrders;
-              });
             }
 
             if (updatedOrder.status === "ready") {

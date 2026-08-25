@@ -73,7 +73,7 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
       const { data: kitchenData, error: kitchenError } = await supabase
         .from("kitchen_orders")
         .select(
-          "id, source, items, status, created_at, bumped_at, order_id, server_name, customer_name, payment_method, payment_status",
+          "id, source, items, status, created_at, bumped_at, order_id, server_name, customer_name",
         )
         .eq("restaurant_id", restaurantId)
         .eq("status", "completed")
