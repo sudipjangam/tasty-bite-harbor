@@ -917,6 +917,8 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
           paymentStatus: finalPaymentStatus,
           total: finalTotal,
           splitPayments: splitData,
+          customerName: customerName.trim() || undefined,
+          customerMobile: customerMobile.trim() || undefined,
         });
         onClose();
       }, 5000);
@@ -1286,8 +1288,13 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                       setStep("split");
                     } else if (id === "upi") {
                       setStep("qr");
-                    } else if (id === "pay_later" && !customerName.trim()) {
-                      toast({ title: "Customer name required", description: "Enter customer name before choosing Pay Later", variant: "destructive" });
+                    } else if (id === "pay_later" && (!customerName.trim() || !customerMobile.trim())) {
+                      toast({
+                        title: "Customer Name & Phone Required",
+                        description: "Please enter customer name and phone number before selecting Pay Later.",
+                        variant: "destructive",
+                      });
+                      setStep("confirm");
                     } else {
                       processPayment(id);
                     }

@@ -466,8 +466,8 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                               </span>
                               {/* Pay Later Badge */}
                               {order.paymentMethod === "pay_later" && (
-                                <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-md shadow-amber-300/50 animate-pulse flex items-center gap-1">
-                                  🕐 Pay Later
+                                <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-md shadow-amber-300/50 flex items-center gap-1">
+                                  🕐 Pay Later {order.customerName ? `· ${order.customerName}` : ""}
                                 </span>
                               )}
                               {order.priority === "vip" && (
@@ -483,6 +483,18 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                                 </span>
                               )}
                             </div>
+                            {/* Customer / Payer details if present and not already displayed */}
+                            {order.customerName && order.paymentMethod !== "pay_later" && (
+                              <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-1 flex items-center gap-1">
+                                <span>👤 {order.customerName}</span>
+                                {order.customerPhone && <span className="opacity-75">· 📞 {order.customerPhone}</span>}
+                              </div>
+                            )}
+                            {order.customerPhone && order.paymentMethod === "pay_later" && (
+                              <div className="text-[11px] font-semibold text-amber-700 dark:text-amber-300 mt-0.5 flex items-center gap-1">
+                                <span>📞 {order.customerPhone}</span>
+                              </div>
+                            )}
                             {/* Time & Progress */}
                             <div className="flex items-center gap-3 mt-2">
                               <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">

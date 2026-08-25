@@ -146,20 +146,27 @@ const OrderDetailsDialog = ({
 
       const { data: kitchenOrder } = await supabase
         .from("kitchen_orders")
-        .select("order_id")
+        .select("order_id, customer_name, customer_phone")
         .eq("id", order.id)
         .maybeSingle();
 
       if (kitchenOrder?.order_id) {
         const { data } = await supabase
           .from("orders")
-          .select("discount_amount, discount_percentage")
+          .select("discount_amount, discount_percentage, payment_method, payment_status, customer_name, customer_phone")
           .eq("id", kitchenOrder.order_id)
           .maybeSingle();
 
-        return data;
+        return {
+          ...data,
+          customer_name: data?.customer_name || kitchenOrder.customer_name,
+          customer_phone: data?.customer_phone || kitchenOrder.customer_phone,
+        };
       }
-      return null;
+      return {
+        customer_name: kitchenOrder?.customer_name,
+        customer_phone: kitchenOrder?.customer_phone,
+      };
     },
     enabled: isOpen && !!order?.id,
   });
@@ -784,6 +791,36 @@ const OrderDetailsDialog = ({
                     )}
                   </dd>
                 </div>
+                {orderDetails?.customer_name && (
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">Customer / Payer:</dt>
+                    <dd className="font-bold text-slate-800 dark:text-slate-200">
+                      {orderDetails.customer_name}
+                    </dd>
+                  </div>
+                )}
+                {orderDetails?.customer_phone && (
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">Contact Number:</dt>
+                    <dd className="font-semibold text-slate-700 dark:text-slate-300">
+                      📞 {orderDetails.customer_phone}
+                    </dd>
+                  </div>
+                )}
+                {orderDetails?.payment_method && (
+                  <div className="flex justify-between items-center">
+                    <dt className="text-gray-500">Payment:</dt>
+                    <dd className="font-semibold uppercase">
+                      {orderDetails.payment_method === "pay_later" ? (
+                        <span className="px-2 py-0.5 text-xs font-bold rounded-md bg-amber-500 text-white inline-flex items-center gap-1 shadow-xs">
+                          <Clock className="w-3 h-3" /> PAY LATER (DUE)
+                        </span>
+                      ) : (
+                        orderDetails.payment_method
+                      )}
+                    </dd>
+                  </div>
+                )}
               </dl>
             </Card>
 

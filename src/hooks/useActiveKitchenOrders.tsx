@@ -51,7 +51,7 @@ export const useActiveKitchenOrders = (
       let query = supabase
         .from("kitchen_orders")
         .select(
-          "id, source, items, status, priority, created_at, order_id, item_completion_status, order_type, table_number",
+          "id, source, items, status, priority, created_at, order_id, item_completion_status, order_type, table_number, customer_name, customer_phone",
         )
         .eq("restaurant_id", restaurantId)
         .gte("created_at", start)
@@ -78,15 +78,20 @@ export const useActiveKitchenOrders = (
         .map((o) => o.order_id)
         .filter((id): id is string => id !== null && id !== undefined);
 
-      let paymentMap: Record<string, { payment_method?: string; payment_status?: string }> = {};
+      let paymentMap: Record<string, { payment_method?: string; payment_status?: string; customer_name?: string; customer_phone?: string }> = {};
       if (orderIds.length > 0) {
         const { data: ordersData } = await supabase
           .from("orders")
-          .select("id, payment_method, payment_status")
+          .select("id, payment_method, payment_status, customer_name, customer_phone")
           .in("id", orderIds);
         if (ordersData) {
           paymentMap = ordersData.reduce((acc, o) => {
-            acc[o.id] = { payment_method: o.payment_method, payment_status: o.payment_status };
+            acc[o.id] = {
+              payment_method: o.payment_method,
+              payment_status: o.payment_status,
+              customer_name: o.customer_name,
+              customer_phone: o.customer_phone,
+            };
             return acc;
           }, {} as typeof paymentMap);
         }
@@ -129,6 +134,8 @@ export const useActiveKitchenOrders = (
             orderType: order.order_type as ActiveKitchenOrder["orderType"],
             paymentMethod: linkedPayment?.payment_method || undefined,
             paymentStatus: linkedPayment?.payment_status || undefined,
+            customerName: linkedPayment?.customer_name || order.customer_name || undefined,
+            customerPhone: linkedPayment?.customer_phone || order.customer_phone || undefined,
           };
         })
         .filter((order) => {

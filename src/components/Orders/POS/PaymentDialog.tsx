@@ -39,10 +39,13 @@ import {
   ChevronDown,
   ChevronUp,
   WifiOff,
+  User,
+  Phone,
 } from "lucide-react";
 
 import type { OrderItem } from "@/types/orders";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -100,7 +103,7 @@ const PaymentDialog = ({
   const hasRoomsPlan = hasAccess("rooms") || hasAccess("hotel");
 
   // ─── Flow State ──────────────────────────────────────────────────────────
-  const [currentStep, setCurrentStep] = useState<"checkout" | "qr" | "split" | "edit" | "success">("checkout");
+  const [currentStep, setCurrentStep] = useState<"checkout" | "qr" | "split" | "edit" | "success" | "pay_later">("checkout");
 
   // ─── Items & Custom Pricing State ────────────────────────────────────────
   const [orderItems, setOrderItems] = useState<(OrderItem & { customPrice?: number })[]>(initialOrderItems || []);
@@ -1084,6 +1087,8 @@ const PaymentDialog = ({
             paymentStatus: finalStatus,
             total: finalAmount,
             splitPayments: splitPayload,
+            customerName: customerName.trim() || undefined,
+            customerMobile: customerMobile.trim() || undefined,
           });
           onClose();
         }, 1800);
@@ -1377,6 +1382,104 @@ const PaymentDialog = ({
                 >
                   {isProcessingPayment ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
                   Settle Split
+                </Button>
+                <Button variant="outline" onClick={() => setCurrentStep("checkout")} className="h-11">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ════════════════════════════════════════════════════════════════ */}
+          {/* STEP: PAY LATER CUSTOMER DETAILS SCREEN                         */}
+          {/* ════════════════════════════════════════════════════════════════ */}
+          {currentStep === "pay_later" && (
+            <div className="p-6 space-y-5 bg-white dark:bg-slate-900">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                <Button variant="ghost" size="sm" onClick={() => setCurrentStep("checkout")} className="gap-1.5">
+                  <ArrowLeft className="w-4 h-4" /> Back to Payment
+                </Button>
+                <Badge variant="outline" className="font-mono text-xs text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/40">
+                  ⏳ Pay Later (Credit Due)
+                </Badge>
+              </div>
+
+              <div className="p-4 bg-amber-50/70 dark:bg-amber-950/20 rounded-2xl border border-amber-200 dark:border-amber-900/50 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-amber-600" />
+                      Payer & Contact Details
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Enter the name and contact details of the person who will pay later.
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Due Amount</span>
+                    <span className="text-xl font-extrabold font-mono text-amber-600 dark:text-amber-400">
+                      {currencySymbol}{total.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                      <User className="w-3.5 h-3.5 text-indigo-500" />
+                      Person Name <span className="text-rose-500">*</span>
+                    </Label>
+                    <Input
+                      autoFocus
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="e.g. Rahul Sharma"
+                      className="h-10 text-sm font-semibold bg-white dark:bg-slate-900"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                      <Phone className="w-3.5 h-3.5 text-indigo-500" />
+                      Contact Number <span className="text-rose-500">*</span>
+                    </Label>
+                    <Input
+                      value={customerMobile}
+                      onChange={(e) => setCustomerMobile(e.target.value)}
+                      placeholder="e.g. 9876543210"
+                      type="tel"
+                      className="h-10 text-sm font-semibold bg-white dark:bg-slate-900"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  onClick={async () => {
+                    if (!customerName.trim()) {
+                      toast({
+                        title: "Person Name Required",
+                        description: "Please enter the name of the person who is going to pay later.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    if (!customerMobile.trim()) {
+                      toast({
+                        title: "Contact Number Required",
+                        description: "Please enter the contact number for Pay Later tracking.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    await handleQuickPay("pay_later");
+                  }}
+                  disabled={isProcessingPayment}
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold h-11 shadow-lg shadow-amber-600/20"
+                >
+                  {isProcessingPayment ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
+                  Confirm Pay Later
                 </Button>
                 <Button variant="outline" onClick={() => setCurrentStep("checkout")} className="h-11">
                   Cancel
@@ -2138,7 +2241,7 @@ const PaymentDialog = ({
                             ✂️ Split Bill
                           </button>
                           <button
-                            onClick={() => handleQuickPay("pay_later")}
+                            onClick={() => setCurrentStep("pay_later")}
                             className="py-1.5 px-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11px] font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-center active:scale-95 transition-all cursor-pointer shadow-2xs"
                           >
                             ⏳ Pay Later

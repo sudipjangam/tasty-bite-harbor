@@ -9,6 +9,8 @@ export interface PaymentSuccessDetails {
   paymentStatus?: string;
   total?: number;
   splitPayments?: Array<{ method: string; amount: number }>;
+  customerName?: string;
+  customerMobile?: string;
 }
 
 // Payment dialog props
