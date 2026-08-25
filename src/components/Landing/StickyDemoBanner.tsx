@@ -26,15 +26,22 @@ export const StickyDemoBanner: React.FC = () => {
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#25D366]"></span>
             </span>
             <p className="text-xs sm:text-sm font-medium">
-              <span className="hidden sm:inline">Not sure if this fits your restaurant? </span>
-              <span className="font-bold">Free 20-min WhatsApp walkthrough.</span>
-              <span className="hidden md:inline text-gray-400"> No credit card. Same-day reply.</span>
+              <span className="hidden sm:inline">
+                Not sure if this fits your restaurant?{" "}
+              </span>
+              <span className="font-bold">
+                Free 20-min WhatsApp walkthrough.
+              </span>
+              <span className="hidden md:inline text-gray-400">
+                {" "}
+                No credit card. Same-day reply.
+              </span>
             </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             <a
-              href="https://wa.me/918790425317?text=Hi%20Swadeshi%20Solutions%2C%20I%20want%20a%20quick%20walkthrough%20of%20the%20RMS%20platform!"
+              href="https://wa.me/918806957143?text=Hi%20Swadeshi%20Solutions%2C%20I%20want%20a%20quick%20walkthrough%20of%20the%20RMS%20platform!"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white text-xs font-bold shadow-md hover:scale-105 transition-transform whitespace-nowrap"

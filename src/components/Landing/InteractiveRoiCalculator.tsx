@@ -22,22 +22,31 @@ export const InteractiveRoiCalculator: React.FC = () => {
 
   // Calculations
   const monthlyOnlineRev = (monthlyRevenue * onlinePct) / 100;
-  const annualAggregatorCommissions = Math.round(monthlyOnlineRev * 0.24 * 12 * numOutlets);
-  
+  const annualAggregatorCommissions = Math.round(
+    monthlyOnlineRev * 0.24 * 12 * numOutlets,
+  );
+
   // By using direct ordering website, assume converting 25% of aggregator orders to direct 0% commission
-  const annualDirectConversionSavings = Math.round(annualAggregatorCommissions * 0.25);
+  const annualDirectConversionSavings = Math.round(
+    annualAggregatorCommissions * 0.25,
+  );
 
   // Competitor SaaS subscription cost per year per outlet (PetPooja/Posist + Aggregator add-on + Loyalty + Webstore)
   const competitorBaseCostPerOutlet = 28000;
   const competitorAddonsPerOutlet = 16000; // Swiggy sync + inventory + KDS add-on fees
-  const competitorTotalAnnualSaaS = (competitorBaseCostPerOutlet + competitorAddonsPerOutlet) * numOutlets;
+  const competitorTotalAnnualSaaS =
+    (competitorBaseCostPerOutlet + competitorAddonsPerOutlet) * numOutlets;
 
   // Swadeshi all-in-one estimated cost savings
-  const totalAnnualSavings = competitorTotalAnnualSaaS + annualDirectConversionSavings;
+  const totalAnnualSavings =
+    competitorTotalAnnualSaaS + annualDirectConversionSavings;
   const threeYearSavings = totalAnnualSavings * 3;
 
   return (
-    <section id="roi-calculator" className="py-20 relative bg-white dark:bg-[#1A1A2E] overflow-hidden">
+    <section
+      id="roi-calculator"
+      className="py-20 relative bg-white dark:bg-[#1A1A2E] overflow-hidden"
+    >
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-14">
@@ -50,7 +59,8 @@ export const InteractiveRoiCalculator: React.FC = () => {
             <span className="text-[#F26722]">Guaranteed.</span>
           </h2>
           <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300">
-            Compare recurring software subscriptions and aggregator commissions against our unified Swadeshi ecosystem.
+            Compare recurring software subscriptions and aggregator commissions
+            against our unified Swadeshi ecosystem.
           </p>
         </div>
 
@@ -121,7 +131,9 @@ export const InteractiveRoiCalculator: React.FC = () => {
                   <label className="text-xs font-bold text-gray-700 dark:text-gray-300">
                     % Orders from Swiggy / Zomato
                   </label>
-                  <span className="text-sm font-extrabold text-[#FC8019]">{onlinePct}%</span>
+                  <span className="text-sm font-extrabold text-[#FC8019]">
+                    {onlinePct}%
+                  </span>
                 </div>
                 <input
                   type="range"
@@ -144,9 +156,14 @@ export const InteractiveRoiCalculator: React.FC = () => {
                 <p className="font-semibold text-gray-700 dark:text-gray-300">
                   ⚙️ Calculation Assumptions:
                 </p>
-                <p>• Competitor SaaS: ₹28k base + ₹16k add-ons / outlet / year.</p>
+                <p>
+                  • Competitor SaaS: ₹28k base + ₹16k add-ons / outlet / year.
+                </p>
                 <p>• Aggregator commission: 24% blended average.</p>
-                <p>• Direct conversion: 25% shift to your zero-commission website.</p>
+                <p>
+                  • Direct conversion: 25% shift to your zero-commission
+                  website.
+                </p>
               </div>
             </div>
           </div>
@@ -165,27 +182,40 @@ export const InteractiveRoiCalculator: React.FC = () => {
                   <Sparkles className="w-5 h-5 text-[#FFD93D]" />
                 </div>
 
-                <p className="text-xs text-gray-300">Total Money Retained In Your Bank:</p>
+                <p className="text-xs text-gray-300">
+                  Total Money Retained In Your Bank:
+                </p>
                 <h3 className="text-4xl sm:text-5xl font-extrabold text-[#FFD93D] my-2 tracking-tight">
                   ₹{threeYearSavings.toLocaleString("en-IN")}
                 </h3>
                 <p className="text-xs text-gray-300">
-                  (≈ ₹{(totalAnnualSavings / 12).toLocaleString("en-IN", { maximumFractionDigits: 0 })} saved every single month)
+                  (≈ ₹
+                  {(totalAnnualSavings / 12).toLocaleString("en-IN", {
+                    maximumFractionDigits: 0,
+                  })}{" "}
+                  saved every single month)
                 </p>
               </div>
 
               {/* Breakdown Grid */}
               <div className="grid grid-cols-2 gap-3 mt-6 pt-6 border-t border-white/15">
                 <div className="p-3 rounded-xl bg-white/10 backdrop-blur-xs">
-                  <span className="text-[10px] text-gray-300 block">SaaS Fees Saved:</span>
+                  <span className="text-[10px] text-gray-300 block">
+                    SaaS Fees Saved:
+                  </span>
                   <span className="text-base font-bold text-emerald-400">
                     ₹{(competitorTotalAnnualSaaS * 3).toLocaleString("en-IN")}
                   </span>
                 </div>
                 <div className="p-3 rounded-xl bg-white/10 backdrop-blur-xs">
-                  <span className="text-[10px] text-gray-300 block">Commission Retained:</span>
+                  <span className="text-[10px] text-gray-300 block">
+                    Commission Retained:
+                  </span>
                   <span className="text-base font-bold text-emerald-400">
-                    ₹{(annualDirectConversionSavings * 3).toLocaleString("en-IN")}
+                    ₹
+                    {(annualDirectConversionSavings * 3).toLocaleString(
+                      "en-IN",
+                    )}
                   </span>
                 </div>
               </div>
@@ -218,7 +248,7 @@ export const InteractiveRoiCalculator: React.FC = () => {
 
             {/* CTA Button */}
             <a
-              href="https://wa.me/918790425317?text=Hi%20Swadeshi%20Solutions%2C%20I%20used%20the%20ROI%20calculator%20and%20want%20a%20detailed%20savings%20quote%20for%20my%20restaurant."
+              href="https://wa.me/918806957143?text=Hi%20Swadeshi%20Solutions%2C%20I%20used%20the%20ROI%20calculator%20and%20want%20a%20detailed%20savings%20quote%20for%20my%20restaurant."
               target="_blank"
               rel="noreferrer"
               className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-gradient-to-r from-[#F26722] to-[#FF6B6B] hover:opacity-95 text-white font-bold text-sm shadow-lg shadow-[#F26722]/25 transition-all text-center"
