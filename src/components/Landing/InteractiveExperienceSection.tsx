@@ -24,14 +24,17 @@ import { Badge } from "@/components/ui/badge";
 // Audio chime using Web Audio API for interactive clicks
 const playChime = (type: "kot" | "accept" | "ready" | "toggle" = "accept") => {
   try {
-    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
     if (!AudioContextClass) return;
     const ctx = new AudioContextClass();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
-    
+
     if (type === "kot") {
       osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
       osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
@@ -60,7 +63,9 @@ const playChime = (type: "kot" | "accept" | "ready" | "toggle" = "accept") => {
 };
 
 export const InteractiveExperienceSection: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"kds" | "margin" | "pos" | "stock86" | "lang">("kds");
+  const [activeTab, setActiveTab] = useState<
+    "kds" | "margin" | "pos" | "stock86" | "lang"
+  >("kds");
 
   // ==========================================
   // TAB 1: KDS & AGGREGATOR SIMULATOR STATE
@@ -154,7 +159,9 @@ export const InteractiveExperienceSection: React.FC = () => {
         }
         if (ord.status === "COOKING") {
           playChime("ready");
-          setKdsNotification(`Order ${ord.id} marked FOOD READY! Alert sent to runner/rider.`);
+          setKdsNotification(
+            `Order ${ord.id} marked FOOD READY! Alert sent to runner/rider.`,
+          );
           return { ...ord, status: "READY" };
         }
         if (ord.status === "READY") {
@@ -162,7 +169,7 @@ export const InteractiveExperienceSection: React.FC = () => {
           return { ...ord, status: "DISPATCHED" };
         }
         return { ...ord, status: "NEW" };
-      })
+      }),
     );
     setTimeout(() => setKdsNotification(null), 3500);
   };
@@ -185,7 +192,9 @@ export const InteractiveExperienceSection: React.FC = () => {
       color: "from-[#FC8019] to-[#E23744]",
     };
     setOrders((prev) => [randomOrder, ...prev.slice(0, 3)]);
-    setKdsNotification(`⚡ Ding! Live Swiggy Order #${newId} auto-accepted and synced to KDS!`);
+    setKdsNotification(
+      `⚡ Ding! Live Swiggy Order #${newId} auto-accepted and synced to KDS!`,
+    );
     setTimeout(() => setKdsNotification(null), 4000);
   };
 
@@ -193,10 +202,30 @@ export const InteractiveExperienceSection: React.FC = () => {
   // TAB 2: DISH PROFIT MARGIN CALCULATOR STATE
   // ==========================================
   const demoDishes = [
-    { name: "Chicken Dum Biryani", defaultPrice: 320, defaultCogs: 95, defaultPack: 22 },
-    { name: "Paneer Butter Masala", defaultPrice: 280, defaultCogs: 72, defaultPack: 18 },
-    { name: "Mutton Galouti Kebab", defaultPrice: 420, defaultCogs: 145, defaultPack: 25 },
-    { name: "Cold Brew Artisan Coffee", defaultPrice: 190, defaultCogs: 38, defaultPack: 15 },
+    {
+      name: "Chicken Dum Biryani",
+      defaultPrice: 320,
+      defaultCogs: 95,
+      defaultPack: 22,
+    },
+    {
+      name: "Paneer Butter Masala",
+      defaultPrice: 280,
+      defaultCogs: 72,
+      defaultPack: 18,
+    },
+    {
+      name: "Mutton Galouti Kebab",
+      defaultPrice: 420,
+      defaultCogs: 145,
+      defaultPack: 25,
+    },
+    {
+      name: "Cold Brew Artisan Coffee",
+      defaultPrice: 190,
+      defaultCogs: 38,
+      defaultPack: 15,
+    },
   ];
 
   const [selectedDishIdx, setSelectedDishIdx] = useState(0);
@@ -214,28 +243,106 @@ export const InteractiveExperienceSection: React.FC = () => {
   };
 
   const directGrossProfit = sellingPrice - cogs - packaging;
-  const directMarginPct = Math.round((directGrossProfit / (sellingPrice || 1)) * 100);
-  const foodCostPct = Math.round(((cogs + packaging) / (sellingPrice || 1)) * 100);
+  const directMarginPct = Math.round(
+    (directGrossProfit / (sellingPrice || 1)) * 100,
+  );
+  const foodCostPct = Math.round(
+    ((cogs + packaging) / (sellingPrice || 1)) * 100,
+  );
 
-  const commissionAmount = Math.round((sellingPrice * aggregatorCommissionPct) / 100);
-  const aggregatorGrossProfit = sellingPrice - cogs - packaging - commissionAmount;
-  const aggregatorMarginPct = Math.round((aggregatorGrossProfit / (sellingPrice || 1)) * 100);
+  const commissionAmount = Math.round(
+    (sellingPrice * aggregatorCommissionPct) / 100,
+  );
+  const aggregatorGrossProfit =
+    sellingPrice - cogs - packaging - commissionAmount;
+  const aggregatorMarginPct = Math.round(
+    (aggregatorGrossProfit / (sellingPrice || 1)) * 100,
+  );
 
   // ==========================================
   // TAB 3: FAST POS PUNCH SIMULATOR STATE
   // ==========================================
-  const posCategories = ["Bestsellers", "Biryani & Rice", "Curries", "Starters", "Beverages"];
+  const posCategories = [
+    "Bestsellers",
+    "Biryani & Rice",
+    "Curries",
+    "Starters",
+    "Beverages",
+  ];
   const [posCategory, setPosCategory] = useState("Bestsellers");
   const posMenuItems = [
-    { id: "p1", name: "Hyderabadi Chicken Biryani", price: 340, category: "Biryani & Rice", popular: true, tag: "Non-Veg" },
-    { id: "p2", name: "Special Mutton Dum Biryani", price: 460, category: "Biryani & Rice", popular: true, tag: "Non-Veg" },
-    { id: "p3", name: "Paneer Tikka Masala", price: 290, category: "Curries", popular: true, tag: "Veg" },
-    { id: "p4", name: "Butter Chicken (Boneless)", price: 360, category: "Curries", popular: true, tag: "Non-Veg" },
-    { id: "p5", name: "Tandoori Chicken (Half)", price: 260, category: "Starters", popular: false, tag: "Non-Veg" },
-    { id: "p6", name: "Crispy Corn Pepper Salt", price: 220, category: "Starters", popular: true, tag: "Veg" },
-    { id: "p7", name: "Garlic Butter Naan", price: 65, category: "Curries", popular: false, tag: "Veg" },
-    { id: "p8", name: "Mango Lassi (Thick)", price: 120, category: "Beverages", popular: true, tag: "Veg" },
-    { id: "p9", name: "Fresh Mint Mojito", price: 140, category: "Beverages", popular: false, tag: "Veg" },
+    {
+      id: "p1",
+      name: "Hyderabadi Chicken Biryani",
+      price: 340,
+      category: "Biryani & Rice",
+      popular: true,
+      tag: "Non-Veg",
+    },
+    {
+      id: "p2",
+      name: "Special Mutton Dum Biryani",
+      price: 460,
+      category: "Biryani & Rice",
+      popular: true,
+      tag: "Non-Veg",
+    },
+    {
+      id: "p3",
+      name: "Paneer Tikka Masala",
+      price: 290,
+      category: "Curries",
+      popular: true,
+      tag: "Veg",
+    },
+    {
+      id: "p4",
+      name: "Butter Chicken (Boneless)",
+      price: 360,
+      category: "Curries",
+      popular: true,
+      tag: "Non-Veg",
+    },
+    {
+      id: "p5",
+      name: "Tandoori Chicken (Half)",
+      price: 260,
+      category: "Starters",
+      popular: false,
+      tag: "Non-Veg",
+    },
+    {
+      id: "p6",
+      name: "Crispy Corn Pepper Salt",
+      price: 220,
+      category: "Starters",
+      popular: true,
+      tag: "Veg",
+    },
+    {
+      id: "p7",
+      name: "Garlic Butter Naan",
+      price: 65,
+      category: "Curries",
+      popular: false,
+      tag: "Veg",
+    },
+    {
+      id: "p8",
+      name: "Mango Lassi (Thick)",
+      price: 120,
+      category: "Beverages",
+      popular: true,
+      tag: "Veg",
+    },
+    {
+      id: "p9",
+      name: "Fresh Mint Mojito",
+      price: 140,
+      category: "Beverages",
+      popular: false,
+      tag: "Veg",
+    },
   ];
 
   interface CartItem {
@@ -252,14 +359,19 @@ export const InteractiveExperienceSection: React.FC = () => {
   const [kotPunchedModal, setKotPunchedModal] = useState(false);
   const [selectedTable, setSelectedTable] = useState("T-04");
 
-  const addToCart = (item: typeof posMenuItems[0]) => {
+  const addToCart = (item: (typeof posMenuItems)[0]) => {
     playChime("accept");
     setCart((prev) => {
       const existing = prev.find((c) => c.id === item.id);
       if (existing) {
-        return prev.map((c) => (c.id === item.id ? { ...c, qty: c.qty + 1 } : c));
+        return prev.map((c) =>
+          c.id === item.id ? { ...c, qty: c.qty + 1 } : c,
+        );
       }
-      return [...prev, { id: item.id, name: item.name, price: item.price, qty: 1 }];
+      return [
+        ...prev,
+        { id: item.id, name: item.name, price: item.price, qty: 1 },
+      ];
     });
   };
 
@@ -267,12 +379,17 @@ export const InteractiveExperienceSection: React.FC = () => {
     playChime("toggle");
     setCart((prev) =>
       prev
-        .map((c) => (c.id === id ? { ...c, qty: Math.max(0, c.qty + delta) } : c))
-        .filter((c) => c.qty > 0)
+        .map((c) =>
+          c.id === id ? { ...c, qty: Math.max(0, c.qty + delta) } : c,
+        )
+        .filter((c) => c.qty > 0),
     );
   };
 
-  const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const cartSubtotal = cart.reduce(
+    (sum, item) => sum + item.price * item.qty,
+    0,
+  );
   const cartGst = Math.round(cartSubtotal * 0.05);
   const cartTotal = cartSubtotal + cartGst;
 
@@ -304,14 +421,33 @@ export const InteractiveExperienceSection: React.FC = () => {
   type LanguageKey = "en" | "te" | "hi" | "ta";
   const [currentLang, setCurrentLang] = useState<LanguageKey>("te");
 
-  const translations: Record<LanguageKey, { label: string; nativeName: string; sampleItems: { name: string; category: string; status: string }[] }> = {
+  const translations: Record<
+    LanguageKey,
+    {
+      label: string;
+      nativeName: string;
+      sampleItems: { name: string; category: string; status: string }[];
+    }
+  > = {
     en: {
       label: "English",
       nativeName: "English",
       sampleItems: [
-        { name: "Special Mutton Biryani", category: "Rice Dishes", status: "Cooking in Kitchen" },
-        { name: "Butter Chicken", category: "Curries", status: "Ready to Serve" },
-        { name: "Garlic Naan", category: "Tandoori Breads", status: "Order Punched" },
+        {
+          name: "Special Mutton Biryani",
+          category: "Rice Dishes",
+          status: "Cooking in Kitchen",
+        },
+        {
+          name: "Butter Chicken",
+          category: "Curries",
+          status: "Ready to Serve",
+        },
+        {
+          name: "Garlic Naan",
+          category: "Tandoori Breads",
+          status: "Order Punched",
+        },
         { name: "Gulab Jamun", category: "Desserts", status: "Dispatched" },
       ],
     },
@@ -319,19 +455,47 @@ export const InteractiveExperienceSection: React.FC = () => {
       label: "Telugu",
       nativeName: "తెలుగు",
       sampleItems: [
-        { name: "స్పెషల్ మటన్ బిర్యానీ", category: "రైస్ వంటకాలు", status: "వంటశాలలో తయారవుతోంది" },
-        { name: "బట్టర్ చికెన్ కర్రీ", category: "కర్రీలు", status: "వడ్డించడానికి సిద్ధం" },
-        { name: "గార్లిక్ బటర్ నాన్", category: "తందూరి రొట్టెలు", status: "ఆర్డర్ పంపబడింది" },
-        { name: "గులాబ్ జామూన్", category: "మిఠాయిలు", status: "డెలివరీ అయింది" },
+        {
+          name: "స్పెషల్ మటన్ బిర్యానీ",
+          category: "రైస్ వంటకాలు",
+          status: "వంటశాలలో తయారవుతోంది",
+        },
+        {
+          name: "బట్టర్ చికెన్ కర్రీ",
+          category: "కర్రీలు",
+          status: "వడ్డించడానికి సిద్ధం",
+        },
+        {
+          name: "గార్లిక్ బటర్ నాన్",
+          category: "తందూరి రొట్టెలు",
+          status: "ఆర్డర్ పంపబడింది",
+        },
+        {
+          name: "గులాబ్ జామూన్",
+          category: "మిఠాయిలు",
+          status: "డెలివరీ అయింది",
+        },
       ],
     },
     hi: {
       label: "Hindi",
       nativeName: "हिन्दी",
       sampleItems: [
-        { name: "स्पेशल मटन बिरयानी", category: "चावल के व्यंजन", status: "किचन में बन रहा है" },
-        { name: "बटर चिकन करी", category: "ग्रेवी / करी", status: "परोसने के लिए तैयार" },
-        { name: "गार्लिक बटर नान", category: "तंदूरी रोटियां", status: "ऑर्डर दर्ज हुआ" },
+        {
+          name: "स्पेशल मटन बिरयानी",
+          category: "चावल के व्यंजन",
+          status: "किचन में बन रहा है",
+        },
+        {
+          name: "बटर चिकन करी",
+          category: "ग्रेवी / करी",
+          status: "परोसने के लिए तैयार",
+        },
+        {
+          name: "गार्लिक बटर नान",
+          category: "तंदूरी रोटियां",
+          status: "ऑर्डर दर्ज हुआ",
+        },
         { name: "गुलाब जामुन", category: "मिठाई", status: "रवाना किया गया" },
       ],
     },
@@ -339,16 +503,35 @@ export const InteractiveExperienceSection: React.FC = () => {
       label: "Tamil",
       nativeName: "தமிழ்",
       sampleItems: [
-        { name: "ஸ்பெஷல் மட்டன் பிரியாணி", category: "சாத வகைகள்", status: "சமையலறையில் தயாராகிறது" },
-        { name: "பட்டர் சிக்கன்", category: "குழம்பு வகைகள்", status: "பரிமாற தயார்" },
-        { name: "பூண்டு பட்டர் நான்", category: "ரொட்டி வகைகள்", status: "ஆர்டர் செய்யப்பட்டது" },
-        { name: "குலாப் ஜாமுன்", category: "இனிப்புகள்", status: "அனுப்பப்பட்டது" },
+        {
+          name: "ஸ்பெஷல் மட்டன் பிரியாணி",
+          category: "சாத வகைகள்",
+          status: "சமையலறையில் தயாராகிறது",
+        },
+        {
+          name: "பட்டர் சிக்கன்",
+          category: "குழம்பு வகைகள்",
+          status: "பரிமாற தயார்",
+        },
+        {
+          name: "பூண்டு பட்டர் நான்",
+          category: "ரொட்டி வகைகள்",
+          status: "ஆர்டர் செய்யப்பட்டது",
+        },
+        {
+          name: "குலாப் ஜாமுன்",
+          category: "இனிப்புகள்",
+          status: "அனுப்பப்பட்டது",
+        },
       ],
     },
   };
 
   return (
-    <section id="live-experience" className="py-20 relative bg-gradient-to-b from-gray-50 via-white to-gray-50 dark:from-[#151522] dark:via-[#1A1A2E] dark:to-[#151522] overflow-hidden">
+    <section
+      id="live-experience"
+      className="py-20 relative bg-gradient-to-b from-gray-50 via-white to-gray-50 dark:from-[#151522] dark:via-[#1A1A2E] dark:to-[#151522] overflow-hidden"
+    >
       {/* Background glow accents */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-gradient-to-tr from-[#2E3192]/10 via-[#F26722]/10 to-[#6BCB77]/10 blur-3xl pointer-events-none -z-10" />
 
@@ -366,7 +549,8 @@ export const InteractiveExperienceSection: React.FC = () => {
             </span>
           </h2>
           <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300 mb-6">
-            Click, punch orders, simulate aggregator sync, and check live profit margins. 100% interactive — zero signup required.
+            Click, punch orders, simulate aggregator sync, and check live profit
+            margins. 100% interactive — zero signup required.
           </p>
           <div className="flex justify-center">
             <a
@@ -383,11 +567,36 @@ export const InteractiveExperienceSection: React.FC = () => {
         <div className="flex justify-center mb-8 overflow-x-auto pb-2 px-2">
           <div className="inline-flex p-1.5 rounded-2xl bg-white dark:bg-[#202038] shadow-lg border border-gray-200 dark:border-gray-700/80 gap-1 sm:gap-2">
             {[
-              { id: "kds", label: "Unified Live KDS", icon: ChefHat, badge: "Swiggy + Zomato" },
-              { id: "margin", label: "Profit Calculator", icon: TrendingUp, badge: "Live Margins" },
-              { id: "pos", label: "1-Click POS Punch", icon: Receipt, badge: "Speed Test" },
-              { id: "stock86", label: "86 Stock Auto-Kill", icon: AlertTriangle, badge: "Instant 0.2s Sync" },
-              { id: "lang", label: "Regional Language UI", icon: Globe, badge: "Telugu / Hindi" },
+              {
+                id: "kds",
+                label: "Unified Live KDS",
+                icon: ChefHat,
+                badge: "Swiggy + Zomato",
+              },
+              {
+                id: "margin",
+                label: "Profit Calculator",
+                icon: TrendingUp,
+                badge: "Live Margins",
+              },
+              {
+                id: "pos",
+                label: "1-Click POS Punch",
+                icon: Receipt,
+                badge: "Speed Test",
+              },
+              {
+                id: "stock86",
+                label: "86 Stock Auto-Kill",
+                icon: AlertTriangle,
+                badge: "Instant 0.2s Sync",
+              },
+              {
+                id: "lang",
+                label: "Regional Language UI",
+                icon: Globe,
+                badge: "Telugu / Hindi",
+              },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -396,7 +605,9 @@ export const InteractiveExperienceSection: React.FC = () => {
                   key={tab.id}
                   onClick={() => {
                     playChime("toggle");
-                    setActiveTab(tab.id as "kds" | "margin" | "pos" | "stock86" | "lang");
+                    setActiveTab(
+                      tab.id as "kds" | "margin" | "pos" | "stock86" | "lang",
+                    );
                   }}
                   className={`flex items-center gap-2 px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-300 whitespace-nowrap ${
                     isActive
@@ -404,7 +615,11 @@ export const InteractiveExperienceSection: React.FC = () => {
                       : "text-gray-600 dark:text-gray-300 hover:text-[#2D3A5F] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800/60"
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? "text-[#F26722]" : "text-gray-400"}`} />
+                  <Icon
+                    className={`w-4 h-4 ${
+                      isActive ? "text-[#F26722]" : "text-gray-400"
+                    }`}
+                  />
                   <span>{tab.label}</span>
                   {tab.badge && (
                     <span
@@ -433,7 +648,10 @@ export const InteractiveExperienceSection: React.FC = () => {
               </span>
               <span>{kdsNotification}</span>
             </div>
-            <Badge variant="outline" className="bg-[#10B981]/20 text-[#10B981] border-none text-xs">
+            <Badge
+              variant="outline"
+              className="bg-[#10B981]/20 text-[#10B981] border-none text-xs"
+            >
               Live Realtime
             </Badge>
           </div>
@@ -451,7 +669,10 @@ export const InteractiveExperienceSection: React.FC = () => {
               </div>
               <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-2">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Swadeshi RMS Engine v4.2 · Single Cloud Database & Realtime WebSocket</span>
+                <span>
+                  Swadeshi RMS Engine v4.2 · Single Cloud Database & Realtime
+                  WebSocket
+                </span>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -472,7 +693,8 @@ export const InteractiveExperienceSection: React.FC = () => {
                     Unified Kitchen Display System (KDS)
                   </h3>
                   <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                    Swiggy, Zomato, QR, and Dine-In orders auto-merge into one kitchen queue. No 3 separate tablets needed.
+                    Swiggy, Zomato, QR, and Dine-In orders auto-merge into one
+                    kitchen queue. No 3 separate tablets needed.
                   </p>
                 </div>
                 <div className="flex items-center gap-2.5">
@@ -535,22 +757,35 @@ export const InteractiveExperienceSection: React.FC = () => {
                           </div>
                           <div className="flex items-center gap-1 text-[11px] text-gray-500 font-mono">
                             <Clock className="w-3 h-3 text-gray-400" />
-                            <span>{Math.floor(order.timer / 60)}m {order.timer % 60}s</span>
+                            <span>
+                              {Math.floor(order.timer / 60)}m {order.timer % 60}
+                              s
+                            </span>
                           </div>
                         </div>
 
                         {/* Customer & Location */}
                         <div className="text-xs text-gray-600 dark:text-gray-300 mb-2 font-medium">
-                          <span className="font-bold text-gray-900 dark:text-white">{order.customer}</span> ·{" "}
-                          <span className="text-gray-500">{order.tableOrId}</span>
+                          <span className="font-bold text-gray-900 dark:text-white">
+                            {order.customer}
+                          </span>{" "}
+                          ·{" "}
+                          <span className="text-gray-500">
+                            {order.tableOrId}
+                          </span>
                         </div>
 
                         {/* Item List */}
                         <div className="space-y-1.5 my-3">
                           {order.items.map((it, idx) => (
-                            <div key={idx} className="flex justify-between text-xs">
+                            <div
+                              key={idx}
+                              className="flex justify-between text-xs"
+                            >
                               <span className="text-gray-800 dark:text-gray-200 font-medium">
-                                <span className="font-bold text-[#F26722] mr-1.5">{it.qty}x</span>
+                                <span className="font-bold text-[#F26722] mr-1.5">
+                                  {it.qty}x
+                                </span>
                                 {it.name}
                               </span>
                             </div>
@@ -562,7 +797,9 @@ export const InteractiveExperienceSection: React.FC = () => {
                       <div className="pt-3 mt-2 border-t border-gray-200/60 dark:border-gray-700/60">
                         <div className="flex justify-between items-center mb-2.5 text-xs">
                           <span className="text-gray-500">Bill Value:</span>
-                          <span className="font-extrabold text-[#2D3A5F] dark:text-white">₹{order.total}</span>
+                          <span className="font-extrabold text-[#2D3A5F] dark:text-white">
+                            ₹{order.total}
+                          </span>
                         </div>
 
                         <Button
@@ -594,22 +831,30 @@ export const InteractiveExperienceSection: React.FC = () => {
               <div className="mt-6 p-4 rounded-2xl bg-gray-50 dark:bg-[#161628] border border-gray-200 dark:border-gray-800 flex flex-wrap items-center justify-between gap-4 text-xs">
                 <div className="flex items-center gap-6">
                   <div>
-                    <span className="text-gray-400 block">Active Kitchen Tickets:</span>
+                    <span className="text-gray-400 block">
+                      Active Kitchen Tickets:
+                    </span>
                     <span className="font-bold text-sm text-[#2D3A5F] dark:text-white">
-                      {orders.filter((o) => o.status !== "DISPATCHED").length} Orders
+                      {orders.filter((o) => o.status !== "DISPATCHED").length}{" "}
+                      Orders
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-400 block">Avg Prep Time:</span>
-                    <span className="font-bold text-sm text-emerald-600">8.4 mins (-35% faster)</span>
+                    <span className="font-bold text-sm text-emerald-600">
+                      8.4 mins (-35% faster)
+                    </span>
                   </div>
                   <div>
                     <span className="text-gray-400 block">Missed Orders:</span>
-                    <span className="font-bold text-sm text-emerald-600">0 (Zero Auto-Cancels)</span>
+                    <span className="font-bold text-sm text-emerald-600">
+                      0 (Zero Auto-Cancels)
+                    </span>
                   </div>
                 </div>
                 <div className="text-gray-500 italic">
-                  💡 Tip: Click buttons above to test live ticket status transitions.
+                  💡 Tip: Click buttons above to test live ticket status
+                  transitions.
                 </div>
               </div>
             </div>
@@ -624,7 +869,8 @@ export const InteractiveExperienceSection: React.FC = () => {
                   Live Recipe Costing & Profit Margin Simulator
                 </h3>
                 <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                  Know exact profit in Rupees & Percentage per dish before listing on menu or aggregators.
+                  Know exact profit in Rupees & Percentage per dish before
+                  listing on menu or aggregators.
                 </p>
               </div>
 
@@ -651,8 +897,12 @@ export const InteractiveExperienceSection: React.FC = () => {
                   {/* Selling Price Slider */}
                   <div className="p-4 rounded-2xl bg-gray-50 dark:bg-[#161628] border border-gray-200 dark:border-gray-800">
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Menu Selling Price</span>
-                      <span className="text-base font-extrabold text-[#2D3A5F] dark:text-white">₹{sellingPrice}</span>
+                      <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                        Menu Selling Price
+                      </span>
+                      <span className="text-base font-extrabold text-[#2D3A5F] dark:text-white">
+                        ₹{sellingPrice}
+                      </span>
                     </div>
                     <input
                       type="range"
@@ -676,7 +926,9 @@ export const InteractiveExperienceSection: React.FC = () => {
                       <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
                         Raw Ingredient Cost (Meat, Rice, Oil, Spices)
                       </span>
-                      <span className="text-base font-extrabold text-[#E23744]">₹{cogs}</span>
+                      <span className="text-base font-extrabold text-[#E23744]">
+                        ₹{cogs}
+                      </span>
                     </div>
                     <input
                       type="range"
@@ -698,8 +950,12 @@ export const InteractiveExperienceSection: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="p-4 rounded-2xl bg-gray-50 dark:bg-[#161628] border border-gray-200 dark:border-gray-800">
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Packaging / Overheads</span>
-                        <span className="text-sm font-bold text-gray-800 dark:text-gray-200">₹{packaging}</span>
+                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                          Packaging / Overheads
+                        </span>
+                        <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                          ₹{packaging}
+                        </span>
                       </div>
                       <input
                         type="range"
@@ -714,8 +970,12 @@ export const InteractiveExperienceSection: React.FC = () => {
 
                     <div className="p-4 rounded-2xl bg-gray-50 dark:bg-[#161628] border border-gray-200 dark:border-gray-800">
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Swiggy/Zomato Fee</span>
-                        <span className="text-sm font-bold text-[#FC8019]">{aggregatorCommissionPct}%</span>
+                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                          Swiggy/Zomato Fee
+                        </span>
+                        <span className="text-sm font-bold text-[#FC8019]">
+                          {aggregatorCommissionPct}%
+                        </span>
                       </div>
                       <input
                         type="range"
@@ -723,7 +983,9 @@ export const InteractiveExperienceSection: React.FC = () => {
                         max={32}
                         step={1}
                         value={aggregatorCommissionPct}
-                        onChange={(e) => setAggregatorCommissionPct(Number(e.target.value))}
+                        onChange={(e) =>
+                          setAggregatorCommissionPct(Number(e.target.value))
+                        }
                         className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#FC8019]"
                       />
                     </div>
@@ -739,7 +1001,9 @@ export const InteractiveExperienceSection: React.FC = () => {
                         <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                         Direct Sale (Dine-In / Own Website)
                       </div>
-                      <Badge className="bg-emerald-600 text-white text-[10px]">0% Commission</Badge>
+                      <Badge className="bg-emerald-600 text-white text-[10px]">
+                        0% Commission
+                      </Badge>
                     </div>
                     <div className="flex items-baseline justify-between mt-2">
                       <div>
@@ -755,7 +1019,9 @@ export const InteractiveExperienceSection: React.FC = () => {
                       </span>
                     </div>
                     <div className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 mt-1">
-                      Food Cost: <span className="font-bold">{foodCostPct}%</span> (Optimal is under 32%)
+                      Food Cost:{" "}
+                      <span className="font-bold">{foodCostPct}%</span> (Optimal
+                      is under 32%)
                     </div>
                   </div>
 
@@ -766,7 +1032,9 @@ export const InteractiveExperienceSection: React.FC = () => {
                         <AlertTriangle className="w-4 h-4 text-orange-500" />
                         Aggregator Sale ({aggregatorCommissionPct}% Cut)
                       </div>
-                      <span className="text-xs font-semibold text-red-600">-₹{commissionAmount} fee</span>
+                      <span className="text-xs font-semibold text-red-600">
+                        -₹{commissionAmount} fee
+                      </span>
                     </div>
                     <div className="flex items-baseline justify-between mt-2">
                       <div>
@@ -782,16 +1050,27 @@ export const InteractiveExperienceSection: React.FC = () => {
                       </span>
                     </div>
                     <div className="text-[11px] text-orange-700/80 dark:text-orange-400/80 mt-1">
-                      You lose <span className="font-bold text-red-600">₹{directGrossProfit - aggregatorGrossProfit}</span> per order to platform commissions.
+                      You lose{" "}
+                      <span className="font-bold text-red-600">
+                        ₹{directGrossProfit - aggregatorGrossProfit}
+                      </span>{" "}
+                      per order to platform commissions.
                     </div>
                   </div>
 
                   {/* Monthly Impact Callout */}
                   <div className="p-4 rounded-xl bg-[#2E3192]/10 border border-[#2E3192]/20 text-xs text-[#2D3A5F] dark:text-gray-200">
-                    <span className="font-bold text-[#F26722]">💡 Strategic Impact: </span>
-                    If you sell 600 biryanis a month, shifting just 30% to your own free Swadeshi website saves you{" "}
+                    <span className="font-bold text-[#F26722]">
+                      💡 Strategic Impact:{" "}
+                    </span>
+                    If you sell 600 biryanis a month, shifting just 30% to your
+                    own free Swadeshi website saves you{" "}
                     <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
-                      ₹{Math.round(180 * (directGrossProfit - aggregatorGrossProfit)).toLocaleString("en-IN")}/month
+                      ₹
+                      {Math.round(
+                        180 * (directGrossProfit - aggregatorGrossProfit),
+                      ).toLocaleString("en-IN")}
+                      /month
                     </span>
                     !
                   </div>
@@ -810,11 +1089,14 @@ export const InteractiveExperienceSection: React.FC = () => {
                     Lightning Fast Touch POS Simulator
                   </h3>
                   <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                    Captains & cashiers punch a 4-item KOT in under 3 seconds. Touch, customize, send.
+                    Captains & cashiers punch a 4-item KOT in under 3 seconds.
+                    Touch, customize, send.
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-gray-500">Table:</span>
+                  <span className="text-xs font-semibold text-gray-500">
+                    Table:
+                  </span>
                   {["T-02", "T-04", "T-07", "Takeaway"].map((tbl) => (
                     <button
                       key={tbl}
@@ -860,7 +1142,11 @@ export const InteractiveExperienceSection: React.FC = () => {
                   {/* Menu Items Grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {posMenuItems
-                      .filter((item) => posCategory === "Bestsellers" || item.category === posCategory)
+                      .filter(
+                        (item) =>
+                          posCategory === "Bestsellers" ||
+                          item.category === posCategory,
+                      )
                       .map((item) => (
                         <button
                           key={item.id}
@@ -907,10 +1193,17 @@ export const InteractiveExperienceSection: React.FC = () => {
                   <div>
                     <div className="flex justify-between items-center pb-2 mb-3 border-b border-gray-200 dark:border-gray-700">
                       <div>
-                        <span className="text-xs font-bold text-[#2D3A5F] dark:text-white">Active Ticket</span>
-                        <span className="text-[11px] text-gray-500 block">{selectedTable} · Dine-In</span>
+                        <span className="text-xs font-bold text-[#2D3A5F] dark:text-white">
+                          Active Ticket
+                        </span>
+                        <span className="text-[11px] text-gray-500 block">
+                          {selectedTable} · Dine-In
+                        </span>
                       </div>
-                      <Badge variant="outline" className="text-[10px] font-mono">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-mono"
+                      >
                         {cart.reduce((a, b) => a + b.qty, 0)} Items
                       </Badge>
                     </div>
@@ -929,8 +1222,12 @@ export const InteractiveExperienceSection: React.FC = () => {
                             className="p-2 rounded-xl bg-white dark:bg-[#1E1E34] border border-gray-200/70 dark:border-gray-700 flex items-center justify-between text-xs"
                           >
                             <div className="flex-1 pr-2">
-                              <p className="font-bold text-gray-800 dark:text-gray-200 truncate">{item.name}</p>
-                              <span className="text-[10px] text-gray-400">₹{item.price} each</span>
+                              <p className="font-bold text-gray-800 dark:text-gray-200 truncate">
+                                {item.name}
+                              </p>
+                              <span className="text-[10px] text-gray-400">
+                                ₹{item.price} each
+                              </span>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <button
@@ -939,7 +1236,9 @@ export const InteractiveExperienceSection: React.FC = () => {
                               >
                                 <Minus className="w-3 h-3" />
                               </button>
-                              <span className="text-xs font-bold w-4 text-center">{item.qty}</span>
+                              <span className="text-xs font-bold w-4 text-center">
+                                {item.qty}
+                              </span>
                               <button
                                 onClick={() => updateCartQty(item.id, 1)}
                                 className="w-5 h-5 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-200 hover:bg-gray-200"
@@ -994,17 +1293,25 @@ export const InteractiveExperienceSection: React.FC = () => {
                       KOT #9402 Punched!
                     </h4>
                     <p className="text-xs text-gray-500 mb-4">
-                      Thermal receipt sent to Kitchen & Bar printers. Bill updated for {selectedTable}.
+                      Thermal receipt sent to Kitchen & Bar printers. Bill
+                      updated for {selectedTable}.
                     </p>
                     <div className="bg-gray-50 dark:bg-[#161628] rounded-xl p-3 text-xs font-mono text-left space-y-1 mb-4">
                       <div className="flex justify-between font-bold">
                         <span>{selectedTable} · KOT #9402</span>
-                        <span>{new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                        <span>
+                          {new Date().toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
                       </div>
                       <div className="border-t border-dashed border-gray-300 dark:border-gray-700 my-1" />
                       {cart.map((c, i) => (
                         <div key={i} className="flex justify-between">
-                          <span>{c.qty}x {c.name}</span>
+                          <span>
+                            {c.qty}x {c.name}
+                          </span>
                           <span>₹{c.price * c.qty}</span>
                         </div>
                       ))}
@@ -1036,7 +1343,9 @@ export const InteractiveExperienceSection: React.FC = () => {
                   Instant 86'd / Out-of-Stock Multi-Channel Auto Kill
                 </h3>
                 <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                  When an ingredient finishes in your kitchen, toggle it once. In 0.2 seconds, every affected dish turns "SOLD OUT" on Swiggy, Zomato, QR Menu, and POS simultaneously.
+                  When an ingredient finishes in your kitchen, toggle it once.
+                  In 0.2 seconds, every affected dish turns "SOLD OUT" on
+                  Swiggy, Zomato, QR Menu, and POS simultaneously.
                 </p>
               </div>
 
@@ -1044,11 +1353,21 @@ export const InteractiveExperienceSection: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                 <div className="p-4 rounded-2xl bg-gray-50 dark:bg-[#161628] border border-gray-200 dark:border-gray-800 flex items-center justify-between">
                   <div>
-                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Fresh Mutton Stock</h4>
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                      Fresh Mutton Stock
+                    </h4>
                     <p className="text-xs text-gray-500">
                       Status:{" "}
-                      <span className={`font-bold ${muttonStockKilled ? "text-red-500" : "text-emerald-500"}`}>
-                        {muttonStockKilled ? "0 kg (OUT OF STOCK)" : "14.5 kg (In Stock)"}
+                      <span
+                        className={`font-bold ${
+                          muttonStockKilled
+                            ? "text-red-500"
+                            : "text-emerald-500"
+                        }`}
+                      >
+                        {muttonStockKilled
+                          ? "0 kg (OUT OF STOCK)"
+                          : "14.5 kg (In Stock)"}
                       </span>
                     </p>
                   </div>
@@ -1061,17 +1380,29 @@ export const InteractiveExperienceSection: React.FC = () => {
                         : "bg-red-600 hover:bg-red-700 text-white"
                     }`}
                   >
-                    {muttonStockKilled ? "Restore Mutton Stock" : "Kill Mutton (86 NOW)"}
+                    {muttonStockKilled
+                      ? "Restore Mutton Stock"
+                      : "Kill Mutton (86 NOW)"}
                   </Button>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-gray-50 dark:bg-[#161628] border border-gray-200 dark:border-gray-800 flex items-center justify-between">
                   <div>
-                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Amul Butter Batch</h4>
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                      Amul Butter Batch
+                    </h4>
                     <p className="text-xs text-gray-500">
                       Status:{" "}
-                      <span className={`font-bold ${butterStockKilled ? "text-red-500" : "text-emerald-500"}`}>
-                        {butterStockKilled ? "0 packs (OUT OF STOCK)" : "22 packs (In Stock)"}
+                      <span
+                        className={`font-bold ${
+                          butterStockKilled
+                            ? "text-red-500"
+                            : "text-emerald-500"
+                        }`}
+                      >
+                        {butterStockKilled
+                          ? "0 packs (OUT OF STOCK)"
+                          : "22 packs (In Stock)"}
                       </span>
                     </p>
                   </div>
@@ -1084,7 +1415,9 @@ export const InteractiveExperienceSection: React.FC = () => {
                         : "bg-red-600 hover:bg-red-700 text-white"
                     }`}
                   >
-                    {butterStockKilled ? "Restore Butter Stock" : "Kill Butter (86 NOW)"}
+                    {butterStockKilled
+                      ? "Restore Butter Stock"
+                      : "Kill Butter (86 NOW)"}
                   </Button>
                 </div>
               </div>
@@ -1103,14 +1436,36 @@ export const InteractiveExperienceSection: React.FC = () => {
 
                 <div className="divide-y divide-gray-100 dark:divide-gray-800 text-xs">
                   {[
-                    { name: "Special Hyderabadi Mutton Biryani", usesMutton: true, usesButter: false },
-                    { name: "Mutton Sukka Fry", usesMutton: true, usesButter: false },
-                    { name: "Butter Chicken Boneless", usesMutton: false, usesButter: true },
-                    { name: "Garlic Butter Naan", usesMutton: false, usesButter: true },
-                    { name: "Chicken Dum Biryani", usesMutton: false, usesButter: false },
+                    {
+                      name: "Special Hyderabadi Mutton Biryani",
+                      usesMutton: true,
+                      usesButter: false,
+                    },
+                    {
+                      name: "Mutton Sukka Fry",
+                      usesMutton: true,
+                      usesButter: false,
+                    },
+                    {
+                      name: "Butter Chicken Boneless",
+                      usesMutton: false,
+                      usesButter: true,
+                    },
+                    {
+                      name: "Garlic Butter Naan",
+                      usesMutton: false,
+                      usesButter: true,
+                    },
+                    {
+                      name: "Chicken Dum Biryani",
+                      usesMutton: false,
+                      usesButter: false,
+                    },
                   ].map((dish, i) => {
-                    const isMuttonDisabled = dish.usesMutton && muttonStockKilled;
-                    const isButterDisabled = dish.usesButter && butterStockKilled;
+                    const isMuttonDisabled =
+                      dish.usesMutton && muttonStockKilled;
+                    const isButterDisabled =
+                      dish.usesButter && butterStockKilled;
                     const isSoldOut = isMuttonDisabled || isButterDisabled;
 
                     return (
@@ -1123,12 +1478,23 @@ export const InteractiveExperienceSection: React.FC = () => {
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${isSoldOut ? "bg-red-500" : "bg-emerald-500"}`} />
-                          <span className={`font-semibold ${isSoldOut ? "line-through text-red-500/80" : ""}`}>
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              isSoldOut ? "bg-red-500" : "bg-emerald-500"
+                            }`}
+                          />
+                          <span
+                            className={`font-semibold ${
+                              isSoldOut ? "line-through text-red-500/80" : ""
+                            }`}
+                          >
                             {dish.name}
                           </span>
                           {isSoldOut && (
-                            <Badge variant="destructive" className="text-[9px] py-0 px-1.5 h-4">
+                            <Badge
+                              variant="destructive"
+                              className="text-[9px] py-0 px-1.5 h-4"
+                            >
                               Auto-Disabled
                             </Badge>
                           )}
@@ -1139,7 +1505,9 @@ export const InteractiveExperienceSection: React.FC = () => {
                             <span
                               key={ch}
                               className={`w-16 text-[11px] ${
-                                isSoldOut ? "text-red-500 font-bold" : "text-emerald-600 dark:text-emerald-400"
+                                isSoldOut
+                                  ? "text-red-500 font-bold"
+                                  : "text-emerald-600 dark:text-emerald-400"
                               }`}
                             >
                               {isSoldOut ? "✖ 86'd" : "✔ Live"}
@@ -1153,7 +1521,8 @@ export const InteractiveExperienceSection: React.FC = () => {
               </div>
 
               <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-4 text-center italic">
-                ✨ Zero angry customer calls or bad Zomato reviews due to kitchen stockouts.
+                ✨ Zero angry customer calls or bad Zomato reviews due to
+                kitchen stockouts.
               </p>
             </div>
           )}
@@ -1168,7 +1537,8 @@ export const InteractiveExperienceSection: React.FC = () => {
                     Vernacular / Regional Language Interface
                   </h3>
                   <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                    Captains, kitchen staff, and billing operators can use Telugu, Hindi, Tamil, or English with 1 tap.
+                    Captains, kitchen staff, and billing operators can use
+                    Telugu, Hindi, Tamil, or English with 1 tap.
                   </p>
                 </div>
 
@@ -1197,7 +1567,10 @@ export const InteractiveExperienceSection: React.FC = () => {
               <div className="p-6 rounded-2xl bg-gray-50 dark:bg-[#161628] border border-gray-200 dark:border-gray-800">
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-xs font-bold text-gray-500">
-                    Live UI Preview: <span className="text-[#F26722]">{translations[currentLang].nativeName}</span>
+                    Live UI Preview:{" "}
+                    <span className="text-[#F26722]">
+                      {translations[currentLang].nativeName}
+                    </span>
                   </span>
                   <Badge className="bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border-none text-[10px]">
                     Zero English barrier for floor staff
@@ -1211,8 +1584,12 @@ export const InteractiveExperienceSection: React.FC = () => {
                       className="p-4 rounded-xl bg-white dark:bg-[#1E1E34] border border-gray-200 dark:border-gray-700 flex justify-between items-center shadow-xs"
                     >
                       <div>
-                        <span className="text-[10px] text-gray-400 block">{item.category}</span>
-                        <h4 className="text-sm font-bold text-gray-900 dark:text-white mt-0.5">{item.name}</h4>
+                        <span className="text-[10px] text-gray-400 block">
+                          {item.category}
+                        </span>
+                        <h4 className="text-sm font-bold text-gray-900 dark:text-white mt-0.5">
+                          {item.name}
+                        </h4>
                       </div>
                       <Badge
                         variant="outline"
@@ -1236,11 +1613,12 @@ export const InteractiveExperienceSection: React.FC = () => {
                 Want to see this working with your own restaurant menu?
               </h4>
               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-                Book a 15-minute live on-screen walk-through or on-site demo. We set up everything in 3 days.
+                Book a 15-minute live on-screen walk-through or on-site demo. We
+                set up everything in 3 days.
               </p>
             </div>
             <a
-              href="https://wa.me/918790425317?text=Hi%20Swadeshi%20Solutions%2C%20I%20tried%20your%20interactive%20demo%20and%20want%20to%20see%20it%20with%20my%20restaurant%20menu!"
+              href="https://wa.me/918806957143?text=Hi%20Swadeshi%20Solutions%2C%20I%20tried%20your%20interactive%20demo%20and%20want%20to%20see%20it%20with%20my%20restaurant%20menu!"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white font-bold text-sm shadow-md hover:shadow-lg hover:scale-105 transition-all whitespace-nowrap"
