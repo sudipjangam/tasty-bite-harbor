@@ -1130,6 +1130,8 @@ export const QSRPosMain: React.FC = () => {
       paymentStatus?: string;
       total?: number;
       splitPayments?: Array<{ method: string; amount: number }>;
+      customerName?: string;
+      customerMobile?: string;
     }) => {
       try {
         let currentTable = selectedTable;
@@ -1161,6 +1163,18 @@ export const QSRPosMain: React.FC = () => {
           }
         }
 
+        const finalCustomerName =
+          paymentDetails?.customerName?.trim() ||
+          customerName.trim() ||
+          (currentMode === "dine_in" && currentTable
+            ? tableLabel(currentTable.name)
+            : currentMode === "takeaway"
+            ? "Takeaway Customer"
+            : currentMode === "delivery"
+            ? "Delivery Customer"
+            : "Walk-in Customer");
+        const finalCustomerPhone =
+          paymentDetails?.customerMobile?.trim() || customerPhone.trim() || null;
 
         // Check if this is post-pay (order already in kitchen)
         if (effectiveKitchenOrderId) {
@@ -1187,6 +1201,8 @@ export const QSRPosMain: React.FC = () => {
               items: kitchenItems,
               bumped_at: new Date().toISOString(),
               status: "completed",
+              ...(finalCustomerName && { customer_name: finalCustomerName }),
+              ...(finalCustomerPhone && { customer_phone: finalCustomerPhone }),
             })
             .eq("id", effectiveKitchenOrderId)
             .select("order_id")
@@ -1214,27 +1230,20 @@ export const QSRPosMain: React.FC = () => {
                 total: isNC ? 0 : orderTotal,
                 payment_status: finalPaymentStatus,
                 payment_method: finalMethod,
+                customer_name: finalCustomerName,
+                customer_phone: finalCustomerPhone,
                 ...(splitPayments && splitPayments.length > 0 && { split_payments: splitPayments }),
                 updated_at: new Date().toISOString(),
               })
               .eq("id", linkedOrderId);
           } else if (restaurantId) {
             // No linked order exists yet — create one and link it
-            const paymentCustomerName =
-              customerName.trim() ||
-              (currentMode === "dine_in" && currentTable
-                ? tableLabel(currentTable.name)
-                : currentMode === "takeaway"
-                ? "Takeaway Customer"
-                : currentMode === "delivery"
-                ? "Delivery Customer"
-                : "Walk-in Customer");
-
             const { data: createdOrder } = await supabase
               .from("orders")
               .insert({
                 restaurant_id: restaurantId,
-                customer_name: paymentCustomerName,
+                customer_name: finalCustomerName,
+                customer_phone: finalCustomerPhone,
                 items: orderItemsFormatted,
                 status: isNC ? "nc" : "completed",
                 total: isNC ? 0 : orderTotal,
