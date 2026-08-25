@@ -714,7 +714,7 @@ const PaymentDialog = ({
   };
 
   // ─── Printing & Thermal Support ──────────────────────────────────────────
-  const handlePrint = useCallback(async () => {
+  const handlePrint = useCallback(async (options?: { forceBrowser?: boolean }) => {
     try {
       if (thermalPrinterService.isConnected()) {
         await thermalPrinterService.printReceipt({
@@ -743,6 +743,12 @@ const PaymentDialog = ({
           upiId: paymentSettings?.upi_id,
         });
         toast({ title: "Bill printed via thermal printer ✓" });
+        return;
+      }
+
+      // If no thermal printer connected, only trigger browser print preview if explicitly requested (e.g. user clicked Print Preview button)
+      if (!options?.forceBrowser) {
+        console.log("[PaymentDialog] No thermal printer connected — skipping automatic browser print popup.");
         return;
       }
 
@@ -1165,7 +1171,7 @@ const PaymentDialog = ({
         handleQuickPay("card");
       } else if (e.key.toLowerCase() === "p") {
         e.preventDefault();
-        handlePrint();
+        handlePrint({ forceBrowser: true });
       }
     };
 
@@ -1208,7 +1214,7 @@ const PaymentDialog = ({
                 {total.toFixed(2)}
               </p>
               <div className="flex gap-2 pt-2">
-                <Button onClick={handlePrint} variant="outline" size="sm" className="gap-2">
+                <Button onClick={() => handlePrint({ forceBrowser: true })} variant="outline" size="sm" className="gap-2">
                   <Printer className="w-4 h-4" /> Print Again
                 </Button>
                 {sendBillToWhatsApp && customerMobile && (
@@ -1668,7 +1674,7 @@ const PaymentDialog = ({
                     {/* Bill Bottom Helper Actions */}
                     <div className="flex gap-2">
                       <Button
-                        onClick={handlePrint}
+                        onClick={() => handlePrint({ forceBrowser: true })}
                         variant="outline"
                         size="sm"
                         className="flex-1 text-xs gap-1.5 h-8 bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold shadow-2xs hover:bg-slate-100"

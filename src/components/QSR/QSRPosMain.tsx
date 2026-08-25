@@ -1132,7 +1132,7 @@ export const QSRPosMain: React.FC = () => {
       splitPayments?: Array<{ method: string; amount: number }>;
     }) => {
       try {
-        const currentTable = selectedTable;
+        let currentTable = selectedTable;
         const currentMode = orderMode;
         const finalMethod = paymentDetails?.method || (currentMode === "nc" ? "nc" : "paid");
         const finalPaymentStatus = paymentDetails?.paymentStatus || (currentMode === "nc" ? "nc" : "paid");
@@ -1140,6 +1140,27 @@ export const QSRPosMain: React.FC = () => {
 
         // Determine the effective kitchen order ID (pendingKitchenOrderId OR recalledKitchenOrderId)
         const effectiveKitchenOrderId = pendingKitchenOrderId || recalledKitchenOrderId;
+
+        // If selectedTable was cleared (after Send to Kitchen), resolve table from kitchen order source
+        if (!currentTable && currentMode === "dine_in" && effectiveKitchenOrderId) {
+          try {
+            const { data: ko } = await supabase
+              .from("kitchen_orders")
+              .select("source")
+              .eq("id", effectiveKitchenOrderId)
+              .maybeSingle();
+            if (ko?.source) {
+              const sortedTables = [...tables].sort((a, b) => b.name.length - a.name.length);
+              const matched = sortedTables.find((t) =>
+                ko.source.toLowerCase().includes(t.name.toLowerCase())
+              );
+              if (matched) currentTable = matched;
+            }
+          } catch (e) {
+            console.warn("[QSR] Could not resolve table from kitchen order source:", e);
+          }
+        }
+
 
         // Check if this is post-pay (order already in kitchen)
         if (effectiveKitchenOrderId) {
@@ -1160,18 +1181,20 @@ export const QSRPosMain: React.FC = () => {
           }));
 
           // Update kitchen order with latest items and mark completed
-          const { data: updatedKitchenOrder } = await supabase
+          const { data: updatedKitchenOrder, error: kitchenUpdateError } = await supabase
             .from("kitchen_orders")
             .update({
               items: kitchenItems,
               bumped_at: new Date().toISOString(),
               status: "completed",
-              payment_status: finalPaymentStatus,
-              payment_method: finalMethod,
             })
             .eq("id", effectiveKitchenOrderId)
             .select("order_id")
             .maybeSingle();
+
+          if (kitchenUpdateError) {
+            console.error("Error updating kitchen order to completed:", kitchenUpdateError);
+          }
 
           // Determine the linked order ID
           const linkedOrderId = pendingOrderId || updatedKitchenOrder?.order_id;
@@ -1280,8 +1303,6 @@ export const QSRPosMain: React.FC = () => {
               restaurant_id: restaurantId,
               source: `QSR-${orderSource}`,
               status: "completed", // Already completed since paid
-              payment_status: finalPaymentStatus,
-              payment_method: finalMethod,
               items: kitchenItems,
               order_type: currentMode === "nc" ? "takeaway" : currentMode,
               customer_name: paymentCustomerName,
@@ -1387,8 +1408,8 @@ export const QSRPosMain: React.FC = () => {
       if (currentMode === "dine_in" && currentTable) {
         await updateTableStatus(currentTable.id, "available");
         setSelectedTable(null);
-        refetchTables();
       }
+      refetchTables();
 
       toast({
         title: "Payment Complete",
@@ -1405,6 +1426,8 @@ export const QSRPosMain: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ["all-orders"] }); // Orders Management view
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qsr-tables"] });
+      queryClient.invalidateQueries({ queryKey: ["past-orders"] });
     } catch (error) {
       console.error("Error completing payment:", error);
       toast({
@@ -1421,6 +1444,7 @@ export const QSRPosMain: React.FC = () => {
     paymentOrderItems,
     orderMode,
     selectedTable,
+    tables,
     restaurantId,
     customerName,
     ncReason,
