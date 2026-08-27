@@ -47,6 +47,8 @@ import {
   Globe,
   Key,
   Network,
+  QrCode,
+  Bike,
 } from "lucide-react";
 import {
   FEATURE_REGISTRY,
@@ -59,7 +61,7 @@ const ICON_MAP: Record<string, any> = {
   Monitor, Zap, ShoppingCart, ChefHat, UtensilsCrossed, Package, Soup,
   LayoutGrid, BarChart3, Users, UserCheck, DollarSign, Receipt, Truck,
   CalendarDays, Shield, Settings, Sparkles, Megaphone, Store, LayoutDashboard,
-  Bed, Globe, Key, Network,
+  Bed, Globe, Key, Network, QrCode, Bike,
 };
 
 interface SubscriptionPlan {

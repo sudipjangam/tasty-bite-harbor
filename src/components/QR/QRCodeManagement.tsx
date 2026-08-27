@@ -24,10 +24,10 @@ import { generateBrandedQRCard } from "@/utils/qrTemplateGenerator";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 interface QRCodeManagementProps {
-  entityType: QREntityType;
+  entityType?: QREntityType;
 }
 
-const QRCodeManagement: React.FC<QRCodeManagementProps> = ({ entityType }) => {
+const QRCodeManagement: React.FC<QRCodeManagementProps> = ({ entityType = "table" }) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedQR, setSelectedQR] = useState<QRCodeType | null>(null);

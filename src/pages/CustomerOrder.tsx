@@ -10,6 +10,7 @@ import { CartDrawer } from "@/components/CustomerOrder/CartDrawer";
 import { CheckoutForm } from "@/components/CustomerOrder/CheckoutForm";
 import { supabase } from "@/integrations/supabase/client";
 import { OrderTracker } from "@/components/CustomerOrder/OrderTracker";
+import { DynamicUPIQRCode } from "@/components/CustomerOrder/DynamicUPIQRCode";
 
 type OrderStep = "menu" | "checkout" | "payment" | "success";
 
@@ -246,6 +247,7 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
             <MenuBrowser
               menuItems={menuItems}
               restaurantName={restaurantName}
+              tableName={orderData.entityName}
             />
 
             {/* Floating Cart Button */}
@@ -376,73 +378,36 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
               </CardContent>
             </Card>
 
-            {/* UPI Payment Section */}
-            {paymentData?.upi && (
-              <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
-                <CardContent className="pt-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <svg
-                      className="w-5 h-5 text-blue-600"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                    </svg>
-                    Complete Payment
-                  </h3>
+            {/* Dynamic Real-time UPI Payment Section */}
+            {paymentData?.upi ? (
+              <DynamicUPIQRCode
+                amount={paymentData.upi.amount || placedOrderDetails?.total || 0}
+                upiId={paymentData.upi.id || "swadeshi.pos@upi"}
+                payeeName={paymentData.upi.name || restaurantName}
+                orderNumber={orderId.slice(-6).toUpperCase()}
+                tableName={orderData.entityName}
+              />
+            ) : placedOrderDetails ? (
+              <DynamicUPIQRCode
+                amount={placedOrderDetails.total}
+                upiId="swadeshi.pos@upi"
+                payeeName={restaurantName}
+                orderNumber={orderId.slice(-6).toUpperCase()}
+                tableName={orderData.entityName}
+              />
+            ) : null}
 
-                  <div className="bg-white rounded-lg p-4 mb-4 border border-blue-200">
-                    <p className="text-sm text-gray-600 mb-2">Pay to:</p>
-                    <p className="font-semibold text-gray-900">
-                      {paymentData.upi.name}
-                    </p>
-                    <p className="text-sm text-gray-600 font-mono">
-                      {paymentData.upi.id}
-                    </p>
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Amount:</span>
-                        <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
-                          ₹{paymentData.upi.amount.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* UPI Payment Button */}
-                  {paymentData.upi.paymentLink && (
-                    <Button
-                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-6 text-lg shadow-xl"
-                      onClick={() =>
-                        (window.location.href = paymentData.upi.paymentLink)
-                      }
-                    >
-                      <svg
-                        className="w-6 h-6 mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
-                        />
-                      </svg>
-                      Pay Now with UPI
-                    </Button>
-                  )}
-
-                  <p className="text-xs text-center text-gray-500 mt-3">
-                    Your order will be confirmed once payment is received
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+            {/* Back to Menu Action */}
+            <Button
+              variant="outline"
+              onClick={() => setCurrentStep("menu")}
+              className="w-full rounded-2xl py-6 font-bold text-xs border-purple-200 text-purple-700 dark:border-purple-800"
+            >
+              + Add More Items to Table {orderData.entityName}
+            </Button>
 
             {/* Order Status Info */}
-            <Card>
+            <Card className="rounded-3xl border border-gray-200/60 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl">
               <CardContent className="pt-6">
                 <h3 className="font-bold text-gray-900 mb-3">What's Next?</h3>
                 <ul className="space-y-2 text-sm text-gray-600">
