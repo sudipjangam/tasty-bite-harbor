@@ -31,6 +31,8 @@ import { QSRMobileHeader } from "./QSRMobileHeader";
 import { QSRPrinterDialog } from "./QSRPrinterDialog";
 import { getPaperSize } from "@/services/nativePrinterBridge";
 import { useFeatureGate } from "@/hooks/useFeatureGate";
+import { POSRiderTrackingDrawer } from "@/components/Aggregators/POSRiderTrackingDrawer";
+import { useRiderTracking } from "@/hooks/useRiderTracking";
 import {
   Clock,
   Zap,
@@ -43,6 +45,7 @@ import {
   Trash2,
   Printer,
   PrinterCheck,
+  Bike,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HelpProvider from "@/components/Help/HelpProvider";
@@ -122,6 +125,13 @@ export const QSRPosMain: React.FC = () => {
   const [customerName, setCustomerName] = useState<string>("");
   const [customerPhone, setCustomerPhone] = useState<string>("");
   const [isLookingUpCustomer, setIsLookingUpCustomer] = useState(false);
+
+  // Rider Tracking Drawer state & Feature Lock check
+  const [showRiderTracking, setShowRiderTracking] = useState(false);
+  const { totalActiveRiders, ridersAtStore } = useRiderTracking();
+  const { isLocked: isRiderTrackingLocked } = useFeatureGate("aggregators.rider_tracking");
+  const { isLocked: isAggregatorsViewLocked } = useFeatureGate("aggregators.view");
+  const canShowRiderTracking = !isRiderTrackingLocked && !isAggregatorsViewLocked;
 
   // Hooks
   const { restaurantId, restaurantName } = useRestaurantId();
@@ -1685,6 +1695,27 @@ export const QSRPosMain: React.FC = () => {
                     </span>
                   )}
                 </Button>
+                {canShowRiderTracking && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowRiderTracking(true)}
+                    className={`flex items-center gap-1.5 rounded-xl font-bold transition-all shadow-xs ${
+                      ridersAtStore.length > 0
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 animate-pulse"
+                        : "border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300"
+                    }`}
+                    title="Live Aggregator Delivery Riders"
+                  >
+                    <Bike className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <span className="hidden sm:inline text-xs">Riders</span>
+                    {totalActiveRiders > 0 && (
+                      <span className="px-1.5 py-0.2 text-[10px] bg-purple-600 text-white rounded-full font-extrabold">
+                        {totalActiveRiders}
+                      </span>
+                    )}
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
